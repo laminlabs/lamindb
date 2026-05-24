@@ -959,9 +959,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Note:
 
-        For more control, you can use :mod:`bionty` registries to manage simple
-        biological entities like genes, proteins & cell markers. Or you define
-        custom registries to manage high-level derived features like gene sets.
+        You can use :mod:`bionty` registries to manage leverage
+        biological entities like genes, proteins & cell markers as features.
 
     See Also:
         :meth:`~lamindb.Feature.from_dataframe`
@@ -973,104 +972,105 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         :class:`~lamindb.Schema`
             Sets of features.
 
-    Examples:
+    Examples
+    --------
 
-        Features with simple data types::
+    Features with simple data types::
 
-            ln.Feature(name="sample_note", dtype=str).save()
-            ln.Feature(name="temperature_in_celsius", dtype=float).save()
-            ln.Feature(name="read_count", dtype=int).save()
+        ln.Feature(name="sample_note", dtype=str).save()
+        ln.Feature(name="temperature_in_celsius", dtype=float).save()
+        ln.Feature(name="read_count", dtype=int).save()
 
-        A categorical feature measuring labels managed in the `ULabel` registry::
+    A categorical feature measuring labels managed in the `ULabel` registry::
 
-            ln.Feature(name="sample", dtype=ln.ULabel).save()
+        ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-        Restrict a categorical feature to a specific `ULabel` type::
+    Restrict a categorical feature to a specific `ULabel` type::
 
-            perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-            ln.Feature(name="perturbation", dtype=perturbation).save()
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.Feature(name="perturbation", dtype=perturbation).save()
 
-        Restrict a categorical feature to a specific `Record` type::
+    Restrict a categorical feature to a specific `Record` type::
 
-            experiment = ln.Record(name="Experiment", is_type=True).save()
-            ln.Feature(name="experiment", dtype=experiment).save()
+        experiment = ln.Record(name="Experiment", is_type=True).save()
+        ln.Feature(name="experiment", dtype=experiment).save()
 
-        Restrict a categorical feature to the `bt.CellType` registry::
+    Restrict a categorical feature to the `bt.CellType` registry::
 
-            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
-            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
+        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
 
-        .. admonition:: Categoricals define relationships.
+    .. admonition:: Categoricals define relationships.
 
-            In LaminDB, **categoricals** define **relationships**.
-            For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
+        In LaminDB, **categoricals** define **relationships**.
+        For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
 
-        Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
+    Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
-            abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
-            ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
+        abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
+        ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
 
-            xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
-            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+        xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
+        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
 
-            # calling .save() again with the same name and type returns the existing feature
-            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+        # calling .save() again with the same name and type returns the existing feature
+        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
 
-        Annotate an artifact with features (works identically for records and runs)::
+    Annotate an artifact with features (works identically for records and runs)::
 
-            artifact.features.set_values({
-                "temperature_in_celsius": 37.5,
-                "sample_note": "Control sample",
-            })
+        artifact.features.set_values({
+            "temperature_in_celsius": 37.5,
+            "sample_note": "Control sample",
+        })
 
-        Query artifacts/records/runs by features::
+    Query artifacts/records/runs by features::
 
-            ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
-            ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
+        ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
+        ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
 
-        Disambiguate duplicate feature names by querying with a `Feature` object::
+    Disambiguate duplicate feature names by querying with a `Feature` object::
 
-            feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
-            ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
+        feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
+        ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
 
-        A list dtype::
+    A list dtype::
 
-            ln.Feature(
-                name="cell_types",
-                dtype=list[bt.CellType],  # or list[str] for a list of strings
-            ).save()
+        ln.Feature(
+            name="cell_types",
+            dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ).save()
 
-        A path feature::
+    A path feature::
 
-            ln.Feature(
-                name="image_path",
-                dtype="path",   # will be validated as `str`
-            ).save()
+        ln.Feature(
+            name="image_path",
+            dtype="path",   # will be validated as `str`
+        ).save()
 
-        Restrict categories via filters::
+    Restrict categories via filters::
 
-            # restrict diseases to those matching a specific ontology version
-            source = bt.Source.get(name="My ontology")  # a registry for ontology versions
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={"source": source},
-            ).save()
+        # restrict diseases to those matching a specific ontology version
+        source = bt.Source.get(name="My ontology")  # a registry for ontology versions
+        ln.Feature(
+            name="disease",
+            dtype=bt.Disease,
+            cat_filters={"source": source},
+        ).save()
 
-            # restrict artifacts to those matching a specific schema
-            schema = ln.Schema.get(name="my-schema")
-            ln.Feature(
-                name="valid_artifact",
-                dtype=ln.Artifact,
-                cat_filters={"schema": schema},
-            ).save()
+        # restrict artifacts to those matching a specific schema
+        schema = ln.Schema.get(name="my-schema")
+        ln.Feature(
+            name="valid_artifact",
+            dtype=ln.Artifact,
+            cat_filters={"schema": schema},
+        ).save()
 
-        A feature accepting multiple categorical types - a union type::
+    A feature accepting multiple categorical types - a union type::
 
-            ln.Feature(
-                name="cell_types",
-                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
-            ).save()
+        ln.Feature(
+            name="cell_types",
+            dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
+        ).save()
 
     .. dropdown:: What is the difference between features and labels?
 
