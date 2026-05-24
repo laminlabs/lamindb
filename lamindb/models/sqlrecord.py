@@ -2020,10 +2020,20 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
         if "*db_args" in params_block:
             continue
 
-        params = []
+        params: list[tuple[str, str]] = []
         for line in params_block.split("\n"):
             line = line.strip()
             if not line or "self" in line:
+                continue
+
+            # Handle multiline union annotations formatted as:
+            #   dtype: A
+            #       | B
+            #       | C,
+            if line.startswith("|") and params:
+                prev_name, prev_type = params[-1]
+                continuation = line.rstrip(",").strip()
+                params[-1] = (prev_name, f"{prev_type} {continuation}")
                 continue
 
             # Extract name and type annotation

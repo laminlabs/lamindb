@@ -8,6 +8,9 @@ Central object types
 .. autoclass:: BlockKind
 .. autoclass:: BranchStatus
 .. autoclass:: RunStatus
+.. autoclass:: SimpleDtype
+.. autoclass:: SimpleDtypeStr
+.. autoclass:: SimpleDvalue
 .. autoclass:: DtypeStr
 
 Basic types
@@ -106,9 +109,25 @@ BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
     code: status for status, code in BRANCH_STATUS_TO_CODE.items()
 }
 
-DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
+SimpleDvalue = int | float | str | bool | datetime.date | datetime.datetime | dict
+"""Values corresponding to :class:`~lamindb.base.types.SimpleDtype`."""
 
-DtypeStr = Literal[
+SimpleDtype = (
+    type[int]
+    | type[float]
+    | type[str]
+    | type[bool]
+    | type[datetime.date]
+    | type[datetime.datetime]
+    | type[dict]
+)
+"""Python types for simple scalar dtypes.
+
+This alias represents the preferred constructor inputs for simple feature dtypes
+(`int`, `float`, `str`, `bool`, `datetime.date`, `datetime.datetime`, `dict`).
+"""
+
+SimpleDtypeStr = Literal[
     "num",  # numericals
     "int",  # integer / numpy.integer
     "float",  # float
@@ -122,36 +141,10 @@ DtypeStr = Literal[
     "url",  # URL, validated as str, but specially treated in the UI
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
-"""String-serialized representations of common data types.
-
-===============  ====================  =================================================
-description      lamindb (str)         pandas
-===============  ====================  =================================================
-numerical        `num`                 `int | float`
-integer          `int`                 `int64 | int32 | int16 | int8 | uint | ...`
-float            `float`               `float64 | float32 | float16 | float8 | ...`
-string           `str`                 `object`
-boolean          `bool`                `boolean | bool`
-datetime (naive) `datetime`            `datetime`
-datetime (tz)    `datetime64[ns, UTC]` `datetime64[ns, UTC]`
-date             `date`                `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-dictionary       `dict`                `object`
-path             `path`                `str` (pandas does not have a dedicated path type, validated as `str`)
-url              `url`                 `str` (pandas does not have a dedicated url type, validated as `str`)
-===============  ====================  =================================================
-
-.. admonition:: Categorical and relational data types
-
-    These are **not** contained in the `DTypeStr` `Literal`.
-
-    For any categorical, you can restrict the permissible values to the values defined in a registry.
-    When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
-    You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
-
-    In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
-
-"""
+"""String-serialized representations of simple data types."""
+DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
+DtypeObject = SimpleDvalue  # backward compat
 
 RegistryId = Literal[
     "__lamindb_artifact__",

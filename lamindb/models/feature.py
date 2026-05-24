@@ -28,7 +28,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import DtypeStr, FieldAttr
+from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr
 from lamindb.errors import (
     FieldValidationError,
     IntegrityError,
@@ -62,7 +62,7 @@ if TYPE_CHECKING:
     from .schema import Schema
     from .ulabel import ULabel
 
-FEATURE_DTYPES = set(get_args(DtypeStr))
+FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
 
 
 @dataclass(frozen=True)
@@ -851,7 +851,7 @@ def process_init_feature_param(args, kwargs):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: type | str | None = kwargs.pop("dtype", None)
+    dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
@@ -936,141 +936,26 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Measurable properties such as dataframe columns or record fields.
+    """Measurable properties of datasets such as dataframe columns.
 
-    Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
-    They enable you to query datasets based on their structure and corresponding label annotations.
+    Features represent the variables or dimensions along which observed values in a dataset are measured.
+    You can query datasets by features similar to how you query registries by fields.
+    Features also define the validation constraints for individual dataset dimensions.
 
-    Args:
-        name: `str` Name of the feature, typically a column name.
-        dtype: `type | ULabel | Record | DtypeStr | Registry | list[Registry] | FieldAttr`
-            Types or `ULabel` or `Record` objects representing types.
-            See :class:`~lamindb.base.types.DtypeStr`.
-        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
-        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
-        unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
-        description: `str | None = None` A description.
-        synonyms: `str | None = None` Bar-separated synonyms.
-        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
-        default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
-            Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
+    .. dropdown:: What if my dataset has 40k or more dimensions as in a gene expression dataset?
 
-    Note:
+        You don't bother defining an individual feature for each dimension but instead
+        define a common `dtype` for a set of features along with a constraint for the feature identifier type.
 
-        For more control, you can use :mod:`bionty` registries to manage simple
-        biological entities like genes, proteins & cell markers. Or you define
-        custom registries to manage high-level derived features like gene sets.
+        For example::
 
-    See Also:
-        :meth:`~lamindb.Feature.from_dataframe`
-            Create feature records from DataFrame.
-        :attr:`~lamindb.Artifact.features`
-            Feature manager of an artifact or collection.
-        :class:`~lamindb.ULabel`
-            Universal labels.
-        :class:`~lamindb.Schema`
-            Sets of features.
+            ln.Schema(itype=ln.Feature, dtype=float).save()  # use Feature.name as feature identifier type
+            ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()  # use Gene.ensembl_gene_id as feature identifier type
+            ln.Schema(itype=bt.Protein.uniprot_id, dtype=float).save()  # use Protein.uniprot_id as feature identifier type
+            ln.Schema(itype=bt.CellMarker, dtype=float).save()  # use CellMarker.name as feature identifier type
 
-    Example:
-
-        Features with simple data types::
-
-            ln.Feature(name="sample_note", dtype=str).save()
-            ln.Feature(name="temperature_in_celsius", dtype=float).save()
-            ln.Feature(name="read_count", dtype=int).save()
-
-        A categorical feature measuring labels managed in the `ULabel` registry::
-
-            ln.Feature(name="sample", dtype=ln.ULabel).save()
-
-        Restrict a categorical feature to a specific `ULabel` type::
-
-            perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-            ln.Feature(name="perturbation", dtype=perturbation).save()
-
-        Restrict a categorical feature to a specific `Record` type::
-
-            experiment = ln.Record(name="Experiment", is_type=True).save()
-            ln.Feature(name="experiment", dtype=experiment).save()
-
-        Restrict a categorical feature to the `bt.CellType` registry::
-
-            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
-            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
-
-        .. admonition:: Categoricals define relationships.
-
-            In LaminDB, **categoricals** define **relationships**.
-            For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
-
-        Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
-
-            abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
-            ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
-
-            xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
-            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
-
-            # calling .save() again with the same name and type returns the existing feature
-            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
-
-        Annotate an artifact with features (works identically for records and runs)::
-
-            artifact.features.set_values({
-                "temperature_in_celsius": 37.5,
-                "sample_note": "Control sample",
-            })
-
-        Query artifacts/records/runs by features::
-
-            ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
-            ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
-
-        Disambiguate duplicate feature names by querying with a `Feature` object::
-
-            feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
-            ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
-
-        A list dtype::
-
-            ln.Feature(
-                name="cell_types",
-                dtype=list[bt.CellType],  # or list[str] for a list of strings
-            ).save()
-
-        A path feature::
-
-            ln.Feature(
-                name="image_path",
-                dtype="path",   # will be validated as `str`
-            ).save()
-
-        Restrict categories via filters::
-
-            # restrict diseases to those matching a specific ontology version
-            source = bt.Source.get(name="My ontology")  # a registry for ontology versions
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={"source": source},
-            ).save()
-
-            # restrict artifacts to those matching a specific schema
-            schema = ln.Schema.get(name="my-schema")
-            ln.Feature(
-                name="valid_artifact",
-                dtype=ln.Artifact,
-                cat_filters={"schema": schema},
-            ).save()
-
-        A feature accepting multiple categorical types - a union type::
-
-            ln.Feature(
-                name="cell_types",
-                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
-            ).save()
+        In these examples, :mod:`bionty` registries are used to leverage biological entities as feature identifiers.
+        If you pass a dataset for validation with this schema, feature identifiers will be validated accordingly.
 
     .. dropdown:: What is the difference between features and labels?
 
@@ -1085,6 +970,246 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         happened, ask yourself what the joint measurement was: a feature
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
+
+    Args:
+        name: `str` Name of the feature, typically a column name.
+        dtype: `SimpleDtype | ULabel | Record | Registry | list[Registry] | FieldAttr`
+            Types or `ULabel` or `Record` objects representing types.
+            See :class:`~lamindb.base.types.SimpleDtypeStr`.
+        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
+        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
+        unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
+        description: `str | None = None` A description.
+        synonyms: `str | None = None` Bar-separated synonyms.
+        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
+        default_value: `Any | None = None` Default value for the feature.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
+            Defaults to `False` unless `is_type` is `True`.
+        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
+
+    See Also:
+        :meth:`~lamindb.Feature.from_dataframe`
+            Create feature records from DataFrame.
+        :attr:`~lamindb.Artifact.features`
+            The `features` attribute of an artifact.
+        :class:`~lamindb.ULabel`
+            Universal labels.
+        :class:`~lamindb.Schema`
+            Sets of features.
+
+    Examples
+    --------
+
+    Features with simple data types::
+
+        ln.Feature(name="sample_note", dtype=str).save()
+        ln.Feature(name="temperature_in_celsius", dtype=float).save()
+        ln.Feature(name="read_count", dtype=int).save()
+
+    A categorical feature measuring labels managed in the `ULabel` registry::
+
+        ln.Feature(name="sample", dtype=ln.ULabel).save()
+
+    Restrict a categorical feature to a specific `ULabel` type::
+
+        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+        ln.Feature(name="perturbation", dtype=perturbation).save()
+
+    Restrict a categorical feature to a specific `Record` type::
+
+        experiment = ln.Record(name="Experiment", is_type=True).save()
+        ln.Feature(name="experiment", dtype=experiment).save()
+
+    Restrict a categorical feature to the `bt.CellType` registry::
+
+        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
+        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+
+    .. admonition:: Categoricals define relationships.
+
+        For example, when passing `ULabel` to `dtype` in `Feature()`,
+        one relates the new feature to the `ULabel` registry.
+
+    Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
+
+        abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
+        ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
+
+        xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
+        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+        # calling .save() again with the same name and type returns the existing feature
+        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+    Annotate an artifact with features (works identically for records and runs)::
+
+        artifact.features.set_values({
+            "temperature_in_celsius": 37.5,
+            "sample_note": "Control sample",
+        })
+
+    Query artifacts/records/runs by features::
+
+        ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
+        ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
+
+    Disambiguate duplicate feature names by querying with a `Feature` object::
+
+        feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
+        ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
+
+    A list dtype::
+
+        ln.Feature(
+            name="cell_types",
+            dtype=list[bt.CellType],  # or list[str] for a list of strings
+        ).save()
+
+    A path feature::
+
+        ln.Feature(
+            name="image_path",
+            dtype="path",   # will be validated as `str`
+        ).save()
+
+    Restrict categories via filters::
+
+        # restrict diseases to those matching a specific ontology version
+        source = bt.Source.get(name="My ontology")  # a registry for ontology versions
+        ln.Feature(
+            name="disease",
+            dtype=bt.Disease,
+            cat_filters={"source": source},
+        ).save()
+
+        # restrict artifacts to those matching a specific schema
+        schema = ln.Schema.get(name="my-schema")
+        ln.Feature(
+            name="valid_artifact",
+            dtype=ln.Artifact,
+            cat_filters={"schema": schema},
+        ).save()
+
+    A feature accepting multiple categorical types - a union type::
+
+        ln.Feature(
+            name="cell_types",
+            dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+        ).save()
+
+    Data types
+    ----------
+
+    **Simple data types.** In  the table below, the first column shows the object that
+    can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
+    that's used in the database.
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - pandas
+        * - `int`
+          - `"int"`
+          - `int64 | int32 | int16 | int8 | uint | ...`
+        * - `float`
+          - `"float"`
+          - `float64 | float32 | float16 | float8 | ...`
+        * - `str`
+          - `"str"`
+          - `object`
+        * - `bool`
+          - `"bool"`
+          - `boolean | bool`
+        * - `datetime`
+          - `"datetime"`
+          - `datetime`
+        * - `"datetime64[ns, UTC]"`
+          - `"datetime64[ns, UTC]"`
+          - `datetime64[ns, UTC]`
+        * - `date`
+          - `"date"`
+          - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+        * - `dict`
+          - `"dict"`
+          - `object`
+        * - `"num"`
+          - `"num"`
+          - `int | float` ("num" is a convenience type for `int | float`)
+        * - `"path"`
+          - `"path"`
+          - `str` (pandas does not have a dedicated path type, validated as `str`)
+        * - `"url"`
+          - `"url"`
+          - `str` (pandas does not have a dedicated url type, validated as `str`)
+
+    **Categorical and relational data types.** For any categorical, you can restrict permissible
+    values to the values defined in a registry. This establishes a relationship.
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+        * - `ln.ULabel`
+          - `"cat[ULabel]"`
+        * - `bt.CellType`
+          - `"cat[bionty.CellType]"`
+        * - `bt.Disease`
+          - `"cat[bionty.Disease]"`
+        * - `ln.Artifact`
+          - `"cat[Artifact]"`
+
+    You can restrict permissible values to instances of `ULabel` or `Record` types.
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+        * - `ulabel_type` (a `ULabel` with `is_type=True`)
+          - `"cat[ULabel[<uid_of_ulabel_type>]]"`
+        * - `record_type` (a `Record` with `is_type=True`)
+          - `"cat[Record[<uid_of_record_type>]]"`
+
+    You can restrict permissible values by filtering the categorical on fields of its registry.
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - cat_filters
+          - string serialization
+        * - `bt.Disease`
+          - `{"source": source}`
+          - `"cat[bionty.Disease]"`
+        * - `ln.Artifact`
+          - `{"schema": schema}`
+          - `"cat[Artifact]"`
+
+    **List data types.**
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+        * - `list[bt.CellType]`
+          - `"list[cat[bionty.CellType]]"`
+        * - `list[float]`
+          - `"list[float]"`
+
+    **Union data types.**
+
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+        * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
+          - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -1124,8 +1249,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    _dtype_str: DtypeStr | str | None = CharField(db_index=True, null=True)
-    """The string-serialized data type (:class:`~lamindb.base.types.DtypeStr`).
+    _dtype_str: SimpleDtypeStr | str | None = CharField(db_index=True, null=True)
+    """The string-serialized data type (:class:`~lamindb.base.types.SimpleDtypeStr`).
 
     Note that mutating this field currently does not trigger re-validation of existing values.
     """
@@ -1136,7 +1261,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    features: Feature
+    features: RelatedManager[Feature]
     """Features of this type (can only be non-empty if `is_type` is `True`)."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
@@ -1193,7 +1318,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr,
+        dtype: SimpleDtype
+        | SimpleDtypeStr
+        | ULabel
+        | Record
+        | Registry
+        | list[Registry]
+        | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
@@ -1468,7 +1599,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return self._dtype_str
 
     @property
-    def dtype_as_str(self) -> DtypeStr | str | None:
+    def dtype_as_str(self) -> SimpleDtypeStr | str | None:
         """The `dtype` as a string.
 
         You can query by this property as if it was a string field. The query is delegated to the private `_dtype_str` field.

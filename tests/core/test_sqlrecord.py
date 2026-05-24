@@ -354,7 +354,10 @@ def test_using():
 def test_get_record_kwargs():
     assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
-        ("dtype", "DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr"),
+        (
+            "dtype",
+            "SimpleDtype | SimpleDtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr",
+        ),
         ("type", "Feature | None"),
         ("is_type", "bool"),
         ("unit", "str | None"),
