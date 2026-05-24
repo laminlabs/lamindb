@@ -1408,11 +1408,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         A way to access all label annotations of an artifact, irrespective of their type.
 
-        To annotate with labels, use the type-specific accessor,
-        for example::
+        To annotate with labels, use the type-specific accessor, for example::
 
-            experiment = ln.Record(name="Experiment 1").save()
-            artifact.records.add(experiment)
+            ulabel = ln.ULabel(name="raw_data").save()
+            artifact.ulabels.add(ulabel)
             project = ln.Project(name="Project A").save()
             artifact.projects.add(project)
         """
