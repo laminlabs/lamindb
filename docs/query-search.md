@@ -6,6 +6,7 @@ execute_via: python
 
 ```{toctree}
 :maxdepth: 1
+:hidden:
 
 arrays
 ```
