@@ -1102,7 +1102,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     **Simple data types.** In  the table below, the first column shows the object that
     can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
-    that's used in the `_dtype_str` field of the `lamindb_feature` table in the database.
+    that's used in the database.
 
     .. list-table::
         :header-rows: 1
@@ -1161,7 +1161,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `ln.Artifact`
           - `"cat[Artifact]"`
 
-    You can restrict categoricals to types defined in registries via the `type` field.
+    You can restrict permissible values to instances of `ULabel` or `Record` types.
 
     .. list-table::
         :header-rows: 1
@@ -1173,7 +1173,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `record_type` (a `Record` with `is_type=True`)
           - `"cat[Record[<uid_of_record_type>]]"`
 
-    If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
+    You can restrict permissible values to by filtering the categorical on fields of its registry.
 
     .. list-table::
         :header-rows: 1
