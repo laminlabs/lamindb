@@ -1173,7 +1173,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `record_type` (a `Record` with `is_type=True`)
           - `"cat[Record[<uid_of_record_type>]]"`
 
-    You can restrict permissible values to by filtering the categorical on fields of its registry.
+    You can restrict permissible values by filtering the categorical on fields of its registry.
 
     .. list-table::
         :header-rows: 1
