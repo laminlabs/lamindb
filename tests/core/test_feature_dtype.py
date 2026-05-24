@@ -371,6 +371,29 @@ def test_cat_filters_artifact_schema_filter():
     schema_feature.delete(permanent=True)
 
 
+def test_cat_filters_record_type_is_type_and_schema_filters():
+    schema_feature = ln.Feature(name="record_schema_filter_column", dtype=str).save()
+    schema = ln.Schema(
+        name="record_schema_filter_schema", features=[schema_feature]
+    ).save()
+    sample_type = ln.Record(name="Samples", is_type=True).save()
+    feature = ln.Feature(
+        name="samplesheet",
+        dtype=ln.Record,
+        cat_filters={"type": sample_type, "is_type": True, "schema": schema},
+    )
+    assert (
+        feature._dtype_str
+        == f"cat[Record[{sample_type.uid}, is_type='True', schema__uid='{schema.uid}']]"
+    )
+    result = parse_dtype(feature._dtype_str)
+    assert result[0]["record_uid"] == sample_type.uid
+    assert result[0]["filter_str"] == f"is_type='True', schema__uid='{schema.uid}'"
+    schema.delete(permanent=True)
+    schema_feature.delete(permanent=True)
+    sample_type.delete(permanent=True)
+
+
 def test_cat_filters_bionty_disease_filter():
     feature = ln.Feature(
         name="disease",
@@ -405,19 +428,31 @@ def test_cat_filters_incompatible_with_union_dtypes():
     )
 
 
-def test_cat_filters_incompatible_with_nested_dtypes():
+def test_cat_filters_supported_with_typed_dtype():
     record = ln.Record(name="Customer", is_type=True).save()
+    feature = ln.Feature(
+        name="test_feature",
+        dtype=record,
+        cat_filters={"is_type": True},
+    )
+    assert feature._dtype_str == f"cat[Record[{record.uid}, is_type='True']]"
+    record.delete(permanent=True)
+
+
+def test_cat_filters_conflicting_type_selectors():
+    first_record = ln.Record(name="Customer", is_type=True).save()
+    second_record = ln.Record(name="Supplier", is_type=True).save()
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype=record,
-            cat_filters={"source": "test"},
+            dtype=first_record,
+            cat_filters={"type": second_record},
         )
-    assert (
-        f"cat_filters are incompatible with nested dtypes: 'cat[Record[{record.uid}]]'"
-        in str(exc_info.value)
+    assert "Conflicting typed dtype and cat_filters type selector" in str(
+        exc_info.value
     )
-    record.delete(permanent=True)
+    first_record.delete(permanent=True)
+    second_record.delete(permanent=True)
 
 
 def test_parse_filter_string_basic():

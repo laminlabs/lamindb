@@ -850,6 +850,71 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
     feature.delete(permanent=True)
 
 
+def test_cat_filters_record_schema_validation():
+    parent_type = ln.Record(name="Samples", is_type=True).save()
+    other_parent_type = ln.Record(name="OtherSamples", is_type=True).save()
+    sampleschema = ln.Schema(
+        name="sampleschema",
+        features=[ln.Feature(name="sample_id", dtype=str).save()],
+    ).save()
+    otherschema = ln.Schema(
+        name="otherschema",
+        features=[ln.Feature(name="sample_label", dtype=str).save()],
+    ).save()
+    valid_sheet = ln.Record(
+        name="samplesheet-valid",
+        type=parent_type,
+        is_type=True,
+        schema=sampleschema,
+    ).save()
+    ln.Record(
+        name="samplesheet-wrong-schema",
+        type=parent_type,
+        is_type=True,
+        schema=otherschema,
+    ).save()
+    ln.Record(
+        name="samplesheet-wrong-parent",
+        type=other_parent_type,
+        is_type=True,
+        schema=sampleschema,
+    ).save()
+    feature = ln.Feature(
+        name="samplesheet",
+        dtype=parent_type,
+        cat_filters={"type": parent_type, "is_type": True, "schema": sampleschema},
+    ).save()
+    schema = ln.Schema([feature], name="samplesheet validation schema").save()
+    df = pd.DataFrame(
+        {
+            "samplesheet": pd.Categorical(
+                [
+                    valid_sheet.name,
+                    "samplesheet-wrong-schema",
+                    "samplesheet-wrong-parent",
+                ]
+            )
+        }
+    )
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    error_message = str(error.value)
+    assert "2 terms not validated in feature 'samplesheet':" in error_message
+    assert "'samplesheet-wrong-schema'" in error_message
+    assert "'samplesheet-wrong-parent'" in error_message
+
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
+    ln.Record.filter(type=other_parent_type).delete(permanent=True)
+    other_parent_type.delete(permanent=True)
+    ln.Record.filter(type=parent_type).delete(permanent=True)
+    parent_type.delete(permanent=True)
+    sampleschema.delete(permanent=True)
+    otherschema.delete(permanent=True)
+    ln.Feature.filter(name__in=["sample_id", "sample_label"]).delete(permanent=True)
+
+
 def test_curate_columns(df):
     """Test that columns can be curated."""
     schema = ln.Schema(
