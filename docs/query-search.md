@@ -129,22 +129,32 @@ For example:
 qs.to_dataframe()
 ```
 
-Note that the `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
+The `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 
 ## Query objects by features
 
-The `Artifact`, `Record`, and `Run` registries can be queried by feature names:
+The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
+
+:::::{tab-set}
+
+::::{tab-item} Via strings
 
 ```python
 ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
 ```
 
-You can also query by passing a :class:`~lamindb.Feature` object, which is useful when a database contains many features with the same names:
+::::
+
+::::{tab-item} Via expressions
 
 ```python
 perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
 ln.Artifact.filter(perturbation == "DMSO")  # note this is now an expression using the == syntax
 ```
+
+::::
+
+:::::
 
 Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
 
@@ -152,15 +162,7 @@ Just like for fields holding dictionary values, you can query for dictionary key
 ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
 ```
 
-```python
-ln.Artifact.filter(study_metadata__detail2=2).to_dataframe(include="features")
-```
-
-You can query for whether a dataset is annotated or not annotated by a feature.
-
-```python
-ln.Artifact.filter(perturbation__isnull=True).to_dataframe(include="features")
-```
+You can query for whether a dataset is annotated annotated by a feature:
 
 ```python
 ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
