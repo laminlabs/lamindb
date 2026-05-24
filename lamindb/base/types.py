@@ -9,6 +9,8 @@ Central object types
 .. autoclass:: BranchStatus
 .. autoclass:: RunStatus
 .. autoclass:: SimpleDtype
+.. autoclass:: SimpleDtypeStr
+.. autoclass:: SimpleDvalue
 .. autoclass:: DtypeStr
 
 Basic types
@@ -107,7 +109,8 @@ BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
     code: status for status, code in BRANCH_STATUS_TO_CODE.items()
 }
 
-DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
+SimpleDvalue = int | float | str | bool | datetime.date | datetime.datetime | dict
+"""Values corresponding to :class:`~lamindb.base.types.SimpleDtype`."""
 
 SimpleDtype = (
     type[int]
@@ -118,13 +121,13 @@ SimpleDtype = (
     | type[datetime.datetime]
     | type[dict]
 )
-"""Native Python classes for LaminDB's simple scalar dtype categories.
+"""Python types for simple scalar dtypes.
 
 This alias represents the preferred constructor inputs for simple feature dtypes
 (`int`, `float`, `str`, `bool`, `datetime.date`, `datetime.datetime`, `dict`).
 """
 
-DtypeStr = Literal[
+SimpleDtypeStr = Literal[
     "num",  # numericals
     "int",  # integer / numpy.integer
     "float",  # float
@@ -167,7 +170,9 @@ url              `url`                 `str` (pandas does not have a dedicated u
     In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
 
 """
+DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
+DtypeObject = SimpleDvalue  # backward compat
 
 RegistryId = Literal[
     "__lamindb_artifact__",
