@@ -7,7 +7,6 @@ import pytest
 from lamindb import Record
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
-    dtype_as_object,
     parse_dtype,
     parse_filter_string,
     resolve_relation_filters,
@@ -86,12 +85,6 @@ def test_serialize_record_objects():
     assert feature.dtype == "cat[Record[InstituteA[LabB[Sample]]]]"
     feature.delete(permanent=True)
     assert serialize_dtype(sample_type) == serialized_str
-    with pytest.raises(ln.errors.IntegrityError) as error:
-        parse_dtype("cat[Record[Sample]]", check_exists=True, old_format=True)
-    assert (
-        "No Record type found matching subtypes ['Sample'] for field `.name`"
-        in error.exconly()
-    )
     sample = ln.Record(name="sample").save()
     with pytest.raises(ln.errors.InvalidArgument) as error:
         parse_dtype(f"cat[Record[{sample.uid}]]", check_exists=True)
@@ -142,7 +135,7 @@ def test_simple_record_with_subtype_and_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     customer_type.delete(permanent=True)
 
@@ -162,7 +155,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     assert result[1] == {
         "registry_str": "Record",
@@ -170,7 +163,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": supplier_type.uid,
+        "type_uid": supplier_type.uid,
     }
     customer_type.delete(permanent=True)
     supplier_type.delete(permanent=True)
@@ -268,7 +261,7 @@ def test_registry_with_subtype_no_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     customer_type.delete(permanent=True)
 
@@ -285,7 +278,7 @@ def test_list_of_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
@@ -320,7 +313,7 @@ def test_nested_cat_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "record_uid": uscustomer_type.uid,
+        "type_uid": uscustomer_type.uid,
     }
     uscustomer_type.delete(permanent=True)
     customer_type.delete(permanent=True)
@@ -343,7 +336,7 @@ def test_nested_cat_with_filter():
         "field_str": "description",
         "registry": Record,
         "field": Record.description,
-        "record_uid": uscustomer_type.uid,
+        "type_uid": uscustomer_type.uid,
     }
     uscustomer_type.delete(permanent=True)
     customer_type.delete(permanent=True)
@@ -387,7 +380,7 @@ def test_cat_filters_record_type_is_type_and_schema_filters():
         == f"cat[Record[{sample_type.uid}, is_type='True', schema__uid='{schema.uid}']]"
     )
     result = parse_dtype(feature._dtype_str)
-    assert result[0]["record_uid"] == sample_type.uid
+    assert result[0]["type_uid"] == sample_type.uid
     assert result[0]["filter_str"] == f"is_type='True', schema__uid='{schema.uid}'"
     schema.delete(permanent=True)
     schema_feature.delete(permanent=True)
@@ -566,131 +559,6 @@ def test_resolve_relation_filter_duplicate():
         resolve_relation_filters(parsed, bt.Gene)
 
 
-# -----------------------------------------------------------------------------
-# backward compatibility for old format strings
-# -----------------------------------------------------------------------------
-
-
-def test_convert_old_format_ulabel_string():
-    """Test converting old format ULabel string to object."""
-    # Create a ULabel type
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-
-    # Convert old format string
-    dtype_obj = dtype_as_object("cat[ULabel[Perturbation]]", old_format=True)
-
-    # Should return the ULabel object
-    assert dtype_obj == perturbation
-    assert hasattr(dtype_obj, "uid")
-
-    # Clean up
-    perturbation.delete(permanent=True)
-
-
-def test_convert_old_format_record_string():
-    """Test converting old format Record string to object."""
-    # Create a Record type
-    sample_type = ln.Record(name="Sample", is_type=True).save()
-
-    # Convert old format string
-    dtype_obj = dtype_as_object("cat[Record[Sample]]", old_format=True)
-
-    # Should return the Record object
-    assert dtype_obj == sample_type
-    assert hasattr(dtype_obj, "uid")
-
-    # Clean up
-    sample_type.delete(permanent=True)
-
-
-def test_convert_old_format_nested_record_string():
-    """Test converting old format nested Record string to object."""
-    # Create nested Record types
-    lab_type = ln.Record(name="LabA", is_type=True).save()
-    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
-
-    # Convert old format string
-    dtype_obj = dtype_as_object("cat[Record[LabA[Experiment]]]", old_format=True)
-
-    # Should return the nested Record object
-    assert dtype_obj == experiment_type
-    assert hasattr(dtype_obj, "uid")
-
-    # Clean up
-    experiment_type.delete(permanent=True)
-    lab_type.delete(permanent=True)
-
-
-def test_convert_old_format_list_string():
-    """Test converting old format list string to object."""
-    # Create a ULabel type
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-
-    # Convert old format string with list wrapper
-    dtype_obj = dtype_as_object("list[cat[ULabel[Perturbation]]]", old_format=True)
-
-    # Should return list[ULabel] type
-    assert hasattr(dtype_obj, "__origin__")
-    assert dtype_obj.__origin__ is list
-    # Get the inner type
-    from typing import get_args
-
-    inner_type = get_args(dtype_obj)[0]
-    assert inner_type == perturbation
-
-    # Clean up
-    perturbation.delete(permanent=True)
-
-
-def test_feature_constructor_with_old_format_string(ccaplog):
-    """Test Feature constructor with old format string raises deprecation warning."""
-    # Create a ULabel type
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-
-    # Create feature with old format string
-    feature = ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]")
-    assert (
-        "rather than passing a string 'cat[ULabel[Perturbation]]' to dtype, consider passing a Python object"
-        in ccaplog.text
-    )
-
-    # Should have converted to UID format
-    assert feature._dtype_str is not None
-    assert "ULabel[" in feature._dtype_str
-    # Should contain UID, not name
-    assert "Perturbation" not in feature._dtype_str
-    assert perturbation.uid in feature._dtype_str
-
-    # Clean up
-    perturbation.delete(permanent=True)
-
-
-def test_feature_constructor_with_old_format_nested_string(ccaplog):
-    """Test Feature constructor with old format nested string."""
-    # Create nested Record types
-    lab_type = ln.Record(name="LabA", is_type=True).save()
-    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
-
-    # Create feature with old format nested string
-    feature = ln.Feature(name="experiment", dtype="cat[Record[LabA[Experiment]]]")
-    assert (
-        "rather than passing a string 'cat[Record[LabA[Experiment]]]' to dtype, consider passing a Python object"
-        in ccaplog.text
-    )
-
-    # Should have converted to UID format
-    assert feature._dtype_str is not None
-    assert "Record[" in feature._dtype_str
-    # Should contain UID, not names
-    assert "LabA" not in feature._dtype_str
-    assert "Experiment" not in feature._dtype_str
-    assert experiment_type.uid in feature._dtype_str
-
-    # Clean up
-    experiment_type.delete(permanent=True)
-    lab_type.delete(permanent=True)
-
-
 def test_bare_cat_dtype_backward_compatibility():
     """Test that bare 'cat' dtype is accepted for backward compatibility."""
     # Test parse_dtype accepts "cat" and returns empty list
@@ -701,94 +569,3 @@ def test_bare_cat_dtype_backward_compatibility():
     with pytest.warns(DeprecationWarning, match="dtype `cat` is deprecated"):
         feature = ln.Feature(name="test_bare_cat", dtype="cat")
     assert feature._dtype_str == "cat"
-
-
-def test_migrate_dtype_to_uid_format():
-    """Test migrate_dtype_to_uid_format() function for migration."""
-    from django.db import connection
-    from lamindb.models.feature import migrate_dtype_to_uid_format
-
-    # Create Record types for testing
-    lab_type = ln.Record(name="LabA", is_type=True).save()
-    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
-    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-
-    # Create features with old format strings in _dtype_str
-    feature1 = ln.Feature(name="test_record_old_format", dtype="str").save()
-    feature2 = ln.Feature(name="test_ulabel_old_format", dtype="str").save()
-    feature3 = ln.Feature(name="test_list_record_old_format", dtype="str").save()
-    feature4 = ln.Feature(name="test_list_ulabel_old_format", dtype="str").save()
-
-    # Manually set old format strings using raw SQL
-    old_format_record = "cat[Record[LabA[Experiment]]]"
-    old_format_ulabel = "cat[ULabel[Perturbation]]"
-    old_format_list_record = "list[cat[Record[LabA[Experiment]]]]"
-    old_format_list_ulabel = "list[cat[ULabel[Perturbation]]]"
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
-            [old_format_record, feature1.id],
-        )
-        cursor.execute(
-            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
-            [old_format_ulabel, feature2.id],
-        )
-        cursor.execute(
-            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
-            [old_format_list_record, feature3.id],
-        )
-        cursor.execute(
-            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
-            [old_format_list_ulabel, feature4.id],
-        )
-
-    # Refresh features from database
-    feature1.refresh_from_db()
-    feature2.refresh_from_db()
-    feature3.refresh_from_db()
-    feature4.refresh_from_db()
-
-    # Verify old format is present
-    assert feature1._dtype_str == old_format_record
-    assert feature2._dtype_str == old_format_ulabel
-    assert feature3._dtype_str == old_format_list_record
-    assert feature4._dtype_str == old_format_list_ulabel
-
-    # Run migration function
-    migrate_dtype_to_uid_format(connection, input_field="_dtype_str")
-
-    # Refresh features from database
-    feature1.refresh_from_db()
-    feature2.refresh_from_db()
-    feature3.refresh_from_db()
-    feature4.refresh_from_db()
-
-    # Verify conversion to UID format
-    assert feature1._dtype_str == f"cat[Record[{experiment_type.uid}]]"
-    assert feature2._dtype_str == f"cat[ULabel[{perturbation.uid}]]"
-    assert feature3._dtype_str == f"list[cat[Record[{experiment_type.uid}]]]"
-    assert feature4._dtype_str == f"list[cat[ULabel[{perturbation.uid}]]]"
-
-    # Verify old names are not in the converted strings
-    assert "LabA" not in feature1._dtype_str
-    assert "Experiment" not in feature1._dtype_str
-    assert "Perturbation" not in feature2._dtype_str
-    assert "LabA" not in feature3._dtype_str
-    assert "Experiment" not in feature3._dtype_str
-    assert "Perturbation" not in feature4._dtype_str
-
-    # Verify UIDs are present
-    assert experiment_type.uid in feature1._dtype_str
-    assert perturbation.uid in feature2._dtype_str
-    assert experiment_type.uid in feature3._dtype_str
-    assert perturbation.uid in feature4._dtype_str
-
-    # Clean up
-    feature1.delete(permanent=True)
-    feature2.delete(permanent=True)
-    feature3.delete(permanent=True)
-    feature4.delete(permanent=True)
-    experiment_type.delete(permanent=True)
-    lab_type.delete(permanent=True)
-    perturbation.delete(permanent=True)

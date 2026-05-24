@@ -211,27 +211,27 @@ def format_dtype_for_display(dtype_str: str) -> str:
     if ("Record[" in dtype_str or "ULabel[" in dtype_str) and "]" in dtype_str:
         try:
             parsed = parse_dtype(dtype_str)
-            if parsed and parsed[0].get("record_uid"):
-                record_uid = parsed[0]["record_uid"]
+            if parsed and parsed[0].get("type_uid"):
+                type_uid = parsed[0]["type_uid"]
                 registry_str = parsed[0].get("registry_str", "")
                 try:
                     # Determine which registry to use
                     if registry_str == "Record":
-                        record_type = Record.get(uid=record_uid)
+                        record_type = Record.get(uid=type_uid)
                         # Replace Record[uid] with Record[TypeName]
                         dtype_str = dtype_str.replace(
-                            f"Record[{record_uid}]", f"Record[{record_type.name}]"
+                            f"Record[{type_uid}]", f"Record[{record_type.name}]"
                         )
                     elif registry_str == "ULabel":
-                        record_type = ULabel.get(uid=record_uid)
+                        record_type = ULabel.get(uid=type_uid)
                         # Replace ULabel[uid] with ULabel[TypeName]
                         dtype_str = dtype_str.replace(
-                            f"ULabel[{record_uid}]", f"ULabel[{record_type.name}]"
+                            f"ULabel[{type_uid}]", f"ULabel[{record_type.name}]"
                         )
                 except Exception as e:
                     # If we can't find the record, just return the original
                     logger.debug(
-                        f"Could not find {registry_str} with uid '{record_uid}' for display formatting: {e}"
+                        f"Could not find {registry_str} with uid '{type_uid}' for display formatting: {e}"
                     )
         except Exception as e:
             # If parsing fails, return the original
