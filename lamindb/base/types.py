@@ -8,6 +8,7 @@ Central object types
 .. autoclass:: BlockKind
 .. autoclass:: BranchStatus
 .. autoclass:: RunStatus
+.. autoclass:: SimpleDtype
 .. autoclass:: DtypeStr
 
 Basic types
@@ -107,6 +108,21 @@ BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
 }
 
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
+
+SimpleDtype = (
+    type[int]
+    | type[float]
+    | type[str]
+    | type[bool]
+    | type[datetime.date]
+    | type[datetime.datetime]
+    | type[dict]
+)
+"""Native Python classes for LaminDB's simple scalar dtype categories.
+
+This alias represents the preferred constructor inputs for simple feature dtypes
+(`int`, `float`, `str`, `bool`, `datetime.date`, `datetime.datetime`, `dict`).
+"""
 
 DtypeStr = Literal[
     "num",  # numericals

@@ -28,7 +28,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import DtypeStr, FieldAttr
+from lamindb.base.types import DtypeStr, FieldAttr, SimpleDtype
 from lamindb.errors import (
     FieldValidationError,
     IntegrityError,
@@ -851,7 +851,7 @@ def process_init_feature_param(args, kwargs):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: type | str | None = kwargs.pop("dtype", None)
+    dtype: SimpleDtype | type | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
@@ -943,7 +943,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically a column name.
-        dtype: `type | ULabel | Record | DtypeStr | Registry | list[Registry] | FieldAttr`
+        dtype: `SimpleDtype | ULabel | Record | DtypeStr | Registry | list[Registry] | FieldAttr`
             Types or `ULabel` or `Record` objects representing types.
             See :class:`~lamindb.base.types.DtypeStr`.
         type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
@@ -1193,7 +1193,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr,
+        dtype: SimpleDtype
+        | DtypeStr
+        | ULabel
+        | Record
+        | Registry
+        | list[Registry]
+        | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
