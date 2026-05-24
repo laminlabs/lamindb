@@ -28,10 +28,6 @@ Call {meth}`~lamindb.track` to save your notebook or script as a `transform` and
    :language: python
 ```
 
-In notebooks, the output of the cell where {meth}`~lamindb.finish` is called is
-stripped from the saved run report. Call `finish()` in its own cell so you don't
-strip any other output you want to keep.
-
 <!-- #region -->
 
 You find your notebooks and scripts in the {class}`~lamindb.Transform` registry along with pipelines & functions:
