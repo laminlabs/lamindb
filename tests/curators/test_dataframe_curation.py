@@ -18,7 +18,7 @@ def transactions_schema():
     assert eur.type == currency_type
 
     # Features
-    currency = ln.Feature(name="currency_name", dtype="cat[ULabel[Currency]]").save()
+    currency = ln.Feature(name="currency_name", dtype=currency_type).save()
     date = ln.Feature(name="date", dtype="date").save()
     receipt_url = ln.Feature(name="receipt_url", dtype="url").save()
 
