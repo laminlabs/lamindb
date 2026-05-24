@@ -126,13 +126,13 @@ Note that the `SQLRecord` classes in LaminDB are Django Models and any [Django q
 
 ## Query objects by features
 
-The `Artifact`, `Record`, and `Run` registries can be queried by features.
+The `Artifact`, `Record`, and `Run` registries can be queried by feature names:
 
 ```python
 ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
 ```
 
-You can also query by passing a `Feature` object, which is useful to disambiguate feature names.
+You can also query by passing a :class:`~lamindb.Feature` object, which is useful when a database contains many features with the same names:
 
 ```python
 perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
@@ -165,7 +165,7 @@ Here is an example for querying by parameters: {ref}`track-run-parameters`.
 
 ## Search for objects
 
-You can search every registry via {meth}`~lamindb.models.SQLRecord.search`. For example, the `Artifact` registry.
+You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
 
 ```python
 ln.Artifact.search("iris").to_dataframe()
