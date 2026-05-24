@@ -1104,68 +1104,125 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
     that's used in the `_dtype_str` field of the `lamindb_feature` table in the database.
 
-    ======================  ====================  =================================================
-    dtype                   string serialization  pandas
-    ======================  ====================  =================================================
-    `"num"`                 `"num"`               `int | float`
-    `int`                   `"int"`               `int64 | int32 | int16 | int8 | uint | ...`
-    `float`                 `"float"`             `float64 | float32 | float16 | float8 | ...`
-    `str`                   `"str"`               `object`
-    `bool`                  `"bool"`              `boolean | bool`
-    `datetime`              `"datetime"`          `datetime`
-    `"datetime64[ns, UTC]"` `"datetime64[ns, UTC]"` `datetime64[ns, UTC]`
-    `date`                  `"date"`              `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-    `dict`                  `"dict"`              `object`
-    `"path"`                `"path"`              `str` (pandas does not have a dedicated path type, validated as `str`)
-    `"url"`                 `"url"`               `str` (pandas does not have a dedicated url type, validated as `str`)
-    ======================  ====================  =================================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - pandas
+        * - `"num"`
+          - `"num"`
+          - `int | float`
+        * - `int`
+          - `"int"`
+          - `int64 | int32 | int16 | int8 | uint | ...`
+        * - `float`
+          - `"float"`
+          - `float64 | float32 | float16 | float8 | ...`
+        * - `str`
+          - `"str"`
+          - `object`
+        * - `bool`
+          - `"bool"`
+          - `boolean | bool`
+        * - `datetime`
+          - `"datetime"`
+          - `datetime`
+        * - `"datetime64[ns, UTC]"`
+          - `"datetime64[ns, UTC]"`
+          - `datetime64[ns, UTC]`
+        * - `date`
+          - `"date"`
+          - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+        * - `dict`
+          - `"dict"`
+          - `object`
+        * - `"path"`
+          - `"path"`
+          - `str` (pandas does not have a dedicated path type, validated as `str`)
+        * - `"url"`
+          - `"url"`
+          - `str` (pandas does not have a dedicated url type, validated as `str`)
 
     **Categorical and relational data types.** For any categorical, you can restrict permissible
     values to the values defined in a registry. This establishes a relationship.
 
-    ==================================================  ==================================================  ==========================================
-    dtype                                               string serialization                                example in docstring
-    ==================================================  ==================================================  ==========================================
-    `ln.ULabel`                                         `"cat[ULabel]"`                                    categorical feature managed in `ULabel`
-    `bt.CellType`                                       `"cat[bionty.CellType]"`                           categorical feature in `bt.CellType`
-    `bt.Disease`                                        `"cat[bionty.Disease]"`                            categorical feature with `cat_filters`
-    `ln.Artifact`                                       `"cat[Artifact]"`                                  relational feature with `cat_filters`
-    ==================================================  ==================================================  ==========================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - example in docstring
+        * - `ln.ULabel`
+          - `"cat[ULabel]"`
+          - categorical feature managed in `ULabel`
+        * - `bt.CellType`
+          - `"cat[bionty.CellType]"`
+          - categorical feature in `bt.CellType`
+        * - `bt.Disease`
+          - `"cat[bionty.Disease]"`
+          - categorical feature with `cat_filters`
+        * - `ln.Artifact`
+          - `"cat[Artifact]"`
+          - relational feature with `cat_filters`
 
     You can restrict categoricals to types defined in registries via the `type` field.
     For example, `"cat[ULabel[123456ABCDEFG]]"` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
-    ==================================================  ==================================================  ==========================================
-    dtype                                               string serialization                                example in docstring
-    ==================================================  ==================================================  ==========================================
-    `perturbation` (a `ULabel` with `is_type=True`)     `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
-    `experiment` (a `Record` with `is_type=True`)       `"cat[Record[<uid>]]"`                            restricted `Record` type
-    ==================================================  ==================================================  ==========================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - example in docstring
+        * - `perturbation` (a `ULabel` with `is_type=True`)
+          - `"cat[ULabel[<uid>]]"`
+          - restricted `ULabel` type
+        * - `experiment` (a `Record` with `is_type=True`)
+          - `"cat[Record[<uid>]]"`
+          - restricted `Record` type
 
     If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
 
-    ===============================  ============================  ============================  ==========================================
-    dtype                            cat_filters                   string serialization          example in docstring
-    ===============================  ============================  ============================  ==========================================
-    `bt.Disease`                     `{"source": source}`          `"cat[bionty.Disease]"`      restricted diseases by ontology source
-    `ln.Artifact`                    `{"schema": schema}`          `"cat[Artifact]"`            restricted artifacts by schema
-    ===============================  ============================  ============================  ==========================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - cat_filters
+          - string serialization
+          - example in docstring
+        * - `bt.Disease`
+          - `{"source": source}`
+          - `"cat[bionty.Disease]"`
+          - restricted diseases by ontology source
+        * - `ln.Artifact`
+          - `{"schema": schema}`
+          - `"cat[Artifact]"`
+          - restricted artifacts by schema
 
     **List data types.**
 
-    ==================================================  ==================================================  ==========================================
-    dtype                                               string serialization                                example in docstring
-    ==================================================  ==================================================  ==========================================
-    `list[bt.CellType]`                                 `"list[cat[bionty.CellType]]"`                     list dtype of relational categories
-    ==================================================  ==================================================  ==========================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - example in docstring
+        * - `list[bt.CellType]`
+          - `"list[cat[bionty.CellType]]"`
+          - list dtype of relational categories
 
     **Union data types.**
 
-    ==================================================  ==================================================  ==========================================
-    dtype                                               string serialization                                example in docstring
-    ==================================================  ==================================================  ==========================================
-    `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"` `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"` categorical union dtype
-    ==================================================  ==================================================  ==========================================
+    .. list-table::
+        :header-rows: 1
+
+        * - dtype
+          - string serialization
+          - example in docstring
+        * - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+          - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+          - categorical union dtype
 
     """
 
