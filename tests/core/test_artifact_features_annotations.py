@@ -456,12 +456,12 @@ def test_feature_predicate_queries_safe_hybrid():
     artifact_a = ln.Artifact(
         ".gitignore",
         key="pred-artifact-a",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     ).save()
     artifact_b = ln.Artifact(
         ".gitignore",
         key="pred-artifact-b",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     ).save()
     artifact_a.features.add_values({"pred_name": "hello"}, schema=schema_a)
     artifact_b.features.add_values({"pred_name": "hello"}, schema=schema_b)
@@ -538,18 +538,18 @@ def test_artifact_feature_cat_filters_schema_end_to_end():
     container_artifact = ln.Artifact(
         ".gitignore",
         key="container_for_artifact_schema_filter",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     ).save()
     artifact_without_schema = ln.Artifact(
         ".gitignore",
         key="artifact_without_required_schema",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     ).save()
     artifact_with_schema = ln.Artifact(
         ".gitignore",
         key="artifact_with_required_schema",
         schema=required_schema,
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     ).save()
 
     try:

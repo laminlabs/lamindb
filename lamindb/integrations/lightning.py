@@ -170,7 +170,7 @@ class LaminArtifactPublisher:
         if add_as_input_to_run:
             artifact_kwargs["run"] = False
         if skip_hash_lookup:
-            artifact_kwargs["skip_hash_lookup"] = True
+            artifact_kwargs["hash_lookup"] = "skip"
         artifact = ln.Artifact(local_path, **artifact_kwargs)
         artifact.save()
         if add_as_input_to_run:

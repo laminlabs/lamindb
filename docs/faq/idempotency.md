@@ -16,7 +16,10 @@ If you set {attr}`~lamindb.core.subsettings.CreationSettings.search_names` to `F
 
 :::{admonition} Artifacts & collections
 
-If you instantiate {class}`~lamindb.Artifact` from data that already exists as an artifact, the `Artifact()` constructor returns the existing artifact based on a hash lookup.
+If you instantiate {class}`~lamindb.Artifact` from data that is written into a storage location,
+the `Artifact()` constructor returns the existing artifact based on a hash lookup.
+For paths that already live in a registered storage location, hash lookup is skipped by default.
+You can override this via `hash_lookup="check"` (or force skipping via `hash_lookup="skip"`).
 
 :::
 
@@ -122,6 +125,14 @@ If you save it again, nothing will happen (the operation is idempotent):
 
 ```python
 artifact2.save()
+```
+
+For a path that already exists in registered storage, a new artifact is created by default:
+
+```python
+registered_path = artifact.path
+artifact4 = ln.Artifact(registered_path).save()
+assert artifact4.id != artifact.id
 ```
 
 In the hidden cell below, you'll see how this interplays with data lineage.

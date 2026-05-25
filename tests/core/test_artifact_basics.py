@@ -340,6 +340,79 @@ def test_create_from_empty_files_skips_hash_lookup(tmp_path):
     artifact_1.delete(permanent=True)
 
 
+def test_existing_storage_path_skips_hash_lookup_by_default(tmp_path):
+    storage_root = tmp_path / "registered-storage"
+    storage_root.mkdir()
+    filepath = storage_root / "existing.txt"
+    filepath.write_text("same-content")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+
+    artifact_1 = ln.Artifact(filepath).save()
+    artifact_2 = ln.Artifact(filepath, description="re-register existing file")
+
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+    assert artifact_2.hash == artifact_1.hash
+
+    artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+
+    artifact_2.delete(permanent=True, storage=False)
+    artifact_1.delete(permanent=True, storage=False)
+    storage.delete()
+
+
+def test_upload_still_checks_hash_by_default(tmp_path):
+    filepath = tmp_path / "uploaded.txt"
+    filepath.write_text("uploaded-content")
+
+    artifact_1 = ln.Artifact(filepath, key="uploads/uploaded.txt").save()
+    artifact_2 = ln.Artifact(filepath, key="uploads/uploaded.txt")
+
+    assert not artifact_2._state.adding
+    assert artifact_2.id == artifact_1.id
+    assert artifact_2.uid == artifact_1.uid
+
+    artifact_1.delete(permanent=True)
+
+
+def test_existing_storage_can_force_hash_lookup(tmp_path):
+    storage_root = tmp_path / "registered-storage-check"
+    storage_root.mkdir()
+    filepath = storage_root / "existing.txt"
+    filepath.write_text("same-content")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+
+    artifact_1 = ln.Artifact(filepath).save()
+    artifact_2 = ln.Artifact(filepath, hash_lookup="check")
+
+    assert not artifact_2._state.adding
+    assert artifact_2.id == artifact_1.id
+
+    artifact_1.delete(permanent=True, storage=False)
+    storage.delete()
+
+
+def test_skip_hash_lookup_deprecated_alias_warns(tmp_path, ccaplog):
+    filepath = tmp_path / "deprecated-skip.txt"
+    filepath.write_text("deprecated-skip")
+
+    artifact_1 = ln.Artifact(filepath, key="uploads/deprecated-skip.txt").save()
+    artifact_2 = ln.Artifact(
+        filepath,
+        key="uploads/deprecated-skip.txt",
+        skip_hash_lookup=True,
+    )
+    assert "`skip_hash_lookup` is deprecated" in ccaplog.text
+
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+    artifact_2.save()
+
+    artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
+
+
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_create_from_path_folder(get_test_filepaths, key):
     # get variables from fixture
@@ -380,12 +453,19 @@ def test_create_from_path_folder(get_test_filepaths, key):
 
     # run tests on re-creating the Artifact
     artifact2 = ln.Artifact(test_dirpath, key=key, description="something")
-    assert not artifact2._state.adding
-    assert artifact1.id == artifact2.id
-    assert artifact1.uid == artifact2.uid
+    if is_in_registered_storage:
+        assert artifact2._state.adding
+        assert artifact1.uid != artifact2.uid
+    else:
+        assert not artifact2._state.adding
+        assert artifact1.id == artifact2.id
+        assert artifact1.uid == artifact2.uid
     assert artifact1.storage == artifact2.storage
     assert artifact2.path.exists()
     assert artifact2.description == "something"
+    artifact2.save()
+    if is_in_registered_storage:
+        assert artifact1.id != artifact2.id
 
     # now put another file in the test directory
 
@@ -487,10 +567,14 @@ def test_from_dir(get_test_filepaths, key):
     ln.UPath(test_dirpath).view_tree()
     # now save
     artifacts.save()
-    # now run again, because now we'll have hash-based lookup!
+    # now run again; in existing storage this should skip hash lookup by default
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2
     assert len(set(artifacts)) == len(hashes)
+    if is_in_registered_storage:
+        assert all(artifact._state.adding for artifact in artifacts)
+    else:
+        assert all(not artifact._state.adding for artifact in artifacts)
     queried_artifacts = ln.Artifact.filter(uid__in=uids)
     for artifact in queried_artifacts:
         artifact.delete(permanent=True, storage=False)
@@ -896,7 +980,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_v4 = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     )
     assert artifact_v4.uid != artifact_v3.uid
     assert artifact_v4.hash == artifact_v3.hash
@@ -907,7 +991,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     )
     assert artifact_new.uid != artifact_v4.uid
     assert artifact_new.stem_uid == artifact_v4.stem_uid
@@ -920,7 +1004,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        skip_hash_lookup=True,
+        hash_lookup="skip",
     )
     assert artifact_new.uid != artifact_v4.uid
     assert artifact_new.key == "my-test-dataset1.parquet"
