@@ -363,12 +363,12 @@ def test_existing_storage_path_skips_hash_lookup_by_default(tmp_path):
     storage.delete()
 
 
-def test_upload_still_checks_hash_by_default(tmp_path):
+def test_upload_checks_hash_by_default(tmp_path):
     filepath = tmp_path / "uploaded.txt"
     filepath.write_text("uploaded-content")
 
     artifact_1 = ln.Artifact(filepath, key="uploads/uploaded.txt").save()
-    artifact_2 = ln.Artifact(filepath, key="uploads/uploaded.txt")
+    artifact_2 = ln.Artifact(filepath)
 
     assert not artifact_2._state.adding
     assert artifact_2.id == artifact_1.id
