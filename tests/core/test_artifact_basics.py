@@ -343,23 +343,25 @@ def test_create_from_empty_files_skips_hash_lookup(tmp_path):
 def test_existing_storage_path_skips_hash_lookup_by_default(tmp_path):
     storage_root = tmp_path / "registered-storage"
     storage_root.mkdir()
-    filepath = storage_root / "existing.txt"
-    filepath.write_text("same-content")
+    filepath_1 = storage_root / "existing-1.txt"
+    filepath_2 = storage_root / "existing-2.txt"
+    filepath_1.write_text("same-content")
+    filepath_2.write_text("same-content")
     storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
 
-    artifact_1 = ln.Artifact(filepath).save()
-    artifact_2 = ln.Artifact(filepath, description="re-register existing file")
+    artifact_1 = ln.Artifact(filepath_1).save()
+    artifact_2 = ln.Artifact(filepath_2, description="register sibling file")
 
     assert artifact_2._state.adding
     assert artifact_2.uid != artifact_1.uid
     assert artifact_2.hash == artifact_1.hash
 
     artifact_2.save()
-    # save() resolves same key+hash collisions to the persisted record
-    assert artifact_2.id == artifact_1.id
+    assert artifact_2.id != artifact_1.id
+    assert artifact_2.key != artifact_1.key
 
-    artifact_2.delete(permanent=True, storage=False)
-    artifact_1.delete(permanent=True, storage=False)
+    artifact_2.delete(permanent=True, storage=True)
+    artifact_1.delete(permanent=True, storage=True)
     storage.delete()
 
 
@@ -398,17 +400,44 @@ def test_skip_hash_lookup_true_on_upload_creates_new_artifact(tmp_path):
     filepath = tmp_path / "skip-true.txt"
     filepath.write_text("skip-true")
 
-    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true.txt").save()
+    # Use different keys: with the same key, save() resolves a (storage, key, hash)
+    # collision back to the existing persisted artifact.
+    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true-a.txt").save()
     artifact_2 = ln.Artifact(
         filepath,
-        key="uploads/skip-true.txt",
+        key="uploads/skip-true-b.txt",
         skip_hash_lookup=True,
     )
     assert artifact_2._state.adding
     assert artifact_2.uid != artifact_1.uid
     artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+    assert artifact_2.hash == artifact_1.hash
+    assert artifact_2.key != artifact_1.key
 
     artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
+
+
+def test_skip_hash_lookup_true_on_upload_same_key_resolves_collision_on_save(tmp_path):
+    filepath = tmp_path / "skip-true-same-key.txt"
+    filepath.write_text("skip-true")
+
+    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true-same-key.txt").save()
+    artifact_2 = ln.Artifact(
+        filepath,
+        key="uploads/skip-true-same-key.txt",
+        skip_hash_lookup=True,
+    )
+    # Constructor still creates a new unsaved object when hash lookup is skipped.
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+
+    # On save(), (storage, key, hash) uniqueness resolves to the persisted record.
+    artifact_2.save()
+    assert artifact_2.id == artifact_1.id
+    assert artifact_2.uid == artifact_1.uid
+
     artifact_1.delete(permanent=True)
 
 
