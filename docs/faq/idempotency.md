@@ -19,7 +19,7 @@ If you set {attr}`~lamindb.core.subsettings.CreationSettings.search_names` to `F
 If you instantiate {class}`~lamindb.Artifact` from data that is written into a storage location,
 the `Artifact()` constructor returns the existing artifact based on a hash lookup.
 For paths that already live in a registered storage location, hash lookup is skipped by default.
-You can override this via `hash_lookup="check"` (or force skipping via `hash_lookup="skip"`).
+You can override this via `skip_hash_lookup=False` (or force skipping via `skip_hash_lookup=True`).
 
 :::
 
@@ -129,7 +129,7 @@ artifact2.save()
 
 For paths that already live in a registered storage location, `Artifact()`
 skips hash lookup by default during initialization. You can override this with
-`hash_lookup="check"` to force hash lookup or `hash_lookup="skip"` to always skip it.
+`skip_hash_lookup=False` to force hash lookup or `skip_hash_lookup=True` to always skip it.
 
 In the hidden cell below, you'll see how this interplays with data lineage.
 

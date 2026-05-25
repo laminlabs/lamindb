@@ -385,7 +385,7 @@ def test_existing_storage_can_force_hash_lookup(tmp_path):
     storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
 
     artifact_1 = ln.Artifact(filepath).save()
-    artifact_2 = ln.Artifact(filepath, hash_lookup="check")
+    artifact_2 = ln.Artifact(filepath, skip_hash_lookup=False)
 
     assert not artifact_2._state.adding
     assert artifact_2.id == artifact_1.id
@@ -394,18 +394,16 @@ def test_existing_storage_can_force_hash_lookup(tmp_path):
     storage.delete()
 
 
-def test_skip_hash_lookup_deprecated_alias_warns(tmp_path, ccaplog):
-    filepath = tmp_path / "deprecated-skip.txt"
-    filepath.write_text("deprecated-skip")
+def test_skip_hash_lookup_true_on_upload_creates_new_artifact(tmp_path):
+    filepath = tmp_path / "skip-true.txt"
+    filepath.write_text("skip-true")
 
-    artifact_1 = ln.Artifact(filepath, key="uploads/deprecated-skip.txt").save()
+    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true.txt").save()
     artifact_2 = ln.Artifact(
         filepath,
-        key="uploads/deprecated-skip.txt",
+        key="uploads/skip-true.txt",
         skip_hash_lookup=True,
     )
-    assert "`skip_hash_lookup` is deprecated" in ccaplog.text
-
     assert artifact_2._state.adding
     assert artifact_2.uid != artifact_1.uid
     artifact_2.save()
@@ -983,7 +981,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_v4 = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        hash_lookup="skip",
+        skip_hash_lookup=True,
     )
     assert artifact_v4.uid != artifact_v3.uid
     assert artifact_v4.hash == artifact_v3.hash
@@ -994,7 +992,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        hash_lookup="skip",
+        skip_hash_lookup=True,
     )
     assert artifact_new.uid != artifact_v4.uid
     assert artifact_new.stem_uid == artifact_v4.stem_uid
@@ -1007,7 +1005,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
-        hash_lookup="skip",
+        skip_hash_lookup=True,
     )
     assert artifact_new.uid != artifact_v4.uid
     assert artifact_new.key == "my-test-dataset1.parquet"

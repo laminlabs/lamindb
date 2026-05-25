@@ -411,7 +411,7 @@ def get_stat_or_artifact(
         # in the hard database unique constraints
         # so that the user is able to find artifacts with the same hash across
         # storage locations and keys
-        # if this is not desired, pass hash_lookup="skip"
+        # if this is not desired, set skip_hash_lookup=True
         if key is None or is_replace:
             queryset_same_hash = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
             artifact_with_same_hash_exists = queryset_same_hash.exists()
@@ -506,7 +506,7 @@ def get_artifact_kwargs_from_data(
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
-    hash_lookup: Literal["auto", "skip", "check"] = "auto",
+    skip_hash_lookup: bool | None = None,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
     skip_key_revises_lookup: bool = False,
@@ -536,18 +536,15 @@ def get_artifact_kwargs_from_data(
         check_path_in_storage = True
     else:
         storage = storage
-    if hash_lookup not in {"auto", "skip", "check"}:
-        raise ValueError(
-            "Invalid `hash_lookup` value. Use one of: 'auto', 'skip', 'check'."
-        )
-    # For paths already in registered storage, auto mode registers in place and
-    # skips hash lookup by default.
-    if hash_lookup == "skip":
-        effective_skip_hash_lookup = True
-    elif hash_lookup == "check":
-        effective_skip_hash_lookup = False
-    else:
+    if skip_hash_lookup is None:
+        # For paths already in registered storage, default mode registers in place
+        # and skips hash lookup.
         effective_skip_hash_lookup = use_existing_storage_key
+    elif isinstance(skip_hash_lookup, bool):
+        # Explicit override: True skips hash lookup, False forces hash lookup.
+        effective_skip_hash_lookup = skip_hash_lookup
+    else:
+        raise ValueError("`skip_hash_lookup` must be one of: True, False, or None.")
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         storage=storage,
@@ -1186,13 +1183,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
-        hash_lookup: `Literal["auto", "skip", "check"] = "auto"` Controls hash-based deduplication.
-            `"auto"` checks hashes for upload flows and skips hash lookup for paths already in registered storage.
-            `"skip"` always skips hash lookup.
-            `"check"` always attempts hash lookup.
-            Empty files are always treated like `"skip"` because empty content hashes are not used for deduplication.
-        skip_hash_lookup: `bool | None = None` Deprecated alias for `hash_lookup`.
-            Use `hash_lookup="skip"` instead. If passed, `True` maps to `"skip"` and `False` maps to `"auto"`.
+        skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
+            If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
+            If `True`, always skips hash lookup.
+            If `False`, always attempts hash lookup.
+            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
         key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
             If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
             Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
@@ -1638,7 +1633,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
-        hash_lookup: Literal["auto", "skip", "check"] = "auto",
         skip_hash_lookup: bool | None = None,
         key_is_virtual: bool | None = None,
     ): ...
@@ -1686,25 +1680,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
-        hash_lookup: Literal["auto", "skip", "check"] = kwargs.pop(
-            "hash_lookup", "auto"
-        )
-        if "skip_hash_lookup" in kwargs:
-            deprecated_skip_hash_lookup = kwargs.pop("skip_hash_lookup")
-            logger.warning(
-                "`skip_hash_lookup` is deprecated and will be removed in a future release; "
-                "use `hash_lookup='skip'` or `hash_lookup='auto'` instead."
-            )
-            if hash_lookup != "auto":
-                raise ValueError(
-                    "Do not pass both `hash_lookup` and `skip_hash_lookup` unless "
-                    "`hash_lookup='auto'`."
-                )
-            hash_lookup = "skip" if deprecated_skip_hash_lookup else "auto"
-        if hash_lookup not in {"auto", "skip", "check"}:
-            raise ValueError(
-                "Invalid `hash_lookup` value. Use one of: 'auto', 'skip', 'check'."
-            )
+        skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
+        if skip_hash_lookup is not None and not isinstance(skip_hash_lookup, bool):
+            raise ValueError("`skip_hash_lookup` must be one of: True, False, or None.")
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
 
@@ -1889,7 +1867,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
-            hash_lookup=hash_lookup,
+            skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
@@ -1935,7 +1913,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )  # noqa: S101
                 else:
                     logger.warning(
-                        f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass hash_lookup='skip' if you want to duplicate the artifact"
+                        f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup=True if you want to duplicate the artifact"
                     )
             update_attributes(self, attr_to_update)
             # an existing artifact might have an imcomplete upload and hence we should
