@@ -1153,9 +1153,13 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
     Path("./default_storage_unit_core/test_file.txt").rename(
         "./default_storage_unit_core/moved_file.txt"
     )
-    ln.Artifact("./default_storage_unit_core/moved_file.txt").save()
-    assert "updating previous key" in ccaplog.text
-    artifact.delete(permanent=True, storage=True)
+    moved_artifact = ln.Artifact("./default_storage_unit_core/moved_file.txt").save()
+    # existing-storage paths skip hash lookup by default; moving the file should
+    # create a new record instead of updating the old key in-place
+    assert moved_artifact.uid != artifact.uid
+    assert "updating previous key" not in ccaplog.text
+    moved_artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=False)
 
 
 # -------------------------------------------------------------------------------------
