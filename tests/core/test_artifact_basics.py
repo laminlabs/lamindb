@@ -573,7 +573,7 @@ def test_from_dir(get_test_filepaths, key):
     # now run again; in existing storage this should skip hash lookup by default
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2
-    assert len(set(artifacts)) == len(hashes)
+    assert len({artifact.uid for artifact in artifacts}) == len(hashes)
     if is_in_registered_storage:
         assert all(artifact._state.adding for artifact in artifacts)
     else:
