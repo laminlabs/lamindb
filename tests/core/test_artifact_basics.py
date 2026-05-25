@@ -355,7 +355,8 @@ def test_existing_storage_path_skips_hash_lookup_by_default(tmp_path):
     assert artifact_2.hash == artifact_1.hash
 
     artifact_2.save()
-    assert artifact_2.id != artifact_1.id
+    # save() resolves same key+hash collisions to the persisted record
+    assert artifact_2.id == artifact_1.id
 
     artifact_2.delete(permanent=True, storage=False)
     artifact_1.delete(permanent=True, storage=False)
@@ -465,7 +466,9 @@ def test_create_from_path_folder(get_test_filepaths, key):
     assert artifact2.description == "something"
     artifact2.save()
     if is_in_registered_storage:
-        assert artifact1.id != artifact2.id
+        # init skips hash lookup by default, but save() still resolves same
+        # storage+key+hash to the persisted record.
+        assert artifact1.id == artifact2.id
 
     # now put another file in the test directory
 

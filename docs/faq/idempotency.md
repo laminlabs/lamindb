@@ -127,13 +127,9 @@ If you save it again, nothing will happen (the operation is idempotent):
 artifact2.save()
 ```
 
-For a path that already exists in registered storage, a new artifact is created by default:
-
-```python
-registered_path = artifact.path
-artifact4 = ln.Artifact(registered_path).save()
-assert artifact4.id != artifact.id
-```
+For paths that already live in a registered storage location, `Artifact()`
+skips hash lookup by default during initialization. You can override this with
+`hash_lookup="check"` to force hash lookup or `hash_lookup="skip"` to always skip it.
 
 In the hidden cell below, you'll see how this interplays with data lineage.
 
