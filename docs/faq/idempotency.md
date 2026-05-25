@@ -115,9 +115,10 @@ artifact2 = ln.Artifact(filepath, key="my_fcs_file.fcs")
 
 It gives us the existing object:
 
-This behavior applies when data is written into managed storage; for paths that
-already live in a registered storage location, hash lookup is skipped by default
-unless you pass `skip_hash_lookup=False`.
+This behavior is the default when `skip_hash_lookup=None` (the default setting):
+for data written into managed storage, LaminDB performs hash lookup; for paths
+already in a registered storage location, hash lookup is skipped unless you pass
+`skip_hash_lookup=False`.
 
 ```python
 assert artifact.id == artifact2.id
@@ -130,10 +131,6 @@ If you save it again, nothing will happen (the operation is idempotent):
 ```python
 artifact2.save()
 ```
-
-For paths that already live in a registered storage location, `Artifact()`
-skips hash lookup by default during initialization. You can override this with
-`skip_hash_lookup=False` to force hash lookup or `skip_hash_lookup=True` to always skip it.
 
 In the hidden cell below, you'll see how this interplays with data lineage.
 
