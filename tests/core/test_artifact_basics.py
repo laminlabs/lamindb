@@ -433,7 +433,9 @@ def test_skip_hash_lookup_true_on_upload_same_key_resolves_collision_on_save(tmp
     assert artifact_2._state.adding
     assert artifact_2.uid != artifact_1.uid
 
-    # On save(), (storage, key, hash) uniqueness resolves to the persisted record.
+    # On save(), (storage, key, hash) uniqueness resolves to the persisted record
+    # in SQLRecord.save() (lamindb/models/sqlrecord.py), which calls
+    # init_self_from_db(self, pre_existing_record) on hash/key collision.
     artifact_2.save()
     assert artifact_2.id == artifact_1.id
     assert artifact_2.uid == artifact_1.uid
