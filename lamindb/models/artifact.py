@@ -540,11 +540,10 @@ def get_artifact_kwargs_from_data(
         # For paths already in registered storage, default mode registers in place
         # and skips hash lookup.
         effective_skip_hash_lookup = use_existing_storage_key
-    elif isinstance(skip_hash_lookup, bool):
+    else:
         # Explicit override: True skips hash lookup, False forces hash lookup.
         effective_skip_hash_lookup = skip_hash_lookup
-    else:
-        raise ValueError("`skip_hash_lookup` must be one of: True, False, or None.")
+
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         storage=storage,
@@ -1681,8 +1680,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
-        if skip_hash_lookup is not None and not isinstance(skip_hash_lookup, bool):
-            raise ValueError("`skip_hash_lookup` must be one of: True, False, or None.")
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
 
