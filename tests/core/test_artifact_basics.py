@@ -340,6 +340,109 @@ def test_create_from_empty_files_skips_hash_lookup(tmp_path):
     artifact_1.delete(permanent=True)
 
 
+def test_existing_storage_path_skips_hash_lookup_by_default(tmp_path):
+    storage_root = tmp_path / "registered-storage"
+    storage_root.mkdir()
+    filepath_1 = storage_root / "existing-1.txt"
+    filepath_2 = storage_root / "existing-2.txt"
+    filepath_1.write_text("same-content")
+    filepath_2.write_text("same-content")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+
+    artifact_1 = ln.Artifact(filepath_1).save()
+    artifact_2 = ln.Artifact(filepath_2, description="register sibling file")
+
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+    assert artifact_2.hash == artifact_1.hash
+
+    artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+    assert artifact_2.key != artifact_1.key
+
+    artifact_2.delete(permanent=True, storage=True)
+    artifact_1.delete(permanent=True, storage=True)
+    storage.delete()
+
+
+def test_upload_checks_hash_by_default(tmp_path):
+    filepath = tmp_path / "uploaded.txt"
+    filepath.write_text("uploaded-content")
+
+    artifact_1 = ln.Artifact(filepath, key="uploads/uploaded.txt").save()
+    artifact_2 = ln.Artifact(filepath)
+
+    assert not artifact_2._state.adding
+    assert artifact_2.id == artifact_1.id
+    assert artifact_2.uid == artifact_1.uid
+
+    artifact_1.delete(permanent=True)
+
+
+def test_existing_storage_can_force_hash_lookup(tmp_path):
+    storage_root = tmp_path / "registered-storage-check"
+    storage_root.mkdir()
+    filepath = storage_root / "existing.txt"
+    filepath.write_text("same-content")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+
+    artifact_1 = ln.Artifact(filepath).save()
+    artifact_2 = ln.Artifact(filepath, skip_hash_lookup=False)
+
+    assert not artifact_2._state.adding
+    assert artifact_2.id == artifact_1.id
+
+    artifact_1.delete(permanent=True, storage=False)
+    storage.delete()
+
+
+def test_skip_hash_lookup_true_on_upload_creates_new_artifact(tmp_path):
+    filepath = tmp_path / "skip-true.txt"
+    filepath.write_text("skip-true")
+
+    # Use different keys: with the same key, save() resolves a (storage, key, hash)
+    # collision back to the existing persisted artifact.
+    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true-a.txt").save()
+    artifact_2 = ln.Artifact(
+        filepath,
+        key="uploads/skip-true-b.txt",
+        skip_hash_lookup=True,
+    )
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+    artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+    assert artifact_2.hash == artifact_1.hash
+    assert artifact_2.key != artifact_1.key
+
+    artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
+
+
+def test_skip_hash_lookup_true_on_upload_same_key_resolves_collision_on_save(tmp_path):
+    filepath = tmp_path / "skip-true-same-key.txt"
+    filepath.write_text("skip-true")
+
+    artifact_1 = ln.Artifact(filepath, key="uploads/skip-true-same-key.txt").save()
+    artifact_2 = ln.Artifact(
+        filepath,
+        key="uploads/skip-true-same-key.txt",
+        skip_hash_lookup=True,
+    )
+    # Constructor still creates a new unsaved object when hash lookup is skipped.
+    assert artifact_2._state.adding
+    assert artifact_2.uid != artifact_1.uid
+
+    # On save(), (storage, key, hash) uniqueness resolves to the persisted record
+    # in SQLRecord.save() (lamindb/models/sqlrecord.py), which calls
+    # init_self_from_db(self, pre_existing_record) on hash/key collision.
+    artifact_2.save()
+    assert artifact_2.id == artifact_1.id
+    assert artifact_2.uid == artifact_1.uid
+
+    artifact_1.delete(permanent=True)
+
+
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_create_from_path_folder(get_test_filepaths, key):
     # get variables from fixture
@@ -380,12 +483,21 @@ def test_create_from_path_folder(get_test_filepaths, key):
 
     # run tests on re-creating the Artifact
     artifact2 = ln.Artifact(test_dirpath, key=key, description="something")
-    assert not artifact2._state.adding
-    assert artifact1.id == artifact2.id
-    assert artifact1.uid == artifact2.uid
+    if is_in_registered_storage:
+        assert artifact2._state.adding
+        assert artifact1.uid != artifact2.uid
+    else:
+        assert not artifact2._state.adding
+        assert artifact1.id == artifact2.id
+        assert artifact1.uid == artifact2.uid
     assert artifact1.storage == artifact2.storage
     assert artifact2.path.exists()
     assert artifact2.description == "something"
+    artifact2.save()
+    if is_in_registered_storage:
+        # init skips hash lookup by default, but save() still resolves same
+        # storage+key+hash to the persisted record.
+        assert artifact1.id == artifact2.id
 
     # now put another file in the test directory
 
@@ -487,10 +599,14 @@ def test_from_dir(get_test_filepaths, key):
     ln.UPath(test_dirpath).view_tree()
     # now save
     artifacts.save()
-    # now run again, because now we'll have hash-based lookup!
+    # now run again; in existing storage this should skip hash lookup by default
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2
-    assert len(set(artifacts)) == len(hashes)
+    assert len({artifact.uid for artifact in artifacts}) == len(hashes)
+    if is_in_registered_storage:
+        assert all(artifact._state.adding for artifact in artifacts)
+    else:
+        assert all(not artifact._state.adding for artifact in artifacts)
     queried_artifacts = ln.Artifact.filter(uid__in=uids)
     for artifact in queried_artifacts:
         artifact.delete(permanent=True, storage=False)
@@ -1066,9 +1182,13 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
     Path("./default_storage_unit_core/test_file.txt").rename(
         "./default_storage_unit_core/moved_file.txt"
     )
-    ln.Artifact("./default_storage_unit_core/moved_file.txt").save()
-    assert "updating previous key" in ccaplog.text
-    artifact.delete(permanent=True, storage=True)
+    moved_artifact = ln.Artifact("./default_storage_unit_core/moved_file.txt").save()
+    # existing-storage paths skip hash lookup by default; moving the file should
+    # create a new record instead of updating the old key in-place
+    assert moved_artifact.uid != artifact.uid
+    assert "updating previous key" not in ccaplog.text
+    moved_artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=False)
 
 
 # -------------------------------------------------------------------------------------

@@ -16,7 +16,10 @@ If you set {attr}`~lamindb.core.subsettings.CreationSettings.search_names` to `F
 
 :::{admonition} Artifacts & collections
 
-If you instantiate {class}`~lamindb.Artifact` from data that already exists as an artifact, the `Artifact()` constructor returns the existing artifact based on a hash lookup.
+If you instantiate {class}`~lamindb.Artifact` from data that will be written into a managed storage,
+the `Artifact()` constructor returns the existing artifact based on a hash lookup.
+For paths that already live in a registered storage location, hash lookup is skipped by default.
+You can override this via `skip_hash_lookup=False` (or force skipping via `skip_hash_lookup=True`).
 
 :::
 
@@ -111,6 +114,11 @@ artifact2 = ln.Artifact(filepath, key="my_fcs_file.fcs")
 ```
 
 It gives us the existing object:
+
+This behavior is the default when `skip_hash_lookup=None` (the default setting):
+for data written into managed storage, LaminDB performs hash lookup; for paths
+already in a registered storage location, hash lookup is skipped unless you pass
+`skip_hash_lookup=False`.
 
 ```python
 assert artifact.id == artifact2.id

@@ -506,7 +506,7 @@ def get_artifact_kwargs_from_data(
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
-    skip_hash_lookup: bool = False,
+    skip_hash_lookup: bool | None = None,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
     skip_key_revises_lookup: bool = False,
@@ -536,13 +536,21 @@ def get_artifact_kwargs_from_data(
         check_path_in_storage = True
     else:
         storage = storage
+    if skip_hash_lookup is None:
+        # For paths already in registered storage, default mode registers in place
+        # and skips hash lookup.
+        effective_skip_hash_lookup = use_existing_storage_key
+    else:
+        # Explicit override: True skips hash lookup, False forces hash lookup.
+        effective_skip_hash_lookup = skip_hash_lookup
+
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         storage=storage,
         key=key,
         instance=using_key,
         is_replace=is_replace,
-        skip_hash_lookup=skip_hash_lookup,
+        skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
     )
     if not isinstance(path, LocalPathClasses):
@@ -1174,7 +1182,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
-        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
+        skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
+            If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
+            If `True`, always skips hash lookup.
+            If `False`, always attempts hash lookup.
             Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
         key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
             If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
@@ -1294,7 +1305,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     .. dropdown:: Will artifacts get duplicated?
 
         If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
-        Exception: empty files are not deduplicated by hash and create a new artifact.
+        Exception: paths that already live in a registered storage location and empty files skip hash deduplication by default.
 
         In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
         detects the duplication and will return the existing artifact.
@@ -1621,7 +1632,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
-        skip_hash_lookup: bool = False,
+        skip_hash_lookup: bool | None = None,
         key_is_virtual: bool | None = None,
     ): ...
 
@@ -1668,7 +1679,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
-        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
+        skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
 
@@ -1899,7 +1910,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )  # noqa: S101
                 else:
                     logger.warning(
-                        f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the artifact"
+                        f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup=True if you want to duplicate the artifact"
                     )
             update_attributes(self, attr_to_update)
             # an existing artifact might have an imcomplete upload and hence we should
