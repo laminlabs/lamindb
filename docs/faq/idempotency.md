@@ -16,7 +16,7 @@ If you set {attr}`~lamindb.core.subsettings.CreationSettings.search_names` to `F
 
 :::{admonition} Artifacts & collections
 
-If you instantiate {class}`~lamindb.Artifact` from data that is written into a storage location,
+If you instantiate {class}`~lamindb.Artifact` from data that will be written into a managed storage,
 the `Artifact()` constructor returns the existing artifact based on a hash lookup.
 For paths that already live in a registered storage location, hash lookup is skipped by default.
 You can override this via `skip_hash_lookup=False` (or force skipping via `skip_hash_lookup=True`).
