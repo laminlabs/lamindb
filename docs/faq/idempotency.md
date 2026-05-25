@@ -115,6 +115,10 @@ artifact2 = ln.Artifact(filepath, key="my_fcs_file.fcs")
 
 It gives us the existing object:
 
+This behavior applies when data is written into managed storage; for paths that
+already live in a registered storage location, hash lookup is skipped by default
+unless you pass `skip_hash_lookup=False`.
+
 ```python
 assert artifact.id == artifact2.id
 assert artifact.run == artifact2.run
