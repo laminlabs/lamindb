@@ -354,13 +354,33 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 "Soft delete is not possible for Storage, "
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
-        assert not self.artifacts.exists(), (
-            "Cannot delete storage with artifacts in current instance."
-        )  # noqa: S101
-        # the simple case of a read-only storage location
-        if self.instance_uid != setup_settings.instance.uid:
-            super(SQLRecord, self).delete()
-            return None
+
+        is_managed_by_current_instance = (
+            self.instance_uid == setup_settings.instance.uid
+        )
+        is_empty_storage = not self.artifacts.exists()
+        if is_empty_storage:
+            if not is_managed_by_current_instance:
+                # the simple case of a read-only storage location without artifacts
+                super(SQLRecord, self).delete()
+                return None
+        else:
+            if enforce_empty:
+                raise ValueError(
+                    "Cannot delete storage with artifacts when 'enforce_empty=True'."
+                )
+            if is_managed_by_current_instance:
+                logger.important(
+                    "cannot delete managed storage because it has artifacts, making it non-managed"
+                )
+                self.instance_uid = None
+                self.save()
+            else:
+                logger.important(
+                    "cannot delete non-managed storage because it has artifacts"
+                )
+                return None
+
         # now the complicated case of a written/managed storage location
         root = self.root
         assert setup_settings.storage.root_as_str != root, (  # noqa: S101
@@ -380,7 +400,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             delete_storage_record(storage_record)
         else:
             _check_cleanup_storage(ssettings, enforce_empty)
-        super(SQLRecord, self).delete()
+
+        if is_empty_storage:
+            super(SQLRecord, self).delete()
 
 
 def _check_cleanup_storage(ssettings: StorageSettings, enforce_empty: bool = True):

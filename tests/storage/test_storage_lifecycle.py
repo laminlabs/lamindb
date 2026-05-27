@@ -51,9 +51,12 @@ def test_switch_delete_storage_location():
     assert new_storage.root in artifact.path.as_posix()
 
     # artifacts exist
-    with pytest.raises(AssertionError) as err:
+    with pytest.raises(ValueError) as err:
         new_storage.delete()
-    assert "Cannot delete storage with artifacts in current instance." in err.exconly()
+    assert (
+        "Cannot delete storage with artifacts when 'enforce_empty=True'."
+        in err.exconly()
+    )
 
     artifact.delete(permanent=True, storage=False)
 
