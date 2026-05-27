@@ -347,3 +347,30 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feature_data_id.delete(permanent=True)
+
+
+def test_record_export_reuses_legacy_transform_uid(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+    legacy_transform = ln.Transform(
+        key="__lamindb_record_export__",
+        kind="function",
+    )
+    legacy_transform.uid = "LeGaCyUid1230000"
+    legacy_transform = legacy_transform.save()
+
+    artifact = sample_sheet.to_artifact()
+    try:
+        legacy_transform_reloaded = ln.Transform.get(id=legacy_transform.id)
+        assert artifact.transform.uid == "v6KpQx9mRt2B0000"
+        assert artifact.transform.id == legacy_transform.id
+        assert legacy_transform_reloaded.uid == "v6KpQx9mRt2B0000"
+        assert (
+            ln.Transform.filter(
+                key="__lamindb_record_export__", kind="function"
+            ).count()
+            == 1
+        )
+    finally:
+        artifact.delete(permanent=True)
