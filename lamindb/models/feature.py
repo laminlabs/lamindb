@@ -706,7 +706,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
+        cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
 
     See Also:
         :class:`~lamindb.Schema`
@@ -807,13 +807,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             cat_filters={"schema": schema},
         ).save()
 
-        # restrict records to sheet objects with a shared sample_schema
+        # restrict records to sheets with a shared schema and type
         sample_type = ln.Record.get(name="Samples")
-        sample_schema = ln.Schema.get(name="sampleschema")
+        schema = ln.Schema.get(name="my_sample_schema")
         ln.Feature(
             name="samplesheet",
-            dtype=sample_type,  # sheet needs to be under sample type
-            cat_filters={"is_type": True, "schema": sample_schema},  # indicates sheet
+            dtype=sample_type,
+            cat_filters={"is_type": True, "schema": schema},
         ).save()
 
     A feature accepting multiple categorical types - a union type::
@@ -1107,7 +1107,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
-        cat_filters: dict[str, str] | None = None,
+        cat_filters: dict[str, SQLRecord | bool | str] | None = None,
     ): ...
 
     @overload
@@ -1177,9 +1177,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             # Validate filter values and BaseSQLRecord attributes
             for filter_key, filter_value in cat_filters.items():
-                if not filter_value or (
-                    isinstance(filter_value, str) and not filter_value.strip()
-                ):
+                if filter_value is None:
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                if isinstance(filter_value, str) and not filter_value.strip():
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                if not isinstance(filter_value, bool) and not filter_value:
                     raise ValidationError(f"Empty value in filter {filter_key}")
                 # Check record attributes for relation lookups
                 if isinstance(filter_value, BaseSQLRecord) and "__" in filter_key:
@@ -1227,6 +1229,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ):
                 shorthand_type_uid = str(cat_filters.pop("type__uid"))
 
+            # TODO(major release): Revisit quoting semantics for serialized
+            # cat_filters expressions (e.g., bools currently serialize as
+            # "is_type='True'"). Changing this requires a broader refactor of
+            # expression format/parsing and a design pass for compatible
+            # filter expression semantics with a data migration.
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
