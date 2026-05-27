@@ -1229,6 +1229,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ):
                 shorthand_type_uid = str(cat_filters.pop("type__uid"))
 
+            # TODO(major release): Revisit quoting semantics for serialized
+            # cat_filters expressions (e.g., bools currently serialize as
+            # "is_type='True'"). Changing this requires a broader refactor of
+            # expression format/parsing and a design pass for compatible
+            # filter expression semantics with a data migration.
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
