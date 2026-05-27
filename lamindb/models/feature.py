@@ -807,13 +807,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             cat_filters={"schema": schema},
         ).save()
 
-        # restrict records to sheet objects with a shared sample_schema
+        # restrict records to sheets with a shared schema and type
         sample_type = ln.Record.get(name="Samples")
-        sample_schema = ln.Schema.get(name="sampleschema")
+        schema = ln.Schema.get(name="my_sample_schema")
         ln.Feature(
             name="samplesheet",
-            dtype=sample_type,  # sheet needs to be under sample type
-            cat_filters={"is_type": True, "schema": sample_schema},  # indicates sheet
+            dtype=sample_type,
+            cat_filters={"is_type": True, "schema": schema},
         ).save()
 
     A feature accepting multiple categorical types - a union type::
