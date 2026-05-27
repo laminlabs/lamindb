@@ -364,24 +364,43 @@ def test_cat_filters_artifact_schema_filter():
     schema_feature.delete(permanent=True)
 
 
-def test_cat_filters_record_type_is_type_and_schema_filters():
+@pytest.mark.parametrize("is_type_value", [True, False])
+@pytest.mark.parametrize(
+    "use_typed_dtype", [False, True], ids=["record-dtype", "typed-dtype"]
+)
+def test_cat_filters_multiple_filters_on_record(
+    is_type_value: bool, use_typed_dtype: bool
+):
     schema_feature = ln.Feature(name="record_schema_filter_column", dtype=str).save()
     schema = ln.Schema(
         name="record_schema_filter_schema", features=[schema_feature]
     ).save()
     sample_type = ln.Record(name="Samples", is_type=True).save()
+    if use_typed_dtype:
+        dtype = ln.Record.get(name="Samples")
+        cat_filters = {
+            "is_type": is_type_value,
+            "schema": ln.Schema.get(name="record_schema_filter_schema"),
+        }
+    else:
+        dtype = ln.Record
+        cat_filters = {"type": sample_type, "is_type": is_type_value, "schema": schema}
     feature = ln.Feature(
         name="samplesheet",
-        dtype=ln.Record,
-        cat_filters={"type": sample_type, "is_type": True, "schema": schema},
+        dtype=dtype,
+        cat_filters=cat_filters,
     )
+    is_type_str = str(is_type_value)
     assert (
         feature._dtype_str
-        == f"cat[Record[{sample_type.uid}, is_type='True', schema__uid='{schema.uid}']]"
+        == f"cat[Record[{sample_type.uid}, is_type='{is_type_str}', schema__uid='{schema.uid}']]"
     )
     result = parse_dtype(feature._dtype_str)
     assert result[0]["type_uid"] == sample_type.uid
-    assert result[0]["filter_str"] == f"is_type='True', schema__uid='{schema.uid}'"
+    assert (
+        result[0]["filter_str"]
+        == f"is_type='{is_type_str}', schema__uid='{schema.uid}'"
+    )
     schema.delete(permanent=True)
     schema_feature.delete(permanent=True)
     sample_type.delete(permanent=True)

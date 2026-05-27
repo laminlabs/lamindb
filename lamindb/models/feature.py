@@ -706,7 +706,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
+        cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
 
     See Also:
         :class:`~lamindb.Schema`
@@ -1107,7 +1107,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
-        cat_filters: dict[str, str] | None = None,
+        cat_filters: dict[str, SQLRecord | bool | str] | None = None,
     ): ...
 
     @overload
@@ -1177,9 +1177,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             # Validate filter values and BaseSQLRecord attributes
             for filter_key, filter_value in cat_filters.items():
-                if not filter_value or (
-                    isinstance(filter_value, str) and not filter_value.strip()
-                ):
+                if filter_value is None:
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                if isinstance(filter_value, str) and not filter_value.strip():
+                    raise ValidationError(f"Empty value in filter {filter_key}")
+                if not isinstance(filter_value, bool) and not filter_value:
                     raise ValidationError(f"Empty value in filter {filter_key}")
                 # Check record attributes for relation lookups
                 if isinstance(filter_value, BaseSQLRecord) and "__" in filter_key:
