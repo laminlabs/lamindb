@@ -2,20 +2,20 @@
 
 # LaminDB - Open-source data lakehouse for biology
 
-LaminDB allows you to query, trace, and validate datasets and models at scale while feeling as simple as a file system.
-You get context & memory through data lineage and support for bio-formats, registries & ontologies.
+LaminDB allows you to query, trace, and validate thousands of datasets in arbitrary storage formats.
+For example, you'll know where any dataset came from, including all processing steps.
+Through pre-defined high-level APIs and schemas, LaminDB makes it particularly easy to work with bio-formats, registries & ontologies.
 
 Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 
 <details>
 <summary>Why?</summary>
 
-(1) Without context on how data comes about,
-analysts easily make wrong assumptions and feedback loops with data generation can't be closed.
-Without the memory provided by data lineage, compute & intelligence often get wasted on fragmented, non-compounding tasks.
+We ran comp bio, comp chem,and ML engineering teams in BioTech and struggled with two main problems:
 
-(2) Applying models to thousands of datasets — across LIMS, ELNs, orthogonal assays — is a path to more informed R&D.
-But if data is unqueryable, unvalidated, or locked in infrastructure silos, this leads to 'garbage in, garbage out' — or makes the process entirely impossible.
+(1) We made wrong assumptions about experimental design and couldn't close the feedback loop with upstream systems because we didn't have the exact context on how data came about.
+
+(2) We wanted to train models on thousands of datasets — across LIMS, ELNs, orthogonal assays — and it was very difficult because querying them was difficult.
 
 While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
 
