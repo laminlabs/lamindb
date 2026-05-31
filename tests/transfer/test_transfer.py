@@ -9,5 +9,7 @@ def test_transfer():
     artifact = db1.Artifact.get(key="README.md")
     artifact.save()
     assert artifact.key == "README.md"
+    assert artifact.run is not None
+    assert artifact.run.finished_at is not None
     assert ln.setup.settings.storage.root_as_str.endswith("testdb2")
     assert artifact.storage.root.endswith("testdb1")

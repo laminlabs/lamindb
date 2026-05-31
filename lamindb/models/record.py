@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, overload
 
 import pgtrigger
@@ -36,8 +37,6 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     import pandas as pd
 
     from ._feature_manager import FeatureManager
@@ -712,6 +711,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         self._set_export_run(is_run_input=is_run_input)
         self._export_run.input_records.add(self)
+        self._export_run.finished_at = datetime.now(timezone.utc)
+        self._export_run.save()
         return df.sort_index()  # order by id
 
     def to_artifact(

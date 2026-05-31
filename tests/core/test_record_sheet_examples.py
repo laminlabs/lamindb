@@ -365,6 +365,8 @@ def test_record_export_reuses_legacy_transform_uid(
         legacy_transform_reloaded = ln.Transform.get(id=legacy_transform.id)
         assert artifact.transform.uid == "v6KpQx9mRt2B0000"
         assert artifact.transform.id == legacy_transform.id
+        assert artifact.run is not None
+        assert artifact.run.finished_at is not None
         assert legacy_transform_reloaded.uid == "v6KpQx9mRt2B0000"
         assert (
             ln.Transform.filter(

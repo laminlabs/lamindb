@@ -8,6 +8,7 @@ import re
 import shutil
 import sys
 from collections import defaultdict
+from datetime import datetime, timezone
 from itertools import chain
 from pathlib import Path
 from typing import (
@@ -78,8 +79,6 @@ from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versi
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     import pandas as pd
 
     from .block import BranchBlock, SpaceBlock
@@ -1161,7 +1160,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             artifacts = self.ordered_artifacts.to_list()
         pre_existing_record = None
         # consider records that are being transferred from other databases
-        transfer_logs: dict[str, list[str]] = {
+        transfer_logs: dict[str, list[str] | Run | None] = {
             "mapped": [],
             "transferred": [],
             "run": None,
@@ -1328,6 +1327,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self_on_db.pk = pk_on_db  # manually set the primary key
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+            if transfer_logs["run"] is not None:
+                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
                     logger.important(f"{k}: {', '.join(v)}")
