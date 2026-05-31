@@ -10,7 +10,7 @@ Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 <details>
 <summary>Why?</summary>
 
-While running comp bio, comp chem, and ML engineering teams for several years we faced two main problems:
+While running comp bio, comp chem, and ML eng teams for several years we faced two main problems:
 
 (1) We made wrong assumptions about how datasets came about because the processing steps couldn't be traced at all times.
 
@@ -35,6 +35,9 @@ How?
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
 - **change management** → branching & merging similar to git, plan management for agents
+
+Architecture?
+
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` or `install.packages('laminr')` - no docker required, no separate backend to deploy
@@ -131,12 +134,8 @@ You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite col
 To connect to an existing instance, run:
 
 ```shell
-# log into LaminHub
 lamin login
-# then either
-lamin connect account/name  # connect globally in your environment
-# or
-lamin connect --here account/name  # connect in your current development directory
+lamin connect account/name  # add flag --here to sync with current development directory
 ```
 
 If you prefer to init a new instance instead (no login required), run:
