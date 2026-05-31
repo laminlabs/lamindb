@@ -2,27 +2,23 @@
 
 # LaminDB - Open-source data lakehouse for biology
 
-LaminDB allows you to query, trace, and validate thousands of datasets in arbitrary storage formats.
-For example, you'll know where any dataset came from, including all processing steps.
-Through pre-defined high-level APIs and schemas, LaminDB makes it particularly easy to work with bio-formats, registries & ontologies.
+LaminDB allows you to query, trace, and validate millions of datasets in arbitrary storage formats.
+It makes it particularly easy to track data lineage and work with bio-formats, registries & ontologies.
 
 Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 
 <details>
 <summary>Why?</summary>
 
-We ran comp bio, comp chem,and ML engineering teams in BioTech and struggled with two main problems:
+While running comp bio, comp chem, and ML engineering teams for several years we faced two main problems:
 
-(1) We made wrong assumptions about experimental design and couldn't close the feedback loop with upstream systems because we didn't have the exact context on how data came about.
+(1) We made wrong assumptions about how datasets came about because the processing steps couldn't be traced at all times.
 
-(2) We wanted to train models on thousands of datasets — across LIMS, ELNs, orthogonal assays — and it was very difficult because querying them was difficult.
+(2) We found it difficult to train models on thousands of datasets — across storage, LIMS, ELNs, orthogonal assays - due to a lack of a unified query interface.
 
-While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
+We built LaminDB on open data standards to fix these problems by making data lineage tracking a single line of code and unifying queries for features across storage and databases.
 
 <img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
-
-LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, etc.) based on the established open data stack:
-Postgres/SQLite for metadata and cross-platform storage for datasets.
 
 Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
 
