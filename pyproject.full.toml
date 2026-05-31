@@ -34,22 +34,7 @@ fcs = [
     "readfcs>=2.0.1",
 ]
 dev = [
-    # basic test
-    "tomlkit",
-    "line_profiler",
-    "pre-commit",
-    "nox",
-    "laminci>=0.3",
-    "pytest>=6.0",
-    "coverage",
-    "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
-    "mudata",
-    # others
-    "nbproject_test>=0.6.0",
-    # biology
-    "faker-biology",
-    # bionty
-    "pronto",
+     "lamindb-core[full,dev]==2.5.0",
 ]
 
 [tool.flit.module]
