@@ -2,27 +2,23 @@
 
 # LaminDB - Open-source data lakehouse for biology
 
-LaminDB allows you to query, trace, and validate datasets and models at scale while feeling as simple as a file system.
-You get context & memory through data lineage and support for bio-formats, registries & ontologies.
+LaminDB makes it easy to query, trace, and validate millions of datasets across diverse storage formats.
+It's built on open data standards with built-in data lineage and support for bio-formats, registries & ontologies.
 
 Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 
 <details>
 <summary>Why?</summary>
 
-(1) Without context on how data comes about,
-analysts easily make wrong assumptions and feedback loops with data generation can't be closed.
-Without the memory provided by data lineage, compute & intelligence often get wasted on fragmented, non-compounding tasks.
+While running comp bio, comp chem, and ML engineering teams for several years, we faced two main problems:
 
-(2) Applying models to thousands of datasets — across LIMS, ELNs, orthogonal assays — is a path to more informed R&D.
-But if data is unqueryable, unvalidated, or locked in infrastructure silos, this leads to 'garbage in, garbage out' — or makes the process entirely impossible.
+(1) We made incorrect assumptions about how datasets were generated because their processing steps couldn't always be traced.
 
-While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
+(2) We found it difficult to train models on thousands of datasets across storage, LIMS, and ELN systems due to the lack of a unified query interface.
+
+To fix these, we reduced data lineage tracking to a single line of code and unified queries across storage and databases, scaling to millions of features.
 
 <img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
-
-LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, etc.) based on the established open data stack:
-Postgres/SQLite for metadata and cross-platform storage for datasets.
 
 Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
 
@@ -39,6 +35,9 @@ How?
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
 - **change management** → branching & merging similar to git, plan management for agents
+
+Architecture?
+
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` or `install.packages('laminr')` - no docker required, no separate backend to deploy
@@ -135,12 +134,8 @@ You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite col
 To connect to an existing instance, run:
 
 ```shell
-# log into LaminHub
 lamin login
-# then either
-lamin connect account/name  # connect globally in your environment
-# or
-lamin connect --here account/name  # connect in your current development directory
+lamin connect account/name  # add flag --here to sync with current development directory
 ```
 
 If you prefer to init a new instance instead (no login required), run:
