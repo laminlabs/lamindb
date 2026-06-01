@@ -638,12 +638,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             elif transform.uid != export_transform_uid:
                 transform.uid = export_transform_uid
                 transform.save()
-            run = Run.filter(
-                transform=transform, initiated_by_run=initiated_by_run
-            ).first()
-            if run is None:
-                run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
-                run.initiated_by_run = initiated_by_run  # available in memory
+            # Export is treated as a discrete user action, so always create a new
+            # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+            run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+            run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
         self._export_run = run
