@@ -605,40 +605,43 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if isinstance(is_run_input, Run):
             run = is_run_input
         elif is_run_input in {True, None}:
-            if context.run is None:
-                # Compatibility path for older instances:
-                # historically, "__lamindb_record_export__" transforms could have
-                # arbitrary UIDs. We now standardize on a fixed UID to make creation
-                # idempotent under concurrency and to avoid duplicate internal
-                # transforms. This follows the fixed-UID pattern already used by
-                # "save_vitessce_config" (integrations/_vitessce.py) and
-                # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
-                # After a few lamindb release cycles (once legacy UIDs are no
-                # longer expected), this normalization branch can be removed.
-                export_transform_uid = "v6KpQx9mRt2B0000"
-                transform = Transform.objects.filter(uid=export_transform_uid).first()
-                if transform is None:
-                    transform = (
-                        Transform.objects.filter(
-                            key="__lamindb_record_export__", kind="function"
-                        )
-                        .order_by("created_at")
-                        .first()
+            # If there is an active run context, link it as initiator of the
+            # internal record export run.
+            initiated_by_run = context.run
+            # Compatibility path for older instances:
+            # historically, "__lamindb_record_export__" transforms could have
+            # arbitrary UIDs. We now standardize on a fixed UID to make creation
+            # idempotent under concurrency and to avoid duplicate internal
+            # transforms. This follows the fixed-UID pattern already used by
+            # "save_vitessce_config" (integrations/_vitessce.py) and
+            # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
+            # After a few lamindb release cycles (once legacy UIDs are no
+            # longer expected), this normalization branch can be removed.
+            export_transform_uid = "v6KpQx9mRt2B0000"
+            transform = Transform.objects.filter(uid=export_transform_uid).first()
+            if transform is None:
+                transform = (
+                    Transform.objects.filter(
+                        key="__lamindb_record_export__", kind="function"
                     )
-                if transform is None:
-                    transform, _ = Transform.objects.get_or_create(
-                        uid=export_transform_uid,
-                        defaults={
-                            "key": "__lamindb_record_export__",
-                            "kind": "function",
-                        },
-                    )
-                elif transform.uid != export_transform_uid:
-                    transform.uid = export_transform_uid
-                    transform.save()
-                run = Run(transform).save()
-            else:
-                run = context.run
+                    .order_by("created_at")
+                    .first()
+                )
+            if transform is None:
+                transform, _ = Transform.objects.get_or_create(
+                    uid=export_transform_uid,
+                    defaults={
+                        "key": "__lamindb_record_export__",
+                        "kind": "function",
+                    },
+                )
+            elif transform.uid != export_transform_uid:
+                transform.uid = export_transform_uid
+                transform.save()
+            # Export is treated as a discrete user action, so always create a new
+            # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+            run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+            run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
         self._export_run = run

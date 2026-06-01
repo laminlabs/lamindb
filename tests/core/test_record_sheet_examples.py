@@ -376,3 +376,22 @@ def test_record_export_reuses_legacy_transform_uid(
         )
     finally:
         artifact.delete(permanent=True)
+
+
+def test_record_export_populates_initiated_by_run(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+    transform = ln.Transform(key="test_record_export_initiator", kind="function").save()
+    ln.track(transform=transform)
+    initiating_run = ln.context.run
+
+    artifact = sample_sheet.to_artifact()
+    try:
+        assert artifact.transform.key == "__lamindb_record_export__"
+        assert artifact.run is not None
+        assert artifact.run.initiated_by_run is not None
+        assert artifact.run.initiated_by_run.id == initiating_run.id
+    finally:
+        ln.context._run = None
+        artifact.delete(permanent=True)
