@@ -655,6 +655,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         cls_or_self,
         recurse: bool = False,
         is_run_input: bool | Run | None = None,
+        link_records_as_inputs: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -670,6 +671,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Args:
             recurse: Whether to include records of sub-types recursively.
             is_run_input: Whether to track the record as a run input.
+            link_records_as_inputs: Whether to link all exported records as
+                inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         import pandas as pd
@@ -717,9 +720,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         self._set_export_run(is_run_input=is_run_input)
-        # Link all exported records as run inputs (not the record type itself).
-        input_record_ids = qs.values_list("id", flat=True)
-        self._export_run.input_records.add(*input_record_ids)
+        if link_records_as_inputs:
+            input_record_ids = qs.values_list("id", flat=True)
+            self._export_run.input_records.add(*input_record_ids)
+        else:
+            self._export_run.input_records.add(self)
         self._export_run.finished_at = datetime.now(timezone.utc)
         self._export_run._status_code = 0  # completed
         self._export_run.save()
@@ -730,6 +735,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         key: str | None = None,
         suffix: str | None = None,
         is_run_input: bool | Run | None = None,
+        link_records_as_inputs: bool = True,
         **kwargs,
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
@@ -742,6 +748,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
             is_run_input: Whether to track the record as a run input.
+            link_records_as_inputs: Whether to link all exported records as
+                inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
         assert self.is_type, "Only types can be exported as artifacts."
@@ -751,7 +759,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
-            self.to_dataframe(is_run_input=is_run_input, **kwargs),
+            self.to_dataframe(
+                is_run_input=is_run_input,
+                link_records_as_inputs=link_records_as_inputs,
+                **kwargs,
+            ),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,

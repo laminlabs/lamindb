@@ -386,6 +386,24 @@ def test_record_export_links_all_upstream_records():
         transform_b.delete(permanent=True)
 
 
+def test_record_export_links_record_type_when_link_records_false(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+
+    sample_sheet.to_dataframe(link_records_as_inputs=False)
+    dataframe_export_run = sample_sheet.input_of_runs.get()
+    assert dataframe_export_run.input_records.count() == 1
+    assert dataframe_export_run.input_records.get().id == sample_sheet.id
+
+    artifact = sample_sheet.to_artifact(link_records_as_inputs=False)
+    try:
+        assert artifact.run.input_records.count() == 1
+        assert artifact.run.input_records.get().id == sample_sheet.id
+    finally:
+        artifact.delete(permanent=True)
+
+
 def test_record_export_reuses_legacy_transform_uid(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):
