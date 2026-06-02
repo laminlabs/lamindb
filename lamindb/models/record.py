@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, overload
 
@@ -172,8 +173,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         # reset the feature values for the record including the experiment
         sample1.features.set_values({
-            "gc_content": 0.5,
-            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+            gc_content: 0.5,
+            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records under a type to a dataframe::
@@ -190,21 +191,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
         sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
-        sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
+        sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
     Query records by features::
 
-        ln.Record.filter(gc_content=0.55)     # exact match
-        ln.Record.filter(gc_content__gt=0.5)  # greater than
+        ln.Record.filter(gc_content == 0.55)  # exact match
+        ln.Record.filter(gc_content > 0.5)    # greater than
+
+    Query records by field::
+
         ln.Record.filter(type=sample_sheet)   # just the record on the sheet
-
-    If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
-
-        # to set feature values
-        sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
-
-        # to query by feature values
-        ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
 
     Notes
     -----
@@ -654,6 +650,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def to_dataframe(
         cls_or_self,
         recurse: bool = False,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_records_as_inputs: bool = True,
         **kwargs,
@@ -668,8 +665,21 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         It will also track the record as an input to the current run.
 
+        Example:
+
+            Export all records on a sheet::
+
+                sample_sheet.to_dataframe()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_dataframe(filters=gc_content > 0.55)
+
         Args:
             recurse: Whether to include records of sub-types recursively.
+            filters: Filters applied before export. Supports filter kwargs via
+                a `dict`, Django `Q` expressions, and feature predicates
+                (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
             link_records_as_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -692,6 +702,21 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
+        if isinstance(filters, dict):
+            # Keep kwargs behavior aligned with the historic `self.records.filter(...)`
+            # semantics where fields like `name` target record fields.
+            qs = qs.filter(**filters)
+        elif filters is not None:
+            # Feature predicates are only supported through Record.filter(...).
+            qs = (
+                self.query_records()
+                if recurse
+                else self.__class__.filter(type=self, branch_id__in=branch_ids)
+            )
+            if isinstance(filters, Iterable) and not isinstance(filters, (str, bytes)):
+                qs = qs.filter(*filters)
+            else:
+                qs = qs.filter(filters)
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
@@ -734,6 +759,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self,
         key: str | None = None,
         suffix: str | None = None,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_records_as_inputs: bool = True,
         **kwargs,
@@ -744,9 +770,20 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
 
+        Example:
+
+            Export all records on a sheet to an artifact::
+
+                sample_sheet.to_artifact()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_artifact(filters=gc_content > 0.55)
+
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
             link_records_as_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -760,6 +797,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
+                filters=filters,
                 is_run_input=is_run_input,
                 link_records_as_inputs=link_records_as_inputs,
                 **kwargs,

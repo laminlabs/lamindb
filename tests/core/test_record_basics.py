@@ -16,7 +16,7 @@ def test_record_docstring_examples():
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
     # create a record to track a sample
-    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
+    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.55}).save()
 
     # describe the record
     sample1.describe()
@@ -41,8 +41,8 @@ def test_record_docstring_examples():
     # reset the feature values for the record including the experiment
     sample1.features.set_values(
         {
-            "gc_content": 0.5,
-            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+            gc_content: 0.55,
+            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         }
     )
 
@@ -50,17 +50,30 @@ def test_record_docstring_examples():
     df = experiment_type.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
+    # Import records from a dataframe
+    records = ln.Record.from_dataframe(
+        pd.DataFrame({"gc_content": [0.1, 0.2]}),
+        type="my_df",
+    ).save()
+    assert len(records) == 2
+
     # If you try to set incomplete features in a record in a sheet, you'll get a validation error
     sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
     with pytest.raises(ln.errors.ValidationError):
         sample2.features.set_values({"gc_content": 0.6})
 
     # Query records by features
-    assert ln.Record.filter(gc_content=0.5).one() == sample1
-    assert ln.Record.filter(gc_content__gt=0.4).one() == sample1
+    assert ln.Record.filter(gc_content == 0.55).one() == sample1
+    assert ln.Record.filter(gc_content > 0.5).one() == sample1
     assert ln.Record.filter(type=sample_sheet).count() >= 1
 
     # Clean up
+    my_df_type = ln.Record.filter(name="my_df", is_type=True).one()
+    my_df_schema = my_df_type.schema
+    ln.Record.filter(type=my_df_type).delete(permanent=True)
+    my_df_type.delete(permanent=True)
+    if my_df_schema is not None:
+        my_df_schema.delete(permanent=True)
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
     experiment1.delete(permanent=True)
