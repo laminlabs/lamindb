@@ -430,7 +430,7 @@ class Run(SQLRecord, TracksUpdates):
             raise ValueError("Please save transform record before creating a run")
         if status not in {"scheduled", "started"}:
             raise ValueError(
-                f"status must be 'scheduled' or 'started', but you passed: {status!r}"
+                f"status must be 'scheduled' or 'started', but you passed: {status!r}."
             )
         if not len(kwargs) == 0:
             raise ValueError(
