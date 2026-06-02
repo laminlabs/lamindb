@@ -688,14 +688,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         import pandas as pd
 
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).to_dataframe(
-                cls_or_self,
-                recurse=recurse,
-                filters=filters,
-                is_run_input=is_run_input,
-                link_records_as_inputs=link_records_as_inputs,
-                **kwargs,
-            )  # type: ignore
+            return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
         if not cls_or_self.is_type:
             raise TypeError(
                 "to_dataframe() can only be called on the class or on record type instance."
