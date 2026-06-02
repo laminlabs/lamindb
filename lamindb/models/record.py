@@ -665,6 +665,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         It will also track the record as an input to the current run.
 
+        Example:
+
+            Export all records on a sheet::
+
+                sample_sheet.to_dataframe()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_dataframe(filters=gc_content > 0.55)
+
         Args:
             recurse: Whether to include records of sub-types recursively.
             filters: Filters applied before export. Supports filter kwargs via
@@ -760,6 +770,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The format defaults to `.csv` unless the key specifies another format or suffix is passed.
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
+
+        Example:
+
+            Export all records on a sheet to an artifact::
+
+                sample_sheet.to_artifact()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_artifact(filters=gc_content > 0.55)
 
         Args:
             key: `str | None = None` The artifact key.
