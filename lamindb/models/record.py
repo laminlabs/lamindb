@@ -640,7 +640,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 transform.save()
             # Export is treated as a discrete user action, so always create a new
             # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
-            run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+            run = Run(
+                transform=transform,
+                initiated_by_run=initiated_by_run,
+                status="started",
+            ).save()  # type: ignore
             run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
@@ -715,6 +719,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self._set_export_run(is_run_input=is_run_input)
         self._export_run.input_records.add(self)
         self._export_run.finished_at = datetime.now(timezone.utc)
+        self._export_run._status_code = 0  # completed
         self._export_run.save()
         return df.sort_index()  # order by id
 

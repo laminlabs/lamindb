@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING, Literal, overload
 
 from django.db import models
 from django.db.models import (
@@ -25,7 +25,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
-from ..base.types import RUN_CODE_TO_STATUS
+from ..base.types import RUN_CODE_TO_STATUS, RUN_STATUS_TO_CODE
 from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .query_set import BasicQuerySet, QuerySet
@@ -188,10 +188,16 @@ class Run(SQLRecord, TracksUpdates):
     Args:
         transform: :class:`~lamindb.Transform` A data transformation object.
         name: `str | None = None` A name.
+        description: `str | None = None` An optional description.
+        entrypoint: `str | None = None` The entrypoint of the transform, e.g. a function name or CLI entry point.
         params: `dict | None = None` A dictionary of parameters.
+        status: `Literal["scheduled", "started"] = "scheduled"` Run status at creation.
+            The `started_at` timestamp is populated via database default upon creation,
+            even if status is `"scheduled"`.
+        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
         reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
-        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
+        plan: `Artifact | None = None` The (agent) plan for this run.
 
     See Also:
         :func:`~lamindb.track`
@@ -381,9 +387,10 @@ class Run(SQLRecord, TracksUpdates):
         description: str | None = None,
         entrypoint: str | None = None,
         params: dict | None = None,
+        status: Literal["scheduled", "started"] = "scheduled",
+        initiated_by_run: Run | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
-        initiated_by_run: Run | None = None,
         plan: Artifact | None = None,
     ): ...
 
@@ -416,14 +423,21 @@ class Run(SQLRecord, TracksUpdates):
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
         report: Artifact | None = kwargs.pop("report", None)
         plan: Artifact | None = kwargs.pop("plan", None)
+        status: Literal["scheduled", "started"] = kwargs.pop("status", "scheduled")
         if transform is None:
             raise TypeError("Pass transform parameter")
         if transform._state.adding:
             raise ValueError("Please save transform record before creating a run")
+        if status not in {"scheduled", "started"}:
+            raise ValueError(
+                f"status must be 'scheduled' or 'started', but you passed: {status!r}."
+            )
         if not len(kwargs) == 0:
             raise ValueError(
-                f"Only transform, name, description, params, reference, reference_type, initiated_by_run, plan can be passed, but you passed: {kwargs}"
+                f"Only transform, name, description, params, reference, reference_type, initiated_by_run, plan, status can be passed, but you passed: {kwargs}"
             )
+        # started_at is set on insert by the database (db_default=Now()), independent
+        # of status. Mark completion with _status_code = 0 alongside finished_at.
         super().__init__(  # type: ignore
             transform=transform,
             name=name,
@@ -435,6 +449,7 @@ class Run(SQLRecord, TracksUpdates):
             initiated_by_run=initiated_by_run,
             report=report,
             plan=plan,
+            _status_code=RUN_STATUS_TO_CODE[status],
         )
 
     @property

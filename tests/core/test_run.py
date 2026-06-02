@@ -19,8 +19,16 @@ def test_run():
         == "ValueError: Please save transform record before creating a run"
     )
     transform.save()
+    with pytest.raises(ValueError) as error:
+        ln.Run(transform, status="invalid")
+    assert (
+        error.exconly()
+        == "ValueError: status must be 'scheduled' or 'started', but you passed: 'invalid'."
+    )
     run = ln.Run(transform).save()
     assert run.status == "scheduled"
+    started_run = ln.Run(transform, status="started").save()
+    assert started_run.status == "started"
     assert run.reference is None
     assert run.reference_type is None
     run2 = ln.Run(transform, reference="test1", reference_type="test2").save()
