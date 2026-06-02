@@ -404,12 +404,12 @@ def test_record_export_links_record_type_when_link_records_false(
         artifact.delete(permanent=True)
 
 
-def test_record_export_applies_filters(
-    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
-):
-    _, sample_sheet = populate_sheets_compound_treatment
-    filtered_df = sample_sheet.to_dataframe(filters={"name": "sample1"})
+def test_record_export_applies_filters():
+    sample_sheet = ln.Record(name="FilterSheet", is_type=True).save()
+    sample1 = ln.Record(name="sample1", type=sample_sheet).save()
+    sample2 = ln.Record(name="sample2", type=sample_sheet).save()
 
+    filtered_df = sample_sheet.to_dataframe(filters={"name": "sample1"})
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
 
@@ -426,6 +426,9 @@ def test_record_export_applies_filters(
         assert artifact.run.input_records.get().name == "sample1"
     finally:
         artifact.delete(permanent=True)
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
 
 
 def test_record_export_applies_feature_predicate_filters():

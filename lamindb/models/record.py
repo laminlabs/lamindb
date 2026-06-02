@@ -697,27 +697,26 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
 
         branch_ids = get_default_branch_ids()
-        default_qs = (
+        qs = (
             self.query_records()
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
-        if filters is None:
-            qs = default_qs
-        elif isinstance(filters, dict):
+        if isinstance(filters, dict):
             # Keep kwargs behavior aligned with the historic `self.records.filter(...)`
             # semantics where fields like `name` target record fields.
-            qs = default_qs.filter(**filters)
-        else:
-            expr_qs = (
+            qs = qs.filter(**filters)
+        elif filters is not None:
+            # Feature predicates are only supported through Record.filter(...).
+            qs = (
                 self.query_records()
                 if recurse
                 else self.__class__.filter(type=self, branch_id__in=branch_ids)
             )
             if isinstance(filters, Iterable) and not isinstance(filters, (str, bytes)):
-                qs = expr_qs.filter(*filters)
+                qs = qs.filter(*filters)
             else:
-                qs = expr_qs.filter(filters)
+                qs = qs.filter(filters)
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
