@@ -56,8 +56,8 @@ def test_record_docstring_examples():
         sample2.features.set_values({"gc_content": 0.6})
 
     # Query records by features
-    assert ln.Record.filter(gc_content=0.5).one() == sample1
-    assert ln.Record.filter(gc_content__gt=0.4).one() == sample1
+    assert ln.Record.filter(gc_content == 0.5).one() == sample1
+    assert ln.Record.filter(gc_content > 0.4).one() == sample1
     assert ln.Record.filter(type=sample_sheet).count() >= 1
 
     # Clean up

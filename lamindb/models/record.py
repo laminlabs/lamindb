@@ -195,8 +195,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Query records by features::
 
-        ln.Record.filter(gc_content=0.55)     # exact match
-        ln.Record.filter(gc_content__gt=0.5)  # greater than
+        ln.Record.filter(gc_content == 0.55)  # exact match
+        ln.Record.filter(gc_content > 0.5)    # greater than
 
     Query records by field::
 
