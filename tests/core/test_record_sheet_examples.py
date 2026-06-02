@@ -101,7 +101,7 @@ def test_record_example_compound_treatment(
 
     assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
-    assert sample_sheet1.input_of_runs.count() == 1
+    assert sample_sheet1.input_of_runs.count() == 0
     assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
         [
@@ -146,7 +146,7 @@ def test_record_example_compound_treatment(
         "preparation_date",
         "project",
     ]
-    assert artifact.run.input_records.count() == 1
+    assert artifact.run.input_records.count() == 2
     assert artifact.transform.kind == "function"
     assert artifact.transform.key == "__lamindb_record_export__"
     assert artifact.run.status == "completed"
@@ -350,6 +350,58 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feature_data_id.delete(permanent=True)
+
+
+def test_record_export_links_all_upstream_records():
+    sheet = ln.Record(name="Run-linked sheet", is_type=True).save()
+    record_a = ln.Record(name="record_a", type=sheet).save()
+    record_b = ln.Record(name="record_b", type=sheet).save()
+    record_c = ln.Record(name="record_c", type=sheet).save()
+
+    transform_a = ln.Transform(key="record_export_upstream_a", kind="function").save()
+    transform_b = ln.Transform(key="record_export_upstream_b", kind="function").save()
+    run_a = ln.Run(transform=transform_a, status="started").save()
+    run_b = ln.Run(transform=transform_b, status="started").save()
+
+    record_a.run = run_a
+    record_a.save()
+    record_b.run = run_a
+    record_b.save()
+    record_c.run = run_b
+    record_c.save()
+
+    artifact = sheet.to_artifact()
+    try:
+        linked_record_ids = set(artifact.run.input_records.to_list("id"))
+        assert linked_record_ids == {record_a.id, record_b.id, record_c.id}
+        linked_run_ids = {record.run_id for record in artifact.run.input_records.all()}
+        assert linked_run_ids == {run_a.id, run_b.id}
+    finally:
+        artifact.delete(permanent=True)
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        record_c.delete(permanent=True)
+        sheet.delete(permanent=True)
+        transform_a.delete(permanent=True)
+        transform_b.delete(permanent=True)
+
+
+def test_record_export_links_record_type_when_link_records_false(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+
+    sample_sheet.to_dataframe(link_records_as_inputs=False)
+    dataframe_export_run = sample_sheet.input_of_runs.get()
+    assert dataframe_export_run.input_records.count() == 1
+    assert dataframe_export_run.input_records.get().id == sample_sheet.id
+
+    artifact = sample_sheet.to_artifact(link_records_as_inputs=False)
+    try:
+        assert artifact.run.input_records.count() == 1
+        assert artifact.run.input_records.get().id == sample_sheet.id
+    finally:
+        artifact.delete(permanent=True)
 
 
 def test_record_export_reuses_legacy_transform_uid(
