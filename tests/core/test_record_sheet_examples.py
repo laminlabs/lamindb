@@ -149,6 +149,9 @@ def test_record_example_compound_treatment(
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.kind == "function"
     assert artifact.transform.key == "__lamindb_record_export__"
+    assert artifact.run.status == "completed"
+    assert artifact.run.started_at is not None
+    assert artifact.run.finished_at is not None
     # looks something like this:
     # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
@@ -367,6 +370,8 @@ def test_record_export_reuses_legacy_transform_uid(
         assert artifact.transform.id == legacy_transform.id
         assert artifact.run is not None
         assert artifact.run.finished_at is not None
+        assert artifact.run.status == "completed"
+        assert artifact.run.started_at is not None
         assert legacy_transform_reloaded.uid == "v6KpQx9mRt2B0000"
         assert (
             ln.Transform.filter(

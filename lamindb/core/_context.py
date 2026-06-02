@@ -775,13 +775,12 @@ class Context:
                 self._logging_message_track += f", re-started Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
-            run = Run(transform=self._transform, plan=plan_record)
+            run = Run(transform=self._transform, plan=plan_record, status="started")
             if entrypoint is not None:
                 run.entrypoint = entrypoint
             if initiated_by_run_record is not None:
                 run.initiated_by_run = initiated_by_run_record
             run.started_at = datetime.now(timezone.utc)
-            run._status_code = -1  # started
             entrypoint_str = (
                 f", entrypoint='{entrypoint}'" if entrypoint is not None else ""
             )

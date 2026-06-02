@@ -1329,6 +1329,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             if transfer_logs["run"] is not None:
                 transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
@@ -2222,7 +2223,11 @@ def get_transfer_run(record) -> Run:
     # it doesn't seem to make sense to create new runs for every transfer
     run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
-        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+        run = Run(
+            transform=transform,
+            initiated_by_run=initiated_by_run,
+            status="started",
+        ).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 

@@ -11,5 +11,7 @@ def test_transfer():
     assert artifact.key == "README.md"
     assert artifact.run is not None
     assert artifact.run.finished_at is not None
+    assert artifact.run.status == "completed"
+    assert artifact.run.started_at is not None
     assert ln.setup.settings.storage.root_as_str.endswith("testdb2")
     assert artifact.storage.root.endswith("testdb1")

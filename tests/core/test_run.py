@@ -21,6 +21,8 @@ def test_run():
     transform.save()
     run = ln.Run(transform).save()
     assert run.status == "scheduled"
+    started_run = ln.Run(transform, status="started").save()
+    assert started_run.status == "started"
     assert run.reference is None
     assert run.reference_type is None
     run2 = ln.Run(transform, reference="test1", reference_type="test2").save()
