@@ -717,7 +717,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         self._set_export_run(is_run_input=is_run_input)
-        self._export_run.input_records.add(self)
+        # Link all exported records as run inputs (not the record type itself).
+        input_record_ids = qs.values_list("id", flat=True)
+        self._export_run.input_records.add(*input_record_ids)
         self._export_run.finished_at = datetime.now(timezone.utc)
         self._export_run._status_code = 0  # completed
         self._export_run.save()
