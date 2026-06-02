@@ -173,8 +173,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         # reset the feature values for the record including the experiment
         sample1.features.set_values({
-            "gc_content": 0.5,
-            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+            gc_content: 0.5,
+            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records under a type to a dataframe::
@@ -191,21 +191,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
         sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
-        sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
+        sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
     Query records by features::
 
         ln.Record.filter(gc_content=0.55)     # exact match
         ln.Record.filter(gc_content__gt=0.5)  # greater than
+
+    Query records by field::
+
         ln.Record.filter(type=sample_sheet)   # just the record on the sheet
-
-    If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
-
-        # to set feature values
-        sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
-
-        # to query by feature values
-        ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
 
     Notes
     -----
