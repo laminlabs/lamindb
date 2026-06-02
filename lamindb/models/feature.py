@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast, get_args, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import numpy as np
 import pgtrigger
@@ -1108,6 +1108,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *,
+        name: str,
+        is_type: Literal[True],
+        description: str | None = None,
     ): ...
 
     @overload
