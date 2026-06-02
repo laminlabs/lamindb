@@ -404,6 +404,61 @@ def test_record_export_links_record_type_when_link_records_false(
         artifact.delete(permanent=True)
 
 
+def test_record_export_applies_filters(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+    filtered_df = sample_sheet.to_dataframe(filters={"name": "sample1"})
+
+    assert len(filtered_df) == 1
+    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
+
+    dataframe_export_run = sample_sheet._export_run
+    assert dataframe_export_run is not None
+    assert dataframe_export_run.input_records.count() == 1
+    assert dataframe_export_run.input_records.get().name == "sample1"
+
+    artifact = sample_sheet.to_artifact(filters={"name": "sample1"})
+    try:
+        assert len(artifact.load()) == 1
+        assert artifact.run is not None
+        assert artifact.run.input_records.count() == 1
+        assert artifact.run.input_records.get().name == "sample1"
+    finally:
+        artifact.delete(permanent=True)
+
+
+def test_record_export_applies_feature_predicate_filters():
+    sample_sheet = ln.Record(name="PredicateFilterSheet", is_type=True).save()
+    sample1 = ln.Record(name="sample1", type=sample_sheet).save()
+    sample2 = ln.Record(name="sample2", type=sample_sheet).save()
+    export_filter_score = ln.Feature(name="export_filter_score", dtype=int).save()
+    sample1.features.add_values({"export_filter_score": 10})
+    sample2.features.add_values({"export_filter_score": 20})
+
+    filtered_df = sample_sheet.to_dataframe(filters=export_filter_score > 15)
+    assert len(filtered_df) == 1
+    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
+
+    dataframe_export_run = sample_sheet._export_run
+    assert dataframe_export_run is not None
+    assert dataframe_export_run.input_records.count() == 1
+    assert dataframe_export_run.input_records.get().name == "sample2"
+
+    artifact = sample_sheet.to_artifact(filters=export_filter_score > 15)
+    try:
+        assert len(artifact.load()) == 1
+        assert artifact.run is not None
+        assert artifact.run.input_records.count() == 1
+        assert artifact.run.input_records.get().name == "sample2"
+    finally:
+        artifact.delete(permanent=True)
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
+        export_filter_score.delete(permanent=True)
+
+
 def test_record_export_reuses_legacy_transform_uid(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):

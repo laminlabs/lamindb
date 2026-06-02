@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, overload
 
@@ -654,6 +655,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def to_dataframe(
         cls_or_self,
         recurse: bool = False,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_records_as_inputs: bool = True,
         **kwargs,
@@ -670,6 +672,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Args:
             recurse: Whether to include records of sub-types recursively.
+            filters: Filters applied before export. Supports filter kwargs via
+                a `dict`, Django `Q` expressions, and feature predicates
+                (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
             link_records_as_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -678,7 +683,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         import pandas as pd
 
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
+            return type(cls_or_self).to_dataframe(
+                cls_or_self,
+                recurse=recurse,
+                filters=filters,
+                is_run_input=is_run_input,
+                link_records_as_inputs=link_records_as_inputs,
+                **kwargs,
+            )  # type: ignore
         if not cls_or_self.is_type:
             raise TypeError(
                 "to_dataframe() can only be called on the class or on record type instance."
@@ -690,8 +702,17 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         qs = (
             self.query_records()
             if recurse
-            else self.records.filter(branch_id__in=branch_ids)
+            else self.__class__.filter(type=self, branch_id__in=branch_ids)
         )
+        if filters is not None:
+            if isinstance(filters, dict):
+                qs = qs.filter(**filters)
+            elif isinstance(filters, Iterable) and not isinstance(
+                filters, (str, bytes)
+            ):
+                qs = qs.filter(*filters)
+            else:
+                qs = qs.filter(filters)
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
@@ -734,6 +755,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self,
         key: str | None = None,
         suffix: str | None = None,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_records_as_inputs: bool = True,
         **kwargs,
@@ -747,6 +769,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
             link_records_as_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -760,6 +783,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
+                filters=filters,
                 is_run_input=is_run_input,
                 link_records_as_inputs=link_records_as_inputs,
                 **kwargs,
