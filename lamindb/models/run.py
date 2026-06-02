@@ -192,8 +192,8 @@ class Run(SQLRecord, TracksUpdates):
         entrypoint: `str | None = None` The entrypoint of the transform, e.g. a function name or CLI entry point.
         params: `dict | None = None` A dictionary of parameters.
         status: `Literal["scheduled", "started"] = "scheduled"` Run status at creation.
-            The `started_at` timestamp is set via database default upon creation,
-            independent of status.
+            The `started_at` timestamp is populated via database default upon creation,
+            even if status is `"scheduled"`.
         initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
         reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
