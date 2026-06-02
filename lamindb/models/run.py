@@ -188,13 +188,16 @@ class Run(SQLRecord, TracksUpdates):
     Args:
         transform: :class:`~lamindb.Transform` A data transformation object.
         name: `str | None = None` A name.
+        description: `str | None = None` An optional description.
+        entrypoint: `str | None = None` The entrypoint of the transform, e.g. a function name or CLI entry point.
         params: `dict | None = None` A dictionary of parameters.
-        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
         status: `Literal["scheduled", "started"] = "scheduled"` Run status at creation.
-            Note that the `started_at` timestamp is set via database default upon creation,
+            The `started_at` timestamp is set via database default upon creation,
             independent of status.
+        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
         reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
+        plan: `Artifact | None = None` The (agent) plan for this run.
 
     See Also:
         :func:`~lamindb.track`
@@ -385,9 +388,9 @@ class Run(SQLRecord, TracksUpdates):
         entrypoint: str | None = None,
         params: dict | None = None,
         status: Literal["scheduled", "started"] = "scheduled",
+        initiated_by_run: Run | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
-        initiated_by_run: Run | None = None,
         plan: Artifact | None = None,
     ): ...
 
