@@ -3210,7 +3210,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 If "annotations", also the annotations linked in the source instance are synced.
 
         See Also:
-            :doc:`sync`
+            :doc:`transfer`
 
         Example:
 

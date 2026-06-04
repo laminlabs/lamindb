@@ -443,7 +443,7 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/sync](https://docs.lamin.ai/sync).
+This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/transfer](https://docs.lamin.ai/transfer).
 
 ### Lakehouse ♾️ feature store
 
