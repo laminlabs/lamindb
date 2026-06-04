@@ -785,7 +785,9 @@ class Context:
             entrypoint_str = (
                 f", entrypoint='{entrypoint}'" if entrypoint is not None else ""
             )
-            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
+            # run.started_at is set on insert by the database (db_default=Now()), independently of the Python code
+            # hence we log datetime.now(timezone.utc) instead of run.started_at
+            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(datetime.now(timezone.utc))}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
