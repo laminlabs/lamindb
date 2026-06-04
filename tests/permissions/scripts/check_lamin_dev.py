@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import lamindb as ln
@@ -44,6 +45,7 @@ with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
 storage_loc = ln.Storage("create-s3", space=space).save()
 ln.track(space=space_name)
 artifact_storage_space = None
+artifact_storage_space_file = None
 try:
     assert ln.context.space.name == space_name
     ulabel = ln.ULabel(name="My test ulabel in test space").save()
@@ -119,11 +121,13 @@ try:
         artifact_cleanup := ln.Artifact.filter(key=key_storage_space).one_or_none()
     ) is not None:
         artifact_cleanup.delete(permanent=True)
-    # avoid creating a duplicate record for the same hash
-    artifact.delete(permanent=True)
+    artifact_storage_space_file = Path(".artifact-storage-space-test.txt")
+    artifact_storage_space_file.write_text("artifact storage-space test\n")
     storage_in_other_space = ln.Storage.filter(space=space_test_move).first()
     artifact_storage_space = ln.Artifact(
-        ".gitignore", key=key_storage_space, storage=storage_in_other_space
+        artifact_storage_space_file,
+        key=key_storage_space,
+        storage=storage_in_other_space,
     ).save()
     assert artifact_storage_space.space == space_test_move
     assert artifact_storage_space.storage == storage_in_other_space
@@ -158,6 +162,8 @@ finally:
         storage_loc.save()
     except:  # noqa
         pass
+    if artifact_storage_space_file is not None:
+        artifact_storage_space_file.unlink(missing_ok=True)
     cleanup(
         (
             ulabel,
