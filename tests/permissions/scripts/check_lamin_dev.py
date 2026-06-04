@@ -78,6 +78,23 @@ try:
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
 
+    # passing storage from a different space should set artifact.space
+    # when no explicit space is provided
+    key_storage_space = "mytest-storage-space"
+    if (
+        artifact_cleanup := ln.Artifact.filter(key=key_storage_space).one_or_none()
+    ) is not None:
+        artifact_cleanup.delete(permanent=True)
+    space_for_storage_space_test = ln.Space.get(name="test-move")
+    storage_in_other_space = ln.Storage.filter(
+        space=space_for_storage_space_test
+    ).first()
+    artifact_storage_space = ln.Artifact(
+        ".gitignore", key=key_storage_space, storage=storage_in_other_space
+    ).save()
+    assert artifact_storage_space.space == space_for_storage_space_test
+    assert artifact_storage_space.storage == storage_in_other_space
+
     # move the artifact to another storage location
     space_test_move = ln.Space.get(name="test-move")
     original_path = artifact.path
@@ -145,6 +162,7 @@ finally:
         (
             ulabel,
             artifact,
+            artifact_storage_space,
             artifact_dir,
             ln.context.transform.latest_run,
             ln.context.transform,

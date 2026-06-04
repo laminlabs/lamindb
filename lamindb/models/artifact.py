@@ -1797,12 +1797,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             storage = setup_settings.instance.storage.record
         if space is None:
-            from lamindb import context as run_context
+            if storage_was_passed and storage.space_id is not None:
+                # If storage is explicitly provided and space is omitted, infer space
+                # from storage to preserve caller intent.
+                space = storage.space
+            else:
+                from lamindb import context as run_context
 
-            if run_context.space is not None:
-                space = run_context.space
-            elif setup_settings.space is not None:
-                space = setup_settings.space
+                if run_context.space is not None:
+                    space = run_context.space
+                elif setup_settings.space is not None:
+                    space = setup_settings.space
         # space - storage consistency is also checked in .save() when the space is changed
         if space is not None and space.id != storage.space_id:
             if storage_was_passed:
