@@ -1797,7 +1797,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             storage = setup_settings.instance.storage.record
         if space is None:
-            if storage_was_passed and storage.space_id is not None:
+            if storage_was_passed:
                 # If storage is explicitly provided and space is omitted, infer space
                 # from storage to preserve caller intent.
                 space = storage.space
