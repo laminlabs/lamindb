@@ -1180,8 +1180,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
-        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
+        space: `Space | None = None` The space of the artifact. If `None`, uses the passed `storage.space` if `storage` is passed; otherwise uses the default space (:attr:`~lamindb.core.Settings.space`).
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
             If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
             If `True`, always skips hash lookup.
