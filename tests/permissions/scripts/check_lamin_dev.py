@@ -90,7 +90,10 @@ try:
         space=space_for_storage_space_test
     ).first()
     artifact_storage_space = ln.Artifact(
-        ".gitignore", key=key_storage_space, storage=storage_in_other_space
+        ".gitignore",
+        key=key_storage_space,
+        storage=storage_in_other_space,
+        skip_hash_lookup=True,
     ).save()
     assert artifact_storage_space.space == space_for_storage_space_test
     assert artifact_storage_space.storage == storage_in_other_space
