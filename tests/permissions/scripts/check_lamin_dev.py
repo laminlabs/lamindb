@@ -43,6 +43,7 @@ with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
 # now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()
 ln.track(space=space_name)
+artifact_storage_space = None
 try:
     assert ln.context.space.name == space_name
     ulabel = ln.ULabel(name="My test ulabel in test space").save()
@@ -78,26 +79,6 @@ try:
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
 
-    # passing storage from a different space should set artifact.space
-    # when no explicit space is provided
-    key_storage_space = "mytest-storage-space"
-    if (
-        artifact_cleanup := ln.Artifact.filter(key=key_storage_space).one_or_none()
-    ) is not None:
-        artifact_cleanup.delete(permanent=True)
-    space_for_storage_space_test = ln.Space.get(name="test-move")
-    storage_in_other_space = ln.Storage.filter(
-        space=space_for_storage_space_test
-    ).first()
-    artifact_storage_space = ln.Artifact(
-        ".gitignore",
-        key=key_storage_space,
-        storage=storage_in_other_space,
-        skip_hash_lookup=True,
-    ).save()
-    assert artifact_storage_space.space == space_for_storage_space_test
-    assert artifact_storage_space.storage == storage_in_other_space
-
     # move the artifact to another storage location
     space_test_move = ln.Space.get(name="test-move")
     original_path = artifact.path
@@ -130,6 +111,22 @@ try:
     assert not original_path_dir.exists()
     assert artifact_dir.path.as_posix().startswith(artifact_dir.storage.root)
     assert artifact_dir.path.is_dir()
+
+    # passing storage from a different space should set artifact.space
+    # when no explicit space is provided
+    key_storage_space = "mytest-storage-space"
+    if (
+        artifact_cleanup := ln.Artifact.filter(key=key_storage_space).one_or_none()
+    ) is not None:
+        artifact_cleanup.delete(permanent=True)
+    # avoid creating a duplicate record for the same hash
+    artifact.delete(permanent=True)
+    storage_in_other_space = ln.Storage.filter(space=space_test_move).first()
+    artifact_storage_space = ln.Artifact(
+        ".gitignore", key=key_storage_space, storage=storage_in_other_space
+    ).save()
+    assert artifact_storage_space.space == space_test_move
+    assert artifact_storage_space.storage == storage_in_other_space
 
     # update the space of the storage location
     space2 = ln.Space.get(name="Our test space for CI 2")
