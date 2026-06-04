@@ -44,6 +44,11 @@ with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
 # now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()
 ln.track(space=space_name)
+# Initialized for failure-safe cleanup in `finally`: setup can fail before
+# all records are created, so some values legitimately remain `None`.
+ulabel = None
+artifact = None
+artifact_dir = None
 artifact_storage_space = None
 artifact_storage_space_file = None
 try:
@@ -116,7 +121,7 @@ try:
 
     # passing storage from a different space should set artifact.space
     # when no explicit space is provided
-    key_storage_space = "mytest-storage-space"
+    key_storage_space = "mytest-storage-space.txt"
     if (
         artifact_cleanup := ln.Artifact.filter(key=key_storage_space).one_or_none()
     ) is not None:
@@ -165,13 +170,17 @@ finally:
     if artifact_storage_space_file is not None:
         artifact_storage_space_file.unlink(missing_ok=True)
     cleanup(
-        (
-            ulabel,
-            artifact,
-            artifact_storage_space,
-            artifact_dir,
-            ln.context.transform.latest_run,
-            ln.context.transform,
-            storage_loc,
+        tuple(
+            record
+            for record in (
+                ulabel,
+                artifact,
+                artifact_storage_space,
+                artifact_dir,
+                ln.context.transform.latest_run,
+                ln.context.transform,
+                storage_loc,
+            )
+            if record is not None
         )
     )
