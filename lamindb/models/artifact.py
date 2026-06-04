@@ -1180,8 +1180,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
-        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
+        space: `Space | None = None` The space of the artifact. If `None`, uses the passed `storage.space` if `storage` is passed; otherwise uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
             If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
             If `True`, always skips hash lookup.
@@ -1797,12 +1797,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             storage = setup_settings.instance.storage.record
         if space is None:
-            from lamindb import context as run_context
+            if storage_was_passed:
+                # If storage is explicitly provided and space is omitted, infer space
+                # from storage to preserve caller intent.
+                space = storage.space
+            else:
+                from lamindb import context as run_context
 
-            if run_context.space is not None:
-                space = run_context.space
-            elif setup_settings.space is not None:
-                space = setup_settings.space
+                if run_context.space is not None:
+                    space = run_context.space
+                elif setup_settings.space is not None:
+                    space = setup_settings.space
         # space - storage consistency is also checked in .save() when the space is changed
         if space is not None and space.id != storage.space_id:
             if storage_was_passed:
