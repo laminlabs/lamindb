@@ -1005,6 +1005,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     from lamindb import context as run_context
 
+                    # Precedence is uniform across SQLRecord children:
+                    # explicit `<fk>_id` or `<fk>` (mutually exclusive) > context/settings fallback.
                     has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space

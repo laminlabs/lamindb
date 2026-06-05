@@ -1,4 +1,3 @@
-import os
 import re
 import shutil
 import textwrap
@@ -491,10 +490,6 @@ def test_track_fields_must_exist_on_model(monkeypatch, example_dataframe: pd.Dat
     artifact.delete(permanent=True)
 
 
-@pytest.mark.skipif(
-    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite",
-    reason="Postgres-only",
-)
 def test_constructor_branch_space_kwargs_record_family():
     suffix = uuid4().hex[:8]
     branch = ln.Branch(name=f"ctor-branch-{suffix}").save()
@@ -577,10 +572,6 @@ def test_constructor_branch_space_kwargs_record_family():
     branch.delete(permanent=True)
 
 
-@pytest.mark.skipif(
-    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite",
-    reason="Postgres-only",
-)
 def test_explicit_default_ids_override_context():
     suffix = uuid4().hex[:8]
     branch = ln.Branch(name=f"ctx-branch-{suffix}").save()
