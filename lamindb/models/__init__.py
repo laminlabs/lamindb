@@ -14,6 +14,7 @@ Mixins for registries
 
 .. autoclass:: IsVersioned
 .. autoclass:: HasType
+.. autoclass:: SQLRecordSettings
 .. autoclass:: HasParents
 .. autoclass:: CanCurate
 .. autoclass:: TracksRun
@@ -146,6 +147,7 @@ from .can_curate import CanCurate
 from .sqlrecord import (
     BaseSQLRecord,
     SQLRecord,
+    SQLRecordSettings,
     Registry,
     Space,
     Branch,
