@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, InternalError
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
@@ -289,6 +289,27 @@ def test_invalid_type_record_with_schema():
 
     record_type_with_schema.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
+def test_locked_type_requires_same_space():
+    locked_type = ln.Record(name="LockedType", is_type=True).save()
+    locked_type.is_locked = True
+    locked_type.save()
+    other_space = ln.Space(name="other-space").save()
+
+    valid_record = ln.Record(name="SameSpaceRecord", type=locked_type).save()
+    assert valid_record.space_id == locked_type.space_id
+
+    with pytest.raises(InternalError) as error:
+        ln.Record.objects.filter(id=valid_record.id).update(space_id=other_space.id)
+    assert "record space must match locked type space" in error.exconly()
+
+    valid_record.delete(permanent=True)
+    other_space.delete(permanent=True)
+    locked_type.delete(permanent=True)
 
 
 # see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)

@@ -235,6 +235,17 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     when=pgtrigger.Before,
                     condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
                     func="""
+                        -- Enforce that records typed by a locked type stay in the same space
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_record r
+                            WHERE r.id = NEW.type_id
+                              AND r.is_locked
+                              AND r.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: record space must match locked type space';
+                        END IF;
+
                         -- Check for direct self-reference
                         IF NEW.type_id = NEW.id THEN
                             RAISE EXCEPTION 'Cannot set type: record cannot be its own type';
