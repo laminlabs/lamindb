@@ -277,9 +277,9 @@ class Transform(SQLRecord, IsVersioned):
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
+        branch_id = kwargs.pop("branch_id", None)
         space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_id = kwargs.pop("space_id", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         # below is internal use that we'll hopefully be able to eliminate

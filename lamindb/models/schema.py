@@ -485,10 +485,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             n_features = kwargs.pop("n")
         else:
             n_features = kwargs.pop("n_members", None)
-        kwargs.pop("branch", None)
-        kwargs.pop("branch_id", 1)
-        kwargs.pop("space", None)
-        kwargs.pop("space_id", 1)
+        branch = kwargs.pop("branch", None)
+        branch_id = kwargs.pop("branch_id", None)
+        space = kwargs.pop("space", None)
+        space_id = kwargs.pop("space_id", None)
         # backward compat
         if not slots:
             if "components" in kwargs:
@@ -561,6 +561,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         else:
             validated_kwargs["uid"] = base62_16()
 
+        validated_kwargs["branch"] = branch
+        validated_kwargs["branch_id"] = branch_id
+        validated_kwargs["space"] = space
+        validated_kwargs["space_id"] = space_id
         super().__init__(**validated_kwargs)
 
     def query_schemas(self) -> QuerySet:

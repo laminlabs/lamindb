@@ -978,6 +978,24 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
+
+            def resolve_fk_or_id(field_name: str) -> bool:
+                """Resolve `<fk>` and `<fk>_id` constructor kwargs in one place."""
+                fk_id_field = f"{field_name}_id"
+                fk_model = self._meta.get_field(field_name).remote_field.model
+                fk_record = kwargs.get(field_name)
+                fk_record_id = kwargs.get(fk_id_field)
+                if fk_record is not None and fk_record_id is not None:
+                    raise ValueError(
+                        f"Do not pass both {fk_model.__name__} and its id at the same time."
+                    )
+                if fk_record_id is not None:
+                    kwargs[field_name] = fk_model.objects.get(id=fk_record_id)
+                    kwargs.pop(fk_id_field, None)
+                    return True
+                kwargs.pop(fk_id_field, None)
+                return fk_record is not None
+
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
                 if (
                     issubclass(self.__class__, SQLRecord)
@@ -987,43 +1005,36 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     from lamindb import context as run_context
 
+                    has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space
                     elif setup_settings.space is not None:
                         current_space = setup_settings.space
+                    else:
+                        current_space = None
 
-                    if current_space is not None:
-                        if "space_id" in kwargs:
-                            # space_id takes precedence over space
-                            # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                            if kwargs["space_id"] == 1:  # ignore default space
-                                kwargs.pop("space_id")
-                                kwargs["space"] = current_space
-                        elif "space" in kwargs:
-                            if kwargs["space"] is None:
-                                kwargs["space"] = current_space
-                        else:
+                    if not has_explicit_space:
+                        if current_space is not None:
                             kwargs["space"] = current_space
+                        elif kwargs.get("space") is None:
+                            kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):
                     from lamindb import context as run_context
 
+                    has_explicit_branch = resolve_fk_or_id("branch")
                     if run_context.branch is not None:
                         current_branch = run_context.branch
                     elif setup_settings.branch is not None:
                         current_branch = setup_settings.branch
+                    else:
+                        current_branch = None
 
-                    if current_branch is not None:
-                        # branch_id takes precedence over branch
-                        # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                        if "branch_id" in kwargs:
-                            if kwargs["branch_id"] == 1:  # ignore default branch
-                                kwargs.pop("branch_id")
-                                kwargs["branch"] = current_branch
-                        elif "branch" in kwargs:
-                            if kwargs["branch"] is None:
-                                kwargs["branch"] = current_branch
-                        else:
+                    if not has_explicit_branch:
+                        if current_branch is not None:
                             kwargs["branch"] = current_branch
+                        elif kwargs.get("branch") is None:
+                            kwargs.pop("branch", None)
+                    if "branch" in kwargs and kwargs["branch"] is not None:
                         kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)

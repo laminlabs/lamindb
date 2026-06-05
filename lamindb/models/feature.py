@@ -610,9 +610,9 @@ def process_init_feature_param(args, kwargs):
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
     branch = kwargs.pop("branch", None)
-    branch_id = kwargs.pop("branch_id", 1)
+    branch_id = kwargs.pop("branch_id", None)
     space = kwargs.pop("space", None)
-    space_id = kwargs.pop("space_id", 1)
+    space_id = kwargs.pop("space_id", None)
     _skip_validation = kwargs.pop("_skip_validation", False)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])

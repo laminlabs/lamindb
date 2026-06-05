@@ -428,9 +428,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
+        branch_id = kwargs.pop("branch_id", None)
         space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_id = kwargs.pop("space_id", None)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:

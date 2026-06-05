@@ -264,9 +264,9 @@ class Block(BaseBlock, SQLRecord):
         using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
+        branch_id = kwargs.pop("branch_id", None)
         space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_id = kwargs.pop("space_id", None)
         if kwargs:
             raise ValueError(
                 "Only key, content, kind, version, revises, anchor "

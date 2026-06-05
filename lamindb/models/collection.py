@@ -258,9 +258,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
+        branch_id = kwargs.pop("branch_id", None)
         space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_id = kwargs.pop("space_id", None)
         if not len(kwargs) == 0:
             valid_keywords = ", ".join(
                 [val[0] for val in _get_record_kwargs(Collection)]

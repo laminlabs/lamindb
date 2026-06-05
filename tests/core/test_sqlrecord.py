@@ -1,7 +1,10 @@
+import os
 import re
 import shutil
 import textwrap
 from pathlib import Path
+from unittest.mock import patch
+from uuid import uuid4
 
 import bionty as bt
 import lamindb as ln
@@ -486,3 +489,118 @@ def test_track_fields_must_exist_on_model(monkeypatch, example_dataframe: pd.Dat
         ln.Artifact.get(artifact.id)
 
     artifact.delete(permanent=True)
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite",
+    reason="Postgres-only",
+)
+def test_constructor_branch_space_kwargs_record_family():
+    suffix = uuid4().hex[:8]
+    branch = ln.Branch(name=f"ctor-branch-{suffix}").save()
+    space = ln.Space(name=f"ctor-space-{suffix}").save()
+
+    record_obj = ln.Record(
+        name=f"ctor-record-obj-{suffix}", branch=branch, space=space
+    ).save()
+    record_id = ln.Record(
+        name=f"ctor-record-id-{suffix}", branch_id=branch.id, space_id=space.id
+    ).save()
+
+    ulabel_obj = ln.ULabel(
+        name=f"ctor-ulabel-obj-{suffix}", branch=branch, space=space
+    ).save()
+    ulabel_id = ln.ULabel(
+        name=f"ctor-ulabel-id-{suffix}", branch_id=branch.id, space_id=space.id
+    ).save()
+
+    feature_obj = ln.Feature(
+        name=f"ctor-feature-obj-{suffix}", dtype=str, branch=branch, space=space
+    ).save()
+    feature_id = ln.Feature(
+        name=f"ctor-feature-id-{suffix}",
+        dtype=str,
+        branch_id=branch.id,
+        space_id=space.id,
+    ).save()
+
+    transform_obj = ln.Transform(
+        key=f"ctor-transform-obj-{suffix}", branch=branch, space=space
+    ).save()
+    transform_id = ln.Transform(
+        key=f"ctor-transform-id-{suffix}", branch_id=branch.id, space_id=space.id
+    ).save()
+
+    schema_feature_obj = ln.Feature(
+        name=f"ctor-schema-feature-obj-{suffix}", dtype=str, branch=branch, space=space
+    ).save()
+    schema_feature_id = ln.Feature(
+        name=f"ctor-schema-feature-id-{suffix}", dtype=str, branch=branch, space=space
+    ).save()
+    schema_obj = ln.Schema(
+        [schema_feature_obj],
+        name=f"ctor-schema-obj-{suffix}",
+        branch=branch,
+        space=space,
+    ).save()
+    schema_id = ln.Schema(
+        [schema_feature_id],
+        name=f"ctor-schema-id-{suffix}",
+        branch_id=branch.id,
+        space_id=space.id,
+    ).save()
+
+    assert record_obj.branch_id == record_id.branch_id == branch.id
+    assert record_obj.space_id == record_id.space_id == space.id
+    assert ulabel_obj.branch_id == ulabel_id.branch_id == branch.id
+    assert ulabel_obj.space_id == ulabel_id.space_id == space.id
+    assert feature_obj.branch_id == feature_id.branch_id == branch.id
+    assert feature_obj.space_id == feature_id.space_id == space.id
+    assert transform_obj.branch_id == transform_id.branch_id == branch.id
+    assert transform_obj.space_id == transform_id.space_id == space.id
+    assert schema_obj.branch_id == schema_id.branch_id == branch.id
+    assert schema_obj.space_id == schema_id.space_id == space.id
+
+    schema_id.delete(permanent=True)
+    schema_obj.delete(permanent=True)
+    schema_feature_id.delete(permanent=True)
+    schema_feature_obj.delete(permanent=True)
+    transform_id.delete(permanent=True)
+    transform_obj.delete(permanent=True)
+    feature_id.delete(permanent=True)
+    feature_obj.delete(permanent=True)
+    ulabel_id.delete(permanent=True)
+    ulabel_obj.delete(permanent=True)
+    record_id.delete(permanent=True)
+    record_obj.delete(permanent=True)
+    space.delete(permanent=True)
+    branch.delete(permanent=True)
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite",
+    reason="Postgres-only",
+)
+def test_explicit_default_ids_override_context():
+    suffix = uuid4().hex[:8]
+    branch = ln.Branch(name=f"ctx-branch-{suffix}").save()
+    space = ln.Space(name=f"ctx-space-{suffix}").save()
+
+    with (
+        patch.object(ln.context, "_branch", branch),
+        patch.object(ln.context, "_space", space),
+    ):
+        explicit_main = ln.Record(
+            name=f"ctx-explicit-main-{suffix}", branch_id=1, space_id=1
+        ).save()
+        uses_context = ln.Record(name=f"ctx-defaults-{suffix}").save()
+
+    assert explicit_main.branch_id == 1
+    assert explicit_main.space_id == 1
+    assert uses_context.branch_id == branch.id
+    assert uses_context.space_id == space.id
+
+    uses_context.delete(permanent=True)
+    explicit_main.delete(permanent=True)
+    space.delete(permanent=True)
+    branch.delete(permanent=True)
