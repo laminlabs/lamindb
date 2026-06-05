@@ -33,7 +33,14 @@ from .query_set import (
     reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
-from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    HasType,
+    IsLink,
+    SQLRecord,
+    _get_record_kwargs,
+    get_name_field,
+)
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -51,6 +58,149 @@ if TYPE_CHECKING:
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
+
+
+def get_type_schema_index(record_type: Record | None) -> Feature | None:
+    """Return the index feature for a record type sheet, if configured."""
+    if record_type is None or not record_type.is_type:
+        return None
+    schema = record_type.schema
+    if schema is None:
+        return None
+    return schema.index
+
+
+def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
+    if schema is None:
+        return False
+    index_feature = schema.index
+    return index_feature is not None and feature.uid == index_feature.uid
+
+
+def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
+    """Convert an index feature value to a ``Record.name`` string."""
+    import pandas as pd
+
+    from lamindb.base.dtypes import is_iterable_of_sqlrecord
+
+    if value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
+        return None
+    if isinstance(value, SQLRecord):
+        name_field = get_name_field(value)
+        name = getattr(value, name_field, None)
+        if name is not None:
+            return str(name)
+        return str(value.uid)
+    if is_iterable_of_sqlrecord(value):
+        raise TypeError(
+            f"index feature '{feature.name}' cannot store multiple records; pass a single value"
+        )
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, (int, float)):
+        return str(value)
+    raise TypeError(
+        f"index feature '{feature.name}' value must be a string or scalar, not {type(value)}"
+    )
+
+
+def index_value_from_record_name(name: str | None, feature: Feature) -> Any:
+    """Convert ``Record.name`` back to a typed index feature value."""
+    if name is None:
+        return None
+    dtype_str = feature.dtype_as_str
+    if dtype_str == "int":
+        return int(name)
+    if dtype_str in {"float", "num"}:
+        return float(name)
+    if dtype_str == "bool":
+        return name.lower() in {"true", "1", "yes"}
+    return name
+
+
+def apply_index_feature_to_record(
+    record: Record,
+    feature: Feature,
+    value: Any,
+    *,
+    persist: bool = True,
+) -> None:
+    """Set ``record.name`` from an index feature value."""
+    record.name = coerce_index_value_to_record_name(value, feature)
+    if persist and record.pk is not None:
+        record.save(update_fields=["name"])
+
+
+def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
+    """Expose the index feature in ``get_values`` / feature dicts from ``record.name``."""
+    index_feature = get_type_schema_index(record.type)
+    if index_feature is None or record.name is None:
+        return
+    dictionary[index_feature.name] = index_value_from_record_name(
+        record.name, index_feature
+    )
+
+
+def pop_index_from_feature_dictionary(
+    dictionary: dict[str, Any], schema: Schema
+) -> tuple[str | None, dict[str, Any]]:
+    """Extract index value for ``record.name`` and remove it from feature payload."""
+    index_feature = schema.index
+    if index_feature is None:
+        return None, dictionary
+    index_name = index_feature.name
+    if index_name not in dictionary:
+        return None, dictionary
+    value = dictionary.pop(index_name)
+    return coerce_index_value_to_record_name(value, index_feature), dictionary
+
+
+def apply_schema_index_to_export_dataframe(
+    df: pd.DataFrame,
+    index_feature: Feature,
+    *,
+    encoded_id: str,
+    encoded_name: str,
+) -> pd.DataFrame:
+    """Move the schema index feature from columns to ``DataFrame.index``."""
+    index_col = index_feature.name
+    lamin_record_ids = df.index.to_series()
+    if index_col in df.columns:
+        index_values = df[index_col]
+        df = df.drop(columns=[index_col])
+    elif "name" in df.columns:
+        index_values = df["name"]
+        df = df.drop(columns=["name"])
+    elif encoded_name in df.columns:
+        index_values = df[encoded_name]
+        df = df.drop(columns=[encoded_name])
+    else:
+        raise ValueError(
+            f"could not find values for schema index feature '{index_col}' in export dataframe"
+        )
+
+    df = df.copy()
+    df[encoded_id] = lamin_record_ids.values
+    df = df.set_index(index_values)
+    df.index.name = index_col
+    if index_feature.dtype_as_str == "int":
+        df.index = df.index.astype(int)
+    return df
+
+
+def dataframe_for_record_batch(
+    df: pd.DataFrame, index_feature: Feature | None
+) -> pd.DataFrame:
+    """Normalize a batch dataframe so the schema index is a column for row iteration."""
+    import pandas as pd
+
+    if index_feature is None:
+        return df
+    if df.index.name == index_feature.name and not isinstance(df.index, pd.RangeIndex):
+        return df.reset_index()
+    return df
 
 
 class RecordBatch:
@@ -80,23 +230,39 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
+        index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
-        row_dicts = self._df.to_dict(orient="records")
+        work_df = dataframe_for_record_batch(self._df, index_feature)
+        row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
-            if self._name_field in row:
-                name = row.pop(self._name_field)
-            elif "name" in row:
-                name = row.pop("name")
-            else:
-                name = None
-            if pd.api.types.is_scalar(name) and pd.isna(name):
-                name = None
+            row = dict(row)
+            name = None
+            if index_feature is not None and index_feature.name in row:
+                value = row.pop(index_feature.name)
+                if not (pd.api.types.is_scalar(value) and pd.isna(value)):
+                    name = coerce_index_value_to_record_name(value, index_feature)
+            if name is None:
+                if self._name_field in row:
+                    name = row.pop(self._name_field)
+                elif "name" in row:
+                    name = row.pop("name")
+                else:
+                    name = None
+                if pd.api.types.is_scalar(name) and pd.isna(name):
+                    name = None
 
             features: dict[str, Any] = {}
             for key, value in row.items():
                 if pd.api.types.is_scalar(value) and pd.isna(value):
                     continue
                 features[key] = value
+
+            if index_feature is not None and self._resolved_type.schema is not None:
+                name_from_features, features = pop_index_from_feature_dictionary(
+                    features, self._resolved_type.schema
+                )
+                if name is None:
+                    name = name_from_features
 
             record_kwargs: dict[str, Any] = {"type": self._resolved_type}
             if features:
@@ -722,19 +888,41 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             kwargs["order_by"] = "id"
         df = qs.to_dataframe(features="queryset", limit=None, **kwargs)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
+        assert isinstance(encoded_id, str)  # noqa: S101
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
+        assert isinstance(encoded_name, str)  # noqa: S101
+        index_feature = self.schema.index if self.schema is not None else None
         # encode the django id, uid and name fields
         if df.index.name == "id":
             df.index.name = encoded_id
         if "uid" in df.columns and encoded_uid not in df.columns:
             df = df.rename(columns={"uid": encoded_uid})
-        if "name" in df.columns and encoded_name not in df.columns:
+        if index_feature is not None:
+            if "name" in df.columns and index_feature.name != "name":
+                df[index_feature.name] = df["name"]
+                df = df.drop(columns=["name"])
+            if encoded_name in df.columns:
+                df = df.drop(columns=[encoded_name])
+            df = apply_schema_index_to_export_dataframe(
+                df,
+                index_feature,
+                encoded_id=encoded_id,
+                encoded_name=encoded_name,
+            )
+        elif "name" in df.columns and encoded_name not in df.columns:
             df = df.rename(columns={"name": encoded_name})
         if self.schema is not None:
             all_features = self.schema.members.all()
-            desired_order = all_features.to_list("name")  # only members is ordered!
+            index_feature_uid = None if index_feature is None else index_feature.uid
+            desired_order = [
+                feature.name
+                for feature in all_features
+                if index_feature_uid is None or feature.uid != index_feature_uid
+            ]
             for feature in all_features:
+                if index_feature_uid is not None and feature.uid == index_feature_uid:
+                    continue
                 if feature.name not in df.columns:
                     df[feature.name] = pd.Series(
                         dtype=convert_to_pandas_dtype(feature._dtype_str)
@@ -805,7 +993,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
-            csv_kwargs={"index": False},
+            csv_kwargs={
+                "index": self.schema is not None and self.schema.index is not None
+            },
             run=self._export_run,
         ).save()
 

@@ -77,21 +77,14 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    dictionary = (
-        ln.Record.filter(type=sample_sheet1)
-        .to_dataframe(features=["cell_line", "treatment"])[
-            ["cell_line", "__lamindb_record_name__", "treatment"]
-        ]
-        .to_dict(orient="list")
-    )
+    partial_df = sample_sheet1.to_dataframe(features=["cell_line", "treatment"])
+    assert partial_df.index.name == "name"
+    assert partial_df.index.tolist() == ["Sample 2", "Sample 1"]
+    dictionary = partial_df[["cell_line", "treatment"]].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T",
             "HEK293T",
-        ],
-        "__lamindb_record_name__": [
-            "sample2",
-            "sample1",
         ],
         "treatment": [
             "treatment2",
@@ -102,22 +95,21 @@ def test_record_example_compound_treatment(
     assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
     assert sample_sheet1.input_of_runs.count() == 0
-    assert df.index.name == "__lamindb_record_id__"
+    assert df.index.name == "name"
+    assert df.index.tolist() == ["Sample 1", "Sample 2"]
+    assert "name" not in df.columns
     dictionary = df[
         [
             "id",  # a feature
             "uid",  # a feature
-            "name",  # a feature
             "cell_line",
             "treatment",
             "preparation_date",
-            "__lamindb_record_name__",
         ]
     ].to_dict(orient="list")
     assert dictionary == {
         "id": [1, 2],
         "uid": ["S1", "S2"],
-        "name": ["Sample 1", "Sample 2"],
         "cell_line": [
             "HEK293T",
             "HEK293T",
@@ -129,10 +121,6 @@ def test_record_example_compound_treatment(
         "treatment": [
             "treatment1",
             "treatment2",
-        ],
-        "__lamindb_record_name__": [
-            "sample1",
-            "sample2",
         ],
     }
 
@@ -153,13 +141,12 @@ def test_record_example_compound_treatment(
     assert artifact.run.started_at is not None
     assert artifact.run.finished_at is not None
     # looks something like this:
-    # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-    # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
-    # 2,S2,Sample 2,treatment2,HEK293T,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    # name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__
+    # Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1,iCwgKgZELoLtIoGy
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
-1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
+name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__
+Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False

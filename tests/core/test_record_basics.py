@@ -143,6 +143,42 @@ def test_record_from_dataframe_bulk_save_paths():
     score.delete(permanent=True)
 
 
+def test_record_schema_index_stored_on_name():
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    schema = ln.Schema(
+        features=[score],
+        index=sample_id,
+        name="index-on-name-schema",
+    ).save()
+    sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
+
+    record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+    assert record.name == "S-001"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+    assert record.features.get_values() == {"sample_id": "S-001", "score": 1.5}
+
+    df = sheet.to_dataframe()
+    assert df.index.name == "sample_id"
+    assert "sample_id" not in df.columns
+    assert "__lamindb_record_name__" not in df.columns
+    assert df.index.tolist() == ["S-001"]
+
+    batch = ln.Record.from_dataframe(
+        pd.DataFrame({"score": [2.5]}, index=pd.Index(["S-002"], name="sample_id")),
+        type=sheet,
+    )
+    batch.save()
+    record2 = ln.Record.get(name="S-002")
+    assert record2.features.get_values()["score"] == 2.5
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()

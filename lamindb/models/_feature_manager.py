@@ -589,6 +589,10 @@ def get_features_data(
                 external_data.append(feature_info)
 
     if to_dict:
+        if isinstance(self, Record):
+            from .record import inject_index_into_feature_dict
+
+            inject_index_into_feature_dict(self, dictionary)
         if external_only:
             return {
                 k: v for k, v in dictionary.items() if k not in internal_feature_names
@@ -1372,9 +1376,30 @@ class FeatureManager:
     ) -> None:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
-        from .record import RecordJson
+        from .record import (
+            RecordJson,
+            apply_index_feature_to_record,
+            get_type_schema_index,
+        )
+
+        index_feature = get_type_schema_index(record.type)  # type: ignore
 
         for feature in feature_objects:
+            if index_feature is not None and feature.uid == index_feature.uid:
+                if (
+                    values_by_feature_uid is not None
+                    and feature.uid in values_by_feature_uid
+                ):
+                    index_value = values_by_feature_uid[feature.uid]
+                else:
+                    index_value = dictionary[feature.name]
+                apply_index_feature_to_record(
+                    record,
+                    feature,
+                    index_value,
+                    persist=False,
+                )
+                continue
             if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
@@ -1654,6 +1679,13 @@ class FeatureManager:
                     save(links, ignore_conflicts=False)
                 except Exception:
                     save(links, ignore_conflicts=True)
+            from .record import get_type_schema_index
+
+            if (
+                self._host.pk is not None
+                and get_type_schema_index(self._host.type) is not None  # type: ignore
+            ):
+                self._host.save(update_fields=["name"])
             return None
 
         features_labels = defaultdict(list)
@@ -2263,6 +2295,11 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             save(links, ignore_conflicts=False)
         except Exception:
             save(links, ignore_conflicts=True)
+    from .record import get_type_schema_index
+    from .save import bulk_update
+
+    if get_type_schema_index(records_with_features[0].type) is not None:
+        bulk_update(records_with_features)
     for record in records_with_features:
         del record._features
     return None
