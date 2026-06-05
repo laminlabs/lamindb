@@ -296,6 +296,7 @@ def test_invalid_type_record_with_schema():
 )
 def test_locked_type_requires_same_space():
     restricted_space = ln.Space(name="other-space").save()
+    assert restricted_space.id != 1
     locked_type = ln.Record(
         name="LockedType", is_type=True, space=restricted_space
     ).save()
@@ -308,7 +309,7 @@ def test_locked_type_requires_same_space():
     assert valid_record.space_id == locked_type.space_id
 
     with pytest.raises(InternalError) as error:
-        ln.Record.filter(id=valid_record.id).update(space_id=1)
+        ln.Record.objects.filter(id=valid_record.id).update(space_id=1)
     assert "record space must match locked type space" in error.exconly()
 
     with pytest.raises(InternalError) as error:
@@ -316,8 +317,8 @@ def test_locked_type_requires_same_space():
     assert "record space must match locked type space" in error.exconly()
 
     valid_record.delete(permanent=True)
-    restricted_space.delete(permanent=True)
     locked_type.delete(permanent=True)
+    restricted_space.delete(permanent=True)
 
 
 # see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
