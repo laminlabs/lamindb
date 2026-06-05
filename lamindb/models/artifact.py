@@ -1999,7 +1999,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         In the JSON `_aux`field, `True` is represented as `{"so": 1}` and `False` as
         an absent `"so"` key.
-        This mirrors `HasTypeSettings.single_space` and its `_aux["ss"]` encoding.
+        This mirrors `SQLRecordSettings.single_space` and its `_aux["ss"]` encoding.
         """
         if self._aux is None:
             return False
