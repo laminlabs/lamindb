@@ -296,7 +296,9 @@ def test_invalid_type_record_with_schema():
 )
 def test_locked_type_requires_same_space():
     restricted_space = ln.Space(name="other-space").save()
-    locked_type = ln.Record(name="LockedType", is_type=True).save()
+    locked_type = ln.Record(
+        name="LockedType", is_type=True, space=restricted_space
+    ).save()
     locked_type.is_locked = True
     locked_type.save()
 
