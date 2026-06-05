@@ -33,6 +33,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 from .transform import Transform
@@ -263,10 +264,7 @@ class Block(BaseBlock, SQLRecord):
         anchor = kwargs.pop("anchor", None)
         using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", None)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         if kwargs:
             raise ValueError(
                 "Only key, content, kind, version, revises, anchor "
@@ -357,10 +355,7 @@ class Block(BaseBlock, SQLRecord):
             hash=block_hash,
             revises=revises,
             anchor=anchor,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
+            **space_branch_kwargs,
         )
 
 

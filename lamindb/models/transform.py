@@ -26,6 +26,7 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 
@@ -276,10 +277,7 @@ class Transform(SQLRecord, IsVersioned):
         kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", None)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         # below is internal use that we'll hopefully be able to eliminate
@@ -363,10 +361,7 @@ class Transform(SQLRecord, IsVersioned):
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
             _refresh_revises_if_stale=refresh_revises_if_stale,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
+            **space_branch_kwargs,
         )
 
     @classmethod

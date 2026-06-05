@@ -465,6 +465,15 @@ def validate_fields(record: SQLRecord, kwargs):
     validate_literal_fields(record, kwargs)
 
 
+def pop_space_branch_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "branch": kwargs.pop("branch", None),
+        "branch_id": kwargs.pop("branch_id", None),
+        "space": kwargs.pop("space", None),
+        "space_id": kwargs.pop("space_id", None),
+    }
+
+
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
