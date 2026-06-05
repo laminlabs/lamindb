@@ -46,6 +46,7 @@ from .sqlrecord import (
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 
@@ -485,10 +486,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             n_features = kwargs.pop("n")
         else:
             n_features = kwargs.pop("n_members", None)
-        kwargs.pop("branch", None)
-        kwargs.pop("branch_id", 1)
-        kwargs.pop("space", None)
-        kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         # backward compat
         if not slots:
             if "components" in kwargs:
@@ -561,6 +559,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         else:
             validated_kwargs["uid"] = base62_16()
 
+        validated_kwargs.update(space_branch_kwargs)
         super().__init__(**validated_kwargs)
 
     def query_schemas(self) -> QuerySet:

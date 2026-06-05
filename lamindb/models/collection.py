@@ -34,6 +34,7 @@ from .sqlrecord import (
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 
@@ -257,10 +258,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Collection | None = kwargs.pop("revises", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         if not len(kwargs) == 0:
             valid_keywords = ", ".join(
                 [val[0] for val in _get_record_kwargs(Collection)]
@@ -325,10 +323,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 hash=hash,
                 run=run,
                 version_tag=version_tag,
-                branch=branch,
-                branch_id=branch_id,
-                space=space,
-                space_id=space_id,
+                **space_branch_kwargs,
                 revises=revises,
                 _skip_validation=_skip_validation,
             )
