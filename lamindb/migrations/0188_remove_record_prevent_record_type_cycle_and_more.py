@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
 
 
 if connection.vendor == "postgresql":
-    operations = [
+    Migration.operations = [
         pgtrigger.migrations.RemoveTrigger(
             model_name="record",
             name="prevent_record_type_cycle",
