@@ -589,7 +589,7 @@ def get_features_data(
                 external_data.append(feature_info)
 
     if to_dict:
-        if isinstance(self, Record):
+        if self.__class__.__name__ == "Record":
             from .record import inject_index_into_feature_dict
 
             inject_index_into_feature_dict(self, dictionary)
