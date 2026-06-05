@@ -131,7 +131,12 @@ def apply_index_feature_to_record(
     """Set ``record.name`` from an index feature value."""
     record.name = coerce_index_value_to_record_name(value, feature)
     if persist and record.pk is not None:
-        record.save(update_fields=["name"])
+        persist_record_name(record)
+
+
+def persist_record_name(record: Record) -> None:
+    """Persist ``Record.name`` without re-entering lazy ``features`` saving."""
+    SQLRecord.save(record, update_fields=["name"])
 
 
 def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
@@ -202,6 +207,61 @@ def dataframe_for_record_batch(
     if df.index.name == index_feature.name and not isinstance(df.index, pd.RangeIndex):
         return df.reset_index()
     return df
+
+
+def move_schema_index_column_to_dataframe_index(
+    df: pd.DataFrame, schema: Schema
+) -> pd.DataFrame:
+    """Align a validation dataframe with ``Schema.index`` (index on ``df.index``)."""
+    index_feature = schema.index
+    if index_feature is None or index_feature.name not in df.columns:
+        return df
+    df = df.copy()
+    df = df.set_index(index_feature.name)
+    df.index.name = index_feature.name
+    return df
+
+
+def strip_index_for_record_persistence(
+    record: Record,
+    schema: Schema,
+    dictionary: dict[str, Any],
+    feature_objects: list[Feature],
+    *,
+    values_by_feature_uid: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[Feature]]:
+    """Move schema index values to ``record.name`` and drop them from link-table writes."""
+    index_feature = schema.index
+    if index_feature is None:
+        return dictionary, feature_objects
+
+    index_value = None
+    if values_by_feature_uid is not None and index_feature.uid in values_by_feature_uid:
+        index_value = values_by_feature_uid[index_feature.uid]
+    elif index_feature.name in dictionary:
+        index_value = dictionary[index_feature.name]
+
+    if index_value is not None:
+        apply_index_feature_to_record(record, index_feature, index_value, persist=False)
+
+    dictionary = dict(dictionary)
+    dictionary.pop(index_feature.name, None)
+    feature_objects = [
+        feature for feature in feature_objects if feature.uid != index_feature.uid
+    ]
+    return dictionary, feature_objects
+
+
+def save_record_json_values(feature_json_values: list) -> None:
+    """Persist ``RecordJson`` rows, upserting on ``(record, feature)``."""
+    from .record import RecordJson
+
+    for record_json in feature_json_values:
+        RecordJson.objects.update_or_create(
+            record=record_json.record,
+            feature=record_json.feature,
+            defaults={"value": record_json.value},
+        )
 
 
 class RecordBatch:

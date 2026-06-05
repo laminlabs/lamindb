@@ -1641,6 +1641,16 @@ class FeatureManager:
         ExperimentalDictCurator(
             dictionary, schema, require_saved_schema=False
         ).validate()
+        if host_is_record and schema.index is not None:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                self._host,
+                schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+            )
         return self._add_values(
             feature_objects,
             dictionary,
@@ -1673,19 +1683,21 @@ class FeatureManager:
             )
             self._raise_not_validated_values(record_not_validated_values)
             if feature_json_values:
-                save(feature_json_values)
+                from .record import save_record_json_values
+
+                save_record_json_values(feature_json_values)
             for links in links_by_model.values():
                 try:
                     save(links, ignore_conflicts=False)
                 except Exception:
                     save(links, ignore_conflicts=True)
-            from .record import get_type_schema_index
+            from .record import get_type_schema_index, persist_record_name
 
             if (
                 self._host.pk is not None
                 and get_type_schema_index(self._host.type) is not None  # type: ignore
             ):
-                self._host.save(update_fields=["name"])
+                persist_record_name(self._host)
             return None
 
         features_labels = defaultdict(list)
@@ -1879,6 +1891,16 @@ class FeatureManager:
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
             )
+            if host_is_record and schema.index is not None:
+                from .record import strip_index_for_record_persistence
+
+                dictionary, feature_objects = strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
         else:
             if string_key_values:
                 looked_up_features = self._get_feature_objects(
@@ -2208,6 +2230,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
     dataframe = pd.DataFrame(prepared_rows)
+    from .record import move_schema_index_column_to_dataframe_index
+
+    dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
     for feature in schema_features:
         if (
             feature.name in dataframe
@@ -2277,6 +2302,16 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
+        if batch_schema.index is not None:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                record,
+                batch_schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+            )
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,
@@ -2289,7 +2324,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
-        save(feature_json_values)
+        from .record import save_record_json_values
+
+        save_record_json_values(feature_json_values)
     for links in links_by_model.values():
         try:
             save(links, ignore_conflicts=False)
