@@ -941,7 +941,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
-        df = qs.to_dataframe(features="queryset", limit=None, **kwargs)
+        features_arg = kwargs.pop("features", "queryset")
+        df = qs.to_dataframe(features=features_arg, limit=None, **kwargs)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         assert isinstance(encoded_id, str)  # noqa: S101
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")

@@ -79,7 +79,7 @@ def test_record_example_compound_treatment(
 
     partial_df = sample_sheet1.to_dataframe(features=["cell_line", "treatment"])
     assert partial_df.index.name == "name"
-    assert partial_df.index.tolist() == ["Sample 2", "Sample 1"]
+    assert partial_df.index.tolist() == ["Sample 1", "Sample 2"]
     dictionary = partial_df[["cell_line", "treatment"]].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
@@ -87,8 +87,8 @@ def test_record_example_compound_treatment(
             "HEK293T",
         ],
         "treatment": [
-            "treatment2",
             "treatment1",
+            "treatment2",
         ],
     }
 
@@ -126,9 +126,9 @@ def test_record_example_compound_treatment(
 
     artifact = sample_sheet1.to_artifact()
     assert sample_sheet1.schema.members.to_list("name") == [
+        "name",
         "id",
         "uid",
-        "name",
         "treatment",
         "cell_line",
         "preparation_date",
@@ -145,7 +145,7 @@ def test_record_example_compound_treatment(
     # Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1,iCwgKgZELoLtIoGy
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__
+name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_id__
 Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
@@ -154,12 +154,12 @@ Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
     └── columns (7)
-        cell_line           bionty.CellLine          HEK293T
+        cell_line           bionty.CellLine         HEK293T
         id                  int
         name                str
         preparation_date    datetime
-        project             Project                  Project 1
-        treatment           Record[Treatment]        treatment1, treatment2
+        project             Project                 Project 1
+        treatment           Record[Treatment]       treatment1, treatment2
         uid                 str""")
     # re-run the export which triggers hash lookup
     sample_sheet1.to_artifact()
@@ -240,7 +240,7 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         expected_cells      int
         fastq_1             str
         fastq_2             str
-        sample              Record[BioSample]        Sample_X, Sample_Y
+        sample              Record[BioSample]       Sample_X, Sample_Y
         seq_center          str""")
 
     related_schemas = list(artifact.schemas.all())

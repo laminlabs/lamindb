@@ -2222,6 +2222,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             explicit_features,
             values_by_feature_uid,
         ) = manager._resolve_feature_value_dictionary(record._features)
+        from .record import inject_index_into_feature_dict
+
+        inject_index_into_feature_dict(record, dictionary)
         prepared_rows.append(dictionary)
         prepared_records.append(
             (record, manager, dictionary, explicit_features, values_by_feature_uid)
