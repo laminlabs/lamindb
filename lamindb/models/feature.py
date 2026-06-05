@@ -44,7 +44,14 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    HasType,
+    Registry,
+    SQLRecord,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -609,10 +616,7 @@ def process_init_feature_param(args, kwargs):
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
-    branch = kwargs.pop("branch", None)
-    branch_id = kwargs.pop("branch_id", 1)
-    space = kwargs.pop("space", None)
-    space_id = kwargs.pop("space_id", 1)
+    space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
@@ -620,10 +624,7 @@ def process_init_feature_param(args, kwargs):
     kwargs["name"] = name
     kwargs["type"] = type_
     kwargs["is_type"] = is_type
-    kwargs["branch"] = branch
-    kwargs["branch_id"] = branch_id
-    kwargs["space"] = space
-    kwargs["space_id"] = space_id
+    kwargs.update(space_branch_kwargs)
     kwargs["_skip_validation"] = _skip_validation
     kwargs["description"] = description
     # cast dtype

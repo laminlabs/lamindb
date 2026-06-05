@@ -20,7 +20,14 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
-from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    HasType,
+    IsLink,
+    SQLRecord,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 from .transform import Transform
 
 if TYPE_CHECKING:
@@ -218,10 +225,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
@@ -236,12 +240,9 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             description=description,
             reference=reference,
             reference_type=reference_type,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
             _skip_validation=_skip_validation,
             _aux=_aux,
+            **space_branch_kwargs,
         )
 
     def query_ulabels(self) -> QuerySet:
