@@ -238,6 +238,45 @@ class HasType(models.Model):
 
         return _query_ancestors_of_fk(self, "type")  # type: ignore
 
+    @property
+    def settings(self) -> HasTypeSettings:
+        """Type-scoped settings persisted in `_aux`."""
+        return HasTypeSettings(self)
+
+
+class HasTypeSettings:
+    """Settings wrapper for type behavior encoded in `_aux`."""
+
+    def __init__(self, record: HasType):
+        self._record = record
+
+    @property
+    def single_space(self) -> bool:
+        """Whether instances of this type must remain in the same space.
+
+        Encoding mirrors `Artifact._storage_ongoing`: enabled is stored as `1`,
+        disabled is represented by the absence of the key.
+        """
+        aux = getattr(self._record, "_aux", None)
+        if aux is None:
+            return False
+        return aux.get("ss") == 1
+
+    @single_space.setter
+    def single_space(self, value: bool) -> None:
+        aux = getattr(self._record, "_aux", None)
+        if value:
+            if aux is None:
+                aux = {}
+                self._record._aux = aux
+            aux["ss"] = 1
+            return
+
+        if aux is not None and "ss" in aux:
+            del aux["ss"]
+            if not aux:
+                self._record._aux = None
+
 
 def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
