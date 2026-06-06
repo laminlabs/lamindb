@@ -8,13 +8,13 @@ Registry basics
 .. autoclass:: Registry
 .. autoclass:: BasicQuerySet
 .. autoclass:: QuerySet
+.. autoclass:: SQLRecordSettings
 
 Mixins for registries
 ---------------------
 
 .. autoclass:: IsVersioned
 .. autoclass:: HasType
-.. autoclass:: SQLRecordSettings
 .. autoclass:: HasParents
 .. autoclass:: CanCurate
 .. autoclass:: TracksRun

@@ -245,17 +245,16 @@ class HasType(models.Model):
 
 
 class SQLRecordSettings:
-    """Settings wrapper for type behavior encoded in `_aux`."""
+    """Settings for SQLRecords."""
 
     def __init__(self, sqlrecord: SQLRecord):
         self._sqlrecord = sqlrecord
 
     @property
     def single_space(self) -> bool:
-        """Whether instances of this type must remain in the same space.
+        """Whether sqlrecords of this type must remain in the same space.
 
-        Encoding mirrors `Artifact._storage_ongoing`: enabled is stored as `1`,
-        disabled is represented by the absence of the key.
+        If enabled, the sqlrecords "under this type" must be in the same space as the type.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"
@@ -277,6 +276,8 @@ class SQLRecordSettings:
             "sqlrecord must have is_type = True to use this setting"
         )
         aux = self._sqlrecord._aux
+        # the encoding mirrors `Artifact._storage_ongoing`: enabled is stored as `1`,
+        # disabled is represented by the absence of the key
         if value:
             if aux is None:
                 aux = {}
