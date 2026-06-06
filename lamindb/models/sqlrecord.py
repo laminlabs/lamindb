@@ -240,7 +240,7 @@ class HasType(models.Model):
 
     @property
     def settings(self) -> SQLRecordSettings:
-        """Type-scoped settings persisted in `_aux`."""
+        """Settings."""
         return SQLRecordSettings(self)
 
 
