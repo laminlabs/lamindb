@@ -252,9 +252,12 @@ class SQLRecordSettings:
 
     @property
     def single_space(self) -> bool:
-        """Whether sqlrecords of this type must remain in the same space.
+        """Whether `HasType` `SQLRecord` objects `type` must remain in the same space.
 
-        If enabled, the sqlrecords "under this type" must be in the same space as the type.
+        Defaults to `True`. Can only be set if `.is_type` is `True`.
+
+        .. versionadded:: 2.6.0
+            Before, one could add records from different spaces to the same `type`.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"
