@@ -3746,9 +3746,11 @@ def track_run_input(
     is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
     if is_run_input:
         if run is None:
-            isettings = setup_settings.instance
-            if not (isettings._is_clone or isettings.is_read_only_connection):
-                logger.warning(WARNING_NO_INPUT)
+            # Don't emit this warning when no global instance is configured.
+            if setup_settings._instance_exists:
+                isettings = setup_settings.instance
+                if not (isettings._is_clone or isettings.is_read_only_connection):
+                    logger.warning(WARNING_NO_INPUT)
         elif input_records:
             logger.debug(
                 f"adding {record_class_name} ids {input_records_ids} as inputs for run {run.id}"
