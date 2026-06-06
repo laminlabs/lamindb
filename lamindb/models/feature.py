@@ -996,6 +996,49 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ):
             triggers = [
                 pgtrigger.Trigger(
+                    name="prevent_feature_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_feature f
+                            WHERE f.id = NEW.type_id
+                              AND f._aux->>'ss' = '1'
+                              AND f.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: feature cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_feature
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT f.type_id, tc.depth + 1
+                                FROM lamindb_feature f
+                                INNER JOIN type_chain tc ON f.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+                pgtrigger.Trigger(
                     name="update_feature_on_name_change",
                     operation=pgtrigger.Update,
                     when=pgtrigger.Before,

@@ -40,10 +40,20 @@ def test_invalid_type(model_class, extra_kwargs):
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
-@pytest.mark.parametrize("model_class", [ln.Record, ln.ULabel])
-def test_prevent_type_cycle(model_class):
-    type_a = model_class(name="TypeA", is_type=True).save()
-    type_b = model_class(name="TypeB", is_type=True).save()
+@pytest.mark.parametrize(
+    "model_class,extra_kwargs",
+    [
+        (ln.Record, {}),
+        (ln.ULabel, {}),
+        (ln.Feature, {}),
+        (ln.Schema, {}),
+        (ln.Project, {}),
+        (ln.Reference, {}),
+    ],
+)
+def test_prevent_type_cycle(model_class, extra_kwargs):
+    type_a = model_class(name="TypeA", is_type=True, **extra_kwargs).save()
+    type_b = model_class(name="TypeB", is_type=True, **extra_kwargs).save()
 
     # Set A's parent to B
     type_a.type = type_b
