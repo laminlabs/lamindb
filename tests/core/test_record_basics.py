@@ -185,11 +185,13 @@ def test_record_schema_index_stored_on_name():
     assert "sample_id" not in df.columns
     assert "__lamindb_record_name__" not in df.columns
     assert df.index.tolist() == ["S-001"]
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
 
     partial_df = sheet.to_dataframe(features=["score"])
     assert partial_df.index.name == "sample_id"
     assert partial_df.index.tolist() == ["S-001"]
     assert partial_df["score"].tolist() == [1.5]
+    assert not any(col.startswith("__lamindb_record_") for col in partial_df.columns)
 
     # import: index on df.index
     batch = ln.Record.from_dataframe(
@@ -246,9 +248,7 @@ def test_record_schema_index_stored_on_name():
 
     # artifact export/load round-trip with index in CSV
     artifact = sheet.to_artifact()
-    assert artifact.path.read_text().startswith(
-        "sample_id,score,__lamindb_record_uid__,__lamindb_record_id__\n"
-    )
+    assert artifact.path.read_text().startswith("sample_id,score\n")
     loaded = artifact.load()
     assert loaded.index.name == "sample_id"
     assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}

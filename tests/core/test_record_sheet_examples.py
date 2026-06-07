@@ -120,6 +120,7 @@ def test_record_example_compound_treatment(
     assert df.index.name == "name"
     assert df.index.tolist() == ["Sample 1", "Sample 2"]
     assert "name" not in df.columns
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
     dictionary = df[
         [
             "id",  # a feature
@@ -167,7 +168,7 @@ def test_record_example_compound_treatment(
     # Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1,iCwgKgZELoLtIoGy
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_id__
+name,id,uid,treatment,cell_line,preparation_date,project
 Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")

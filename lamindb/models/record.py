@@ -163,12 +163,33 @@ def pop_index_from_feature_dictionary(
     return coerce_index_value_to_record_name(value, index_feature), dictionary
 
 
+def export_includes_record_metadata(schema: Schema | None) -> bool:
+    """Whether sheet export includes encoded ``__lamindb_record_*`` columns."""
+    return schema is None or schema.index is None
+
+
+def drop_record_metadata_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop encoded Record metadata columns from an export dataframe."""
+    metadata_cols = [
+        col
+        for col in df.columns
+        if col.startswith("__lamindb_record_") and col.endswith("__")
+    ]
+    if metadata_cols:
+        df = df.drop(columns=metadata_cols)
+    encoded_id = encode_lamindb_fields_as_columns(Record, "id")
+    if isinstance(encoded_id, str) and df.index.name == encoded_id:
+        df = df.reset_index(drop=True)
+    return df
+
+
 def apply_schema_index_to_export_dataframe(
     df: pd.DataFrame,
     index_feature: Feature,
     *,
     encoded_id: str,
     encoded_name: str,
+    include_record_metadata: bool = True,
 ) -> pd.DataFrame:
     """Move the schema index feature from columns to `DataFrame.index`."""
     index_col = index_feature.name
@@ -188,11 +209,14 @@ def apply_schema_index_to_export_dataframe(
         )
 
     df = df.copy()
-    df[encoded_id] = lamin_record_ids.values
+    if include_record_metadata:
+        df[encoded_id] = lamin_record_ids.values
     df = df.set_index(index_values)
     df.index.name = index_col
     if index_feature.dtype_as_str == "int":
         df.index = df.index.astype(int)
+    if not include_record_metadata:
+        df = drop_record_metadata_columns(df)
     return df
 
 
@@ -941,17 +965,34 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
         features_arg = kwargs.pop("features", "queryset")
-        df = qs.to_dataframe(features=features_arg, limit=None, **kwargs)
+        index_feature = self.schema.index if self.schema is not None else None
+        include_record_metadata = export_includes_record_metadata(self.schema)
+        df = qs.to_dataframe(
+            features=features_arg,
+            limit=None,
+            record_metadata=include_record_metadata,
+            **kwargs,
+        )
+        if not include_record_metadata and self.schema is not None:
+            schema_feature_names = set(
+                self.schema.members.values_list("name", flat=True)
+            )
+            pk_name = self._meta.pk.name
+            if pk_name in df.columns and pk_name not in schema_feature_names:
+                df = df.drop(columns=[pk_name])
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         assert isinstance(encoded_id, str)  # noqa: S101
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
         assert isinstance(encoded_name, str)  # noqa: S101
-        index_feature = self.schema.index if self.schema is not None else None
         # encode the django id, uid and name fields
-        if df.index.name == "id":
+        if include_record_metadata and df.index.name == "id":
             df.index.name = encoded_id
-        if "uid" in df.columns and encoded_uid not in df.columns:
+        if (
+            include_record_metadata
+            and "uid" in df.columns
+            and encoded_uid not in df.columns
+        ):
             df = df.rename(columns={"uid": encoded_uid})
         if index_feature is not None:
             if "name" in df.columns and index_feature.name != "name":
@@ -964,9 +1005,12 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 index_feature,
                 encoded_id=encoded_id,
                 encoded_name=encoded_name,
+                include_record_metadata=include_record_metadata,
             )
         elif "name" in df.columns and encoded_name not in df.columns:
             df = df.rename(columns={"name": encoded_name})
+        if not include_record_metadata:
+            df = drop_record_metadata_columns(df)
         if self.schema is not None:
             all_features = self.schema.members.all()
             index_feature_uid = None if index_feature is None else index_feature.uid
