@@ -12,6 +12,7 @@ arrays
 ```
 
 This guide walks through different ways of querying & searching registries.
+In LaminDB, `Record` types such as `Samples` are dynamic registries (often just called registries).
 To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
 
 If you already have a set of artifacts and you'd like to stream their content, see {doc}`arrays`.
@@ -135,26 +136,33 @@ The `SQLRecord` classes in LaminDB are Django Models and any [Django query](http
 
 The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
 
-:::::{tab-set}
+::::{tab-set}
 
-::::{tab-item} Via strings
+:::{tab-item} Via strings / kwargs
 
 ```python
-ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
+ln.Artifact.filter(
+    perturbation="DMSO",
+    temperature__gt=26,
+).to_dataframe(include="features")
 ```
 
-::::
+:::
 
-::::{tab-item} Via expressions
+:::{tab-item} Via objects / expressions
 
 ```python
 perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
-ln.Artifact.filter(perturbation == "DMSO")  # note this is now an expression using the == syntax
+temperature = ln.Feature.get(name="temperature")
+ln.Artifact.filter(    # note this is now an expression using the == syntax
+    perturbation == "DMSO",
+    temperature > 21,
+).to_dataframe(include="features")
 ```
 
-::::
+:::
 
-:::::
+::::
 
 Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
 
