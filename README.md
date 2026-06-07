@@ -362,32 +362,32 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 
 ### Lake ♾️ LIMS ♾️ Sheets
 
-You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
+You can create records for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
 ```python
-ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
+ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can create relationships of entities:
+You can dynamically create registries and relationships of entities:
 
 ```python
-# create a flexible record type to track experiments
-experiment_type = ln.Record(name="Experiment", is_type=True).save()
+# create an experiments registry by defining a record type
+experiments_registry = ln.Record(name="Experiments", is_type=True).save()
 
-# create a record of type `Experiment` for your first experiment
-ln.Record(name="Experiment 1", type=experiment_type).save()
+# create a record inside the Experiments registry
+ln.Record(name="Experiment 1", type=experiments_registry).save()
 
-# create a feature to link experiments in records, dataframes, etc.
-ln.Feature(name="experiment", dtype=experiment_type).save()
+# create a feature that links experiments, creating a relationship
+experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
 # create a sample record that links the sample to `Experiment 1` via the `experiment` feature
-ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"}).save()
+ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: "Experiment 1"}).save()
 ```
 
-You can convert any record type to dataframe/sheet:
+You can export a dynamic registry as a dataframe:
 
 ```python
-experiment_type.to_dataframe()
+experiments_registry.to_dataframe()
 ```
 
 <details>

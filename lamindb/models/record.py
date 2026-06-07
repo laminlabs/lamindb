@@ -123,11 +123,10 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records with sheets & markdown pages.
+    """Flexible records with markdown notes, dynamic registries, and sheets.
 
-    Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
-
-    If you just want a simple label, use :class:`~lamindb.ULabel`.
+    Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
+    and other custom entities with their features.
 
     Args:
         name: `str | None = None` A name.
@@ -161,20 +160,20 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group several records in a registry by creating a record type, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # create a flexible record type to track experiments
-        experiment_type = ln.Record(name="Experiment", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+        # create an experiments registry
+        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
         # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+        experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-        # create a record type to track samples -- constrain it with a schema
+        # constrain a samples registry with a schema, turning it into a sheet
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-        # group the sample1 record under the sample sheet
+        # move the sample1 record into the sample sheet
         sample1.type = sample_sheet
         sample1.save()
 
@@ -186,7 +185,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Export all records under a type to a dataframe::
 
-        experiment_type.to_dataframe()
+        experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...

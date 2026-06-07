@@ -437,6 +437,46 @@ def test_features_name_duplicates_across_equal_levels():
     lab_b_type.delete(permanent=True)
 
 
+@pytest.mark.parametrize("query_style", ["kwargs", "predicates"])
+def test_artifact_filter_by_multiple_features(query_style: str):
+    """Mirror docs/query-search.md multi-feature filtering examples."""
+    perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
+    dmso = ln.ULabel(name="DMSO", type=perturbation_type).save()
+    ifng = ln.ULabel(name="IFNG", type=perturbation_type).save()
+    perturbation = ln.Feature(name="perturbation", dtype=perturbation_type).save()
+    temperature = ln.Feature(name="temperature", dtype=float).save()
+
+    matching_artifact = ln.Artifact(
+        ".gitignore",
+        key=f"multi-feature-match-{query_style}",
+    ).save()
+    non_matching_artifact = ln.Artifact(
+        "pyproject.toml",
+        key=f"multi-feature-non-match-{query_style}.toml",
+    ).save()
+    matching_artifact.features.set_values({perturbation: dmso, temperature: 22.6})
+    non_matching_artifact.features.set_values({perturbation: ifng, temperature: 20.0})
+
+    if query_style == "kwargs":
+        queryset = ln.Artifact.filter(perturbation="DMSO", temperature__gt=21)
+    else:
+        queryset = ln.Artifact.filter(perturbation == "DMSO", temperature > 21)
+
+    assert queryset.one() == matching_artifact
+    assert non_matching_artifact not in queryset
+    dataframe = queryset.to_dataframe(include="features")
+    assert "perturbation" in dataframe.columns
+    assert "temperature" in dataframe.columns
+
+    non_matching_artifact.delete(permanent=True)
+    matching_artifact.delete(permanent=True)
+    temperature.delete(permanent=True)
+    perturbation.delete(permanent=True)
+    ifng.delete(permanent=True)
+    dmso.delete(permanent=True)
+    perturbation_type.delete(permanent=True)
+
+
 def test_feature_predicate_queries_safe_hybrid():
     lab_a_type = ln.Feature(name="PredLabA", is_type=True).save()
     feature_a = ln.Feature(name="pred_name", dtype=str, type=lab_a_type).save()
