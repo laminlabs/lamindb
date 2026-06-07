@@ -937,7 +937,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         recurse: bool = False,
         filters: Any | None = None,
         is_run_input: bool | Run | None = None,
-        link_records_as_inputs: bool = True,
+        link_individual_inputs: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -971,7 +971,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 a `dict`, Django `Q` expressions, and feature predicates
                 (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
-            link_records_as_inputs: Whether to link all exported records as
+            link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
@@ -1078,12 +1078,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         self._set_export_run(is_run_input=is_run_input)
-        if link_records_as_inputs:
+        # always link the type record
+        self._export_run.input_records.add(self)
+        if link_individual_inputs:
             input_record_ids = qs.values_list("id", flat=True)
             self._export_run.input_records.add(*input_record_ids)
-        else:
-            # link the type record
-            self._export_run.input_records.add(self)
         self._export_run.finished_at = datetime.now(timezone.utc)
         self._export_run._status_code = 0  # completed
         self._export_run.save()
@@ -1095,7 +1094,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         suffix: str | None = None,
         filters: Any | None = None,
         is_run_input: bool | Run | None = None,
-        link_records_as_inputs: bool = True,
+        link_individual_inputs: bool = True,
         **kwargs,
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
@@ -1122,7 +1121,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
             filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
-            link_records_as_inputs: Whether to link all exported records as
+            link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
@@ -1136,7 +1135,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self.to_dataframe(
                 filters=filters,
                 is_run_input=is_run_input,
-                link_records_as_inputs=link_records_as_inputs,
+                link_individual_inputs=link_individual_inputs,
                 **kwargs,
             ),
             key=key,
