@@ -1777,46 +1777,17 @@ class FeatureManager:
 
         Examples:
 
-            Here is how to annotate an artifact ad hoc::
+            For examples on setting feature annotations, see
 
-                artifact.features.set_values({
-                    "species": "human",
-                    "scientist": ['Barbara McClintock', 'Edgar Anderson'],
-                    "temperature": 27.6,
-                    "experiment": "Experiment 1"
-                })
-
-            Query artifacts by features:
-
-            .. tab-set::
-
-                .. tab-item:: Via strings
-
-                    .. code-block:: python
-
-                        ln.Artifact.filter(scientist="Barbara McClintock")
-                        ln.Artifact.filter(temperature__gt=0.5)
-
-                .. tab-item:: Via objects
-
-                    .. code-block:: python
-
-                        ln.Artifact.filter(scientist == "Barbara McClintock")
-                        ln.Artifact.filter(temperature > 0.5)
-
-            If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
-
-                temperature = ln.Feature.get(name="temperature", type__name="my_feature_type")
-
-                # to set feature values
-                artifact.features.set_values({temperature: 0.5})  # temperature is the feature object
+            - artifacts: :meth:`~lamindb.Artifact.features`
+            - records: :meth:`~lamindb.Record.features`
+            - runs: :meth:`~lamindb.Run.features`
 
             You can pass a schema to validate the dictionary::
 
-                schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
-                artifact.features.set_values({"species": "bird"}, schema=schema)
-
-            Also see :class:`lamindb.Artifact.features`, :class:`lamindb.Record.features`, and :class:`lamindb.Run.features`.
+                species = ln.Feature(name="species", dtype=str).save()
+                schema = ln.Schema([species]).save()
+                artifact.features.set_values({species: "bird"}, schema=schema)
         """
         from lamindb.curators.core import ExperimentalDictCurator
 
