@@ -135,7 +135,7 @@ The `SQLRecord` classes in LaminDB are Django Models and any [Django query](http
 
 The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
 
-<!-- region -->
+<!-- #region -->
 <!-- cannot run tabbed code on CI, see test_artifact_filter_by_multiple_features for tests -->
 
 ::::{tab-set}
@@ -166,7 +166,7 @@ ln.Artifact.filter(    # note this is now an expression using the == syntax
 
 ::::
 
-<!-- endregion -->
+<!-- #endregion -->
 
 Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
 
