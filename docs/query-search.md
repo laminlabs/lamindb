@@ -170,7 +170,11 @@ ln.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
 
 ### By features
 
-The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
+The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to the millions of dimensions biological datsets can have.
+
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
+
+The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by features:
 
 <!-- #region -->
 <!-- cannot run tabbed code on CI, see test_artifact_filter_by_multiple_features for tests -->
