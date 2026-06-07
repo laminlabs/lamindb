@@ -217,7 +217,7 @@ You can query for whether a dataset is annotated annotated by a feature:
 ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
 ```
 
-## Filter operators
+## Cheat sheet: comparators
 
 You can qualify the type of comparison in a query by using a comparator.
 
