@@ -245,19 +245,31 @@ class HasType(models.Model):
 
 
 class SQLRecordSettings:
-    """Settings for SQLRecords."""
+    """Settings for :class:`~lamindb.models.SQLRecord` objects."""
 
     def __init__(self, sqlrecord: SQLRecord):
         self._sqlrecord = sqlrecord
 
     @property
     def single_space(self) -> bool:
-        """Whether `HasType` `SQLRecord` objects `type` must remain in the same space.
+        """Objects in a dynamic registry must be in a single space (default `True`).
 
-        Defaults to `True`. Can only be set if `.is_type` is `True`.
+        Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
+
+        The space that's enforced is the space of the dynamic registry.
+
+        Example:
+
+            Toggle the behavior of a dynamic `Experiments` registry::
+
+                import lamindb as ln
+
+                experiments_registry = ln.Record.get(name="Experiments", is_type=True)
+                experiments_registry.settings.same_space = True
+                experiments_registry.save()
 
         .. versionadded:: 2.6.0
-            Before, one could add records from different spaces to the same `type`.
+            Before, one could by default add objects from different spaces to the same dynamic registry.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"
