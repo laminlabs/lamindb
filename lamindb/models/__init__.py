@@ -8,6 +8,7 @@ Registry basics
 .. autoclass:: Registry
 .. autoclass:: BasicQuerySet
 .. autoclass:: QuerySet
+.. autoclass:: SQLRecordSettings
 
 Mixins for registries
 ---------------------
@@ -146,6 +147,7 @@ from .can_curate import CanCurate
 from .sqlrecord import (
     BaseSQLRecord,
     SQLRecord,
+    SQLRecordSettings,
     Registry,
     Space,
     Branch,

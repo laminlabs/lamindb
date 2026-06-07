@@ -4,6 +4,16 @@ import pytest
 from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
+def test_no_track_run_input_warning_without_global_instance(ccaplog):
+    from lamindb.models.artifact import WARNING_NO_INPUT, track_run_input
+
+    assert ln.setup.settings.instance.slug == "none/none"
+
+    track_run_input([])
+
+    assert WARNING_NO_INPUT not in ccaplog.text
+
+
 def test_no_read_only_warning(ccaplog):
     ln.Artifact.connect("laminlabs/lamindata")
     ln.DB("laminlabs/lamindata")

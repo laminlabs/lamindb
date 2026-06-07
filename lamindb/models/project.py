@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload
 
+import pgtrigger
+from django.conf import settings as django_settings
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import CASCADE, PROTECT
@@ -66,6 +68,55 @@ class Reference(
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="prevent_reference_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_reference r
+                            WHERE r.id = NEW.type_id
+                              AND r._aux->>'ss' = '1'
+                              AND r.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: reference space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: reference cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_reference
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT r.type_id, tc.depth + 1
+                                FROM lamindb_reference r
+                                INNER JOIN type_chain tc ON r.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     id: int = models.AutoField(primary_key=True)
@@ -189,6 +240,55 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="prevent_project_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_project p
+                            WHERE p.id = NEW.type_id
+                              AND p._aux->>'ss' = '1'
+                              AND p.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: project space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: project cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_project
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT p.type_id, tc.depth + 1
+                                FROM lamindb_project p
+                                INNER JOIN type_chain tc ON p.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     id: int = models.AutoField(primary_key=True)
