@@ -231,7 +231,7 @@ ln.Artifact.filter(suffix=".h5ad", records=experiment_1).to_dataframe()
 
 ### less than/ greater than
 
-Or subset to artifacts greater than 10kB. Here, we can't use keyword arguments, but need an explicit where statement.
+Subset to artifacts greater than 10kB.
 
 ```python
 ln.Artifact.filter(records=experiment_1, size__gt=1e4).to_dataframe()
