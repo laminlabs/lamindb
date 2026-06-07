@@ -90,10 +90,10 @@ ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 ```
 
-And here is how to create a registry for samples as a `Record` type:
+And here is how to create a registry for samples and annotate the artifact with a sample:
 
 ```python
-sample_type = ln.Record(                     # create a record type "Samples"
+sample_type = ln.Record(                     # create a registry
     name="Samples",
     is_type=True
 ).save()
@@ -101,7 +101,7 @@ gc_content = ln.Feature(                     # create a feature
     name="gc_content",
     dtype=float
 ).save()
-sample1 = ln.Record(                         # create a sample record
+sample1 = ln.Record(                         # create a sample
     name="Sample 1",
     type=sample_type,
     features={gc_content: 0.5}
@@ -109,7 +109,7 @@ sample1 = ln.Record(                         # create a sample record
 artifact1.records.add(sample1)               # annotate artifact1
 ```
 
-You can use records and ulabels alongside entity types in modules such as {mod}`bionty`:
+You can use records and ulabels alongside labels defined in modules such as {mod}`bionty`:
 
 ```python
 import bionty as bt
