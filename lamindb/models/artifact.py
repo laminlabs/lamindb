@@ -2066,14 +2066,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def path(self) -> UPath:
         """Path.
 
-        Example::
+        Examples::
 
             import lamindb as ln
 
             # File in cloud storage, here AWS S3:
             artifact = ln.Artifact("s3://my-bucket/my-file.csv").save()
             artifact.path
-            #S3QueryPath('s3://my-bucket/my-file.csv')
+            #> S3QueryPath('s3://my-bucket/my-file.csv')
 
             # File in local storage:
             ln.Artifact("./myfile.csv", key="myfile.csv").save()
