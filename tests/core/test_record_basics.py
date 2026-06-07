@@ -50,6 +50,21 @@ def test_record_docstring_examples():
     df = experiments_registry.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
+    # Use Schema.index on a sheet schema to define row keys
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    indexed_schema = ln.Schema(features=[score], index=sample_id).save()
+    indexed_sheet = ln.Record(
+        name="Samples", is_type=True, schema=indexed_schema
+    ).save()
+    indexed_record = ln.Record(
+        type=indexed_sheet, features={"sample_id": "S-001", "score": 1.5}
+    ).save()
+    assert indexed_record.name == "S-001"
+    indexed_df = indexed_sheet.to_dataframe()
+    assert indexed_df.index.name == "sample_id"
+    assert "sample_id" not in indexed_df.columns
+
     # Import records from a dataframe
     records = ln.Record.from_dataframe(
         pd.DataFrame({"gc_content": [0.1, 0.2]}),
@@ -82,6 +97,11 @@ def test_record_docstring_examples():
     experiments_registry.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
+    indexed_record.delete(permanent=True)
+    indexed_sheet.delete(permanent=True)
+    indexed_schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
 
 
 def test_record_initialization():
@@ -140,6 +160,137 @@ def test_record_from_dataframe_bulk_save_paths():
     )
     ln.Record.filter(name="from-df-sheet").delete(permanent=True)
     schema.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_schema_index_stored_on_name():
+    """Schema.index is stored on Record.name and surfaced on df.index / get_values."""
+    from lamindb.models.record import (
+        apply_schema_index_to_export_dataframe,
+        coerce_index_value_to_record_name,
+        pop_index_from_feature_dictionary,
+    )
+
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    schema = ln.Schema(
+        features=[score],
+        index=sample_id,
+        name="index-on-name-schema",
+    ).save()
+    sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
+
+    # index helper functions
+    with pytest.raises(TypeError, match="must be a string"):
+        coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
+    with pytest.raises(TypeError, match="must be a string"):
+        coerce_index_value_to_record_name(7, sample_id)
+
+    name, features = pop_index_from_feature_dictionary(
+        {"sample_id": "S-001", "score": 1.5},
+        schema,
+    )
+    assert name == "S-001"
+    assert features == {"score": 1.5}
+
+    # create: index value -> Record.name, not RecordJson
+    record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+    assert record.name == "S-001"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+    assert record.features.get_values() == {"sample_id": "S-001", "score": 1.5}
+    assert record.features["score"] == 1.5
+
+    # export: index on df.index, omitted from columns
+    df = sheet.to_dataframe()
+    assert df.index.name == "sample_id"
+    assert "sample_id" not in df.columns
+    assert "__lamindb_record_name__" not in df.columns
+    assert df.index.tolist() == ["S-001"]
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
+
+    partial_df = sheet.to_dataframe(features=["score"])
+    assert partial_df.index.name == "sample_id"
+    assert partial_df.index.tolist() == ["S-001"]
+    assert partial_df["score"].tolist() == [1.5]
+    assert not any(col.startswith("__lamindb_record_") for col in partial_df.columns)
+
+    # import: index on df.index
+    batch = ln.Record.from_dataframe(
+        pd.DataFrame({"score": [2.5]}, index=pd.Index(["S-002"], name="sample_id")),
+        type=sheet,
+    )
+    batch.save()
+    record2 = ln.Record.get(name="S-002")
+    assert record2.features["score"] == 2.5
+
+    # import: index as a regular column
+    batch_col = ln.Record.from_dataframe(
+        pd.DataFrame({"sample_id": ["S-003"], "score": [3.5]}),
+        type=sheet,
+    )
+    batch_col.save()
+    record3 = ln.Record.get(name="S-003")
+    assert record3.features["score"] == 3.5
+
+    # import: multi-row batch (bulk validation path)
+    batch_bulk = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {"score": [4.0, 5.0]},
+            index=pd.Index(["S-004", "S-005"], name="sample_id"),
+        ),
+        type=sheet,
+    )
+    batch_bulk.save()
+    assert ln.Record.get(name="S-004").features["score"] == 4.0
+    assert ln.Record.get(name="S-005").features["score"] == 5.0
+
+    # rename: Record.name update reflected in get_values index feature
+    record2.name = "S-002-renamed"
+    ln.models.record.persist_record_name(record2)
+    record2.refresh_from_db()
+    assert record2.features.get_values() == {
+        "sample_id": "S-002-renamed",
+        "score": 2.5,
+    }
+
+    # export helper: fall back to __lamindb_record_name__ column
+    raw_df = pd.DataFrame(
+        {"score": [1.5], "__lamindb_record_name__": ["S-001"]},
+        index=[record.id],
+    )
+    exported = apply_schema_index_to_export_dataframe(
+        raw_df,
+        sample_id,
+        encoded_id="__lamindb_record_id__",
+        encoded_name="__lamindb_record_name__",
+    )
+    assert exported.index.tolist() == ["S-001"]
+    assert exported.loc["S-001", "score"] == 1.5
+
+    # artifact export/load round-trip with index in CSV
+    artifact = sheet.to_artifact()
+    assert artifact.path.read_text().startswith("sample_id,score\n")
+    loaded = artifact.load()
+    assert loaded.index.name == "sample_id"
+    assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}
+    artifact.delete(permanent=True)
+
+    # non-str index features are rejected for record sheets
+    row_id = ln.Feature(name="row_id", dtype=int).save()
+    int_schema = ln.Schema(
+        features=[score],
+        index=row_id,
+        name="int-index-schema",
+    ).save()
+    with pytest.raises(ValueError, match="must have dtype str"):
+        ln.Record(name="int-index-sheet", is_type=True, schema=int_schema).save()
+    int_schema.delete(permanent=True)
+    row_id.delete(permanent=True)
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
     score.delete(permanent=True)
 
 

@@ -444,6 +444,7 @@ def get_basic_field_names(
     qs: QuerySet,
     include: list[str],
     features_input: bool | list[str] | str,
+    record_metadata: bool = True,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
     include_private_fields = False
@@ -488,10 +489,17 @@ def get_basic_field_names(
     pk = qs.model._meta.pk.name if qs.model._meta.pk else None
     if pk and pk in field_names:
         field_names.insert(1, field_names.pop(field_names.index(pk)))
-    if (
-        include or features_input
-    ):  # if there is features_input, reduce fields to just the first 3
-        subset_field_names = field_names[:3]
+    if include or features_input:
+        if record_metadata:
+            # if there is features_input, reduce fields to just the first 3
+            subset_field_names = field_names[:3]
+        else:
+            # schema.index export: keep Record.name and id for index resolution / joins
+            subset_field_names = []
+            if "name" in field_names:
+                subset_field_names.append("name")
+            if "id" in field_names:
+                subset_field_names.append("id")
         intersection = set(field_names) & set(include)
         subset_field_names += list(intersection)
         field_names = subset_field_names
@@ -821,6 +829,7 @@ def reshape_annotate_result(
     field_names: list[str],
     cols_from_include: dict[str, str] | None,
     feature_qs: QuerySet | None,
+    record_metadata: bool = True,
 ) -> pd.DataFrame:
     """Reshapes tidy table to wide format.
 
@@ -851,10 +860,16 @@ def reshape_annotate_result(
     # ========== process features ==========
 
     # Encode Django field names to avoid conflicts with feature names
-    fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
+    if record_metadata:
+        fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
+    else:
+        fields_map = {col: col for col in df.columns}
+        pk_encoded = encode_lamindb_fields_as_columns(registry, pk_name)
+        if isinstance(pk_encoded, str) and pk_name in fields_map:
+            fields_map[pk_name] = pk_encoded
     df_encoded = df.rename(columns=fields_map)
     result_encoded = result.rename(columns=fields_map)
-    pk_name_encoded = fields_map.get(pk_name)  # type: ignore
+    pk_name_encoded = fields_map.get(pk_name, pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
     json_values_attribute = (
@@ -1008,6 +1023,7 @@ def reshape_annotate_result(
         encoded: original
         for original, encoded in fields_map.items()  # type: ignore
         if original not in result_encoded.columns
+        and (record_metadata or original != pk_name)
     }
 
     return result_encoded.drop_duplicates(subset=[pk_name_encoded]).rename(
@@ -1139,6 +1155,7 @@ class BasicQuerySet(models.QuerySet):
         # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 100,
         order_by: str | None = "-id",
+        record_metadata: bool = True,
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         import pandas as pd
@@ -1177,7 +1194,9 @@ class BasicQuerySet(models.QuerySet):
                 features = True  # type: ignore
         features_input = [] if features is None else features
         include = get_backward_compat_filter_kwargs(subset, include_input)
-        field_names = get_basic_field_names(subset, include_input, features_input)
+        field_names = get_basic_field_names(
+            subset, include_input, features_input, record_metadata=record_metadata
+        )
 
         annotate_kwargs = {}
         filtered_relations = {}  # type: ignore
@@ -1223,16 +1242,24 @@ class BasicQuerySet(models.QuerySet):
             return df
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
         df_reshaped = reshape_annotate_result(
-            self.model, df, field_names, cols_from_include, feature_qs
+            self.model, df, field_names, cols_from_include, feature_qs, record_metadata
         )
         pk_name = self.model._meta.pk.name
-        encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
-        if encoded_pk_name in df_reshaped.columns:
-            df_reshaped = df_reshaped.set_index(encoded_pk_name)
+        if record_metadata:
+            encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
+            if encoded_pk_name in df_reshaped.columns:
+                df_reshaped = df_reshaped.set_index(encoded_pk_name)
+            else:
+                pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
+                if pk_column_name in df_reshaped.columns:
+                    df_reshaped = df_reshaped.set_index(pk_column_name)
         else:
-            pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
-            if pk_column_name in df_reshaped.columns:
-                df_reshaped = df_reshaped.set_index(pk_column_name)
+            encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
+            if (
+                isinstance(encoded_pk_name, str)
+                and encoded_pk_name in df_reshaped.columns
+            ):
+                df_reshaped = df_reshaped.drop(columns=[encoded_pk_name])
 
         # cast floats and ints where appropriate
         # this is currently needed because the UI writes into the JSON field through JS

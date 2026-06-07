@@ -445,7 +445,14 @@ class SlotsCurator(Curator):
 
 def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
-    df = pd.DataFrame([d])
+    d = dict(d)
+    index_feature = schema.index
+    if index_feature is not None and index_feature.name in d:
+        index_value = d.pop(index_feature.name)
+        df = pd.DataFrame([d])
+        df.index = pd.Index([index_value], name=index_feature.name)
+    else:
+        df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
         if feature.dtype_as_str.startswith("cat"):

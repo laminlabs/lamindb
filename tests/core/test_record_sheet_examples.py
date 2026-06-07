@@ -1,9 +1,31 @@
+import re
+
 import lamindb as ln
 import pandas as pd
 from lamindb.examples.fixtures.sheets import (
     populate_nextflow_sheet_with_samples,  # noqa: F401
     populate_sheets_compound_treatment,  # noqa: F401
 )
+
+
+def _assert_describe_feature_columns(
+    describe_str: str,
+    n_columns: int,
+    rows: list[tuple[str, str, str | None]],
+) -> None:
+    """Assert feature columns section; ignore Rich table padding differences."""
+    assert "└── Dataset features" in describe_str
+    assert f"└── columns ({n_columns})" in describe_str
+    for name, dtype, values in rows:
+        if values is None:
+            pattern = rf"^\s*{re.escape(name)}\s+{re.escape(dtype)}\s*$"
+        else:
+            pattern = (
+                rf"^\s*{re.escape(name)}\s+{re.escape(dtype)}\s+{re.escape(values)}\s*$"
+            )
+        assert re.search(pattern, describe_str, re.MULTILINE), (
+            f"Missing describe row for {name!r} ({dtype=!r}, {values=!r})"
+        )
 
 
 def test_float_int_casting():
@@ -77,47 +99,40 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    dictionary = (
-        ln.Record.filter(type=sample_sheet1)
-        .to_dataframe(features=["cell_line", "treatment"])[
-            ["cell_line", "__lamindb_record_name__", "treatment"]
-        ]
-        .to_dict(orient="list")
-    )
+    partial_df = sample_sheet1.to_dataframe(features=["cell_line", "treatment"])
+    assert partial_df.index.name == "name"
+    assert partial_df.index.tolist() == ["Sample 1", "Sample 2"]
+    dictionary = partial_df[["cell_line", "treatment"]].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T",
             "HEK293T",
         ],
-        "__lamindb_record_name__": [
-            "sample2",
-            "sample1",
-        ],
         "treatment": [
-            "treatment2",
             "treatment1",
+            "treatment2",
         ],
     }
 
     assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
     assert sample_sheet1.input_of_runs.count() == 0
-    assert df.index.name == "__lamindb_record_id__"
+    assert df.index.name == "name"
+    assert df.index.tolist() == ["Sample 1", "Sample 2"]
+    assert "name" not in df.columns
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
     dictionary = df[
         [
             "id",  # a feature
             "uid",  # a feature
-            "name",  # a feature
             "cell_line",
             "treatment",
             "preparation_date",
-            "__lamindb_record_name__",
         ]
     ].to_dict(orient="list")
     assert dictionary == {
         "id": [1, 2],
         "uid": ["S1", "S2"],
-        "name": ["Sample 1", "Sample 2"],
         "cell_line": [
             "HEK293T",
             "HEK293T",
@@ -130,17 +145,13 @@ def test_record_example_compound_treatment(
             "treatment1",
             "treatment2",
         ],
-        "__lamindb_record_name__": [
-            "sample1",
-            "sample2",
-        ],
     }
 
     artifact = sample_sheet1.to_artifact()
     assert sample_sheet1.schema.members.to_list("name") == [
+        "name",
         "id",
         "uid",
-        "name",
         "treatment",
         "cell_line",
         "preparation_date",
@@ -153,27 +164,29 @@ def test_record_example_compound_treatment(
     assert artifact.run.started_at is not None
     assert artifact.run.finished_at is not None
     # looks something like this:
-    # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-    # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
-    # 2,S2,Sample 2,treatment2,HEK293T,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    # name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__
+    # Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1,iCwgKgZELoLtIoGy
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
-1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
+name,id,uid,treatment,cell_line,preparation_date,project
+Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
-    assert artifact.features.describe(return_str=True).endswith("""\
-└── Dataset features
-    └── columns (7)
-        cell_line           bionty.CellLine          HEK293T
-        id                  int
-        name                str
-        preparation_date    datetime
-        project             Project                  Project 1
-        treatment           Record[Treatment]        treatment1, treatment2
-        uid                 str""")
+    _assert_describe_feature_columns(
+        artifact.features.describe(return_str=True),
+        7,
+        [
+            ("cell_line", "bionty.CellLine", "HEK293T"),
+            ("id", "int", None),
+            ("name", "str", None),
+            ("preparation_date", "datetime", None),
+            ("project", "Project", "Project 1"),
+            ("treatment", "Record[Treatment]", "treatment1, treatment2"),
+            ("uid", "str", None),
+        ],
+    )
     # re-run the export which triggers hash lookup
     sample_sheet1.to_artifact()
     # soft-delete a record in the sheet
@@ -247,14 +260,17 @@ def test_nextflow_sheet_with_samples(
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,seq_center,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,,""")
-    assert artifact.features.describe(return_str=True).endswith("""\
-└── Dataset features
-    └── columns (5)
-        expected_cells      int
-        fastq_1             str
-        fastq_2             str
-        sample              Record[BioSample]        Sample_X, Sample_Y
-        seq_center          str""")
+    _assert_describe_feature_columns(
+        artifact.features.describe(return_str=True),
+        5,
+        [
+            ("expected_cells", "int", None),
+            ("fastq_1", "str", None),
+            ("fastq_2", "str", None),
+            ("sample", "Record[BioSample]", "Sample_X, Sample_Y"),
+            ("seq_center", "str", None),
+        ],
+    )
 
     related_schemas = list(artifact.schemas.all())
     artifact.schemas.clear()

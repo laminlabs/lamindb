@@ -66,12 +66,12 @@ def populate_sheets_compound_treatment():
         features=[
             id_feature,
             uid_feature,
-            name_feature,
             treatment,
             cell_line,
             preparation_date,
             project,
         ],
+        index=name_feature,
     ).save()
     sample_sheet1 = ln.Record(
         name="My samples 2025-06", schema=sample_schema1, type=sample_type
@@ -80,10 +80,9 @@ def populate_sheets_compound_treatment():
     hek293t = bt.CellLine.from_source("HEK293T").save()
 
     # populate sample1
-    sample1 = ln.Record(name="sample1", type=sample_sheet1).save()
+    sample1 = ln.Record(name="Sample 1", type=sample_sheet1).save()
     ln.models.RecordJson(record=sample1, feature=id_feature, value=1).save()
     ln.models.RecordJson(record=sample1, feature=uid_feature, value="S1").save()
-    ln.models.RecordJson(record=sample1, feature=name_feature, value="Sample 1").save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
     bt.models.RecordCellLine(record=sample1, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
@@ -91,10 +90,9 @@ def populate_sheets_compound_treatment():
     ).save()
     ln.models.RecordProject(record=sample1, feature=project, value=project1).save()
     # populate sample2
-    sample2 = ln.Record(name="sample2", type=sample_sheet1).save()
+    sample2 = ln.Record(name="Sample 2", type=sample_sheet1).save()
     ln.models.RecordJson(record=sample2, feature=id_feature, value=2).save()
     ln.models.RecordJson(record=sample2, feature=uid_feature, value="S2").save()
-    ln.models.RecordJson(record=sample2, feature=name_feature, value="Sample 2").save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
     bt.models.RecordCellLine(record=sample2, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(

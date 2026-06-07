@@ -203,7 +203,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -1110,7 +1110,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def index(self) -> None | Feature:
         """The feature configured to act as index.
 
-        To unset it, set `schema.index` to `None`.
+        For `DataFrame` / `AnnData` schemas, validates row indices during curation.
+        For record sheet schemas, the index feature must have `dtype=str`; see
+        :class:`~lamindb.Record`. To unset, set `schema.index` to `None`.
         """
         if self._index_feature_uid is None:
             return None

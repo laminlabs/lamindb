@@ -589,6 +589,10 @@ def get_features_data(
                 external_data.append(feature_info)
 
     if to_dict:
+        if self.__class__.__name__ == "Record":
+            from .record import inject_index_into_feature_dict
+
+            inject_index_into_feature_dict(self, dictionary)
         if external_only:
             return {
                 k: v for k, v in dictionary.items() if k not in internal_feature_names
@@ -1128,16 +1132,25 @@ class FeatureManager:
         for (registry, registry_name), feature_ids in registry_to_features.items():
             if registry_name == "JsonValue":
                 # for non-categorical features
-                filters = {
-                    "feature_id__in": feature_ids,
-                    f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
-                }
-                dtype_values = (
-                    registry.objects.using(host_db)
-                    .filter(**filters)
-                    .distinct()
-                    .values_list("feature___dtype_str", "value")
-                )
+                if host_name == "Record":
+                    from lamindb.models.record import RecordJson
+
+                    dtype_values = (
+                        RecordJson.objects.using(host_db)
+                        .filter(record_id=host_id, feature_id__in=feature_ids)
+                        .values_list("feature___dtype_str", "value")
+                    )
+                else:
+                    filters = {
+                        "feature_id__in": feature_ids,
+                        f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
+                    }
+                    dtype_values = (
+                        registry.objects.using(host_db)
+                        .filter(**filters)
+                        .distinct()
+                        .values_list("feature___dtype_str", "value")
+                    )
                 feature_values_qs = []
                 for dtype, value in dtype_values:
                     if dtype == "date":
@@ -1372,9 +1385,30 @@ class FeatureManager:
     ) -> None:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
-        from .record import RecordJson
+        from .record import (
+            RecordJson,
+            apply_index_feature_to_record,
+            get_type_schema_index,
+        )
+
+        index_feature = get_type_schema_index(record.type)  # type: ignore
 
         for feature in feature_objects:
+            if index_feature is not None and feature.uid == index_feature.uid:
+                if (
+                    values_by_feature_uid is not None
+                    and feature.uid in values_by_feature_uid
+                ):
+                    index_value = values_by_feature_uid[feature.uid]
+                else:
+                    index_value = dictionary[feature.name]
+                apply_index_feature_to_record(
+                    record,
+                    feature,
+                    index_value,
+                    persist=False,
+                )
+                continue
             if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
@@ -1616,6 +1650,16 @@ class FeatureManager:
         ExperimentalDictCurator(
             dictionary, schema, require_saved_schema=False
         ).validate()
+        if host_is_record and schema.index is not None:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                self._host,
+                schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+            )
         return self._add_values(
             feature_objects,
             dictionary,
@@ -1654,6 +1698,13 @@ class FeatureManager:
                     save(links, ignore_conflicts=False)
                 except Exception:
                     save(links, ignore_conflicts=True)
+            from .record import get_type_schema_index, persist_record_name
+
+            if (
+                self._host.pk is not None
+                and get_type_schema_index(self._host.type) is not None  # type: ignore
+            ):
+                persist_record_name(self._host)
             return None
 
         features_labels = defaultdict(list)
@@ -1829,6 +1880,16 @@ class FeatureManager:
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
             )
+            if host_is_record and schema.index is not None:
+                from .record import strip_index_for_record_persistence
+
+                dictionary, feature_objects = strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
         else:
             if string_key_values:
                 looked_up_features = self._get_feature_objects(
@@ -2150,6 +2211,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             explicit_features,
             values_by_feature_uid,
         ) = manager._resolve_feature_value_dictionary(record._features)
+        from .record import inject_index_into_feature_dict
+
+        inject_index_into_feature_dict(record, dictionary)
         prepared_rows.append(dictionary)
         prepared_records.append(
             (record, manager, dictionary, explicit_features, values_by_feature_uid)
@@ -2158,6 +2222,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
     dataframe = pd.DataFrame(prepared_rows)
+    from .record import move_schema_index_column_to_dataframe_index
+
+    dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
     for feature in schema_features:
         if (
             feature.name in dataframe
@@ -2227,6 +2294,16 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
+        if batch_schema.index is not None:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                record,
+                batch_schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+            )
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,
@@ -2245,6 +2322,11 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             save(links, ignore_conflicts=False)
         except Exception:
             save(links, ignore_conflicts=True)
+    from .record import get_type_schema_index
+    from .save import bulk_update
+
+    if get_type_schema_index(records_with_features[0].type) is not None:
+        bulk_update(records_with_features)
     for record in records_with_features:
         del record._features
     return None
