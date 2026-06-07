@@ -1132,16 +1132,25 @@ class FeatureManager:
         for (registry, registry_name), feature_ids in registry_to_features.items():
             if registry_name == "JsonValue":
                 # for non-categorical features
-                filters = {
-                    "feature_id__in": feature_ids,
-                    f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
-                }
-                dtype_values = (
-                    registry.objects.using(host_db)
-                    .filter(**filters)
-                    .distinct()
-                    .values_list("feature___dtype_str", "value")
-                )
+                if host_name == "Record":
+                    from lamindb.models.record import RecordJson
+
+                    dtype_values = (
+                        RecordJson.objects.using(host_db)
+                        .filter(record_id=host_id, feature_id__in=feature_ids)
+                        .values_list("feature___dtype_str", "value")
+                    )
+                else:
+                    filters = {
+                        "feature_id__in": feature_ids,
+                        f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
+                    }
+                    dtype_values = (
+                        registry.objects.using(host_db)
+                        .filter(**filters)
+                        .distinct()
+                        .values_list("feature___dtype_str", "value")
+                    )
                 feature_values_qs = []
                 for dtype, value in dtype_values:
                     if dtype == "date":

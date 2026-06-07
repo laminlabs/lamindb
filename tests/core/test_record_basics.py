@@ -170,7 +170,7 @@ def test_record_schema_index_stored_on_name():
     )
     batch.save()
     record2 = ln.Record.get(name="S-002")
-    assert record2.features.get_values()["score"] == 2.5
+    assert record2.features["score"] == 2.5
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
