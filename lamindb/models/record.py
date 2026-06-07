@@ -39,7 +39,6 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     _get_record_kwargs,
-    get_name_field,
     pop_space_branch_kwargs,
 )
 from .transform import Transform
@@ -78,46 +77,38 @@ def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
     return index_feature is not None and feature.uid == index_feature.uid
 
 
+def validate_record_sheet_index_feature(index_feature: Feature) -> None:
+    """Ensure a record-sheet index feature can be stored on `Record.name`."""
+    if index_feature.dtype_as_str != "str":
+        raise ValueError(
+            f"schema index feature '{index_feature.name}' must have dtype str "
+            f"because it is stored on Record.name, not {index_feature.dtype_as_str!r}"
+        )
+
+
+def validate_record_type_schema_index(schema: Schema | None) -> None:
+    if schema is None:
+        return
+    index_feature = schema.index
+    if index_feature is not None:
+        validate_record_sheet_index_feature(index_feature)
+
+
 def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
     """Convert an index feature value to a `Record.name` string."""
     import pandas as pd
 
-    from lamindb.base.dtypes import is_iterable_of_sqlrecord
-
     if value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
         return None
-    if isinstance(value, SQLRecord):
-        name_field = get_name_field(value)
-        name = getattr(value, name_field, None)
-        if name is not None:
-            return str(name)
-        return str(value.uid)
-    if is_iterable_of_sqlrecord(value):
-        raise TypeError(
-            f"index feature '{feature.name}' cannot store multiple records; pass a single value"
-        )
     if isinstance(value, str):
         return value
-    if isinstance(value, bool):
-        return str(value).lower()
-    if isinstance(value, (int, float)):
-        return str(value)
     raise TypeError(
-        f"index feature '{feature.name}' value must be a string or scalar, not {type(value)}"
+        f"index feature '{feature.name}' value must be a string, not {type(value).__name__}"
     )
 
 
-def index_value_from_record_name(name: str | None, feature: Feature) -> Any:
-    """Convert `Record.name` back to a typed index feature value."""
-    if name is None:
-        return None
-    dtype_str = feature.dtype_as_str
-    if dtype_str == "int":
-        return int(name)
-    if dtype_str in {"float", "num"}:
-        return float(name)
-    if dtype_str == "bool":
-        return name.lower() in {"true", "1", "yes"}
+def index_value_from_record_name(name: str | None, feature: Feature) -> str | None:
+    """Convert `Record.name` back to the index feature value."""
     return name
 
 
@@ -213,8 +204,6 @@ def apply_schema_index_to_export_dataframe(
         df[encoded_id] = lamin_record_ids.values
     df = df.set_index(index_values)
     df.index.name = index_col
-    if index_feature.dtype_as_str == "int":
-        df.index = df.index.astype(int)
     if not include_record_metadata:
         df = drop_record_metadata_columns(df)
     return df
@@ -473,7 +462,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     -----
 
     **Schema index.** When a sheet schema defines :attr:`~lamindb.Schema.index`, the
-    index feature acts as the row key — analogous to `df.index` for tabular data:
+    index feature acts as the row key — analogous to `df.index` for tabular data.
+    The index feature must have `dtype=str` because values are stored on
+    :attr:`~lamindb.Record.name`:
 
     - **Write**: `Record(features=...)`, `features.add_values()`, and
       :meth:`~lamindb.Record.from_dataframe` route the index feature to
@@ -748,6 +739,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         )
 
     def save(self, *args, **kwargs) -> Record:
+        if self.is_type:
+            validate_record_type_schema_index(self.schema)
         super().save(*args, **kwargs)
         if hasattr(self, "_features"):
             pending_features = self._features

@@ -168,7 +168,6 @@ def test_record_schema_index_stored_on_name():
     from lamindb.models.record import (
         apply_schema_index_to_export_dataframe,
         coerce_index_value_to_record_name,
-        index_value_from_record_name,
         pop_index_from_feature_dictionary,
     )
 
@@ -182,8 +181,10 @@ def test_record_schema_index_stored_on_name():
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
     # index helper functions
-    with pytest.raises(TypeError, match="must be a string or scalar"):
+    with pytest.raises(TypeError, match="must be a string"):
         coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
+    with pytest.raises(TypeError, match="must be a string"):
+        coerce_index_value_to_record_name(7, sample_id)
 
     name, features = pop_index_from_feature_dictionary(
         {"sample_id": "S-001", "score": 1.5},
@@ -274,29 +275,17 @@ def test_record_schema_index_stored_on_name():
     assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}
     artifact.delete(permanent=True)
 
-    # int index dtype + bool name round-trip helpers
+    # non-str index features are rejected for record sheets
     row_id = ln.Feature(name="row_id", dtype=int).save()
-    active = ln.Feature(name="active", dtype=bool).save()
     int_schema = ln.Schema(
         features=[score],
         index=row_id,
         name="int-index-schema",
     ).save()
-    int_sheet = ln.Record(
-        name="int-index-sheet", is_type=True, schema=int_schema
-    ).save()
-    int_record = ln.Record(type=int_sheet, features={"row_id": 7, "score": 9.0}).save()
-    assert int_record.name == "7"
-    assert int_record.features.get_values()["row_id"] == 7
-    assert int_sheet.to_dataframe().index.tolist() == [7]
-    assert index_value_from_record_name("1", active) is True
-    assert index_value_from_record_name("0", active) is False
-
-    ln.Record.filter(type=int_sheet).delete(permanent=True)
-    int_sheet.delete(permanent=True)
+    with pytest.raises(ValueError, match="must have dtype str"):
+        ln.Record(name="int-index-sheet", is_type=True, schema=int_schema).save()
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
-    active.delete(permanent=True)
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
