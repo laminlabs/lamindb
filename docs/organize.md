@@ -106,7 +106,7 @@ sample1 = ln.Record(                         # create a sample record
     type=sample_type,
     features={gc_content: 0.5}
 ).save()
-artifact1.records.add(sample1)               # annnotate artifact1
+artifact1.records.add(sample1)               # annotate artifact1
 ```
 
 You can use records and ulabels alongside entity types in modules such as {mod}`bionty`:
@@ -132,13 +132,13 @@ Here is how to define features and annotate an artifact with feature values:
 experiment_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
 gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
 experiment = ln.Feature(name="experiment", dtype=experiment_registry).save()  # define a feature with dtype `Experiments`
-artifact.features.set_values({
+artifact1.features.set_values({
     gc_content: 0.55,   # validated to be a float
     experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
 })
 ```
 
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation. The easiest way is to use validation and auto-annotation is the built-in schema `"valid_features"`:
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation. The easiest way to use validation and auto-annotation is the built-in schema `"valid_features"`:
 
 ```python
 # validate columns in the dataframe and map them on features
@@ -146,7 +146,7 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Below is an example from the {doc}`docs:tutorial` illustrating how you get e.g. cell type, treatment, and assay annotations based on a dataframe's content. You can read more on this in {doc}`/curate`.
+Below is an example from the {doc}`docs:tutorial` illustrating how you get, e.g., cell type, treatment, and assay annotations based on a dataframe's content. You can read more on this in {doc}`/curate`.
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 
@@ -171,7 +171,7 @@ The {class}`~lamindb.Artifact` registry has simple fields (such as `description`
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
-All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts.[^starsnowflake]
+All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts. This is called dimensional modeling in data warehousing.[^starsnowflake]
 
 :::{dropdown} Can you give me some example queries?
 
@@ -216,6 +216,6 @@ collection_v2 = collection.append(artifact3)
 
 While collections are indirectly annotated through the annotations of the artifacts they contain, you can also add collection-level annotations. Like artifacts, collections link to projects, runs, ulabels, records, and most other registries.
 
-[^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
+[^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Dimensional_modeling)).
 
 [^protectproject]: The project annotation of the artifact is protected against the deletion of the project. If a user with necessary rights attempts to delete the project, they will get an error.
