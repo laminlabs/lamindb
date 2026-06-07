@@ -6764,6 +6764,7 @@ class Migration(migrations.Migration):
                 name="unique_artifact_storage_hash_null_key",
             ),
         ),
+        migrations.RunPython(apply_constraints),
     ]
 
 
