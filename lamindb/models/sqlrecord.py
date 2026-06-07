@@ -238,6 +238,73 @@ class HasType(models.Model):
 
         return _query_ancestors_of_fk(self, "type")  # type: ignore
 
+    @property
+    def settings(self) -> SQLRecordSettings:
+        """Settings."""
+        return SQLRecordSettings(self)
+
+
+class SQLRecordSettings:
+    """Settings for :class:`~lamindb.models.SQLRecord` objects."""
+
+    def __init__(self, sqlrecord: SQLRecord):
+        self._sqlrecord = sqlrecord
+
+    @property
+    def single_space(self) -> bool:
+        """Objects in a dynamic registry must be in a single space (default `True`).
+
+        Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
+
+        The space that's enforced is the space of the dynamic registry.
+
+        Example:
+
+            Toggle the behavior of a dynamic `Experiments` registry::
+
+                import lamindb as ln
+
+                experiments_registry = ln.Record.get(name="Experiments", is_type=True)
+                experiments_registry.settings.same_space = True
+                experiments_registry.save()
+
+        .. versionadded:: 2.6.0
+            Before, one could by default add objects from different spaces to the same dynamic registry.
+        """
+        assert isinstance(self._sqlrecord, HasType), (
+            "sqlrecord must be a HasType to use this setting"
+        )
+        assert self._sqlrecord.is_type is True, (
+            "sqlrecord must have is_type = True to use this setting"
+        )
+        aux = self._sqlrecord._aux
+        if aux is None:
+            return False
+        return aux.get("ss") == 1
+
+    @single_space.setter
+    def single_space(self, value: bool) -> None:
+        assert isinstance(self._sqlrecord, HasType), (
+            "sqlrecord must be a HasType to use this setting"
+        )
+        assert self._sqlrecord.is_type is True, (
+            "sqlrecord must have is_type = True to use this setting"
+        )
+        aux = self._sqlrecord._aux
+        # the encoding mirrors `Artifact._storage_ongoing`: enabled is stored as `1`,
+        # disabled is represented by the absence of the key
+        if value:
+            if aux is None:
+                aux = {}
+                self._sqlrecord._aux = aux
+            aux["ss"] = 1
+            return
+
+        if aux is not None and "ss" in aux:
+            del aux["ss"]
+            if not aux:
+                self._sqlrecord._aux = None
+
 
 def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"

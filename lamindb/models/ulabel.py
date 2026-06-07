@@ -102,6 +102,17 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     when=pgtrigger.Before,
                     condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
                     func="""
+                        -- Enforce that ulabels typed by a single-space type stay in the same space
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_ulabel u
+                            WHERE u.id = NEW.type_id
+                              AND u._aux->>'ss' = '1'
+                              AND u.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: ulabel space must match single-space type space';
+                        END IF;
+
                         -- Check for direct self-reference
                         IF NEW.type_id = NEW.id THEN
                             RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';

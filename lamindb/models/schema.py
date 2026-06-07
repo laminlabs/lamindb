@@ -4,6 +4,8 @@ import warnings
 from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
@@ -290,6 +292,55 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="prevent_schema_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_schema s
+                            WHERE s.id = NEW.type_id
+                              AND s._aux->>'ss' = '1'
+                              AND s.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: schema space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: schema cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_schema
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT s.type_id, tc.depth + 1
+                                FROM lamindb_schema s
+                                INNER JOIN type_chain tc ON s.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"

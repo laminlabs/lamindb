@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, InternalError
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
@@ -289,6 +289,61 @@ def test_invalid_type_record_with_schema():
 
     record_type_with_schema.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
+def test_single_space_type_requires_same_space():
+    restricted_space = ln.Space(name="other-space").save()
+    assert restricted_space.id != 1
+    constrained_type = ln.Record(
+        name="LockedType", is_type=True, space=restricted_space
+    ).save()
+    assert constrained_type.settings.single_space is False
+    assert constrained_type._aux is None
+
+    unconstrained_record = ln.Record(
+        name="different_space_allowed", type=constrained_type
+    ).save()
+    assert unconstrained_record.space_id == 1
+
+    constrained_type.settings.single_space = True
+    constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.settings.single_space is True
+    assert constrained_type._aux is not None
+    assert constrained_type._aux.get("ss") == 1
+
+    valid_record = ln.Record(
+        name="same_space_record", type=constrained_type, space=restricted_space
+    ).save()
+    assert valid_record.space_id == constrained_type.space_id
+
+    with pytest.raises(InternalError) as error:
+        ln.Record.objects.filter(id=valid_record.id).update(space_id=1)
+    assert "record space must match locked type space" in error.exconly()
+
+    with pytest.raises(InternalError) as error:
+        ln.Record(name="different_space_record", type=constrained_type).save()
+    assert "record space must match locked type space" in error.exconly()
+
+    constrained_type.settings.single_space = False
+    constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.settings.single_space is False
+    assert constrained_type._aux is None
+
+    unconstrained_record_2 = ln.Record(
+        name="different_space_allowed_again", type=constrained_type
+    ).save()
+    assert unconstrained_record_2.space_id == 1
+
+    unconstrained_record.delete(permanent=True)
+    unconstrained_record_2.delete(permanent=True)
+    valid_record.delete(permanent=True)
+    constrained_type.delete(permanent=True)
+    restricted_space.delete(permanent=True)
 
 
 # see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
