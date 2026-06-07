@@ -1683,9 +1683,7 @@ class FeatureManager:
             )
             self._raise_not_validated_values(record_not_validated_values)
             if feature_json_values:
-                from .record import save_record_json_values
-
-                save_record_json_values(feature_json_values)
+                save(feature_json_values)
             for links in links_by_model.values():
                 try:
                     save(links, ignore_conflicts=False)
@@ -2327,9 +2325,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
-        from .record import save_record_json_values
-
-        save_record_json_values(feature_json_values)
+        save(feature_json_values)
     for links in links_by_model.values():
         try:
             save(links, ignore_conflicts=False)

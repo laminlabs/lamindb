@@ -79,7 +79,7 @@ def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
 
 
 def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
-    """Convert an index feature value to a ``Record.name`` string."""
+    """Convert an index feature value to a `Record.name` string."""
     import pandas as pd
 
     from lamindb.base.dtypes import is_iterable_of_sqlrecord
@@ -108,7 +108,7 @@ def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | Non
 
 
 def index_value_from_record_name(name: str | None, feature: Feature) -> Any:
-    """Convert ``Record.name`` back to a typed index feature value."""
+    """Convert `Record.name` back to a typed index feature value."""
     if name is None:
         return None
     dtype_str = feature.dtype_as_str
@@ -128,19 +128,19 @@ def apply_index_feature_to_record(
     *,
     persist: bool = True,
 ) -> None:
-    """Set ``record.name`` from an index feature value."""
+    """Set `record.name` from an index feature value."""
     record.name = coerce_index_value_to_record_name(value, feature)
     if persist and record.pk is not None:
         persist_record_name(record)
 
 
 def persist_record_name(record: Record) -> None:
-    """Persist ``Record.name`` without re-entering lazy ``features`` saving."""
+    """Persist `Record.name` without re-entering lazy `features` saving."""
     SQLRecord.save(record, update_fields=["name"])
 
 
 def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
-    """Expose the index feature in ``get_values`` / feature dicts from ``record.name``."""
+    """Expose the index feature in `get_values` / feature dicts from `record.name`."""
     index_feature = get_type_schema_index(record.type)
     if index_feature is None or record.name is None:
         return
@@ -152,7 +152,7 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
 def pop_index_from_feature_dictionary(
     dictionary: dict[str, Any], schema: Schema
 ) -> tuple[str | None, dict[str, Any]]:
-    """Extract index value for ``record.name`` and remove it from feature payload."""
+    """Extract index value for `record.name` and remove it from feature payload."""
     index_feature = schema.index
     if index_feature is None:
         return None, dictionary
@@ -170,7 +170,7 @@ def apply_schema_index_to_export_dataframe(
     encoded_id: str,
     encoded_name: str,
 ) -> pd.DataFrame:
-    """Move the schema index feature from columns to ``DataFrame.index``."""
+    """Move the schema index feature from columns to `DataFrame.index`."""
     index_col = index_feature.name
     lamin_record_ids = df.index.to_series()
     if index_col in df.columns:
@@ -212,7 +212,7 @@ def dataframe_for_record_batch(
 def move_schema_index_column_to_dataframe_index(
     df: pd.DataFrame, schema: Schema
 ) -> pd.DataFrame:
-    """Align a validation dataframe with ``Schema.index`` (index on ``df.index``)."""
+    """Align a validation dataframe with `Schema.index` (index on `df.index`)."""
     index_feature = schema.index
     if index_feature is None or index_feature.name not in df.columns:
         return df
@@ -230,7 +230,7 @@ def strip_index_for_record_persistence(
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
-    """Move schema index values to ``record.name`` and drop them from link-table writes."""
+    """Move schema index values to `record.name` and drop them from link-table writes."""
     index_feature = schema.index
     if index_feature is None:
         return dictionary, feature_objects
@@ -250,18 +250,6 @@ def strip_index_for_record_persistence(
         feature for feature in feature_objects if feature.uid != index_feature.uid
     ]
     return dictionary, feature_objects
-
-
-def save_record_json_values(feature_json_values: list) -> None:
-    """Persist ``RecordJson`` rows, upserting on ``(record, feature)``."""
-    from .record import RecordJson
-
-    for record_json in feature_json_values:
-        RecordJson.objects.update_or_create(
-            record=record_json.record,
-            feature=record_json.feature,
-            defaults={"value": record_json.value},
-        )
 
 
 class RecordBatch:
