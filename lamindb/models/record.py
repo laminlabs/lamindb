@@ -584,7 +584,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def features(self) -> FeatureManager:
         """Manage the linked feature values.
 
-        For examples, see :class:`~lamindb.Record` or :class:`~lamindb.models.FeatureManager`.
+        For examples, see :class:`~lamindb.Record`.
         """
         from ._feature_manager import FeatureManager
 

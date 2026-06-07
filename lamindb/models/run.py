@@ -489,7 +489,7 @@ class Run(SQLRecord, TracksUpdates):
     def features(self) -> FeatureManager:
         """Manage annotations with features.
 
-        For examples, see :class:`~lamindb.Run` or :class:`~lamindb.models.FeatureManager`.
+        For examples, see :class:`~lamindb.Run`.
         """
         from ._feature_manager import FeatureManager
 

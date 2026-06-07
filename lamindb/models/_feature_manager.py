@@ -1777,7 +1777,7 @@ class FeatureManager:
 
         Examples:
 
-            For examples on setting feature annotations, see
+            You can use `set_values()` in combination with the `.features` attribute of three entities. For examples, see:
 
             - artifacts: :meth:`~lamindb.Artifact.features`
             - records: :meth:`~lamindb.Record.features`
