@@ -7,7 +7,7 @@ from django.db import connection, migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0187_squashed"),
+        ("lamindb", "0187_v2_4_part_2"),
     ]
     operations = []  # type: ignore
 

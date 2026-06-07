@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "lamin_utils==0.16.4",  # no dependencies
     "lamin_cli==1.17.0",  # no dependencies
-    "lamindb_setup[aws]==1.25.0",  # dependencies like Django & fsspec
+    "lamindb_setup[aws]==1.25.1",  # dependencies like Django & fsspec
     "psycopg2-binary",
 ]
 
