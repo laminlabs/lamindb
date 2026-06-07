@@ -114,9 +114,9 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    assert sample_sheet1.input_of_runs.count() == 0
+    assert sample_sheet1.input_of_runs.count() == 1
     df = sample_sheet1.to_dataframe()
-    assert sample_sheet1.input_of_runs.count() == 0
+    assert sample_sheet1.input_of_runs.count() == 2
     assert df.index.name == "name"
     assert df.index.tolist() == ["Sample 1", "Sample 2"]
     assert "name" not in df.columns
@@ -157,7 +157,7 @@ def test_record_example_compound_treatment(
         "preparation_date",
         "project",
     ]
-    assert artifact.run.input_records.count() == 2
+    assert artifact.run.input_records.count() == 3
     assert artifact.transform.kind == "function"
     assert artifact.transform.key == "__lamindb_record_export__"
     assert artifact.run.status == "completed"
@@ -188,7 +188,7 @@ Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
         ],
     )
     # re-run the export which triggers hash lookup
-    sample_sheet1.to_artifact()
+    artifact2 = sample_sheet1.to_artifact()
     # soft-delete a record in the sheet
     sample_sheet1.records.first().delete()
     assert ln.Record.filter(type=sample_sheet1).count() == 1
@@ -197,6 +197,8 @@ Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert len(df) == 1  # one row in the dataframe
 
     artifact.delete(permanent=True)
+    if artifact2.id != artifact.id:
+        artifact2.delete(permanent=True)
 
 
 def test_nextflow_sheet_with_samples(
@@ -389,8 +391,12 @@ def test_record_export_links_all_upstream_records():
     artifact = sheet.to_artifact()
     try:
         linked_record_ids = set(artifact.run.input_records.to_list("id"))
-        assert linked_record_ids == {record_a.id, record_b.id, record_c.id}
-        linked_run_ids = {record.run_id for record in artifact.run.input_records.all()}
+        assert linked_record_ids == {sheet.id, record_a.id, record_b.id, record_c.id}
+        linked_run_ids = {
+            record.run_id
+            for record in artifact.run.input_records.all()
+            if record.run_id is not None
+        }
         assert linked_run_ids == {run_a.id, run_b.id}
     finally:
         artifact.delete(permanent=True)
@@ -407,12 +413,12 @@ def test_record_export_links_record_type_when_link_records_false(
 ):
     _, sample_sheet = populate_sheets_compound_treatment
 
-    sample_sheet.to_dataframe(link_records_as_inputs=False)
-    dataframe_export_run = sample_sheet.input_of_runs.get()
+    sample_sheet.to_dataframe(link_individual_inputs=False)
+    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
     assert dataframe_export_run.input_records.count() == 1
     assert dataframe_export_run.input_records.get().id == sample_sheet.id
 
-    artifact = sample_sheet.to_artifact(link_records_as_inputs=False)
+    artifact = sample_sheet.to_artifact(link_individual_inputs=False)
     try:
         assert artifact.run.input_records.count() == 1
         assert artifact.run.input_records.get().id == sample_sheet.id
@@ -431,15 +437,21 @@ def test_record_export_applies_filters():
 
     dataframe_export_run = sample_sheet._export_run
     assert dataframe_export_run is not None
-    assert dataframe_export_run.input_records.count() == 1
-    assert dataframe_export_run.input_records.get().name == "sample1"
+    assert dataframe_export_run.input_records.count() == 2
+    assert set(dataframe_export_run.input_records.to_list("name")) == {
+        "sample1",
+        "FilterSheet",
+    }
 
     artifact = sample_sheet.to_artifact(filters={"name": "sample1"})
     try:
         assert len(artifact.load()) == 1
         assert artifact.run is not None
-        assert artifact.run.input_records.count() == 1
-        assert artifact.run.input_records.get().name == "sample1"
+        assert artifact.run.input_records.count() == 2
+        assert set(artifact.run.input_records.to_list("name")) == {
+            "sample1",
+            "FilterSheet",
+        }
     finally:
         artifact.delete(permanent=True)
         sample1.delete(permanent=True)
@@ -461,15 +473,21 @@ def test_record_export_applies_feature_predicate_filters():
 
     dataframe_export_run = sample_sheet._export_run
     assert dataframe_export_run is not None
-    assert dataframe_export_run.input_records.count() == 1
-    assert dataframe_export_run.input_records.get().name == "sample2"
+    assert dataframe_export_run.input_records.count() == 2
+    assert set(dataframe_export_run.input_records.to_list("name")) == {
+        "sample2",
+        "PredicateFilterSheet",
+    }
 
     artifact = sample_sheet.to_artifact(filters=export_filter_score > 15)
     try:
         assert len(artifact.load()) == 1
         assert artifact.run is not None
-        assert artifact.run.input_records.count() == 1
-        assert artifact.run.input_records.get().name == "sample2"
+        assert artifact.run.input_records.count() == 2
+        assert set(artifact.run.input_records.to_list("name")) == {
+            "sample2",
+            "PredicateFilterSheet",
+        }
     finally:
         artifact.delete(permanent=True)
         sample1.delete(permanent=True)
