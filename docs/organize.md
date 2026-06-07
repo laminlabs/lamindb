@@ -79,28 +79,37 @@ Here, `artifact1` is part of both query results.
 
 ### Annotating with labels
 
-You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both link to artifacts:
+You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both linked to artifacts:
 
 <img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qvhxt6UuoUO2Bd820000.png"/>
 
-Here is how to annotate with a ulabel and with a sample record:
+Here is how to annotate with a simple label:
 
 ```python
 ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
+```
 
-sample_type = ln.Record(                     # create a record type "Samples"
+And here is how to create a registry for samples and annotate the artifact with a sample:
+
+```python
+sample_type = ln.Record(                     # create a registry
     name="Samples",
     is_type=True
 ).save()
-record1 = ln.Record(                         # create a sample record
-    name="My sample",
-    features={"gc_content": 0.5}
+gc_content = ln.Feature(                     # create a feature
+    name="gc_content",
+    dtype=float
 ).save()
-artifact1.records.add(record1)               # annnotate artifact1
+sample1 = ln.Record(                         # create a sample
+    name="Sample 1",
+    type=sample_type,
+    features={gc_content: 0.5}
+).save()
+artifact1.records.add(sample1)               # annotate artifact1
 ```
 
-You can use records and ulabels alongside entity types in modules such as {mod}`bionty`:
+You can use records and ulabels alongside labels defined in modules such as {mod}`bionty`:
 
 ```python
 import bionty as bt
@@ -120,16 +129,16 @@ To annotate with non-categorical data types or to disambiguate categorical annot
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-exp_type = ln.Record.get(name="Experiments")          # query the entity type `Experiments`
-ln.Feature(name="gc_content", dtype=float).save()     # define a feature with dtype float
-ln.Feature(name="experiment", dtype=exp_type).save()  # define a feature with dtype `Experiments`
-artifact.features.set_values({
-    "gc_content": 0.55,                               # validated to be a float
-    "experiment": "Experiment 1",                     # validated to exist under the `Experiments` record type
+experiment_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
+gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
+experiment = ln.Feature(name="experiment", dtype=experiment_registry).save()  # define a feature with dtype `Experiments`
+artifact1.features.set_values({
+    gc_content: 0.55,   # validated to be a float
+    experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
 })
 ```
 
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation. The easiest way is to use validation and auto-annotation is the built-in schema `"valid_features"`:
+When you work with structured data formats like `DataFrame` or `AnnData`, you might want to validate their content. The easiest way validate a `DataFrame` is the built-in schema `"valid_features"`. Beyond validating the content, it will also auto-annotate the resulting artifact:
 
 ```python
 # validate columns in the dataframe and map them on features
@@ -137,7 +146,7 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Below is an example from the {doc}`docs:tutorial` illustrating how you get e.g. cell type, treatment, and assay annotations based on a dataframe's content. You can read more on this in {doc}`/curate`.
+Below is an example from the {doc}`docs:tutorial` illustrating how you get, e.g., cell type, treatment, and assay annotations based on a `DataFrame`'s content. You can read more on this in {doc}`/curate`.
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 
@@ -162,7 +171,7 @@ The {class}`~lamindb.Artifact` registry has simple fields (such as `description`
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
-All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts.[^starsnowflake]
+All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts. This is called dimensional modeling in data warehousing.[^starsnowflake]
 
 :::{dropdown} Can you give me some example queries?
 
@@ -207,6 +216,6 @@ collection_v2 = collection.append(artifact3)
 
 While collections are indirectly annotated through the annotations of the artifacts they contain, you can also add collection-level annotations. Like artifacts, collections link to projects, runs, ulabels, records, and most other registries.
 
-[^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
+[^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Dimensional_modeling)).
 
 [^protectproject]: The project annotation of the artifact is protected against the deletion of the project. If a user with necessary rights attempts to delete the project, they will get an error.
