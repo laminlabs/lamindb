@@ -319,7 +319,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
     extra_data: dict | None = models.JSONField(null=True)
-    """Additional data in JSON format, not validated as features."""
+    """Extra data in JSON format, not validated as features."""
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )

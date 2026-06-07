@@ -1072,6 +1072,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Note that mutating this field currently does not trigger re-validation of existing values.
     """
+    _ounit_str: str | None = CharField(db_index=True, null=True)
+    """The string-serialized observational unit."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
     )
@@ -1562,10 +1564,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     #     Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
     #     """
-    #     if self._expect_many:
+    #     if self._ounit_str == "Observation":
     #         return "Observation"  # this here might be replaced with the specific observational unit
-    #     else:
+    #     elif self._ounit_str == "Artifact":
     #         return "Artifact"
+    #     else:
+    #         return None
 
 
 class JsonValue(SQLRecord, TracksRun):
