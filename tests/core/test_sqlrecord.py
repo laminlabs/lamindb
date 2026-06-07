@@ -67,6 +67,7 @@ def test_artifact_describe():
         .hash: CharField
         .n_files: BigIntegerField
         .n_observations: BigIntegerField
+        .extra_data: JSONField
         .version_tag: CharField
         .is_latest: BooleanField
         .is_locked: BooleanField
