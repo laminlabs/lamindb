@@ -375,6 +375,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     See Also:
         :class:`~lamindb.Feature`
             Measurable properties such as columns of a sheet.
+        :class:`~lamindb.Schema`
+            Constrain sheet columns; :attr:`~lamindb.Schema.index` defines row keys.
         :class:`~lamindb.ULabel`
             Simple universal labels.
 
@@ -422,6 +424,20 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         #>            Experiment 1   ...
         #>            Experiment 2   ...
 
+    Use :attr:`~lamindb.Schema.index` on a sheet schema to define row keys::
+
+        sample_id = ln.Feature(name="sample_id", dtype=str).save()
+        score = ln.Feature(name="score", dtype=float).save()
+        schema = ln.Schema(features=[score], index=sample_id).save()
+        sheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
+
+        record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+        assert record.name == "S-001"
+
+        df = sheet.to_dataframe()
+        assert df.index.name == "sample_id"
+        assert "sample_id" not in df.columns
+
     Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
 
         records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
@@ -455,6 +471,22 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
+
+    **Schema index.** When a sheet schema defines :attr:`~lamindb.Schema.index`, the
+    index feature acts as the row key — analogous to `df.index` for tabular data:
+
+    - **Write**: `Record(features=...)`, `features.add_values()`, and
+      :meth:`~lamindb.Record.from_dataframe` route the index feature to
+      :attr:`~lamindb.Record.name` and do not write it to link tables.
+    - **Read**: `features.get_values()` injects the index from `Record.name`.
+    - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
+      (named after the index feature) and omits encoded metadata columns
+      (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
+      Sheets without `index` keep the previous export behavior.
+    - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
+      matches the schema index feature (or the index feature as a column).
+    - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
+      is configured.
 
     You can edit records like spreadsheets on the hub:
 
@@ -735,6 +767,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
 
+        When the target sheet schema defines :attr:`~lamindb.Schema.index`, the index
+        feature may be passed on `df.index` (named after the feature) or as a column.
+
         Args:
             df: A dataframe where rows represent records.
             type: Record type for all rows as either a `Record` object or a
@@ -744,8 +779,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 existing `Record` object for reuse.
                 If the resolved type is a sheet (`type.schema is not None`), feature
                 values are validated against that schema at save time.
-            name_field: Column used for record names. Falls back to `name` if
-                absent. If neither exists, records are created without names.
+            name_field: Column used for record names when no schema index is configured.
+                Falls back to `name` if absent. If neither exists, records are created
+                without names.
 
         Examples:
 
@@ -919,6 +955,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
+        When the sheet schema defines :attr:`~lamindb.Schema.index`, the index feature is
+        placed on `df.index` (named after the feature) and encoded metadata columns
+        (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
+        are omitted. Sheets without `index` keep the previous export behavior.
+
         It will also track the record as an input to the current run.
 
         Example:
@@ -1068,6 +1109,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The format defaults to `.csv` unless the key specifies another format or suffix is passed.
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
+
+        When the sheet schema defines :attr:`~lamindb.Schema.index`, the CSV is written
+        with `index=True` so the index feature is preserved on export.
 
         Example:
 

@@ -50,6 +50,21 @@ def test_record_docstring_examples():
     df = experiments_registry.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
+    # Use Schema.index on a sheet schema to define row keys
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    indexed_schema = ln.Schema(features=[score], index=sample_id).save()
+    indexed_sheet = ln.Record(
+        name="Samples", is_type=True, schema=indexed_schema
+    ).save()
+    indexed_record = ln.Record(
+        type=indexed_sheet, features={"sample_id": "S-001", "score": 1.5}
+    ).save()
+    assert indexed_record.name == "S-001"
+    indexed_df = indexed_sheet.to_dataframe()
+    assert indexed_df.index.name == "sample_id"
+    assert "sample_id" not in indexed_df.columns
+
     # Import records from a dataframe
     records = ln.Record.from_dataframe(
         pd.DataFrame({"gc_content": [0.1, 0.2]}),
@@ -82,6 +97,11 @@ def test_record_docstring_examples():
     experiments_registry.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
+    indexed_record.delete(permanent=True)
+    indexed_sheet.delete(permanent=True)
+    indexed_schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
 
 
 def test_record_initialization():
