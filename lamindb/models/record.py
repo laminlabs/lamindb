@@ -1082,6 +1082,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             input_record_ids = qs.values_list("id", flat=True)
             self._export_run.input_records.add(*input_record_ids)
         else:
+            # link the type record
             self._export_run.input_records.add(self)
         self._export_run.finished_at = datetime.now(timezone.utc)
         self._export_run._status_code = 0  # completed
