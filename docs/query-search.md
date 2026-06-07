@@ -12,7 +12,6 @@ arrays
 ```
 
 This guide walks through different ways of querying & searching registries.
-In LaminDB, `Record` types such as `Samples` are dynamic registries (often just called registries).
 To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
 
 If you already have a set of artifacts and you'd like to stream their content, see {doc}`arrays`.
