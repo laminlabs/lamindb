@@ -333,18 +333,18 @@ You can annotate datasets and samples with features. Let's define some:
 ```python
 from datetime import date
 
-ln.Feature(name="gc_content", dtype=float).save()
-ln.Feature(name="experiment_note", dtype=str).save()
-ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
+gc_content = ln.Feature(name="gc_content", dtype=float).save()
+experiment_note = ln.Feature(name="experiment_note", dtype=str).save()
+experiment_date = ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
 During annotation, feature names and data types are validated against these definitions.
 
 ```python
 artifact.features.set_values({
-    "gc_content": 0.55,
-    "experiment_note": "Looks great",
-    "experiment_date": "2025-10-24",
+    gc_content: 0.55,
+    experiment_note: "Looks great",
+    experiment_date: "2025-10-24",
 })
 ```
 

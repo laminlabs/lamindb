@@ -1786,9 +1786,23 @@ class FeatureManager:
                     "experiment": "Experiment 1"
                 })
 
-            Query artifacts by features::
+            Query artifacts by features:
 
-                ln.Artifact.filter(scientist="Barbara McClintock")
+            .. tab-set::
+
+                .. tab-item:: Via strings
+
+                    .. code-block:: python
+
+                        ln.Artifact.filter(scientist="Barbara McClintock")
+                        ln.Artifact.filter(temperature__gt=0.5)
+
+                .. tab-item:: Via objects
+
+                    .. code-block:: python
+
+                        ln.Artifact.filter(scientist == "Barbara McClintock")
+                        ln.Artifact.filter(temperature > 0.5)
 
             If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
 
@@ -1796,9 +1810,6 @@ class FeatureManager:
 
                 # to set feature values
                 artifact.features.set_values({temperature: 0.5})  # temperature is the feature object
-
-                # to query by feature values
-                ln.Artifact.filter(temperature == 0.5)  # instead of temperature=0.5
 
             You can pass a schema to validate the dictionary::
 

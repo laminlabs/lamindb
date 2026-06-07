@@ -200,10 +200,23 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
         sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
-    Query records by features::
+    Query records by features:
 
-        ln.Record.filter(gc_content == 0.55)  # exact match
-        ln.Record.filter(gc_content > 0.5)    # greater than
+    .. tab-set::
+
+        .. tab-item:: Via objects
+
+            .. code-block:: python
+
+                ln.Record.filter(gc_content == 0.55)  # exact match
+                ln.Record.filter(gc_content > 0.5)    # greater than
+
+        .. tab-item:: Via strings
+
+            .. code-block:: python
+
+                ln.Record.filter(gc_content=0.55)  # exact match
+                ln.Record.filter(gc_content__gt=0.5)    # greater than
 
     Query records by field::
 

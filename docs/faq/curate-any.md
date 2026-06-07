@@ -99,19 +99,24 @@ artifact = ln.Artifact("data.zarr", key="my_dataset.zarr").save()
 
 Annotate with features:
 
+````python
+experiment = ln.Feature(name="experiment", dtype=ln.Record).save()
+disease = ln.Feature(name="disease", dtype=bt.Disease.ontology_id).save()
+knockout_gene = ln.Feature(name="knockout_gene", dtype=bt.Gene.ensembl_gene_id).save()
+
 ```python
-ln.Feature(name="experiment", dtype=ln.Record).save()
-ln.Feature(name="disease", dtype=bt.Disease.ontology_id).save()
-ln.Feature(name="knockout_gene", dtype=bt.Gene.ensembl_gene_id).save()
 artifact.features.set_values(
-    {"experiment": experiments, "knockout_gene": genes, "disease": diseases}
+    {experiment: experiments, knockout_gene: genes, disease: diseases}
 )
+````
+
 artifact.describe()
-```
+
+````
 
 ```python
 # clean up test instance
 !rm -r data.zarr
 !rm -r ./test-curate-any
 !lamin delete --force test-curate-any
-```
+````

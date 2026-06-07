@@ -1376,18 +1376,54 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def features(self) -> FeatureManager:
         """Feature manager.
 
-        Annotate an artifact with features via :meth:`~lamindb.models.FeatureManager.set_values`::
+        Define a few features::
 
-            artifact.features.set_values({
-                "species_name": "human",
-                "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
-                "temperature_in_celsius": 27.6,
-                "experiment": "Experiment 1"
-            })
+            species_name = ln.Feature(name="species_name", dtype=str).save()
+            scientist_names = ln.Feature(name="scientist_names", dtype=str).save()
+            temperature = ln.Feature(name="temperature_in_celsius", dtype=float).save()
+            experiment = ln.Feature(name="experiment", dtype=str).save()
 
-        Query artifacts by features::
+        Annotate with features via :meth:`~lamindb.models.FeatureManager.set_values`:
 
-            ln.Artifact.filter(scientist_names="Barbara McClintock")
+        .. tab-set::
+
+            .. tab-item:: Via strings
+
+                .. code-block:: python
+
+                    artifact.features.set_values({
+                        "species_name": "human",
+                        "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
+                        "temperature_in_celsius": 27.6,
+                        "experiment": "Experiment 1"
+                    })
+
+            .. tab-item:: Via objects
+
+                .. code-block:: python
+
+                    artifact.features.set_values({
+                        species_name: "human",
+                        scientist_names: ["Barbara McClintock", "Edgar Anderson"],
+                        temperature: 27.6,
+                        experiment: "Experiment 1"
+                    })
+
+        Query artifacts by features:
+
+        .. tab-set::
+
+            .. tab-item:: Via strings
+
+                .. code-block:: python
+
+                    ln.Artifact.filter(scientist_names="Barbara McClintock")
+
+            .. tab-item:: Via objects
+
+                .. code-block:: python
+
+                    ln.Artifact.filter(scientist_names == "Barbara McClintock")
 
         Get all feature annotations as a dictionary::
 
