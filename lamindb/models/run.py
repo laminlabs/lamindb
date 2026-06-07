@@ -320,8 +320,10 @@ class Run(SQLRecord, TracksUpdates):
 
     Collections are *recreated* if they trigger a hash lookup match for an existing collection.
     """
-    params: dict = models.JSONField(null=True)
+    params: dict | None = models.JSONField(null=True)
     """Parameters (plain JSON values)."""
+    extra_data: dict | None = models.JSONField(null=True)
+    """Extra data in JSON format, not validated as features."""
     json_values: RelatedManager[JsonValue] = models.ManyToManyField(
         "JsonValue", through="RunJsonValue", related_name="runs"
     )
