@@ -24,8 +24,17 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
-from django.db.models import CASCADE, DEFERRED, PROTECT, Field, Manager, QuerySet
+from django.db.models import (
+    CASCADE,
+    DEFERRED,
+    PROTECT,
+    Field,
+    Manager,
+)
 from django.db.models import ForeignKey as django_ForeignKey
+from django.db.models import (
+    QuerySet as DjangoQuerySet,
+)
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
@@ -81,6 +90,7 @@ from .query_manager import QueryManager, _lookup, _search
 if TYPE_CHECKING:
     import pandas as pd
 
+    from ..models.query_set import QuerySet
     from .block import BranchBlock, SpaceBlock
     from .project import Project
     from .query_manager import RelatedManager
@@ -2163,12 +2173,12 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
 
 
 def get_name_field(
-    registry: type[SQLRecord] | QuerySet | Manager,
+    registry: type[SQLRecord] | DjangoQuerySet | Manager,
     *,
     field: StrField | None = None,
 ) -> str:
     """Get the 1st char or text field from the registry."""
-    if isinstance(registry, (QuerySet, Manager)):
+    if isinstance(registry, (DjangoQuerySet, Manager)):
         registry = registry.model
     model_field_names = [i.name for i in registry._meta.fields]
 
@@ -2219,7 +2229,7 @@ REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
-    records: SQLRecord | list[SQLRecord] | QuerySet,
+    records: SQLRecord | list[SQLRecord] | DjangoQuerySet,
     fk: str,
     using_key: str | None,
     transfer_logs: dict,
@@ -2229,7 +2239,7 @@ def update_fk_to_default_db(
     # for certain fks where they have to the same for the whole bulk
     # see transfer_fk_to_default_db_bulk
     # todo: but this has to be changed i think, it is not safe as it is now - Sergei
-    record = records[0] if isinstance(records, (list, QuerySet)) else records
+    record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
         # set the space of the transferred record to the current space
         if fk == "space":
@@ -2253,7 +2263,7 @@ def update_fk_to_default_db(
                     fk_record_default, using_key, save=True, transfer_logs=transfer_logs
                 )
         # re-set the fks to the newly saved ones in the default db
-        if isinstance(records, (list, QuerySet)):
+        if isinstance(records, (list, DjangoQuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -2270,7 +2280,7 @@ FKBULK = [
 
 
 def transfer_fk_to_default_db_bulk(
-    records: list | QuerySet, using_key: str | None, transfer_logs: dict
+    records: list | DjangoQuerySet, using_key: str | None, transfer_logs: dict
 ):
     for fk in FKBULK:
         update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
