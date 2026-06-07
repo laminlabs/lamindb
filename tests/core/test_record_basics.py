@@ -16,38 +16,38 @@ def test_record_docstring_examples():
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
     # create a record to track a sample
-    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.55}).save()
+    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
     # describe the record
     sample1.describe()
 
-    # create a dynamic registry to track experiments
-    experiment_type = ln.Record(name="Experiments", is_type=True).save()
-    experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+    # create an experiments registry
+    experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+    experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
     # create a feature to link experiments
-    experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+    experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-    # create a dynamic registry to track samples that's constrained with a schema
+    # constrain a samples registry with a schema, turning it into a sheet
     schema = ln.Schema(
         [experiment, gc_content.with_config(optional=True)], name="sample_schema"
     ).save()
     sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-    # group the sample1 record under the sample sheet
+    # move the sample1 record into the sample sheet
     sample1.type = sample_sheet
     sample1.save()
 
     # reset the feature values for the record including the experiment
     sample1.features.set_values(
         {
-            gc_content: 0.55,
+            gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         }
     )
 
     # Export all records under a type to a dataframe
-    df = experiment_type.to_dataframe()
+    df = experiments_registry.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
     # Import records from a dataframe
@@ -63,8 +63,8 @@ def test_record_docstring_examples():
         sample2.features.set_values({"gc_content": 0.6})
 
     # Query records by features
-    assert ln.Record.filter(gc_content == 0.55).one() == sample1
-    assert ln.Record.filter(gc_content > 0.5).one() == sample1
+    assert ln.Record.filter(gc_content == 0.5).one() == sample1
+    assert ln.Record.filter(gc_content > 0.5).one_or_none() is None
     assert ln.Record.filter(type=sample_sheet).count() >= 1
 
     # Clean up
@@ -79,7 +79,7 @@ def test_record_docstring_examples():
     experiment1.delete(permanent=True)
     sample_sheet.delete(permanent=True)
     schema.delete(permanent=True)
-    experiment_type.delete(permanent=True)
+    experiments_registry.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
 
