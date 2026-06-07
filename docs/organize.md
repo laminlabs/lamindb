@@ -90,7 +90,7 @@ ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 ```
 
-And here is how to create a sample registry `Samples` via a record type:
+And here is how to create a registry for samples as a `Record` type:
 
 ```python
 sample_type = ln.Record(                     # create a record type "Samples"
@@ -129,12 +129,12 @@ To annotate with non-categorical data types or to disambiguate categorical annot
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-exp_type = ln.Record.get(name="Experiments")          # query the entity type `Experiments`
-ln.Feature(name="gc_content", dtype=float).save()     # define a feature with dtype float
-ln.Feature(name="experiment", dtype=exp_type).save()  # define a feature with dtype `Experiments`
+experiment_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
+gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
+experiment = ln.Feature(name="experiment", dtype=experiment_registry).save()  # define a feature with dtype `Experiments`
 artifact.features.set_values({
-    "gc_content": 0.55,                               # validated to be a float
-    "experiment": "Experiment 1",                     # validated to exist under the `Experiments` record type
+    gc_content: 0.55,   # validated to be a float
+    experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
 })
 ```
 
