@@ -21,14 +21,14 @@ def test_record_docstring_examples():
     # describe the record
     sample1.describe()
 
-    # create a flexible record type to track experiments
-    experiment_type = ln.Record(name="Experiment", is_type=True).save()
+    # create a dynamic registry to track experiments
+    experiment_type = ln.Record(name="Experiments", is_type=True).save()
     experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 
     # create a feature to link experiments
     experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 
-    # create a record type to track samples that's constrained with a schema
+    # create a dynamic registry to track samples that's constrained with a schema
     schema = ln.Schema(
         [experiment, gc_content.with_config(optional=True)], name="sample_schema"
     ).save()

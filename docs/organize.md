@@ -90,10 +90,10 @@ ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 ```
 
-And here is how to create a registry for samples and annotate the artifact with a sample:
+And here is how to create a samples registry and annotate the artifact with a sample:
 
 ```python
-sample_type = ln.Record(                     # create a registry
+samples_registry = ln.Record(                     # create a registry
     name="Samples",
     is_type=True
 ).save()
@@ -103,7 +103,7 @@ gc_content = ln.Feature(                     # create a feature
 ).save()
 sample1 = ln.Record(                         # create a sample
     name="Sample 1",
-    type=sample_type,
+    type=samples_registry,
     features={gc_content: 0.5}
 ).save()
 artifact1.records.add(sample1)               # annotate artifact1
@@ -129,9 +129,9 @@ To annotate with non-categorical data types or to disambiguate categorical annot
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiment_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
+experiments_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
 gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
-experiment = ln.Feature(name="experiment", dtype=experiment_registry).save()  # define a feature with dtype `Experiments`
+experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()  # define a feature with dtype `Experiments`
 artifact1.features.set_values({
     gc_content: 0.55,   # validated to be a float
     experiment: "Experiment 1",  # validated to exist in the `Experiments` registry

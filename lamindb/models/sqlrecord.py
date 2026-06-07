@@ -210,7 +210,7 @@ class HasType(models.Model):
 
     For instance, using the example of `ln.Record`::
 
-        experiment_type = ln.Record(name="Experiment", is_type=True).save()
+        experiment_type = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
     """

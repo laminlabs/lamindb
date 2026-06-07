@@ -380,7 +380,7 @@ In contrast to params, features are validated against the `Feature` registry and
 Let's first define labels & features.
 
 ```python
-experiment_type = ln.Record(name="Experiment", is_type=True).save()
+experiment_type = ln.Record(name="Experiments", is_type=True).save()
 experiment_label = ln.Record(name="Experiment1", type=experiment_type).save()
 ln.Feature(name="s3_folder", dtype=str).save()
 ln.Feature(name="experiment", dtype=experiment_type).save()
