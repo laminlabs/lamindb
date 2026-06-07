@@ -1828,35 +1828,17 @@ class FeatureManager:
 
         Examples:
 
-            Here is how to annotate an artifact ad hoc::
+            You can use `set_values()` in combination with the `.features` attribute of three entities. For examples, see:
 
-                artifact.features.set_values({
-                    "species": "human",
-                    "scientist": ['Barbara McClintock', 'Edgar Anderson'],
-                    "temperature": 27.6,
-                    "experiment": "Experiment 1"
-                })
-
-            Query artifacts by features::
-
-                ln.Artifact.filter(scientist="Barbara McClintock")
-
-            If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
-
-                temperature = ln.Feature.get(name="temperature", type__name="my_feature_type")
-
-                # to set feature values
-                artifact.features.set_values({temperature: 0.5})  # temperature is the feature object
-
-                # to query by feature values
-                ln.Artifact.filter(temperature == 0.5)  # instead of temperature=0.5
+            - artifacts: :meth:`~lamindb.Artifact.features`
+            - records: :meth:`~lamindb.Record.features`
+            - runs: :meth:`~lamindb.Run.features`
 
             You can pass a schema to validate the dictionary::
 
-                schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
-                artifact.features.set_values({"species": "bird"}, schema=schema)
-
-            Also see :class:`lamindb.Artifact.features`, :class:`lamindb.Record.features`, and :class:`lamindb.Run.features`.
+                species = ln.Feature(name="species", dtype=str).save()
+                schema = ln.Schema([species]).save()
+                artifact.features.set_values({species: "bird"}, schema=schema)
         """
         from lamindb.curators.core import ExperimentalDictCurator
 

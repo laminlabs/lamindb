@@ -32,18 +32,14 @@ ln.Artifact.from_dataframe(ln.examples.datasets.df_iris(), key="iris.parquet").s
 ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
 ```
 
-## Get an overview
+## Basics
+
+### Get an overview
 
 The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the most recently created artifacts in the {class}`~lamindb.Artifact` registry.
 
 ```python
 ln.Artifact.to_dataframe()
-```
-
-You can include features.
-
-```python
-ln.Artifact.to_dataframe(include="features")
 ```
 
 You can include fields from other registries.
@@ -59,13 +55,19 @@ ln.Artifact.to_dataframe(
 )
 ```
 
+You can include features.
+
+```python
+ln.Artifact.to_dataframe(include="features")
+```
+
 You can also get an overview of the entire database.
 
 ```python
 ln.view()
 ```
 
-## Auto-complete objects
+### Auto-complete
 
 For registries with less than 100k objects, auto-completing a `Lookup` object is the most convenient way of finding a record.
 
@@ -88,7 +90,7 @@ import bionty as bt
 cell_types = bt.CellType.lookup()
 ```
 
-## Get one object
+### Get one object
 
 {meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found.
 
@@ -97,22 +99,35 @@ ln.Record.get(experiment_1.uid)  # by uid
 ln.Record.get(name="Experiment 1")  # by field
 ```
 
-## Query objects by fields
+### Search
 
-Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query all artifacts by the `suffix` field:
+You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
+
+```python
+ln.Artifact.search("iris").to_dataframe()
+```
+
+Here is more background on search and examples for searching the entire cell type ontology: {doc}`/faq/search`
+
+## Queries
+
+### By fields
+
+Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query artifacts by any field, e.g., the {attr}`~lamindb.Artifact.suffix` field:
 
 ```python
 qs = ln.Artifact.filter(suffix=".h5ad")
 qs
 ```
 
-This returns a {class}`~lamindb.models.QuerySet`, which lazily references the set of {class}`~lamindb.models.BaseSQLRecord` objects that matches the filter statement. You can iteratively filter a queryset:
+This returns a {class}`~lamindb.models.QuerySet`, which lazily references the set of {class}`~lamindb.models.BaseSQLRecord` objects that matches the filter. You can filter a queryset:
 
 ```python
 qs = qs.filter(records__name="Experiment 1")
+qs.to_dataframe()
 ```
 
-To access the results encoded in a queryset, call:
+To access the results encoded in a queryset, you can call one of:
 
 - {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
 - {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
@@ -123,78 +138,17 @@ Alternatively,
 - use the `QuerySet` as an iterator
 - get individual objects via `qs[0]`, `qs[1]`
 
-For example:
-
-```python
-qs.to_dataframe()
-```
-
 The `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
-
-## Query objects by features
-
-The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
-
-:::::{tab-set}
-
-::::{tab-item} Via strings
-
-```python
-ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
-```
-
-::::
-
-::::{tab-item} Via expressions
-
-```python
-perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
-ln.Artifact.filter(perturbation == "DMSO")  # note this is now an expression using the == syntax
-```
-
-::::
-
-:::::
-
-Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
-
-```python
-ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
-```
-
-You can query for whether a dataset is annotated annotated by a feature:
-
-```python
-ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
-```
-
-## Query runs by parameters
-
-Here is an example for querying by parameters: {ref}`track-run-parameters`.
-
-## Search for objects
-
-You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
-
-```python
-ln.Artifact.search("iris").to_dataframe()
-```
-
-Here is more background on search and examples for searching the entire cell type ontology: {doc}`/faq/search`
-
-## Query related registries
-
 Django has a double-under-score syntax to filter based on related tables.
+This syntax enables you to traverse several layers of relations and comparators.
 
-This syntax enables you to traverse several layers of relations and leverage different comparators.
+For example, the following filter selects artifacts based on the users who ran the generating notebook. Under the hood, in the SQL database, it's joining the artifact table with the user table.
 
 ```python
 ln.Artifact.filter(created_by__handle__startswith="testuse").to_dataframe()
 ```
 
-The filter selects all artifacts based on the users who ran the generating notebook. Under the hood, in the SQL database, it's joining the artifact table with the user table.
-
-Another typical example is querying all datasets that measure a particular feature. For instance, which datasets measure `"CD8A"`. Here is how to do it:
+Another example would be querying datasets that measure a particular feature. For instance, which datasets measures expression of `CD8A`:
 
 ```python
 cd8a = bt.Gene.get(symbol="CD8A")
@@ -204,17 +158,69 @@ schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
 ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
 ```
 
-Instead of splitting this across three queries, the double-underscore syntax allows you to define a path for one query.
+Instead of splitting this across three queries, the double-underscore syntax allows you to define a path for one query:
 
 ```python
 ln.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
 ```
 
-## Filter operators
+### By features
+
+The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to millions of dimensions.
+
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
+
+The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by features:
+
+<!-- #region -->
+<!-- cannot run tabbed code on CI, see test_artifact_filter_by_multiple_features for tests -->
+
+::::{tab-set}
+
+:::{tab-item} Via strings / kwargs
+
+```python
+ln.Artifact.filter(
+    perturbation="DMSO",
+    temperature__gt=26,
+).to_dataframe(include="features")
+```
+
+:::
+
+:::{tab-item} Via objects / expressions
+
+```python
+perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
+temperature = ln.Feature.get(name="temperature")
+ln.Artifact.filter(    # note this is now an expression using the == syntax
+    perturbation == "DMSO",
+    temperature > 21,
+).to_dataframe(include="features")
+```
+
+:::
+
+::::
+
+<!-- #endregion -->
+
+Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
+
+```python
+ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
+```
+
+You can query for whether a dataset is annotated by a feature:
+
+```python
+ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
+```
+
+## Cheat sheet: comparators
 
 You can qualify the type of comparison in a query by using a comparator.
-
-Below follows a list of the most import, but Django supports about [two dozen field comparators](https://docs.djangoproject.com/en/stable/ref/models/querysets/#field-lookups) `field__comparator=value`.
+Below follows a list of the most important, but Django supports about [two dozen field comparators](https://docs.djangoproject.com/en/stable/ref/models/querysets/#field-lookups) `field__comparator=value`.
 
 ### and
 
@@ -224,9 +230,8 @@ ln.Artifact.filter(suffix=".h5ad", records=experiment_1).to_dataframe()
 
 ### less than/ greater than
 
-Or subset to artifacts greater than 10kB. Here, we can't use keyword arguments, but need an explicit where statement.
-
 ```python
+# artifacts greater than 10kB
 ln.Artifact.filter(records=experiment_1, size__gt=1e4).to_dataframe()
 ```
 
@@ -285,3 +290,7 @@ ln.Artifact.filter(ln.Q(suffix=".jpg") | ln.Q(suffix=".fastq.gz")).to_dataframe(
 ```python
 ln.Artifact.filter(~ln.Q(suffix=".jpg")).to_dataframe()
 ```
+
+### JSON
+
+Here is an example for querying by parameters: {ref}`track-run-parameters`.
