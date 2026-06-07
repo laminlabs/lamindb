@@ -40,12 +40,6 @@ The easiest way to get an overview over all artifacts is by typing {meth}`~lamin
 ln.Artifact.to_dataframe()
 ```
 
-You can include features.
-
-```python
-ln.Artifact.to_dataframe(include="features")
-```
-
 You can include fields from other registries.
 
 ```python
@@ -57,6 +51,12 @@ ln.Artifact.to_dataframe(
         "schemas__itype",
     ]
 )
+```
+
+You can include features.
+
+```python
+ln.Artifact.to_dataframe(include="features")
 ```
 
 You can also get an overview of the entire database.
@@ -170,7 +170,7 @@ ln.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
 
 ### By features
 
-The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to the millions of dimensions biological datsets can have.
+The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to millions of dimensions.
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
 
