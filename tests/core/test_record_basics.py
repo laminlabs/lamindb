@@ -144,6 +144,14 @@ def test_record_from_dataframe_bulk_save_paths():
 
 
 def test_record_schema_index_stored_on_name():
+    """Schema.index is stored on Record.name and surfaced on df.index / get_values."""
+    from lamindb.models.record import (
+        apply_schema_index_to_export_dataframe,
+        coerce_index_value_to_record_name,
+        index_value_from_record_name,
+        pop_index_from_feature_dictionary,
+    )
+
     sample_id = ln.Feature(name="sample_id", dtype=str).save()
     score = ln.Feature(name="score", dtype=float).save()
     schema = ln.Schema(
@@ -153,17 +161,37 @@ def test_record_schema_index_stored_on_name():
     ).save()
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
+    # index helper functions
+    with pytest.raises(TypeError, match="must be a string or scalar"):
+        coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
+
+    name, features = pop_index_from_feature_dictionary(
+        {"sample_id": "S-001", "score": 1.5},
+        schema,
+    )
+    assert name == "S-001"
+    assert features == {"score": 1.5}
+
+    # create: index value -> Record.name, not RecordJson
     record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
     assert record.name == "S-001"
     assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
     assert record.features.get_values() == {"sample_id": "S-001", "score": 1.5}
+    assert record.features["score"] == 1.5
 
+    # export: index on df.index, omitted from columns
     df = sheet.to_dataframe()
     assert df.index.name == "sample_id"
     assert "sample_id" not in df.columns
     assert "__lamindb_record_name__" not in df.columns
     assert df.index.tolist() == ["S-001"]
 
+    partial_df = sheet.to_dataframe(features=["score"])
+    assert partial_df.index.name == "sample_id"
+    assert partial_df.index.tolist() == ["S-001"]
+    assert partial_df["score"].tolist() == [1.5]
+
+    # import: index on df.index
     batch = ln.Record.from_dataframe(
         pd.DataFrame({"score": [2.5]}, index=pd.Index(["S-002"], name="sample_id")),
         type=sheet,
@@ -171,6 +199,84 @@ def test_record_schema_index_stored_on_name():
     batch.save()
     record2 = ln.Record.get(name="S-002")
     assert record2.features["score"] == 2.5
+
+    # import: index as a regular column
+    batch_col = ln.Record.from_dataframe(
+        pd.DataFrame({"sample_id": ["S-003"], "score": [3.5]}),
+        type=sheet,
+    )
+    batch_col.save()
+    record3 = ln.Record.get(name="S-003")
+    assert record3.features["score"] == 3.5
+
+    # import: multi-row batch (bulk validation path)
+    batch_bulk = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {"score": [4.0, 5.0]},
+            index=pd.Index(["S-004", "S-005"], name="sample_id"),
+        ),
+        type=sheet,
+    )
+    batch_bulk.save()
+    assert ln.Record.get(name="S-004").features["score"] == 4.0
+    assert ln.Record.get(name="S-005").features["score"] == 5.0
+
+    # rename: Record.name update reflected in get_values index feature
+    record2.name = "S-002-renamed"
+    ln.models.record.persist_record_name(record2)
+    record2.refresh_from_db()
+    assert record2.features.get_values() == {
+        "sample_id": "S-002-renamed",
+        "score": 2.5,
+    }
+
+    # export helper: fall back to __lamindb_record_name__ column
+    raw_df = pd.DataFrame(
+        {"score": [1.5], "__lamindb_record_name__": ["S-001"]},
+        index=[record.id],
+    )
+    exported = apply_schema_index_to_export_dataframe(
+        raw_df,
+        sample_id,
+        encoded_id="__lamindb_record_id__",
+        encoded_name="__lamindb_record_name__",
+    )
+    assert exported.index.tolist() == ["S-001"]
+    assert exported.loc["S-001", "score"] == 1.5
+
+    # artifact export/load round-trip with index in CSV
+    artifact = sheet.to_artifact()
+    assert artifact.path.read_text().startswith(
+        "sample_id,score,__lamindb_record_uid__,__lamindb_record_id__\n"
+    )
+    loaded = artifact.load()
+    assert loaded.index.name == "sample_id"
+    assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}
+    artifact.delete(permanent=True)
+
+    # int index dtype + bool name round-trip helpers
+    row_id = ln.Feature(name="row_id", dtype=int).save()
+    active = ln.Feature(name="active", dtype=bool).save()
+    int_schema = ln.Schema(
+        features=[score],
+        index=row_id,
+        name="int-index-schema",
+    ).save()
+    int_sheet = ln.Record(
+        name="int-index-sheet", is_type=True, schema=int_schema
+    ).save()
+    int_record = ln.Record(type=int_sheet, features={"row_id": 7, "score": 9.0}).save()
+    assert int_record.name == "7"
+    assert int_record.features.get_values()["row_id"] == 7
+    assert int_sheet.to_dataframe().index.tolist() == [7]
+    assert index_value_from_record_name("1", active) is True
+    assert index_value_from_record_name("0", active) is False
+
+    ln.Record.filter(type=int_sheet).delete(permanent=True)
+    int_sheet.delete(permanent=True)
+    int_schema.delete(permanent=True)
+    row_id.delete(permanent=True)
+    active.delete(permanent=True)
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
