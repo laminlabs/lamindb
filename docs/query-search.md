@@ -211,7 +211,7 @@ Just like for fields holding dictionary values, you can query for dictionary key
 ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
 ```
 
-You can query for whether a dataset is annotated annotated by a feature:
+You can query for whether a dataset is annotated by a feature:
 
 ```python
 ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
@@ -220,8 +220,7 @@ ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
 ## Cheat sheet: comparators
 
 You can qualify the type of comparison in a query by using a comparator.
-
-Below follows a list of the most import, but Django supports about [two dozen field comparators](https://docs.djangoproject.com/en/stable/ref/models/querysets/#field-lookups) `field__comparator=value`.
+Below follows a list of the most important, but Django supports about [two dozen field comparators](https://docs.djangoproject.com/en/stable/ref/models/querysets/#field-lookups) `field__comparator=value`.
 
 ### and
 
@@ -231,9 +230,8 @@ ln.Artifact.filter(suffix=".h5ad", records=experiment_1).to_dataframe()
 
 ### less than/ greater than
 
-Subset to artifacts greater than 10kB.
-
 ```python
+# artifacts greater than 10kB
 ln.Artifact.filter(records=experiment_1, size__gt=1e4).to_dataframe()
 ```
 
