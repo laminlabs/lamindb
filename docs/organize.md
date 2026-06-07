@@ -79,26 +79,34 @@ Here, `artifact1` is part of both query results.
 
 ### Annotating with labels
 
-You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both link to artifacts:
+You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both linked to artifacts:
 
 <img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qvhxt6UuoUO2Bd820000.png"/>
 
-Here is how to annotate with a ulabel and with a sample record:
+Here is how to annotate with a simple label:
 
 ```python
 ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
+```
 
+And here is how to create a sample registry `Samples` via a record type:
+
+```python
 sample_type = ln.Record(                     # create a record type "Samples"
     name="Samples",
     is_type=True
 ).save()
-record1 = ln.Record(                         # create a sample record
-    name="My sample",
-    features={"gc_content": 0.5}
-    type=sample_type,
+gc_content = ln.Feature(                     # create a feature
+    name="gc_content",
+    dtype=float
 ).save()
-artifact1.records.add(record1)               # annnotate artifact1
+sample1 = ln.Record(                         # create a sample record
+    name="Sample 1",
+    type=sample_type,
+    features={gc_content: 0.5}
+).save()
+artifact1.records.add(sample1)               # annnotate artifact1
 ```
 
 You can use records and ulabels alongside entity types in modules such as {mod}`bionty`:
