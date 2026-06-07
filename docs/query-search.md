@@ -88,7 +88,7 @@ import bionty as bt
 cell_types = bt.CellType.lookup()
 ```
 
-## Get one object
+## Get
 
 {meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found.
 
@@ -97,7 +97,19 @@ ln.Record.get(experiment_1.uid)  # by uid
 ln.Record.get(name="Experiment 1")  # by field
 ```
 
-## Query objects by fields
+## Search
+
+You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
+
+```python
+ln.Artifact.search("iris").to_dataframe()
+```
+
+Here is more background on search and examples for searching the entire cell type ontology: {doc}`/faq/search`
+
+## Queries
+
+### By fields
 
 Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query all artifacts by the `suffix` field:
 
@@ -131,7 +143,32 @@ qs.to_dataframe()
 
 The `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 
-## Query objects by features
+Django has a double-under-score syntax to filter based on related tables.
+This syntax enables you to traverse several layers of relations and comparators.
+
+```python
+ln.Artifact.filter(created_by__handle__startswith="testuse").to_dataframe()
+```
+
+The filter selects all artifacts based on the users who ran the generating notebook. Under the hood, in the SQL database, it's joining the artifact table with the user table.
+
+Another example would be querying all datasets that measure a particular feature. For instance, which datasets measures `"CD8A"`. Here is how:
+
+```python
+cd8a = bt.Gene.get(symbol="CD8A")
+# query for all feature sets that contain CD8A
+schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
+# get all artifacts
+ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
+```
+
+Instead of splitting this across three queries, the double-underscore syntax allows you to define a path for one query.
+
+```python
+ln.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
+```
+
+### By features
 
 The `Artifact`, `Record`, and `Run` registries can be queried by features, via an implicit lookup in the {class}`~lamindb.Feature` registry:
 
@@ -178,48 +215,6 @@ You can query for whether a dataset is annotated annotated by a feature:
 
 ```python
 ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
-```
-
-## Query runs by parameters
-
-Here is an example for querying by parameters: {ref}`track-run-parameters`.
-
-## Search for objects
-
-You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
-
-```python
-ln.Artifact.search("iris").to_dataframe()
-```
-
-Here is more background on search and examples for searching the entire cell type ontology: {doc}`/faq/search`
-
-## Query related registries
-
-Django has a double-under-score syntax to filter based on related tables.
-
-This syntax enables you to traverse several layers of relations and leverage different comparators.
-
-```python
-ln.Artifact.filter(created_by__handle__startswith="testuse").to_dataframe()
-```
-
-The filter selects all artifacts based on the users who ran the generating notebook. Under the hood, in the SQL database, it's joining the artifact table with the user table.
-
-Another typical example is querying all datasets that measure a particular feature. For instance, which datasets measure `"CD8A"`. Here is how to do it:
-
-```python
-cd8a = bt.Gene.get(symbol="CD8A")
-# query for all feature sets that contain CD8A
-schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
-# get all artifacts
-ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
-```
-
-Instead of splitting this across three queries, the double-underscore syntax allows you to define a path for one query.
-
-```python
-ln.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
 ```
 
 ## Filter operators
@@ -297,3 +292,7 @@ ln.Artifact.filter(ln.Q(suffix=".jpg") | ln.Q(suffix=".fastq.gz")).to_dataframe(
 ```python
 ln.Artifact.filter(~ln.Q(suffix=".jpg")).to_dataframe()
 ```
+
+### JSON
+
+Here is an example for querying by parameters: {ref}`track-run-parameters`.
