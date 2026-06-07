@@ -96,6 +96,7 @@ sample_type = ln.Record(                     # create a record type "Samples"
 record1 = ln.Record(                         # create a sample record
     name="My sample",
     features={"gc_content": 0.5}
+    type=sample_type,
 ).save()
 artifact1.records.add(record1)               # annnotate artifact1
 ```
