@@ -153,11 +153,7 @@ def test_cloud_path_init_missing_artifact_raises(monkeypatch):
 
 def test_path_init_existing_artifact():
     # any artifact on s3 fits this test
-    artifact = (
-        ln.Artifact.connect("laminlabs/lamindata")
-        .filter(storage__root__startswith="s3://")
-        .first()
-    )
+    artifact = ln.Artifact.connect("laminlabs/lamindata").get("cGi8QjXNQQfZzL4n")
     assert artifact is not None
 
     artifact_transfer = ln.Artifact(artifact.path)
