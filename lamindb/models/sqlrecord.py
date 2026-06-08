@@ -262,7 +262,7 @@ class SQLRecordSettings:
 
     @property
     def single_space(self) -> bool:
-        """Objects in a dynamic registry must be in a single space (default `True`).
+        """Objects in a dynamic registry must be in a single space (default `False`).
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
