@@ -275,7 +275,7 @@ class SQLRecordSettings:
                 import lamindb as ln
 
                 experiments_registry = ln.Record.get(name="Experiments", is_type=True)
-                experiments_registry.settings.same_space = True
+                experiments_registry.settings.single_space = True
                 experiments_registry.save()
 
         .. versionadded:: 2.6.0
