@@ -294,6 +294,44 @@ def test_record_schema_index_stored_on_name():
     score.delete(permanent=True)
 
 
+def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
+    """Export works for index-on-name schema with linked features."""
+    sample_name = ln.Feature(name="sample_name", dtype=str).save()
+    project_feature = ln.Feature(name="project", dtype=ln.Project).save()
+    schema = ln.Schema(
+        features=[project_feature],
+        index=sample_name,
+        name="index-on-name-with-link-schema",
+    ).save()
+    sheet = ln.Record(
+        name="index-on-name-with-link-sheet", is_type=True, schema=schema
+    ).save()
+    project = ln.Project(name="index-export-project").save()
+
+    records = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {"project": [project.name, project.name]},
+            index=pd.Index(["sample-1", "sample-2"], name="sample_name"),
+        ),
+        type=sheet,
+    )
+    records.save()
+
+    df = sheet.to_dataframe()
+    assert df.index.name == "sample_name"
+    assert df.index.tolist() == ["sample-1", "sample-2"]
+    assert "sample_name" not in df.columns
+    assert "__lamindb_record_name__" not in df.columns
+    assert df["project"].tolist() == [project.name, project.name]
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    project.delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_name.delete(permanent=True)
+    project_feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()

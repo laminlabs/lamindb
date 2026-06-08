@@ -553,7 +553,10 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
 
     # Add features section
     n_members = record.n_members
-    members_count_display = f" ({n_members})" if n_members else ""
+    index_info = (
+        f" including index: {record.index.name}" if record.index is not None else ""
+    )
+    members_count_display = f" ({n_members}{index_info})" if n_members else ""
     if n_members or (record.dtype and record.itype is not None):
         features = tree.add(
             Text.assemble(
@@ -561,7 +564,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
                     "Features" if record.itype == "Feature" else record.itype,
                     "bold bright_magenta",
                 ),
-                (members_count_display, "bold dim"),
+                (members_count_display, "dim"),
             )
         )
         if n_members is not None:

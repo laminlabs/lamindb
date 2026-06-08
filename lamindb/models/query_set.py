@@ -1072,7 +1072,8 @@ def process_links_features(
             value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
             mask = (df[feature_col] == feature.name) & df[value_col].notna()
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
-            result.insert(3, feature.name, result[pk_name].map(feature_values))
+            insert_loc = min(3, len(result.columns))
+            result.insert(insert_loc, feature.name, result[pk_name].map(feature_values))
 
     return result
 
@@ -1091,7 +1092,8 @@ def process_cols_from_include(
             continue
 
         values = df.groupby(pk_name)[col].agg(set if col_type == "many" else "first")
-        result.insert(3, col, result[pk_name].map(values))
+        insert_loc = min(3, len(result.columns))
+        result.insert(insert_loc, col, result[pk_name].map(values))
 
     return result
 
