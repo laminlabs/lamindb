@@ -514,8 +514,21 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                             SELECT 1
                             FROM lamindb_record r
                             WHERE r.id = NEW.type_id
-                              AND r._aux->>'ss' = '1'
-                              AND r.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  r._aux->>'ss' = '1'
+                                  AND r.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  r._aux ? 'ss'
+                                  AND r._aux->>'ss' <> '1'
+                                  AND (
+                                      SELECT sp.uid
+                                      FROM lamindb_space sp
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM r._aux->>'ss'
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: record space must match locked type space';
                         END IF;

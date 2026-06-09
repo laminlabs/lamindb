@@ -1005,8 +1005,21 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                             SELECT 1
                             FROM lamindb_feature f
                             WHERE f.id = NEW.type_id
-                              AND f._aux->>'ss' = '1'
-                              AND f.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  f._aux->>'ss' = '1'
+                                  AND f.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  f._aux ? 'ss'
+                                  AND f._aux->>'ss' <> '1'
+                                  AND (
+                                      SELECT sp.uid
+                                      FROM lamindb_space sp
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM f._aux->>'ss'
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';
                         END IF;

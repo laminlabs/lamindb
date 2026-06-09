@@ -107,8 +107,21 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                             SELECT 1
                             FROM lamindb_ulabel u
                             WHERE u.id = NEW.type_id
-                              AND u._aux->>'ss' = '1'
-                              AND u.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  u._aux->>'ss' = '1'
+                                  AND u.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  u._aux ? 'ss'
+                                  AND u._aux->>'ss' <> '1'
+                                  AND (
+                                      SELECT sp.uid
+                                      FROM lamindb_space sp
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM u._aux->>'ss'
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: ulabel space must match single-space type space';
                         END IF;
