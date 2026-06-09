@@ -197,7 +197,8 @@ class Migration(migrations.Migration):
         ("lamindb", "0186_v2_4"),
         ("lamindb", "0187_v2_4_part_2"),
         ("lamindb", "0188_remove_record_prevent_record_type_cycle_and_more"),
-        ("lamindb", "0189_v2_6_1"),
+        ("lamindb", "0189_v2_6"),
+        ("lamindb", "0190_v2_6_1"),
     ]
 
     operations = [
