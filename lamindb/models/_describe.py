@@ -580,7 +580,12 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("default_value", style="", no_wrap=True)
 
             optionals = record.optionals.get()
-            for member in record.members:
+            members = list(record.members)
+            if record.index is not None:
+                index_uid = record.index.uid
+                # Keep existing member order stable while lifting index to top.
+                members.sort(key=lambda member: member.uid != index_uid)
+            for member in members:
                 feature_table.add_row(
                     Text(member.name),
                     Text(strip_cat(format_dtype_for_display(member._dtype_str))),
