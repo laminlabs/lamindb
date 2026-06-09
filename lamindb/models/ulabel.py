@@ -115,12 +115,11 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                                 OR (
                                   u._aux ? 'ss'
                                   AND u._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = u._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM u._aux->>'ss'
                                 )
                               )
                         ) THEN

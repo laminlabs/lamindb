@@ -500,7 +500,9 @@ def test_single_space_type_requires_same_space():
     constrained_type.settings.single_space = restricted_space
     constrained_type.save()
     constrained_type.refresh_from_db()
-    assert constrained_type.settings.single_space is True
+    single_space_setting = constrained_type.settings.single_space
+    assert isinstance(single_space_setting, ln.Space)
+    assert single_space_setting.id == restricted_space.id
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == restricted_space.uid
 
@@ -544,6 +546,52 @@ def test_single_space_type_requires_same_space():
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
     valid_record.delete(permanent=True)
+    constrained_type.delete(permanent=True)
+    restricted_space.delete(permanent=True)
+
+
+def test_single_space_getter_setter_paths():
+    suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    constrained_type = ln.Record(name=f"SingleSpaceType-{suffix}", is_type=True).save()
+    restricted_space = ln.Space(name=f"single-space-{suffix}").save()
+
+    assert constrained_type.settings.single_space is False
+    assert constrained_type._aux is None
+
+    constrained_type._aux = {"foo": "bar"}
+    assert constrained_type.settings.single_space is False
+
+    constrained_type.settings.single_space = True
+    assert constrained_type.settings.single_space is True
+    assert constrained_type._aux is not None
+    assert constrained_type._aux.get("ss") == 1
+    assert constrained_type._aux.get("foo") == "bar"
+
+    constrained_type.settings.single_space = restricted_space
+    single_space_setting = constrained_type.settings.single_space
+    assert isinstance(single_space_setting, ln.Space)
+    assert single_space_setting.id == restricted_space.id
+    assert constrained_type._aux is not None
+    assert constrained_type._aux.get("ss") == restricted_space.uid
+
+    with pytest.raises(AssertionError, match="single_space must be a bool or a Space"):
+        constrained_type.settings.single_space = "invalid"  # type: ignore[assignment]
+
+    with pytest.raises(
+        AssertionError, match="Space passed to single_space must be saved"
+    ):
+        constrained_type.settings.single_space = ln.Space(
+            name=f"unsaved-space-{suffix}"
+        )
+
+    constrained_type.settings.single_space = False
+    assert constrained_type._aux == {"foo": "bar"}
+
+    constrained_type._aux = None
+    constrained_type.settings.single_space = True
+    constrained_type.settings.single_space = False
+    assert constrained_type._aux is None
+
     constrained_type.delete(permanent=True)
     restricted_space.delete(permanent=True)
 

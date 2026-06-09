@@ -1013,12 +1013,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                                 OR (
                                   f._aux ? 'ss'
                                   AND f._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = f._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM f._aux->>'ss'
                                 )
                               )
                         ) THEN

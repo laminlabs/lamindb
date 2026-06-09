@@ -261,15 +261,19 @@ class SQLRecordSettings:
         self._sqlrecord = sqlrecord
 
     @property
-    def single_space(self) -> bool:
+    def single_space(self) -> bool | Space:
         """Objects in a dynamic registry must be in a single space (default `False`).
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
+        This only affects updates to objects that will start to throw an error upon `INSERT` or `UPDATE`
+        if their space does not match the enforced space. Existing objects are not affected.
+
         The enforced space can be configured in 2 ways:
 
-        - `True`: enforce the space of the dynamic registry (legacy behavior).
-        - `Space`: enforce that exact space, persisted as its `uid`.
+        - `True`: enforce the space of the dynamic registry aka the `type`
+        - `Space`: enforce the exact space
+        - `False`: disable any space enforcement
 
         Example:
 
@@ -278,7 +282,17 @@ class SQLRecordSettings:
                 import lamindb as ln
 
                 experiments_registry = ln.Record.get(name="Experiments", is_type=True)
+
+                # enforce the space of the dynamic registry aka the `type`
                 experiments_registry.settings.single_space = True
+                experiments_registry.save()
+
+                # enforce an exact space that may differ from the type space
+                experiments_registry.settings.single_space = Space.get(name="Our space")
+                experiments_registry.save()
+
+                # disable any space enforcement
+                experiments_registry.settings.single_space = False
                 experiments_registry.save()
 
         .. versionadded:: 2.6.0
@@ -293,7 +307,12 @@ class SQLRecordSettings:
         aux = self._sqlrecord._aux
         if aux is None:
             return False
-        return "ss" in aux
+        if (ss := aux.get("ss")) is not None:
+            if ss == 1:
+                return True
+            else:
+                return Space.get(ss)
+        return False
 
     @single_space.setter
     def single_space(self, value: bool | Space) -> None:
@@ -305,7 +324,7 @@ class SQLRecordSettings:
         )
         aux = self._sqlrecord._aux
         # `ss` encoding:
-        # - `1`: enforce type space (legacy behavior)
+        # - `1`: enforce type space
         # - `<space_uid>`: enforce a specific space
         # - missing key: disabled
         if value is True:
@@ -316,18 +335,16 @@ class SQLRecordSettings:
             return
 
         if isinstance(value, Space):
-            if value.id is None:
-                raise ValueError("Space passed to single_space must be saved")
+            assert value.id is not None, "Space passed to single_space must be saved"
             if aux is None:
                 aux = {}
                 self._sqlrecord._aux = aux
             aux["ss"] = value.uid
             return
 
-        if value is not False:
-            raise TypeError(
-                f"single_space must be a bool or a Space, got {type(value).__name__}"
-            )
+        assert value is False, (
+            f"single_space must be a bool or a Space, got {type(value).__name__}"
+        )
 
         if aux is not None and "ss" in aux:
             del aux["ss"]

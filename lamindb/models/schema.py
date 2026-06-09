@@ -315,12 +315,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                                 OR (
                                   s._aux ? 'ss'
                                   AND s._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = s._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM s._aux->>'ss'
                                 )
                               )
                         ) THEN

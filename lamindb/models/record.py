@@ -522,12 +522,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                                 OR (
                                   r._aux ? 'ss'
                                   AND r._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = r._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM r._aux->>'ss'
                                 )
                               )
                         ) THEN

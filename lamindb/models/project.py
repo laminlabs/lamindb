@@ -91,12 +91,11 @@ class Reference(
                                 OR (
                                   r._aux ? 'ss'
                                   AND r._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = r._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM r._aux->>'ss'
                                 )
                               )
                         ) THEN
@@ -277,12 +276,11 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
                                 OR (
                                   p._aux ? 'ss'
                                   AND p._aux->>'ss' <> '1'
-                                  AND NOT EXISTS (
-                                      SELECT 1
+                                  AND (
+                                      SELECT sp.uid
                                       FROM lamindb_space sp
-                                      WHERE sp.uid = p._aux->>'ss'
-                                        AND sp.id = NEW.space_id
-                                  )
+                                      WHERE sp.id = NEW.space_id
+                                  ) IS DISTINCT FROM p._aux->>'ss'
                                 )
                               )
                         ) THEN
