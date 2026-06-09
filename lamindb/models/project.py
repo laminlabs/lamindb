@@ -83,8 +83,22 @@ class Reference(
                             SELECT 1
                             FROM lamindb_reference r
                             WHERE r.id = NEW.type_id
-                              AND r._aux->>'ss' = '1'
-                              AND r.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  r._aux->>'ss' = '1'
+                                  AND r.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  r._aux ? 'ss'
+                                  AND r._aux->>'ss' <> '1'
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM lamindb_space sp
+                                      WHERE sp.uid = r._aux->>'ss'
+                                        AND sp.id = NEW.space_id
+                                  )
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: reference space must match single-space type space';
                         END IF;
@@ -255,8 +269,22 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
                             SELECT 1
                             FROM lamindb_project p
                             WHERE p.id = NEW.type_id
-                              AND p._aux->>'ss' = '1'
-                              AND p.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  p._aux->>'ss' = '1'
+                                  AND p.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  p._aux ? 'ss'
+                                  AND p._aux->>'ss' <> '1'
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM lamindb_space sp
+                                      WHERE sp.uid = p._aux->>'ss'
+                                        AND sp.id = NEW.space_id
+                                  )
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: project space must match single-space type space';
                         END IF;

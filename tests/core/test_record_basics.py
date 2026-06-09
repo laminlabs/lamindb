@@ -497,12 +497,12 @@ def test_single_space_type_requires_same_space():
     ).save()
     assert unconstrained_record.space_id == 1
 
-    constrained_type.settings.single_space = True
+    constrained_type.settings.single_space = restricted_space
     constrained_type.save()
     constrained_type.refresh_from_db()
     assert constrained_type.settings.single_space is True
     assert constrained_type._aux is not None
-    assert constrained_type._aux.get("ss") == 1
+    assert constrained_type._aux.get("ss") == restricted_space.uid
 
     valid_record = ln.Record(
         name="same_space_record", type=constrained_type, space=restricted_space
@@ -515,6 +515,19 @@ def test_single_space_type_requires_same_space():
 
     with pytest.raises(InternalError) as error:
         ln.Record(name="different_space_record", type=constrained_type).save()
+    assert "record space must match locked type space" in error.exconly()
+
+    constrained_type.settings.single_space = True
+    constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.settings.single_space is True
+    assert constrained_type._aux is not None
+    assert constrained_type._aux.get("ss") == 1
+
+    with pytest.raises(InternalError) as error:
+        ln.Record(
+            name="different_space_record_type_space_only", type=constrained_type
+        ).save()
     assert "record space must match locked type space" in error.exconly()
 
     constrained_type.settings.single_space = False

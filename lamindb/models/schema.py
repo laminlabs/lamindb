@@ -307,8 +307,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                             SELECT 1
                             FROM lamindb_schema s
                             WHERE s.id = NEW.type_id
-                              AND s._aux->>'ss' = '1'
-                              AND s.space_id IS DISTINCT FROM NEW.space_id
+                              AND (
+                                (
+                                  s._aux->>'ss' = '1'
+                                  AND s.space_id IS DISTINCT FROM NEW.space_id
+                                )
+                                OR (
+                                  s._aux ? 'ss'
+                                  AND s._aux->>'ss' <> '1'
+                                  AND NOT EXISTS (
+                                      SELECT 1
+                                      FROM lamindb_space sp
+                                      WHERE sp.uid = s._aux->>'ss'
+                                        AND sp.id = NEW.space_id
+                                  )
+                                )
+                              )
                         ) THEN
                             RAISE EXCEPTION 'Cannot set type: schema space must match single-space type space';
                         END IF;
