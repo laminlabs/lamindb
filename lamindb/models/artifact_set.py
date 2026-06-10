@@ -148,12 +148,14 @@ def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet
         qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             _real_key__isnull=True,
+            _overwrite_versions=True,
             uid__startswith=stem,
         )
     elif stem_len == 20:
         qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             _real_key__isnull=True,
+            _overwrite_versions=False,
             uid=stem,
         )
     else:
