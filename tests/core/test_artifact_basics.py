@@ -1676,12 +1676,15 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     assert ln.Artifact.get(path=artifact_path) == artifact
     assert ln.Artifact.filter().get(path=artifact_path.as_posix()) == artifact
     # only partial uid in the path
-    stem = artifact_path.stem
     with pytest.raises(ln.errors.ObjectDoesNotExist):
-        ln.Artifact.get(path=artifact_path.with_name(stem[:-4]) + ".parquet")
+        ln.Artifact.get(
+            path=artifact_path.with_name(artifact_path.stem[:-4]).with_suffix(
+                ".parquet"
+            )
+        )
     # no suffix in the path
     with pytest.raises(ln.errors.ObjectDoesNotExist):
-        ln.Artifact.get(path=artifact_path.with_name(stem))
+        ln.Artifact.get(path=artifact_path.with_suffix(""))
 
     with pytest.raises(ln.errors.ObjectDoesNotExist):
         ln.Artifact.get(path="s3://bucket/folder/file.parquet")
