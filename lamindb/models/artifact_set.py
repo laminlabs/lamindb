@@ -143,12 +143,14 @@ def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet
 
     stem = upath.stem
     stem_len = len(stem)
+    suffix = upath.suffix
 
     if stem_len == 16:
         qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             _real_key__isnull=True,
             _overwrite_versions=True,
+            suffix=suffix,
             uid__startswith=stem,
         )
     elif stem_len == 20:
@@ -156,6 +158,7 @@ def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             _real_key__isnull=True,
             _overwrite_versions=False,
+            suffix=suffix,
             uid=stem,
         )
     else:

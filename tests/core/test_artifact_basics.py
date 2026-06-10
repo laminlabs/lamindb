@@ -1670,10 +1670,18 @@ def test_artifact_get_tracking(example_dataframe: pd.DataFrame):
 
 def test_get_by_path(example_dataframe: pd.DataFrame):
     artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
+    assert artifact._key_is_virtual
     artifact_path = artifact.path
 
     assert ln.Artifact.get(path=artifact_path) == artifact
     assert ln.Artifact.filter().get(path=artifact_path.as_posix()) == artifact
+    # only partial uid in the path
+    stem = artifact_path.stem
+    with pytest.raises(ln.errors.ObjectDoesNotExist):
+        ln.Artifact.get(path=artifact_path.with_name(stem[:-4]) + ".parquet")
+    # no suffix in the path
+    with pytest.raises(ln.errors.ObjectDoesNotExist):
+        ln.Artifact.get(path=artifact_path.with_name(stem))
 
     with pytest.raises(ln.errors.ObjectDoesNotExist):
         ln.Artifact.get(path="s3://bucket/folder/file.parquet")
