@@ -1521,7 +1521,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     The field also accepts custom `str` values to allow for building logic around them in third-party packages.
 
-    See section `storage formats & object types <storage-formats-note_>`__ for more background.
+    See section :ref:`storage formats & object types <storage-formats-note>` for more background.
     """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
