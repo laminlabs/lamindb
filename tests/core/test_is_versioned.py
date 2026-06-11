@@ -5,6 +5,7 @@ from lamindb.errors import IntegrityError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
+    max_version_uid_in_family,
     set_version,
 )
 
@@ -357,6 +358,56 @@ def test_inferred_revises_handles_concurrent_new_version():
         assert not transform_concurrent.is_latest
     finally:
         for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
+            record.delete(permanent=True)
+
+
+def test_version_chain_crosses_base62_case_boundary():
+    # base62 increments digits -> uppercase -> lowercase, so the version-suffix chain
+    # crosses ...000Z -> ...000a -> ...000b. This must hold regardless of the database
+    # collation: locale-aware collations (e.g. Postgres `en_US.UTF-8`) sort the letter
+    # `Z` after `a`, which previously made the chain stall at the Z -> a boundary
+    # (`...000Z` kept being selected as the latest, regenerating `...000a` forever).
+    transform_v1 = ln.Transform(
+        key="version-chain-z-to-a",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    stem_uid = transform_v1.stem_uid
+    try:
+        # fast-forward the version suffix to ...000Z without creating 35 versions
+        ln.Transform.filter(id=transform_v1.id).update(uid=stem_uid + "000Z")
+        transform_v1 = ln.Transform.get(id=transform_v1.id)
+        assert transform_v1.uid.endswith("000Z")
+        assert transform_v1.is_latest
+
+        # crossing the Z -> a boundary
+        transform_v2 = ln.Transform(
+            key="version-chain-z-to-a",
+            revises=transform_v1,
+            source_code="v2",
+            kind="pipeline",
+        ).save()
+        assert transform_v2.uid.endswith("000a")
+
+        # the family now holds both ...000Z and ...000a; the max must be ...000a
+        # (base62), not ...000Z (locale collation) -- assert the selector directly.
+        assert max_version_uid_in_family(transform_v2).endswith("000a")
+
+        # so the next version is ...000b rather than colliding back on ...000a
+        transform_v3 = ln.Transform(
+            key="version-chain-z-to-a",
+            revises=transform_v2,
+            source_code="v3",
+            kind="pipeline",
+        ).save()
+        assert transform_v3.uid.endswith("000b")
+        assert transform_v3.is_latest
+        transform_v1.refresh_from_db()
+        transform_v2.refresh_from_db()
+        assert not transform_v1.is_latest
+        assert not transform_v2.is_latest
+    finally:
+        for record in ln.Transform.filter(uid__startswith=stem_uid):
             record.delete(permanent=True)
 
 
