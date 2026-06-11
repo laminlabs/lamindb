@@ -286,14 +286,16 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
-        from .sqlrecord import get_branch_id_for_create
+        from .sqlrecord import get_branch_id_for_create, get_current_branch
 
-        # the branch the new transform will be created on; used both to infer `revises`
-        # and to scope which family head is demoted (is_latest is per-branch).
-        target_branch_id = get_branch_id_for_create(
-            space_branch_kwargs.get("branch"),
-            space_branch_kwargs.get("branch_id"),
-        )
+        # resolve the creation branch once and pin it into kwargs, so the inferred
+        # `revises` lookup and the record's actual branch_id can't diverge (is_latest
+        # is per-branch, so the demoted head must be on this exact branch).
+        branch = space_branch_kwargs.get("branch")
+        branch_id = space_branch_kwargs.get("branch_id")
+        if branch is None and branch_id is None:
+            space_branch_kwargs["branch"] = branch = get_current_branch()
+        target_branch_id = get_branch_id_for_create(branch, branch_id)
         if revises is None:
             # need to check uid before checking key
             if uid is not None:

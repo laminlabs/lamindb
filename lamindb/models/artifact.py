@@ -1827,8 +1827,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None | bool = _sqlrecord_or_id(
             Run, kwargs.pop("run", None), kwargs.pop("run_id", None), check_type=False
         )
-        branch: Branch | None = _sqlrecord_or_id(
-            Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
+        from .sqlrecord import get_current_branch
+
+        # resolve the creation branch once (defaulting to the current branch) so the
+        # inferred `revises` lookup and the record's actual branch_id can't diverge
+        # (is_latest is per-branch, so the demoted head must be on this exact branch).
+        branch: Branch = (
+            _sqlrecord_or_id(
+                Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
+            )
+            or get_current_branch()
         )
         space: Space | None = _sqlrecord_or_id(
             Space, kwargs.pop("space", None), kwargs.pop("space_id", None)
@@ -1906,14 +1914,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
-        from .sqlrecord import get_branch_id_for_create
-
-        # the branch the new artifact will be created on; used to scope the inferred
-        # `revises` lookup to this branch's head (is_latest is per-branch).
-        target_branch_id = get_branch_id_for_create(branch)
         provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
-
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=path,
             key=key,
@@ -1929,7 +1931,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
-            target_branch_id=target_branch_id,
+            target_branch_id=branch.id,
         )
 
         def set_private_attributes():
