@@ -262,3 +262,22 @@ def test_serialize_pandas_datetime_dtypes():
 
     assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+
+
+def test_get_values_single_key_dict():
+    """Single-key dict values must round-trip through get_values()."""
+    feature = ln.Feature(name="pop_proportions", dtype=dict).save()
+    single_key = {"HANCESTRO:0005": 1.0}
+    multi_key = {"HANCESTRO:0005": 0.6, "HANCESTRO:0009": 0.4}
+
+    artifact = ln.Artifact(".gitignore", key="dict-single-key-artifact").save()
+    artifact.features.add_values({"pop_proportions": single_key})
+    assert artifact.features.get_values()["pop_proportions"] == single_key
+
+    record = ln.Record(name="dict-single-key-record").save()
+    record.features.add_values({"pop_proportions": multi_key})
+    assert record.features.get_values()["pop_proportions"] == multi_key
+
+    artifact.delete(permanent=True)
+    record.delete(permanent=True)
+    feature.delete(permanent=True)
