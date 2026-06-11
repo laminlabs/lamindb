@@ -4,7 +4,6 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 from django.db import models
-from django.db.models import Q
 from lamin_utils import logger
 from lamin_utils._base62 import decode as base62_to_int
 from lamin_utils._base62 import increment_base62
@@ -272,11 +271,13 @@ def process_revises(
 def _adjust_is_latest_when_deleting_is_versioned(
     objects: IsVersioned | Iterable[IsVersioned],
 ) -> list[int]:
-    """After deleting (soft or permanent) versioned records, promote new latest per version family.
+    """After deleting (soft or permanent) versioned records, promote a new latest head.
 
     Accepts a single IsVersioned instance, a QuerySet, or a list of IsVersioned.
-    Runs in 1 query (candidates + update) when objects are passed; no extra query for uids.
-    Returns the list of pks that were promoted to is_latest (for testing).
+    is_latest is per-branch, so for every deleted head we promote the most recently
+    created remaining version on its branch -- a global family max could leave that
+    branch headless (or flip the wrong branch's record). Non-branch-aware models keep a
+    single global head per family (branch is `None`). Returns the promoted pks.
     """
     if isinstance(objects, IsVersioned):
         objects = [objects]
@@ -285,42 +286,52 @@ def _adjust_is_latest_when_deleting_is_versioned(
     if not objects:
         return []
     id_list = [o.pk for o in objects]
-    stem_uids = list({o.uid[: o._len_stem_uid] for o in objects if o.is_latest})
-    if not stem_uids:
-        return []
-    registry = type(objects[0])
-    db = getattr(objects[0]._state, "db", None) or "default"
+
+    object_0 = objects[0]
+    registry = type(object_0)
+    db = getattr(object_0._state, "db", None) or "default"
+
     len_stem = registry._len_stem_uid
-    # All candidates: same family as any stem_uid, not in trash and not about to be deleted
-    q = Q()
-    for s in stem_uids:
-        q |= Q(uid__startswith=s)
-    qs = registry.objects.using(db).filter(q).exclude(pk__in=id_list)
+
     from .sqlrecord import SQLRecord
 
-    if issubclass(registry, SQLRecord):
-        qs = qs.exclude(branch_id=-1)
-    candidates = list(qs.values("pk", "uid", "created_at"))
-    # per stem_uid, pick candidate with max created_at
-    by_stem: dict[str, dict[str, Any]] = {}
-    for c in candidates:
-        stem = c["uid"][:len_stem]
-        if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
-            by_stem[stem] = c
-    if not by_stem:
+    branch_aware = issubclass(registry, SQLRecord)
+    # (family, branch) heads that were just deleted and need a successor
+    groups = {
+        (o.uid[:len_stem], o.branch_id if branch_aware else None)
+        for o in objects
+        if o.is_latest
+    }
+    if not groups:
         return []
-    pks = [by_stem[s]["pk"] for s in by_stem]
+    # for each deleted head, let the db pick its successor: the newest remaining version
+    # in the same family on the same branch (LIMIT 1, no client-side scan of the family)
+    promoted: list[tuple[int, str]] = []
+    for stem, branch in groups:
+        candidates = (
+            registry.objects.using(db)
+            .filter(uid__startswith=stem)
+            .exclude(pk__in=id_list)
+        )
+        if branch_aware:
+            # a concrete branch id inherently excludes the trash (branch_id=-1)
+            candidates = candidates.filter(branch_id=branch)
+        new_head = candidates.order_by("-created_at", "-id").values("pk", "uid").first()
+        if new_head is not None:
+            promoted.append((new_head["pk"], new_head["uid"]))
+    if not promoted:
+        return []
+    pks = [pk for pk, _ in promoted]
     registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
-    if pks:
-        promoted_uids = [by_stem[s]["uid"] for s in by_stem]
-        if len(promoted_uids) == 1:
-            logger.important_hint(
-                f"new latest {registry.__name__} version is: {promoted_uids[0]}"
-            )
-        else:
-            logger.important_hint(
-                f"new latest {registry.__name__} versions: {promoted_uids}"
-            )
+    promoted_uids = [uid for _, uid in promoted]
+    if len(promoted_uids) == 1:
+        logger.important_hint(
+            f"new latest {registry.__name__} version is: {promoted_uids[0]}"
+        )
+    else:
+        logger.important_hint(
+            f"new latest {registry.__name__} versions: {promoted_uids}"
+        )
     return pks
 
 

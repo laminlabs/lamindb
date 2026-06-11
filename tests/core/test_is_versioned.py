@@ -590,6 +590,60 @@ def test_inferred_revises_prefers_target_branch_head_artifact():
         branch.delete(permanent=True)
 
 
+def test_soft_delete_promotes_within_branch():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_soft_delete_within_branch").save()
+    key = "soft-delete-branch-aware.parquet"
+    # a version family with two versions on the contribution branch
+    ln.setup.switch(branch.name)
+    artifact_b1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"sd_feat": [1, 2]}), key=key, description="b1"
+    ).save()
+    artifact_b2 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"sd_feat": [3, 4]}), revises=artifact_b1, description="b2"
+    ).save()
+    artifact_b1.refresh_from_db()
+    assert not artifact_b1.is_latest
+    assert artifact_b2.is_latest
+    try:
+        # a *more recently* created head on main for the same family
+        ln.setup.switch(main_branch.name)
+        artifact_main = ln.Artifact.from_dataframe(
+            pd.DataFrame({"sd_feat": [5, 6]}), revises=artifact_b1, description="main"
+        ).save()
+        assert artifact_main.branch_id == main_branch.id
+        assert artifact_main.is_latest
+        artifact_b2.refresh_from_db()
+        # cross-branch revise leaves the contribution branch's head intact
+        assert artifact_b2.is_latest
+
+        # soft-delete the branch head: the next version *on the branch* must be
+        # promoted, not main's (more recently created) head.
+        ln.setup.switch(branch.name)
+        artifact_b2.delete()
+        artifact_b1.refresh_from_db()
+        artifact_main.refresh_from_db()
+        assert artifact_b1.is_latest  # promoted within the branch
+        assert artifact_b1.branch_id == branch.id
+        assert artifact_main.is_latest  # main head untouched
+        # exactly one latest per branch for this family (no headless branch, no double head)
+        for branch_id in (branch.id, main_branch.id):
+            assert (
+                ln.Artifact.objects.filter(
+                    uid__startswith=artifact_b1.stem_uid,
+                    branch_id=branch_id,
+                    is_latest=True,
+                ).count()
+                == 1
+            )
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(uid__startswith=artifact_b1.stem_uid):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:
