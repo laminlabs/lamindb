@@ -1363,6 +1363,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 self.uid = self.stem_uid + increment_base62(
                                     max_version_uid_in_family(demote_target)[-4:]
                                 )
+                                logger.warning(
+                                    "`revises` was not the latest version, "
+                                    f"updated it to the current head: {revises}"
+                                )
                         else:
                             # explicitly-passed `revises` that *was* a head at init: it must
                             # still be one, else a newer revision was created concurrently.
