@@ -286,6 +286,14 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
+        from .sqlrecord import get_branch_id_for_create
+
+        # the branch the new transform will be created on; used both to infer `revises`
+        # and to scope which family head is demoted (is_latest is per-branch).
+        target_branch_id = get_branch_id_for_create(
+            space_branch_kwargs.get("branch"),
+            space_branch_kwargs.get("branch_id"),
+        )
         if revises is None:
             # need to check uid before checking key
             if uid is not None:
@@ -296,8 +304,6 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                     .first()
                 )
             elif key is not None:
-                from .sqlrecord import get_branch_id_for_create
-
                 candidates_for_revises = (
                     Transform.objects.using(using_key)
                     .filter(~Q(branch_id=-1), key=key, is_latest=True)
@@ -306,10 +312,6 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 # prefer the latest version on the branch this transform will be
                 # created on (is_latest is per-branch, so a family can have several
                 # heads); fall back to the most recent head across branches.
-                target_branch_id = get_branch_id_for_create(
-                    space_branch_kwargs.get("branch"),
-                    space_branch_kwargs.get("branch_id"),
-                )
                 candidate_for_revises = (
                     candidates_for_revises.filter(branch_id=target_branch_id).first()
                     or candidates_for_revises.first()
@@ -331,7 +333,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
         new_uid, version_tag, key, description, revises = process_revises(
-            revises, version_tag, key, description, Transform
+            revises, version_tag, key, description, Transform, target_branch_id
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't

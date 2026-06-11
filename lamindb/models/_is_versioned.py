@@ -208,25 +208,55 @@ def create_uid(
     version_tag: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
+    target_branch_id: int | None = None,
 ) -> tuple[str, IsVersioned | None]:
     """This also updates revises in case it's not the latest version.
 
     This is why it returns revises.
+
+    The new version suffix is always derived from the family-wide max (collation-independent,
+    so it never collides with heads on other branches or trashed records). The record returned
+    in `revises` -- which decides the record demoted on save -- is the current head:
+
+    - if `target_branch_id` is given (the branch the new record will be created on), the
+      `is_latest` head *on that branch*. `is_latest` is per-branch, so the family-wide max may
+      live on a different branch and must not be chained from / demoted across branches.
+    - otherwise, the family-wide max record (branch-agnostic legacy behavior).
     """
     if revises is not None:
-        latest_uid = max_version_uid_in_family(revises)
-        latest_in_family = (
-            None
-            if latest_uid is None
-            else revises.__class__.objects.get(uid=latest_uid)
+        # single query: pull the whole version family once, then derive everything in Python
+        # (most recent first so picking a branch head is deterministic).
+        family = sorted(
+            revises.__class__.objects.filter(uid__startswith=revises.stem_uid),
+            key=lambda record: record.created_at,
+            reverse=True,
         )
-        if latest_in_family is not None and latest_in_family.uid != revises.uid:
-            revises = latest_in_family
+        # family-wide max version suffix -> the new uid, so it never collides (base62 decoded
+        # in Python, independent of db collation; includes other-branch and trashed versions).
+        max_uid = max(
+            (record.uid for record in family),
+            key=lambda uid: base62_to_int(uid[-4:]),
+            default=revises.uid,
+        )
+        if target_branch_id is not None:
+            head = next(
+                (
+                    record
+                    for record in family
+                    if record.is_latest
+                    and getattr(record, "branch_id", None) == target_branch_id
+                ),
+                None,
+            )
+        else:
+            head = next((record for record in family if record.uid == max_uid), None)
+        if head is not None and head.uid != revises.uid:
+            revises = head
             logger.warning(
                 f"didn't pass the latest version in `revises`, retrieved it: {revises}"
             )
         suid = revises.stem_uid
-        vuid = increment_base62(revises.uid[-4:])  # type: ignore
+        vuid = increment_base62(max_uid[-4:])
     else:
         suid = uids.base62(n_full_id - 4)
         vuid = "0000"
@@ -249,11 +279,15 @@ def process_revises(
     key: str | None,
     description: str | None,
     type: type[IsVersioned],
+    target_branch_id: int | None = None,
 ) -> tuple[str, str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
     uid, revises = create_uid(
-        revises=revises, version_tag=version_tag, n_full_id=type._len_full_uid
+        revises=revises,
+        version_tag=version_tag,
+        n_full_id=type._len_full_uid,
+        target_branch_id=target_branch_id,
     )
     if revises is not None:
         if description is None:

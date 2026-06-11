@@ -596,7 +596,11 @@ def get_artifact_kwargs_from_data(
 
     # update local path
     if revises is not None:  # update provisional_uid
-        provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
+        provisional_uid, revises = create_uid(
+            revises=revises,
+            version_tag=version_tag,
+            target_branch_id=target_branch_id,
+        )
         if settings.cache_dir in path.parents:
             path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
             privates["local_filepath"] = path
@@ -1906,9 +1910,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
-        provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
-        run = get_run(run)
         from .sqlrecord import get_branch_id_for_create
+
+        # the branch the new artifact will be created on; scopes which family head is
+        # demoted (is_latest is per-branch) when chaining a new version.
+        target_branch_id = get_branch_id_for_create(branch)
+        provisional_uid, revises = create_uid(
+            revises=revises,
+            version_tag=version_tag,
+            target_branch_id=target_branch_id,
+        )
+        run = get_run(run)
 
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=path,
@@ -1925,7 +1937,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
-            target_branch_id=get_branch_id_for_create(branch),
+            target_branch_id=target_branch_id,
         )
 
         def set_private_attributes():
@@ -2000,7 +2012,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if revises is None:
                     uid += "0000"
                 else:
-                    uid, revises = create_uid(revises=revises, version_tag=version_tag)
+                    uid, revises = create_uid(
+                        revises=revises,
+                        version_tag=version_tag,
+                        target_branch_id=target_branch_id,
+                    )
             kwargs["uid"] = uid
 
         # only set key now so that we don't perform a look-up on it in case revises is passed
