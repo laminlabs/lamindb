@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import (
     F,
     FilteredRelation,
@@ -1338,8 +1338,11 @@ class BasicQuerySet(models.QuerySet):
                 _permanent_delete_transforms(self)
                 return
             if permanent is not True:
-                _adjust_is_latest_when_deleting_is_versioned(self)
-                self.update(branch_id=-1, is_latest=False)
+                # promote successors and trash the records atomically, so a failure can't
+                # leave both the successor and the (un-trashed) old head as is_latest
+                with transaction.atomic():
+                    _adjust_is_latest_when_deleting_is_versioned(self)
+                    self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop
         if self.model in {Artifact, Collection}:

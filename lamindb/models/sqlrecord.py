@@ -668,13 +668,16 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
-        if promoted:
-            if is_soft:
-                record.is_latest = False
-            with transaction.atomic():
-                result = delete()
-            return result
+        # promote a successor and delete the record atomically, so a failure can't leave
+        # both the successor and the (un-deleted) old head as is_latest
+        with transaction.atomic():
+            promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+            if promoted:
+                if is_soft:
+                    record.is_latest = False
+                # evaluates, then returns, no exit from the transaction
+                return delete()
+        # nothing to promote (e.g. last remaining version): fall through to a plain delete
     # deal with all other cases of the nested if condition now
     return delete()
 
