@@ -123,10 +123,7 @@ SimpleDtype = (
 )
 """Python types for simple scalar dtypes.
 
-This alias represents the preferred constructor inputs for simple feature dtypes
-(`int`, `float`, `str`, `bool`, `datetime.date`, `datetime.datetime`, `dict`).
-
-See :class:`~lamindb.Feature` for an overview across all data types.
+See section `Data types <dtypes-note_>`__ on the :class:`~lamindb.Feature` page for more background.
 """
 
 SimpleDtypeStr = Literal[
@@ -143,7 +140,7 @@ SimpleDtypeStr = Literal[
     "url",  # URL, validated as str, but specially treated in the UI
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
-"""String-serialized representations of simple data types."""
+"""String-serialized representations for :class:`~lamindb.base.types.SimpleDtype`."""
 DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat

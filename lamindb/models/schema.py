@@ -1092,7 +1092,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def dtype(self) -> str | None:
-        """The `dtype` for all features in the schema."""
+        """The `dtype` for all features in the schema.
+
+        This can only be a simple data type in case of a `Schema`.
+
+        Read more on data types in :class:`~lamindb.Feature`.
+        """
         return self._dtype_str
 
     @dtype.setter
