@@ -1373,6 +1373,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                     "or an older record was selected for `revises`."
                                 )
                         if demote_target is not None:
+                            # if the head we demote is the very object the caller
+                            # passed as `revises`, demote that in-memory object so
+                            # the caller observes is_latest=False without a refresh
+                            if revises is not None and demote_target.pk == revises.pk:
+                                demote_target = revises
                             demote_target.is_latest = False
                             demote_target._revises = None  # avoid recursion
                             demote_target.save()
