@@ -411,6 +411,63 @@ def test_version_chain_crosses_base62_case_boundary():
             record.delete(permanent=True)
 
 
+def test_inferred_revises_prefers_target_branch_head():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_inferred_revises_branch").save()
+    transform_main_v1 = ln.Transform(
+        key="inferred-revises-branch-aware",
+        source_code="main-v1",
+        kind="pipeline",
+    ).save()
+    try:
+        # create a *more recently* created head on another branch for the same key
+        ln.setup.switch(branch.name)
+        transform_branch = ln.Transform(
+            key="inferred-revises-branch-aware",
+            source_code="branch-v1",
+            kind="pipeline",
+        ).save()
+        assert transform_branch.is_latest
+        transform_main_v1.refresh_from_db()
+        # main head is preserved (cross-branch revision does not demote it)
+        assert transform_main_v1.is_latest
+
+        # back on main, infer revises (no explicit `revises`). Even though the other
+        # branch's head was created more recently, the inferred revises must be the
+        # head on the *target* (main) branch.
+        ln.setup.switch(main_branch.name)
+        transform_main_v2 = ln.Transform(
+            key="inferred-revises-branch-aware",
+            source_code="main-v2",
+            kind="pipeline",
+        )
+        assert transform_main_v2._revises is not None
+        assert transform_main_v2._revises.uid == transform_main_v1.uid
+        transform_main_v2.save()
+
+        transform_main_v1.refresh_from_db()
+        transform_branch.refresh_from_db()
+        assert transform_main_v2.is_latest
+        # the main head was demoted, the other branch's head is untouched
+        assert not transform_main_v1.is_latest
+        assert transform_branch.is_latest
+        # exactly one latest on main for this family (no double head)
+        main_latest = ln.Transform.objects.filter(
+            uid__startswith=transform_main_v2.stem_uid,
+            branch_id=main_branch.id,
+            is_latest=True,
+        )
+        assert main_latest.count() == 1
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Transform.objects.filter(
+            uid__startswith=transform_main_v1.stem_uid
+        ):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:
