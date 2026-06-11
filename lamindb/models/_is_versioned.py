@@ -278,15 +278,15 @@ def process_revises(
     version_tag: str | None,
     key: str | None,
     description: str | None,
-    type: type[IsVersioned],
+    type_: type[IsVersioned],
     target_branch_id: int | None = None,
 ) -> tuple[str, str, str, str, IsVersioned | None]:
-    if revises is not None and not isinstance(revises, type):
-        raise TypeError(f"`revises` has to be of type `{type.__name__}`")
+    if revises is not None and not isinstance(revises, type_):
+        raise TypeError(f"`revises` has to be of type `{type_.__name__}`")
     uid, revises = create_uid(
         revises=revises,
         version_tag=version_tag,
-        n_full_id=type._len_full_uid,
+        n_full_id=type_._len_full_uid,
         target_branch_id=target_branch_id,
     )
     if revises is not None:
