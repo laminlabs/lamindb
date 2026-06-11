@@ -420,6 +420,9 @@ def test_inferred_revises_prefers_target_branch_head():
         source_code="main-v1",
         kind="pipeline",
     ).save()
+    # sanity check: `switch` must actually steer the creation branch, otherwise the
+    # rest of the test (which relies on heads living on distinct branches) is moot.
+    assert transform_main_v1.branch_id == main_branch.id
     try:
         # create a *more recently* created head on another branch for the same key
         ln.setup.switch(branch.name)
@@ -428,6 +431,7 @@ def test_inferred_revises_prefers_target_branch_head():
             source_code="branch-v1",
             kind="pipeline",
         ).save()
+        assert transform_branch.branch_id == branch.id
         assert transform_branch.is_latest
         transform_main_v1.refresh_from_db()
         # main head is preserved (cross-branch revision does not demote it)
@@ -442,12 +446,15 @@ def test_inferred_revises_prefers_target_branch_head():
             source_code="main-v2",
             kind="pipeline",
         )
+        # the record-to-be must target main, so the inferred revises is scoped to main
+        assert transform_main_v2.branch_id == main_branch.id
         assert transform_main_v2._revises is not None
         assert transform_main_v2._revises.uid == transform_main_v1.uid
         transform_main_v2.save()
 
         transform_main_v1.refresh_from_db()
         transform_branch.refresh_from_db()
+        assert transform_main_v2.branch_id == main_branch.id
         assert transform_main_v2.is_latest
         # the main head was demoted, the other branch's head is untouched
         assert not transform_main_v1.is_latest
