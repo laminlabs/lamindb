@@ -51,7 +51,11 @@ class IsVersioned(models.Model):
         # consciously passed an old version: revise from the live head, like the inferred
         # case. This keeps the concurrent-demotion check (`revises` was the head at init
         # but got demoted before save -> raise) intact for genuinely explicit heads.
-        if self._revises is not None and not self._revises.is_latest:
+        if (
+            not self._refresh_revises_if_stale
+            and self._revises is not None
+            and not self._revises.is_latest
+        ):
             self._refresh_revises_if_stale = True
         super().__init__(*args, **kwargs)
 
