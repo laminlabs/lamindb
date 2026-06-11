@@ -552,6 +552,8 @@ def get_features_data(
             # Handle dictionary conversion
             if feature_dtype.startswith("list[cat"):
                 converted_values = values  # is already a list
+            elif feature_dtype.startswith(("list", "dict")):
+                converted_values = values
             else:
                 converted_values = values if len(values) > 1 else next(iter(values))
             if to_dict:
