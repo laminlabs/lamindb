@@ -233,7 +233,7 @@ def test_artifact_versioning_across_branches_preserves_main_latest():
     branch = ln.Branch(name="test_artifact_versioning_branch_latest").save()
     artifact_v1 = ln.Artifact.from_dataframe(
         pd.DataFrame({"branch_feat": [10, 11]}),
-        key="test-artifact-branch-aware-is-latest",
+        key="test-artifact-branch-aware-is-latest.parquet",
         description="main-v1",
     ).save()
     # sanity check: the artifact is created on the branch steered by `switch`.
