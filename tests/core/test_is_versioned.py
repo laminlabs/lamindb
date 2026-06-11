@@ -522,6 +522,74 @@ def test_inferred_revises_prefers_target_branch_head():
         branch.delete(permanent=True)
 
 
+def test_inferred_revises_prefers_target_branch_head_artifact():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_inferred_revises_branch_artifact").save()
+    key = "inferred-revises-branch-aware-artifact.parquet"
+    artifact_main_v1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"inferred_feat": [20, 21]}),
+        key=key,
+        description="main-v1",
+    ).save()
+    # sanity check: `switch` must actually steer the creation branch, otherwise the
+    # rest of the test (which relies on heads living on distinct branches) is moot.
+    assert artifact_main_v1.branch_id == main_branch.id
+    try:
+        # create a *more recently* created head on another branch for the same key;
+        # with no explicit `revises` it infers the family head (here only main's) and
+        # joins the family on the contribution branch, leaving main's head intact.
+        ln.setup.switch(branch.name)
+        artifact_branch = ln.Artifact.from_dataframe(
+            pd.DataFrame({"inferred_feat": [22, 23]}),
+            key=key,
+            description="branch-v1",
+        ).save()
+        assert artifact_branch.branch_id == branch.id
+        assert artifact_branch.is_latest
+        assert artifact_branch.stem_uid == artifact_main_v1.stem_uid
+        artifact_main_v1.refresh_from_db()
+        # main head is preserved (cross-branch revision does not demote it)
+        assert artifact_main_v1.is_latest
+
+        # back on main, infer revises (no explicit `revises`). Even though the other
+        # branch's head was created more recently, the inferred revises must be the
+        # head on the *target* (main) branch.
+        ln.setup.switch(main_branch.name)
+        artifact_main_v2 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"inferred_feat": [24, 25]}),
+            key=key,
+            description="main-v2",
+        )
+        # the record-to-be must target main, so the inferred revises is scoped to main
+        assert artifact_main_v2.branch_id == main_branch.id
+        assert artifact_main_v2._revises is not None
+        assert artifact_main_v2._revises.uid == artifact_main_v1.uid
+        artifact_main_v2.save()
+
+        artifact_main_v1.refresh_from_db()
+        artifact_branch.refresh_from_db()
+        assert artifact_main_v2.branch_id == main_branch.id
+        assert artifact_main_v2.is_latest
+        # the main head was demoted, the other branch's head is untouched
+        assert not artifact_main_v1.is_latest
+        assert artifact_branch.is_latest
+        # exactly one latest on main for this family (no double head)
+        main_latest = ln.Artifact.objects.filter(
+            uid__startswith=artifact_main_v2.stem_uid,
+            branch_id=main_branch.id,
+            is_latest=True,
+        )
+        assert main_latest.count() == 1
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(
+            uid__startswith=artifact_main_v1.stem_uid
+        ):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:
