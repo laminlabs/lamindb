@@ -491,8 +491,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are static: you need to define them in code and then migrate the underlying database.
 
-        Similarly, a **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be statically
-        defined together its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
+        In complete analogy to this: A **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
+        defined as a static Python class together with its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
 
         See :class:`~lamindb.models.SQLRecord` or the glossary for more information: :term:`docs:record`.
 
