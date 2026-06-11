@@ -123,7 +123,7 @@ SimpleDtype = (
 )
 """Python types for simple scalar dtypes.
 
-See section `Data types <dtypes-note_>`__ on the :class:`~lamindb.Feature` page for more background.
+See section :ref:`Data types <dtypes-note>` on the :class:`~lamindb.Feature` page for more background.
 """
 
 SimpleDtypeStr = Literal[
