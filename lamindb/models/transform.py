@@ -332,8 +332,8 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, version_tag, key, description, revises = process_revises(
-            revises, version_tag, key, description, Transform, target_branch_id
+        new_uid, version_tag, key, description = process_revises(
+            revises, version_tag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't

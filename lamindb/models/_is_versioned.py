@@ -101,7 +101,7 @@ class IsVersioned(models.Model):
             version_tag: semantic version tag of the record.
         """
         old_uid = self.uid  # type: ignore
-        new_uid, revises = create_uid(revises=revises, version_tag=version_tag)
+        new_uid = create_uid(revises=revises, version_tag=version_tag)
         if (
             self.__class__.__name__ == "Artifact"
             and self._real_key is None
@@ -208,54 +208,18 @@ def create_uid(
     version_tag: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
-    target_branch_id: int | None = None,
-) -> tuple[str, IsVersioned | None]:
-    """This also updates revises in case it's not the latest version.
+) -> str:
+    """Derive the uid for a new (possibly versioned) record.
 
-    This is why it returns revises.
-
-    The new version suffix is always derived from the family-wide max (collation-independent,
-    so it never collides with heads on other branches or trashed records). The record returned
-    in `revises` -- which decides the record demoted on save -- is the current head:
-
-    - if `target_branch_id` is given (the branch the new record will be created on), the
-      `is_latest` head *on that branch*. `is_latest` is per-branch, so the family-wide max may
-      live on a different branch and must not be chained from / demoted across branches.
-    - otherwise, the family-wide max record (branch-agnostic legacy behavior).
+    The new version suffix is derived from the family-wide max (computed in Python via base62
+    decoding, so it's independent of db collation and never collides with higher versions on
+    other branches or in the trash). `revises` is only read, never modified: choosing which
+    record a new version supersedes/demotes is `save`'s job, since only it knows the branch the
+    new record is created on (`is_latest` is per-branch).
     """
     if revises is not None:
-        # single query: pull the whole version family once, then derive everything in Python
-        # (most recent first so picking a branch head is deterministic).
-        family = sorted(
-            revises.__class__.objects.filter(uid__startswith=revises.stem_uid),
-            key=lambda record: record.created_at,
-            reverse=True,
-        )
-        # family-wide max version suffix -> the new uid, so it never collides (base62 decoded
-        # in Python, independent of db collation; includes other-branch and trashed versions).
-        max_uid = max(
-            (record.uid for record in family),
-            key=lambda uid: base62_to_int(uid[-4:]),
-            default=revises.uid,
-        )
-        if target_branch_id is not None:
-            head = next(
-                (
-                    record
-                    for record in family
-                    if record.is_latest
-                    and getattr(record, "branch_id", None) == target_branch_id
-                ),
-                None,
-            )
-        else:
-            head = next((record for record in family if record.uid == max_uid), None)
-        if head is not None and head.uid != revises.uid:
-            revises = head
-            logger.warning(
-                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-            )
         suid = revises.stem_uid
+        max_uid = max_version_uid_in_family(revises) or revises.uid
         vuid = increment_base62(max_uid[-4:])
     else:
         suid = uids.base62(n_full_id - 4)
@@ -270,7 +234,7 @@ def create_uid(
                 raise ValueError(
                     f"Please change the version tag or leave it `None`, '{revises.version_tag}' is already taken"
                 )
-    return suid + vuid, revises
+    return suid + vuid
 
 
 def process_revises(
@@ -279,22 +243,20 @@ def process_revises(
     key: str | None,
     description: str | None,
     type_: type[IsVersioned],
-    target_branch_id: int | None = None,
-) -> tuple[str, str, str, str, IsVersioned | None]:
+) -> tuple[str, str, str, str]:
     if revises is not None and not isinstance(revises, type_):
         raise TypeError(f"`revises` has to be of type `{type_.__name__}`")
-    uid, revises = create_uid(
+    uid = create_uid(
         revises=revises,
         version_tag=version_tag,
         n_full_id=type_._len_full_uid,
-        target_branch_id=target_branch_id,
     )
     if revises is not None:
         if description is None:
             description = getattr(revises, "description", None)
         if key is None:
             key = revises.key
-    return uid, version_tag, key, description, revises
+    return uid, version_tag, key, description
 
 
 def _adjust_is_latest_when_deleting_is_versioned(

@@ -148,22 +148,6 @@ def _format_versioned_record(record: IsVersioned) -> str:
     return f"{class_name}({', '.join(details)})"
 
 
-def _pull_latest_version_if_stale(
-    record: IsVersioned, branch_id: int | None = None
-) -> IsVersioned:
-    if not record.is_latest:
-        latest_version_qs = record.__class__.objects.filter(
-            uid__startswith=record.stem_uid,
-            is_latest=True,
-        )
-        if branch_id is not None:
-            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
-        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
-        if latest_version is not None:
-            return latest_version
-    return record
-
-
 # -------------------------------------------------------------------------------------
 # A note on required fields at the SQLRecord level
 #
@@ -1341,40 +1325,45 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
-                    # For branch-aware models (SQLRecord), keep source-branch latest
-                    # intact and only demote within the same branch. For other
-                    # versioned models (e.g. blocks), keep previous behavior.
-                    should_demote = True
                     has_branch_id = hasattr(revises, "branch_id") and hasattr(
                         self, "branch_id"
                     )
-                    if has_branch_id:
-                        should_demote = revises.branch_id == self.branch_id
+                    refresh = getattr(self, "_refresh_revises_if_stale", False)
                     with transaction.atomic():
-                        if should_demote:
-                            revises.refresh_from_db(fields=["is_latest"])
-                            if getattr(self, "_refresh_revises_if_stale", False):
-                                refreshed = _pull_latest_version_if_stale(
-                                    revises, self.branch_id if has_branch_id else None
+                        # A new version becomes the latest on its *creation* branch, so the
+                        # record it supersedes is the current head on that branch -- not
+                        # necessarily `revises`, which may live on another branch and only
+                        # carries lineage/metadata (is_latest is per-branch, so heads on other
+                        # branches stay intact). For non-branch-aware models, `revises` itself
+                        # is the head to demote.
+                        if has_branch_id:
+                            demote_target = (
+                                self.__class__.objects.filter(
+                                    uid__startswith=self.stem_uid,
+                                    is_latest=True,
+                                    branch_id=self.branch_id,
                                 )
-                                if refreshed is not revises:
-                                    # `revises` went stale: a newer version was
-                                    # created concurrently after this record was
-                                    # initialized. The demotion target changes to the
-                                    # current branch head, and the uid computed at
-                                    # init would now collide, so re-derive it from the
-                                    # current family max. We increment directly
-                                    # (base62, collation-independent) rather than via
-                                    # create_uid, which would emit a misleading
-                                    # warning when the head differs from the max-uid
-                                    # record. When `revises` is not stale, the uid set
-                                    # at init is already correct, so we leave it.
-                                    revises = refreshed
-                                    self._revises = revises
-                                    max_uid = max_version_uid_in_family(revises)
-                                    self.uid = revises.stem_uid + increment_base62(
-                                        max_uid[-4:]
-                                    )
+                                .order_by("-created_at", "-id")
+                                .first()
+                            )
+                        else:
+                            demote_target = revises
+                        if has_branch_id and refresh:
+                            # inferred `revises`: the live branch head is authoritative. If it
+                            # advanced since init (concurrent write), re-point to it and
+                            # re-derive a collision-free uid from the current family max.
+                            if (
+                                demote_target is not None
+                                and demote_target.uid != revises.uid
+                            ):
+                                self._revises = demote_target
+                                self.uid = self.stem_uid + increment_base62(
+                                    max_version_uid_in_family(demote_target)[-4:]
+                                )
+                        else:
+                            # explicit `revises` (or non-branch-aware): it must still be a
+                            # current head, else the caller passed a stale (superseded) version.
+                            revises.refresh_from_db(fields=["is_latest"])
                             if not revises.is_latest:
                                 raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "
@@ -1383,9 +1372,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                     "This usually means a newer revision was created concurrently "
                                     "or an older record was selected for `revises`."
                                 )
-                            revises.is_latest = False
-                            revises._revises = None  # ensure we don't start a recursion
-                            revises.save()
+                        if demote_target is not None:
+                            demote_target.is_latest = False
+                            demote_target._revises = None  # avoid recursion
+                            demote_target.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record

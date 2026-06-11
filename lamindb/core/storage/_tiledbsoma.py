@@ -221,7 +221,7 @@ def save_tiledbsoma_experiment(
     if appending:
         storepath = revises.path
     else:
-        uid, _ = create_uid(n_full_id=20)
+        uid = create_uid(n_full_id=20)
         storage_key = auto_storage_key_from_artifact_uid(
             uid, ".tiledbsoma", overwrite_versions=True
         )

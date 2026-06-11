@@ -102,7 +102,7 @@ def _init_versioned_attached_block(
             raise ValueError(
                 "revises is not allowed for kind='comment'; comments are not versioned"
             )
-        new_uid, _ = create_uid(
+        new_uid = create_uid(
             revises=None,
             version_tag=version_tag,
             n_full_id=cls._len_full_uid,
@@ -144,7 +144,7 @@ def _init_versioned_attached_block(
         init_self_from_db(self, revises)
         update_attributes(self, {})
         return None
-    new_uid, revises = create_uid(
+    new_uid = create_uid(
         revises=revises,
         version_tag=version_tag,
         n_full_id=cls._len_full_uid,
@@ -324,7 +324,7 @@ class Block(BaseBlock, SQLRecord):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming block {revises.key} to {key}")
-        new_uid, version_tag, key, _, revises = process_revises(
+        new_uid, version_tag, key, _ = process_revises(
             revises, version_tag, key, None, Block
         )
         if uid is None:
