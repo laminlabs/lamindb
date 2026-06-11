@@ -309,6 +309,57 @@ def test_inferred_revises_refreshes_and_requeries_latest():
             record.delete(permanent=True)
 
 
+def test_inferred_revises_handles_concurrent_new_version():
+    transform_v1 = ln.Transform(
+        key="stale-inferred-revises-concurrent",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-inferred-revises-concurrent",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        # inferred revises picks the current latest (v2); uid is provisionally ...0002
+        transform_pending = ln.Transform(
+            key="stale-inferred-revises-concurrent",
+            source_code="v3",
+            kind="pipeline",
+        )
+        assert transform_pending._refresh_revises_if_stale
+        assert transform_pending._revises.uid == transform_v2.uid
+        assert transform_pending.uid.endswith("0002")
+
+        # Simulate a concurrent writer creating a genuinely new version (new uid)
+        # after `transform_pending` was initialized but before it is saved. This
+        # advances the family max uid to ...0002, which `transform_pending` would
+        # collide with if its uid were not recomputed at save time.
+        transform_concurrent = ln.Transform(
+            key="stale-inferred-revises-concurrent",
+            revises=transform_v2,
+            source_code="v-concurrent",
+            kind="pipeline",
+        ).save()
+        assert transform_concurrent.uid.endswith("0002")
+
+        # Saving must create the next version (...0003) from the new family head and
+        # keep this record's own content, not collide with / silently return the
+        # concurrently-created record.
+        transform_pending.save()
+        assert transform_pending.uid.endswith("0003")
+        assert transform_pending.source_code == "v3"
+        assert transform_pending.is_latest
+        transform_pending.refresh_from_db()
+        assert transform_pending.is_latest
+        transform_concurrent.refresh_from_db()
+        assert not transform_concurrent.is_latest
+    finally:
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
+            record.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:

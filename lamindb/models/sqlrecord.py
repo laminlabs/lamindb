@@ -43,6 +43,7 @@ from django.db.models.fields.related import (
 )
 from django.db.models.functions import Lower
 from lamin_utils import colors, logger
+from lamin_utils._base62 import increment_base62
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     INSTANCE_NOT_FOUND_MESSAGE,
@@ -84,7 +85,11 @@ from ..errors import (
 from ..errors import (
     IntegrityError as LaminIntegrityError,
 )
-from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from ._is_versioned import (
+    IsVersioned,
+    _adjust_is_latest_when_deleting_is_versioned,
+    max_version_uid_in_family,
+)
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -1332,10 +1337,27 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         if should_demote:
                             revises.refresh_from_db(fields=["is_latest"])
                             if getattr(self, "_refresh_revises_if_stale", False):
-                                revises = _pull_latest_version_if_stale(
+                                refreshed = _pull_latest_version_if_stale(
                                     revises, self.branch_id if has_branch_id else None
                                 )
-                                self._revises = revises
+                                if refreshed is not revises:
+                                    # `revises` went stale: a newer version was
+                                    # created concurrently after this record was
+                                    # initialized. The demotion target changes to the
+                                    # current branch head, and the uid computed at
+                                    # init would now collide, so re-derive it from the
+                                    # current family max. We increment directly
+                                    # (base62, collation-independent) rather than via
+                                    # create_uid, which would emit a misleading
+                                    # warning when the head differs from the max-uid
+                                    # record. When `revises` is not stale, the uid set
+                                    # at init is already correct, so we leave it.
+                                    revises = refreshed
+                                    self._revises = revises
+                                    max_uid = max_version_uid_in_family(revises)
+                                    self.uid = revises.stem_uid + increment_base62(
+                                        max_uid[-4:]
+                                    )
                             if not revises.is_latest:
                                 raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "

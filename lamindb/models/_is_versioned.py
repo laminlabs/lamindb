@@ -26,6 +26,10 @@ class IsVersioned(models.Model):
         abstract = True
 
     _len_stem_uid: int
+    # `uid` is a concrete CharField on every subclass; declared here (annotation only,
+    # so Django does not create a clashing field on this abstract base) so that the
+    # `stem_uid`/`version` helpers and type-checkers can resolve its type.
+    uid: str
 
     version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
     """Version tag (default `None`).
@@ -179,6 +183,26 @@ def set_version(version: str | None = None, previous_version: str | None = None)
     return version
 
 
+def max_version_uid_in_family(record: IsVersioned) -> str | None:
+    """Return the uid with the maximum base62 version suffix in the version family.
+
+    The max is computed in Python via base62 decoding rather than ordering by `uid`
+    in the database: the version suffix is base62 (0-9 < A-Z < a-z), but locale-aware
+    db collations (e.g. Postgres `en_US.UTF-8`) sort letters case-insensitively, so
+    e.g. `...000Z` wrongly sorts after `...000a` and the chain can't grow past the
+    `Z -> a` boundary. Considering the whole family (not just `is_latest`, which is
+    per-branch and thus not globally unique, and excludes trashed records) guarantees
+    a derived new uid never collides with an existing one.
+    """
+    return max(
+        record.__class__.objects.filter(uid__startswith=record.stem_uid).values_list(
+            "uid", flat=True
+        ),
+        key=lambda uid: base62_to_int(uid[-4:]),
+        default=None,
+    )
+
+
 def create_uid(
     *,
     version_tag: str | None = None,
@@ -190,21 +214,12 @@ def create_uid(
     This is why it returns revises.
     """
     if revises is not None:
-        family_qs = revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
-        # Pick the maximum version suffix over the whole family. We compute the max
-        # via base62 decoding in Python rather than ordering by `uid` in the database:
-        # the version suffix is base62 (0-9 < A-Z < a-z), but locale-aware DB
-        # collations (e.g. Postgres `en_US.UTF-8`) sort letters case-insensitively, so
-        # e.g. `...000Z` wrongly sorts after `...000a` and the chain can't grow past
-        # the `Z -> a` boundary. Considering the whole family (not just `is_latest`,
-        # which is per-branch and thus not globally unique, and excludes trashed
-        # records) guarantees the new uid never collides with an existing one.
-        latest_uid = max(
-            family_qs.values_list("uid", flat=True),
-            key=lambda uid: base62_to_int(uid[-4:]),
-            default=None,
+        latest_uid = max_version_uid_in_family(revises)
+        latest_in_family = (
+            None
+            if latest_uid is None
+            else revises.__class__.objects.get(uid=latest_uid)
         )
-        latest_in_family = None if latest_uid is None else family_qs.get(uid=latest_uid)
         if latest_in_family is not None and latest_in_family.uid != revises.uid:
             revises = latest_in_family
             logger.warning(
