@@ -872,8 +872,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
 
-    Data types
-    ----------
+    Data types: `dtype`
+    -------------------
 
     **Simple data types.** In  the table below, the first column shows the object that
     can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization

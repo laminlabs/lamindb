@@ -125,6 +125,8 @@ SimpleDtype = (
 
 This alias represents the preferred constructor inputs for simple feature dtypes
 (`int`, `float`, `str`, `bool`, `datetime.date`, `datetime.datetime`, `dict`).
+
+See :class:`~lamindb.Feature` for an overview across all data types.
 """
 
 SimpleDtypeStr = Literal[
