@@ -406,7 +406,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all records of a certain type to a dataframe::
+    Export all records of a type to a dataframe::
 
         experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
