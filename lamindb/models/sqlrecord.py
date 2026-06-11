@@ -1332,33 +1332,38 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # version at init (see `IsVersioned.__init__`); an explicit head that
                     # gets demoted concurrently before save instead raises below.
                     refresh = self._refresh_revises_if_stale
+                    # the new version supersedes the current head on its *creation* branch.
+                    # That head is `revises` itself when it's an in-branch head; otherwise --
+                    # inferred / a previous version (`refresh`), or a head on another branch
+                    # (is_latest is per-branch) -- we look it up. Same-branch explicit heads
+                    # (the common case) thus skip this query.
+                    cross_branch = has_branch_id and revises.branch_id != self.branch_id
                     with transaction.atomic():
-                        # A new version becomes the latest on its *creation* branch, so the
-                        # record it supersedes is the current family head -- not necessarily
-                        # `revises`, which may be a previous version or live on another
-                        # branch and only carry lineage/metadata. For branch-aware models
-                        # is_latest is per-branch, so a family can have several heads and we
-                        # only demote the head on this record's creation branch.
-                        head_qs = self.__class__.objects.filter(
-                            uid__startswith=self.stem_uid, is_latest=True
-                        )
-                        if has_branch_id:
-                            head_qs = head_qs.filter(branch_id=self.branch_id)
-                        demote_target = head_qs.order_by("-created_at", "-id").first()
-                        head_advanced = (
-                            demote_target is not None
-                            and demote_target.uid != revises.uid
-                        )
-                        if refresh and head_advanced:
-                            # the live branch head differs from `revises` (a previous version
-                            # or a concurrently-created head): revise from it and re-derive a
-                            # collision-free uid from the current family max (independent of
-                            # db collation, never colliding with a concurrently-created head).
-                            self._revises = revises = demote_target
-                            self.uid = self.stem_uid + increment_base62(
-                                max_version_uid_in_family(demote_target)[-4:]
+                        if refresh or cross_branch:
+                            head_qs = self.__class__.objects.filter(
+                                uid__startswith=self.stem_uid, is_latest=True
                             )
-                        elif not refresh:
+                            if has_branch_id:
+                                head_qs = head_qs.filter(branch_id=self.branch_id)
+                            demote_target = head_qs.order_by(
+                                "-created_at", "-id"
+                            ).first()
+                        else:
+                            demote_target = revises
+                        if refresh:
+                            # revise from the live branch head; if it differs from `revises`
+                            # (a previous version, or a concurrently-created head) re-derive a
+                            # collision-free uid from the current family max (independent of db
+                            # collation, never colliding with a concurrently-created head).
+                            if (
+                                demote_target is not None
+                                and demote_target.uid != revises.uid
+                            ):
+                                self._revises = revises = demote_target
+                                self.uid = self.stem_uid + increment_base62(
+                                    max_version_uid_in_family(demote_target)[-4:]
+                                )
+                        else:
                             # explicitly-passed `revises` that *was* a head at init: it must
                             # still be one, else a newer revision was created concurrently.
                             revises.refresh_from_db(fields=["is_latest"])
