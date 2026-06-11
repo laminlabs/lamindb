@@ -227,6 +227,53 @@ def test_transform_versioning_across_branches_preserves_main_latest():
         branch.delete(permanent=True)
 
 
+def test_artifact_versioning_across_branches_preserves_main_latest():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_artifact_versioning_branch_latest").save()
+    artifact_v1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"branch_feat": [10, 11]}),
+        key="test-artifact-branch-aware-is-latest",
+        description="main-v1",
+    ).save()
+    # sanity check: the artifact is created on the branch steered by `switch`.
+    assert artifact_v1.branch_id == main_branch.id
+    try:
+        ln.setup.switch(branch.name)
+        artifact_v2 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"branch_feat": [12, 13]}),
+            revises=artifact_v1,
+            description="feature-v2",
+        ).save()
+        assert artifact_v2.branch_id == branch.id
+        artifact_v1.refresh_from_db()
+        # main's head stays latest; the contribution branch gets its own head.
+        assert artifact_v1.is_latest
+        assert artifact_v2.is_latest
+        assert artifact_v2.uid.endswith("0001")
+
+        # Passing an older `revises` still increments from the family max uid and only
+        # demotes the head on the *creation* branch, leaving main's head intact.
+        artifact_v3 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"branch_feat": [14, 15]}),
+            revises=artifact_v1,
+            description="feature-v3",
+        ).save()
+        assert artifact_v3.branch_id == branch.id
+        artifact_v2.refresh_from_db()
+        artifact_v1.refresh_from_db()
+        assert artifact_v3.uid.endswith("0002")
+        assert artifact_v3.stem_uid == artifact_v1.stem_uid
+        assert not artifact_v2.is_latest
+        assert artifact_v3.is_latest
+        assert artifact_v1.is_latest
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(uid__startswith=artifact_v1.uid[:-4]):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_stale_revises_raises_integrity_error():
     transform_v1 = ln.Transform(
         key="stale-revises-validation-error",
