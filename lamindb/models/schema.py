@@ -1038,13 +1038,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def members(self) -> QuerySet:
-        """A queryset for the individual records in the feature set underlying the schema.
+        """The feature objects underlying the schema.
 
-        Unlike the many-to-many fields `schema.features`, `schema.genes`, `schema.proteins`, `.members`
+        This is a non-empty set only if the schema object is composed by a set of feature objects.
 
-            1. returns an ordered `QuerySet` if the schema is saved or a `SQLRecordList` if the schema is unsaved
-            2. doesn't require knowledge of the registry storing the feature identifiers (`ln.Feature`, `bt.Gene`, `bt.Protein`, etc.)
-            3. works for a dynamically created (unsaved) schema
+        Unlike the many-to-many fields that relate the feature objects (`.features`, `.genes`, `.proteins`, etc.)
+        the `.members` attribute returns an ordered `QuerySet` if the schema is saved or
+        a `SQLRecordList` if the schema is unsaved.
         """
         if self._state.adding:
             # this should return a queryset and not a list...

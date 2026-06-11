@@ -383,7 +383,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group several records in a registry by creating a record type, optionally constrained with a :class:`~lamindb.Schema`::
+    Group records in a dynamic registry by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
         # create an experiments registry
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
@@ -406,7 +406,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all records under a type to a dataframe::
+    Export all records of a type to a dataframe::
 
         experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
@@ -490,6 +490,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are static: you need to define them in code and then migrate the underlying database.
+
+        In complete analogy to this: A **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
+        defined as a static Python class together with its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
 
         See :class:`~lamindb.models.SQLRecord` or the glossary for more information: :term:`docs:record`.
 

@@ -938,7 +938,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `ln.Artifact`
           - `"cat[Artifact]"`
 
-    You can restrict permissible values to instances of `ULabel` or `Record` types.
+    You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
 
     .. list-table::
         :header-rows: 1
