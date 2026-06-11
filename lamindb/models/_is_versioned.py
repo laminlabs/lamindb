@@ -191,23 +191,20 @@ def create_uid(
     """
     if revises is not None:
         family_qs = revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
-        # The canonical source of truth for the latest version is the `is_latest`
-        # flag. We do NOT order by `uid` in the database here: the version suffix is
-        # base62 (0-9 < A-Z < a-z), but locale-aware DB collations (e.g. Postgres
-        # `en_US.UTF-8`) sort letters case-insensitively, so e.g. `...000Z` wrongly
-        # sorts after `...000a` and the chain can't grow past the `Z -> a` boundary.
-        latest_in_family = family_qs.filter(is_latest=True).first()
-        if latest_in_family is None:
-            # Fallback when no record is flagged `is_latest=True`: pick the maximum
-            # version suffix using base62 ordering computed in Python (independent of
-            # the database collation), then load that one record.
-            latest_uid = max(
-                family_qs.values_list("uid", flat=True),
-                key=lambda uid: base62_to_int(uid[-4:]),
-                default=None,
-            )
-            if latest_uid is not None:
-                latest_in_family = family_qs.get(uid=latest_uid)
+        # Pick the maximum version suffix over the whole family. We compute the max
+        # via base62 decoding in Python rather than ordering by `uid` in the database:
+        # the version suffix is base62 (0-9 < A-Z < a-z), but locale-aware DB
+        # collations (e.g. Postgres `en_US.UTF-8`) sort letters case-insensitively, so
+        # e.g. `...000Z` wrongly sorts after `...000a` and the chain can't grow past
+        # the `Z -> a` boundary. Considering the whole family (not just `is_latest`,
+        # which is per-branch and thus not globally unique, and excludes trashed
+        # records) guarantees the new uid never collides with an existing one.
+        latest_uid = max(
+            family_qs.values_list("uid", flat=True),
+            key=lambda uid: base62_to_int(uid[-4:]),
+            default=None,
+        )
+        latest_in_family = None if latest_uid is None else family_qs.get(uid=latest_uid)
         if latest_in_family is not None and latest_in_family.uid != revises.uid:
             revises = latest_in_family
             logger.warning(
