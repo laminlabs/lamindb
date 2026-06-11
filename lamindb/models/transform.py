@@ -296,11 +296,23 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                     .first()
                 )
             elif key is not None:
-                candidate_for_revises = (
+                from .sqlrecord import get_branch_id_for_create
+
+                candidates_for_revises = (
                     Transform.objects.using(using_key)
                     .filter(~Q(branch_id=-1), key=key, is_latest=True)
                     .order_by("-created_at")
-                    .first()
+                )
+                # prefer the latest version on the branch this transform will be
+                # created on (is_latest is per-branch, so a family can have several
+                # heads); fall back to the most recent head across branches.
+                target_branch_id = get_branch_id_for_create(
+                    space_branch_kwargs.get("branch"),
+                    space_branch_kwargs.get("branch_id"),
+                )
+                candidate_for_revises = (
+                    candidates_for_revises.filter(branch_id=target_branch_id).first()
+                    or candidates_for_revises.first()
                 )
                 if candidate_for_revises is not None:
                     revises = candidate_for_revises

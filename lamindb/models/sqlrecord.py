@@ -592,6 +592,35 @@ def pop_space_branch_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_current_branch() -> Branch:
+    """The branch a new record defaults to: run/context branch, else settings branch.
+
+    `setup_settings.branch` always resolves to a `Branch` (or a main-branch mock when
+    no instance is set up), so this never returns `None`.
+    """
+    from lamindb import context as run_context
+
+    if run_context.branch is not None:
+        return run_context.branch
+    return setup_settings.branch
+
+
+def get_branch_id_for_create(
+    branch: Branch | None = None, branch_id: int | None = None
+) -> int:
+    """Resolve the branch id a newly created record will be assigned.
+
+    Mirrors the branch defaulting in `SQLRecord.save`: an explicitly passed branch
+    wins, otherwise the current run/context branch, otherwise the settings branch.
+    Used to prefer the in-branch latest version when inferring `revises`.
+    """
+    if branch is not None:
+        return branch.id
+    if branch_id is not None:
+        return branch_id
+    return get_current_branch().id
+
+
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
@@ -1148,23 +1177,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):
-                    from lamindb import context as run_context
-
-                    has_explicit_branch = resolve_fk_or_id("branch")
-                    if run_context.branch is not None:
-                        current_branch = run_context.branch
-                    elif setup_settings.branch is not None:
-                        current_branch = setup_settings.branch
-                    else:
-                        current_branch = None
-
-                    if not has_explicit_branch:
-                        if current_branch is not None:
-                            kwargs["branch"] = current_branch
-                        elif kwargs.get("branch") is None:
-                            kwargs.pop("branch", None)
-                    if "branch" in kwargs and kwargs["branch"] is not None:
-                        kwargs["created_on"] = kwargs["branch"]
+                    if not resolve_fk_or_id("branch"):
+                        kwargs["branch"] = get_current_branch()
+                    # `kwargs["branch"]` is now always a non-None Branch (explicit or
+                    # the current one), so the record is created on that branch.
+                    kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:

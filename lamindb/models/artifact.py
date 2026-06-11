@@ -353,6 +353,7 @@ def get_stat_or_artifact(
     instance: str | None = None,
     skip_hash_lookup: bool = False,
     skip_key_revises_lookup: bool = False,
+    target_branch_id: int | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -447,7 +448,16 @@ def get_stat_or_artifact(
             logger.important(
                 f"creating new artifact version for key '{key}' in storage '{storage.root}'"
             )
-            previous_artifact_version = queryset_same_key.first()
+            # prefer the latest version on the branch this artifact will be created
+            # on (is_latest is per-branch, so a family can have several heads); fall
+            # back to the most recent head across branches.
+            previous_artifact_version = None
+            if target_branch_id is not None:
+                previous_artifact_version = queryset_same_key.filter(
+                    branch_id=target_branch_id
+                ).first()
+            if previous_artifact_version is None:
+                previous_artifact_version = queryset_same_key.first()
     if artifact_with_same_hash_exists:
         artifact_with_same_hash = queryset_same_hash.first()
         logger.important(
@@ -510,6 +520,7 @@ def get_artifact_kwargs_from_data(
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
     skip_key_revises_lookup: bool = False,
+    target_branch_id: int | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -552,6 +563,7 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
         skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
+        target_branch_id=target_branch_id,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -1896,6 +1908,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
+        from .sqlrecord import get_branch_id_for_create
+
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=path,
             key=key,
@@ -1911,6 +1925,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
+            target_branch_id=get_branch_id_for_create(branch),
         )
 
         def set_private_attributes():
