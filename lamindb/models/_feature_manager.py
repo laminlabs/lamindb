@@ -550,9 +550,7 @@ def get_features_data(
     for features, is_categoricals in [(categoricals, True), (non_categoricals, False)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
-            if feature_dtype.startswith("list[cat"):
-                converted_values = values  # is already a list
-            elif feature_dtype.startswith(("list", "dict")):
+            if feature_dtype.startswith(("list", "dict")):
                 converted_values = values
             else:
                 converted_values = values if len(values) > 1 else next(iter(values))

@@ -946,12 +946,15 @@ def reshape_annotate_result(
         if feature.name not in result_encoded.columns:
             continue
 
-        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
-            result_encoded[feature.name]
-        )
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith(("list", "dict")):
+            is_scalar = False
+        else:
+            result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+                result_encoded[feature.name]
+            )
 
         if is_scalar:
-            dtype_str = feature._dtype_str
             if dtype_str.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
@@ -984,7 +987,6 @@ def reshape_annotate_result(
                     "boolean"
                 )
 
-        dtype_str = feature._dtype_str
         if dtype_str.startswith("list"):
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
