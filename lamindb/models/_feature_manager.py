@@ -399,6 +399,16 @@ def get_non_categoricals(
                 if isinstance(values, str):
                     values = {value.strip('"') for value in values.split(", ")}
 
+            # PostgreSQL ArrayAgg wraps values in a list. Scalars are converted to
+            # sets below; dict and list features must be unwrapped here instead.
+            if (
+                connections[self._state.db].vendor == "postgresql"
+                and isinstance(values, list)
+                and len(values) == 1
+                and (feature_dtype == "dict" or feature_dtype.startswith("list"))
+            ):
+                values = values[0]
+
             # Convert single values to sets
             if not isinstance(values, (list, dict, set)):
                 values = {values}
@@ -550,8 +560,8 @@ def get_features_data(
     for features, is_categoricals in [(categoricals, True), (non_categoricals, False)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
-            if feature_dtype.startswith("list[cat"):
-                converted_values = values  # is already a list
+            if feature_dtype.startswith(("list", "dict")):
+                converted_values = values
             else:
                 converted_values = values if len(values) > 1 else next(iter(values))
             if to_dict:
