@@ -318,9 +318,15 @@ def test_schema_update(
     # remove the index
     mini_immuno_schema_flexible.index = None
     mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.index is None
+    assert index_feature in mini_immuno_schema_flexible.features.all()
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 8
+    mini_immuno_schema_flexible.features.remove(index_feature)
+    mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.n_members == 6
     assert mini_immuno_schema_flexible.hash == orig_hash
-    assert ccaplog.text.count(warning_message) == 8
     index_feature.delete(permanent=True)
 
     # make a feature optional --------------------------------
@@ -329,13 +335,13 @@ def test_schema_update(
     mini_immuno_schema_flexible.optionals.add(required_feature)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert ccaplog.text.count(warning_message) == 9
+    assert ccaplog.text.count(warning_message) == 10
 
     # make it required again
     mini_immuno_schema_flexible.optionals.remove(required_feature)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
-    assert ccaplog.text.count(warning_message) == 10
+    assert ccaplog.text.count(warning_message) == 11
 
     artifact.delete(permanent=True)
 

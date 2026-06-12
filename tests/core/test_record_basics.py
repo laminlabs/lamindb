@@ -287,6 +287,89 @@ def test_record_schema_index_stored_on_name():
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
 
+    # migration on save: set index when feature is already a schema member
+    migration_sample_id = ln.Feature(name="migration_sample_id", dtype=str).save()
+    migration_score = ln.Feature(name="migration_score", dtype=float).save()
+    migration_schema = ln.Schema(
+        features=[migration_sample_id, migration_score],
+        name="migration-schema",
+    ).save()
+    migration_sheet = ln.Record(
+        name="migration-sheet", is_type=True, schema=migration_schema
+    ).save()
+    migration_record = ln.Record(
+        type=migration_sheet,
+        features={"migration_sample_id": "S-migrate", "migration_score": 3.0},
+    ).save()
+    assert migration_record.name is None
+    assert (
+        ln.models.RecordJson.filter(
+            record=migration_record, feature=migration_sample_id
+        ).count()
+        == 1
+    )
+
+    migration_schema.index = migration_sample_id
+    migration_record.refresh_from_db()
+    assert migration_record.name is None
+
+    migration_schema.save()
+    migration_record.refresh_from_db()
+    assert migration_record.name == "S-migrate"
+    assert (
+        ln.models.RecordJson.filter(
+            record=migration_record, feature=migration_sample_id
+        ).count()
+        == 0
+    )
+    migration_df = migration_sheet.to_dataframe()
+    assert migration_df.index.tolist() == ["S-migrate"]
+
+    migration_schema.index = None
+    migration_schema.save()
+    migration_record.refresh_from_db()
+    assert migration_record.name is None
+    assert (
+        ln.models.RecordJson.get(
+            record=migration_record, feature=migration_sample_id
+        ).value
+        == "S-migrate"
+    )
+    assert migration_sample_id in migration_schema.features.all()
+
+    # migration on save: set index when feature is not yet in the schema
+    new_index_feature = ln.Feature(name="migration_new_index", dtype=str).save()
+    migration_schema2 = ln.Schema(
+        features=[migration_score], name="migration-schema-2"
+    ).save()
+    migration_sheet2 = ln.Record(
+        name="migration-sheet-2", is_type=True, schema=migration_schema2
+    ).save()
+    migration_record2 = ln.Record(
+        type=migration_sheet2,
+        features={"migration_score": 4.0},
+    ).save()
+    ln.models.RecordJson(
+        record=migration_record2, feature=new_index_feature, value="S-new"
+    ).save()
+
+    migration_schema2.index = new_index_feature
+    migration_schema2.save()
+    migration_record2.refresh_from_db()
+    assert migration_record2.name == "S-new"
+    assert new_index_feature in migration_schema2.features.all()
+
+    ln.Record.filter(type__in=[migration_sheet, migration_sheet2]).delete(
+        permanent=True
+    )
+    migration_sheet.delete(permanent=True)
+    migration_sheet2.delete(permanent=True)
+    migration_schema.delete(permanent=True)
+    migration_schema2.delete(permanent=True)
+    migration_sample_id.delete(permanent=True)
+    migration_score.delete(permanent=True)
+    new_index_feature.delete(permanent=True)
+
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
     schema.delete(permanent=True)

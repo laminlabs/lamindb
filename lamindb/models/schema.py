@@ -941,6 +941,17 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         features_to_delete = []
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
+        using = kwargs.get("using") or self._state.db
+        old_index_uid = None
+        if self.pk is not None:
+            aux = (
+                Schema.objects.using(using)
+                .filter(pk=self.pk)
+                .values_list("_aux", flat=True)
+                .first()
+            )
+            if aux and isinstance(aux, dict) and "af" in aux and "3" in aux["af"]:
+                old_index_uid = aux["af"]["3"]
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -992,6 +1003,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         )
                 self.hash = validated_kwargs["hash"]
                 self.n_members = validated_kwargs["n_members"]
+            from .record import migrate_record_sheet_index_on_schema_save
+
+            migrate_record_sheet_index_on_schema_save(
+                self,
+                old_index_uid=old_index_uid,
+                new_index_uid=self._index_feature_uid,
+                using=using,
+            )
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -1008,7 +1027,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             delattr(self, "_slots")
         if hasattr(self, "_features"):
             assert self.n_members > 0  # noqa: S101
-            using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
             # self.related_name.set(features) does **not** preserve the order
@@ -1145,8 +1163,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     @index.setter
     def index(self, value: None | Feature) -> None:
         if value is None:
-            current_index = self.index
-            self.features.remove(current_index)
             self._index_feature_uid = value
         else:
             self.features.add(value)
