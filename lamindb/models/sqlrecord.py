@@ -43,6 +43,7 @@ from django.db.models.fields.related import (
 )
 from django.db.models.functions import Lower
 from lamin_utils import colors, logger
+from lamin_utils._base62 import increment_base62
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     INSTANCE_NOT_FOUND_MESSAGE,
@@ -84,7 +85,11 @@ from ..errors import (
 from ..errors import (
     IntegrityError as LaminIntegrityError,
 )
-from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from ._is_versioned import (
+    IsVersioned,
+    _adjust_is_latest_when_deleting_is_versioned,
+    max_version_uid_in_family,
+)
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -141,22 +146,6 @@ def _format_versioned_record(record: IsVersioned) -> str:
     if not details:
         return class_name
     return f"{class_name}({', '.join(details)})"
-
-
-def _pull_latest_version_if_stale(
-    record: IsVersioned, branch_id: int | None = None
-) -> IsVersioned:
-    if not record.is_latest:
-        latest_version_qs = record.__class__.objects.filter(
-            uid__startswith=record.stem_uid,
-            is_latest=True,
-        )
-        if branch_id is not None:
-            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
-        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
-        if latest_version is not None:
-            return latest_version
-    return record
 
 
 # -------------------------------------------------------------------------------------
@@ -587,6 +576,35 @@ def pop_space_branch_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_current_branch() -> Branch:
+    """The branch a new record defaults to: run/context branch, else settings branch.
+
+    `setup_settings.branch` always resolves to a `Branch` (or a main-branch mock when
+    no instance is set up), so this never returns `None`.
+    """
+    from lamindb import context as run_context
+
+    if run_context.branch is not None:
+        return run_context.branch
+    return setup_settings.branch
+
+
+def get_branch_id_for_create(
+    branch: Branch | None = None, branch_id: int | None = None
+) -> int:
+    """Resolve the branch id a newly created record will be assigned.
+
+    Mirrors the branch defaulting in `SQLRecord.save`: an explicitly passed branch
+    wins, otherwise the current run/context branch, otherwise the settings branch.
+    Used to prefer the in-branch latest version when inferring `revises`.
+    """
+    if branch is not None:
+        return branch.id
+    if branch_id is not None:
+        return branch_id
+    return get_current_branch().id
+
+
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
@@ -650,13 +668,16 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
-        if promoted:
-            if is_soft:
-                record.is_latest = False
-            with transaction.atomic():
-                result = delete()
-            return result
+        # promote a successor and delete the record atomically, so a failure can't leave
+        # both the successor and the (un-deleted) old head as is_latest
+        with transaction.atomic():
+            promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+            if promoted:
+                if is_soft:
+                    record.is_latest = False
+                # evaluates, then returns, no exit from the transaction
+                return delete()
+        # nothing to promote (e.g. last remaining version): fall through to a plain delete
     # deal with all other cases of the nested if condition now
     return delete()
 
@@ -1143,23 +1164,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):
-                    from lamindb import context as run_context
-
-                    has_explicit_branch = resolve_fk_or_id("branch")
-                    if run_context.branch is not None:
-                        current_branch = run_context.branch
-                    elif setup_settings.branch is not None:
-                        current_branch = setup_settings.branch
-                    else:
-                        current_branch = None
-
-                    if not has_explicit_branch:
-                        if current_branch is not None:
-                            kwargs["branch"] = current_branch
-                        elif kwargs.get("branch") is None:
-                            kwargs.pop("branch", None)
-                    if "branch" in kwargs and kwargs["branch"] is not None:
-                        kwargs["created_on"] = kwargs["branch"]
+                    if not resolve_fk_or_id("branch"):
+                        kwargs["branch"] = get_current_branch()
+                    # `kwargs["branch"]` is now always a non-None Branch (explicit or
+                    # the current one), so the record is created on that branch.
+                    kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -1319,23 +1328,52 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
-                    # For branch-aware models (SQLRecord), keep source-branch latest
-                    # intact and only demote within the same branch. For other
-                    # versioned models (e.g. blocks), keep previous behavior.
-                    should_demote = True
                     has_branch_id = hasattr(revises, "branch_id") and hasattr(
                         self, "branch_id"
                     )
-                    if has_branch_id:
-                        should_demote = revises.branch_id == self.branch_id
+                    # `revises` is refreshed when it was inferred or was already a previous
+                    # version at init (see `IsVersioned.__init__`); an explicit head that
+                    # gets demoted concurrently before save instead raises below.
+                    refresh = self._refresh_revises_if_stale
+                    # the new version supersedes the current head on its *creation* branch.
+                    # That head is `revises` itself when it's an in-branch head; otherwise --
+                    # inferred / a previous version (`refresh`), or a head on another branch
+                    # (is_latest is per-branch) -- we look it up. Same-branch explicit heads
+                    # (the common case) thus skip this query.
+                    cross_branch = has_branch_id and revises.branch_id != self.branch_id
                     with transaction.atomic():
-                        if should_demote:
-                            revises.refresh_from_db(fields=["is_latest"])
-                            if getattr(self, "_refresh_revises_if_stale", False):
-                                revises = _pull_latest_version_if_stale(
-                                    revises, self.branch_id if has_branch_id else None
+                        if refresh or cross_branch:
+                            head_qs = self.__class__.objects.filter(
+                                uid__startswith=self.stem_uid, is_latest=True
+                            )
+                            if has_branch_id:
+                                head_qs = head_qs.filter(branch_id=self.branch_id)
+                            demote_target = head_qs.order_by(
+                                "-created_at", "-id"
+                            ).first()
+                        else:
+                            demote_target = revises
+                        if refresh:
+                            # revise from the live branch head; if it differs from `revises`
+                            # (a previous version, or a concurrently-created head) re-derive a
+                            # collision-free uid from the current family max (independent of db
+                            # collation, never colliding with a concurrently-created head).
+                            if (
+                                demote_target is not None
+                                and demote_target.uid != revises.uid
+                            ):
+                                self._revises = revises = demote_target
+                                self.uid = self.stem_uid + increment_base62(
+                                    max_version_uid_in_family(demote_target)[-4:]
                                 )
-                                self._revises = revises
+                                logger.warning(
+                                    "`revises` was not the latest version, "
+                                    f"updated it to the current head: {revises}"
+                                )
+                        else:
+                            # explicitly-passed `revises` that *was* a head at init: it must
+                            # still be one, else a newer revision was created concurrently.
+                            revises.refresh_from_db(fields=["is_latest"])
                             if not revises.is_latest:
                                 raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "
@@ -1344,9 +1382,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                     "This usually means a newer revision was created concurrently "
                                     "or an older record was selected for `revises`."
                                 )
-                            revises.is_latest = False
-                            revises._revises = None  # ensure we don't start a recursion
-                            revises.save()
+                        if demote_target is not None:
+                            # if the head we demote is the very object the caller passed as
+                            # `revises`, demote that in-memory object so the caller observes
+                            # is_latest=False without a refresh
+                            if demote_target.pk == revises.pk:
+                                demote_target = revises
+                            demote_target.is_latest = False
+                            demote_target._revises = None  # avoid recursion
+                            demote_target.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record

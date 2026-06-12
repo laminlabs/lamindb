@@ -5,6 +5,7 @@ from lamindb.errors import IntegrityError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
+    max_version_uid_in_family,
     set_version,
 )
 
@@ -226,6 +227,53 @@ def test_transform_versioning_across_branches_preserves_main_latest():
         branch.delete(permanent=True)
 
 
+def test_artifact_versioning_across_branches_preserves_main_latest():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_artifact_versioning_branch_latest").save()
+    artifact_v1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"branch_feat": [10, 11]}),
+        key="test-artifact-branch-aware-is-latest.parquet",
+        description="main-v1",
+    ).save()
+    # sanity check: the artifact is created on the branch steered by `switch`.
+    assert artifact_v1.branch_id == main_branch.id
+    try:
+        ln.setup.switch(branch.name)
+        artifact_v2 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"branch_feat": [12, 13]}),
+            revises=artifact_v1,
+            description="feature-v2",
+        ).save()
+        assert artifact_v2.branch_id == branch.id
+        artifact_v1.refresh_from_db()
+        # main's head stays latest; the contribution branch gets its own head.
+        assert artifact_v1.is_latest
+        assert artifact_v2.is_latest
+        assert artifact_v2.uid.endswith("0001")
+
+        # Passing an older `revises` still increments from the family max uid and only
+        # demotes the head on the *creation* branch, leaving main's head intact.
+        artifact_v3 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"branch_feat": [14, 15]}),
+            revises=artifact_v1,
+            description="feature-v3",
+        ).save()
+        assert artifact_v3.branch_id == branch.id
+        artifact_v2.refresh_from_db()
+        artifact_v1.refresh_from_db()
+        assert artifact_v3.uid.endswith("0002")
+        assert artifact_v3.stem_uid == artifact_v1.stem_uid
+        assert not artifact_v2.is_latest
+        assert artifact_v3.is_latest
+        assert artifact_v1.is_latest
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(uid__startswith=artifact_v1.uid[:-4]):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_stale_revises_raises_integrity_error():
     transform_v1 = ln.Transform(
         key="stale-revises-validation-error",
@@ -307,6 +355,293 @@ def test_inferred_revises_refreshes_and_requeries_latest():
     finally:
         for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
             record.delete(permanent=True)
+
+
+def test_inferred_revises_handles_concurrent_new_version():
+    transform_v1 = ln.Transform(
+        key="stale-inferred-revises-concurrent",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-inferred-revises-concurrent",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        # inferred revises picks the current latest (v2); uid is provisionally ...0002
+        transform_pending = ln.Transform(
+            key="stale-inferred-revises-concurrent",
+            source_code="v3",
+            kind="pipeline",
+        )
+        assert transform_pending._refresh_revises_if_stale
+        assert transform_pending._revises.uid == transform_v2.uid
+        assert transform_pending.uid.endswith("0002")
+
+        # Simulate a concurrent writer creating a genuinely new version (new uid)
+        # after `transform_pending` was initialized but before it is saved. This
+        # advances the family max uid to ...0002, which `transform_pending` would
+        # collide with if its uid were not recomputed at save time.
+        transform_concurrent = ln.Transform(
+            key="stale-inferred-revises-concurrent",
+            revises=transform_v2,
+            source_code="v-concurrent",
+            kind="pipeline",
+        ).save()
+        assert transform_concurrent.uid.endswith("0002")
+
+        # Saving must create the next version (...0003) from the new family head and
+        # keep this record's own content, not collide with / silently return the
+        # concurrently-created record.
+        transform_pending.save()
+        assert transform_pending.uid.endswith("0003")
+        assert transform_pending.source_code == "v3"
+        assert transform_pending.is_latest
+        transform_pending.refresh_from_db()
+        assert transform_pending.is_latest
+        transform_concurrent.refresh_from_db()
+        assert not transform_concurrent.is_latest
+    finally:
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
+            record.delete(permanent=True)
+
+
+def test_version_chain_crosses_base62_case_boundary():
+    # base62 increments digits -> uppercase -> lowercase, so the version-suffix chain
+    # crosses ...000Z -> ...000a -> ...000b. This must hold regardless of the database
+    # collation: locale-aware collations (e.g. Postgres `en_US.UTF-8`) sort the letter
+    # `Z` after `a`, which previously made the chain stall at the Z -> a boundary
+    # (`...000Z` kept being selected as the latest, regenerating `...000a` forever).
+    transform_v1 = ln.Transform(
+        key="version-chain-z-to-a",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    stem_uid = transform_v1.stem_uid
+    try:
+        # fast-forward the version suffix to ...000Z without creating 35 versions
+        ln.Transform.filter(id=transform_v1.id).update(uid=stem_uid + "000Z")
+        transform_v1 = ln.Transform.get(id=transform_v1.id)
+        assert transform_v1.uid.endswith("000Z")
+        assert transform_v1.is_latest
+
+        # crossing the Z -> a boundary
+        transform_v2 = ln.Transform(
+            key="version-chain-z-to-a",
+            revises=transform_v1,
+            source_code="v2",
+            kind="pipeline",
+        ).save()
+        assert transform_v2.uid.endswith("000a")
+
+        # the family now holds both ...000Z and ...000a; the max must be ...000a
+        # (base62), not ...000Z (locale collation) -- assert the selector directly.
+        assert max_version_uid_in_family(transform_v2).endswith("000a")
+
+        # so the next version is ...000b rather than colliding back on ...000a
+        transform_v3 = ln.Transform(
+            key="version-chain-z-to-a",
+            revises=transform_v2,
+            source_code="v3",
+            kind="pipeline",
+        ).save()
+        assert transform_v3.uid.endswith("000b")
+        assert transform_v3.is_latest
+        transform_v1.refresh_from_db()
+        transform_v2.refresh_from_db()
+        assert not transform_v1.is_latest
+        assert not transform_v2.is_latest
+    finally:
+        for record in ln.Transform.filter(uid__startswith=stem_uid):
+            record.delete(permanent=True)
+
+
+def test_inferred_revises_prefers_target_branch_head():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_inferred_revises_branch").save()
+    transform_main_v1 = ln.Transform(
+        key="inferred-revises-branch-aware",
+        source_code="main-v1",
+        kind="pipeline",
+    ).save()
+    # sanity check: `switch` must actually steer the creation branch, otherwise the
+    # rest of the test (which relies on heads living on distinct branches) is moot.
+    assert transform_main_v1.branch_id == main_branch.id
+    try:
+        # create a *more recently* created head on another branch for the same key
+        ln.setup.switch(branch.name)
+        transform_branch = ln.Transform(
+            key="inferred-revises-branch-aware",
+            source_code="branch-v1",
+            kind="pipeline",
+        ).save()
+        assert transform_branch.branch_id == branch.id
+        assert transform_branch.is_latest
+        transform_main_v1.refresh_from_db()
+        # main head is preserved (cross-branch revision does not demote it)
+        assert transform_main_v1.is_latest
+
+        # back on main, infer revises (no explicit `revises`). Even though the other
+        # branch's head was created more recently, the inferred revises must be the
+        # head on the *target* (main) branch.
+        ln.setup.switch(main_branch.name)
+        transform_main_v2 = ln.Transform(
+            key="inferred-revises-branch-aware",
+            source_code="main-v2",
+            kind="pipeline",
+        )
+        # the record-to-be must target main, so the inferred revises is scoped to main
+        assert transform_main_v2.branch_id == main_branch.id
+        assert transform_main_v2._revises is not None
+        assert transform_main_v2._revises.uid == transform_main_v1.uid
+        transform_main_v2.save()
+
+        transform_main_v1.refresh_from_db()
+        transform_branch.refresh_from_db()
+        assert transform_main_v2.branch_id == main_branch.id
+        assert transform_main_v2.is_latest
+        # the main head was demoted, the other branch's head is untouched
+        assert not transform_main_v1.is_latest
+        assert transform_branch.is_latest
+        # exactly one latest on main for this family (no double head)
+        main_latest = ln.Transform.objects.filter(
+            uid__startswith=transform_main_v2.stem_uid,
+            branch_id=main_branch.id,
+            is_latest=True,
+        )
+        assert main_latest.count() == 1
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Transform.objects.filter(
+            uid__startswith=transform_main_v1.stem_uid
+        ):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
+def test_inferred_revises_prefers_target_branch_head_artifact():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_inferred_revises_branch_artifact").save()
+    key = "inferred-revises-branch-aware-artifact.parquet"
+    artifact_main_v1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"inferred_feat": [20, 21]}),
+        key=key,
+        description="main-v1",
+    ).save()
+    # sanity check: `switch` must actually steer the creation branch, otherwise the
+    # rest of the test (which relies on heads living on distinct branches) is moot.
+    assert artifact_main_v1.branch_id == main_branch.id
+    try:
+        # create a *more recently* created head on another branch for the same key;
+        # with no explicit `revises` it infers the family head (here only main's) and
+        # joins the family on the contribution branch, leaving main's head intact.
+        ln.setup.switch(branch.name)
+        artifact_branch = ln.Artifact.from_dataframe(
+            pd.DataFrame({"inferred_feat": [22, 23]}),
+            key=key,
+            description="branch-v1",
+        ).save()
+        assert artifact_branch.branch_id == branch.id
+        assert artifact_branch.is_latest
+        assert artifact_branch.stem_uid == artifact_main_v1.stem_uid
+        artifact_main_v1.refresh_from_db()
+        # main head is preserved (cross-branch revision does not demote it)
+        assert artifact_main_v1.is_latest
+
+        # back on main, infer revises (no explicit `revises`). Even though the other
+        # branch's head was created more recently, the inferred revises must be the
+        # head on the *target* (main) branch.
+        ln.setup.switch(main_branch.name)
+        artifact_main_v2 = ln.Artifact.from_dataframe(
+            pd.DataFrame({"inferred_feat": [24, 25]}),
+            key=key,
+            description="main-v2",
+        )
+        # the record-to-be must target main, so the inferred revises is scoped to main
+        assert artifact_main_v2.branch_id == main_branch.id
+        assert artifact_main_v2._revises is not None
+        assert artifact_main_v2._revises.uid == artifact_main_v1.uid
+        artifact_main_v2.save()
+
+        artifact_main_v1.refresh_from_db()
+        artifact_branch.refresh_from_db()
+        assert artifact_main_v2.branch_id == main_branch.id
+        assert artifact_main_v2.is_latest
+        # the main head was demoted, the other branch's head is untouched
+        assert not artifact_main_v1.is_latest
+        assert artifact_branch.is_latest
+        # exactly one latest on main for this family (no double head)
+        main_latest = ln.Artifact.objects.filter(
+            uid__startswith=artifact_main_v2.stem_uid,
+            branch_id=main_branch.id,
+            is_latest=True,
+        )
+        assert main_latest.count() == 1
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(
+            uid__startswith=artifact_main_v1.stem_uid
+        ):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
+def test_soft_delete_promotes_within_branch():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_soft_delete_within_branch").save()
+    key = "soft-delete-branch-aware.parquet"
+    # a version family with two versions on the contribution branch
+    ln.setup.switch(branch.name)
+    artifact_b1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"sd_feat": [1, 2]}), key=key, description="b1"
+    ).save()
+    artifact_b2 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"sd_feat": [3, 4]}), revises=artifact_b1, description="b2"
+    ).save()
+    artifact_b1.refresh_from_db()
+    assert not artifact_b1.is_latest
+    assert artifact_b2.is_latest
+    try:
+        # a *more recently* created head on main for the same family
+        ln.setup.switch(main_branch.name)
+        artifact_main = ln.Artifact.from_dataframe(
+            pd.DataFrame({"sd_feat": [5, 6]}), revises=artifact_b1, description="main"
+        ).save()
+        assert artifact_main.branch_id == main_branch.id
+        assert artifact_main.is_latest
+        artifact_b2.refresh_from_db()
+        # cross-branch revise leaves the contribution branch's head intact
+        assert artifact_b2.is_latest
+
+        # soft-delete the branch head: the next version *on the branch* must be
+        # promoted, not main's (more recently created) head.
+        ln.setup.switch(branch.name)
+        artifact_b2.delete()
+        artifact_b1.refresh_from_db()
+        artifact_main.refresh_from_db()
+        assert artifact_b1.is_latest  # promoted within the branch
+        assert artifact_b1.branch_id == branch.id
+        assert artifact_main.is_latest  # main head untouched
+        # exactly one latest per branch for this family (no headless branch, no double head)
+        for branch_id in (branch.id, main_branch.id):
+            assert (
+                ln.Artifact.objects.filter(
+                    uid__startswith=artifact_b1.stem_uid,
+                    branch_id=branch_id,
+                    is_latest=True,
+                ).count()
+                == 1
+            )
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(uid__startswith=artifact_b1.stem_uid):
+            record.delete(permanent=True)
+        branch.delete(permanent=True)
 
 
 def test_path_rename():

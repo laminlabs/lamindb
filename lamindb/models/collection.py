@@ -272,7 +272,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version_tag, key, description, revises = process_revises(
+        provisional_uid, version_tag, key, description = process_revises(
             revises, version_tag, key, description, Collection
         )
         run = get_run(run)

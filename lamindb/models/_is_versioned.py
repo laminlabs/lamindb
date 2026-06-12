@@ -4,8 +4,8 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 from django.db import models
-from django.db.models import Q
 from lamin_utils import logger
+from lamin_utils._base62 import decode as base62_to_int
 from lamin_utils._base62 import increment_base62
 
 from lamindb.base import uids
@@ -25,6 +25,10 @@ class IsVersioned(models.Model):
         abstract = True
 
     _len_stem_uid: int
+    # `uid` is a concrete CharField on every subclass; declared here (annotation only,
+    # so Django does not create a clashing field on this abstract base) so that the
+    # `stem_uid`/`version` helpers and type-checkers can resolve its type.
+    uid: str
 
     version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
     """Version tag (default `None`).
@@ -42,6 +46,16 @@ class IsVersioned(models.Model):
     ):
         self._revises = kwargs.pop("revises", None)
         self._refresh_revises_if_stale = kwargs.pop("_refresh_revises_if_stale", False)
+        # if `revises` is already a previous (non-latest) version at init, the user
+        # consciously passed an old version: revise from the live head, like the inferred
+        # case. This keeps the concurrent-demotion check (`revises` was the head at init
+        # but got demoted before save -> raise) intact for genuinely explicit heads.
+        if (
+            not self._refresh_revises_if_stale
+            and self._revises is not None
+            and not self._revises.is_latest
+        ):
+            self._refresh_revises_if_stale = True
         super().__init__(*args, **kwargs)
 
     @property
@@ -96,7 +110,7 @@ class IsVersioned(models.Model):
             version_tag: semantic version tag of the record.
         """
         old_uid = self.uid  # type: ignore
-        new_uid, revises = create_uid(revises=revises, version_tag=version_tag)
+        new_uid = create_uid(revises=revises, version_tag=version_tag)
         if (
             self.__class__.__name__ == "Artifact"
             and self._real_key is None
@@ -178,29 +192,44 @@ def set_version(version: str | None = None, previous_version: str | None = None)
     return version
 
 
+def max_version_uid_in_family(record: IsVersioned) -> str | None:
+    """Return the uid with the maximum base62 version suffix in the version family.
+
+    The max is computed in Python via base62 decoding rather than ordering by `uid`
+    in the database: the version suffix is base62 (0-9 < A-Z < a-z), but locale-aware
+    db collations (e.g. Postgres `en_US.UTF-8`) sort letters case-insensitively, so
+    e.g. `...000Z` wrongly sorts after `...000a` and the chain can't grow past the
+    `Z -> a` boundary. Considering the whole family (not just `is_latest`, which is
+    per-branch and thus not globally unique, and excludes trashed records) guarantees
+    a derived new uid never collides with an existing one.
+    """
+    return max(
+        record.__class__.objects.filter(uid__startswith=record.stem_uid).values_list(
+            "uid", flat=True
+        ),
+        key=lambda uid: base62_to_int(uid[-4:]),
+        default=None,
+    )
+
+
 def create_uid(
     *,
     version_tag: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
-) -> tuple[str, IsVersioned | None]:
-    """This also updates revises in case it's not the latest version.
+) -> str:
+    """Derive the uid for a new (possibly versioned) record.
 
-    This is why it returns revises.
+    The new version suffix is derived from the family-wide max (computed in Python via base62
+    decoding, so it's independent of db collation and never collides with higher versions on
+    other branches or in the trash). `revises` is only read, never modified: choosing which
+    record a new version supersedes/demotes is `save`'s job, since only it knows the branch the
+    new record is created on (`is_latest` is per-branch).
     """
     if revises is not None:
-        latest_in_family = (
-            revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
-            .order_by("uid")
-            .last()
-        )
-        if latest_in_family is not None and latest_in_family.uid != revises.uid:
-            revises = latest_in_family
-            logger.warning(
-                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-            )
         suid = revises.stem_uid
-        vuid = increment_base62(revises.uid[-4:])  # type: ignore
+        max_uid = max_version_uid_in_family(revises) or revises.uid
+        vuid = increment_base62(max_uid[-4:])
     else:
         suid = uids.base62(n_full_id - 4)
         vuid = "0000"
@@ -214,7 +243,7 @@ def create_uid(
                 raise ValueError(
                     f"Please change the version tag or leave it `None`, '{revises.version_tag}' is already taken"
                 )
-    return suid + vuid, revises
+    return suid + vuid
 
 
 def process_revises(
@@ -222,29 +251,33 @@ def process_revises(
     version_tag: str | None,
     key: str | None,
     description: str | None,
-    type: type[IsVersioned],
-) -> tuple[str, str, str, str, IsVersioned | None]:
-    if revises is not None and not isinstance(revises, type):
-        raise TypeError(f"`revises` has to be of type `{type.__name__}`")
-    uid, revises = create_uid(
-        revises=revises, version_tag=version_tag, n_full_id=type._len_full_uid
+    type_: type[IsVersioned],
+) -> tuple[str, str, str, str]:
+    if revises is not None and not isinstance(revises, type_):
+        raise TypeError(f"`revises` has to be of type `{type_.__name__}`")
+    uid = create_uid(
+        revises=revises,
+        version_tag=version_tag,
+        n_full_id=type_._len_full_uid,
     )
     if revises is not None:
         if description is None:
             description = getattr(revises, "description", None)
         if key is None:
             key = revises.key
-    return uid, version_tag, key, description, revises
+    return uid, version_tag, key, description
 
 
 def _adjust_is_latest_when_deleting_is_versioned(
     objects: IsVersioned | Iterable[IsVersioned],
 ) -> list[int]:
-    """After deleting (soft or permanent) versioned records, promote new latest per version family.
+    """After deleting (soft or permanent) versioned records, promote a new latest head.
 
     Accepts a single IsVersioned instance, a QuerySet, or a list of IsVersioned.
-    Runs in 1 query (candidates + update) when objects are passed; no extra query for uids.
-    Returns the list of pks that were promoted to is_latest (for testing).
+    is_latest is per-branch, so for every deleted head we promote the most recently
+    created remaining version on its branch -- a global family max could leave that
+    branch headless (or flip the wrong branch's record). Non-branch-aware models keep a
+    single global head per family (branch is `None`). Returns the promoted pks.
     """
     if isinstance(objects, IsVersioned):
         objects = [objects]
@@ -253,42 +286,52 @@ def _adjust_is_latest_when_deleting_is_versioned(
     if not objects:
         return []
     id_list = [o.pk for o in objects]
-    stem_uids = list({o.uid[: o._len_stem_uid] for o in objects if o.is_latest})
-    if not stem_uids:
-        return []
-    registry = type(objects[0])
-    db = getattr(objects[0]._state, "db", None) or "default"
+
+    object_0 = objects[0]
+    registry = type(object_0)
+    db = getattr(object_0._state, "db", None) or "default"
+
     len_stem = registry._len_stem_uid
-    # All candidates: same family as any stem_uid, not in trash and not about to be deleted
-    q = Q()
-    for s in stem_uids:
-        q |= Q(uid__startswith=s)
-    qs = registry.objects.using(db).filter(q).exclude(pk__in=id_list)
+
     from .sqlrecord import SQLRecord
 
-    if issubclass(registry, SQLRecord):
-        qs = qs.exclude(branch_id=-1)
-    candidates = list(qs.values("pk", "uid", "created_at"))
-    # per stem_uid, pick candidate with max created_at
-    by_stem: dict[str, dict[str, Any]] = {}
-    for c in candidates:
-        stem = c["uid"][:len_stem]
-        if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
-            by_stem[stem] = c
-    if not by_stem:
+    branch_aware = issubclass(registry, SQLRecord)
+    # (family, branch) heads that were just deleted and need a successor
+    groups = {
+        (o.uid[:len_stem], o.branch_id if branch_aware else None)
+        for o in objects
+        if o.is_latest
+    }
+    if not groups:
         return []
-    pks = [by_stem[s]["pk"] for s in by_stem]
+    # for each deleted head, let the db pick its successor: the newest remaining version
+    # in the same family on the same branch (LIMIT 1, no client-side scan of the family)
+    promoted: list[tuple[int, str]] = []
+    for stem, branch in groups:
+        candidates = (
+            registry.objects.using(db)
+            .filter(uid__startswith=stem)
+            .exclude(pk__in=id_list)
+        )
+        if branch_aware:
+            # a concrete branch id inherently excludes the trash (branch_id=-1)
+            candidates = candidates.filter(branch_id=branch)
+        new_head = candidates.order_by("-created_at", "-id").values("pk", "uid").first()
+        if new_head is not None:
+            promoted.append((new_head["pk"], new_head["uid"]))
+    if not promoted:
+        return []
+    pks = [pk for pk, _ in promoted]
     registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
-    if pks:
-        promoted_uids = [by_stem[s]["uid"] for s in by_stem]
-        if len(promoted_uids) == 1:
-            logger.important_hint(
-                f"new latest {registry.__name__} version is: {promoted_uids[0]}"
-            )
-        else:
-            logger.important_hint(
-                f"new latest {registry.__name__} versions: {promoted_uids}"
-            )
+    promoted_uids = [uid for _, uid in promoted]
+    if len(promoted_uids) == 1:
+        logger.important_hint(
+            f"new latest {registry.__name__} version is: {promoted_uids[0]}"
+        )
+    else:
+        logger.important_hint(
+            f"new latest {registry.__name__} versions: {promoted_uids}"
+        )
     return pks
 
 

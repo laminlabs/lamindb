@@ -286,6 +286,16 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
+        from .sqlrecord import get_branch_id_for_create, get_current_branch
+
+        # resolve the creation branch once and pin it into kwargs, so the inferred
+        # `revises` lookup and the record's actual branch_id can't diverge (is_latest
+        # is per-branch, so the demoted head must be on this exact branch).
+        branch = space_branch_kwargs.get("branch")
+        branch_id = space_branch_kwargs.get("branch_id")
+        if branch is None and branch_id is None:
+            space_branch_kwargs["branch"] = branch = get_current_branch()
+        target_branch_id = get_branch_id_for_create(branch, branch_id)
         if revises is None:
             # need to check uid before checking key
             if uid is not None:
@@ -296,11 +306,17 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                     .first()
                 )
             elif key is not None:
-                candidate_for_revises = (
+                candidates_for_revises = (
                     Transform.objects.using(using_key)
                     .filter(~Q(branch_id=-1), key=key, is_latest=True)
                     .order_by("-created_at")
-                    .first()
+                )
+                # prefer the latest version on the branch this transform will be
+                # created on (is_latest is per-branch, so a family can have several
+                # heads); fall back to the most recent head across branches.
+                candidate_for_revises = (
+                    candidates_for_revises.filter(branch_id=target_branch_id).first()
+                    or candidates_for_revises.first()
                 )
                 if candidate_for_revises is not None:
                     revises = candidate_for_revises
@@ -318,7 +334,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, version_tag, key, description, revises = process_revises(
+        new_uid, version_tag, key, description = process_revises(
             revises, version_tag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
