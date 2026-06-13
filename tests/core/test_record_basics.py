@@ -178,6 +178,9 @@ def test_record_schema_index_stored_on_name():
         index=sample_id,
         name="index-on-name-schema",
     ).save()
+    # Story 1: constructor adds index to features and sets schema.index
+    assert schema.index == sample_id
+    assert sample_id in schema.features.all()
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
     # index helper functions
@@ -337,38 +340,11 @@ def test_record_schema_index_stored_on_name():
     )
     assert migration_sample_id in migration_schema.features.all()
 
-    # migration on save: set index when feature is not yet in the schema
-    new_index_feature = ln.Feature(name="migration_new_index", dtype=str).save()
-    migration_schema2 = ln.Schema(
-        features=[migration_score], name="migration-schema-2"
-    ).save()
-    migration_sheet2 = ln.Record(
-        name="migration-sheet-2", is_type=True, schema=migration_schema2
-    ).save()
-    migration_record2 = ln.Record(
-        type=migration_sheet2,
-        features={"migration_score": 4.0},
-    ).save()
-    ln.models.RecordJson(
-        record=migration_record2, feature=new_index_feature, value="S-new"
-    ).save()
-
-    migration_schema2.index = new_index_feature
-    migration_schema2.save()
-    migration_record2.refresh_from_db()
-    assert migration_record2.name == "S-new"
-    assert new_index_feature in migration_schema2.features.all()
-
-    ln.Record.filter(type__in=[migration_sheet, migration_sheet2]).delete(
-        permanent=True
-    )
+    ln.Record.filter(type=migration_sheet).delete(permanent=True)
     migration_sheet.delete(permanent=True)
-    migration_sheet2.delete(permanent=True)
     migration_schema.delete(permanent=True)
-    migration_schema2.delete(permanent=True)
     migration_sample_id.delete(permanent=True)
     migration_score.delete(permanent=True)
-    new_index_feature.delete(permanent=True)
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)

@@ -203,7 +203,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` /
+            `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record
+            sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`;
+            see :class:`~lamindb.Record`. Adds the feature to ``schema.features``.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -1143,11 +1146,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def index(self) -> None | Feature:
-        """The feature configured to act as index.
+        """The index feature, if configured.
 
-        For `DataFrame` / `AnnData` schemas, validates row indices during curation.
-        For record sheet schemas, the index feature must have `dtype=str`; see
-        :class:`~lamindb.Record`. To unset, set `schema.index` to `None`.
+        Set ``schema.index = feature`` to mark a schema member as the row key, or
+        ``schema.index = None`` to unset. Assignment does not add or remove features
+        from ``schema.features``; add the feature first, or remove it after unsetting.
+        On :meth:`~lamindb.Schema.save`, record sheets migrate row keys between
+        :attr:`~lamindb.Record.name` and the link table when the index changes.
         """
         if self._index_feature_uid is None:
             return None
@@ -1165,7 +1170,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if value is None:
             self._index_feature_uid = value
         else:
-            self.features.add(value)
             self._index_feature_uid = value.uid
 
     @property
