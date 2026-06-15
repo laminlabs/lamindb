@@ -206,7 +206,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         index: `Feature | None = None` Index feature for row keys. For `DataFrame` /
             `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record
             sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`;
-            see :class:`~lamindb.Record`. Adds the feature to ``schema.features``.
+            see :class:`~lamindb.Record`. The index feature does not have to be a schema member.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -669,7 +669,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
-            features.insert(0, index)
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -679,9 +678,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 itype = itype_compare
             if n_features is not None:
-                if n_features != len(features):
+                if n_features != len(features) and not (
+                    index is not None and n_features > len(features)
+                ):
                     logger.important(f"updating to n {len(features)} features")
-            n_features = len(features)
+                    n_features = len(features)
+            else:
+                n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
@@ -944,6 +947,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         features_to_delete = []
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
+        index_name_conflict = kwargs.pop("index_name_conflict", None)
         using = kwargs.get("using") or self._state.db
 
         if self.pk is not None:
@@ -958,6 +962,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 features = existing_features
             index_feature = self.index
             index_feature_id = None if index_feature is None else index_feature.id
+            n_member_count = len(features)
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=[  # type: ignore
                     f
@@ -978,7 +983,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 ordered_set=self.ordered_set,
                 maximal_set=self.maximal_set,
                 coerce=self.coerce,
-                n_features=self.n_members,
+                n_features=n_member_count,
                 optional_features_manual=self.optionals.get(),
             )
             if validated_kwargs["hash"] != self.hash:
@@ -1012,6 +1017,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     old_index_uid=old_index_uid,
                     new_index_uid=self._index_feature_uid,
                     using=using,
+                    index_name_conflict=index_name_conflict,
                 )
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
@@ -1147,11 +1153,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def index(self) -> None | Feature:
         """The index feature, if configured.
 
-        Set `schema.index = feature` to mark a schema member as the row key, or
-        `schema.index = None` to unset. Assignment does not add or remove features
-        from `schema.features`; add the feature first, or remove it after unsetting.
+        Set `schema.index = feature` to define the row key, or `schema.index = None`
+        to unset. The index feature does not have to be in `schema.features`.
+        Assignment does not add or remove schema members.
         On :meth:`~lamindb.Schema.save`, record sheets migrate row keys between
         :attr:`~lamindb.Record.name` and the link table when the index changes.
+        If both differ for a row, you are prompted to keep `Record.name` or the
+        feature values; pass `index_name_conflict="keep_name"` or
+        `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
         if self._index_feature_uid is None:
             return None
@@ -1162,7 +1171,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 if feature.uid == self._index_feature_uid:
                     return feature
 
-        return self.features.get(uid=self._index_feature_uid)
+        from .feature import Feature
+
+        return Feature.objects.using(self._state.db).get(uid=self._index_feature_uid)
 
     @index.setter
     def index(self, value: None | Feature) -> None:

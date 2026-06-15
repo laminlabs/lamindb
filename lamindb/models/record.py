@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
@@ -75,6 +76,12 @@ def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
         return False
     index_feature = schema.index
     return index_feature is not None and feature.uid == index_feature.uid
+
+
+def feature_is_schema_member_or_index(
+    feature: Feature, schema: Schema, member_ids: set[int]
+) -> bool:
+    return feature.id in member_ids or is_schema_index_feature(schema, feature)
 
 
 def validate_record_sheet_index_feature(index_feature: Feature) -> None:
@@ -265,12 +272,77 @@ def strip_index_for_record_persistence(
     return dictionary, feature_objects
 
 
+IndexNameConflict = Literal["keep_name", "keep_feature"]
+
+
+def _record_sheet_label(record: Record) -> str:
+    if record.type_id is None:
+        return "unknown sheet"
+    sheet = record.type
+    if sheet is None:
+        return f"type_id={record.type_id}"
+    if sheet.name:
+        return f"{sheet.name} ({sheet.uid})"
+    return sheet.uid
+
+
+def _collect_promote_index_name_conflicts(
+    json_links: list[tuple[int, int, Any]],
+    records_by_id: dict[int, Record],
+    feature: Feature,
+) -> list[tuple[int, str, str, str]]:
+    conflicts: list[tuple[int, str, str, str]] = []
+    for _, record_id, value in json_links:
+        record = records_by_id.get(record_id)
+        if record is None:
+            continue
+        feature_name = coerce_index_value_to_record_name(value, feature)
+        if feature_name is not None and record.name and record.name != feature_name:
+            conflicts.append(
+                (record_id, _record_sheet_label(record), record.name, feature_name)
+            )
+    return conflicts
+
+
+def _resolve_index_name_conflict(
+    conflicts: list[tuple[int, str, str, str]],
+    feature: Feature,
+    resolution: IndexNameConflict | None,
+) -> IndexNameConflict:
+    if not conflicts:
+        return "keep_name"
+    if resolution is not None:
+        return resolution
+    if os.getenv("LAMIN_TESTING") == "true":
+        return "keep_name"
+
+    feature_name = feature.name
+    n = len(conflicts)
+    example_lines = "\n".join(
+        f"  sheet {sheet_label}, record {record_id}: Record.name={name!r}, {feature_name}={feature_value!r}"
+        for record_id, sheet_label, name, feature_value in conflicts[:3]
+    )
+    if n > 3:
+        example_lines += f"\n  ... and {n - 3} more"
+    response = input(
+        f"{n} sheet row(s) have both Record.name and '{feature_name}' values that differ.\n"
+        f"{example_lines}\n"
+        "Keep Record.name (y) or use feature values (n)? "
+    )
+    if response == "y":
+        return "keep_name"
+    if response == "n":
+        return "keep_feature"
+    raise ValueError("schema save cancelled: index name conflict not resolved")
+
+
 def migrate_record_sheet_index_on_schema_save(
     schema: Schema,
     *,
     old_index_uid: str | None,
     new_index_uid: str | None,
     using: str | None = None,
+    index_name_conflict: IndexNameConflict | None = None,
 ) -> None:
     """Migrate sheet row keys when ``schema.index`` changes on save."""
     if (
@@ -336,10 +408,16 @@ def migrate_record_sheet_index_on_schema_save(
 
             records_by_id = {
                 record.id: record
-                for record in Record.objects.using(db).filter(
-                    id__in={record_id for _, record_id, _ in json_links}
-                )
+                for record in Record.objects.using(db)
+                .filter(id__in={record_id for _, record_id, _ in json_links})
+                .select_related("type")
             }
+            conflicts = _collect_promote_index_name_conflicts(
+                list(json_links), records_by_id, new_feature
+            )
+            resolution = _resolve_index_name_conflict(
+                conflicts, new_feature, index_name_conflict
+            )
             records_to_update: list[Record] = []
             json_ids_to_delete: list[int] = []
             for link_id, record_id, value in json_links:
@@ -348,9 +426,13 @@ def migrate_record_sheet_index_on_schema_save(
                     json_ids_to_delete.append(link_id)
                     continue
                 name = coerce_index_value_to_record_name(value, new_feature)
-                if name is not None and not record.name:
-                    record.name = name
-                    records_to_update.append(record)
+                if name is not None:
+                    if not record.name:
+                        record.name = name
+                        records_to_update.append(record)
+                    elif record.name != name and resolution == "keep_feature":
+                        record.name = name
+                        records_to_update.append(record)
                 json_ids_to_delete.append(link_id)
 
             if records_to_update:

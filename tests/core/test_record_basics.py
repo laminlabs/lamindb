@@ -178,9 +178,10 @@ def test_record_schema_index_stored_on_name():
         index=sample_id,
         name="index-on-name-schema",
     ).save()
-    # Story 1: constructor adds index to features and sets schema.index
+    # Story 1: constructor sets schema.index without adding it to members
     assert schema.index == sample_id
-    assert sample_id in schema.features.all()
+    assert sample_id not in schema.features.all()
+    assert score in schema.features.all()
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
     # index helper functions
@@ -290,6 +291,31 @@ def test_record_schema_index_stored_on_name():
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
 
+    # Story 1b: set index via setter without adding it to schema members
+    setter_index = ln.Feature(name="setter_index", dtype=str).save()
+    setter_schema = ln.Schema(features=[score], name="setter-index-schema").save()
+    setter_sheet = ln.Record(
+        name="setter-index-sheet", is_type=True, schema=setter_schema
+    ).save()
+    setter_schema.index = setter_index
+    setter_schema.save()
+    assert setter_schema.index == setter_index
+    assert setter_index not in setter_schema.features.all()
+    setter_record = ln.Record(
+        type=setter_sheet,
+        features={"setter_index": "S-setter", "score": 2.0},
+    ).save()
+    assert setter_record.name == "S-setter"
+    assert (
+        ln.models.RecordJson.filter(record=setter_record, feature=setter_index).count()
+        == 0
+    )
+
+    ln.Record.filter(type=setter_sheet).delete(permanent=True)
+    setter_sheet.delete(permanent=True)
+    setter_schema.delete(permanent=True)
+    setter_index.delete(permanent=True)
+
     # migration on save: set index when feature is already a schema member
     migration_sample_id = ln.Feature(name="migration_sample_id", dtype=str).save()
     migration_score = ln.Feature(name="migration_score", dtype=float).save()
@@ -345,6 +371,78 @@ def test_record_schema_index_stored_on_name():
     migration_schema.delete(permanent=True)
     migration_sample_id.delete(permanent=True)
     migration_score.delete(permanent=True)
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_schema_index_name_conflict_resolution():
+    """When Record.name and index feature values differ, user can choose which to keep."""
+    sample_id = ln.Feature(name="conflict_sample_id", dtype=str).save()
+    score = ln.Feature(name="conflict_score", dtype=float).save()
+    schema = ln.Schema(
+        features=[sample_id, score],
+        name="conflict-schema",
+    ).save()
+    sheet = ln.Record(name="conflict-sheet", is_type=True, schema=schema).save()
+    record = ln.Record(
+        name="manual-name",
+        type=sheet,
+        features={"conflict_sample_id": "feature-value", "conflict_score": 1.0},
+    ).save()
+    assert (
+        ln.models.RecordJson.get(record=record, feature=sample_id).value
+        == "feature-value"
+    )
+
+    schema.index = sample_id
+    schema.save(index_name_conflict="keep_name")
+    record.refresh_from_db()
+    assert record.name == "manual-name"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+    assert record.features.get_values()["conflict_sample_id"] == "manual-name"
+
+    schema.index = None
+    schema.save()
+    record.refresh_from_db()
+    record.name = "manual-name"
+    record.save()
+    ln.models.RecordJson.filter(record=record, feature=sample_id).update(
+        value="feature-value"
+    )
+    schema.index = sample_id
+    schema.save(index_name_conflict="keep_feature")
+    record.refresh_from_db()
+    assert record.name == "feature-value"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+
+    schema.index = None
+    schema.save()
+    record.refresh_from_db()
+    record.name = "manual-name"
+    record.save()
+    ln.models.RecordJson.filter(record=record, feature=sample_id).update(
+        value="feature-value"
+    )
+    schema.index = sample_id
+    prompt_messages: list[str] = []
+
+    def capture_input(_: str) -> str:
+        return "n"
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "builtins.input",
+            lambda msg: prompt_messages.append(msg) or capture_input(msg),
+        )
+        monkeypatch.delenv("LAMIN_TESTING", raising=False)
+        schema.save()
+    assert "sheet conflict-sheet" in prompt_messages[0]
+    record.refresh_from_db()
+    assert record.name == "feature-value"
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
