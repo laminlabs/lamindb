@@ -203,10 +203,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` /
-            `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record
-            sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`;
-            see :class:`~lamindb.Record`. The index feature does not have to be a schema member.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -669,6 +666,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
+            features.insert(0, index)
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -678,13 +676,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 itype = itype_compare
             if n_features is not None:
-                if n_features != len(features) and not (
-                    index is not None and n_features > len(features)
-                ):
+                if n_features != len(features):
                     logger.important(f"updating to n {len(features)} features")
-                    n_features = len(features)
-            else:
-                n_features = len(features)
+            n_features = len(features)
             if features_registry == Feature:
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
@@ -942,7 +936,26 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save schema."""
+        """Save schema.
+
+        When the schema hash changes because ``schema.index`` was set or unset on a
+        record-sheet schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        and the link table in bulk. If ``Record.name`` and the link-table index value
+        both exist and differ, you are prompted to keep ``Record.name`` (``y``) or use
+        the feature values (``n``); pass ``index_name_conflict="keep_name"`` or
+        ``"keep_feature"`` to skip the prompt.
+
+        UX example::
+
+            >>> schema.save()
+            ! you updated the schema hash and might invalidate datasets...
+            1 sheet row(s) have both Record.name and 'name' values that differ.
+              sheet My samples 2025-05 (Kzpu3Xo8g7xy), record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
+            Keep Record.name (y) or use feature values (n)? y
+
+        The prompt only appears when both values exist and differ; matching values
+        migrate silently.
+        """
         from .save import bulk_create
 
         features_to_delete = []
@@ -962,7 +975,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 features = existing_features
             index_feature = self.index
             index_feature_id = None if index_feature is None else index_feature.id
-            n_member_count = len(features)
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=[  # type: ignore
                     f
@@ -983,7 +995,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 ordered_set=self.ordered_set,
                 maximal_set=self.maximal_set,
                 coerce=self.coerce,
-                n_features=n_member_count,
+                n_features=self.n_members,
                 optional_features_manual=self.optionals.get(),
             )
             if validated_kwargs["hash"] != self.hash:
@@ -1149,18 +1161,60 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def n(self, value: int | None) -> None:
         self.n_members = value
 
+    def _revalidate_unsaved_hash(self) -> None:
+        if not self._state.adding:
+            return
+        index_feature = self.index
+        index_feature_id = None if index_feature is None else index_feature.id
+        features = self._features[1] if hasattr(self, "_features") else []
+        (
+            features,
+            validated_kwargs,
+            _,
+            _,
+            _,
+        ) = self._validate_kwargs_calculate_hash(
+            features=[  # type: ignore
+                f
+                for f in features
+                if index_feature_id is None or f.id != index_feature_id
+            ],
+            index=index_feature,
+            slots=getattr(self, "_slots", {}),
+            name=self.name,
+            description=self.description,
+            itype=self.itype,
+            flexible=self.flexible,
+            type=self.type,
+            is_type=self.is_type,
+            otype=self.otype,
+            dtype=self.dtype,
+            minimal_set=self.minimal_set,
+            ordered_set=self.ordered_set,
+            maximal_set=self.maximal_set,
+            coerce=self.coerce,
+            n_features=None,
+        )
+        if hasattr(self, "_features"):
+            self._features = (self._features[0], features)
+        self.hash = validated_kwargs["hash"]
+        self.n_members = validated_kwargs["n_members"]
+        if validated_kwargs.get("_aux") is not None:
+            self._aux = validated_kwargs["_aux"]
+
     @property
     def index(self) -> None | Feature:
-        """The index feature, if configured.
+        """The feature configured to act as index.
 
-        Set `schema.index = feature` to define the row key, or `schema.index = None`
-        to unset. The index feature does not have to be in `schema.features`.
-        Assignment does not add or remove schema members.
-        On :meth:`~lamindb.Schema.save`, record sheets migrate row keys between
-        :attr:`~lamindb.Record.name` and the link table when the index changes.
-        If both differ for a row, you are prompted to keep `Record.name` or the
-        feature values; pass `index_name_conflict="keep_name"` or
-        `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
+        For `DataFrame` / `AnnData` schemas, validates row indices during curation.
+        For record sheet schemas, the index feature must have `dtype=str`; see
+        :class:`~lamindb.Record`. Setting ``schema.index`` adds the feature to
+        ``schema.features`` if it is not already a member. To unset, set
+        ``schema.index`` to ``None``. On :meth:`~lamindb.Schema.save`, record sheets
+        migrate row keys between :attr:`~lamindb.Record.name` and the link table when
+        the index changes. If both differ for a row, you are prompted to keep
+        ``Record.name`` or the feature values; pass ``index_name_conflict="keep_name"``
+        or ``"keep_feature"`` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
         if self._index_feature_uid is None:
             return None
@@ -1171,16 +1225,28 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 if feature.uid == self._index_feature_uid:
                     return feature
 
-        from .feature import Feature
-
-        return Feature.objects.using(self._state.db).get(uid=self._index_feature_uid)
+        return self.features.get(uid=self._index_feature_uid)
 
     @index.setter
     def index(self, value: None | Feature) -> None:
         if value is None:
             self._index_feature_uid = value
-        else:
-            self._index_feature_uid = value.uid
+            if self._state.adding:
+                self._revalidate_unsaved_hash()
+            return
+        if self._state.adding:
+            if hasattr(self, "_features"):
+                _, features = self._features
+                if not any(feature.id == value.id for feature in features):
+                    features.insert(0, value)
+            else:
+                related_name = _get_related_name(self) or "features"
+                self._features = (related_name, [value])
+        elif not self.members.filter(id=value.id).exists():
+            self.features.add(value)
+        self._index_feature_uid = value.uid
+        if self._state.adding:
+            self._revalidate_unsaved_hash()
 
     @property
     def _index_feature_uid(self) -> None | str:

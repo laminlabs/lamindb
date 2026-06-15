@@ -178,9 +178,9 @@ def test_record_schema_index_stored_on_name():
         index=sample_id,
         name="index-on-name-schema",
     ).save()
-    # Story 1: constructor sets schema.index without adding it to members
+    # Story 1: constructor with index adds it to schema members
     assert schema.index == sample_id
-    assert sample_id not in schema.features.all()
+    assert sample_id in schema.features.all()
     assert score in schema.features.all()
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
@@ -291,16 +291,18 @@ def test_record_schema_index_stored_on_name():
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
 
-    # Story 1b: set index via setter without adding it to schema members
+    # Story 1b: set index via setter on unsaved then saved schema
     setter_index = ln.Feature(name="setter_index", dtype=str).save()
-    setter_schema = ln.Schema(features=[score], name="setter-index-schema").save()
+    setter_schema = ln.Schema(features=[score], name="setter-index-schema")
+    assert setter_schema._state.adding
+    setter_schema.index = setter_index
+    assert setter_index in setter_schema.members
+    setter_schema.save()
     setter_sheet = ln.Record(
         name="setter-index-sheet", is_type=True, schema=setter_schema
     ).save()
-    setter_schema.index = setter_index
-    setter_schema.save()
     assert setter_schema.index == setter_index
-    assert setter_index not in setter_schema.features.all()
+    assert setter_index in setter_schema.features.all()
     setter_record = ln.Record(
         type=setter_sheet,
         features={"setter_index": "S-setter", "score": 2.0},

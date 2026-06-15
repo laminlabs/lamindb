@@ -78,12 +78,6 @@ def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
     return index_feature is not None and feature.uid == index_feature.uid
 
 
-def feature_is_schema_member_or_index(
-    feature: Feature, schema: Schema, member_ids: set[int]
-) -> bool:
-    return feature.id in member_ids or is_schema_index_feature(schema, feature)
-
-
 def validate_record_sheet_index_feature(index_feature: Feature) -> None:
     """Ensure a record-sheet index feature can be stored on `Record.name`."""
     if index_feature.dtype_as_str != "str":

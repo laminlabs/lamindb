@@ -1631,13 +1631,11 @@ class FeatureManager:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            from .record import feature_is_schema_member_or_index
-
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name
                 for feature in explicit_features
-                if not feature_is_schema_member_or_index(feature, schema, member_ids)
+                if feature.id not in member_ids
             ]
             if features_not_in_schema:
                 raise ValidationError(
@@ -1877,13 +1875,11 @@ class FeatureManager:
             schema = self._get_external_schema()
         if schema is not None:
             ExperimentalDictCurator(dictionary, schema).validate()
-            from .record import feature_is_schema_member_or_index
-
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name
                 for feature in explicit_features
-                if not feature_is_schema_member_or_index(feature, schema, member_ids)
+                if feature.id not in member_ids
             ]
             if features_not_in_schema:
                 raise ValidationError(
@@ -2284,8 +2280,6 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     feature_json_values: list[SQLRecord] = []
     links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
     not_validated_values: dict[str, tuple[str, list[str]]] = {}
-    from .record import feature_is_schema_member_or_index
-
     for (
         record,
         manager,
@@ -2297,9 +2291,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         features_not_in_schema = [
             feature.name
             for feature in explicit_features
-            if not feature_is_schema_member_or_index(
-                feature, batch_schema, schema_member_ids
-            )
+            if feature.id not in schema_member_ids
         ]
         if features_not_in_schema:
             raise ValidationError(
