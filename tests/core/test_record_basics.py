@@ -291,12 +291,19 @@ def test_record_schema_index_stored_on_name():
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
 
-    # Story 1b: set index via setter on unsaved then saved schema
+    # Story 1b: symmetric setter only marks index; add member separately
     setter_index = ln.Feature(name="setter_index", dtype=str).save()
-    setter_schema = ln.Schema(features=[score], name="setter-index-schema")
-    assert setter_schema._state.adding
+    setter_schema = ln.Schema(features=[score], name="setter-index-schema").save()
+    unsaved_score = ln.Feature(name="unsaved_score_for_index", dtype=float).save()
+    unsaved_schema = ln.Schema(features=[unsaved_score], name="unsaved-index-schema")
+    assert unsaved_schema._state.adding
+    with pytest.raises(
+        AssertionError,
+        match="Cannot set index on unsaved schema, pass index to constructor instead",
+    ):
+        unsaved_schema.index = setter_index
+    setter_schema.features.add(setter_index)
     setter_schema.index = setter_index
-    assert setter_index in setter_schema.members
     setter_schema.save()
     setter_sheet = ln.Record(
         name="setter-index-sheet", is_type=True, schema=setter_schema
@@ -317,6 +324,7 @@ def test_record_schema_index_stored_on_name():
     setter_sheet.delete(permanent=True)
     setter_schema.delete(permanent=True)
     setter_index.delete(permanent=True)
+    unsaved_score.delete(permanent=True)
 
     # migration on save: set index when feature is already a schema member
     migration_sample_id = ln.Feature(name="migration_sample_id", dtype=str).save()

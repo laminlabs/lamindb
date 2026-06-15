@@ -324,11 +324,11 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 8
 
-    # Story 3: set index via setter on a new feature (adds it to members)
+    # Story 3: add a new feature, then mark it as index
 
     new_index_feature = ln.Feature(name="immuno_sample", dtype=str).save()
+    mini_immuno_schema_flexible.features.add(new_index_feature)
     mini_immuno_schema_flexible.index = new_index_feature
-    assert new_index_feature in mini_immuno_schema_flexible.features.all()
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.index == new_index_feature
     assert new_index_feature in mini_immuno_schema_flexible.features.all()
