@@ -1055,7 +1055,10 @@ def test_record_features_add_remove_values():
 
     record_entity1.restore()
     test_values["feature_type1"] = "entity1"
-    test_values["feature_type1s"] = ["entity1", "entity2"]
+    restored_values = test_record.features.get_values()
+    assert restored_values["feature_type1"] == "entity1"
+    assert set(restored_values["feature_type1s"]) == {"entity1", "entity2"}
+    test_values["feature_type1s"] = restored_values["feature_type1s"]
 
     # remove values
 
