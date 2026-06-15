@@ -281,6 +281,8 @@ def migrate_record_sheet_index_on_schema_save(
     ):
         return
 
+    from django.db import transaction
+
     from .save import bulk_create
 
     db = using or schema._state.db
@@ -298,62 +300,63 @@ def migrate_record_sheet_index_on_schema_save(
         .values_list("id", flat=True)
     )
 
-    if old_index_uid is not None:
-        old_feature = Feature.objects.using(db).get(uid=old_index_uid)
-        rows_with_name = (
-            Record.objects.using(db)
-            .filter(
-                id__in=row_ids,
-                name__isnull=False,
+    with transaction.atomic(using=db):
+        if old_index_uid is not None:
+            old_feature = Feature.objects.using(db).get(uid=old_index_uid)
+            rows_with_name = (
+                Record.objects.using(db)
+                .filter(
+                    id__in=row_ids,
+                    name__isnull=False,
+                )
+                .exclude(name="")
             )
-            .exclude(name="")
-        )
-        json_to_create = [
-            RecordJson(record_id=record_id, feature=old_feature, value=name)
-            for record_id, name in rows_with_name.values_list("id", "name")
-            if name
-        ]
-        if json_to_create:
-            bulk_create(json_to_create, ignore_conflicts=True)
-        rows_with_name.update(name=None)
+            json_to_create = [
+                RecordJson(record_id=record_id, feature=old_feature, value=name)
+                for record_id, name in rows_with_name.values_list("id", "name")
+                if name
+            ]
+            if json_to_create:
+                bulk_create(json_to_create, ignore_conflicts=True)
+            rows_with_name.update(name=None)
 
-    if new_index_uid is not None:
-        new_feature = Feature.objects.using(db).get(uid=new_index_uid)
-        validate_record_sheet_index_feature(new_feature)
-        json_links = (
-            RecordJson.objects.using(db)
-            .filter(
-                record_id__in=row_ids,
-                feature=new_feature,
+        if new_index_uid is not None:
+            new_feature = Feature.objects.using(db).get(uid=new_index_uid)
+            validate_record_sheet_index_feature(new_feature)
+            json_links = (
+                RecordJson.objects.using(db)
+                .filter(
+                    record_id__in=row_ids,
+                    feature=new_feature,
+                )
+                .values_list("id", "record_id", "value")
             )
-            .values_list("id", "record_id", "value")
-        )
-        if not json_links:
-            return
+            if not json_links:
+                return
 
-        records_by_id = {
-            record.id: record
-            for record in Record.objects.using(db).filter(
-                id__in={record_id for _, record_id, _ in json_links}
-            )
-        }
-        records_to_update: list[Record] = []
-        json_ids_to_delete: list[int] = []
-        for link_id, record_id, value in json_links:
-            record = records_by_id.get(record_id)
-            if record is None:
+            records_by_id = {
+                record.id: record
+                for record in Record.objects.using(db).filter(
+                    id__in={record_id for _, record_id, _ in json_links}
+                )
+            }
+            records_to_update: list[Record] = []
+            json_ids_to_delete: list[int] = []
+            for link_id, record_id, value in json_links:
+                record = records_by_id.get(record_id)
+                if record is None:
+                    json_ids_to_delete.append(link_id)
+                    continue
+                name = coerce_index_value_to_record_name(value, new_feature)
+                if name is not None and not record.name:
+                    record.name = name
+                    records_to_update.append(record)
                 json_ids_to_delete.append(link_id)
-                continue
-            name = coerce_index_value_to_record_name(value, new_feature)
-            if name is not None and not record.name:
-                record.name = name
-                records_to_update.append(record)
-            json_ids_to_delete.append(link_id)
 
-        if records_to_update:
-            Record.objects.using(db).bulk_update(records_to_update, ["name"])
-        if json_ids_to_delete:
-            RecordJson.objects.using(db).filter(id__in=json_ids_to_delete).delete()
+            if records_to_update:
+                Record.objects.using(db).bulk_update(records_to_update, ["name"])
+            if json_ids_to_delete:
+                RecordJson.objects.using(db).filter(id__in=json_ids_to_delete).delete()
 
 
 class RecordBatch:

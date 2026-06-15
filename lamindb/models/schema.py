@@ -945,16 +945,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         features_to_delete = []
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
         using = kwargs.get("using") or self._state.db
-        old_index_uid = None
-        if self.pk is not None:
-            aux = (
-                Schema.objects.using(using)
-                .filter(pk=self.pk)
-                .values_list("_aux", flat=True)
-                .first()
-            )
-            if aux and isinstance(aux, dict) and "af" in aux and "3" in aux["af"]:
-                old_index_uid = aux["af"]["3"]
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -1006,14 +996,23 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         )
                 self.hash = validated_kwargs["hash"]
                 self.n_members = validated_kwargs["n_members"]
-            from .record import migrate_record_sheet_index_on_schema_save
+                from .record import migrate_record_sheet_index_on_schema_save
 
-            migrate_record_sheet_index_on_schema_save(
-                self,
-                old_index_uid=old_index_uid,
-                new_index_uid=self._index_feature_uid,
-                using=using,
-            )
+                old_index_uid = None
+                aux = (
+                    Schema.objects.using(using)
+                    .filter(pk=self.pk)
+                    .values_list("_aux", flat=True)
+                    .first()
+                )
+                if aux and isinstance(aux, dict) and "af" in aux and "3" in aux["af"]:
+                    old_index_uid = aux["af"]["3"]
+                migrate_record_sheet_index_on_schema_save(
+                    self,
+                    old_index_uid=old_index_uid,
+                    new_index_uid=self._index_feature_uid,
+                    using=using,
+                )
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -1148,9 +1147,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def index(self) -> None | Feature:
         """The index feature, if configured.
 
-        Set ``schema.index = feature`` to mark a schema member as the row key, or
-        ``schema.index = None`` to unset. Assignment does not add or remove features
-        from ``schema.features``; add the feature first, or remove it after unsetting.
+        Set `schema.index = feature` to mark a schema member as the row key, or
+        `schema.index = None` to unset. Assignment does not add or remove features
+        from `schema.features`; add the feature first, or remove it after unsetting.
         On :meth:`~lamindb.Schema.save`, record sheets migrate row keys between
         :attr:`~lamindb.Record.name` and the link table when the index changes.
         """
