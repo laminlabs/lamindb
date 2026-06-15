@@ -936,11 +936,32 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save schema."""
+        """Save schema.
+
+        When the schema hash changes because `schema.index` was set or unset on a
+        record-sheet schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        and the link table in bulk. If `Record.name` and the link-table index value
+        both exist and differ, you are prompted to keep `Record.name` (`y`) or use
+        the feature values (`n`); pass `index_name_conflict="keep_name"` or
+        `"keep_feature"` to skip the prompt.
+
+        UX example::
+
+            >>> schema.save()
+            ! you updated the schema hash and might invalidate datasets...
+            1 sheet row(s) have both Record.name and 'name' values that differ.
+              sheet My samples 2025-05 (Kzpu3Xo8g7xy), record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
+            Keep Record.name (y) or use feature values (n)? y
+
+        The prompt only appears when both values exist and differ; matching values
+        migrate silently.
+        """
         from .save import bulk_create
 
         features_to_delete = []
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
+        index_name_conflict = kwargs.pop("index_name_conflict", None)
+        using = kwargs.get("using") or self._state.db
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -992,6 +1013,24 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         )
                 self.hash = validated_kwargs["hash"]
                 self.n_members = validated_kwargs["n_members"]
+                from .record import migrate_record_sheet_index_on_schema_save
+
+                old_index_uid = None
+                aux = (
+                    Schema.objects.using(using)
+                    .filter(pk=self.pk)
+                    .values_list("_aux", flat=True)
+                    .first()
+                )
+                if aux and isinstance(aux, dict) and "af" in aux and "3" in aux["af"]:
+                    old_index_uid = aux["af"]["3"]
+                migrate_record_sheet_index_on_schema_save(
+                    self,
+                    old_index_uid=old_index_uid,
+                    new_index_uid=self._index_feature_uid,
+                    using=using,
+                    index_name_conflict=index_name_conflict,
+                )
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -1008,7 +1047,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             delattr(self, "_slots")
         if hasattr(self, "_features"):
             assert self.n_members > 0  # noqa: S101
-            using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
             # self.related_name.set(features) does **not** preserve the order
@@ -1129,7 +1167,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         For `DataFrame` / `AnnData` schemas, validates row indices during curation.
         For record sheet schemas, the index feature must have `dtype=str`; see
-        :class:`~lamindb.Record`. To unset, set `schema.index` to `None`.
+        :class:`~lamindb.Record`. The schema must be saved before assigning
+        `schema.index` (pass `index` to the constructor for unsaved schemas).
+        Assignment only sets or clears the index marker; it does not add or remove
+        schema members. On :meth:`~lamindb.Schema.save`, record sheets migrate row
+        keys between :attr:`~lamindb.Record.name` and the link table when the index
+        changes. If both differ for a row, you are prompted to keep `Record.name` or
+        the feature values; pass `index_name_conflict="keep_name"` or
+        `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
         if self._index_feature_uid is None:
             return None
@@ -1140,17 +1185,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 if feature.uid == self._index_feature_uid:
                     return feature
 
-        return self.features.get(uid=self._index_feature_uid)
+        from .feature import Feature
+
+        if self._state.adding:
+            return Feature.objects.using(self._state.db).get(
+                uid=self._index_feature_uid
+            )
+        try:
+            return self.features.get(uid=self._index_feature_uid)
+        except Feature.DoesNotExist:
+            return Feature.objects.using(self._state.db).get(
+                uid=self._index_feature_uid
+            )
 
     @index.setter
     def index(self, value: None | Feature) -> None:
-        if value is None:
-            current_index = self.index
-            self.features.remove(current_index)
-            self._index_feature_uid = value
-        else:
-            self.features.add(value)
-            self._index_feature_uid = value.uid
+        assert self._state.adding is False, (
+            "Cannot set index on unsaved schema, pass index to constructor instead."
+        )
+        self._index_feature_uid = None if value is None else value.uid
 
     @property
     def _index_feature_uid(self) -> None | str:
