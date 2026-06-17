@@ -1064,12 +1064,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 related_field = related_model_split[1].lower()
             related_field_id = f"{related_field}_id"
-            links = [
-                through_model(**{"schema_id": self.id, related_field_id: record.id})
-                for record in records
-            ]
-            through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
-            getattr(self, related_name).remove(*features_to_delete)
+            new_member_ids = [record.id for record in records]
+            existing_member_ids = list(
+                through_model.objects.using(using)
+                .filter(schema_id=self.id)
+                .order_by("id")
+                .values_list(related_field_id, flat=True)
+            )
+            if new_member_ids != existing_member_ids:
+                through_model.objects.using(using).filter(schema_id=self.id).delete()
+                links = [
+                    through_model(**{"schema_id": self.id, related_field_id: record.id})
+                    for record in records
+                ]
+                through_model.objects.using(using).bulk_create(links)
             delattr(self, "_features")
 
         return self
