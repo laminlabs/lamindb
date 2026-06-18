@@ -42,9 +42,11 @@ from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
     Registry,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
@@ -217,6 +219,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
+        branch: `Branch | None = None` The branch of the schema. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the schema. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`
@@ -496,6 +500,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ordered_set: bool = False,
         coerce: bool | None = None,
         n_members: int | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

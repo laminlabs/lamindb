@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from .block import Block, ProjectBlock
     from .query_manager import RelatedManager
     from .query_set import QuerySet
-    from .sqlrecord import Branch
+    from .sqlrecord import Branch, Space
 
 
 class Reference(
@@ -235,6 +235,18 @@ class Reference(
 class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects to label artifacts, transforms, records, and runs.
 
+    Args:
+        name: `str` Title or name of the project.
+        type: `Project | None = None` A project type, see :attr:`~lamindb.Project.type`.
+        is_type: `bool = False` Whether this project is a type.
+        abbr: `str | None = None` An abbreviation.
+        url: `str | None = None` A URL.
+        start_date: `date | None = None` Date the project started.
+        end_date: `date | None = None` Date the project ended.
+        branch: `Branch | None = None` The branch of the project. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the project. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+
+
     Examples
     --------
 
@@ -426,6 +438,8 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         url: str | None = None,
         start_date: DateType | None = None,
         end_date: DateType | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

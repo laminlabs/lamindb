@@ -36,8 +36,10 @@ from .query_set import (
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -527,9 +529,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             classifies other records).
         features: `dict[str | Feature, Any] | None = None` Lazy feature values
             to persist on `.save()` or `ln.save([...])`.
-        schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
+        branch: `Branch | None = None` The branch of the record. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the record. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+
 
     See Also:
         :class:`~lamindb.Feature`
@@ -872,6 +876,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: Schema | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
-    from .sqlrecord import Branch
+    from .sqlrecord import Branch, Space
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -53,6 +53,9 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description: `str | None = None` A description.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
+        branch: `Branch | None = None` The branch of the label. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the label. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+
 
     See Also:
         :class:`~lamindb.Record`
@@ -225,6 +228,8 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description: str | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

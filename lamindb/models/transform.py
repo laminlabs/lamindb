@@ -23,7 +23,9 @@ from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versi
 from .run import Run, TracksRun, User
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     IsLink,
+    Space,
     SQLRecord,
     init_self_from_db,
     pop_space_branch_kwargs,
@@ -62,8 +64,10 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
         source_code: `str | None = None` Source code of the transform.
-        revises: `Transform | None = None` An old version of the transform.
+                revises: `Transform | None = None` An old version of the transform.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
+        branch: `Branch | None = None` The branch of the transform. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the transform. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
 
     See Also:
         :func:`~lamindb.track`
@@ -237,6 +241,8 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         source_code: str | None = None,
         revises: Transform | None = None,
         skip_hash_lookup: bool = False,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

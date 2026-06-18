@@ -207,6 +207,16 @@ class Block(BaseBlock, SQLRecord):
     """An experimental markdown block for anything: issues, standalone markdown pages, comments, etc.
 
     The `Block` model is experimental and may change in the future.
+
+    Args:
+        key: `str | None = None` The key for which to create a block.
+        content: `str | None = None` Markdown content of the block.
+        kind: `Literal["readme"] = "readme"` The kind of block.
+        version: `str | None = None` A version string.
+        revises: `Block | None = None` An old version of the block.
+        anchor: `Block | None = None` The anchor block this block attaches to.
+        branch: `Branch | None = None` The branch of the block. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the block. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
     """
 
     class Meta:
@@ -238,6 +248,8 @@ class Block(BaseBlock, SQLRecord):
         version: str | None = None,
         revises: Block | None = None,
         anchor: Block | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
