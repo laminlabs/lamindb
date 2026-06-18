@@ -107,8 +107,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: `Run | None = None` The run that creates the collection.
         revises: `Collection | None = None` An old version of the collection.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
-        branch: `Branch | None = None` The branch of the collection. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the collection. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+        branch: `Branch | None = None` A branch. If None, uses the current branch.
+        space: `Space | None = None` A space. If None, uses the current space.
 
     See Also:
         :class:`~lamindb.Artifact`

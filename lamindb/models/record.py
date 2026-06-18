@@ -529,10 +529,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             classifies other records).
         features: `dict[str | Feature, Any] | None = None` Lazy feature values
             to persist on `.save()` or `ln.save([...])`.
+        schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
-        branch: `Branch | None = None` The branch of the record. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the record. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+        branch: `Branch | None = None` A branch. If None, uses the current branch.
+        space: `Space | None = None` A space. If None, uses the current space.
 
 
     See Also:

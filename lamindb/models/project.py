@@ -243,8 +243,8 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         url: `str | None = None` A URL.
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
-        branch: `Branch | None = None` The branch of the project. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the project. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+        branch: `Branch | None = None` A branch. If None, uses the current branch.
+        space: `Space | None = None` A space. If None, uses the current space.
 
 
     Examples

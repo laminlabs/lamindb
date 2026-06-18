@@ -710,8 +710,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
-        branch: `Branch | None = None` The branch of the feature. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the feature. If `None`, uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
+        branch: `Branch | None = None` A branch. If None, uses the current branch.
+        space: `Space | None = None` A space. If None, uses the current space.
 
     See Also:
         :class:`~lamindb.Schema`
