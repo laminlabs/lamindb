@@ -246,6 +246,39 @@ def test_schema_update_implicit_through_name_equality(
     assert schema.hash == orig_hash  # restored original hash
 
 
+def test_schema_update_reorders_features():
+    """Features keep the order from the `features` input when updating a schema."""
+    feature_i = ln.Feature(name="feature_i", dtype=str).save()
+    feature_m = ln.Feature(name="feature_m", dtype=str).save()
+    feature_n = ln.Feature(name="feature_n", dtype=str).save()
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_i, feature_n],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_i", "feature_n"]
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_i, feature_m, feature_n],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_i", "feature_m", "feature_n"]
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+
+    schema.delete(permanent=True)
+    feature_i.delete(permanent=True)
+    feature_m.delete(permanent=True)
+    feature_n.delete(permanent=True)
+
+
 def test_schema_update(
     mini_immuno_schema_flexible: ln.Schema,
     ccaplog,
