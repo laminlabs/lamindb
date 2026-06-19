@@ -357,6 +357,7 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
 
     artifact = sheet.to_artifact()
     assert artifact.space_id == sheet.space_id
+    assert artifact.run.space_id == sheet.space_id
 
     df = artifact.load()
     assert "data_id" in df.columns
