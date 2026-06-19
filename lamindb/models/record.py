@@ -1331,6 +1331,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 "index": self.schema is not None and self.schema.index is not None
             },
             run=self._export_run,
+            space=self.space,
         ).save()
 
 
