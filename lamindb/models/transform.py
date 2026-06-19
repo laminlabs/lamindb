@@ -64,7 +64,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
         source_code: `str | None = None` Source code of the transform.
-                revises: `Transform | None = None` An old version of the transform.
+        revises: `Transform | None = None` An old version of the transform.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
