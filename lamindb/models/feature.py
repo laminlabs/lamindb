@@ -993,10 +993,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     **Union data types.**
 
-    Unions are only supported for static registry types or fields. You cannot
-    union `Record` or `ULabel` subtypes, e.g. `dtype=[record_type_1, record_type_2]`
-    raises an error. To restrict to a single subtype, pass it directly, e.g.
-    `dtype=record_type`.
+    Unions are currently only supported for static registries.
 
     .. list-table::
         :header-rows: 1

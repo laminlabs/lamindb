@@ -111,6 +111,29 @@ def test_serialize_union_of_registries():
     assert serialize_dtype([bt.CellType, bt.CellLine]) == serialized_str
 
 
+def test_serialize_union_of_record_subtypes_raises():
+    # a union of `Record`/`ULabel` subtype instances is not supported and must
+    # raise a clear error instead of silently producing a malformed dtype
+    sample1 = ln.Record(name="sample1", is_type=True).save()
+    sample2 = ln.Record(name="sample2", is_type=True).save()
+    # raised when constructing a Feature
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Feature(name="contact", dtype=[sample1, sample2], nullable=False)
+    assert (
+        "Cannot create a union dtype that includes a `Record` or `ULabel` subtype"
+        in error.exconly()
+    )
+    # raised directly by serialize_dtype
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        serialize_dtype([sample1, sample2])
+    assert (
+        "Cannot create a union dtype that includes a `Record` or `ULabel` subtype"
+        in error.exconly()
+    )
+    sample1.delete(permanent=True)
+    sample2.delete(permanent=True)
+
+
 def test_serialize_with_field_information():
     serialized_str = "cat[bionty.Gene.ensembl_gene_id]"
     assert serialize_dtype(bt.Gene.ensembl_gene_id) == serialized_str
