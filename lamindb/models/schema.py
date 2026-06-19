@@ -219,8 +219,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
-        branch: `Branch | None = None` A branch. If None, uses the current branch.
-        space: `Space | None = None` A space. If None, uses the current space.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`

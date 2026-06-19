@@ -215,8 +215,8 @@ class Block(BaseBlock, SQLRecord):
         version: `str | None = None` A version string.
         revises: `Block | None = None` An old version of the block.
         anchor: `Block | None = None` The anchor block this block attaches to.
-        branch: `Branch | None = None` A branch. If None, uses the current branch.
-        space: `Space | None = None` A space. If None, uses the current space.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
     """
 
     class Meta:

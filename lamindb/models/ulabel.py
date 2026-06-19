@@ -53,8 +53,8 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description: `str | None = None` A description.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
-        branch: `Branch | None = None` A branch. If None, uses the current branch.
-        space: `Space | None = None` A space. If None, uses the current space.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
 
     See Also:
