@@ -2128,7 +2128,11 @@ def annotate_artifact(
             ArtifactSchema.objects.update_or_create(
                 artifact=artifact,
                 slot="columns",
-                defaults={"schema": feature_set.save()},
+                defaults={
+                    "schema": feature_set.save()
+                    if feature_set._state.adding
+                    else feature_set
+                },
             )
 
     else:
@@ -2176,7 +2180,13 @@ def annotate_artifact(
                 )
                 feature_set = Schema(itype=itype, n_members=len(features))
             ArtifactSchema.objects.update_or_create(
-                artifact=artifact, slot=slot, defaults={"schema": feature_set.save()}
+                artifact=artifact,
+                slot=slot,
+                defaults={
+                    "schema": feature_set.save()
+                    if feature_set._state.adding
+                    else feature_set
+                },
             )
 
     slug = ln_setup.settings.instance.slug
