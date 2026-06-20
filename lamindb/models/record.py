@@ -36,8 +36,10 @@ from .query_set import (
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -530,6 +532,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
+
 
     See Also:
         :class:`~lamindb.Feature`
@@ -872,6 +877,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: Schema | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -1111,7 +1118,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 transform=transform,
                 initiated_by_run=initiated_by_run,
                 status="started",
-            ).save()  # type: ignore
+            )
+            run.space = self.space
+            run.save()  # type: ignore
             run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
@@ -1331,6 +1340,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 "index": self.schema is not None and self.schema.index is not None
             },
             run=self._export_run,
+            space=self.space,
         ).save()
 
 

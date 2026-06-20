@@ -108,7 +108,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, features, description, schema, reference, reference_type are valid keyword arguments"
+            "Only name, type, is_type, features, description, schema, reference, reference_type, branch, space are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
