@@ -456,6 +456,20 @@ def serialize_dtype(
                 dtype = [dtype]
             elif not isinstance(dtype, list):
                 raise ValueError(error_message.format(dtype))
+            # A union (more than one element) is only supported for static registry
+            # types or fields - not for `Record`/`ULabel` subtype instances, which would
+            # otherwise be serialized into a malformed dtype without `|` separators
+            # (e.g. `Record[uid1]Record[uid2]`) and fail validation with a confusing error.
+            if len(dtype) > 1 and any(
+                isinstance(one_dtype, (ULabel, Record)) for one_dtype in dtype
+            ):
+                raise InvalidArgument(
+                    "Cannot create a union dtype that includes a `Record` or `ULabel` "
+                    "subtype, e.g. `dtype=[record_type_1, record_type_2]`. Unions are only "
+                    "supported for static registry types or fields, e.g. "
+                    "`dtype=bionty.ExperimentalFactor | bionty.Disease`. To restrict to a "
+                    "single subtype, pass it directly, e.g. `dtype=record_type`."
+                )
             dtype_str = ""
             for one_dtype in dtype:
                 if not isinstance(
@@ -982,6 +996,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
           - `"list[float]"`
 
     **Union data types.**
+
+    Unions are currently only supported for static registries.
 
     .. list-table::
         :header-rows: 1
