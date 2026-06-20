@@ -47,10 +47,24 @@ class Reference(
 ):
     """References such as internal studies, papers, documents, or URLs.
 
+    Args:
+        name: `str` The name of the reference.
+        type: `Reference | None = None` The type of the reference.
+        is_type: `bool = False` Whether the reference is a type.
+        abbr: `str | None = None` The abbreviation of the reference.
+        url: `str | None = None` The URL of the reference.
+        pubmed_id: `int | None = None` The PubMed ID of the reference.
+        doi: `str | None = None` The DOI of the reference.
+        description: `str | None = None` The description of the reference.
+        text: `str | None = None` The text of the reference.
+        date: `DateType | None = None` The date of the reference.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
+
     Examples
     --------
 
-    Create a reference object::
+    Create a reference::
 
         reference = Reference(
             name="A Paper Title",
@@ -212,6 +226,8 @@ class Reference(
         description: str | None = None,
         text: str | None = None,
         date: DateType | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -245,7 +261,6 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
-
 
     Examples
     --------
