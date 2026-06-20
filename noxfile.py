@@ -189,6 +189,7 @@ def install_ci(session, group):
         cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
         cmds += "\nuv pip install --system ./laminhub/backend/services/aws"
         cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/instancedb/hubmodule"
+        cmds += "\nuv pip uninstall --system psycopg-binary"
         [run(session, line) for line in cmds.splitlines()]
 
 
