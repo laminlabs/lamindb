@@ -1102,24 +1102,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     .first()
                 )
             if transform is None:
-                transform = Transform(
-                    key="__lamindb_record_export__",
-                    kind="function",
-                    space=self.space,
+                transform, _ = Transform.objects.get_or_create(
+                    uid=export_transform_uid,
+                    defaults={
+                        "key": "__lamindb_record_export__",
+                        "kind": "function",
+                    },
                 )
+            elif transform.uid != export_transform_uid:
                 transform.uid = export_transform_uid
                 transform.save()
-            elif transform.uid != export_transform_uid:
-                from lamindb.errors import NoWriteAccess
-
-                previous_uid = transform.uid
-                transform.uid = export_transform_uid
-                try:
-                    transform.save()
-                except NoWriteAccess:
-                    # Legacy transforms may live in a space the caller cannot write.
-                    # Reuse them as-is; export runs still proceed in the sheet space.
-                    transform.uid = previous_uid
             # Export is treated as a discrete user action, so always create a new
             # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
             run = Run(
