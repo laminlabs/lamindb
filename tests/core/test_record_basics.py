@@ -162,6 +162,46 @@ def test_record_from_dataframe_bulk_save_paths():
     schema.delete(permanent=True)
     score.delete(permanent=True)
 
+def test_record_from_dataframe_partial_null_bool_int():
+    flag = ln.Feature(name="from-df-flag", dtype=bool).save()
+    count = ln.Feature(name="from-df-count", dtype=int).save()
+    label = ln.Feature(name="from-df-label", dtype=str).save()
+    schema = ln.Schema([flag, count, label], name="from-df-bool-int-schema").save()
+    sheet = ln.Record(
+        name="from-df-bool-int-sheet", is_type=True, schema=schema
+    ).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-a", "from-df-b", "from-df-c"],
+            "from-df-flag": [True, None, False],  # partial-null bool -> object dtype
+            "from-df-count": [1, None, 3],  # partial-null int -> float64 dtype
+            "from-df-label": ["a", "b", "c"],
+        }
+    )
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 3
+    records.save()
+
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-flag"] is True
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-count"] == 1
+    # the None row drops the fragile keys entirely
+    assert "from-df-flag" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert "from-df-count" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert (
+        ln.Record.get(name="from-df-c").features.get_values()["from-df-flag"] is False
+    )
+    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-count"] == 3
+
+    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-bool-int-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    flag.delete(permanent=True)
+    count.delete(permanent=True)
+    label.delete(permanent=True)
+
 
 def test_record_schema_index_stored_on_name():
     """Schema.index is stored on Record.name and surfaced on df.index / get_values."""

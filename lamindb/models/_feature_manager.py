@@ -2236,12 +2236,21 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
 
     dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
     for feature in schema_features:
-        if (
-            feature.name in dataframe
-            and feature.dtype_as_str.startswith("cat")
-            and not feature.dtype_as_str.startswith("list[cat")
-        ):
+        if feature.name not in dataframe:
+            continue
+        dtype_str = feature.dtype_as_str
+        if dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             dataframe[feature.name] = dataframe[feature.name].astype("category")
+        # A partial-null bool/int column degrades to object dtype when
+        # pd.DataFrame(prepared_rows) backfills absent keys with NaN. Restore the
+        # declared type via pandas nullable extension dtypes so the pandera
+        # check_dtype fast-path (is_bool_dtype / is_integer_dtype) passes while
+        # still allowing the missing values.
+        elif dtype_str == "bool" and not pd.api.types.is_bool_dtype(dataframe[feature.name].dtype):
+            dataframe[feature.name] = dataframe[feature.name].astype(pd.BooleanDtype())
+        elif dtype_str == "int" and not pd.api.types.is_integer_dtype(dataframe[feature.name].dtype):
+            dataframe[feature.name] = dataframe[feature.name].astype(pd.Int64Dtype())
+
     # Single-pass dataframe curation:
     # validate schema and resolve categoricals once for the entire batch.
     #
