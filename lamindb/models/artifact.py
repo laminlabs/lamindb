@@ -1191,20 +1191,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
-        branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the artifact. If `None`, uses the passed `storage.space` if `storage` is passed; otherwise uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
-            If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
-            If `True`, always skips hash lookup.
-            If `False`, always attempts hash lookup.
-            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
-        key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
-            If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
-            Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
-            and change it globally, e.g., `ln.settings.creation._artifact_use_virtual_keys = False`.
-            If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
-            If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
+            If `None`, de-duplicates new artifacts but skips deduplication for paths already in registered storage.
+            If `True`, never deduplicates. If `False`, always deduplicates. Empty files are never deduplicated.
+        key_is_virtual: `bool = True` Whether to use a virtual storage key.
+            If `True`, the real storage path is auto-generated from the artifact `uid` in `.lamindb/`.
+            If `False`, `key` is treated as part of the real storage path.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space or, if `storage` is passed, the passed `storage.space`.
 
     See Also:
         :class:`~lamindb.Storage`
@@ -1680,10 +1675,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
         storage: Storage | None = None,
+        skip_hash_lookup: bool | None = None,
+        key_is_virtual: bool = True,
         branch: Branch | None = None,
         space: Space | None = None,
-        skip_hash_lookup: bool | None = None,
-        key_is_virtual: bool | None = None,
     ): ...
 
     @overload

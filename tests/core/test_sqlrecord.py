@@ -376,6 +376,8 @@ def test_get_record_kwargs():
             "cat_filters",
             "dict[str",
         ),
+        ("branch", "Branch | None"),
+        ("space", "Space | None"),
     ]
 
 
