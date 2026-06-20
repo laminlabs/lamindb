@@ -356,6 +356,9 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     record.features.add_values({"data_id": "D1"})
 
     artifact = sheet.to_artifact()
+    assert artifact.space_id == sheet.space_id
+    assert artifact.run.space_id == sheet.space_id
+
     df = artifact.load()
     assert "data_id" in df.columns
     assert df["data_id"].to_list() == ["D1"]
@@ -363,9 +366,11 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     assert df["__lamindb_record_name__"].isna().all()
 
     # clean up
+    export_run = artifact.run
     record.delete(permanent=True)
     sheet.delete(permanent=True)
     artifact.delete(permanent=True)
+    export_run.delete(permanent=True)
     schema.delete(permanent=True)
     feature_data_id.delete(permanent=True)
 
