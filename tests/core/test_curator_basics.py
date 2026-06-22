@@ -505,8 +505,14 @@ def test_curator_partial_null_bool_int():
             "cur-count": [1, None, 3],  # float64
         }
     )
-    with pytest.raises(ln.errors.ValidationError):
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
         ln.curators.DataFrameCurator(df_degraded, schema).validate()
+    assert "Column 'cur-flag' failed dtype check for 'bool': got object" in str(
+        excinfo.value
+    )
+    assert "Column 'cur-count' failed dtype check for 'int': got float64" in str(
+        excinfo.value
+    )
 
     schema.delete(permanent=True)
     flag.delete(permanent=True)
