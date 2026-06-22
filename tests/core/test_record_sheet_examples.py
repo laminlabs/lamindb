@@ -274,6 +274,50 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         ],
     )
 
+    # Two linked BioSample records can share a display name; export resolves by row uid.
+    features = ln.Feature.lookup()
+    samples_sheet = ln.Record.get(name="Sample_X").type
+    sample_dup_a = ln.Record(name="poolsample1", type=samples_sheet).save()
+    sample_dup_b = ln.Record(type=samples_sheet).save()
+    sample_dup_b.name = "poolsample1"
+    sample_dup_b.save()
+    assert sample_dup_a.id != sample_dup_b.id
+
+    row_a = ln.Record(type=nextflow_sheet).save()
+    row_b = ln.Record(type=nextflow_sheet).save()
+    ln.models.RecordRecord(
+        record=row_a, feature=features.sample, value=sample_dup_a
+    ).save()
+    ln.models.RecordRecord(
+        record=row_b, feature=features.sample, value=sample_dup_b
+    ).save()
+    ln.models.RecordJson(record=row_a, feature=features.fastq_1, value="read_a").save()
+    ln.models.RecordJson(record=row_b, feature=features.fastq_1, value="read_b").save()
+    ln.models.RecordJson(
+        record=row_a, feature=features.expected_cells, value=5000
+    ).save()
+    ln.models.RecordJson(
+        record=row_b, feature=features.expected_cells, value=5000
+    ).save()
+
+    dup_rows = nextflow_sheet.to_dataframe()
+    dup_rows = dup_rows[dup_rows["sample"] == "poolsample1"]
+    assert len(dup_rows) == 2
+    assert set(dup_rows["__lamindb_record_uid__"]) == {row_a.uid, row_b.uid}
+
+    artifact_dup = nextflow_sheet.to_artifact()
+    linked_poolsample_uids = {
+        record.uid
+        for record in artifact_dup.records.all()
+        if record.name == "poolsample1"
+    }
+    assert linked_poolsample_uids == {sample_dup_a.uid, sample_dup_b.uid}
+    artifact_dup.delete(permanent=True)
+    row_a.delete(permanent=True)
+    row_b.delete(permanent=True)
+    sample_dup_a.delete(permanent=True)
+    sample_dup_b.delete(permanent=True)
+
     related_schemas = list(artifact.schemas.all())
     artifact.schemas.clear()
     for schema in related_schemas:
@@ -549,65 +593,3 @@ def test_record_export_populates_initiated_by_run(
     finally:
         ln.context._run = None
         artifact.delete(permanent=True)
-
-
-def test_to_artifact_with_duplicate_linked_record_names():
-    """Sheet export round-trip resolves Record links by row uid, not ambiguous names."""
-    pooled_sample_type = ln.Record(name="PooledSampleDupNameTest", is_type=True).save()
-    sample_a = ln.Record(name="poolsample1", type=pooled_sample_type).save()
-    sample_b = ln.Record(type=pooled_sample_type).save()
-    sample_b.name = "poolsample1"
-    sample_b.save()
-    assert sample_a.id != sample_b.id
-
-    sample_feature = ln.Feature(
-        name="dup_name_pooled_sample", dtype=pooled_sample_type
-    ).save()
-    fastq_feature = ln.Feature(name="dup_name_fastq_1", dtype=str).save()
-    schema = ln.Schema(
-        name="duplicate sample names schema",
-        features=[sample_feature, fastq_feature],
-    ).save()
-    sheet_type = ln.Record(name="DuplicateNameSheetType", is_type=True).save()
-    sheet = ln.Record(
-        name="duplicate name sheet",
-        is_type=True,
-        type=sheet_type,
-        schema=schema,
-    ).save()
-
-    row_a = ln.Record(type=sheet).save()
-    row_b = ln.Record(type=sheet).save()
-    ln.models.RecordRecord(record=row_a, feature=sample_feature, value=sample_a).save()
-    ln.models.RecordRecord(record=row_b, feature=sample_feature, value=sample_b).save()
-    ln.models.RecordJson(record=row_a, feature=fastq_feature, value="read_a").save()
-    ln.models.RecordJson(record=row_b, feature=fastq_feature, value="read_b").save()
-
-    df = sheet.to_dataframe()
-    assert df["dup_name_pooled_sample"].tolist() == ["poolsample1", "poolsample1"]
-    assert set(df["__lamindb_record_uid__"]) == {row_a.uid, row_b.uid}
-
-    artifact = sheet.to_artifact()
-    try:
-        assert artifact.schema is sheet.schema
-        linked_sample_uids = {
-            record.uid
-            for record in artifact.records.all()
-            if record.type_id == pooled_sample_type.id
-        }
-        assert linked_sample_uids == {sample_a.uid, sample_b.uid}
-    finally:
-        export_run = artifact.run
-        artifact.delete(permanent=True)
-        if export_run is not None:
-            export_run.delete(permanent=True)
-        row_a.delete(permanent=True)
-        row_b.delete(permanent=True)
-        sheet.delete(permanent=True)
-        sheet_type.delete(permanent=True)
-        schema.delete(permanent=True)
-        sample_feature.delete(permanent=True)
-        fastq_feature.delete(permanent=True)
-        sample_a.delete(permanent=True)
-        sample_b.delete(permanent=True)
-        pooled_sample_type.delete(permanent=True)
