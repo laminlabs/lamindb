@@ -177,74 +177,6 @@ Returns:
 LAMINDB_COLUMN_PREFIX_REGEX = r"^__lamindb_.*$"
 
 
-def _resolve_record_categorical_from_sheet_export(
-    cat_vector: CatVector,
-    str_values: list[str],
-) -> tuple[list[str], SQLRecordList, list[str]] | None:
-    """Resolve Record categoricals from existing DB links when sheet row uids are present."""
-    if cat_vector.feature is None or cat_vector._cat_manager is None:
-        return None
-    if cat_vector._registry.__name__ != "Record":
-        return None
-    if cat_vector.feature.pk is None:
-        return None
-
-    dataset = cat_vector._cat_manager._dataset
-    if not isinstance(dataset, pd.DataFrame):
-        return None
-
-    from lamindb.models.query_set import (
-        encode_lamindb_fields_as_columns,
-        get_default_branch_ids,
-    )
-    from lamindb.models.record import Record as RecordModel
-    from lamindb.models.record import RecordRecord
-
-    uid_col = encode_lamindb_fields_as_columns(RecordModel, "uid")
-    if not isinstance(uid_col, str) or uid_col not in dataset.columns:
-        return None
-
-    row_uids = dataset[uid_col].dropna().astype(str).unique().tolist()
-    if not row_uids:
-        return None
-
-    branch_ids = get_default_branch_ids()
-    links = RecordRecord.objects.filter(
-        record__uid__in=row_uids,
-        record__branch_id__in=branch_ids,
-        feature_id=cat_vector.feature.id,
-        value__branch_id__in=branch_ids,
-    ).select_related("value", "value__type")
-    if cat_vector._type_uid:
-        links = links.filter(value__type__uid=cat_vector._type_uid)
-    if cat_vector._filter_kwargs:
-        value_filters = {}
-        for key, val in cat_vector._filter_kwargs.items():
-            if isinstance(val, SQLRecord):
-                value_filters[f"value__{key}_id"] = val.id
-            else:
-                value_filters[f"value__{key}"] = val
-        links = links.filter(**value_filters)
-
-    records_by_id: dict[int, SQLRecord] = {}
-    linked_field_values: set[str] = set()
-    field_name = cat_vector._field_name
-    for link in links:
-        record = link.value
-        records_by_id[record.id] = record
-        field_value = getattr(record, field_name, None)
-        if field_value is not None:
-            linked_field_values.add(field_value)
-
-    if not records_by_id:
-        return None
-
-    records = SQLRecordList(records_by_id.values())
-    validated_values = [v for v in str_values if v in linked_field_values]
-    non_validated_values = [v for v in str_values if v not in linked_field_values]
-    return validated_values, records, non_validated_values
-
-
 class Curator:
     """Curator base class.
 
@@ -1590,14 +1522,6 @@ class CatVector:
             validated_values = str_values  # type: ignore
             return validated_values, []
 
-        sheet_export_result = _resolve_record_categorical_from_sheet_export(
-            self, str_values
-        )
-        if sheet_export_result is not None:
-            validated_values, records, remaining_values = sheet_export_result
-            self.records = records
-            return validated_values, remaining_values
-
         # get all field specs for union types
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
@@ -1605,7 +1529,7 @@ class CatVector:
             results = [None]
 
         all_validated = []
-        all_records: list[SQLRecord] = []
+        all_records = []
         remaining_values = str_values
 
         for result in results:
