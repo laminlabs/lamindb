@@ -553,15 +553,17 @@ def test_record_export_populates_initiated_by_run(
 
 def test_to_artifact_with_duplicate_linked_record_names():
     """Sheet export round-trip resolves Record links by row uid, not ambiguous names."""
-    pooled_sample_type = ln.Record(name="PooledSample", is_type=True).save()
+    pooled_sample_type = ln.Record(name="PooledSampleDupNameTest", is_type=True).save()
     sample_a = ln.Record(name="poolsample1", type=pooled_sample_type).save()
     sample_b = ln.Record(type=pooled_sample_type).save()
     sample_b.name = "poolsample1"
     sample_b.save()
     assert sample_a.id != sample_b.id
 
-    sample_feature = ln.Feature(name="sample", dtype=pooled_sample_type).save()
-    fastq_feature = ln.Feature(name="fastq_1", dtype=str).save()
+    sample_feature = ln.Feature(
+        name="dup_name_pooled_sample", dtype=pooled_sample_type
+    ).save()
+    fastq_feature = ln.Feature(name="dup_name_fastq_1", dtype=str).save()
     schema = ln.Schema(
         name="duplicate sample names schema",
         features=[sample_feature, fastq_feature],
@@ -582,7 +584,7 @@ def test_to_artifact_with_duplicate_linked_record_names():
     ln.models.RecordJson(record=row_b, feature=fastq_feature, value="read_b").save()
 
     df = sheet.to_dataframe()
-    assert df["sample"].tolist() == ["poolsample1", "poolsample1"]
+    assert df["dup_name_pooled_sample"].tolist() == ["poolsample1", "poolsample1"]
     assert set(df["__lamindb_record_uid__"]) == {row_a.uid, row_b.uid}
 
     artifact = sheet.to_artifact()
