@@ -129,6 +129,57 @@ def test_record_lazy_features_on_save():
     score_feature.delete(permanent=True)
 
 
+def test_record_from_dataframe_partial_null_bool_int_degradation():
+    """Reproduces internal dtype degradation in Record.from_dataframe().
+
+    The user supplies correctly-typed nullable columns (boolean / Int64), but on
+    .save() the chop-reglue (_build_records drops the null cell, then
+    pd.DataFrame(prepared_rows) backfills NaN and re-infers) degrades them to
+    object / float64, so validation fails even though the input was valid.
+
+    Asserts the buggy failure for now; flip to a successful save + round-trip
+    once the fix lands.
+    """
+    flag = ln.Feature(name="from-df-flag", dtype=bool).save()
+    count = ln.Feature(name="from-df-count", dtype=int).save()
+    label = ln.Feature(name="from-df-label", dtype=str).save()
+    schema = ln.Schema([flag, count, label], name="from-df-bool-int-schema").save()
+    sheet = ln.Record(name="from-df-bool-int-sheet", is_type=True, schema=schema).save()
+
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-a", "from-df-b", "from-df-c"],
+            "from-df-flag": pd.array([True, None, False], dtype="boolean"),
+            "from-df-count": pd.array([1, None, 3], dtype="Int64"),
+            "from-df-label": ["a", "b", "c"],
+        }
+    )
+
+    # the supplied dtypes are genuinely correct/nullable
+    assert df["from-df-flag"].dtype.name == "boolean"
+    assert df["from-df-count"].dtype.name == "Int64"
+
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
+        ln.Record.from_dataframe(df, type=sheet).save()
+    # the message proves lamindb degraded the dtypes internally: we passed
+    # boolean/Int64 but the curator reports object / float64
+    assert "Column 'from-df-flag' failed dtype check for 'bool': got object" in str(
+        excinfo.value
+    )
+    assert "Column 'from-df-count' failed dtype check for 'int': got float64" in str(
+        excinfo.value
+    )
+
+    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-bool-int-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    flag.delete(permanent=True)
+    count.delete(permanent=True)
+    label.delete(permanent=True)
+
+
 def test_record_from_dataframe_bulk_save_paths():
     score = ln.Feature(name="from-df-score", dtype=float).save()
     schema = ln.Schema([score], name="from-df-schema").save()
