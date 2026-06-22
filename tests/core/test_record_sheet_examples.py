@@ -1,5 +1,6 @@
 import re
 
+import bionty as bt
 import lamindb as ln
 import pandas as pd
 from lamindb.examples.fixtures.sheets import (
@@ -187,6 +188,58 @@ Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
             ("uid", "str", None),
         ],
     )
+
+    # Two linked Treatment records can share a display name; indexed export resolves
+    # by schema index (df.index), not __lamindb_record_uid__.
+    treatment_feature = ln.Feature.get(name="treatment")
+    cell_line_feature = ln.Feature.get(name="cell_line")
+    hek293t = bt.CellLine.filter(name="HEK293T").one()
+    treatment_dup_a = ln.Record(name="shared_treatment", type=treatments_sheet).save()
+    treatment_dup_b = ln.Record(type=treatments_sheet).save()
+    treatment_dup_b.name = "shared_treatment"
+    treatment_dup_b.save()
+    row_a = ln.Record(name="Sample 3", type=sample_sheet1).save()
+    row_b = ln.Record(name="Sample 4", type=sample_sheet1).save()
+    artifact_dup = None
+    try:
+        ln.models.RecordRecord(
+            record=row_a, feature=treatment_feature, value=treatment_dup_a
+        ).save()
+        ln.models.RecordRecord(
+            record=row_b, feature=treatment_feature, value=treatment_dup_b
+        ).save()
+        bt.models.RecordCellLine(
+            record=row_a, feature=cell_line_feature, value=hek293t
+        ).save()
+        bt.models.RecordCellLine(
+            record=row_b, feature=cell_line_feature, value=hek293t
+        ).save()
+
+        dup_rows = sample_sheet1.to_dataframe()
+        dup_rows = dup_rows[dup_rows["treatment"] == "shared_treatment"]
+        assert len(dup_rows) == 2
+        assert set(dup_rows.index) == {"Sample 3", "Sample 4"}
+        assert not any(col.startswith("__lamindb_record_") for col in dup_rows.columns)
+
+        artifact_dup = sample_sheet1.to_artifact()
+        linked_treatment_uids = {
+            record.uid
+            for record in artifact_dup.records.all()
+            if record.name == "shared_treatment"
+        }
+        assert linked_treatment_uids == {treatment_dup_a.uid, treatment_dup_b.uid}
+    finally:
+        if artifact_dup is not None:
+            export_run_dup = artifact_dup.run
+            artifact_dup.delete(permanent=True)
+            if export_run_dup is not None:
+                export_run_dup.delete(permanent=True)
+        row_a.delete(permanent=True)
+        row_b.delete(permanent=True)
+        treatment_dup_a.delete(permanent=True)
+        treatment_dup_b.delete(permanent=True)
+        assert sample_sheet1.records.count() == 2
+
     # re-run the export which triggers hash lookup
     artifact2 = sample_sheet1.to_artifact()
     # soft-delete a record in the sheet
@@ -285,44 +338,59 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
 
     row_a = ln.Record(type=nextflow_sheet).save()
     row_b = ln.Record(type=nextflow_sheet).save()
-    ln.models.RecordRecord(
-        record=row_a, feature=features.sample, value=sample_dup_a
-    ).save()
-    ln.models.RecordRecord(
-        record=row_b, feature=features.sample, value=sample_dup_b
-    ).save()
-    ln.models.RecordJson(record=row_a, feature=features.fastq_1, value="read_a").save()
-    ln.models.RecordJson(record=row_b, feature=features.fastq_1, value="read_b").save()
-    ln.models.RecordJson(
-        record=row_a, feature=features.expected_cells, value=5000
-    ).save()
-    ln.models.RecordJson(
-        record=row_b, feature=features.expected_cells, value=5000
-    ).save()
+    artifact_dup = None
+    try:
+        ln.models.RecordRecord(
+            record=row_a, feature=features.sample, value=sample_dup_a
+        ).save()
+        ln.models.RecordRecord(
+            record=row_b, feature=features.sample, value=sample_dup_b
+        ).save()
+        ln.models.RecordJson(
+            record=row_a, feature=features.fastq_1, value="read_a"
+        ).save()
+        ln.models.RecordJson(
+            record=row_b, feature=features.fastq_1, value="read_b"
+        ).save()
+        ln.models.RecordJson(
+            record=row_a, feature=features.expected_cells, value=5000
+        ).save()
+        ln.models.RecordJson(
+            record=row_b, feature=features.expected_cells, value=5000
+        ).save()
 
-    dup_rows = nextflow_sheet.to_dataframe()
-    dup_rows = dup_rows[dup_rows["sample"] == "poolsample1"]
-    assert len(dup_rows) == 2
-    assert set(dup_rows["__lamindb_record_uid__"]) == {row_a.uid, row_b.uid}
+        dup_rows = nextflow_sheet.to_dataframe()
+        dup_rows = dup_rows[dup_rows["sample"] == "poolsample1"]
+        assert len(dup_rows) == 2
+        assert set(dup_rows["__lamindb_record_uid__"]) == {row_a.uid, row_b.uid}
 
-    artifact_dup = nextflow_sheet.to_artifact()
-    linked_poolsample_uids = {
-        record.uid
-        for record in artifact_dup.records.all()
-        if record.name == "poolsample1"
-    }
-    assert linked_poolsample_uids == {sample_dup_a.uid, sample_dup_b.uid}
-    artifact_dup.delete(permanent=True)
-    row_a.delete(permanent=True)
-    row_b.delete(permanent=True)
-    sample_dup_a.delete(permanent=True)
-    sample_dup_b.delete(permanent=True)
+        artifact_dup = nextflow_sheet.to_artifact()
+        linked_poolsample_uids = {
+            record.uid
+            for record in artifact_dup.records.all()
+            if record.name == "poolsample1"
+        }
+        assert linked_poolsample_uids == {sample_dup_a.uid, sample_dup_b.uid}
+    finally:
+        if artifact_dup is not None:
+            export_run_dup = artifact_dup.run
+            artifact_dup.delete(permanent=True)
+            if export_run_dup is not None:
+                export_run_dup.delete(permanent=True)
+        row_a.delete(permanent=True)
+        row_b.delete(permanent=True)
+        sample_dup_a.delete(permanent=True)
+        sample_dup_b.delete(permanent=True)
+        assert nextflow_sheet.records.count() == 3
 
     related_schemas = list(artifact.schemas.all())
     artifact.schemas.clear()
     for schema in related_schemas:
         schema.delete(permanent=True)
+    export_run = artifact.run
     artifact.delete(permanent=True)
+    if export_run is not None:
+        export_run.delete(permanent=True)
 
 
 def test_record_soft_deleted_recreate():
