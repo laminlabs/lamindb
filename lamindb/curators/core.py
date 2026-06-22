@@ -177,6 +177,159 @@ Returns:
 LAMINDB_COLUMN_PREFIX_REGEX = r"^__lamindb_.*$"
 
 
+def _resolve_record_categorical_from_sheet_export(
+    cat_vector: CatVector,
+    str_values: list[str],
+) -> tuple[list[str], SQLRecordList, list[str]] | None:
+    """Resolve linked ``Record`` categoricals during sheet export round-trips.
+
+    Background
+    ----------
+    Sheet rows can link to other :class:`~lamindb.Record` objects through features
+    with dtypes like ``cat[Record[BioSample].name]``. On export, only the linked
+    record's *display field* (usually ``name``) is written into the dataframe column
+    — not the linked record's uid.
+
+    When validating that export dataframe again (e.g. ``sheet.to_artifact()``), the
+    default categorical resolver looks up registry values **globally by name**. If two
+    different linked records share the same display name (e.g. two BioSamples both
+    named ``poolsample1``), that lookup is ambiguous and raises
+    :class:`~lamindb.errors.ValidationError`.
+
+    This helper avoids global name matching when the dataframe still carries enough
+    information to identify **which sheet row** each value came from. It resolves
+    linked records through existing :class:`~lamindb.models.record.RecordRecord` rows
+    in the database instead.
+
+    Row keys (two export shapes)
+    ----------------------------
+    Sheets **without** :attr:`~lamindb.Schema.index` include encoded metadata columns
+    on export::
+
+        sample,fastq_1,...,__lamindb_record_uid__
+        poolsample1,read_a,...,L2iXQt4UoivWTSut
+
+    Sheets **with** ``Schema.index`` omit ``__lamindb_record_*`` columns; the index
+    feature becomes ``df.index`` (values are stored on ``Record.name``)::
+
+        name,treatment,cell_line
+        Sample 1,treatment1,HEK293T
+
+    This function detects which shape applies and queries ``RecordRecord`` with the
+    matching row key:
+
+    - **No index**: ``record__uid__in`` from ``__lamindb_record_uid__``.
+    - **With index**: ``record__name__in`` from ``df.index`` (or the index column),
+      scoped to sheet types registered on the validating schema
+      (``Record.filter(is_type=True, schema_id=...)``). Index names are only unique
+      within a sheet, so the type filter is required.
+
+    What this does *not* do
+    -----------------------
+    - Does not add uid columns to exports; row keys come from the existing export
+      layout.
+    - Does not replace dtype-based validation — dtype still defines *what* to validate.
+    - Returns ``None`` for external dataframes without row keys, so normal global name
+      lookup proceeds unchanged.
+
+    Args:
+        cat_vector: Categorical being validated; must be a ``Record`` registry feature.
+        str_values: Distinct string values observed in the dataframe column.
+
+    Returns:
+        ``(validated_values, linked_records, non_validated_values)`` when row keys are
+        present and matching DB links exist; otherwise ``None`` (fall back to default
+        validation).
+    """
+    if cat_vector.feature is None or cat_vector._cat_manager is None:
+        return None
+    if cat_vector._registry.__name__ != "Record":
+        return None
+    if cat_vector.feature.pk is None:
+        return None
+
+    dataset = cat_vector._cat_manager._dataset
+    if not isinstance(dataset, pd.DataFrame):
+        return None
+
+    from lamindb.models.query_set import (
+        encode_lamindb_fields_as_columns,
+        get_default_branch_ids,
+    )
+    from lamindb.models.record import Record as RecordModel
+    from lamindb.models.record import RecordRecord
+
+    row_record_filter: dict[str, Any] = {}
+    uid_col = encode_lamindb_fields_as_columns(RecordModel, "uid")
+    if isinstance(uid_col, str) and uid_col in dataset.columns:
+        row_uids = dataset[uid_col].dropna().astype(str).unique().tolist()
+        if not row_uids:
+            return None
+        row_record_filter["record__uid__in"] = row_uids
+    else:
+        cat_manager = cat_vector._cat_manager
+        index_feature = cat_manager._index
+        schema = cat_manager._schema
+        if index_feature is None or schema is None or schema.id is None:
+            return None
+
+        index_name = index_feature.name
+        if dataset.index.name == index_name and not isinstance(
+            dataset.index, pd.RangeIndex
+        ):
+            index_values = dataset.index.dropna().astype(str).unique().tolist()
+        elif index_name in dataset.columns:
+            index_values = dataset[index_name].dropna().astype(str).unique().tolist()
+        else:
+            return None
+        if not index_values:
+            return None
+
+        sheet_type_ids = list(
+            RecordModel.objects.filter(is_type=True, schema_id=schema.id).values_list(
+                "id", flat=True
+            )
+        )
+        if not sheet_type_ids:
+            return None
+        row_record_filter["record__name__in"] = index_values
+        row_record_filter["record__type_id__in"] = sheet_type_ids
+
+    branch_ids = get_default_branch_ids()
+    links = RecordRecord.objects.filter(
+        **row_record_filter,
+        record__branch_id__in=branch_ids,
+        feature_id=cat_vector.feature.id,
+        value__branch_id__in=branch_ids,
+    ).select_related("value", "value__type")
+    if cat_vector._filter_kwargs:
+        value_filters = {}
+        for key, val in cat_vector._filter_kwargs.items():
+            if isinstance(val, SQLRecord):
+                value_filters[f"value__{key}_id"] = val.id
+            else:
+                value_filters[f"value__{key}"] = val
+        links = links.filter(**value_filters)
+
+    records_by_id: dict[int, SQLRecord] = {}
+    linked_field_values: set[str] = set()
+    field_name = cat_vector._field_name
+    for link in links:
+        record = link.value
+        records_by_id[record.id] = record
+        field_value = getattr(record, field_name, None)
+        if field_value is not None:
+            linked_field_values.add(field_value)
+
+    if not records_by_id:
+        return None
+
+    records = SQLRecordList(records_by_id.values())
+    validated_values = [v for v in str_values if v in linked_field_values]
+    non_validated_values = [v for v in str_values if v not in linked_field_values]
+    return validated_values, records, non_validated_values
+
+
 class Curator:
     """Curator base class.
 
@@ -1522,6 +1675,14 @@ class CatVector:
             validated_values = str_values  # type: ignore
             return validated_values, []
 
+        sheet_export_result = _resolve_record_categorical_from_sheet_export(
+            self, str_values
+        )
+        if sheet_export_result is not None:
+            validated_values, records, remaining_values = sheet_export_result
+            self.records = records
+            return validated_values, remaining_values
+
         # get all field specs for union types
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
@@ -1529,7 +1690,7 @@ class CatVector:
             results = [None]
 
         all_validated = []
-        all_records = []
+        all_records: list[SQLRecord] = []
         remaining_values = str_values
 
         for result in results:
@@ -1850,6 +2011,7 @@ class DataFrameCatManager:
     ) -> None:
         self._non_validated = None
         self._index = index
+        self._schema = schema
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = df  # pass the dataset as an AnyPathStr or data object
         if isinstance(self._dataset, Artifact):
