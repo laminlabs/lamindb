@@ -1538,3 +1538,48 @@ def test_record_features_accept_feature_object_keys():
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+def test_categorical_value_stored_as_json_raises_on_read():
+    # A categorical (cat[...]) feature value belongs in a relational link table
+    # such as RecordRecord, never in the JSON link table (RecordJson). If it ends
+    # up in RecordJson -- e.g. by bypassing the validated API as could happen when
+    # validation fails -- reading the record must surface the invalid entry loudly
+    # instead of silently displaying it (which is what the Hub UI hides).
+    from lamindb.models.record import RecordJson
+
+    species_type = ln.Record(name="SpeciesTypeForJsonGuard", is_type=True).save()
+    human = ln.Record(name="HumanForJsonGuard", type=species_type).save()
+    species = ln.Feature(name="species_json_guard", dtype=species_type).save()
+    assert species.dtype.startswith("cat[Record[")
+
+    sample = ln.Record(name="SampleForJsonGuard").save()
+
+    # bypass the validated API: write the categorical value straight into the JSON
+    # link table as a bare string, the way the reported corruption was created
+    RecordJson(record=sample, feature=species, value="HumanForJsonGuard").save()
+
+    expected_error = (
+        "invalid entry for feature 'species_json_guard': it has the categorical "
+        "dtype 'cat[Record[SpeciesTypeForJsonGuard]]', so its value must be stored "
+        "as a relational link (in a link table such as RecordRecord), but the value "
+        "'HumanForJsonGuard' was found stored as raw JSON in the RecordJson link "
+        "table. This typically happens when a value is written without going through "
+        "the validated API. Fix it by re-writing the value via the validated API, "
+        "e.g.\n    record.features.set_values({'species_json_guard': <value>})"
+    )
+
+    # validation-on-read: get_values() must raise rather than return the bad value
+    with pytest.raises(ln.errors.ValidationError) as exc_info:
+        sample.features.get_values()
+    assert str(exc_info.value) == expected_error
+
+    # describe() reads the same path and must also raise the same error
+    with pytest.raises(ln.errors.ValidationError) as exc_info:
+        sample.describe(return_str=True)
+    assert str(exc_info.value) == expected_error
+
+    sample.delete(permanent=True)
+    species.delete(permanent=True)
+    human.delete(permanent=True)
+    species_type.delete(permanent=True)
