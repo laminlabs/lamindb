@@ -467,27 +467,36 @@ def test_create_or_load_transform():
     context.version = version
     context._path = Path("my-test-transform-create-or-load.py")
     context._path.touch(exist_ok=True)
-    context._create_or_load_transform(
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
         description=title,
         transform_kind="notebook",
+        uid=context.uid,
+        version=context.version,
     )
-    assert context._transform.uid == uid
-    assert context._transform.version_tag == version
-    assert context._transform.description == title
-    context._create_or_load_transform(
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == title
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
         description=title,
+        uid=context.uid,
+        version=context.version,
     )
-    assert context._transform.uid == uid
-    assert context._transform.version_tag == version
-    assert context._transform.description == title
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == title
 
     # now, test an updated transform name
-    context._create_or_load_transform(
+    transform, _ = ln.Transform._create_or_load_from_source(
+        path=context._path,
         description="updated title",
+        uid=context.uid,
+        version=context.version,
     )
-    assert context._transform.uid == uid
-    assert context._transform.version_tag == version
-    assert context._transform.description == "updated title"
+    assert transform.uid == uid
+    assert transform.version_tag == version
+    assert transform.description == "updated title"
 
     # unset to remove side effects
     ln.context._uid = None
@@ -510,8 +519,10 @@ def test_create_or_load_transform_warns_when_outside_dev_dir(
         ln_setup.settings.dev_dir.mkdir(exist_ok=True)
         ccaplog.clear()
         context._path = path_outside_dev_dir
-        context._create_or_load_transform(description="outside dev dir warning test")
-        transform = context._transform
+        transform, _ = ln.Transform._create_or_load_from_source(
+            path=context._path,
+            description="outside dev dir warning test",
+        )
         assert "falling back to using filename as transform key" in ccaplog.text
         assert transform.key == expected_key
     finally:

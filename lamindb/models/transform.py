@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING, overload
 
+import lamindb_setup as ln_setup
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
+from django.db.models import CASCADE, PROTECT, Func, IntegerField, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
@@ -18,8 +21,15 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 
 from .._secret_redaction import redact_secrets_in_source_code
+from ..base.uids import base62_12
+from ..errors import InvalidArgument, UpdateContext
 from ..models._is_versioned import process_revises
-from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from ._is_versioned import (
+    IsVersioned,
+    _adjust_is_latest_when_deleting_is_versioned,
+    increment_base62,
+)
+from ._is_versioned import bump_version as bump_version_function
 from .run import Run, TracksRun, User
 from .sqlrecord import (
     BaseSQLRecord,
@@ -34,7 +44,6 @@ from .sqlrecord import (
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from pathlib import Path
 
     from lamindb.base.types import TransformKind
 
@@ -95,6 +104,17 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         @ln.step()
         def my_step():
             print("One step!")
+
+    Create a transform from a local script or notebook path::
+
+        transform = ln.Transform.from_path("scripts/my_workflow.py").save()
+
+    Create a transform from a file in a git repository::
+
+        transform = ln.Transform.from_git(
+            url="https://github.com/openproblems-bio/task_batch_integration",
+            path="main.nf",
+        ).save()
 
     Create a transform for a pipeline::
 
@@ -381,6 +401,368 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             _refresh_revises_if_stale=refresh_revises_if_stale,
             **space_branch_kwargs,
         )
+
+    @classmethod
+    def _process_aux_transform_for_source(
+        cls,
+        aux_transform: Transform,
+        transform_hash: str | None,
+        notebook_runner: str | None = None,
+    ) -> tuple[str, Transform | None, str]:
+        message = ""
+        if (
+            aux_transform.source_code is None
+            and aux_transform.created_by_id == ln_setup.settings.user.id
+        ) or (
+            aux_transform.hash == transform_hash
+            and (aux_transform.kind != "notebook" or notebook_runner == "nbconvert")
+        ):
+            uid = aux_transform.uid
+            return uid, aux_transform, message
+        uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
+        message = f"found {aux_transform.kind} {aux_transform.key}, making new version"
+        if aux_transform.hash == transform_hash and aux_transform.kind == "notebook":
+            message += " -- anticipating changes"
+        elif aux_transform.created_by_id != ln_setup.settings.user.id:
+            message += (
+                f" -- {aux_transform.created_by.handle} already works on this draft"
+            )
+        return uid, None, message
+
+    @classmethod
+    def _create_or_load_from_source(
+        cls,
+        *,
+        path: Path | None = None,
+        description: str | None = None,
+        transform_ref: str | None = None,
+        transform_ref_type: str | None = None,
+        transform_kind: TransformKind | None = None,
+        key: str | None = None,
+        source_code: str | None = None,
+        uid: str | None = None,
+        version: str | None = None,
+        notebook_runner: str | None = None,
+    ) -> tuple[Transform, str]:
+        from .._finish import notebook_to_script
+        from ..core._settings import settings
+
+        source_code_to_store = source_code
+        if source_code is not None:
+            source_code_to_store, redaction_count = redact_secrets_in_source_code(
+                source_code
+            )
+            if redaction_count > 0:
+                logger.warning(
+                    f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+                )
+            transform_hash = hash_string(source_code)
+        else:
+            assert path is not None  # noqa: S101
+            if path.suffix != ".ipynb":
+                _, transform_hash, _ = hash_file(path)
+            else:
+                source_code_path = ln_setup.settings.cache_dir / path.name.replace(
+                    ".ipynb", ".py"
+                )
+                if path.exists():
+                    notebook_to_script(description, path, source_code_path)
+                    _, transform_hash, _ = hash_file(source_code_path)
+                else:
+                    logger.debug(
+                        "skipping notebook hash comparison, notebook kernel running on a different machine"
+                    )
+                    transform_hash = None
+
+        aux_transform = (
+            cls.filter(hash=transform_hash).first()
+            if transform_hash is not None
+            else None
+        )
+
+        if key is None:
+            assert path is not None  # noqa: S101
+            if ln_setup.settings.dev_dir is not None:
+                try:
+                    key = path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                except ValueError as e:
+                    if "subpath" in str(e):
+                        logger.warning(
+                            f"path {path} is not within the configured dev directory "
+                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
+                            f"('{path.name}')"
+                        )
+                        key = path.name
+                    else:
+                        raise
+            else:
+                key = path.name
+
+        if (
+            path is not None
+            and transform_ref is None
+            and transform_ref_type is None
+            and settings.sync_git_repo is not None
+            and path.suffix != ".ipynb"
+        ):
+            from ..core._sync_git import get_transform_reference_from_git_repo
+
+            transform_ref = get_transform_reference_from_git_repo(path)
+            transform_ref_type = "url"
+
+        if uid is None and aux_transform is None:
+
+            class SlashCount(Func):
+                template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
+                output_field = IntegerField()
+
+            transforms = (
+                cls.filter(key__endswith=key, is_latest=True)
+                .annotate(slash_count=SlashCount("key"))
+                .order_by("-slash_count")
+            )
+            resolved_uid = f"{base62_12()}0000"
+            target_transform = None
+            if len(transforms) != 0:
+                message = ""
+                found_key = False
+                if path is not None:
+                    for candidate in transforms:
+                        if candidate.key in path.as_posix():
+                            key = candidate.key
+                            resolved_uid, target_transform, message = (
+                                cls._process_aux_transform_for_source(
+                                    candidate, transform_hash, notebook_runner
+                                )
+                            )
+                            found_key = True
+                            break
+                if not found_key:
+                    plural_s = "s" if len(transforms) > 1 else ""
+                    transforms_str = "\n".join(
+                        [
+                            f"    {transform.uid} → {transform.key}"
+                            for transform in transforms
+                        ]
+                    )
+                    message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
+                if message != "":
+                    logger.important(message)
+            resolved_uid, transform = resolved_uid, target_transform
+        elif uid is not None and len(uid) == 16:
+            resolved_uid = uid
+            transform = cls.filter(uid=uid).one_or_none()
+        else:
+            if uid is not None:
+                if len(uid) != 12:
+                    raise InvalidArgument(
+                        f'Please pass an auto-generated uid instead of "{uid}". Resolve by running: ln.track("{base62_12()}")'
+                    )
+                aux_transform = (
+                    cls.filter(uid__startswith=uid).order_by("-created_at").first()
+                )
+            else:
+                if aux_transform is not None and not aux_transform.key.endswith(key):
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_kind} to {key} (1) or intentionally made a copy (2)?"
+                    response = (
+                        "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
+                    )
+                    assert response in {"1", "2"}, (  # noqa: S101
+                        f"Please respond with either 1 or 2, not {response}"
+                    )
+                    if response == "2":
+                        aux_transform, transform_hash = None, None
+            if aux_transform is not None:
+                resolved_uid, target_transform, message = (
+                    cls._process_aux_transform_for_source(
+                        aux_transform, transform_hash, notebook_runner
+                    )
+                )
+                if message != "":
+                    logger.important(message)
+            else:
+                resolved_uid = f"{uid}0000" if uid is not None else None
+                target_transform = None
+            transform = target_transform
+
+        if version is not None:
+            if (
+                transform is not None
+                and transform.version_tag is not None
+                and version != transform.version_tag
+            ):
+                raise ValueError(
+                    f"Transform is already tagged with version {transform.version_tag}, but you passed {version}\n"
+                    f"If you want to update the transform version, set it outside ln.track(): transform.version_tag = '{version}'; transform.save()"
+                )
+            if resolved_uid is not None and len(resolved_uid) == 16:
+                suid, vuid = (resolved_uid[:-4], resolved_uid[-4:])
+                versioned_transform = cls.filter(
+                    uid__startswith=suid, version_tag=version
+                ).one_or_none()
+                if (
+                    versioned_transform is not None
+                    and vuid != versioned_transform.uid[-4:]
+                ):
+                    better_version = bump_version_function(version)
+                    raise SystemExit(
+                        f"✗ version '{version}' is already taken by Transform('{versioned_transform.uid}'); please set another version, e.g., ln.context.version = '{better_version}'"
+                    )
+
+        if transform is None:
+            assert key is not None  # noqa: S101
+            transform = cls(  # type: ignore
+                uid=resolved_uid,
+                version_tag=version,
+                description=description,
+                key=key,
+                reference=transform_ref,
+                reference_type=transform_ref_type,
+                kind=transform_kind,
+                source_code=source_code_to_store,
+                skip_hash_lookup=source_code is not None,
+            )
+            if source_code is not None:
+                transform.hash = transform_hash
+            transform = transform.save()
+            logging_message = (
+                f"created Transform('{transform.uid}', key='{transform.key}')"
+            )
+        else:
+            uid_for_error = transform.uid
+            transform_was_saved = transform.source_code is not None
+            if transform.key != key:
+                logging_message = f"renaming transform {transform.key} to {key}"
+                transform.key = key
+                transform.save()
+            elif transform.description != description and description is not None:
+                transform.description = description
+                transform.save()
+                logging_message = "updated transform description, "
+            elif (
+                transform.created_by_id != ln_setup.settings.user.id
+                and not transform_was_saved
+            ):
+                raise UpdateContext(
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.kind}.\n\nPlease create a revision via `ln.track("{uid_for_error[:-4]}{increment_base62(uid_for_error[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
+                )
+            else:
+                logging_message = ""
+            if transform.reference != transform_ref:
+                transform.reference = transform_ref
+                transform.reference_type = transform_ref_type
+                transform.save()
+                logging_message += "updated transform reference, "
+            if transform_was_saved:
+                bump_revision = False
+                if transform.kind == "notebook" and notebook_runner != "nbconvert":
+                    bump_revision = True
+                else:
+                    if transform_hash != transform.hash:
+                        bump_revision = True
+                    else:
+                        logging_message += f"loaded Transform('{transform.uid}', key='{transform.key}')"
+                if bump_revision:
+                    change_type = (
+                        "re-running notebook with already-saved source code"
+                        if (
+                            transform.kind == "notebook"
+                            and notebook_runner != "nbconvert"
+                        )
+                        else "source code changed"
+                    )
+                    raise UpdateContext(
+                        f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid_for_error[:-4]}{increment_base62(uid_for_error[-4:])}"'
+                    )
+            else:
+                logging_message += (
+                    f"loaded Transform('{transform.uid}', key='{transform.key}')"
+                )
+        return transform, logging_message
+
+    @classmethod
+    def _infer_from_file_metadata(
+        cls,
+        *,
+        path: Path,
+        key: str | None = None,
+        kind: TransformKind | None = None,
+    ) -> tuple[str, TransformKind, str | None, str | None]:
+        import lamindb_setup as ln_setup
+
+        from ..core._settings import settings
+
+        if kind is None:
+            kind = "notebook" if path.suffix in {".ipynb", ".Rmd", ".qmd"} else "script"
+        if key is None:
+            if ln_setup.settings.dev_dir is not None:
+                try:
+                    key = path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                except ValueError as e:
+                    if "subpath" in str(e):
+                        logger.warning(
+                            f"path {path} is not within the configured dev directory "
+                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
+                            f"('{path.name}')"
+                        )
+                        key = path.name
+                    else:
+                        raise
+            else:
+                key = path.name
+        reference = None
+        reference_type = None
+        if settings.sync_git_repo is not None and path.suffix != ".ipynb":
+            from ..core._sync_git import get_transform_reference_from_git_repo
+
+            reference = get_transform_reference_from_git_repo(path)
+            reference_type = "url"
+        return key, kind, reference, reference_type
+
+    @classmethod
+    def from_path(
+        cls,
+        path: str | Path,
+        key: str | None = None,
+        kind: TransformKind | None = None,
+        version: str | None = None,
+        description: str | None = None,
+        skip_hash_lookup: bool = False,
+    ) -> Transform:
+        """Create a transform from a local file path.
+
+        Args:
+            path: Path to a local script or notebook file.
+            key: Optional key for the transform.
+            kind: Optional kind override. If omitted, inferred from file suffix.
+            version: Optional version tag.
+            description: Optional description for the transform.
+            skip_hash_lookup: Skip hash-based lookup.
+
+        Notes:
+            Kind inference defaults to `"script"` and uses `"notebook"` for
+            `.ipynb`, `.Rmd`, and `.qmd` files.
+        """
+        path = Path(path)
+        inferred_key, inferred_kind, reference, reference_type = (
+            cls._infer_from_file_metadata(
+                path=path,
+                key=key,
+                kind=kind,
+            )
+        )
+        transform, logging_message = cls._create_or_load_from_source(
+            path=path,
+            description=description,
+            transform_ref=reference,
+            transform_ref_type=reference_type,
+            transform_kind=inferred_kind,
+            key=inferred_key,
+            version=version,
+        )
+        if logging_message:
+            logger.important(logging_message)
+        return transform
 
     @classmethod
     def from_git(
