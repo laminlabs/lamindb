@@ -11,7 +11,9 @@ def test_transform_from_file_infers_kind_and_key(tmp_path):
     script_path = tmp_path / f"workflow-{time.time_ns()}.py"
     script_path.write_text("print('hello')\n")
     notebook_path = tmp_path / f"analysis-{time.time_ns()}.ipynb"
-    notebook_path.write_text("{}\n")
+    notebook_path.write_text(
+        '{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}\n'
+    )
 
     script_transform = ln.Transform.from_file(script_path)
     notebook_transform = ln.Transform.from_file(notebook_path)
