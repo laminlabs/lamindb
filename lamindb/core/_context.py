@@ -1308,9 +1308,7 @@ class Context:
             if ln_setup.settings.instance.is_on_hub and not self._is_step_decorator_run:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url
-                logger.important(
-                    f"go to: {ui_url}/{instance_slug}/transform/{self.transform.uid}"
-                )
+                logger.important(f"go to: {ui_url}/{instance_slug}/run/{self.run.uid}")
             save_run_logs(self.run, save_run=True)
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish
