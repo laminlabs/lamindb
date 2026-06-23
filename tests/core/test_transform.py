@@ -7,7 +7,7 @@ import lamindb_setup as ln_setup
 import pytest
 
 
-def test_transform_from_file_infers_kind_and_key(tmp_path):
+def test_transform_from_path_infers_kind_and_key(tmp_path):
     script_path = tmp_path / f"workflow-{time.time_ns()}.py"
     script_path.write_text("print('hello')\n")
     notebook_path = tmp_path / f"analysis-{time.time_ns()}.ipynb"
@@ -15,8 +15,8 @@ def test_transform_from_file_infers_kind_and_key(tmp_path):
         '{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}\n'
     )
 
-    script_transform = ln.Transform.from_file(script_path)
-    notebook_transform = ln.Transform.from_file(notebook_path)
+    script_transform = ln.Transform.from_path(script_path)
+    notebook_transform = ln.Transform.from_path(notebook_path)
 
     assert script_transform.kind == "script"
     assert script_transform.key == script_path.name
@@ -24,14 +24,14 @@ def test_transform_from_file_infers_kind_and_key(tmp_path):
     assert notebook_transform.key == notebook_path.name
 
 
-def test_transform_from_file_uses_dev_dir_relative_key(tmp_path):
+def test_transform_from_path_uses_dev_dir_relative_key(tmp_path):
     previous_dev_dir = ln_setup.settings.dev_dir
     path_in_dev_dir = tmp_path / "pipelines" / f"wf-{time.time_ns()}.py"
     path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
     path_in_dev_dir.write_text("print('hello')\n")
     try:
         ln_setup.settings.dev_dir = tmp_path
-        transform = ln.Transform.from_file(path_in_dev_dir)
+        transform = ln.Transform.from_path(path_in_dev_dir)
         assert transform.key == f"pipelines/{path_in_dev_dir.name}"
     finally:
         ln_setup.settings.dev_dir = previous_dev_dir

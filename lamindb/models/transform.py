@@ -105,6 +105,17 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         def my_step():
             print("One step!")
 
+    Create a transform from a local script or notebook path::
+
+        transform = ln.Transform.from_path("scripts/my_workflow.py").save()
+
+    Create a transform from a file in a git repository::
+
+        transform = ln.Transform.from_git(
+            url="https://github.com/openproblems-bio/task_batch_integration",
+            path="main.nf",
+        ).save()
+
     Create a transform for a pipeline::
 
         transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
@@ -709,7 +720,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         return key, kind, reference, reference_type
 
     @classmethod
-    def from_file(
+    def from_path(
         cls,
         path: str | Path,
         key: str | None = None,
