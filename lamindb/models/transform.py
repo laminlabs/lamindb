@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -34,7 +35,6 @@ from .sqlrecord import (
 
 if TYPE_CHECKING:
     from datetime import datetime
-    from pathlib import Path
 
     from lamindb.base.types import TransformKind
 
@@ -380,6 +380,70 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             revises=revises,
             _refresh_revises_if_stale=refresh_revises_if_stale,
             **space_branch_kwargs,
+        )
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str | Path,
+        key: str | None = None,
+        kind: TransformKind | None = None,
+        version: str | None = None,
+        description: str | None = None,
+        skip_hash_lookup: bool = False,
+    ) -> Transform:
+        """Create a transform from a local file path.
+
+        Args:
+            path: Path to a local script or notebook file.
+            key: Optional key for the transform.
+            kind: Optional kind override. If omitted, inferred from file suffix.
+            version: Optional version tag.
+            description: Optional description for the transform.
+            skip_hash_lookup: Skip hash-based lookup.
+
+        Notes:
+            Kind inference defaults to `"script"` and uses `"notebook"` for
+            `.ipynb`, `.Rmd`, and `.qmd` files.
+        """
+        import lamindb_setup as ln_setup
+
+        from ..core._settings import settings
+
+        path = Path(path)
+        if kind is None:
+            kind = "notebook" if path.suffix in {".ipynb", ".Rmd", ".qmd"} else "script"
+        if key is None:
+            if ln_setup.settings.dev_dir is not None:
+                try:
+                    key = path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                except ValueError as e:
+                    if "subpath" in str(e):
+                        logger.warning(
+                            f"path {path} is not within the configured dev directory "
+                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
+                            f"('{path.name}')"
+                        )
+                        key = path.name
+                    else:
+                        raise
+            else:
+                key = path.name
+        reference = None
+        reference_type = None
+        if settings.sync_git_repo is not None and path.suffix != ".ipynb":
+            from ..core._sync_git import get_transform_reference_from_git_repo
+
+            reference = get_transform_reference_from_git_repo(path)
+            reference_type = "url"
+        return cls(
+            key=key,
+            kind=kind,
+            version=version,
+            description=description,
+            reference=reference,
+            reference_type=reference_type,
+            skip_hash_lookup=skip_hash_lookup,
         )
 
     @classmethod

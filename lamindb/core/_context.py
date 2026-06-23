@@ -59,6 +59,7 @@ def detect_and_process_source_code_file(
     *,
     path: str | Path | None,
     transform_kind: TransformKind | None = None,
+    infer_reference: bool = True,
 ) -> tuple[Path, TransformKind, str, str, str | None]:
     """Track source code file and determine transform metadata.
 
@@ -115,7 +116,11 @@ def detect_and_process_source_code_file(
         transform_kind = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
     reference = None
     reference_type = None
-    if settings.sync_git_repo is not None and path.suffix != ".ipynb":
+    if (
+        infer_reference
+        and settings.sync_git_repo is not None
+        and path.suffix != ".ipynb"
+    ):
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
     return path, transform_kind, reference, reference_type, key_from_module
@@ -684,8 +689,7 @@ class Context:
         cli_call = get_cli_call()
         if transform is None:
             description = None
-            transform_ref = None
-            transform_ref_type = None
+            file_transform: Transform | None = None
             if source_code is not None:
                 transform_kind = kind if kind is not None else "function"
                 assert key is not None, (
@@ -704,20 +708,36 @@ class Context:
                     (
                         self._path,
                         transform_kind,
-                        transform_ref,
-                        transform_ref_type,
+                        _,
+                        _,
                         key_from_module,
-                    ) = detect_and_process_source_code_file(path=path)
+                    ) = detect_and_process_source_code_file(
+                        path=path, infer_reference=False
+                    )
                     if key is None and key_from_module is not None:
                         key = key_from_module
+            if source_code is None and self._path is not None:
+                file_transform = Transform.from_file(
+                    path=self._path,
+                    key=key,
+                    kind=transform_kind,
+                )
+                key = file_transform.key
+                transform_kind = file_transform.kind
             if description is None:
                 description = self._description
             if description is None and cli_call is not None:
                 description = f"CLI: {cli_call[0]}"
             self._create_or_load_transform(
                 description=description,
-                transform_ref=transform_ref,
-                transform_ref_type=transform_ref_type,
+                transform_ref=file_transform.reference
+                if file_transform is not None
+                else None,
+                transform_ref_type=(
+                    file_transform.reference_type
+                    if file_transform is not None
+                    else None
+                ),
                 transform_kind=transform_kind,
                 key=key,
                 source_code=source_code,
