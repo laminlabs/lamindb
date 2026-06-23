@@ -546,9 +546,14 @@ def save_context_core(
         instance_slug = ln_setup.settings.instance.slug
         if save_source_code_and_report:
             ui_url = ln_setup.settings.instance.ui_url
-            logger.important(
-                f"{message_prefix}: {ui_url}/{instance_slug}/transform/{transform.uid}"
-            )
+            if run is not None:
+                logger.important(
+                    f"{message_prefix}: {ui_url}/{instance_slug}/run/{run.uid}"
+                )
+            else:
+                logger.important(
+                    f"{message_prefix}: {ui_url}/{instance_slug}/transform/{transform.uid}"
+                )
         if finished_at and not from_cli and save_source_code_and_report:
             thing = "notebook" if (is_ipynb or is_r_notebook) else "script"
             logger.important(
