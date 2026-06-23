@@ -712,12 +712,21 @@ class Context:
                 description = self._description
             if description is None and cli_call is not None:
                 description = f"CLI: {cli_call[0]}"
-            self._create_or_load_transform(
+            transform_record, logging_message = Transform._create_or_load_from_source(
+                path=self._path,
                 description=description,
+                transform_ref=None,
+                transform_ref_type=None,
                 transform_kind=transform_kind,
                 key=key,
                 source_code=source_code,
+                uid=self.uid,
+                version=self.version,
+                notebook_runner=self._notebook_runner,
             )
+            self._transform = transform_record
+            self._uid = transform_record.uid
+            self._logging_message_track += logging_message
         else:
             if transform.kind in {"notebook", "script"}:
                 raise ValueError(
@@ -936,32 +945,6 @@ class Context:
                 logger.debug("reading the notebook file failed")
                 pass
         return path, description
-
-    def _create_or_load_transform(
-        self,
-        *,
-        description: str | None = None,
-        transform_ref: str | None = None,
-        transform_ref_type: str | None = None,
-        transform_kind: TransformKind = None,
-        key: str | None = None,
-        source_code: str | None = None,
-    ):
-        transform, logging_message = Transform._create_or_load_from_source(
-            path=self._path,
-            description=description,
-            transform_ref=transform_ref,
-            transform_ref_type=transform_ref_type,
-            transform_kind=transform_kind,
-            key=key,
-            source_code=source_code,
-            uid=self.uid,
-            version=self.version,
-            notebook_runner=self._notebook_runner,
-        )
-        self._transform = transform
-        self._uid = transform.uid
-        self._logging_message_track += logging_message
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
         """Finish the run of a notebook or script.
