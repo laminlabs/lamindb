@@ -112,7 +112,8 @@ def test_schema_from_df(df):
     schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    ln.Feature.filter(type__isnull=True).delete(permanent=True)
 
 
 def test_get_related_name():
@@ -159,7 +160,8 @@ def mini_immuno_schema_flexible():
     yield schema
 
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    ln.Feature.filter(type__isnull=True).delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
     ln.Record.filter(type__isnull=False).delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
@@ -181,7 +183,7 @@ def test_schema_update_implicit_through_name_equality(
     # different numbers of features -------------------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="donor"),
@@ -194,7 +196,7 @@ def test_schema_update_implicit_through_name_equality(
     # change is flexible (an auxiliary field) --------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -210,7 +212,7 @@ def test_schema_update_implicit_through_name_equality(
     assert ccaplog.text.count(warning_message) == 2  # warning raised
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -231,7 +233,7 @@ def test_schema_update_implicit_through_name_equality(
     # restore original hash  --------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -486,7 +488,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
 def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -497,7 +499,7 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
         ],
         flexible=True,  # _additional_ columns in a dataframe are validated & annotated
     )
-    assert schema.name == "Mini immuno schema"
+    assert schema.name == "mini_immuno"
     assert schema.itype == "Feature"
     assert (
         schema._list_for_hashing[:6]
