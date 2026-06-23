@@ -129,16 +129,15 @@ def test_record_lazy_features_on_save():
     score_feature.delete(permanent=True)
 
 
-def test_record_from_dataframe_partial_null_bool_int_degradation():
-    """Reproduces internal dtype degradation in Record.from_dataframe().
+def test_record_from_dataframe_partial_null_bool_int():
+    """Partial-null bool/int features survive the from_dataframe save round-trip.
 
-    The user supplies correctly-typed nullable columns (boolean / Int64), but on
-    .save() the chop-reglue (_build_records drops the null cell, then
-    pd.DataFrame(prepared_rows) backfills NaN and re-infers) degrades them to
-    object / float64, so validation fails even though the input was valid.
-
-    Asserts the buggy failure for now; flip to a successful save + round-trip
-    once the fix lands.
+    The user supplies correctly-typed nullable columns (boolean / Int64). On
+    .save(), _build_records chops the frame into per-row dicts (dropping null
+    cells) and bulk_set_features_in_records rebuilds it. Building each column with
+    its declared dtype (via convert_to_pandas_dtype) instead of letting
+    pd.DataFrame re-infer keeps bool/int from degrading to object/float64, so
+    validation passes and the values round-trip.
     """
     flag = ln.Feature(name="from-df-flag", dtype=bool).save()
     count = ln.Feature(name="from-df-count", dtype=int).save()
@@ -159,16 +158,26 @@ def test_record_from_dataframe_partial_null_bool_int_degradation():
     assert df["from-df-flag"].dtype.name == "boolean"
     assert df["from-df-count"].dtype.name == "Int64"
 
-    with pytest.raises(ln.errors.ValidationError) as excinfo:
-        ln.Record.from_dataframe(df, type=sheet).save()
-    # the message proves lamindb degraded the dtypes internally: we passed
-    # boolean/Int64 but the curator reports object / float64
-    assert "Column 'from-df-flag' failed dtype check for 'bool': got object" in str(
-        excinfo.value
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 3
+    records.save()
+
+    # non-null values round-trip
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-flag"] is True
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-count"] == 1
+    # the None row drops the fragile keys entirely
+    assert "from-df-flag" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert "from-df-count" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert (
+        ln.Record.get(name="from-df-c").features.get_values()["from-df-flag"] is False
     )
-    assert "Column 'from-df-count' failed dtype check for 'int': got float64" in str(
-        excinfo.value
-    )
+    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-count"] == 3
+
+    # dtypes survive the export round-trip: the columns come back as the nullable
+    # extension dtypes, not degraded object / float64
+    exported = sheet.to_dataframe()
+    assert exported["from-df-flag"].dtype.name == "boolean"
+    assert exported["from-df-count"].dtype.name == "Int64"
 
     ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
         permanent=True
