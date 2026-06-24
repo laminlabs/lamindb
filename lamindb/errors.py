@@ -15,7 +15,6 @@ LaminDB.
 .. autoexception:: UpdateContext
 .. autoexception:: IntegrityError
 .. autoexception:: FieldValidationError
-.. autoexception:: NoWriteAccess
 .. autoexception:: BlobHashNotFound
 .. autoexception:: FileNotInDevDir
 .. autoexception:: BranchAlreadyExists
@@ -30,6 +29,9 @@ from django.core.exceptions import (
     MultipleObjectsReturned,  # noqa: F401
     ObjectDoesNotExist,  # noqa: F401
 )
+
+# backward compatibility, will be removed in the future
+from lamindb_setup.errors import NoWriteAccess  # noqa: F401
 
 ObjectDoesNotExist.__doc__ = """Object does not exist.
 
@@ -132,12 +134,6 @@ class BlobHashNotFound(Exception):
 # -------------------------------------------------------------------------------------
 # CRUD
 # -------------------------------------------------------------------------------------
-
-
-class NoWriteAccess(Exception):
-    """No write access to a space."""
-
-    pass
 
 
 class FileNotInDevDir(Exception):
