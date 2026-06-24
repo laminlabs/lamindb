@@ -2231,17 +2231,48 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
 
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
-    dataframe = pd.DataFrame(prepared_rows)
+    from .feature import convert_to_pandas_dtype
     from .record import move_schema_index_column_to_dataframe_index
 
+    # Build the validation dataframe column-by-column with the dtype declared by
+    # each schema feature, instead of calling pd.DataFrame(prepared_rows) and
+    # letting pandas re-infer dtypes. The chopped per-row dicts drop null cells,
+    # so a naive pd.DataFrame would backfill NaN and widen partial-null columns
+    # (bool -> object, int -> float64), failing validation even for valid input.
+    # Supplying each column's declared pandas dtype up front propagates the type
+    # correctly through construction and removes the need for per-type casting.
+    # Note: benchmark this when modifying, for reference -> https://lamin.ai/laminlabs/lamindata/transform/JuJZZEsit1KV
+    feature_dtype_by_name = {
+        feature.name: convert_to_pandas_dtype(feature.dtype_as_str)
+        for feature in schema_features
+    }
+    # single pass to discover which columns actually appear across all rows
+    # (rows may differ once null cells are dropped)
+    present_columns: set[str] = set()
+    for row in prepared_rows:
+        present_columns.update(row)
+
+    # schema features first (stable, declared order), then any extra injected
+    # columns (e.g. the index/name), sorted for determinism
+    ordered_columns = [f.name for f in schema_features if f.name in present_columns]
+    ordered_columns += sorted(
+        column for column in present_columns if column not in feature_dtype_by_name
+    )
+
+    data: dict[str, pd.Series] = {}
+    for column in ordered_columns:
+        values = [row.get(column, pd.NA) for row in prepared_rows]
+        target_dtype = feature_dtype_by_name.get(column)
+        if target_dtype is not None:
+            data[column] = pd.Series(values, dtype=target_dtype)
+        else:
+            data[column] = pd.Series(values)
+    if data:
+        dataframe = pd.DataFrame(data)
+    else:
+        dataframe = pd.DataFrame(index=range(len(prepared_rows)))
+
     dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
-    for feature in schema_features:
-        if (
-            feature.name in dataframe
-            and feature.dtype_as_str.startswith("cat")
-            and not feature.dtype_as_str.startswith("list[cat")
-        ):
-            dataframe[feature.name] = dataframe[feature.name].astype("category")
     # Single-pass dataframe curation:
     # validate schema and resolve categoricals once for the entire batch.
     #

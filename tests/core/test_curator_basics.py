@@ -480,6 +480,45 @@ def test_nullable():
     disease.delete(permanent=True)
 
 
+def test_curator_partial_null_bool_int():
+    flag = ln.Feature(name="cur-flag", dtype=bool, nullable=True).save()
+    count = ln.Feature(name="cur-count", dtype=int, nullable=True).save()
+    schema = ln.Schema(features=[flag, count]).save()
+
+    # Case 1: properly-typed nullable columns -> should PASS
+    # This is what a well-behaved user supplies, and what our _feature_manager fix
+    # produces after the cast. We are asserting the curator accepts these dtypes.
+    df_good = pd.DataFrame(
+        {
+            "cur-flag": pd.array([True, None, False], dtype="boolean"),
+            "cur-count": pd.array([1, None, 3], dtype="Int64"),
+        }
+    )
+    assert ln.curators.DataFrameCurator(df_good, schema).validate() is None
+
+    # Case 2: degraded dtypes (what pd.DataFrame(prepared_rows) produces internally)
+    # bool + null -> object, int + null -> float64.
+    # Should FAIL — this is correct curator behaviour, not a bug.
+    df_degraded = pd.DataFrame(
+        {
+            "cur-flag": [True, None, False],  # object
+            "cur-count": [1, None, 3],  # float64
+        }
+    )
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
+        ln.curators.DataFrameCurator(df_degraded, schema).validate()
+    assert "Column 'cur-flag' failed dtype check for 'bool': got object" in str(
+        excinfo.value
+    )
+    assert "Column 'cur-count' failed dtype check for 'int': got float64" in str(
+        excinfo.value
+    )
+
+    schema.delete(permanent=True)
+    flag.delete(permanent=True)
+    count.delete(permanent=True)
+
+
 def test_pandera_dataframe_schema(
     df,
     df_missing_sample_type_column,
