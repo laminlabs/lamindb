@@ -2241,6 +2241,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     # (bool -> object, int -> float64), failing validation even for valid input.
     # Supplying each column's declared pandas dtype up front propagates the type
     # correctly through construction and removes the need for per-type casting.
+    # Note: benchmark this when modifying, for reference -> https://lamin.ai/laminlabs/lamindata/transform/JuJZZEsit1KV
     feature_dtype_by_name = {
         feature.name: convert_to_pandas_dtype(feature.dtype_as_str)
         for feature in schema_features
