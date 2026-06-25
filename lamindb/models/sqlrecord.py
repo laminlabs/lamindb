@@ -1320,6 +1320,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
+        if (
+            self.__class__.__name__ == "Schema"
+            and transfer_config is None
+            and db is not None
+            and db != "default"
+            and using_key is None
+        ):
+            transfer_config = "annotations"
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
@@ -1519,6 +1527,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
+            if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
+                from .schema import transfer_schema_members
+
+                transfer_schema_members(
+                    self, db, pk_on_db, using_key, transfer_logs=transfer_logs
+                )
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 

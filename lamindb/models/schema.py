@@ -111,6 +111,69 @@ def get_features_config(
         return features, configs  # type: ignore
 
 
+def transfer_schema_members(
+    schema: SQLRecord,
+    source_db: str,
+    source_pk: int | None,
+    using_key: str | None,
+    *,
+    transfer_logs: dict,
+) -> None:
+    from copy import copy
+
+    from .feature import transfer_feature_dtypes
+    from .sqlrecord import transfer_to_default_db
+
+    if source_pk is None:
+        return None
+
+    source_schema = copy(schema)
+    source_schema._state.db = source_db
+    source_schema.pk = source_pk
+
+    members = list(source_schema.members.all())
+    if len(members) == 0:
+        return None
+
+    transferred_members = []
+    for source_member in members:
+        member = copy(source_member)
+        transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+        transferred_member = transfer_to_default_db(
+            member, using_key, transfer_logs=transfer_logs, save=True
+        )
+        if transferred_member is not None:
+            transferred_members.append(transferred_member)
+        else:
+            transferred_members.append(member)
+
+    related_name = source_schema._get_related_name()
+    if related_name is None:
+        related_name = "features"
+    through_model = getattr(schema, related_name).through
+    related_fk_name = next(
+        field.name
+        for field in through_model._meta.fields
+        if isinstance(field, models.ForeignKey) and field.name != "schema"
+    )
+    existing_member_ids = list(
+        through_model.objects.using("default")
+        .filter(schema_id=schema.id)
+        .order_by("id")
+        .values_list(f"{related_fk_name}_id", flat=True)
+    )
+    new_member_ids = [member.id for member in transferred_members]
+    if existing_member_ids == new_member_ids:
+        return None
+
+    through_model.objects.using("default").filter(schema_id=schema.id).delete()
+    links = [
+        through_model(**{"schema_id": schema.id, f"{related_fk_name}_id": member.id})
+        for member in transferred_members
+    ]
+    through_model.objects.using("default").bulk_create(links)
+
+
 class SchemaOptionals:
     """Manage and access optional features in a schema."""
 

@@ -129,6 +129,53 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
     return result
 
 
+def transfer_feature_dtypes(
+    feature: SQLRecord, using_key: str | None, transfer_logs: dict
+) -> None:
+    from .sqlrecord import transfer_to_default_db
+
+    dtype_str = getattr(feature, "_dtype_str", None)
+    if dtype_str is None:
+        return None
+    try:
+        parsed_dtypes = parse_dtype(dtype_str)
+    except Exception:
+        return None
+
+    for parsed_dtype in parsed_dtypes:
+        source_type_uid = parsed_dtype.get("type_uid")
+        if source_type_uid is None:
+            continue
+        registry = parsed_dtype["registry"]
+        source_type = (
+            registry.objects.using(feature._state.db)
+            .filter(uid=source_type_uid)
+            .one_or_none()
+        )
+        if source_type is None:
+            continue
+        source_type_id = source_type.id
+        transferred_type = transfer_to_default_db(
+            source_type, using_key, transfer_logs=transfer_logs, save=True
+        )
+        if getattr(source_type, "is_type", False) and hasattr(source_type, "records"):
+            source_records = source_type.__class__.objects.using(
+                feature._state.db
+            ).filter(type_id=source_type_id)
+            for source_record in source_records:
+                transfer_to_default_db(
+                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                )
+        target_type_uid = (
+            transferred_type.uid if transferred_type is not None else source_type.uid
+        )
+        if target_type_uid != source_type_uid:
+            dtype_str = dtype_str.replace(
+                f"[{source_type_uid}]", f"[{target_type_uid}]"
+            )
+    feature._dtype_str = dtype_str
+
+
 def get_record_type_from_uid(
     registry: Registry,
     type_uid: str,
