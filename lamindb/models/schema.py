@@ -149,16 +149,16 @@ def transfer_schema_members(
             transferred_index_feature = transfer_to_default_db(
                 index_feature, using_key, transfer_logs=transfer_logs, save=True
             )
-            target_index_uid = (
+            transferred_index_uid = (
                 transferred_index_feature.uid
                 if transferred_index_feature is not None
                 else index_feature.uid
             )
-            if schema._index_feature_uid != target_index_uid:
-                schema._index_feature_uid = target_index_uid
-                schema.__class__.objects.using("default").filter(id=schema.id).update(
-                    _aux=schema._aux
-                )
+            assert transferred_index_uid == index_feature_uid, (
+                "transfer_schema_members() expected UID invariance for schema "
+                f"index feature uid='{index_feature_uid}', but got "
+                f"uid='{transferred_index_uid}'."
+            )
 
     members = list(source_schema.members.all())
     if len(members) == 0:
@@ -205,8 +205,8 @@ def transfer_schema_members(
 
 
 def transfer_schema_with_members(
-    schema: SQLRecord, using_key: str | None, *, transfer_logs: dict
-) -> SQLRecord:
+    schema: Schema, using_key: str | None, *, transfer_logs: dict
+) -> Schema:
     from copy import copy
 
     from .sqlrecord import transfer_to_default_db
