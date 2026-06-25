@@ -8,7 +8,7 @@ import pytest
 from lamindb.models._django import get_artifact_or_run_with_related
 
 
-def test_transfer_tutorial_artifact_annotations():
+def test_transfer_guide():
     db = ln.DB("laminlabs/lamindata")
     key = "example_datasets/mini_immuno/dataset1.h5ad"
 
@@ -26,6 +26,18 @@ def test_transfer_tutorial_artifact_annotations():
     for schema in artifact.features.slots.values():
         # accessing schema.index should not fail after transfer
         _ = schema.index
+
+    existing_local = ln.Artifact.filter(
+        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
+    )
+    if existing_local.exists():
+        existing_local.delete(storage=False, permanent=True)
+
+    dataset = db.Artifact.filter(
+        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
+    ).open()
+    assert dataset is not None
+    assert dataset.count_rows() > 0
 
 
 def test_schema_transfer_defaults_to_annotations():

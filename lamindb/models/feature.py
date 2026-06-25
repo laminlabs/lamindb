@@ -134,9 +134,15 @@ def transfer_feature_dtypes(
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
-    if feature._dtype_str is None:
+    dtype_str = feature._dtype_str
+    if dtype_str is None:
         return None
-    parsed_dtypes = parse_dtype(feature._dtype_str)
+    # Only typed refs need transfer here (Record[...] / ULabel[...]).
+    # Other categorical dtypes like cat[bionty.CellType] don't reference a
+    # concrete type record and should bypass this logic.
+    if "Record[" not in dtype_str and "ULabel[" not in dtype_str:
+        return None
+    parsed_dtypes = parse_dtype(dtype_str)
 
     for parsed_dtype in parsed_dtypes:
         source_type_uid = parsed_dtype.get("type_uid")
