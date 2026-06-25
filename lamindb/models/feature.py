@@ -134,10 +134,9 @@ def transfer_feature_dtypes(
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
-    dtype_str = feature._dtype_str
-    if dtype_str is None:
+    if feature._dtype_str is None:
         return None
-    parsed_dtypes = parse_dtype(dtype_str)
+    parsed_dtypes = parse_dtype(feature._dtype_str)
 
     for parsed_dtype in parsed_dtypes:
         source_type_uid = parsed_dtype.get("type_uid")
@@ -157,14 +156,11 @@ def transfer_feature_dtypes(
                 transfer_to_default_db(
                     source_record, using_key, transfer_logs=transfer_logs, save=True
                 )
-        target_type_uid = (
-            transferred_type.uid if transferred_type is not None else source_type.uid
+        assert transferred_type is None or transferred_type.uid == source_type_uid, (
+            "transfer_feature_dtypes() expected UID invariance for dtype type "
+            f"{registry.__name__}(uid='{source_type_uid}'), but mapped to "
+            f"uid='{transferred_type.uid}'."
         )
-        if target_type_uid != source_type_uid:
-            dtype_str = dtype_str.replace(
-                f"[{source_type_uid}]", f"[{target_type_uid}]"
-            )
-    feature._dtype_str = dtype_str
 
 
 def get_record_type_from_uid(
