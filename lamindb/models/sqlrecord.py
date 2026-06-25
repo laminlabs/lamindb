@@ -1267,6 +1267,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # TODO: refactor to use _TRACK_FIELDS
         track_current_name_value(self)
 
+    def _latest_readme_content(self) -> str | None:
+        latest_readme = self.ablocks.filter(kind="readme", is_latest=True).one_or_none()
+        if latest_readme is None:
+            return None
+        return latest_readme.content
+
     # used in __init__
     # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
@@ -2020,6 +2026,17 @@ class Branch(BaseSQLRecord):
             )
         self._status_code = BRANCH_STATUS_TO_CODE[value]
 
+    @property
+    def notes(self) -> str | None:
+        """Notes.
+
+        Returns the latest content of an attached block of kind `readme`.
+
+        You can populate it via the UI or via `lamin annotate branch --readme README.md`.
+        """
+        # In the future, other block kinds (e.g. concatenated blocks) could contribute.
+        return self._latest_readme_content()
+
     @overload
     def __init__(
         self,
@@ -2097,6 +2114,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
     class Meta:
         abstract = True
+
+    @property
+    def notes(self) -> str | None:
+        """Notes.
+
+        Returns the latest content of an attached block of kind `readme`.
+
+        You can populate it via the UI or via `lamin annotate ... --readme README.md`.
+        """
+        # In the future, other block kinds (e.g. concatenated blocks) could contribute.
+        return self._latest_readme_content()
 
     def restore(self) -> None:
         """Restore from trash onto the main branch.

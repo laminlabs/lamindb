@@ -307,3 +307,51 @@ def test_record_block_filter_respects_default_branch_scope():
     contrib_record.delete(permanent=True)
     main_record.delete(permanent=True)
     contrib.delete(permanent=True)
+
+
+def test_sqlrecord_notes_returns_latest_readme_content():
+    record = ln.Record(name="record-notes-test").save()
+    assert record.notes is None
+
+    readme_v1 = ln.models.RecordBlock(
+        record=record, content="record notes v1", kind="readme"
+    ).save()
+    assert record.notes == "record notes v1"
+
+    ln.models.RecordBlock(
+        record=record, content="record notes v2", kind="readme"
+    ).save()
+    readme_v1.refresh_from_db()
+    assert not readme_v1.is_latest
+    assert record.notes == "record notes v2"
+
+    ln.models.RecordBlock(
+        record=record, content="just a comment", kind="comment"
+    ).save()
+    assert record.notes == "record notes v2"
+
+    record.delete(permanent=True)
+
+
+def test_branch_notes_returns_latest_readme_content():
+    branch = ln.Branch(name="branch-notes-test").save()
+    assert branch.notes is None
+
+    readme_v1 = ln.models.BranchBlock(
+        branch=branch, content="branch notes v1", kind="readme"
+    ).save()
+    assert branch.notes == "branch notes v1"
+
+    ln.models.BranchBlock(
+        branch=branch, content="branch notes v2", kind="readme"
+    ).save()
+    readme_v1.refresh_from_db()
+    assert not readme_v1.is_latest
+    assert branch.notes == "branch notes v2"
+
+    ln.models.BranchBlock(
+        branch=branch, content="branch comment", kind="comment"
+    ).save()
+    assert branch.notes == "branch notes v2"
+
+    branch.delete(permanent=True)
