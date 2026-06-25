@@ -98,7 +98,7 @@ def test_DB_warns_for_missing_local_modules(monkeypatch):
     )
     monkeypatch.setattr(
         "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
-        lambda owner, name: SimpleNamespace(modules={"bionty", "pertdb"}),
+        lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty", "pertdb"}),
     )
     monkeypatch.setattr(
         "lamindb.models.query_set.setup_settings",
@@ -124,7 +124,7 @@ def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
     )
     monkeypatch.setattr(
         "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
-        lambda owner, name: SimpleNamespace(modules={"bionty"}),
+        lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty"}),
     )
     monkeypatch.setattr(
         "lamindb.models.query_set.setup_settings",
