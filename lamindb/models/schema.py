@@ -112,7 +112,7 @@ def get_features_config(
 
 
 def transfer_schema_members(
-    schema: SQLRecord,
+    schema: Schema,
     source_db: str,
     source_pk: int | None,
     using_key: str | None,
