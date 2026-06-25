@@ -130,30 +130,21 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def transfer_feature_dtypes(
-    feature: SQLRecord, using_key: str | None, transfer_logs: dict
+    feature: Feature, using_key: str | None, transfer_logs: dict
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
-    dtype_str = getattr(feature, "_dtype_str", None)
+    dtype_str = feature._dtype_str
     if dtype_str is None:
         return None
-    try:
-        parsed_dtypes = parse_dtype(dtype_str)
-    except Exception:
-        return None
+    parsed_dtypes = parse_dtype(dtype_str)
 
     for parsed_dtype in parsed_dtypes:
         source_type_uid = parsed_dtype.get("type_uid")
         if source_type_uid is None:
             continue
         registry = parsed_dtype["registry"]
-        source_type = (
-            registry.objects.using(feature._state.db)
-            .filter(uid=source_type_uid)
-            .one_or_none()
-        )
-        if source_type is None:
-            continue
+        source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
         source_type_id = source_type.id
         transferred_type = transfer_to_default_db(
             source_type, using_key, transfer_logs=transfer_logs, save=True
