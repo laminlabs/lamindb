@@ -1,9 +1,89 @@
+# also see the transfer.md guide and the tests/transfer directory for more tests
+
 from unittest.mock import patch
 
 import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.models._django import get_artifact_or_run_with_related
+
+
+def test_transfer_guide():
+    db = ln.DB("laminlabs/lamindata")
+    key = "example_datasets/mini_immuno/dataset1.h5ad"
+
+    existing_local = ln.Artifact.filter(key=key).one_or_none()
+    if existing_local is not None:
+        existing_local.delete(storage=False, permanent=True)
+
+    artifact = db.Artifact.get(key=key)
+    artifact.save()
+
+    artifact = db.Artifact.get(key=key)
+    artifact.save(transfer="annotations")
+
+    assert artifact.features.slots
+    for schema in artifact.features.slots.values():
+        # accessing schema.index should not fail after transfer
+        _ = schema.index
+
+    existing_local = ln.Artifact.filter(
+        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
+    )
+    if existing_local.exists():
+        existing_local.delete(storage=False, permanent=True)
+
+    dataset = db.Artifact.filter(
+        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
+    ).open()
+    assert dataset is not None
+    assert dataset.count_rows() > 0
+
+
+def test_schema_transfer_defaults_to_annotations():
+    db = ln.DB("laminlabs/lamindata")
+    schema_uid = "pnQvQVcQ417bfmVq"
+    remote_schema = db.Schema.get(schema_uid)
+    remote_member_names = remote_schema.members.to_list("name")
+    assert len(remote_member_names) > 0
+    remote_perturbation_type_name = "Perturbation"
+
+    existing_local = ln.Schema.filter(uid=schema_uid).one_or_none()
+    if existing_local is not None:
+        existing_local.delete(permanent=True)
+
+    existing_local_perturbation_type = ln.Record.filter(
+        name=remote_perturbation_type_name, is_type=True
+    ).one_or_none()
+    if existing_local_perturbation_type is not None:
+        ln.Record.filter(type=existing_local_perturbation_type).delete(permanent=True)
+        existing_local_perturbation_type.delete(permanent=True)
+
+    assert (
+        ln.Record.filter(name=remote_perturbation_type_name, is_type=True).count() == 0
+    )
+    assert ln.Record.filter(type__name=remote_perturbation_type_name).count() == 0
+
+    record_only = db.Schema.get(schema_uid).save(transfer="record")
+    assert record_only.members.count() == 0
+
+    transferred = db.Schema.get(schema_uid).save()
+    transferred_member_names = transferred.members.to_list("name")
+    assert transferred_member_names == remote_member_names
+
+    perturbation_feature = transferred.members.get(name="perturbation")
+    assert perturbation_feature.dtype_as_str.startswith("cat[Record[")
+    assert perturbation_feature.dtype_as_object is not None
+
+    perturbation_names = sorted(
+        perturbation_feature.dtype_as_object.records.values_list("name", flat=True)
+    )
+    assert perturbation_names == ["DMSO", "IFNG"]
+
+    before_count = transferred.links_feature.count()
+    transferred_repeat = db.Schema.get(schema_uid).save()
+    assert transferred_repeat.id == transferred.id
+    assert transferred_repeat.links_feature.count() == before_count
 
 
 def test_describe_artifact_from_remote_instance(capsys):
@@ -17,11 +97,6 @@ def test_describe_artifact_from_remote_instance(capsys):
 
 def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
-
-    bt.Gene.filter().delete(permanent=True)
-    bt.Organism.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
-    bt.CellType.filter().delete(permanent=True)
 
     # test transfer from an instance with an extra schema module: pertdb
     # we also made sure that the artifact here has a pertdb label attached
@@ -122,8 +197,9 @@ def test_transfer_from_remote_to_local(ccaplog):
 
     # now prepare a new test case
     # mimic we have an existing feature with a different uid but same name
-    feature = ln.Feature.get(name="organism")
-    feature.uid = "existing"
+    feature = artifact1.features.slots["obs"].members.get(name="organism")
+    existing_uid = f"exst{feature.uid[-8:]}"
+    feature.uid = existing_uid
     feature.save()
 
     # transfer 2nd artifact
@@ -133,7 +209,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     # check the feature name
     assert artifact2.organisms.get(name="mouse")
     assert (
-        artifact1.features.slots["obs"].members.get(name="organism").uid == "existing"
+        artifact1.features.slots["obs"].members.get(name="organism").uid == existing_uid
     )
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
@@ -161,12 +237,13 @@ def test_transfer_into_space():
     assert ulabel.space_id == space.id
 
     ulabel.delete(permanent=True)
+    ln.Run.filter(space=space).delete(permanent=True)
+    ln.Transform.filter(space=space).delete(permanent=True)
     space.delete()
 
 
 def test_using_record_organism():
     """Test passing record and organism to the using_key instance."""
-    import bionty as bt
 
     release_110_cxg = bt.Source.connect("laminlabs/lamin-dev").get(
         organism="mouse", entity="bionty.Gene", version="release-110"
@@ -214,18 +291,3 @@ def test_using_record_organism():
 
 def test_using_query_by_feature():
     assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)
-
-
-# TODO: uncomment after migrations
-# def test_transfer_features_uid():
-#     """Test that a new feature is created based on uid."""
-#     existing_tissue_feature = (
-#         ln.Feature.connect("laminlabs/lamin-dev").get(name="tissue").save()
-#     )
-#     artifact = ln.Artifact.connect("laminlabs/pertdata").get("aT2dp4hC6XDwrafN")
-#     artifact.save(transfer="annotations")
-#     # now a new feature called "tissue" is created because the uid is different
-#     newly_transferred_tissue_feature = ln.Feature.get(
-#         name="tissue", schemas__artifacts__uid=artifact.uid
-#     )
-#     assert existing_tissue_feature.uid != newly_transferred_tissue_feature.uid

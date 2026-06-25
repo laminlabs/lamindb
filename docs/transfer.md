@@ -2,6 +2,8 @@
 execute_via: python
 ---
 
+<!-- this guide is replicated in `tests/core/test_transfer.py` via `test_transfer_tutorial_artifact_annotations` -->
+
 # Transfer & sync data across databases
 
 This guide shows how to sync objects from a source database to your default database.

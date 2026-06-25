@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Type, overload
 import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
 from lamindb_setup.core import deprecated
@@ -109,6 +109,126 @@ def get_features_config(
         return features_list, configs  # type: ignore
     except TypeError:
         return features, configs  # type: ignore
+
+
+def transfer_schema_members(
+    schema: Schema,
+    source_db: str,
+    source_pk: int | None,
+    using_key: str | None,
+    *,
+    transfer_logs: dict,
+) -> None:
+    from copy import copy
+
+    from .feature import transfer_feature_dtypes
+    from .sqlrecord import transfer_to_default_db
+
+    if source_pk is None:
+        return None
+
+    source_schema = copy(schema)
+    source_schema._state.db = source_db
+    source_schema.pk = source_pk
+    # Only Feature schemas require member-level transfer here.
+    # Non-Feature schemas (e.g. large Gene schemas) can have huge memberships
+    # and are handled via regular mapping/lookup paths.
+    if source_schema.itype != "Feature":
+        return None
+
+    index_feature_uid = source_schema._index_feature_uid
+    if index_feature_uid is not None:
+        source_index_feature = (
+            Feature.objects.using(source_db).filter(uid=index_feature_uid).one_or_none()
+        )
+        if source_index_feature is not None:
+            index_feature = copy(source_index_feature)
+            transfer_feature_dtypes(
+                index_feature, using_key, transfer_logs=transfer_logs
+            )
+            transferred_index_feature = transfer_to_default_db(
+                index_feature, using_key, transfer_logs=transfer_logs, save=True
+            )
+            transferred_index_uid = (
+                transferred_index_feature.uid
+                if transferred_index_feature is not None
+                else index_feature.uid
+            )
+            assert transferred_index_uid == index_feature_uid, (
+                "transfer_schema_members() expected UID invariance for schema "
+                f"index feature uid='{index_feature_uid}', but got "
+                f"uid='{transferred_index_uid}'."
+            )
+
+    members = list(source_schema.members.all())
+    if len(members) == 0:
+        return None
+
+    transferred_members = []
+    for source_member in members:
+        member = copy(source_member)
+        if isinstance(member, Feature):
+            transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+        transferred_member = transfer_to_default_db(
+            member, using_key, transfer_logs=transfer_logs, save=True
+        )
+        if transferred_member is not None:
+            transferred_members.append(transferred_member)
+        else:
+            transferred_members.append(member)
+
+    related_name = source_schema._get_related_name()
+    if related_name is None:
+        related_name = "features"
+    through_model = getattr(schema, related_name).through
+    related_fk_name = next(
+        field.name
+        for field in through_model._meta.fields
+        if isinstance(field, models.ForeignKey) and field.name != "schema"
+    )
+    existing_member_ids = list(
+        through_model.objects.using("default")
+        .filter(schema_id=schema.id)
+        .order_by("id")
+        .values_list(f"{related_fk_name}_id", flat=True)
+    )
+    new_member_ids = [member.id for member in transferred_members]
+    if existing_member_ids == new_member_ids:
+        return None
+
+    through_model.objects.using("default").filter(schema_id=schema.id).delete()
+    links = [
+        through_model(**{"schema_id": schema.id, f"{related_fk_name}_id": member.id})
+        for member in transferred_members
+    ]
+    through_model.objects.using("default").bulk_create(links)
+
+
+def transfer_schema_with_members(
+    schema: Schema, using_key: str | None, *, transfer_logs: dict
+) -> Schema:
+    from copy import copy
+
+    from .sqlrecord import transfer_to_default_db
+
+    source_db = schema._state.db
+    source_pk = schema.pk
+    schema_copy = copy(schema)
+    with transaction.atomic():
+        record_on_default = transfer_to_default_db(
+            schema_copy, using_key, transfer_logs=transfer_logs, save=True
+        )
+        schema_default = (
+            record_on_default if record_on_default is not None else schema_copy
+        )
+        transfer_schema_members(
+            schema_default,
+            source_db,
+            source_pk,
+            using_key,
+            transfer_logs=transfer_logs,
+        )
+    return schema_default
 
 
 class SchemaOptionals:
