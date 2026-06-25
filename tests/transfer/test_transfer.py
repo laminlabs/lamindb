@@ -73,3 +73,36 @@ def test_schema_transfer_ulabel_dtype():
     transferred_repeat = db1.Schema.get(schema_uid).save()
     assert transferred_repeat.id == transferred.id
     assert transferred_repeat.links_feature.count() == before_count
+
+
+def test_schema_transfer_feature_uid_conflict_by_name():
+    user_handle = ln.setup.settings.user.handle
+
+    ln.connect("testdb1")
+    source_feature = ln.Feature(name="tissue", dtype=str).save()
+    source_feature_uid = source_feature.uid
+    source_schema = ln.Schema(
+        name="transfer_schema_feature_uid_conflict",
+        features=[source_feature],
+    ).save()
+    schema_uid = source_schema.uid
+    assert source_schema.members.get(name="tissue").uid == source_feature_uid
+
+    ln.connect("testdb2")
+    db1 = ln.DB(f"{user_handle}/testdb1")
+
+    existing_local = ln.Schema.filter(uid=schema_uid).one_or_none()
+    if existing_local is not None:
+        existing_local.delete(permanent=True)
+
+    existing_tissue_features = ln.Feature.filter(name="tissue")
+    if existing_tissue_features.exists():
+        existing_tissue_features.delete(permanent=True)
+
+    local_tissue = ln.Feature(name="tissue", dtype=str).save()
+    assert local_tissue.uid != source_feature_uid
+
+    transferred = db1.Schema.get(schema_uid).save()
+    transferred_tissue = transferred.members.get(name="tissue")
+    assert transferred_tissue.uid == source_feature_uid
+    assert transferred_tissue.uid != local_tissue.uid
