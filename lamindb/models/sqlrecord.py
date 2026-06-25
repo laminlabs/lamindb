@@ -950,7 +950,7 @@ class Registry(ModelBase):
             return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
-        current_instance_owner_name: list[str] = setup_settings.instance.owner
+        current_instance_owner_name: str = setup_settings.instance.owner
 
         # move on to different instances
         cache_using_filepath = (
