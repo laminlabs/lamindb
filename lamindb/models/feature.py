@@ -148,11 +148,11 @@ def transfer_feature_dtypes(
         transferred_type = transfer_to_default_db(
             source_type, using_key, transfer_logs=transfer_logs, save=True
         )
-        if getattr(source_type, "is_type", False) and hasattr(source_type, "records"):
-            source_records = source_type.__class__.objects.using(
+        if getattr(source_type, "is_type", False):
+            source_typed_children = source_type.__class__.objects.using(
                 feature._state.db
             ).filter(type_id=source_type_id)
-            for source_record in source_records:
+            for source_record in source_typed_children:
                 transfer_to_default_db(
                     source_record, using_key, transfer_logs=transfer_logs, save=True
                 )
