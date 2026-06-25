@@ -1759,7 +1759,9 @@ class DB:
             ln_setup._connect_instance.get_owner_name_from_identifier(instance)
         )
         instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
+            owner=owner,
+            name=instance_name,
+            allow_sqlite_clone_fallback=True,
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
