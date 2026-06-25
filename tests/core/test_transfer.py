@@ -45,3 +45,23 @@ def test_schema_transfer_defaults_to_annotations():
     transferred_repeat = db.Schema.get(schema_uid).save()
     assert transferred_repeat.id == transferred.id
     assert transferred_repeat.links_feature.count() == before_count
+
+
+def test_transfer_tutorial_artifact_annotations():
+    db = ln.DB("laminlabs/lamindata")
+    key = "example_datasets/mini_immuno/dataset1.h5ad"
+
+    existing_local = ln.Artifact.filter(key=key).one_or_none()
+    if existing_local is not None:
+        existing_local.delete(storage=False, permanent=True)
+
+    artifact = db.Artifact.get(key=key)
+    artifact.save()
+
+    artifact = db.Artifact.get(key=key)
+    artifact.save(transfer="annotations")
+
+    assert artifact.features.slots
+    for schema in artifact.features.slots.values():
+        # accessing schema.index should not fail after transfer
+        _ = schema.index

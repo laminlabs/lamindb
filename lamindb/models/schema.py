@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Type, overload
 import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
 from lamindb_setup.core import deprecated
@@ -131,6 +131,30 @@ def transfer_schema_members(
     source_schema._state.db = source_db
     source_schema.pk = source_pk
 
+    index_feature_uid = source_schema._index_feature_uid
+    if index_feature_uid is not None:
+        source_index_feature = (
+            Feature.objects.using(source_db).filter(uid=index_feature_uid).one_or_none()
+        )
+        if source_index_feature is not None:
+            index_feature = copy(source_index_feature)
+            transfer_feature_dtypes(
+                index_feature, using_key, transfer_logs=transfer_logs
+            )
+            transferred_index_feature = transfer_to_default_db(
+                index_feature, using_key, transfer_logs=transfer_logs, save=True
+            )
+            target_index_uid = (
+                transferred_index_feature.uid
+                if transferred_index_feature is not None
+                else index_feature.uid
+            )
+            if schema._index_feature_uid != target_index_uid:
+                schema._index_feature_uid = target_index_uid
+                schema.__class__.objects.using("default").filter(id=schema.id).update(
+                    _aux=schema._aux
+                )
+
     members = list(source_schema.members.all())
     if len(members) == 0:
         return None
@@ -172,6 +196,33 @@ def transfer_schema_members(
         for member in transferred_members
     ]
     through_model.objects.using("default").bulk_create(links)
+
+
+def transfer_schema_with_members(
+    schema: SQLRecord, using_key: str | None, *, transfer_logs: dict
+) -> SQLRecord:
+    from copy import copy
+
+    from .sqlrecord import transfer_to_default_db
+
+    source_db = schema._state.db
+    source_pk = schema.pk
+    schema_copy = copy(schema)
+    with transaction.atomic():
+        record_on_default = transfer_to_default_db(
+            schema_copy, using_key, transfer_logs=transfer_logs, save=True
+        )
+        schema_default = (
+            record_on_default if record_on_default is not None else schema_copy
+        )
+        transfer_schema_members(
+            schema_default,
+            source_db,
+            source_pk,
+            using_key,
+            transfer_logs=transfer_logs,
+        )
+    return schema_default
 
 
 class SchemaOptionals:

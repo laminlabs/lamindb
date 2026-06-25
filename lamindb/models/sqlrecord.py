@@ -2368,16 +2368,24 @@ def update_fk_to_default_db(
         else:
             fk_record = getattr(record, fk)
             field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
-            fk_record_default = fk_record.__class__.filter(
+            pre_existing_fk_record_default = fk_record.__class__.filter(
                 **{field: getattr(fk_record, field)}
             ).one_or_none()
-            if fk_record_default is None:
-                from copy import copy
+            from copy import copy
 
-                fk_record_default = copy(fk_record)
+            fk_record_default = copy(fk_record)
+            if fk_record.__class__.__name__ == "Schema":
+                from .schema import transfer_schema_with_members
+
+                fk_record_default = transfer_schema_with_members(
+                    fk_record_default, using_key, transfer_logs=transfer_logs
+                )
+            elif pre_existing_fk_record_default is None:
                 transfer_to_default_db(
                     fk_record_default, using_key, save=True, transfer_logs=transfer_logs
                 )
+            else:
+                fk_record_default = pre_existing_fk_record_default
         # re-set the fks to the newly saved ones in the default db
         if isinstance(records, (list, DjangoQuerySet)):
             for r in records:
