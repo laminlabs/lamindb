@@ -973,8 +973,11 @@ class Registry(ModelBase):
                 return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
+            iresult_schema_str = (
+                "" if iresult["schema_str"] is None else iresult["schema_str"]
+            )
             source_modules = set(  # noqa
-                [mod for mod in iresult["schema_str"].split(",") if mod != ""]
+                [mod for mod in iresult_schema_str.split(",") if mod != ""]
             )
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
@@ -1003,7 +1006,7 @@ class Registry(ModelBase):
                 is_fine_grained_access = False
 
             cache_using_filepath.write_text(
-                f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
+                f"{iresult['lnid']}\n{iresult_schema_str}", encoding="utf-8"
             )
 
             # access_db can take both: the dict from connect_instance_hub and isettings

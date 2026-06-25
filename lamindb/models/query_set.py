@@ -1805,20 +1805,17 @@ class DB:
                 self._cache["pertdb"] = namespace
             return self._cache["pertdb"]
 
-        try:
-            lamindb_module = import_module("lamindb")
-            if hasattr(lamindb_module, name):
-                model_class = getattr(lamindb_module, name)
-                queryset = model_class.connect(self._instance)
-                wrapped = NonInstantiableQuerySet(queryset, name)
-                self._cache[name] = wrapped
-                return wrapped
-        except (ImportError, AttributeError):
-            pass
-
-        raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
-        )
+        lamindb_module = import_module("lamindb")
+        if hasattr(lamindb_module, name):
+            model_class = getattr(lamindb_module, name)
+            queryset = model_class.connect(self._instance)
+            wrapped = NonInstantiableQuerySet(queryset, name)
+            self._cache[name] = wrapped
+            return wrapped
+        else:
+            raise AttributeError(
+                f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
+            )
 
     def __repr__(self) -> str:
         return f"DB('{self._instance}')"
