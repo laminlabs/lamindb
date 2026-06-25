@@ -30,7 +30,9 @@ from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
@@ -105,6 +107,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: `Run | None = None` The run that creates the collection.
         revises: `Collection | None = None` An old version of the collection.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :class:`~lamindb.Artifact`
@@ -227,6 +231,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = None,
         revises: Collection | None = None,
         skip_hash_lookup: bool = False,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -272,7 +278,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version_tag, key, description, revises = process_revises(
+        provisional_uid, version_tag, key, description = process_revises(
             revises, version_tag, key, description, Collection
         )
         run = get_run(run)

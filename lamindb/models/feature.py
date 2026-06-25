@@ -46,8 +46,10 @@ from .run import (
 )
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     Registry,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -454,6 +456,20 @@ def serialize_dtype(
                 dtype = [dtype]
             elif not isinstance(dtype, list):
                 raise ValueError(error_message.format(dtype))
+            # A union (more than one element) is only supported for static registry
+            # types or fields - not for `Record`/`ULabel` subtype instances, which would
+            # otherwise be serialized into a malformed dtype without `|` separators
+            # (e.g. `Record[uid1]Record[uid2]`) and fail validation with a confusing error.
+            if len(dtype) > 1 and any(
+                isinstance(one_dtype, (ULabel, Record)) for one_dtype in dtype
+            ):
+                raise InvalidArgument(
+                    "Cannot create a union dtype that includes a `Record` or `ULabel` "
+                    "subtype, e.g. `dtype=[record_type_1, record_type_2]`. Unions are only "
+                    "supported for static registry types or fields, e.g. "
+                    "`dtype=bionty.ExperimentalFactor | bionty.Disease`. To restrict to a "
+                    "single subtype, pass it directly, e.g. `dtype=record_type`."
+                )
             dtype_str = ""
             for one_dtype in dtype:
                 if not isinstance(
@@ -708,6 +724,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :class:`~lamindb.Schema`
@@ -872,8 +890,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
 
-    Data types
-    ----------
+    .. _dtypes-note:
+
+    Data types (dtypes)
+    -------------------
 
     **Simple data types.** In  the table below, the first column shows the object that
     can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
@@ -936,7 +956,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `ln.Artifact`
           - `"cat[Artifact]"`
 
-    You can restrict permissible values to instances of `ULabel` or `Record` types.
+    You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
 
     .. list-table::
         :header-rows: 1
@@ -976,6 +996,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
           - `"list[float]"`
 
     **Union data types.**
+
+    Unions are currently only supported for static registries.
 
     .. list-table::
         :header-rows: 1
@@ -1167,6 +1189,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

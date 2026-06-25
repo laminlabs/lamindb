@@ -112,7 +112,8 @@ def test_schema_from_df(df):
     schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    ln.Feature.filter(type__isnull=True).delete(permanent=True)
 
 
 def test_get_related_name():
@@ -159,7 +160,8 @@ def mini_immuno_schema_flexible():
     yield schema
 
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    ln.Feature.filter(type__isnull=True).delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
     ln.Record.filter(type__isnull=False).delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
@@ -181,7 +183,7 @@ def test_schema_update_implicit_through_name_equality(
     # different numbers of features -------------------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="donor"),
@@ -194,7 +196,7 @@ def test_schema_update_implicit_through_name_equality(
     # change is flexible (an auxiliary field) --------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -210,7 +212,7 @@ def test_schema_update_implicit_through_name_equality(
     assert ccaplog.text.count(warning_message) == 2  # warning raised
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -231,7 +233,7 @@ def test_schema_update_implicit_through_name_equality(
     # restore original hash  --------------------------------
 
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -244,6 +246,39 @@ def test_schema_update_implicit_through_name_equality(
     ).save()
 
     assert schema.hash == orig_hash  # restored original hash
+
+
+def test_schema_update_reorders_features():
+    """Features keep the order from the `features` input when updating a schema."""
+    feature_i = ln.Feature(name="feature_i", dtype=str).save()
+    feature_m = ln.Feature(name="feature_m", dtype=str).save()
+    feature_n = ln.Feature(name="feature_n", dtype=str).save()
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_i, feature_n],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_i", "feature_n"]
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_i, feature_m, feature_n],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_i", "feature_m", "feature_n"]
+
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+
+    schema.delete(permanent=True)
+    feature_i.delete(permanent=True)
+    feature_m.delete(permanent=True)
+    feature_n.delete(permanent=True)
 
 
 def test_schema_update(
@@ -306,22 +341,51 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
 
-    # add an index --------------------------------
+    # add an index (Story 2: mark an existing member as index) -----------
 
-    index_feature = ln.Feature(name="immuno_sample", dtype=str).save()
+    index_feature = ln.Feature.get(name="perturbation")
     mini_immuno_schema_flexible.index = index_feature
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.n_members == 6
     assert ccaplog.text.count(warning_message) == 7
 
     # remove the index
     mini_immuno_schema_flexible.index = None
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.index is None
+    assert index_feature in mini_immuno_schema_flexible.features.all()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 8
-    index_feature.delete(permanent=True)
+
+    # Story 3: add a new feature, then mark it as index
+
+    new_index_feature = ln.Feature(name="immuno_sample", dtype=str).save()
+    mini_immuno_schema_flexible.features.add(new_index_feature)
+    mini_immuno_schema_flexible.index = new_index_feature
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.index == new_index_feature
+    assert new_index_feature in mini_immuno_schema_flexible.features.all()
+    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.hash != orig_hash
+    assert ccaplog.text.count(warning_message) == 9
+
+    # Story 4: unset index, then remove the feature from the schema ---------
+
+    mini_immuno_schema_flexible.index = None
+    mini_immuno_schema_flexible.save()
+    assert mini_immuno_schema_flexible.index is None
+    assert new_index_feature in mini_immuno_schema_flexible.features.all()
+    assert ccaplog.text.count(warning_message) == 10
+
+    mini_immuno_schema_flexible.features.remove(new_index_feature)
+    mini_immuno_schema_flexible.save()
+    assert new_index_feature not in mini_immuno_schema_flexible.features.all()
+    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.hash == orig_hash
+    assert ccaplog.text.count(warning_message) == 11
+    new_index_feature.delete(permanent=True)
 
     # make a feature optional --------------------------------
 
@@ -329,13 +393,13 @@ def test_schema_update(
     mini_immuno_schema_flexible.optionals.add(required_feature)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert ccaplog.text.count(warning_message) == 9
+    assert ccaplog.text.count(warning_message) == 12
 
     # make it required again
     mini_immuno_schema_flexible.optionals.remove(required_feature)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
-    assert ccaplog.text.count(warning_message) == 10
+    assert ccaplog.text.count(warning_message) == 13
 
     artifact.delete(permanent=True)
 
@@ -424,7 +488,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
 def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
     schema = ln.Schema(
-        name="Mini immuno schema",
+        name="mini_immuno",
         features=[
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
@@ -435,7 +499,7 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
         ],
         flexible=True,  # _additional_ columns in a dataframe are validated & annotated
     )
-    assert schema.name == "Mini immuno schema"
+    assert schema.name == "mini_immuno"
     assert schema.itype == "Feature"
     assert (
         schema._list_for_hashing[:6]

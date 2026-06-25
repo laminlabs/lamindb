@@ -29,7 +29,7 @@ from ..base.types import RUN_CODE_TO_STATUS, RUN_STATUS_TO_CODE
 from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .query_set import BasicQuerySet, QuerySet
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
+from .sqlrecord import BaseSQLRecord, Branch, IsLink, Space, SQLRecord
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -198,6 +198,8 @@ class Run(SQLRecord, TracksUpdates):
         reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
         plan: `Artifact | None = None` The (agent) plan for this run.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     See Also:
         :func:`~lamindb.track`
@@ -394,6 +396,8 @@ class Run(SQLRecord, TracksUpdates):
         reference: str | None = None,
         reference_type: str | None = None,
         plan: Artifact | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

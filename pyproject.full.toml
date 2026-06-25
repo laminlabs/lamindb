@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "lamindb-core[full]==2.6.1",
+    "lamindb-core[full]==2.7a1",
 ]
 
 [project.urls]

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
@@ -35,8 +36,10 @@ from .query_set import (
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     HasType,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
     pop_space_branch_kwargs,
@@ -265,6 +268,175 @@ def strip_index_for_record_persistence(
     return dictionary, feature_objects
 
 
+IndexNameConflict = Literal["keep_name", "keep_feature"]
+
+
+def _record_sheet_label(record: Record) -> str:
+    if record.type_id is None:
+        return "unknown sheet"
+    sheet = record.type
+    if sheet is None:
+        return f"type_id={record.type_id}"
+    if sheet.name:
+        return f"{sheet.name} ({sheet.uid})"
+    return sheet.uid
+
+
+def _collect_promote_index_name_conflicts(
+    json_links: list[tuple[int, int, Any]],
+    records_by_id: dict[int, Record],
+    feature: Feature,
+) -> list[tuple[int, str, str, str]]:
+    conflicts: list[tuple[int, str, str, str]] = []
+    for _, record_id, value in json_links:
+        record = records_by_id.get(record_id)
+        if record is None:
+            continue
+        feature_name = coerce_index_value_to_record_name(value, feature)
+        if feature_name is not None and record.name and record.name != feature_name:
+            conflicts.append(
+                (record_id, _record_sheet_label(record), record.name, feature_name)
+            )
+    return conflicts
+
+
+def _resolve_index_name_conflict(
+    conflicts: list[tuple[int, str, str, str]],
+    feature: Feature,
+    resolution: IndexNameConflict | None,
+) -> IndexNameConflict:
+    if not conflicts:
+        return "keep_name"
+    if resolution is not None:
+        return resolution
+    if os.getenv("LAMIN_TESTING") == "true":
+        return "keep_name"
+
+    feature_name = feature.name
+    n = len(conflicts)
+    example_lines = "\n".join(
+        f"  sheet {sheet_label}, record {record_id}: Record.name={name!r}, {feature_name}={feature_value!r}"
+        for record_id, sheet_label, name, feature_value in conflicts[:3]
+    )
+    if n > 3:
+        example_lines += f"\n  ... and {n - 3} more"
+    response = input(
+        f"{n} sheet row(s) have both Record.name and '{feature_name}' values that differ.\n"
+        f"{example_lines}\n"
+        "Keep Record.name (y) or use feature values (n)? "
+    )
+    if response == "y":
+        return "keep_name"
+    if response == "n":
+        return "keep_feature"
+    raise ValueError("schema save cancelled: index name conflict not resolved")
+
+
+def migrate_record_sheet_index_on_schema_save(
+    schema: Schema,
+    *,
+    old_index_uid: str | None,
+    new_index_uid: str | None,
+    using: str | None = None,
+    index_name_conflict: IndexNameConflict | None = None,
+) -> None:
+    """Migrate sheet row keys when ``schema.index`` changes on save."""
+    if (
+        old_index_uid == new_index_uid
+        or schema.is_type
+        or schema.itype != "Feature"
+        or schema.otype == "Composite"
+    ):
+        return
+
+    from django.db import transaction
+
+    from .save import bulk_create
+
+    db = using or schema._state.db
+    sheet_type_ids = (
+        Record.objects.using(db)
+        .filter(is_type=True, schema_id=schema.id)
+        .values_list("id", flat=True)
+    )
+    if not sheet_type_ids:
+        return
+
+    row_ids = (
+        Record.objects.using(db)
+        .filter(is_type=False, type_id__in=sheet_type_ids)
+        .values_list("id", flat=True)
+    )
+
+    with transaction.atomic(using=db):
+        if old_index_uid is not None:
+            old_feature = Feature.objects.using(db).get(uid=old_index_uid)
+            rows_with_name = (
+                Record.objects.using(db)
+                .filter(
+                    id__in=row_ids,
+                    name__isnull=False,
+                )
+                .exclude(name="")
+            )
+            json_to_create = [
+                RecordJson(record_id=record_id, feature=old_feature, value=name)
+                for record_id, name in rows_with_name.values_list("id", "name")
+                if name
+            ]
+            if json_to_create:
+                bulk_create(json_to_create, ignore_conflicts=True)
+            rows_with_name.update(name=None)
+
+        if new_index_uid is not None:
+            new_feature = Feature.objects.using(db).get(uid=new_index_uid)
+            validate_record_sheet_index_feature(new_feature)
+            json_links = (
+                RecordJson.objects.using(db)
+                .filter(
+                    record_id__in=row_ids,
+                    feature=new_feature,
+                )
+                .values_list("id", "record_id", "value")
+            )
+            if not json_links:
+                return
+
+            records_by_id = {
+                record.id: record
+                for record in Record.objects.using(db)
+                .filter(id__in={record_id for _, record_id, _ in json_links})
+                .select_related("type")
+            }
+            conflicts = _collect_promote_index_name_conflicts(
+                list(json_links), records_by_id, new_feature
+            )
+            resolution = _resolve_index_name_conflict(
+                conflicts, new_feature, index_name_conflict
+            )
+            records_to_update: list[Record] = []
+            json_ids_to_delete: list[int] = []
+            for link_id, record_id, value in json_links:
+                record = records_by_id.get(record_id)
+                if record is None:
+                    json_ids_to_delete.append(link_id)
+                    continue
+                name = coerce_index_value_to_record_name(value, new_feature)
+                if name is not None:
+                    if not record.name:
+                        record.name = name
+                        records_to_update.append(record)
+                    elif record.name != name and resolution == "keep_feature":
+                        record.name = name
+                        records_to_update.append(record)
+                json_ids_to_delete.append(link_id)
+
+            if records_to_update:
+                Record.objects.using(db).bulk_update(records_to_update, ["name"])
+            if json_ids_to_delete:
+                RecordJson.objects.using(db).filter(id__in=json_ids_to_delete).delete()
+
+
 class RecordBatch:
     """DataFrame-backed batch created by :meth:`Record.from_dataframe`."""
 
@@ -360,6 +532,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
+
 
     See Also:
         :class:`~lamindb.Feature`
@@ -383,7 +558,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group several records in a registry by creating a record type, optionally constrained with a :class:`~lamindb.Schema`::
+    Group records in a dynamic registry by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
         # create an experiments registry
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
@@ -406,7 +581,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all records under a type to a dataframe::
+    Export all records of a type to a dataframe::
 
         experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
@@ -490,6 +665,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are static: you need to define them in code and then migrate the underlying database.
+
+        In complete analogy to this: A **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
+        defined as a static Python class together with its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
 
         See :class:`~lamindb.models.SQLRecord` or the glossary for more information: :term:`docs:record`.
 
@@ -699,6 +877,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: Schema | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -938,7 +1118,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 transform=transform,
                 initiated_by_run=initiated_by_run,
                 status="started",
-            ).save()  # type: ignore
+            )
+            run.space = self.space
+            run.save()  # type: ignore
             run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
@@ -1158,6 +1340,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 "index": self.schema is not None and self.schema.index is not None
             },
             run=self._export_run,
+            space=self.space,
         ).save()
 
 

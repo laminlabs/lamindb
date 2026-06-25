@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import (
     F,
     FilteredRelation,
@@ -946,12 +946,15 @@ def reshape_annotate_result(
         if feature.name not in result_encoded.columns:
             continue
 
-        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
-            result_encoded[feature.name]
-        )
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith(("list", "dict")):
+            is_scalar = False
+        else:
+            result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+                result_encoded[feature.name]
+            )
 
         if is_scalar:
-            dtype_str = feature._dtype_str
             if dtype_str.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
@@ -984,7 +987,6 @@ def reshape_annotate_result(
                     "boolean"
                 )
 
-        dtype_str = feature._dtype_str
         if dtype_str.startswith("list"):
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
@@ -1338,8 +1340,11 @@ class BasicQuerySet(models.QuerySet):
                 _permanent_delete_transforms(self)
                 return
             if permanent is not True:
-                _adjust_is_latest_when_deleting_is_versioned(self)
-                self.update(branch_id=-1, is_latest=False)
+                # promote successors and trash the records atomically, so a failure can't
+                # leave both the successor and the (un-trashed) old head as is_latest
+                with transaction.atomic():
+                    _adjust_is_latest_when_deleting_is_versioned(self)
+                    self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop
         if self.model in {Artifact, Collection}:
@@ -1754,8 +1759,11 @@ class DB:
             ln_setup._connect_instance.get_owner_name_from_identifier(instance)
         )
         instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
+            owner=owner,
+            name=instance_name,
+            allow_sqlite_clone_fallback=True,
         )
+        self._instance_info = instance_info
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
@@ -1798,20 +1806,19 @@ class DB:
                 self._cache["pertdb"] = namespace
             return self._cache["pertdb"]
 
-        try:
-            lamindb_module = import_module("lamindb")
-            if hasattr(lamindb_module, name):
-                model_class = getattr(lamindb_module, name)
-                queryset = model_class.connect(self._instance)
-                wrapped = NonInstantiableQuerySet(queryset, name)
-                self._cache[name] = wrapped
-                return wrapped
-        except (ImportError, AttributeError):
-            pass
-
-        raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
-        )
+        lamindb_module = import_module("lamindb")
+        if hasattr(lamindb_module, name):
+            model_class = getattr(lamindb_module, name)
+            queryset = model_class.connect(
+                self._instance, _instance_info=self._instance_info
+            )
+            wrapped = NonInstantiableQuerySet(queryset, name)
+            self._cache[name] = wrapped
+            return wrapped
+        else:
+            raise AttributeError(
+                f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
+            )
 
     def __repr__(self) -> str:
         return f"DB('{self._instance}')"

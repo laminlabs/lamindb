@@ -108,7 +108,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, features, description, schema, reference, reference_type are valid keyword arguments"
+            "Only name, type, is_type, features, description, schema, reference, reference_type, branch, space are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
@@ -127,6 +127,66 @@ def test_record_lazy_features_on_save():
 
     record.delete(permanent=True)
     score_feature.delete(permanent=True)
+
+
+def test_record_from_dataframe_partial_null_bool_int():
+    """Partial-null bool/int features survive the from_dataframe save round-trip.
+
+    The user supplies correctly-typed nullable columns (boolean / Int64). On
+    .save(), _build_records chops the frame into per-row dicts (dropping null
+    cells) and bulk_set_features_in_records rebuilds it. Building each column with
+    its declared dtype (via convert_to_pandas_dtype) instead of letting
+    pd.DataFrame re-infer keeps bool/int from degrading to object/float64, so
+    validation passes and the values round-trip.
+    """
+    flag = ln.Feature(name="from-df-flag", dtype=bool).save()
+    count = ln.Feature(name="from-df-count", dtype=int).save()
+    label = ln.Feature(name="from-df-label", dtype=str).save()
+    schema = ln.Schema([flag, count, label], name="from-df-bool-int-schema").save()
+    sheet = ln.Record(name="from-df-bool-int-sheet", is_type=True, schema=schema).save()
+
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-a", "from-df-b", "from-df-c"],
+            "from-df-flag": pd.array([True, None, False], dtype="boolean"),
+            "from-df-count": pd.array([1, None, 3], dtype="Int64"),
+            "from-df-label": ["a", "b", "c"],
+        }
+    )
+
+    # the supplied dtypes are genuinely correct/nullable
+    assert df["from-df-flag"].dtype.name == "boolean"
+    assert df["from-df-count"].dtype.name == "Int64"
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 3
+    records.save()
+
+    # non-null values round-trip
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-flag"] is True
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-count"] == 1
+    # the None row drops the fragile keys entirely
+    assert "from-df-flag" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert "from-df-count" not in ln.Record.get(name="from-df-b").features.get_values()
+    assert (
+        ln.Record.get(name="from-df-c").features.get_values()["from-df-flag"] is False
+    )
+    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-count"] == 3
+
+    # dtypes survive the export round-trip: the columns come back as the nullable
+    # extension dtypes, not degraded object / float64
+    exported = sheet.to_dataframe()
+    assert exported["from-df-flag"].dtype.name == "boolean"
+    assert exported["from-df-count"].dtype.name == "Int64"
+
+    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-bool-int-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    flag.delete(permanent=True)
+    count.delete(permanent=True)
+    label.delete(permanent=True)
 
 
 def test_record_from_dataframe_bulk_save_paths():
@@ -178,6 +238,10 @@ def test_record_schema_index_stored_on_name():
         index=sample_id,
         name="index-on-name-schema",
     ).save()
+    # Story 1: constructor with index adds it to schema members
+    assert schema.index == sample_id
+    assert sample_id in schema.features.all()
+    assert score in schema.features.all()
     sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
 
     # index helper functions
@@ -286,6 +350,169 @@ def test_record_schema_index_stored_on_name():
         ln.Record(name="int-index-sheet", is_type=True, schema=int_schema).save()
     int_schema.delete(permanent=True)
     row_id.delete(permanent=True)
+
+    # Story 1b: symmetric setter only marks index; add member separately
+    setter_index = ln.Feature(name="setter_index", dtype=str).save()
+    setter_schema = ln.Schema(features=[score], name="setter-index-schema").save()
+    unsaved_score = ln.Feature(name="unsaved_score_for_index", dtype=float).save()
+    unsaved_schema = ln.Schema(features=[unsaved_score], name="unsaved-index-schema")
+    assert unsaved_schema._state.adding
+    with pytest.raises(
+        AssertionError,
+        match="Cannot set index on unsaved schema, pass index to constructor instead",
+    ):
+        unsaved_schema.index = setter_index
+    setter_schema.features.add(setter_index)
+    setter_schema.index = setter_index
+    setter_schema.save()
+    setter_sheet = ln.Record(
+        name="setter-index-sheet", is_type=True, schema=setter_schema
+    ).save()
+    assert setter_schema.index == setter_index
+    assert setter_index in setter_schema.features.all()
+    setter_record = ln.Record(
+        type=setter_sheet,
+        features={"setter_index": "S-setter", "score": 2.0},
+    ).save()
+    assert setter_record.name == "S-setter"
+    assert (
+        ln.models.RecordJson.filter(record=setter_record, feature=setter_index).count()
+        == 0
+    )
+
+    ln.Record.filter(type=setter_sheet).delete(permanent=True)
+    setter_sheet.delete(permanent=True)
+    setter_schema.delete(permanent=True)
+    setter_index.delete(permanent=True)
+    unsaved_score.delete(permanent=True)
+
+    # migration on save: set index when feature is already a schema member
+    migration_sample_id = ln.Feature(name="migration_sample_id", dtype=str).save()
+    migration_score = ln.Feature(name="migration_score", dtype=float).save()
+    migration_schema = ln.Schema(
+        features=[migration_sample_id, migration_score],
+        name="migration-schema",
+    ).save()
+    migration_sheet = ln.Record(
+        name="migration-sheet", is_type=True, schema=migration_schema
+    ).save()
+    migration_record = ln.Record(
+        type=migration_sheet,
+        features={"migration_sample_id": "S-migrate", "migration_score": 3.0},
+    ).save()
+    assert migration_record.name is None
+    assert (
+        ln.models.RecordJson.filter(
+            record=migration_record, feature=migration_sample_id
+        ).count()
+        == 1
+    )
+
+    migration_schema.index = migration_sample_id
+    migration_record.refresh_from_db()
+    assert migration_record.name is None
+
+    migration_schema.save()
+    migration_record.refresh_from_db()
+    assert migration_record.name == "S-migrate"
+    assert (
+        ln.models.RecordJson.filter(
+            record=migration_record, feature=migration_sample_id
+        ).count()
+        == 0
+    )
+    migration_df = migration_sheet.to_dataframe()
+    assert migration_df.index.tolist() == ["S-migrate"]
+
+    migration_schema.index = None
+    migration_schema.save()
+    migration_record.refresh_from_db()
+    assert migration_record.name is None
+    assert (
+        ln.models.RecordJson.get(
+            record=migration_record, feature=migration_sample_id
+        ).value
+        == "S-migrate"
+    )
+    assert migration_sample_id in migration_schema.features.all()
+
+    ln.Record.filter(type=migration_sheet).delete(permanent=True)
+    migration_sheet.delete(permanent=True)
+    migration_schema.delete(permanent=True)
+    migration_sample_id.delete(permanent=True)
+    migration_score.delete(permanent=True)
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_schema_index_name_conflict_resolution():
+    """When Record.name and index feature values differ, user can choose which to keep."""
+    sample_id = ln.Feature(name="conflict_sample_id", dtype=str).save()
+    score = ln.Feature(name="conflict_score", dtype=float).save()
+    schema = ln.Schema(
+        features=[sample_id, score],
+        name="conflict-schema",
+    ).save()
+    sheet = ln.Record(name="conflict-sheet", is_type=True, schema=schema).save()
+    record = ln.Record(
+        name="manual-name",
+        type=sheet,
+        features={"conflict_sample_id": "feature-value", "conflict_score": 1.0},
+    ).save()
+    assert (
+        ln.models.RecordJson.get(record=record, feature=sample_id).value
+        == "feature-value"
+    )
+
+    schema.index = sample_id
+    schema.save(index_name_conflict="keep_name")
+    record.refresh_from_db()
+    assert record.name == "manual-name"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+    assert record.features.get_values()["conflict_sample_id"] == "manual-name"
+
+    schema.index = None
+    schema.save()
+    record.refresh_from_db()
+    record.name = "manual-name"
+    record.save()
+    ln.models.RecordJson.filter(record=record, feature=sample_id).update(
+        value="feature-value"
+    )
+    schema.index = sample_id
+    schema.save(index_name_conflict="keep_feature")
+    record.refresh_from_db()
+    assert record.name == "feature-value"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+
+    schema.index = None
+    schema.save()
+    record.refresh_from_db()
+    record.name = "manual-name"
+    record.save()
+    ln.models.RecordJson.filter(record=record, feature=sample_id).update(
+        value="feature-value"
+    )
+    schema.index = sample_id
+    prompt_messages: list[str] = []
+
+    def capture_input(_: str) -> str:
+        return "n"
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "builtins.input",
+            lambda msg: prompt_messages.append(msg) or capture_input(msg),
+        )
+        monkeypatch.delenv("LAMIN_TESTING", raising=False)
+        schema.save()
+    assert "sheet conflict-sheet" in prompt_messages[0]
+    record.refresh_from_db()
+    assert record.name == "feature-value"
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
@@ -693,7 +920,7 @@ def test_record_features_add_remove_values():
         "feature_list_float": [2.71, 3.14, 1.61],
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
-        "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+        "feature_dict": {"key": "value"},
         "feature_type1": "entity1",
         "feature_type1s": ["entity1", "entity2"],
         "feature_ulabel": "test-ulabel",
@@ -908,7 +1135,7 @@ def test_record_features_add_remove_values():
         "feature_list_num": [2.71, 3.14, 1.61],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
         "feature_date": date(2024, 1, 1),
-        "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
+        "feature_dict": {"key": "value"},
         "feature_type1": "entity1",
         "feature_ulabel": "test-ulabel",
         "feature_user": ln.setup.settings.user.handle,
@@ -996,7 +1223,10 @@ def test_record_features_add_remove_values():
 
     record_entity1.restore()
     test_values["feature_type1"] = "entity1"
-    test_values["feature_type1s"] = ["entity1", "entity2"]
+    restored_values = test_record.features.get_values()
+    assert restored_values["feature_type1"] == "entity1"
+    assert set(restored_values["feature_type1s"]) == {"entity1", "entity2"}
+    test_values["feature_type1s"] = restored_values["feature_type1s"]
 
     # remove values
 

@@ -102,7 +102,7 @@ def _init_versioned_attached_block(
             raise ValueError(
                 "revises is not allowed for kind='comment'; comments are not versioned"
             )
-        new_uid, _ = create_uid(
+        new_uid = create_uid(
             revises=None,
             version_tag=version_tag,
             n_full_id=cls._len_full_uid,
@@ -144,7 +144,7 @@ def _init_versioned_attached_block(
         init_self_from_db(self, revises)
         update_attributes(self, {})
         return None
-    new_uid, revises = create_uid(
+    new_uid = create_uid(
         revises=revises,
         version_tag=version_tag,
         n_full_id=cls._len_full_uid,
@@ -207,6 +207,16 @@ class Block(BaseBlock, SQLRecord):
     """An experimental markdown block for anything: issues, standalone markdown pages, comments, etc.
 
     The `Block` model is experimental and may change in the future.
+
+    Args:
+        key: `str | None = None` The key for which to create a block.
+        content: `str | None = None` Markdown content of the block.
+        kind: `Literal["readme"] = "readme"` The kind of block.
+        version: `str | None = None` A version string.
+        revises: `Block | None = None` An old version of the block.
+        anchor: `Block | None = None` The anchor block this block attaches to.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
     """
 
     class Meta:
@@ -238,6 +248,8 @@ class Block(BaseBlock, SQLRecord):
         version: str | None = None,
         revises: Block | None = None,
         anchor: Block | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -324,7 +336,7 @@ class Block(BaseBlock, SQLRecord):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming block {revises.key} to {key}")
-        new_uid, version_tag, key, _, revises = process_revises(
+        new_uid, version_tag, key, _ = process_revises(
             revises, version_tag, key, None, Block
         )
         if uid is None:

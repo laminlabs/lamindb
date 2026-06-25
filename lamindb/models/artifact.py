@@ -353,6 +353,7 @@ def get_stat_or_artifact(
     instance: str | None = None,
     skip_hash_lookup: bool = False,
     skip_key_revises_lookup: bool = False,
+    target_branch_id: int | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -447,7 +448,16 @@ def get_stat_or_artifact(
             logger.important(
                 f"creating new artifact version for key '{key}' in storage '{storage.root}'"
             )
-            previous_artifact_version = queryset_same_key.first()
+            # prefer the latest version on the branch this artifact will be created
+            # on (is_latest is per-branch, so a family can have several heads); fall
+            # back to the most recent head across branches.
+            previous_artifact_version = None
+            if target_branch_id is not None:
+                previous_artifact_version = queryset_same_key.filter(
+                    branch_id=target_branch_id
+                ).first()
+            if previous_artifact_version is None:
+                previous_artifact_version = queryset_same_key.first()
     if artifact_with_same_hash_exists:
         artifact_with_same_hash = queryset_same_hash.first()
         logger.important(
@@ -510,6 +520,7 @@ def get_artifact_kwargs_from_data(
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
     skip_key_revises_lookup: bool = False,
+    target_branch_id: int | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -552,6 +563,7 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
         skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
+        target_branch_id=target_branch_id,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -584,7 +596,7 @@ def get_artifact_kwargs_from_data(
 
     # update local path
     if revises is not None:  # update provisional_uid
-        provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
+        provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         if settings.cache_dir in path.parents:
             path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
             privates["local_filepath"] = path
@@ -1115,7 +1127,7 @@ class LazyArtifact:
                 "The suffix argument and the suffix of key should be the same."
             )
 
-        uid, _ = create_uid(n_full_id=20)
+        uid = create_uid(n_full_id=20)
         storage_key = _s().auto_storage_key_from_artifact_uid(
             uid, suffix, overwrite_versions=overwrite_versions
         )
@@ -1179,20 +1191,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
-        branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
-        space: `Space | None = None` The space of the artifact. If `None`, uses the passed `storage.space` if `storage` is passed; otherwise uses the default space (:attr:`~lamindb.setup.core.SetupSettings.space`).
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
-            If `None`, checks hashes for upload flows and skips hash lookup for paths already in registered storage.
-            If `True`, always skips hash lookup.
-            If `False`, always attempts hash lookup.
-            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
-        key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
-            If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
-            Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
-            and change it globally, e.g., `ln.settings.creation._artifact_use_virtual_keys = False`.
-            If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
-            If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
+            If `None`, de-duplicates new artifacts but skips deduplication for paths already in registered storage.
+            If `True`, never deduplicates. If `False`, always deduplicates. Empty files are never deduplicated.
+        key_is_virtual: `bool = True` Whether to use a virtual storage key.
+            If `True`, the real storage path is auto-generated from the artifact `uid` in `.lamindb/`.
+            If `False`, `key` is treated as part of the real storage path.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space or, if `storage` is passed, the passed `storage.space`.
 
     See Also:
         :class:`~lamindb.Storage`
@@ -1521,7 +1528,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     The field also accepts custom `str` values to allow for building logic around them in third-party packages.
 
-    See section `storage formats & object types <storage-formats-note_>`__ for more background.
+    See section :ref:`storage formats & object types <storage-formats-note>` for more background.
     """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
@@ -1668,10 +1675,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
         storage: Storage | None = None,
+        skip_hash_lookup: bool | None = None,
+        key_is_virtual: bool = True,
         branch: Branch | None = None,
         space: Space | None = None,
-        skip_hash_lookup: bool | None = None,
-        key_is_virtual: bool | None = None,
     ): ...
 
     @overload
@@ -1815,8 +1822,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None | bool = _sqlrecord_or_id(
             Run, kwargs.pop("run", None), kwargs.pop("run_id", None), check_type=False
         )
-        branch: Branch | None = _sqlrecord_or_id(
-            Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
+        from .sqlrecord import get_current_branch
+
+        # resolve the creation branch once (defaulting to the current branch) so the
+        # inferred `revises` lookup and the record's actual branch_id can't diverge
+        # (is_latest is per-branch, so the demoted head must be on this exact branch).
+        branch: Branch = (
+            _sqlrecord_or_id(
+                Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
+            )
+            or get_current_branch()
         )
         space: Space | None = _sqlrecord_or_id(
             Space, kwargs.pop("space", None), kwargs.pop("space_id", None)
@@ -1894,7 +1909,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
-        provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
+        provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=path,
@@ -1911,6 +1926,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
+            target_branch_id=branch.id,
         )
 
         def set_private_attributes():
@@ -1985,7 +2001,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if revises is None:
                     uid += "0000"
                 else:
-                    uid, revises = create_uid(revises=revises, version_tag=version_tag)
+                    uid = create_uid(revises=revises, version_tag=version_tag)
             kwargs["uid"] = uid
 
         # only set key now so that we don't perform a look-up on it in case revises is passed

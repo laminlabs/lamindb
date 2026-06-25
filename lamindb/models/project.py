@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from .block import Block, ProjectBlock
     from .query_manager import RelatedManager
     from .query_set import QuerySet
-    from .sqlrecord import Branch
+    from .sqlrecord import Branch, Space
 
 
 class Reference(
@@ -47,10 +47,24 @@ class Reference(
 ):
     """References such as internal studies, papers, documents, or URLs.
 
+    Args:
+        name: `str` The name of the reference.
+        type: `Reference | None = None` The type of the reference.
+        is_type: `bool = False` Whether the reference is a type.
+        abbr: `str | None = None` The abbreviation of the reference.
+        url: `str | None = None` The URL of the reference.
+        pubmed_id: `int | None = None` The PubMed ID of the reference.
+        doi: `str | None = None` The DOI of the reference.
+        description: `str | None = None` The description of the reference.
+        text: `str | None = None` The text of the reference.
+        date: `DateType | None = None` The date of the reference.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
+
     Examples
     --------
 
-    Create a reference object::
+    Create a reference::
 
         reference = Reference(
             name="A Paper Title",
@@ -212,6 +226,8 @@ class Reference(
         description: str | None = None,
         text: str | None = None,
         date: DateType | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -234,6 +250,17 @@ class Reference(
 
 class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects to label artifacts, transforms, records, and runs.
+
+    Args:
+        name: `str` Title or name of the project.
+        type: `Project | None = None` A project type, see :attr:`~lamindb.Project.type`.
+        is_type: `bool = False` Whether this project is a type.
+        abbr: `str | None = None` An abbreviation.
+        url: `str | None = None` A URL.
+        start_date: `date | None = None` Date the project started.
+        end_date: `date | None = None` Date the project ended.
+        branch: `Branch | None = None` A branch. If `None`, uses the current branch.
+        space: `Space | None = None` A space. If `None`, uses the current space.
 
     Examples
     --------
@@ -426,6 +453,8 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         url: str | None = None,
         start_date: DateType | None = None,
         end_date: DateType | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload

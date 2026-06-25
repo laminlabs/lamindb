@@ -51,7 +51,7 @@ def define_mini_immuno_schema_flexible() -> Schema:
     define_features_labels()
     from . import define_mini_immuno_schema_flexible  # noqa
 
-    return Schema.get(name="Mini immuno schema")
+    return Schema.get(name="mini_immuno")
 
 
 def save_mini_immuno_datasets():

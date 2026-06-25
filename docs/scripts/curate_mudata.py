@@ -17,8 +17,8 @@ ln.Record(name="rep3", type=replicate).save()
 obs_schema = ln.Schema(
     name="mudata_papalexi21_subset_obs_schema",
     features=[
-        ln.Feature(name="perturbation", dtype="cat[Record[Perturbation]]").save(),
-        ln.Feature(name="replicate", dtype="cat[Record[Replicate]]").save(),
+        ln.Feature(name="perturbation", dtype=perturbation).save(),
+        ln.Feature(name="replicate", dtype=replicate).save(),
     ],
 ).save()
 

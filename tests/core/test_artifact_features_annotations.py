@@ -67,7 +67,7 @@ def test_artifact_features_add_remove_query():
         "feature_num": 2.71,
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
-        "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+        "feature_dict": {"key": "value"},
         "feature_type1": "entity1",
         "feature_type1s": ["entity1", "entity2"],
         "feature_ulabel": "test-ulabel",

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import builtins
-import gzip
 import inspect
 import os
 import re
-import shutil
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import chain
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -43,19 +40,20 @@ from django.db.models.fields.related import (
 )
 from django.db.models.functions import Lower
 from lamin_utils import colors, logger
+from lamin_utils._base62 import increment_base62
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     INSTANCE_NOT_FOUND_MESSAGE,
     InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
+    try_synchronize_sqlite_clone,
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
-from upath import UPath
 
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
@@ -84,7 +82,11 @@ from ..errors import (
 from ..errors import (
     IntegrityError as LaminIntegrityError,
 )
-from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from ._is_versioned import (
+    IsVersioned,
+    _adjust_is_latest_when_deleting_is_versioned,
+    max_version_uid_in_family,
+)
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -141,22 +143,6 @@ def _format_versioned_record(record: IsVersioned) -> str:
     if not details:
         return class_name
     return f"{class_name}({', '.join(details)})"
-
-
-def _pull_latest_version_if_stale(
-    record: IsVersioned, branch_id: int | None = None
-) -> IsVersioned:
-    if not record.is_latest:
-        latest_version_qs = record.__class__.objects.filter(
-            uid__startswith=record.stem_uid,
-            is_latest=True,
-        )
-        if branch_id is not None:
-            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
-        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
-        if latest_version is not None:
-            return latest_version
-    return record
 
 
 # -------------------------------------------------------------------------------------
@@ -587,6 +573,35 @@ def pop_space_branch_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_current_branch() -> Branch:
+    """The branch a new record defaults to: run/context branch, else settings branch.
+
+    `setup_settings.branch` always resolves to a `Branch` (or a main-branch mock when
+    no instance is set up), so this never returns `None`.
+    """
+    from lamindb import context as run_context
+
+    if run_context.branch is not None:
+        return run_context.branch
+    return setup_settings.branch
+
+
+def get_branch_id_for_create(
+    branch: Branch | None = None, branch_id: int | None = None
+) -> int:
+    """Resolve the branch id a newly created record will be assigned.
+
+    Mirrors the branch defaulting in `SQLRecord.save`: an explicitly passed branch
+    wins, otherwise the current run/context branch, otherwise the settings branch.
+    Used to prefer the in-branch latest version when inferring `revises`.
+    """
+    if branch is not None:
+        return branch.id
+    if branch_id is not None:
+        return branch_id
+    return get_current_branch().id
+
+
 def suggest_records_with_similar_names(
     record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
@@ -650,13 +665,16 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
-        if promoted:
-            if is_soft:
-                record.is_latest = False
-            with transaction.atomic():
-                result = delete()
-            return result
+        # promote a successor and delete the record atomically, so a failure can't leave
+        # both the successor and the (un-deleted) old head as is_latest
+        with transaction.atomic():
+            promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+            if promoted:
+                if is_soft:
+                    record.is_latest = False
+                # evaluates, then returns, no exit from the transaction
+                return delete()
+        # nothing to promote (e.g. last remaining version): fall through to a plain delete
     # deal with all other cases of the nested if condition now
     return delete()
 
@@ -678,34 +696,6 @@ RECORD_REGISTRY_EXAMPLE = """Example::
         # `Experiment` refers to the registry, which you can query
         df = Experiment.filter(name__startswith="my ").to_dataframe()
 """
-
-
-def _synchronize_clone(storage_root: str) -> str | None:
-    """Synchronizes a clone to the local SQLite path.
-
-    Args:
-        storage_root: The storage root path of the (target) instance
-    """
-    cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-    local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
-
-    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
-    local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-
-    try:
-        if cloud_db_path_gz.synchronize_to(
-            local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        ):
-            with (
-                gzip.open(local_sqlite_path_gz, "rb") as f_in,
-                open(local_sqlite_path, "wb") as f_out,
-            ):
-                shutil.copyfileobj(f_in, f_out)
-        return f"sqlite:///{local_sqlite_path}"
-    except (FileNotFoundError, PermissionError):
-        logger.debug("Clone not found. Falling back to normal access...")
-        return None
 
 
 # this is the metaclass for SQLRecord
@@ -938,6 +928,7 @@ class Registry(ModelBase):
     def connect(
         cls,
         instance: str | None,
+        _instance_info=None,
     ) -> QuerySet:
         """Query a non-default LaminDB instance.
 
@@ -960,14 +951,58 @@ class Registry(ModelBase):
             return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
-        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        current_instance_owner_name: list[str] = [
+            setup_settings.instance.owner,
+            setup_settings.instance.name,
+        ]
+
+        def _should_try_clone(
+            db_url: str | None = None, db_user_name: str | None = None
+        ) -> bool:
+            if db_user_name is not None:
+                db_user_name = db_user_name or ""
+                return "_public" in db_user_name or db_user_name in {"", "none"}
+            if db_url is None:
+                return False
+            from lamindb_setup.core._hub_utils import LaminDsnModel
+
+            try:
+                db_dsn = LaminDsnModel(db=db_url)
+                user = db_dsn.db.user or ""
+            except Exception:
+                user = ""
+            return "public" in user or user in {"", "none"}
 
         # move on to different instances
         cache_using_filepath = (
             setup_settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
         )
         settings_file = instance_settings_file(name, owner)
-        if not settings_file.exists():
+        if _instance_info is not None:
+            isettings = _instance_info
+            source_modules = isettings.modules
+            db = None
+            if (
+                isettings.dialect == "postgresql"
+                and _should_try_clone(db_url=isettings.db)
+                and isettings.storage is not None
+            ):
+                db = try_synchronize_sqlite_clone(isettings.storage.root_as_str)
+            if db is None:
+                if [isettings.owner, isettings.name] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = isettings.db
+                is_fine_grained_access = (
+                    isettings._fine_grained_access
+                    and isettings._db_permissions == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+            cache_using_filepath.write_text(
+                f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
+            )
+            into_db_token = isettings
+        elif not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
                 message = INSTANCE_NOT_FOUND_MESSAGE.format(
@@ -980,24 +1015,30 @@ class Registry(ModelBase):
                 return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
+            iresult_schema_str = (
+                "" if iresult["schema_str"] is None else iresult["schema_str"]
+            )
             source_modules = set(  # noqa
-                [mod for mod in iresult["schema_str"].split(",") if mod != ""]
+                [mod for mod in iresult_schema_str.split(",") if mod != ""]
             )
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             db = None
-            if (
-                "_public" in iresult["db_user_name"]
-                and "postgresql" in iresult["db_scheme"]
-            ):
-                db = _synchronize_clone(storage["root"])
+            if _should_try_clone(
+                db_user_name=iresult.get("db_user_name")
+            ) and "postgresql" in (iresult.get("db_scheme") or ""):
+                db = try_synchronize_sqlite_clone(storage["root"])
             if db is None:
                 if [
                     iresult.get("owner"),
                     iresult["name"],
                 ] == current_instance_owner_name:
                     return QuerySet(model=cls, using=None)
-                db = update_db_using_local(iresult, settings_file)
+                db = update_db_using_local(
+                    iresult,
+                    settings_file,
+                    storage_root=storage["root"],
+                )
                 is_fine_grained_access = (
                     iresult["fine_grained_access"]
                     and iresult["db_permissions"] == "jwt"
@@ -1006,7 +1047,7 @@ class Registry(ModelBase):
                 is_fine_grained_access = False
 
             cache_using_filepath.write_text(
-                f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
+                f"{iresult['lnid']}\n{iresult_schema_str}", encoding="utf-8"
             )
 
             # access_db can take both: the dict from connect_instance_hub and isettings
@@ -1015,8 +1056,10 @@ class Registry(ModelBase):
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
             db = None
-            if "public" in isettings.db and isettings.dialect == "postgresql":
-                db = _synchronize_clone(isettings.storage.root_as_str)
+            if isettings.dialect == "postgresql" and _should_try_clone(
+                db_url=isettings.db
+            ):
+                db = try_synchronize_sqlite_clone(isettings.storage.root_as_str)
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             if db is None:
@@ -1143,23 +1186,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):
-                    from lamindb import context as run_context
-
-                    has_explicit_branch = resolve_fk_or_id("branch")
-                    if run_context.branch is not None:
-                        current_branch = run_context.branch
-                    elif setup_settings.branch is not None:
-                        current_branch = setup_settings.branch
-                    else:
-                        current_branch = None
-
-                    if not has_explicit_branch:
-                        if current_branch is not None:
-                            kwargs["branch"] = current_branch
-                        elif kwargs.get("branch") is None:
-                            kwargs.pop("branch", None)
-                    if "branch" in kwargs and kwargs["branch"] is not None:
-                        kwargs["created_on"] = kwargs["branch"]
+                    if not resolve_fk_or_id("branch"):
+                        kwargs["branch"] = get_current_branch()
+                    # `kwargs["branch"]` is now always a non-None Branch (explicit or
+                    # the current one), so the record is created on that branch.
+                    kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -1319,23 +1350,52 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
-                    # For branch-aware models (SQLRecord), keep source-branch latest
-                    # intact and only demote within the same branch. For other
-                    # versioned models (e.g. blocks), keep previous behavior.
-                    should_demote = True
                     has_branch_id = hasattr(revises, "branch_id") and hasattr(
                         self, "branch_id"
                     )
-                    if has_branch_id:
-                        should_demote = revises.branch_id == self.branch_id
+                    # `revises` is refreshed when it was inferred or was already a previous
+                    # version at init (see `IsVersioned.__init__`); an explicit head that
+                    # gets demoted concurrently before save instead raises below.
+                    refresh = self._refresh_revises_if_stale
+                    # the new version supersedes the current head on its *creation* branch.
+                    # That head is `revises` itself when it's an in-branch head; otherwise --
+                    # inferred / a previous version (`refresh`), or a head on another branch
+                    # (is_latest is per-branch) -- we look it up. Same-branch explicit heads
+                    # (the common case) thus skip this query.
+                    cross_branch = has_branch_id and revises.branch_id != self.branch_id
                     with transaction.atomic():
-                        if should_demote:
-                            revises.refresh_from_db(fields=["is_latest"])
-                            if getattr(self, "_refresh_revises_if_stale", False):
-                                revises = _pull_latest_version_if_stale(
-                                    revises, self.branch_id if has_branch_id else None
+                        if refresh or cross_branch:
+                            head_qs = self.__class__.objects.filter(
+                                uid__startswith=self.stem_uid, is_latest=True
+                            )
+                            if has_branch_id:
+                                head_qs = head_qs.filter(branch_id=self.branch_id)
+                            demote_target = head_qs.order_by(
+                                "-created_at", "-id"
+                            ).first()
+                        else:
+                            demote_target = revises
+                        if refresh:
+                            # revise from the live branch head; if it differs from `revises`
+                            # (a previous version, or a concurrently-created head) re-derive a
+                            # collision-free uid from the current family max (independent of db
+                            # collation, never colliding with a concurrently-created head).
+                            if (
+                                demote_target is not None
+                                and demote_target.uid != revises.uid
+                            ):
+                                self._revises = revises = demote_target
+                                self.uid = self.stem_uid + increment_base62(
+                                    max_version_uid_in_family(demote_target)[-4:]
                                 )
-                                self._revises = revises
+                                logger.warning(
+                                    "`revises` was not the latest version, "
+                                    f"updated it to the current head: {revises}"
+                                )
+                        else:
+                            # explicitly-passed `revises` that *was* a head at init: it must
+                            # still be one, else a newer revision was created concurrently.
+                            revises.refresh_from_db(fields=["is_latest"])
                             if not revises.is_latest:
                                 raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "
@@ -1344,9 +1404,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                     "This usually means a newer revision was created concurrently "
                                     "or an older record was selected for `revises`."
                                 )
-                            revises.is_latest = False
-                            revises._revises = None  # ensure we don't start a recursion
-                            revises.save()
+                        if demote_target is not None:
+                            # if the head we demote is the very object the caller passed as
+                            # `revises`, demote that in-memory object so the caller observes
+                            # is_latest=False without a refresh
+                            if demote_target.pk == revises.pk:
+                                demote_target = revises
+                            demote_target.is_latest = False
+                            demote_target._revises = None  # avoid recursion
+                            demote_target.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
