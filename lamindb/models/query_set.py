@@ -1763,6 +1763,7 @@ class DB:
             name=instance_name,
             allow_sqlite_clone_fallback=True,
         )
+        self._instance_info = instance_info
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
@@ -1808,7 +1809,9 @@ class DB:
         lamindb_module = import_module("lamindb")
         if hasattr(lamindb_module, name):
             model_class = getattr(lamindb_module, name)
-            queryset = model_class.connect(self._instance)
+            queryset = model_class.connect(
+                self._instance, _instance_info=self._instance_info
+            )
             wrapped = NonInstantiableQuerySet(queryset, name)
             self._cache[name] = wrapped
             return wrapped
