@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import builtins
-import gzip
 import inspect
 import os
 import re
-import shutil
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import chain
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -50,13 +47,13 @@ from lamindb_setup._connect_instance import (
     InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
+    try_synchronize_sqlite_clone,
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
-from upath import UPath
 
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
@@ -701,34 +698,6 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 """
 
 
-def _synchronize_clone(storage_root: str) -> str | None:
-    """Synchronizes a clone to the local SQLite path.
-
-    Args:
-        storage_root: The storage root path of the (target) instance
-    """
-    cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-    local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
-
-    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
-    local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-
-    try:
-        if cloud_db_path_gz.synchronize_to(
-            local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        ):
-            with (
-                gzip.open(local_sqlite_path_gz, "rb") as f_in,
-                open(local_sqlite_path, "wb") as f_out,
-            ):
-                shutil.copyfileobj(f_in, f_out)
-        return f"sqlite:///{local_sqlite_path}"
-    except (FileNotFoundError, PermissionError):
-        logger.debug("Clone not found. Falling back to normal access...")
-        return None
-
-
 # this is the metaclass for SQLRecord
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
@@ -959,6 +928,7 @@ class Registry(ModelBase):
     def connect(
         cls,
         instance: str | None,
+        _instance_info=None,
     ) -> QuerySet:
         """Query a non-default LaminDB instance.
 
@@ -981,14 +951,58 @@ class Registry(ModelBase):
             return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
-        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        current_instance_owner_name: list[str] = [
+            setup_settings.instance.owner,
+            setup_settings.instance.name,
+        ]
+
+        def _should_try_clone(
+            db_url: str | None = None, db_user_name: str | None = None
+        ) -> bool:
+            if db_user_name is not None:
+                db_user_name = db_user_name or ""
+                return "_public" in db_user_name or db_user_name in {"", "none"}
+            if db_url is None:
+                return False
+            from lamindb_setup.core._hub_utils import LaminDsnModel
+
+            try:
+                db_dsn = LaminDsnModel(db=db_url)
+                user = db_dsn.db.user or ""
+            except Exception:
+                user = ""
+            return "public" in user or user in {"", "none"}
 
         # move on to different instances
         cache_using_filepath = (
             setup_settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
         )
         settings_file = instance_settings_file(name, owner)
-        if not settings_file.exists():
+        if _instance_info is not None:
+            isettings = _instance_info
+            source_modules = isettings.modules
+            db = None
+            if (
+                isettings.dialect == "postgresql"
+                and _should_try_clone(db_url=isettings.db)
+                and isettings.storage is not None
+            ):
+                db = try_synchronize_sqlite_clone(isettings.storage.root_as_str)
+            if db is None:
+                if [isettings.owner, isettings.name] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = isettings.db
+                is_fine_grained_access = (
+                    isettings._fine_grained_access
+                    and isettings._db_permissions == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+            cache_using_filepath.write_text(
+                f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
+            )
+            into_db_token = isettings
+        elif not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
                 message = INSTANCE_NOT_FOUND_MESSAGE.format(
@@ -1001,24 +1015,30 @@ class Registry(ModelBase):
                 return QuerySet(model=cls, using=None)
             # do not use {} syntax below, it gives rise to a dict if the schema modules
             # are empty and then triggers a TypeError in missing_members = source_modules - target_modules
+            iresult_schema_str = (
+                "" if iresult["schema_str"] is None else iresult["schema_str"]
+            )
             source_modules = set(  # noqa
-                [mod for mod in iresult["schema_str"].split(",") if mod != ""]
+                [mod for mod in iresult_schema_str.split(",") if mod != ""]
             )
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             db = None
-            if (
-                "_public" in iresult["db_user_name"]
-                and "postgresql" in iresult["db_scheme"]
-            ):
-                db = _synchronize_clone(storage["root"])
+            if _should_try_clone(
+                db_user_name=iresult.get("db_user_name")
+            ) and "postgresql" in (iresult.get("db_scheme") or ""):
+                db = try_synchronize_sqlite_clone(storage["root"])
             if db is None:
                 if [
                     iresult.get("owner"),
                     iresult["name"],
                 ] == current_instance_owner_name:
                     return QuerySet(model=cls, using=None)
-                db = update_db_using_local(iresult, settings_file)
+                db = update_db_using_local(
+                    iresult,
+                    settings_file,
+                    storage_root=storage["root"],
+                )
                 is_fine_grained_access = (
                     iresult["fine_grained_access"]
                     and iresult["db_permissions"] == "jwt"
@@ -1027,7 +1047,7 @@ class Registry(ModelBase):
                 is_fine_grained_access = False
 
             cache_using_filepath.write_text(
-                f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
+                f"{iresult['lnid']}\n{iresult_schema_str}", encoding="utf-8"
             )
 
             # access_db can take both: the dict from connect_instance_hub and isettings
@@ -1036,8 +1056,10 @@ class Registry(ModelBase):
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
             db = None
-            if "public" in isettings.db and isettings.dialect == "postgresql":
-                db = _synchronize_clone(isettings.storage.root_as_str)
+            if isettings.dialect == "postgresql" and _should_try_clone(
+                db_url=isettings.db
+            ):
+                db = try_synchronize_sqlite_clone(isettings.storage.root_as_str)
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             if db is None:

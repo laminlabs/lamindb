@@ -10,6 +10,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import FieldValidationError
+from lamindb.models import sqlrecord as sqlrecord_module
 from lamindb.models.sqlrecord import (
     _get_record_kwargs,
     _search,
@@ -444,6 +445,57 @@ def test_failed_connect():
     assert error.exconly().startswith(
         "lamindb_setup.errors.InstanceNotFoundError: 'laminlabs/lamindata-not-existing' not found: 'instance-not-found'"
     )
+
+
+def test_connect_uses_sqlite_clone_before_update_db(monkeypatch, tmp_path):
+    instance = "laminlabs/test-public"
+    owner, name = "laminlabs", "test-public"
+    settings_file = tmp_path / "instance.env"
+    iresult = {
+        "owner": owner,
+        "name": name,
+        "lnid": "abc123",
+        "schema_str": "lamindb",
+        "db_scheme": "postgresql",
+        "db_user_name": "test_public",
+        "fine_grained_access": False,
+        "db_permissions": "read",
+    }
+    storage = {"root": "s3://bucket/test-public"}
+    captured_db: list[str] = []
+
+    monkeypatch.setattr(
+        sqlrecord_module,
+        "connect_instance_hub",
+        lambda owner, name: (iresult, storage),
+    )
+    monkeypatch.setattr(
+        sqlrecord_module,
+        "instance_settings_file",
+        lambda name, owner: settings_file,
+    )
+    monkeypatch.setattr(
+        sqlrecord_module,
+        "try_synchronize_sqlite_clone",
+        lambda storage_root: "sqlite:////tmp/public-clone.db",
+    )
+    monkeypatch.setattr(
+        sqlrecord_module,
+        "update_db_using_local",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("update_db_using_local should not be called")
+        ),
+    )
+    monkeypatch.setattr(
+        sqlrecord_module,
+        "add_db_connection",
+        lambda db, instance: captured_db.append(db),
+    )
+
+    queryset = ln.Artifact.connect(instance)
+
+    assert queryset._db == instance
+    assert captured_db == ["sqlite:////tmp/public-clone.db"]
 
 
 def test_unsaved_model_different_instance():

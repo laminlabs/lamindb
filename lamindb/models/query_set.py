@@ -1759,8 +1759,11 @@ class DB:
             ln_setup._connect_instance.get_owner_name_from_identifier(instance)
         )
         instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
+            owner=owner,
+            name=instance_name,
+            allow_sqlite_clone_fallback=True,
         )
+        self._instance_info = instance_info
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
@@ -1803,20 +1806,19 @@ class DB:
                 self._cache["pertdb"] = namespace
             return self._cache["pertdb"]
 
-        try:
-            lamindb_module = import_module("lamindb")
-            if hasattr(lamindb_module, name):
-                model_class = getattr(lamindb_module, name)
-                queryset = model_class.connect(self._instance)
-                wrapped = NonInstantiableQuerySet(queryset, name)
-                self._cache[name] = wrapped
-                return wrapped
-        except (ImportError, AttributeError):
-            pass
-
-        raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
-        )
+        lamindb_module = import_module("lamindb")
+        if hasattr(lamindb_module, name):
+            model_class = getattr(lamindb_module, name)
+            queryset = model_class.connect(
+                self._instance, _instance_info=self._instance_info
+            )
+            wrapped = NonInstantiableQuerySet(queryset, name)
+            self._cache[name] = wrapped
+            return wrapped
+        else:
+            raise AttributeError(
+                f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
+            )
 
     def __repr__(self) -> str:
         return f"DB('{self._instance}')"
