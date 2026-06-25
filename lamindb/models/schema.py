@@ -130,6 +130,11 @@ def transfer_schema_members(
     source_schema = copy(schema)
     source_schema._state.db = source_db
     source_schema.pk = source_pk
+    # Only Feature schemas require member-level transfer here.
+    # Non-Feature schemas (e.g. large Gene schemas) can have huge memberships
+    # and are handled via regular mapping/lookup paths.
+    if source_schema.itype != "Feature":
+        return None
 
     index_feature_uid = source_schema._index_feature_uid
     if index_feature_uid is not None:
@@ -162,7 +167,8 @@ def transfer_schema_members(
     transferred_members = []
     for source_member in members:
         member = copy(source_member)
-        transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+        if isinstance(member, Feature):
+            transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
         transferred_member = transfer_to_default_db(
             member, using_key, transfer_logs=transfer_logs, save=True
         )
