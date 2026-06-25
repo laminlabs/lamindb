@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import builtins
-import gzip
 import inspect
 import os
 import re
-import shutil
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from itertools import chain
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -50,13 +47,13 @@ from lamindb_setup._connect_instance import (
     InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
+    try_synchronize_sqlite_clone,
     update_db_using_local,
 )
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
-from upath import UPath
 
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
@@ -701,34 +698,6 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 """
 
 
-def _synchronize_clone(storage_root: str) -> str | None:
-    """Synchronizes a clone to the local SQLite path.
-
-    Args:
-        storage_root: The storage root path of the (target) instance
-    """
-    cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-    local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
-
-    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
-    local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-
-    try:
-        if cloud_db_path_gz.synchronize_to(
-            local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        ):
-            with (
-                gzip.open(local_sqlite_path_gz, "rb") as f_in,
-                open(local_sqlite_path, "wb") as f_out,
-            ):
-                shutil.copyfileobj(f_in, f_out)
-        return f"sqlite:///{local_sqlite_path}"
-    except (FileNotFoundError, PermissionError):
-        logger.debug("Clone not found. Falling back to normal access...")
-        return None
-
-
 # this is the metaclass for SQLRecord
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
@@ -981,7 +950,7 @@ class Registry(ModelBase):
             return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
-        current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
+        current_instance_owner_name: list[str] = setup_settings.instance.owner
 
         # move on to different instances
         cache_using_filepath = (
@@ -1011,14 +980,18 @@ class Registry(ModelBase):
                 "_public" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
-                db = _synchronize_clone(storage["root"])
+                db = try_synchronize_sqlite_clone(storage["root"])
             if db is None:
                 if [
                     iresult.get("owner"),
                     iresult["name"],
                 ] == current_instance_owner_name:
                     return QuerySet(model=cls, using=None)
-                db = update_db_using_local(iresult, settings_file)
+                db = update_db_using_local(
+                    iresult,
+                    settings_file,
+                    storage_root=storage["root"],
+                )
                 is_fine_grained_access = (
                     iresult["fine_grained_access"]
                     and iresult["db_permissions"] == "jwt"
@@ -1037,7 +1010,7 @@ class Registry(ModelBase):
             source_modules = isettings.modules
             db = None
             if "public" in isettings.db and isettings.dialect == "postgresql":
-                db = _synchronize_clone(isettings.storage.root_as_str)
+                db = try_synchronize_sqlite_clone(isettings.storage.root_as_str)
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             if db is None:
