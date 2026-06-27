@@ -1181,8 +1181,12 @@ class BasicQuerySet(models.QuerySet):
             subset = subset.order_by(order_by)
         is_truncated = False
         if limit is not None:
-            # Fetch one extra row as a sentinel to detect truncation without count().
-            subset = subset[: limit + 1]
+            # Determine truncation on base record ids before annotate fanout.
+            limited_ids = list(subset.values_list("id", flat=True)[: limit + 1])
+            is_truncated = len(limited_ids) > limit
+            if is_truncated:
+                limited_ids = limited_ids[:limit]
+            subset = subset.filter(id__in=limited_ids)
         if include is None:
             include_input = []
         elif isinstance(include, str):
@@ -1237,9 +1241,6 @@ class BasicQuerySet(models.QuerySet):
         # another refactoring effort
         # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
-        if limit is not None and len(df) > limit:
-            is_truncated = True
-            df = df.iloc[:limit].copy()
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
