@@ -245,9 +245,11 @@ def strip_index_for_record_persistence(
     feature_objects: list[Feature],
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
+    index_feature: Feature | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
     """Move schema index values to `record.name` and drop them from link-table writes."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return dictionary, feature_objects
 
@@ -464,10 +466,14 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
+        from lamindb import settings
+
         index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
+        _search_names = settings.creation.search_names
+        settings.creation.search_names = False
         for row in row_dicts:
             row = dict(row)
             name = None
@@ -502,6 +508,7 @@ class RecordBatch:
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
+        settings.creation.search_names = _search_names
         return records
 
     def save(self) -> SQLRecordList[Record]:

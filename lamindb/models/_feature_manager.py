@@ -1392,6 +1392,7 @@ class FeatureManager:
         not_validated_values: dict[str, tuple[str, list[str]]],
         resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]]
         | None = None,
+        index_feature: Feature | None = None,
     ) -> None:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
@@ -1401,7 +1402,8 @@ class FeatureManager:
             get_type_schema_index,
         )
 
-        index_feature = get_type_schema_index(record.type)  # type: ignore
+        if index_feature is None:
+            index_feature = get_type_schema_index(record.type)  # type: ignore
 
         for feature in feature_objects:
             if index_feature is not None and feature.uid == index_feature.uid:
@@ -2196,6 +2198,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         return None
 
     batch_schema: Schema | None = None
+    batch_schema_index: Feature | None = None
     prepared_records: list[
         tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
     ] = []
@@ -2210,6 +2213,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             )
         if batch_schema is None:
             batch_schema = schema
+            batch_schema_index = batch_schema.index  # one DB query for the whole batch
         elif schema.id != batch_schema.id:
             raise ValidationError(
                 "Bulk setting features in records requires all records to have the same type schema."
@@ -2221,9 +2225,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             explicit_features,
             values_by_feature_uid,
         ) = manager._resolve_feature_value_dictionary(record._features)
-        from .record import inject_index_into_feature_dict
 
-        inject_index_into_feature_dict(record, dictionary)
+        if batch_schema_index is not None and record.name is not None:
+            dictionary[batch_schema_index.name] = record.name
         prepared_rows.append(dictionary)
         prepared_records.append(
             (record, manager, dictionary, explicit_features, values_by_feature_uid)
@@ -2335,7 +2339,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        if batch_schema.index is not None:
+        if batch_schema_index is not None:
             from .record import strip_index_for_record_persistence
 
             dictionary, feature_objects = strip_index_for_record_persistence(
@@ -2344,6 +2348,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
                 dictionary,
                 feature_objects,
                 values_by_feature_uid=values_by_feature_uid,
+                index_feature=batch_schema_index,
             )
         manager._collect_record_feature_writes(
             record=record,
@@ -2354,6 +2359,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             links_by_model=links_by_model,
             not_validated_values=not_validated_values,
             resolved_records_by_feature_id=resolved_records_by_feature_id,
+            index_feature=batch_schema_index,
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
@@ -2363,10 +2369,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             save(links, ignore_conflicts=False)
         except Exception:
             save(links, ignore_conflicts=True)
-    from .record import get_type_schema_index
     from .save import bulk_update
 
-    if get_type_schema_index(records_with_features[0].type) is not None:
+    if batch_schema_index is not None:
         bulk_update(records_with_features)
     for record in records_with_features:
         del record._features
