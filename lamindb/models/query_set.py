@@ -13,12 +13,15 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
 from django.db import models, transaction
 from django.db.models import (
+    Case,
     F,
     FilteredRelation,
     ForeignKey,
+    IntegerField,
     ManyToManyField,
     Q,
     Subquery,
+    When,
 )
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
@@ -1186,7 +1189,18 @@ class BasicQuerySet(models.QuerySet):
             is_truncated = len(limited_ids) > limit
             if is_truncated:
                 limited_ids = limited_ids[:limit]
-            subset = subset.filter(id__in=limited_ids)
+            # `subset` can already be sliced (e.g. from `.search()`), and Django
+            # disallows filtering sliced querysets. Rebuild from selected ids.
+            if not limited_ids:
+                subset = subset.model.objects.using(subset.db).none()
+            else:
+                preserved_order = Case(
+                    *[When(id=pk, then=pos) for pos, pk in enumerate(limited_ids)],
+                    output_field=IntegerField(),
+                )
+                subset = (
+                    subset.model.objects.using(subset.db).filter(id__in=limited_ids)
+                ).order_by(preserved_order)
         if include is None:
             include_input = []
         elif isinstance(include, str):
