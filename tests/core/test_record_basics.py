@@ -1547,3 +1547,42 @@ def test_record_features_accept_feature_object_keys():
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+def test_from_dataframe_save_query_count_is_not_n_plus_one():
+    """Query count must stay O(1) — not grow with row count — when saving a batch."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    id_feat = ln.Feature(name="qcount-id", dtype=str).save()
+    val_feat = ln.Feature(name="qcount-val", dtype=str).save()
+    schema = ln.Schema([val_feat], index=id_feat, name="qcount-schema").save()
+    sheet = ln.Record(name="qcount-sheet", is_type=True, schema=schema).save()
+
+    def make_df(n: int) -> pd.DataFrame:
+        return pd.DataFrame(
+            {"qcount-val": [f"v{i}" for i in range(n)]},
+            index=pd.Index([f"id{i}" for i in range(n)], name="qcount-id"),
+        )
+
+    with CaptureQueriesContext(connection) as ctx_10:
+        saved_10 = ln.Record.from_dataframe(make_df(10), type=sheet).save()
+    q_10 = len(ctx_10.captured_queries)
+
+    with CaptureQueriesContext(connection) as ctx_100:
+        saved_100 = ln.Record.from_dataframe(make_df(100), type=sheet).save()
+    q_100 = len(ctx_100.captured_queries)
+
+    # Allow a small constant tolerance for Django bulk_create batching differences.
+    # A true N+1 would produce ~10x more queries for 10x more rows.
+    assert abs(q_100 - q_10) <= 5, (
+        f"N+1 query regression: 10 rows fired {q_10} queries, "
+        f"100 rows fired {q_100} queries — count must not grow with row count"
+    )
+
+    for r in saved_10 + saved_100:
+        r.delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    id_feat.delete(permanent=True)
+    val_feat.delete(permanent=True)

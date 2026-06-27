@@ -144,10 +144,13 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
 
 
 def pop_index_from_feature_dictionary(
-    dictionary: dict[str, Any], schema: Schema
+    dictionary: dict[str, Any],
+    schema: Schema,
+    index_feature: Feature | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Extract index value for `record.name` and remove it from feature payload."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return None, dictionary
     index_name = index_feature.name
@@ -499,7 +502,7 @@ class RecordBatch:
 
             if index_feature is not None and self._resolved_type.schema is not None:
                 name_from_features, features = pop_index_from_feature_dictionary(
-                    features, self._resolved_type.schema
+                    features, self._resolved_type.schema, index_feature=index_feature
                 )
                 if name is None:
                     name = name_from_features
