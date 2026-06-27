@@ -13,12 +13,15 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
 from django.db import models, transaction
 from django.db.models import (
+    Case,
     F,
     FilteredRelation,
     ForeignKey,
+    IntegerField,
     ManyToManyField,
     Q,
     Subquery,
+    When,
 )
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
@@ -30,7 +33,7 @@ from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
-from .query_manager import _lookup, _search
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
@@ -1156,8 +1159,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
-        limit: int | None = 100,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
     ) -> pd.DataFrame:
@@ -1182,8 +1184,23 @@ class BasicQuerySet(models.QuerySet):
             subset = subset.order_by(order_by)
         is_truncated = False
         if limit is not None:
-            # Fetch one extra row as a sentinel to detect truncation without count().
-            subset = subset[: limit + 1]
+            # Determine truncation on base record ids before annotate fanout.
+            limited_ids = list(subset.values_list("id", flat=True)[: limit + 1])
+            is_truncated = len(limited_ids) > limit
+            if is_truncated:
+                limited_ids = limited_ids[:limit]
+            # `subset` can already be sliced (e.g. from `.search()`), and Django
+            # disallows filtering sliced querysets. Rebuild from selected ids.
+            if not limited_ids:
+                subset = subset.model.objects.using(subset.db).none()
+            else:
+                preserved_order = Case(
+                    *[When(id=pk, then=pos) for pos, pk in enumerate(limited_ids)],
+                    output_field=IntegerField(),
+                )
+                subset = (
+                    subset.model.objects.using(subset.db).filter(id__in=limited_ids)
+                ).order_by(preserved_order)
         if include is None:
             include_input = []
         elif isinstance(include, str):
@@ -1238,9 +1255,6 @@ class BasicQuerySet(models.QuerySet):
         # another refactoring effort
         # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
-        if limit is not None and len(df) > limit:
-            is_truncated = True
-            df = df.iloc[:limit].copy()
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
@@ -1288,7 +1302,7 @@ class BasicQuerySet(models.QuerySet):
                         )
         if is_truncated:
             logger.warning(
-                f"truncated query result to limit={limit} {self.model.__name__} objects (will change to limit=20 in lamindb 2.7)"
+                f"truncated query result to limit={limit} {self.model.__name__} objects"
             )
         return df_reshaped
 
