@@ -30,7 +30,7 @@ from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
-from .query_manager import _lookup, _search
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
@@ -1156,8 +1156,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
-        limit: int | None = 100,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
     ) -> pd.DataFrame:
@@ -1288,7 +1287,7 @@ class BasicQuerySet(models.QuerySet):
                         )
         if is_truncated:
             logger.warning(
-                f"truncated query result to limit={limit} {self.model.__name__} objects (will change to limit=20 in lamindb 2.7)"
+                f"truncated query result to limit={limit} {self.model.__name__} objects"
             )
         return df_reshaped
 

@@ -87,7 +87,7 @@ from ._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     max_version_uid_in_family,
 )
-from .query_manager import QueryManager, _lookup, _search
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -838,13 +838,12 @@ class Registry(ModelBase):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
-        limit: int | None = 100,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """Evaluate and convert to `pd.DataFrame`.
 
-        By default, this returns up to 100 rows for a fast overview.
+        By default, this returns up to 20 rows for a fast overview.
         Pass `limit=None` to fetch all matching records.
 
         By default, maps simple fields and foreign keys onto `DataFrame` columns.
@@ -860,7 +859,7 @@ class Registry(ModelBase):
             features: Configure the features to include. Can be a feature name or a list of such names.
                 If `"queryset"`, infers the features used within the current queryset.
                 Only available for `Artifact`, `Record`, and `Run`.
-            limit: Maximum number of rows to display. Defaults to 100. If `None`,
+            limit: Maximum number of rows to display. Defaults to 20. If `None`,
                 includes all results.
             order_by: Field name to order the records by. Prefix with '-' for descending order.
                 Defaults to '-id' to get the most recent records. This argument is ignored
@@ -890,7 +889,7 @@ class Registry(ModelBase):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        limit: int | None = 100,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         return cls.to_dataframe(
@@ -903,8 +902,7 @@ class Registry(ModelBase):
         string: str,
         *,
         field: StrField | None = None,
-        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
-        limit: int | None = 20,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         case_sensitive: bool = False,
     ) -> QuerySet:
         """{}"""  # noqa: D415
