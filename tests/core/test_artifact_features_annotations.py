@@ -542,6 +542,43 @@ def test_feature_predicate_queries_safe_hybrid():
     hek293.delete(permanent=True)
 
 
+def test_feature_predicate_isnull():
+    perturbation_type = ln.ULabel(name="isnull-perturbation-type", is_type=True).save()
+    dmso = ln.ULabel(name="isnull-dmso", type=perturbation_type).save()
+    perturbation = ln.Feature(
+        name="isnull_perturbation", dtype=perturbation_type
+    ).save()
+    score = ln.Feature(name="isnull_score", dtype=float).save()
+
+    annotated = ln.Artifact(
+        ".gitignore", key="isnull-annotated-artifact", skip_hash_lookup=True
+    ).save()
+    not_annotated = ln.Artifact(
+        ".gitignore", key="isnull-not-annotated-artifact", skip_hash_lookup=True
+    ).save()
+    annotated.features.set_values({perturbation: dmso, score: 3.5})
+
+    assert annotated in ln.Artifact.filter(perturbation.isnull(False))
+    assert not_annotated not in ln.Artifact.filter(perturbation.isnull(False))
+    assert not_annotated in ln.Artifact.filter(perturbation.isnull())
+    assert annotated not in ln.Artifact.filter(perturbation.isnull())
+
+    assert annotated in ln.Artifact.filter(score.isnull(False))
+    assert not_annotated not in ln.Artifact.filter(score.isnull(False))
+    assert not_annotated in ln.Artifact.filter(score.isnull(True))
+    assert annotated not in ln.Artifact.filter(score.isnull(True))
+
+    with pytest.raises(TypeError):
+        perturbation.isnull("false")  # type: ignore[arg-type]
+
+    not_annotated.delete(permanent=True)
+    annotated.delete(permanent=True)
+    score.delete(permanent=True)
+    perturbation.delete(permanent=True)
+    dmso.delete(permanent=True)
+    perturbation_type.delete(permanent=True)
+
+
 def test_features_add_with_schema():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()

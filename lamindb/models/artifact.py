@@ -1392,45 +1392,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Annotate with features via :meth:`~lamindb.models.FeatureManager.set_values`:
 
-        .. tab-set::
+        .. code-block:: python
 
-            .. tab-item:: Via strings
-
-                .. code-block:: python
-
-                    artifact.features.set_values({
-                        "species_name": "human",
-                        "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
-                        "temperature_in_celsius": 27.6,
-                        "experiment": "Experiment 1"
-                    })
-
-            .. tab-item:: Via objects
-
-                .. code-block:: python
-
-                    artifact.features.set_values({
-                        species_name: "human",
-                        scientist_names: ["Barbara McClintock", "Edgar Anderson"],
-                        temperature: 27.6,
-                        experiment: "Experiment 1"
-                    })
+            artifact.features.set_values({
+                species_name: "human",
+                scientist_names: ["Barbara McClintock", "Edgar Anderson"],
+                temperature: 27.6,
+                experiment: "Experiment 1"
+            })
 
         Query artifacts by features:
 
-        .. tab-set::
+        .. code-block:: python
 
-            .. tab-item:: Via strings
-
-                .. code-block:: python
-
-                    ln.Artifact.filter(scientist_names="Barbara McClintock")
-
-            .. tab-item:: Via objects
-
-                .. code-block:: python
-
-                    ln.Artifact.filter(scientist_names == "Barbara McClintock")
+            ln.Artifact.filter(scientist_names == "Barbara McClintock")
 
         Get all feature annotations as a dictionary::
 

@@ -250,7 +250,8 @@ artifact.describe()
 ### Consumer: query the dataset
 
 ```python
-ln.Artifact.filter(perturbation="IFNG").to_dataframe()
+perturbation = ln.Feature.get(name="perturbation")
+ln.Artifact.filter(perturbation == "IFNG").to_dataframe()
 ```
 
 ### Consumer: understand validation
