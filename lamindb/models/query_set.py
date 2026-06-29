@@ -1106,7 +1106,7 @@ def process_cols_from_include(
 def _queryset_class_factory(
     registry: Registry, queryset_cls: type[models.QuerySet]
 ) -> type[models.QuerySet]:
-    from lamindb.models import Artifact, ArtifactSet
+    from lamindb.models import Artifact, ArtifactSet, Record, RecordSet
 
     # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
     # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
@@ -1114,6 +1114,12 @@ def _queryset_class_factory(
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
+        )
+    elif registry is Record and not issubclass(queryset_cls, RecordSet):
+        new_cls = type(
+            "Record" + queryset_cls.__name__,
+            (queryset_cls, RecordSet),
+            {"to_dataframe": RecordSet.to_dataframe},
         )
     else:
         new_cls = queryset_cls
