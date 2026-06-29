@@ -168,6 +168,19 @@ class RecordSet(Iterable):
 
         qs = cast(BasicQuerySet, self)
 
+        include_features = include == "features" or (
+            isinstance(include, list) and "features" in include
+        )
+        if not include_features:
+            return BasicQuerySet.to_dataframe(
+                qs,
+                include=include,
+                features=features,
+                limit=limit,
+                order_by=order_by,
+                record_metadata=record_metadata,
+            )
+
         type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
         if len(type_ids) != 1 or type_ids[0] is None:
             # Sheet-style export requires a single concrete record type context.

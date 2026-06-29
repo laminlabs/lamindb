@@ -548,7 +548,9 @@ def test_record_export_applies_filters():
     sample1 = ln.Record(name="sample1", type=sample_sheet).save()
     sample2 = ln.Record(name="sample2", type=sample_sheet).save()
 
-    filtered_df = ln.Record.filter(type=sample_sheet, name="sample1").to_dataframe()
+    filtered_df = ln.Record.filter(type=sample_sheet, name="sample1").to_dataframe(
+        include="features"
+    )
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
 
@@ -575,7 +577,7 @@ def test_record_export_applies_feature_predicate_filters():
 
     filtered_df = ln.Record.filter(
         export_filter_score > 15, type=sample_sheet
-    ).to_dataframe()
+    ).to_dataframe(include="features")
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
 

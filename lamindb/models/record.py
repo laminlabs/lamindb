@@ -1186,6 +1186,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
+        kwargs.setdefault("include", "features")
         df = qs.to_dataframe(
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
