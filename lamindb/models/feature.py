@@ -1414,7 +1414,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return FeaturePredicate(self, "__lte", value)
 
     def is_null(self, value: bool = True) -> FeaturePredicate:
-        """Build a predicate for null-style feature presence checks."""
+        """Build a predicate for null-style feature presence checks.
+
+        Example::
+
+            perturbation = ln.Feature.get(name="perturbation")
+            ln.Artifact.filter(perturbation.is_null(False)).to_dataframe(
+                include="features"
+            )
+        """
         if not isinstance(value, bool):
             raise TypeError("Feature.is_null() expects a bool value.")
         return FeaturePredicate(self, "__isnull", value)
