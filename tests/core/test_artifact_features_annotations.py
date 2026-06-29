@@ -542,7 +542,7 @@ def test_feature_predicate_queries_safe_hybrid():
     hek293.delete(permanent=True)
 
 
-def test_feature_predicate_isnull():
+def test_feature_predicate_is_null():
     perturbation_type = ln.ULabel(name="isnull-perturbation-type", is_type=True).save()
     dmso = ln.ULabel(name="isnull-dmso", type=perturbation_type).save()
     perturbation = ln.Feature(
@@ -558,18 +558,18 @@ def test_feature_predicate_isnull():
     ).save()
     annotated.features.set_values({perturbation: dmso, score: 3.5})
 
-    assert annotated in ln.Artifact.filter(perturbation.isnull(False))
-    assert not_annotated not in ln.Artifact.filter(perturbation.isnull(False))
-    assert not_annotated in ln.Artifact.filter(perturbation.isnull())
-    assert annotated not in ln.Artifact.filter(perturbation.isnull())
+    assert annotated in ln.Artifact.filter(perturbation.is_null(False))
+    assert not_annotated not in ln.Artifact.filter(perturbation.is_null(False))
+    assert not_annotated in ln.Artifact.filter(perturbation.is_null())
+    assert annotated not in ln.Artifact.filter(perturbation.is_null())
 
-    assert annotated in ln.Artifact.filter(score.isnull(False))
-    assert not_annotated not in ln.Artifact.filter(score.isnull(False))
-    assert not_annotated in ln.Artifact.filter(score.isnull(True))
-    assert annotated not in ln.Artifact.filter(score.isnull(True))
+    assert annotated in ln.Artifact.filter(score.is_null(False))
+    assert not_annotated not in ln.Artifact.filter(score.is_null(False))
+    assert not_annotated in ln.Artifact.filter(score.is_null(True))
+    assert annotated not in ln.Artifact.filter(score.is_null(True))
 
     with pytest.raises(TypeError):
-        perturbation.isnull("false")  # type: ignore[arg-type]
+        perturbation.is_null("false")  # type: ignore[arg-type]
 
     not_annotated.delete(permanent=True)
     annotated.delete(permanent=True)

@@ -204,7 +204,7 @@ You can query for whether a dataset is annotated by a feature:
 
 ```python
 perturbation = ln.Feature.get(name="perturbation")
-ln.Artifact.filter(perturbation.isnull(False)).to_dataframe(include="features")
+ln.Artifact.filter(perturbation.is_null(False)).to_dataframe(include="features")
 ```
 
 ## Cheat sheet: comparators
