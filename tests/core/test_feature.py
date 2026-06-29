@@ -86,7 +86,7 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
-def test_feature_related_name_requires_categorical_dtype():
+def test_feature_related_name():
     # assume this is a feature that maps a donor registry to an experiment registry
     donors_registry = ln.Record(name="Donors", is_type=True).save()
     feature = ln.Feature(
