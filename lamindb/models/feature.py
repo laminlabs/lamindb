@@ -764,6 +764,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
+        related_name: `str | None = None` Reverse accessor for relationships targeting this feature.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
 
@@ -1229,6 +1230,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+        related_name: str | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
     ): ...
@@ -1240,6 +1242,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         name: str,
         is_type: Literal[True],
         description: str | None = None,
+        related_name: str | None = None,
     ): ...
 
     @overload
@@ -1258,6 +1261,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return None
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
+        related_name = kwargs.pop("related_name", None)
         # Default nullable to True for non-type features
         is_type = kwargs.get("is_type", False)
         if nullable is None and not is_type:
@@ -1277,6 +1281,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self.default_value = default_value
         self.nullable = nullable
         self.coerce = coerce
+        self.related_name = related_name
         dtype_str = kwargs.pop("_dtype_str", None)
         if dtype_str == "cat":
             warnings.warn(
@@ -1621,6 +1626,42 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         """
         return dtype_as_object(self._dtype_str)
+
+    @property
+    def related_name(self) -> str | None:
+        """Reverse accessor name for relationships targeting this feature."""
+        if self._aux is None:
+            return None
+        rn = self._aux.get("rn")
+        return str(rn) if rn is not None else None
+
+    @related_name.setter
+    def related_name(self, value: str | None) -> None:
+        if value is None:
+            if self._aux is not None and "rn" in self._aux:
+                del self._aux["rn"]
+                if not self._aux:
+                    self._aux = None
+            return
+
+        assert isinstance(value, str), (
+            f"related_name must be a string or None, got {type(value).__name__}"
+        )
+
+        dtype_str = self._dtype_str
+        if dtype_str is None or not dtype_str.startswith(("cat", "list[cat")):
+            raise ValidationError(
+                "related_name can only be set for categorical feature dtypes "
+                "(`cat[...]` or `list[cat[...]]`)"
+            )
+
+        related_name = value.strip()
+        if related_name == "":
+            raise ValidationError("related_name must be a non-empty string or None")
+
+        if self._aux is None:
+            self._aux = {}
+        self._aux["rn"] = related_name
 
     # we'll enable this later
     # @property

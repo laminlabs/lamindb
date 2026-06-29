@@ -86,6 +86,45 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
+def test_feature_related_name_requires_categorical_dtype():
+    # assume this is a feature that maps a donor registry to an experiment registry
+    donors_registry = ln.Record(name="Donors", is_type=True).save()
+    feature = ln.Feature(
+        name="donor", dtype=donors_registry, related_name="experiments"
+    )
+    assert feature.related_name == "experiments"
+    assert feature._aux["rn"] == "experiments"
+
+    feature.save()
+    feature_from_db = ln.Feature.get(uid=feature.uid)
+    assert feature_from_db.related_name == "experiments"
+    assert feature_from_db._aux["rn"] == "experiments"
+
+    feature.related_name = None
+    assert feature.related_name is None
+    assert feature._aux is None
+    feature.save()
+    feature_from_db = ln.Feature.get(uid=feature.uid)
+    assert feature_from_db.related_name is None
+    assert feature_from_db._aux is None
+
+    feature_list = ln.Feature(
+        name="donors",
+        dtype=list[donors_registry],
+        related_name="experiments",
+    )
+    assert feature_list.related_name == "experiments"
+    assert feature_list._aux["rn"] == "experiments"
+
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(name="related_str", dtype=str, related_name="whatever")
+    assert (
+        "related_name can only be set for categorical feature dtypes" in error.exconly()
+    )
+
+    feature.delete(permanent=True)
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )
