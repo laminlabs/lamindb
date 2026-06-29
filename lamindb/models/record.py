@@ -1190,6 +1190,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         df = qs.to_dataframe(
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
+            _record_type=self,
             **kwargs,
         )
         self._export_run = getattr(qs, "_record_export_run", None)

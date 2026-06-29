@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core._mapped_collection import MappedCollection
+    from .record import Record
     from .run import Run
 
 
@@ -149,6 +150,7 @@ class RecordSet(Iterable):
         record_metadata: bool = True,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
+        _record_type: Record | None = None,
     ) -> DataFrame:
         import pandas as pd
 
@@ -181,24 +183,27 @@ class RecordSet(Iterable):
                 record_metadata=record_metadata,
             )
 
-        type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
-        if len(type_ids) != 1 or type_ids[0] is None:
-            # Sheet-style export requires a single concrete record type context.
-            logger.warning(
-                "falling back to generic Record queryset export because the queryset "
-                "does not resolve to exactly one non-null `type_id`"
-            )
-            return BasicQuerySet.to_dataframe(
-                qs,
-                include=include,
-                features=features,
-                limit=limit,
-                order_by=order_by,
-                record_metadata=record_metadata,
-            )
+        if _record_type is not None:
+            record_type = _record_type
+        else:
+            type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
+            if len(type_ids) != 1 or type_ids[0] is None:
+                # Sheet-style export requires a single concrete record type context.
+                logger.warning(
+                    "falling back to generic Record queryset export because the queryset "
+                    "does not resolve to exactly one non-null `type_id`"
+                )
+                return BasicQuerySet.to_dataframe(
+                    qs,
+                    include=include,
+                    features=features,
+                    limit=limit,
+                    order_by=order_by,
+                    record_metadata=record_metadata,
+                )
 
-        # `type_id` points to record types (`is_type=True`) by model design.
-        record_type = Record.get(id=type_ids[0])
+            # `type_id` points to record types (`is_type=True`) by model design.
+            record_type = Record.get(id=type_ids[0])
 
         logger.important(f"exporting {qs.count()} records of '{record_type.name}'")
 
