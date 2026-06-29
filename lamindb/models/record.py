@@ -912,6 +912,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
+        _search_names = kwargs.pop("_search_names", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
             raise FieldValidationError(
@@ -922,7 +923,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_type = True
         if features is not None:
             self._features = features
-        super().__init__(
+        super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
             is_type=is_type,
@@ -934,6 +935,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             _aux=_aux,
             **space_branch_kwargs,
         )
+        if _search_names is not None:
+            super_kwargs["_search_names"] = _search_names
+        super().__init__(**super_kwargs)
 
     def save(self, *args, **kwargs) -> Record:
         if self.is_type:
