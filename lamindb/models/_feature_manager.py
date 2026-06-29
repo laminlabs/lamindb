@@ -394,6 +394,25 @@ def get_non_categoricals(
             else:
                 values = fv["values"]
 
+            # A JSON link table (e.g. RecordJson) must only hold non-categorical
+            # (scalar/JSON) values. A categorical dtype here means the value was
+            # written to the wrong link table -- it belongs in a relational link
+            # table such as RecordRecord -- e.g. by bypassing the validated API.
+            # Surface it loudly instead of silently displaying an invalid entry.
+            if feature_dtype is not None and (
+                feature_dtype.startswith("cat") or feature_dtype.startswith("list[cat")
+            ):
+                raise ValidationError(
+                    f"invalid entry for feature {feature_name!r}: it has the "
+                    f"categorical dtype {format_dtype_for_display(feature_dtype)!r}, so "
+                    f"its value must be stored as a relational link (in a link table "
+                    f"such as RecordRecord), but the value {values!r} was found stored "
+                    f"as raw JSON in the RecordJson link table. This typically happens "
+                    f"when a value is written without going through the validated API. "
+                    f"Fix it by re-writing the value via the validated API, e.g.\n"
+                    f"    record.features.set_values({{{feature_name!r}: <value>}})"
+                )
+
             if connections[self._state.db].vendor == "sqlite":
                 # undo GROUP_CONCAT
                 if isinstance(values, str):
