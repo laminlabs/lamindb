@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import pgtrigger
@@ -25,13 +23,12 @@ from ..base.uids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature, convert_to_pandas_dtype
+from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
     encode_lamindb_fields_as_columns,
     get_default_branch_ids,
-    reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
@@ -48,6 +45,8 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import pandas as pd
 
     from ._feature_manager import FeatureManager
@@ -1140,7 +1139,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def to_dataframe(
         cls_or_self,
         recurse: bool = False,
-        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         **kwargs,
@@ -1166,22 +1164,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
                 sample_sheet.to_dataframe()
 
-            Export only records with high GC content::
-
-                sample_sheet.to_dataframe(filters=gc_content > 0.55)
-
         Args:
             recurse: Whether to include records of sub-types recursively.
-            filters: Filters applied before export. Supports filter kwargs via
-                a `dict`, Django `Q` expressions, and feature predicates
-                (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
-        import pandas as pd
-
         if isinstance(cls_or_self, type):
             return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
         if not cls_or_self.is_type:
@@ -1197,107 +1186,18 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
-        if isinstance(filters, dict):
-            # Keep kwargs behavior aligned with the historic `self.records.filter(...)`
-            # semantics where fields like `name` target record fields.
-            qs = qs.filter(**filters)
-        elif filters is not None:
-            # Feature predicates are only supported through Record.filter(...).
-            qs = (
-                self.query_records()
-                if recurse
-                else self.__class__.filter(type=self, branch_id__in=branch_ids)
-            )
-            if isinstance(filters, Iterable) and not isinstance(filters, (str, bytes)):
-                qs = qs.filter(*filters)
-            else:
-                qs = qs.filter(filters)
-        logger.important(f"exporting {qs.count()} records of '{self.name}'")
-        if "order_by" not in kwargs:
-            kwargs["order_by"] = "id"
-        features_arg = kwargs.pop("features", "queryset")
-        index_feature = self.schema.index if self.schema is not None else None
-        include_record_metadata = export_includes_record_metadata(self.schema)
         df = qs.to_dataframe(
-            features=features_arg,
-            limit=None,
-            record_metadata=include_record_metadata,
+            is_run_input=is_run_input,
+            link_individual_inputs=link_individual_inputs,
             **kwargs,
         )
-        if not include_record_metadata and self.schema is not None:
-            schema_feature_names = set(
-                self.schema.members.values_list("name", flat=True)
-            )
-            pk_name = self._meta.pk.name
-            if pk_name in df.columns and pk_name not in schema_feature_names:
-                df = df.drop(columns=[pk_name])
-        encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
-        assert isinstance(encoded_id, str)  # noqa: S101
-        encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
-        encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
-        assert isinstance(encoded_name, str)  # noqa: S101
-        # encode the django id, uid and name fields
-        if include_record_metadata and df.index.name == "id":
-            df.index.name = encoded_id
-        if (
-            include_record_metadata
-            and "uid" in df.columns
-            and encoded_uid not in df.columns
-        ):
-            df = df.rename(columns={"uid": encoded_uid})
-        if index_feature is not None:
-            if "name" in df.columns and index_feature.name != "name":
-                df[index_feature.name] = df["name"]
-                df = df.drop(columns=["name"])
-            if encoded_name in df.columns:
-                df = df.drop(columns=[encoded_name])
-            df = apply_schema_index_to_export_dataframe(
-                df,
-                index_feature,
-                encoded_id=encoded_id,
-                encoded_name=encoded_name,
-                include_record_metadata=include_record_metadata,
-            )
-        elif "name" in df.columns and encoded_name not in df.columns:
-            df = df.rename(columns={"name": encoded_name})
-        if not include_record_metadata:
-            df = drop_record_metadata_columns(df)
-        if self.schema is not None:
-            all_features = self.schema.members.all()
-            index_feature_uid = None if index_feature is None else index_feature.uid
-            desired_order = [
-                feature.name
-                for feature in all_features
-                if index_feature_uid is None or feature.uid != index_feature_uid
-            ]
-            for feature in all_features:
-                if index_feature_uid is not None and feature.uid == index_feature_uid:
-                    continue
-                if feature.name not in df.columns:
-                    df[feature.name] = pd.Series(
-                        dtype=convert_to_pandas_dtype(feature._dtype_str)
-                    )
-        else:
-            # sort alphabetically for now
-            desired_order = df.columns[2:].tolist()
-            desired_order.sort()
-        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        self._set_export_run(is_run_input=is_run_input)
-        # always link the type record
-        self._export_run.input_records.add(self)
-        if link_individual_inputs:
-            input_record_ids = qs.values_list("id", flat=True)
-            self._export_run.input_records.add(*input_record_ids)
-        self._export_run.finished_at = datetime.now(timezone.utc)
-        self._export_run._status_code = 0  # completed
-        self._export_run.save()
-        return df.sort_index()  # order by id
+        self._export_run = getattr(qs, "_record_export_run", None)
+        return df
 
     def to_artifact(
         self,
         key: str | None = None,
         suffix: str | None = None,
-        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         **kwargs,
@@ -1317,14 +1217,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
                 sample_sheet.to_artifact()
 
-            Export only records with high GC content::
-
-                sample_sheet.to_artifact(filters=gc_content > 0.55)
-
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
-            filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.
@@ -1338,7 +1233,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
-                filters=filters,
                 is_run_input=is_run_input,
                 link_individual_inputs=link_individual_inputs,
                 **kwargs,

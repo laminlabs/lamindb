@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 from django.db.models import Case, Q, TextField, Value, When
 from django.db.models.functions import Concat
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core._mapped_collection import MappedCollection
+    from .run import Run
 
 
 UNORDERED_WARNING = (
@@ -128,6 +129,165 @@ class ArtifactSet(Iterable):
         # track only if successful
         track_run_input(artifacts, is_run_input)
         return ds
+
+
+class RecordSet(Iterable):
+    """Abstract class representing sets of records returned by queries.
+
+    This class automatically extends :class:`~lamindb.models.BasicQuerySet`
+    and :class:`~lamindb.models.QuerySet` when the base model is
+    :class:`~lamindb.Record`.
+    """
+
+    def to_dataframe(
+        self,
+        *,
+        include: str | list[str] | None = None,
+        features: str | list[str] | None = None,
+        limit: int | None = 20,
+        order_by: str | None = "-id",
+        record_metadata: bool = True,
+        is_run_input: bool | Run | None = None,
+        link_individual_inputs: bool = True,
+    ) -> DataFrame:
+        import pandas as pd
+
+        from .feature import convert_to_pandas_dtype
+        from .query_set import (
+            SEARCH_QUERY_DEFAULT_LIMIT,
+            BasicQuerySet,
+            encode_lamindb_fields_as_columns,
+            reorder_subset_columns_in_df,
+        )
+        from .record import (
+            Record,
+            apply_schema_index_to_export_dataframe,
+            drop_record_metadata_columns,
+            export_includes_record_metadata,
+        )
+
+        qs = cast(BasicQuerySet, self)
+
+        # Keep generic queryset export semantics for non-Record and mixed sets.
+        if getattr(qs, "model", None) is not Record:
+            return BasicQuerySet.to_dataframe(
+                qs,
+                include=include,
+                features=features,
+                limit=limit,
+                order_by=order_by,
+                record_metadata=record_metadata,
+            )
+        type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
+        if len(type_ids) != 1 or type_ids[0] is None:
+            return BasicQuerySet.to_dataframe(
+                qs,
+                include=include,
+                features=features,
+                limit=limit,
+                order_by=order_by,
+                record_metadata=record_metadata,
+            )
+
+        record_type = Record.filter(id=type_ids[0]).one_or_none()
+        if record_type is None or not record_type.is_type:
+            return BasicQuerySet.to_dataframe(
+                qs,
+                include=include,
+                features=features,
+                limit=limit,
+                order_by=order_by,
+                record_metadata=record_metadata,
+            )
+
+        logger.important(f"exporting {qs.count()} records of '{record_type.name}'")
+
+        features_arg = "queryset" if features is None else features
+        limit_arg = None if limit == SEARCH_QUERY_DEFAULT_LIMIT else limit
+        order_by_arg = "id" if order_by == "-id" else order_by
+        index_feature = (
+            record_type.schema.index if record_type.schema is not None else None
+        )
+        include_record_metadata = export_includes_record_metadata(record_type.schema)
+        df = BasicQuerySet.to_dataframe(
+            qs,
+            include=include,
+            features=features_arg,
+            limit=limit_arg,
+            order_by=order_by_arg,
+            record_metadata=include_record_metadata,
+        )
+        if not include_record_metadata and record_type.schema is not None:
+            schema_feature_names = set(
+                record_type.schema.members.values_list("name", flat=True)
+            )
+            pk_name = record_type._meta.pk.name
+            if pk_name in df.columns and pk_name not in schema_feature_names:
+                df = df.drop(columns=[pk_name])
+        encoded_id = encode_lamindb_fields_as_columns(record_type.__class__, "id")
+        assert isinstance(encoded_id, str)  # noqa: S101
+        encoded_uid = encode_lamindb_fields_as_columns(record_type.__class__, "uid")
+        encoded_name = encode_lamindb_fields_as_columns(record_type.__class__, "name")
+        assert isinstance(encoded_name, str)  # noqa: S101
+        if include_record_metadata and df.index.name == "id":
+            df.index.name = encoded_id
+        if (
+            include_record_metadata
+            and "uid" in df.columns
+            and encoded_uid not in df.columns
+        ):
+            df = df.rename(columns={"uid": encoded_uid})
+        if index_feature is not None:
+            if "name" in df.columns and index_feature.name != "name":
+                df[index_feature.name] = df["name"]
+                df = df.drop(columns=["name"])
+            if encoded_name in df.columns:
+                df = df.drop(columns=[encoded_name])
+            df = apply_schema_index_to_export_dataframe(
+                df,
+                index_feature,
+                encoded_id=encoded_id,
+                encoded_name=encoded_name,
+                include_record_metadata=include_record_metadata,
+            )
+        elif "name" in df.columns and encoded_name not in df.columns:
+            df = df.rename(columns={"name": encoded_name})
+        if not include_record_metadata:
+            df = drop_record_metadata_columns(df)
+        if record_type.schema is not None:
+            all_features = record_type.schema.members.all()
+            index_feature_uid = None if index_feature is None else index_feature.uid
+            desired_order = [
+                feature.name
+                for feature in all_features
+                if index_feature_uid is None or feature.uid != index_feature_uid
+            ]
+            for feature in all_features:
+                if index_feature_uid is not None and feature.uid == index_feature_uid:
+                    continue
+                if feature.name not in df.columns:
+                    df[feature.name] = pd.Series(
+                        dtype=convert_to_pandas_dtype(feature._dtype_str)
+                    )
+        else:
+            desired_order = df.columns[2:].tolist()
+            desired_order.sort()
+        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
+
+        record_type._set_export_run(is_run_input=is_run_input)
+        export_run = record_type._export_run
+        if export_run is not None:
+            export_run.input_records.add(record_type)
+            if link_individual_inputs:
+                input_record_ids = qs.values_list("id", flat=True)
+                export_run.input_records.add(*input_record_ids)
+            from datetime import datetime, timezone
+
+            export_run.finished_at = datetime.now(timezone.utc)
+            export_run._status_code = 0
+            export_run.save()
+        qs._record_export_run = export_run
+        return df.sort_index()
 
 
 def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet:

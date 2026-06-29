@@ -172,7 +172,7 @@ from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager
 from .query_set import BasicQuerySet, QuerySet, DB, SQLRecordList
-from .artifact_set import ArtifactSet
+from .artifact_set import ArtifactSet, RecordSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 

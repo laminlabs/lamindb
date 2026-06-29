@@ -548,11 +548,11 @@ def test_record_export_applies_filters():
     sample1 = ln.Record(name="sample1", type=sample_sheet).save()
     sample2 = ln.Record(name="sample2", type=sample_sheet).save()
 
-    filtered_df = sample_sheet.to_dataframe(filters={"name": "sample1"})
+    filtered_df = ln.Record.filter(type=sample_sheet, name="sample1").to_dataframe()
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
 
-    dataframe_export_run = sample_sheet._export_run
+    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
     assert dataframe_export_run is not None
     assert dataframe_export_run.input_records.count() == 2
     assert set(dataframe_export_run.input_records.to_list("name")) == {
@@ -560,20 +560,9 @@ def test_record_export_applies_filters():
         "FilterSheet",
     }
 
-    artifact = sample_sheet.to_artifact(filters={"name": "sample1"})
-    try:
-        assert len(artifact.load()) == 1
-        assert artifact.run is not None
-        assert artifact.run.input_records.count() == 2
-        assert set(artifact.run.input_records.to_list("name")) == {
-            "sample1",
-            "FilterSheet",
-        }
-    finally:
-        artifact.delete(permanent=True)
-        sample1.delete(permanent=True)
-        sample2.delete(permanent=True)
-        sample_sheet.delete(permanent=True)
+    sample1.delete(permanent=True)
+    sample2.delete(permanent=True)
+    sample_sheet.delete(permanent=True)
 
 
 def test_record_export_applies_feature_predicate_filters():
@@ -584,11 +573,13 @@ def test_record_export_applies_feature_predicate_filters():
     sample1.features.add_values({"export_filter_score": 10})
     sample2.features.add_values({"export_filter_score": 20})
 
-    filtered_df = sample_sheet.to_dataframe(filters=export_filter_score > 15)
+    filtered_df = ln.Record.filter(
+        export_filter_score > 15, type=sample_sheet
+    ).to_dataframe()
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
 
-    dataframe_export_run = sample_sheet._export_run
+    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
     assert dataframe_export_run is not None
     assert dataframe_export_run.input_records.count() == 2
     assert set(dataframe_export_run.input_records.to_list("name")) == {
@@ -596,21 +587,28 @@ def test_record_export_applies_feature_predicate_filters():
         "PredicateFilterSheet",
     }
 
-    artifact = sample_sheet.to_artifact(filters=export_filter_score > 15)
-    try:
-        assert len(artifact.load()) == 1
-        assert artifact.run is not None
-        assert artifact.run.input_records.count() == 2
-        assert set(artifact.run.input_records.to_list("name")) == {
-            "sample2",
-            "PredicateFilterSheet",
-        }
-    finally:
-        artifact.delete(permanent=True)
-        sample1.delete(permanent=True)
-        sample2.delete(permanent=True)
-        sample_sheet.delete(permanent=True)
-        export_filter_score.delete(permanent=True)
+    sample1.delete(permanent=True)
+    sample2.delete(permanent=True)
+    sample_sheet.delete(permanent=True)
+    export_filter_score.delete(permanent=True)
+
+
+def test_record_queryset_to_dataframe_mixed_types_falls_back_to_generic():
+    sample_sheet1 = ln.Record(name="MixedTypeSheet1", is_type=True).save()
+    sample_sheet2 = ln.Record(name="MixedTypeSheet2", is_type=True).save()
+    sample1 = ln.Record(name="sample1", type=sample_sheet1).save()
+    sample2 = ln.Record(name="sample2", type=sample_sheet2).save()
+
+    mixed_df = ln.Record.filter(id__in=[sample1.id, sample2.id]).to_dataframe()
+    assert "name" in mixed_df.columns
+    assert "__lamindb_record_name__" not in mixed_df.columns
+    assert sample_sheet1.input_of_runs.count() == 0
+    assert sample_sheet2.input_of_runs.count() == 0
+
+    sample1.delete(permanent=True)
+    sample2.delete(permanent=True)
+    sample_sheet1.delete(permanent=True)
+    sample_sheet2.delete(permanent=True)
 
 
 def test_record_export_reuses_legacy_transform_uid(
