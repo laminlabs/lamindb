@@ -1413,6 +1413,20 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def __le__(self, value: Any) -> FeaturePredicate:
         return FeaturePredicate(self, "__lte", value)
 
+    def is_null(self, value: bool = True) -> FeaturePredicate:
+        """Build a predicate for null-style feature presence checks.
+
+        Example::
+
+            perturbation = ln.Feature.get(name="perturbation")
+            ln.Artifact.filter(perturbation.is_null(False)).to_dataframe(
+                include="features"
+            )
+        """
+        if not isinstance(value, bool):
+            raise TypeError("Feature.is_null() expects a bool value.")
+        return FeaturePredicate(self, "__isnull", value)
+
     # manually sync this docstring across all other children of HasType
     def query_features(self) -> QuerySet:
         """Query features of sub types.

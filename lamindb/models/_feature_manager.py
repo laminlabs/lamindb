@@ -859,7 +859,22 @@ def _filter_one_feature_clause(
                 value_subquery = ArtifactJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("artifact_id")
+            elif queryset.model is Run:
+                from .run import RunJsonValue
+
+                value_subquery = RunJsonValue.objects.filter(
+                    jsonvalue__feature=feature
+                ).values("run_id")
+            elif queryset.model is Record:
+                value_subquery = RecordJson.objects.filter(feature=feature).values(
+                    "record_id"
+                )
+            else:
+                raise NotImplementedError
+            if value:  # True
                 return queryset.exclude(id__in=Subquery(value_subquery))
+            else:
+                return queryset.filter(id__in=Subquery(value_subquery))
 
         if comparator in {"__startswith", "__contains"}:
             logger.important(

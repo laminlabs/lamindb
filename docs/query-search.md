@@ -172,49 +172,20 @@ The {class}`~lamindb.Feature` registry indexes variables across datasets to enab
 
 The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by features:
 
-<!-- #region -->
-<!-- cannot run tabbed code on CI, see test_artifact_filter_by_multiple_features for tests -->
-
-::::{tab-set}
-
-:::{tab-item} Via strings / kwargs
-
 ```python
-ln.Artifact.filter(
-    perturbation="DMSO",
-    temperature__gt=26,
-).to_dataframe(include="features")
-```
-
-:::
-
-:::{tab-item} Via objects / expressions
-
-```python
-perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
+perturbation = ln.Feature.get(name="perturbation")
 temperature = ln.Feature.get(name="temperature")
-ln.Artifact.filter(    # note this is now an expression using the == syntax
+ln.Artifact.filter(
     perturbation == "DMSO",
     temperature > 21,
 ).to_dataframe(include="features")
 ```
 
-:::
-
-::::
-
-<!-- #endregion -->
-
-Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
-
-```python
-ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
-```
-
 You can query for whether a dataset is annotated by a feature:
 
 ```python
-ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
+perturbation = ln.Feature.get(name="perturbation")
+ln.Artifact.filter(perturbation.is_null(False)).to_dataframe(include="features")
 ```
 
 ## Cheat sheet: comparators

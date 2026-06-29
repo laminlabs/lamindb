@@ -1504,6 +1504,7 @@ def test_record_feature_predicate_query():
     record_type = ln.Record(name="PredRecordType", is_type=True).save()
     record_a = ln.Record(name="pred_record_a", type=record_type).save()
     record_b = ln.Record(name="pred_record_b", type=record_type).save()
+    record_c = ln.Record(name="pred_record_c", type=record_type).save()
     record_a.features.add_values({"pred_record_age": 42})
     record_b.features.add_values({"pred_record_age": 10})
 
@@ -1513,8 +1514,16 @@ def test_record_feature_predicate_query():
     assert record_b in neq_results
     assert record_a not in neq_results
 
+    assert record_a in ln.Record.filter(age.is_null(False))
+    assert record_b in ln.Record.filter(age.is_null(False))
+    assert record_c not in ln.Record.filter(age.is_null(False))
+    assert record_c in ln.Record.filter(age.is_null())
+    assert record_a not in ln.Record.filter(age.is_null())
+    assert record_b not in ln.Record.filter(age.is_null())
+
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
+    record_c.delete(permanent=True)
     record_type.delete(permanent=True)
     age.delete(permanent=True)
 
