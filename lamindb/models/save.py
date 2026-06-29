@@ -230,6 +230,7 @@ def bulk_update(
     records: Iterable[SQLRecord],
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
+    update_fields: list[str] | None = None,
 ):
     """Update records in batches for safety and performance.
 
@@ -237,6 +238,7 @@ def bulk_update(
         records: Iterable of SQLRecord objects to update
         ignore_conflicts: Whether to ignore conflicts during update (currently unused but kept for consistency)
         batch_size: Number of records to process in each batch. If None, processes all at once.
+        update_fields: Specific fields to update. If None, updates all fields except created_at and id.
     """
     records_by_orm = defaultdict(list)
     for record in records:
@@ -250,7 +252,7 @@ def bulk_update(
                 f"starting update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
-        field_names = [
+        field_names = update_fields or [
             field.name
             for field in registry._meta.fields
             if (field.name != "created_at" and field.name != "id")

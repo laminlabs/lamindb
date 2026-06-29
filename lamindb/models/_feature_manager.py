@@ -2391,7 +2391,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     from .save import bulk_update
 
     if batch_schema_index is not None:
-        bulk_update(records_with_features)
+        # only `name` was modified (via strip_index_for_record_persistence)
+        # updating all fields generates a massive CASE WHEN SQL for large batches
+        bulk_update(records_with_features, update_fields=["name"])
     for record in records_with_features:
         del record._features
     return None

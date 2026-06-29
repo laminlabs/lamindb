@@ -1206,9 +1206,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     has_consciously_provided_uid = kwargs.pop(
                         "_has_consciously_provided_uid"
                     )
+                _search_names = kwargs.pop("_search_names", settings.creation.search_names)
                 if (
                     isinstance(self, (CanCurate, Collection, Transform))
-                    and settings.creation.search_names
+                    and _search_names
                     and not has_consciously_provided_uid
                 ):
                     name_field = getattr(self, "_name_field", "name")
