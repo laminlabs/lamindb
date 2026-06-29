@@ -351,7 +351,7 @@ artifact.features.set_values({
 Query for it:
 
 ```python
-ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
+ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
 ```
 
 If you want to include the feature values into the dataframe, pass `include`.
