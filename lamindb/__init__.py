@@ -150,7 +150,7 @@ Developer API
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "2.7a1"
+__version__ = "2.7.0"
 
 from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
