@@ -117,6 +117,32 @@ def test_describe_to_dataframe_example_dataset():
     expected_df = pd.DataFrame(expected_data)
     _check_df_equality(df, expected_df)
 
+    # Regression: limiting should apply to base artifacts, not to expanded annotation rows.
+    # We should still get complete feature values for the selected artifact.
+    df_limited = (
+        ln.Artifact.filter(
+            key__startswith="examples/dataset",
+            suffix=".h5ad",
+            records__name="IFNG",
+        )
+        .order_by("-key")
+        .to_dataframe(
+            features=[
+                "cell_type_by_expert",
+                "cell_type_by_model",
+                "experiment",
+                "perturbation",
+                "temperature",
+                "study_note",
+                "date_of_study",
+            ],
+            limit=1,
+        )
+    )
+    assert len(df_limited) == 1
+    assert df_limited.iloc[0]["key"] == "examples/dataset2.h5ad"
+    assert df_limited.iloc[0]["study_metadata"] == {"detail1": "456", "detail2": 2}
+
     # Test filtering artifacts by schemas__in (alternative approach)
     # Query artifacts that measure CD8A gene by filtering schemas first
     cd8a = bt.Gene.get(symbol="CD8A")
