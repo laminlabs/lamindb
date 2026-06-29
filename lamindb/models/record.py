@@ -144,10 +144,13 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
 
 
 def pop_index_from_feature_dictionary(
-    dictionary: dict[str, Any], schema: Schema
+    dictionary: dict[str, Any],
+    schema: Schema,
+    index_feature: Feature | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Extract index value for `record.name` and remove it from feature payload."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return None, dictionary
     index_name = index_feature.name
@@ -245,9 +248,11 @@ def strip_index_for_record_persistence(
     feature_objects: list[Feature],
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
+    index_feature: Feature | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
     """Move schema index values to `record.name` and drop them from link-table writes."""
-    index_feature = schema.index
+    if index_feature is None:
+        index_feature = schema.index
     if index_feature is None:
         return dictionary, feature_objects
 
@@ -464,10 +469,14 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
+        from lamindb import settings
+
         index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
+        _search_names = settings.creation.search_names
+        settings.creation.search_names = False
         for row in row_dicts:
             row = dict(row)
             name = None
@@ -493,7 +502,7 @@ class RecordBatch:
 
             if index_feature is not None and self._resolved_type.schema is not None:
                 name_from_features, features = pop_index_from_feature_dictionary(
-                    features, self._resolved_type.schema
+                    features, self._resolved_type.schema, index_feature=index_feature
                 )
                 if name is None:
                     name = name_from_features
@@ -502,6 +511,7 @@ class RecordBatch:
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
+        settings.creation.search_names = _search_names
         return records
 
     def save(self) -> SQLRecordList[Record]:
