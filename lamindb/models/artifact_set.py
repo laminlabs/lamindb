@@ -168,18 +168,13 @@ class RecordSet(Iterable):
 
         qs = cast(BasicQuerySet, self)
 
-        # Keep generic queryset export semantics for non-Record and mixed sets.
-        if getattr(qs, "model", None) is not Record:
-            return BasicQuerySet.to_dataframe(
-                qs,
-                include=include,
-                features=features,
-                limit=limit,
-                order_by=order_by,
-                record_metadata=record_metadata,
-            )
         type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
         if len(type_ids) != 1 or type_ids[0] is None:
+            # Sheet-style export requires a single concrete record type context.
+            logger.warning(
+                "falling back to generic Record queryset export because the queryset "
+                "does not resolve to exactly one non-null `type_id`"
+            )
             return BasicQuerySet.to_dataframe(
                 qs,
                 include=include,
@@ -189,16 +184,8 @@ class RecordSet(Iterable):
                 record_metadata=record_metadata,
             )
 
-        record_type = Record.filter(id=type_ids[0]).one_or_none()
-        if record_type is None or not record_type.is_type:
-            return BasicQuerySet.to_dataframe(
-                qs,
-                include=include,
-                features=features,
-                limit=limit,
-                order_by=order_by,
-                record_metadata=record_metadata,
-            )
+        # `type_id` points to record types (`is_type=True`) by model design.
+        record_type = Record.get(id=type_ids[0])
 
         logger.important(f"exporting {qs.count()} records of '{record_type.name}'")
 
