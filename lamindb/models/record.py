@@ -468,14 +468,10 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        from lamindb import settings
-
         index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
-        _search_names = settings.creation.search_names
-        settings.creation.search_names = False
         for row in row_dicts:
             row = dict(row)
             name = None
@@ -506,11 +502,10 @@ class RecordBatch:
                 if name is None:
                     name = name_from_features
 
-            record_kwargs: dict[str, Any] = {"type": self._resolved_type}
+            record_kwargs: dict[str, Any] = {"type": self._resolved_type, "_search_names": False}
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
-        settings.creation.search_names = _search_names
         return records
 
     def save(self) -> SQLRecordList[Record]:
@@ -917,6 +912,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
+        _search_names = kwargs.pop("_search_names", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
             raise FieldValidationError(
@@ -927,7 +923,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_type = True
         if features is not None:
             self._features = features
-        super().__init__(
+        super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
             is_type=is_type,
@@ -939,6 +935,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             _aux=_aux,
             **space_branch_kwargs,
         )
+        if _search_names is not None:
+            super_kwargs["_search_names"] = _search_names
+        super().__init__(**super_kwargs)
 
     def save(self, *args, **kwargs) -> Record:
         if self.is_type:
