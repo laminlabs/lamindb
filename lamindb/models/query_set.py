@@ -1161,7 +1161,7 @@ class BasicQuerySet(models.QuerySet):
 
     def filter(self, *queries, **expressions) -> BasicQuerySet:
         """Query a set of records."""
-        expressions = process_expressions(self, queries, expressions)
+        expressions = get_backward_compat_filter_kwargs(self, expressions)
         if queries or expressions:
             return super().filter(*queries, **expressions)
         return self
