@@ -154,7 +154,7 @@ def one_helper(
         return self[0]
 
 
-def get_backward_compat_filter_kwargs(queryset, expressions):
+def map_query_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
         Branch,
@@ -301,7 +301,7 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
 
         return any(check_q_object(q) for q in queries if isinstance(q, Q))
 
-    expressions = get_backward_compat_filter_kwargs(
+    expressions = map_query_kwargs(
         queryset,
         expressions,
     )
@@ -1159,6 +1159,13 @@ class BasicQuerySet(models.QuerySet):
         cls = _queryset_class_factory(self.model, QuerySet)
         return self._to_class(cls, copy)
 
+    def filter(self, *queries, **expressions) -> BasicQuerySet:
+        """Query a set of records."""
+        expressions = map_query_kwargs(self, expressions)
+        if queries or expressions:
+            return super().filter(*queries, **expressions)
+        return self
+
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
         self,
@@ -1220,7 +1227,7 @@ class BasicQuerySet(models.QuerySet):
                 # should refactor this in the future
                 features = True  # type: ignore
         features_input = [] if features is None else features
-        include = get_backward_compat_filter_kwargs(subset, include_input)
+        include = map_query_kwargs(subset, include_input)
         field_names = get_basic_field_names(
             subset, include_input, features_input, record_metadata=record_metadata
         )
