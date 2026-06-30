@@ -1159,6 +1159,13 @@ class BasicQuerySet(models.QuerySet):
         cls = _queryset_class_factory(self.model, QuerySet)
         return self._to_class(cls, copy)
 
+    def filter(self, *queries, **expressions) -> BasicQuerySet:
+        """Query a set of records."""
+        expressions = process_expressions(self, queries, expressions)
+        if queries or expressions:
+            return super().filter(*queries, **expressions)
+        return self
+
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
         self,

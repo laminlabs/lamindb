@@ -207,6 +207,10 @@ def test_filter_status_field():
     run._status_code = 0
     run.save(update_fields=["_status_code"])
     assert ln.Run.filter(status="completed").count() >= 1
+    record = ln.Record(name="test_filter_status_record").save()
+    record.runs.add(run)
+    assert record.runs.filter(status="completed").count() == 1
+    assert record.runs.filter(status__in=["completed"]).count() == 1
 
     branch = ln.Branch(name="test_filter_status_branch").save()
     branch.status = "review"
@@ -220,6 +224,7 @@ def test_filter_status_field():
 
     run.delete(permanent=True)
     transform.delete(permanent=True)
+    record.delete(permanent=True)
     project.delete(permanent=True)
     branch.delete()
 
