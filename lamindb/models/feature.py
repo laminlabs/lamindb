@@ -339,7 +339,7 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
         # No brackets - handle simple cases like "A" or "A.field"
         if "." in dtype_str:
             parts = dtype_str.split(".")
-            if len(parts) == 2 and parts[1][0].isupper():
+            if len(parts) == 2 and parts[1] != "" and parts[1][0].isupper():
                 # bionty.CellType
                 return {"registry": dtype_str, "filter_str": "", "field": ""}
             elif len(parts) == 3:

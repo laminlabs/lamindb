@@ -9,6 +9,7 @@ from lamindb.errors import ValidationError
 from lamindb.models.feature import (
     parse_dtype,
     parse_filter_string,
+    parse_nested_brackets,
     resolve_relation_filters,
     serialize_dtype,
 )
@@ -137,6 +138,19 @@ def test_serialize_with_field_information():
 # -----------------------------------------------------------------------------
 # parsing serialized dtypes
 # -----------------------------------------------------------------------------
+
+
+def test_parse_nested_brackets_trailing_dot():
+    # a trailing dot used to raise `IndexError: string index out of range`
+    # because `parts[1][0]` was accessed on an empty second part
+    assert parse_nested_brackets("bionty.") == {
+        "registry": "bionty",
+        "filter_str": "",
+        "field": "",
+    }
+    # malformed dtype must surface as a clear ValidationError, not IndexError
+    with pytest.raises(ValidationError):
+        parse_dtype("cat[bionty.]")
 
 
 def test_simple_record_with_subtype_and_field():
