@@ -50,7 +50,7 @@ db.view()
 {meth}`~lamindb.models.BaseSQLRecord.get` errors if it doesn't find exactly one matching object:
 
 ```python
-db.Record.get(experiment_1.uid)  # by uid
+db.Record.get("HhKWgzjVW6cfnVep")  # by uid
 db.Record.get(name="EXP-RNA-001")  # by field, here the name field
 ```
 
