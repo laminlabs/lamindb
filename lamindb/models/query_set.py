@@ -446,7 +446,7 @@ class SQLRecordList(UserList, Generic[T]):
 def get_basic_field_names(
     qs: QuerySet,
     include: list[str],
-    features_input: bool | list[str] | str,
+    features_input: list[str] | str,
     record_metadata: bool = True,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
@@ -511,7 +511,7 @@ def get_basic_field_names(
 
 def get_feature_annotate_kwargs(
     registry: Registry,
-    features: bool | list[str] | str | None,
+    features: list[str] | str | None,
     qs: QuerySet | None = None,
 ) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
@@ -1186,7 +1186,7 @@ class BasicQuerySet(models.QuerySet):
         self,
         *,
         include: str | list[str] | None = None,
-        features: bool | str | list[str] | None = None,
+        features: str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
@@ -1346,7 +1346,7 @@ class BasicQuerySet(models.QuerySet):
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str | None = None,
+        features: list[str] | str | None = None,
     ) -> pd.DataFrame:
         return self.to_dataframe(include=include, features=features)
 

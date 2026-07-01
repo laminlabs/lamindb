@@ -837,7 +837,7 @@ class Registry(ModelBase):
         cls,
         *,
         include: str | list[str] | None = None,
-        features: bool | str | list[str] | None = None,
+        features: str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -887,7 +887,7 @@ class Registry(ModelBase):
         cls,
         *,
         include: str | list[str] | None = None,
-        features: bool | str | list[str] | None = None,
+        features: str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
