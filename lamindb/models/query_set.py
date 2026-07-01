@@ -1863,6 +1863,40 @@ class DB:
                 f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
             )
 
+    def view(
+        self,
+        *,
+        limit: int = 7,
+        modules: str | None = None,
+        registries: list[str] | None = None,
+        df: pd.DataFrame | None = None,
+    ) -> None:
+        """View metadata for this database instance."""
+        from lamindb.models import JsonValue
+
+        from ._view import _view
+
+        def get_queryable(registry: type[SQLRecord], module_name: str):
+            if registry is JsonValue:
+                return registry.connect(
+                    self._instance, _instance_info=self._instance_info
+                )
+            if module_name == "core":
+                return getattr(self, registry.__name__)
+            return getattr(getattr(self, module_name), registry.__name__)
+
+        return _view(
+            limit=limit,
+            modules=modules,
+            registries=registries,
+            df=df,
+            default_modules=["core"] + list(self._instance_info.modules),
+            get_schema_module=lambda module_name: import_module(
+                "lamindb" if module_name == "core" else module_name
+            ),
+            get_queryable=get_queryable,
+        )
+
     def __repr__(self) -> str:
         return f"DB('{self._instance}')"
 

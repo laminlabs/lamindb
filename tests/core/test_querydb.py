@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import lamindb as ln
+import pandas as pd
 import pytest
 
 
@@ -84,6 +85,26 @@ def test_DB_dir():
     assert "Collection" in dir_result
     assert "Gene" not in dir_result
     assert "bionty" in dir_result
+
+
+def test_DB_view(monkeypatch):
+    db = object.__new__(ln.DB)
+    db._instance = "owner/name"
+    db._instance_info = SimpleNamespace(modules=set())
+
+    calls = []
+    df = pd.DataFrame({"uid": ["abc"]})
+
+    def get_registry(self, name):
+        calls.append(name)
+        return SimpleNamespace(to_dataframe=lambda limit: df)
+
+    monkeypatch.setattr(ln.DB, "__getattr__", get_registry)
+    monkeypatch.setattr("lamindb.models.query_set.logger.print", lambda value: None)
+
+    db.view(modules="core", registries=["Artifact"], limit=3)
+
+    assert calls == ["Artifact"]
 
 
 def test_DB_warns_for_missing_local_modules(monkeypatch):
