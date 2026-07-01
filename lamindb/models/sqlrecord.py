@@ -837,7 +837,7 @@ class Registry(ModelBase):
         cls,
         *,
         include: str | list[str] | None = None,
-        features: str | list[str] | None = None,
+        features: bool | str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -854,10 +854,9 @@ class Registry(ModelBase):
             include: Related data to include as columns. Takes strings of
                 form `"records__name"`, `"cell_types__name"`, etc. or a list
                 of such strings. For `Artifact`, `Record`, and `Run`, can also pass `"features"`
-                to include features with data types pointing to entities in the core schema.
+                to include features measured in the current queryset.
                 If `"privates"`, includes private fields (fields starting with `_`).
             features: Configure the features to include. Can be a feature name or a list of such names.
-                If `"queryset"`, infers the features used within the current queryset.
                 Only available for `Artifact`, `Record`, and `Run`.
             limit: Maximum number of rows to display. Defaults to 20. If `None`,
                 includes all results.
@@ -888,7 +887,7 @@ class Registry(ModelBase):
         cls,
         *,
         include: str | list[str] | None = None,
-        features: str | list[str] | None = None,
+        features: bool | str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -1206,7 +1205,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     has_consciously_provided_uid = kwargs.pop(
                         "_has_consciously_provided_uid"
                     )
-                _search_names = kwargs.pop("_search_names", settings.creation.search_names)
+                _search_names = kwargs.pop(
+                    "_search_names", settings.creation.search_names
+                )
                 if (
                     isinstance(self, (CanCurate, Collection, Transform))
                     and _search_names

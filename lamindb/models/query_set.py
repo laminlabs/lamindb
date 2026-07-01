@@ -516,10 +516,12 @@ def get_feature_annotate_kwargs(
 ) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
         Artifact,
+        ArtifactJsonValue,
         Feature,
         Record,
         RecordJson,
         Run,
+        RunJsonValue,
         ULabel,
     )
     from lamindb.models.feature import parse_dtype
@@ -531,6 +533,8 @@ def get_feature_annotate_kwargs(
 
     feature_ids = []
     if features == "queryset":
+        if qs is None:
+            raise ValueError("queryset-based feature inclusion requires a queryset")
         ids_list = qs.values_list("id", flat=True)
         for obj in registry._meta.related_objects:
             related_name_attr = getattr(registry, obj.related_name, None)
@@ -557,34 +561,45 @@ def get_feature_annotate_kwargs(
             )
             feature_ids_for_link_model = links.values_list("feature__id", flat=True)
             feature_ids += feature_ids_for_link_model
-        if registry is Record:
+        if registry is Artifact:
+            feature_ids += (
+                ArtifactJsonValue.objects.using(qs.db)
+                .filter(artifact_id__in=ids_list)
+                .values_list("jsonvalue__feature_id", flat=True)
+            )
+        elif registry is Run:
+            feature_ids += (
+                RunJsonValue.objects.using(qs.db)
+                .filter(run_id__in=ids_list)
+                .values_list("jsonvalue__feature_id", flat=True)
+            )
+        elif registry is Record:
             # this request is not strictly necessary, but it makes the resulting reshaped
             # dataframe consistent
-            feature_ids += RecordJson.filter(record_id__in=ids_list).values_list(
-                "feature__id", flat=True
+            feature_ids += (
+                RecordJson.objects.using(qs.db)
+                .filter(record_id__in=ids_list)
+                .values_list("feature__id", flat=True)
             )
         feature_ids = list(set(feature_ids))  # remove duplicates
 
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
         _dtype_str__isnull=False
     )
-    if isinstance(features, list):
-        feature_qs = feature_qs.filter(name__in=features)
-        if len(features) != feature_qs.count():
+    explicit_feature_names = None
+    if isinstance(features, list) or (
+        isinstance(features, str) and features != "queryset"
+    ):
+        explicit_feature_names = features if isinstance(features, list) else [features]
+        feature_qs = feature_qs.filter(name__in=explicit_feature_names)
+        if len(explicit_feature_names) != feature_qs.count():
             logger.warning(
-                f"found features and passed features differ:\n - passed: {features}\n - found: {feature_qs.to_list('name')}"
+                f"found features and passed features differ:\n - passed: {explicit_feature_names}\n - found: {feature_qs.to_list('name')}"
             )
-    elif feature_ids:
+    elif features == "queryset":
         feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
-        feature_qs = feature_qs.filter(
-            ~Q(_dtype_str__startswith="cat[")
-            | Q(_dtype_str__startswith="cat[ULabel")
-            | Q(_dtype_str__startswith="cat[Record")
-        )
-        logger.important(
-            f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
-        )
+        feature_qs = feature_qs.none()
 
     # Duplicate feature names map to ambiguous dataframe columns.
     # - for explicit user-provided lists, fail fast and ask for disambiguation
@@ -598,11 +613,11 @@ def get_feature_annotate_kwargs(
         if len(records) > 1
     }
     if duplicate_feature_names:
-        if isinstance(features, list):
+        if explicit_feature_names is not None:
             duplicate_features_requested = {
                 name: ids
                 for name, ids in duplicate_feature_names.items()
-                if name in features
+                if name in explicit_feature_names
             }
             if duplicate_features_requested:
                 raise ValueError(
@@ -1171,7 +1186,7 @@ class BasicQuerySet(models.QuerySet):
         self,
         *,
         include: str | list[str] | None = None,
-        features: str | list[str] | None = None,
+        features: bool | str | list[str] | None = None,
         limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
@@ -1223,9 +1238,17 @@ class BasicQuerySet(models.QuerySet):
         if "features" in include_input:
             include_input.remove("features")
             if features is None:
-                # indicate the default features with True
-                # should refactor this in the future
-                features = True  # type: ignore
+                features = "queryset"
+        if features is True:
+            warnings.warn(
+                "`features=True` is deprecated and no longer queries all globally "
+                "registered categorical ULabel/Record features. Omit `features` or "
+                "pass `features=None` to include features measured in this queryset, "
+                "or pass `features=[...]` to select specific feature names.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            features = "queryset"
         features_input = [] if features is None else features
         include = map_query_kwargs(subset, include_input)
         field_names = get_basic_field_names(

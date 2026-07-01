@@ -144,7 +144,7 @@ class RecordSet(Iterable):
         self,
         *,
         include: str | list[str] | None = None,
-        features: str | list[str] | None = None,
+        features: bool | str | list[str] | None = None,
         limit: int | None = 20,
         order_by: str | None = "-id",
         record_metadata: bool = True,
