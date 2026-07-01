@@ -51,7 +51,7 @@ Auto-completing can be a good way of finding an object:
 
 ```python
 records = db.Record.lookup()
-experiment_1 = records.exp_rna_001  # auto-complete exp_rna_001
+experiment_1 = records.exp_rna_001  # # assuming a record named 'EXP-RNA-001' exists
 experiment_1
 ```
 
@@ -123,7 +123,7 @@ Another example would be querying datasets that measure a particular feature. Fo
 
 ```python
 cd8a = db.bionty.Gene.get(symbol="CD8A")
-# query for all feature sets that contain CD8A
+# query for all schemas that contain CD8A
 schemas_with_cd8a = db.Schema.filter(genes=cd8a)
 # get all artifacts
 db.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
@@ -141,7 +141,7 @@ The {class}`~lamindb.Feature` registry indexes variables across datasets to enab
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
 
-The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by features:
+The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by feature expressions:
 
 ```python
 feature_type = db.Feature.get(name="mini_immuno")
