@@ -11,7 +11,7 @@ execute_via: python
 arrays
 ```
 
-This guide walks through different ways of querying & searching registries.
+This guide walks through querying & searching registries.
 To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
 To stream datasets from storage, see {doc}`arrays`.
 
