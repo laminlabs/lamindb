@@ -100,7 +100,7 @@ def test_DB_view(monkeypatch):
         return SimpleNamespace(to_dataframe=lambda limit: df)
 
     monkeypatch.setattr(ln.DB, "__getattr__", get_registry)
-    monkeypatch.setattr("lamindb.models.query_set.logger.print", lambda value: None)
+    monkeypatch.setattr("lamindb.models._view.logger.print", lambda value: None)
 
     db.view(modules="core", registries=["Artifact"], limit=3)
 
@@ -110,19 +110,19 @@ def test_DB_view(monkeypatch):
 def test_DB_warns_for_missing_local_modules(monkeypatch):
     warning_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.query_set.logger.warning",
+        "lamindb.models.db.logger.warning",
         lambda message: warning_calls.append(message),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
         lambda identifier: ("owner", "name"),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        "lamindb.models.db.ln_setup._connect_instance._connect_instance",
         lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty", "pertdb"}),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.setup_settings",
+        "lamindb.models.db.setup_settings",
         SimpleNamespace(modules={"bionty"}),
     )
 
@@ -136,19 +136,19 @@ def test_DB_warns_for_missing_local_modules(monkeypatch):
 def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
     warning_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.query_set.logger.warning",
+        "lamindb.models.db.logger.warning",
         lambda message: warning_calls.append(message),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
         lambda identifier: ("owner", "name"),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        "lamindb.models.db.ln_setup._connect_instance._connect_instance",
         lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty"}),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.setup_settings",
+        "lamindb.models.db.setup_settings",
         SimpleNamespace(modules={"bionty", "pertdb"}),
     )
 
