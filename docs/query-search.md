@@ -12,7 +12,7 @@ arrays
 ```
 
 This guide walks through querying & searching registries.
-To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
+To understand the links between objects that enable relational queries, see {doc}`organize`.
 To stream datasets from storage, see {doc}`arrays`.
 
 ## Basics
