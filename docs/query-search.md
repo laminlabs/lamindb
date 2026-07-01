@@ -20,7 +20,7 @@ If you already have a set of artifacts and you'd like to stream their content, s
 
 Create a database object:
 
-```
+```python
 import lamindb as ln
 
 db = ln.DB("laminlabs/lamindata")
