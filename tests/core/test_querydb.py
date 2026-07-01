@@ -152,7 +152,7 @@ def test_DB_warns_for_missing_local_modules(monkeypatch):
     ln.DB("owner/name")
 
     assert len(warning_calls) == 1
-    assert "non-configured modules: pertdb" in warning_calls[0]
+    assert "database has module pertdb" in warning_calls[0]
     assert "lamin settings modules set bionty,pertdb" in warning_calls[0]
 
 

@@ -13,8 +13,7 @@ arrays
 
 This guide walks through different ways of querying & searching registries.
 To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
-
-If you already have a set of artifacts and you'd like to stream their content, see {doc}`arrays`.
+To stream datasets from storage, see {doc}`arrays`.
 
 ## Basics
 
@@ -28,32 +27,19 @@ db = ln.DB("laminlabs/lamindata")
 
 ### Get an overview
 
-The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the most recently created artifacts in the {class}`~lamindb.Artifact` registry.
+The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the most recent entries of the {class}`~lamindb.Artifact` registry:
 
 ```python
 db.Artifact.to_dataframe()
 ```
 
-You can include fields from other registries.
+You can include fields from other registries with the `__` syntax:
 
 ```python
-db.Artifact.to_dataframe(
-    include=[
-        "created_by__name",
-        "records__name",
-        "cell_types__name",
-        "schemas__itype",
-    ]
-)
+db.Artifact.to_dataframe(include=["created_by__handle"])
 ```
 
-You can include features.
-
-```python
-db.Artifact.to_dataframe(include="features")
-```
-
-You can also get an overview of the entire database.
+Get an overview of the most recent objects in the database:
 
 ```python
 db.view()
@@ -61,13 +47,13 @@ db.view()
 
 ### Auto-complete
 
-For registries with less than 100k objects, auto-completing a `Lookup` object is the most convenient way of finding a record.
+For registries with less than 100k objects, auto-completing a `Lookup` object is a good way of finding an object.
 
 ```python
 records = db.Record.lookup()
 ```
 
-With auto-complete, we find a record:
+With auto-complete, we find an object:
 
 ```python
 experiment_1 = records.experiment_1
