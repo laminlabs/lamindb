@@ -163,7 +163,8 @@ The {class}`~lamindb.Feature` registry indexes variables across datasets to enab
 The {class}`~lamindb.Artifact`, {class}`~lamindb.Record`, and {class}`~lamindb.Run` registries can be queried by features:
 
 ```python
-perturbation = db.Feature.get(name="perturbation")
+feature_type = db.Feature.get(name="mini_immuno")
+perturbation = db.Feature.get(name="perturbation", type=feature_type)
 temperature = db.Feature.get(name="temperature")
 db.Artifact.filter(
     perturbation == "DMSO",
@@ -174,7 +175,6 @@ db.Artifact.filter(
 You can query for whether a dataset is annotated by a feature:
 
 ```python
-perturbation = db.Feature.get(name="perturbation")
 db.Artifact.filter(perturbation.is_null(False)).to_dataframe(include="features")
 ```
 
