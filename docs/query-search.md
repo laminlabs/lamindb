@@ -8,6 +8,7 @@ execute_via: python
 :maxdepth: 1
 :hidden:
 
+tables
 arrays
 ```
 
