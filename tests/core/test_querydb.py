@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb_setup.errors import ModuleWasntConfigured
 
 
 def test_DB_multiple_instances():
@@ -105,6 +106,28 @@ def test_DB_view(monkeypatch):
     db.view(modules="core", registries=["Artifact"], limit=3)
 
     assert calls == ["Artifact"]
+
+
+def test_DB_view_warns_for_unconfigured_module(monkeypatch):
+    db = object.__new__(ln.DB)
+    db._instance = "owner/name"
+    db._instance_info = SimpleNamespace(modules={"pertdb"})
+
+    warning_calls = []
+
+    def import_module(name):
+        raise ModuleWasntConfigured(f"'{name}' wasn't configured in this environment")
+
+    monkeypatch.setattr("lamindb.models.db.import_module", import_module)
+    monkeypatch.setattr(
+        "lamindb.models._view.logger.warning",
+        lambda message: warning_calls.append(message),
+    )
+
+    db.view(modules="pertdb")
+
+    assert len(warning_calls) == 1
+    assert "skipping module 'pertdb'" in warning_calls[0]
 
 
 def test_DB_warns_for_missing_local_modules(monkeypatch):

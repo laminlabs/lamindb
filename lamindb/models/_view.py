@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
+from lamindb_setup.errors import ModuleWasntConfigured
 
 from .feature import Feature, JsonValue, serialize_pandas_dtype
 from .sqlrecord import SQLRecord
@@ -132,7 +133,11 @@ def _view(
             return registry
 
     for module_name in module_names:
-        schema_module = get_schema_module(module_name)
+        try:
+            schema_module = get_schema_module(module_name)
+        except (ImportError, ModuleWasntConfigured) as error:
+            logger.warning(f"skipping module '{module_name}': {error}")
+            continue
         all_registries = {
             registry
             for registry in schema_module.__dict__.values()
