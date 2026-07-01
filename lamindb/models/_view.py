@@ -10,7 +10,7 @@ from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.errors import ModuleWasntConfigured
 
-from .feature import Feature, JsonValue, serialize_pandas_dtype
+from .feature import Feature, serialize_pandas_dtype
 from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
@@ -145,8 +145,6 @@ def _view(
             and issubclass(registry, SQLRecord)
             and registry is not SQLRecord
         }
-        if module_name == "core":
-            all_registries.update({JsonValue})
         if registries is not None:
             filtered_registries = {
                 registry

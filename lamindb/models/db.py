@@ -7,8 +7,6 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 
-from .feature import JsonValue
-
 if TYPE_CHECKING:
     import pandas as pd
     from bionty.models import (
@@ -310,10 +308,6 @@ class DB:
         from ._view import _view
 
         def get_queryable(registry: type[SQLRecord], module_name: str):
-            if registry is JsonValue:
-                return registry.connect(
-                    self._instance, _instance_info=self._instance_info
-                )
             if module_name == "core":
                 return getattr(self, registry.__name__)
             return getattr(getattr(self, module_name), registry.__name__)
