@@ -98,18 +98,18 @@ qs = qs.filter(records=experiment_1)  # filter to artifacts annotated with a rec
 qs.to_dataframe()
 ```
 
-To access the results in a queryset, call one of:
+To access the results in a queryset:
 
 - {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each object in a row.
 - {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one object. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
 - {meth}`~lamindb.models.BasicQuerySet.one_or_none`: Either one object or `None` if there is no query result.
 
-Alternatively,
+You can also:
 
 - use the `QuerySet` as an iterator
 - get individual objects via `qs[0]`, `qs[1]`
 
-The `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
+The `SQLRecord` classes (registries) in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 Django has a double-under-score syntax to filter based on related tables.
 This syntax enables you to traverse several layers of relations and comparators.
 
@@ -222,6 +222,8 @@ db.Transform.filter(description__startswith="Query").to_dataframe()
 ```
 
 ### or
+
+LaminDB uses Django's `Q` objects to encapsulate filters for complex boolean logic.
 
 ```python
 db.Artifact.filter(ln.Q(suffix=".jpg") | ln.Q(suffix=".fastq.gz")).to_dataframe()
