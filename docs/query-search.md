@@ -45,22 +45,6 @@ Get an overview over all most recent objects in the database:
 db.view()
 ```
 
-### Auto-complete
-
-Auto-completing can be a good way of finding an object:
-
-```python
-records = db.Record.lookup()
-experiment_1 = records.exp_rna_001  # # assuming a record named 'EXP-RNA-001' exists
-experiment_1
-```
-
-This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`:
-
-```python
-cell_types = db.bionty.CellType.lookup()
-```
-
 ### Get one object
 
 {meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found:
@@ -79,6 +63,20 @@ db.Artifact.search("iris").to_dataframe()
 ```
 
 Here is more background on search and examples for searching the cell type registry: {doc}`/faq/search`
+
+Also auto-completing can be a good way of finding an object:
+
+```python
+records = db.Record.lookup()
+experiment_1 = records.exp_rna_001  # # assuming a record named 'EXP-RNA-001' exists
+experiment_1
+```
+
+This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`:
+
+```python
+cell_types = db.bionty.CellType.lookup()
+```
 
 ## Queries
 
@@ -137,7 +135,7 @@ db.Artifact.filter(schemas__genes__symbol="CD8A").to_dataframe()
 
 ### By features
 
-The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to millions of dimensions.
+The {class}`~lamindb.Feature` registry indexes variables across datasets to enable querying by dimensions. Registry fields couldn't scale to millions of dimensions as found in biology:
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
 
