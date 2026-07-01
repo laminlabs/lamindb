@@ -27,19 +27,19 @@ db = ln.DB("laminlabs/lamindata")
 
 ### Get an overview
 
-The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the most recent entries of the {class}`~lamindb.Artifact` registry:
+Return the most recent entries of the {class}`~lamindb.Artifact` registry as a `DataFrame`:
 
 ```python
 db.Artifact.to_dataframe()
 ```
 
-You can include fields from other registries with the `__` syntax:
+Include fields from other registries with the `__` syntax:
 
 ```python
 db.Artifact.to_dataframe(include=["created_by__handle"])
 ```
 
-Get an overview of the most recent objects in the database:
+Get an overview over all most recent objects in the database:
 
 ```python
 db.view()
@@ -47,20 +47,15 @@ db.view()
 
 ### Auto-complete
 
-For registries with less than 100k objects, auto-completing a `Lookup` object is a good way of finding an object.
+Auto-completing can be a good way of finding an object:
 
 ```python
 records = db.Record.lookup()
-```
-
-With auto-complete, we find an object:
-
-```python
-experiment_1 = records.experiment_1
+experiment_1 = records.exp_rna_001  # auto-complete exp_rna_001
 experiment_1
 ```
 
-This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`.
+This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`:
 
 ```python
 cell_types = db.bionty.CellType.lookup()
@@ -68,38 +63,38 @@ cell_types = db.bionty.CellType.lookup()
 
 ### Get one object
 
-{meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found.
+{meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found:
 
 ```python
 db.Record.get(experiment_1.uid)  # by uid
-db.Record.get(name="Experiment 1")  # by field
+db.Record.get(name="EXP-RNA-001")  # by field, here the name field
 ```
 
 ### Search
 
-You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry.
+You can search every registry via {meth}`~lamindb.models.BaseSQLRecord.search`. For example, the `Artifact` registry:
 
 ```python
 db.Artifact.search("iris").to_dataframe()
 ```
 
-Here is more background on search and examples for searching the entire cell type ontology: {doc}`/faq/search`
+Here is more background on search and examples for searching the cell type registry: {doc}`/faq/search`
 
 ## Queries
 
 ### By fields
 
-Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query artifacts by any field, e.g., the {attr}`~lamindb.Artifact.suffix` field:
+Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query artifacts by fields, e.g., by {attr}`~lamindb.Artifact.suffix`:
 
 ```python
-qs = db.Artifact.filter(suffix=".h5ad")
+qs = db.Artifact.filter(suffix=".csv")
 qs
 ```
 
-This returns a {class}`~lamindb.models.QuerySet`, which lazily references the set of {class}`~lamindb.models.BaseSQLRecord` objects that matches the filter. You can filter a queryset:
+This returns a {class}`~lamindb.models.QuerySet` with the objects that match the filter. You can filter a queryset:
 
 ```python
-qs = qs.filter(records__name="Experiment 1")
+qs = qs.filter(records=experiment_1)
 qs.to_dataframe()
 ```
 
