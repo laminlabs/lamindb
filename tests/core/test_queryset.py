@@ -88,6 +88,28 @@ def test_complex_df_with_features():
     ln.Run.connect("laminlabs/lamindata").to_dataframe(include="features")
 
 
+def test_to_dataframe_truncation_warning_only_for_default_limit(monkeypatch):
+    prefix = "test_to_dataframe_truncation_warning"
+    labels = [ln.ULabel(name=f"{prefix}_{i}").save() for i in range(21)]
+    warnings = []
+    monkeypatch.setattr(
+        "lamindb.models.query_set.logger.warning",
+        lambda message: warnings.append(message),
+    )
+
+    try:
+        qs = ln.ULabel.filter(name__startswith=prefix).order_by("name")
+        qs.to_dataframe()
+        assert any("truncated query result" in warning for warning in warnings)
+
+        warnings.clear()
+        qs.to_dataframe(limit=7)
+        assert not any("truncated query result" in warning for warning in warnings)
+    finally:
+        for label in labels:
+            label.delete(permanent=True)
+
+
 def test_run_to_dataframe_includes_json_features():
     transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
     run = ln.Run(transform=transform).save()

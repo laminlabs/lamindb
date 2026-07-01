@@ -87,7 +87,12 @@ from ._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     max_version_uid_in_family,
 )
-from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, QueryManager, _lookup, _search
+from .query_manager import (
+    SEARCH_QUERY_DEFAULT_LIMIT,
+    QueryManager,
+    _lookup,
+    _search,
+)
 
 if TYPE_CHECKING:
     import pandas as pd

@@ -1291,7 +1291,7 @@ class BasicQuerySet(models.QuerySet):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             float
                         )
-        if is_truncated:
+        if is_truncated and limit == SEARCH_QUERY_DEFAULT_LIMIT:
             logger.warning(
                 f"truncated query result to limit={limit} {self.model.__name__} objects"
             )
