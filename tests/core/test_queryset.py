@@ -166,7 +166,7 @@ def test_to_dataframe_features_true_deprecation_warning():
 
         with pytest.warns(
             DeprecationWarning,
-            match="`features=True` is deprecated",
+            match='`features=True` is deprecated, pass `include="features"` instead.',
         ):
             df = ln.Artifact.filter(id=artifact.id).to_dataframe(features=True)
 

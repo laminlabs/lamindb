@@ -1237,10 +1237,7 @@ class BasicQuerySet(models.QuerySet):
                 features = "queryset"
         if features is True:
             warnings.warn(
-                "`features=True` is deprecated and no longer queries all globally "
-                "registered categorical ULabel/Record features. Omit `features` or "
-                "pass `features=None` to include features measured in this queryset, "
-                "or pass `features=[...]` to select specific feature names.",
+                '`features=True` is deprecated, pass `include="features"` instead.',
                 DeprecationWarning,
                 stacklevel=2,
             )
