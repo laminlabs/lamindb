@@ -9,6 +9,7 @@ from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
+from lamindb.models.query_set import get_feature_annotate_kwargs
 
 
 # please also see the test_curate_df.py tests
@@ -85,7 +86,28 @@ def test_complex_df_with_features():
     # should not fail
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(include="features")
     ln.Run.connect("laminlabs/lamindata").to_dataframe(include="features")
-    ln.Artifact.connect("laminlabs/lamindata").to_dataframe(features="queryset")
+
+
+def test_to_dataframe_truncation_warning_only_for_default_limit(monkeypatch):
+    prefix = "test_to_dataframe_truncation_warning"
+    labels = [ln.ULabel(name=f"{prefix}_{i}").save() for i in range(21)]
+    warnings = []
+    monkeypatch.setattr(
+        "lamindb.models.query_set.logger.warning",
+        lambda message: warnings.append(message),
+    )
+
+    try:
+        qs = ln.ULabel.filter(name__startswith=prefix).order_by("name")
+        qs.to_dataframe()
+        assert any("truncated query result" in warning for warning in warnings)
+
+        warnings.clear()
+        qs.to_dataframe(limit=7)
+        assert not any("truncated query result" in warning for warning in warnings)
+    finally:
+        for label in labels:
+            label.delete(permanent=True)
 
 
 def test_run_to_dataframe_includes_json_features():
@@ -102,6 +124,79 @@ def test_run_to_dataframe_includes_json_features():
     run.delete(permanent=True)
     transform.delete(permanent=True)
     feature.delete(permanent=True)
+
+
+def test_to_dataframe_include_features_uses_queryset_measured_features():
+    measured_feature = ln.Feature(
+        name="to_dataframe_queryset_measured_feature", dtype=ln.ULabel
+    ).save()
+    unmeasured_feature = ln.Feature(
+        name="to_dataframe_queryset_unmeasured_feature", dtype=ln.ULabel
+    ).save()
+    label = ln.ULabel(name="to_dataframe_queryset_measured_label").save()
+    measured_artifact = ln.Artifact(
+        ".gitignore",
+        key="test_to_dataframe_queryset_measured_artifact",
+        skip_hash_lookup=True,
+    ).save()
+    empty_artifact = ln.Artifact(
+        ".gitignore",
+        key="test_to_dataframe_queryset_empty_artifact",
+        skip_hash_lookup=True,
+    ).save()
+
+    try:
+        measured_artifact.features.set_values({measured_feature: label.name})
+
+        df = ln.Artifact.filter(id=measured_artifact.id).to_dataframe(
+            include="features"
+        )
+        assert measured_feature.name in df.columns
+        assert df[measured_feature.name].iloc[0] == label.name
+        assert unmeasured_feature.name not in df.columns
+
+        empty_df = ln.Artifact.filter(id=empty_artifact.id).to_dataframe(
+            include="features"
+        )
+        assert measured_feature.name not in empty_df.columns
+        assert unmeasured_feature.name not in empty_df.columns
+
+        _, feature_qs, _ = get_feature_annotate_kwargs(
+            ln.Artifact,
+            "queryset",
+            ln.Artifact.filter(id=empty_artifact.id),
+        )
+        assert feature_qs.count() == 0
+    finally:
+        measured_artifact.delete(permanent=True)
+        empty_artifact.delete(permanent=True)
+        measured_feature.delete(permanent=True)
+        unmeasured_feature.delete(permanent=True)
+        label.delete(permanent=True)
+
+
+def test_to_dataframe_features_true_deprecation_warning():
+    feature = ln.Feature(
+        name="to_dataframe_features_true_deprecated_feature", dtype=str
+    ).save()
+    artifact = ln.Artifact(
+        ".gitignore", key="test_to_dataframe_features_true_deprecated"
+    ).save()
+
+    try:
+        artifact.features.set_values({feature: "measured"})
+
+        with pytest.warns(
+            DeprecationWarning,
+            match='`features=True` is deprecated, pass `include="features"` instead.',
+        ):
+            df = ln.Artifact.filter(id=artifact.id).to_dataframe(features=True)
+
+        assert feature.name in df.columns
+        assert df[feature.name].iloc[0] == "measured"
+    finally:
+        artifact.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_to_dataframe_features_list_raises_on_ambiguous_duplicate_names():

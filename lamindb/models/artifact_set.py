@@ -11,6 +11,7 @@ from upath import UPath
 
 from .artifact import Artifact, track_run_input
 from .collection import Collection, _load_concat_artifacts
+from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -145,7 +146,7 @@ class RecordSet(Iterable):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        limit: int | None = 20,
+        limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
         order_by: str | None = "-id",
         record_metadata: bool = True,
         is_run_input: bool | Run | None = None,
@@ -156,7 +157,6 @@ class RecordSet(Iterable):
 
         from .feature import convert_to_pandas_dtype
         from .query_set import (
-            SEARCH_QUERY_DEFAULT_LIMIT,
             BasicQuerySet,
             encode_lamindb_fields_as_columns,
             reorder_subset_columns_in_df,

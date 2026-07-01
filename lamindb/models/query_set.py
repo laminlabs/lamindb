@@ -6,10 +6,8 @@ import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from importlib import import_module
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
-import lamindb_setup as ln_setup
 from django.core.exceptions import FieldError
 from django.db import models, transaction
 from django.db.models import (
@@ -38,47 +36,11 @@ from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
     import pandas as pd
-    from bionty.models import (
-        CellLine,
-        CellMarker,
-        CellType,
-        DevelopmentalStage,
-        Disease,
-        Ethnicity,
-        ExperimentalFactor,
-        Gene,
-        Organism,
-        Pathway,
-        Phenotype,
-        Protein,
-        Tissue,
-    )
-    from pertdb.models import (
-        Biologic,
-        CombinationPerturbation,
-        Compound,
-        CompoundPerturbation,
-        EnvironmentalPerturbation,
-        GeneticPerturbation,
-        PerturbationTarget,
-    )
 
     from lamindb.base.types import ListLike, StrField
     from lamindb.models import (
-        Artifact,
         Branch,
-        Collection,
         Feature,
-        Project,
-        Record,
-        Reference,
-        Run,
-        Schema,
-        Space,
-        Storage,
-        Transform,
-        ULabel,
-        User,
     )
 
 T = TypeVar("T")
@@ -446,7 +408,7 @@ class SQLRecordList(UserList, Generic[T]):
 def get_basic_field_names(
     qs: QuerySet,
     include: list[str],
-    features_input: bool | list[str] | str,
+    features_input: list[str] | str,
     record_metadata: bool = True,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
@@ -511,15 +473,17 @@ def get_basic_field_names(
 
 def get_feature_annotate_kwargs(
     registry: Registry,
-    features: bool | list[str] | str | None,
-    qs: QuerySet | None = None,
+    features: list[str] | str | None,
+    qs: QuerySet,
 ) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
         Artifact,
+        ArtifactJsonValue,
         Feature,
         Record,
         RecordJson,
         Run,
+        RunJsonValue,
         ULabel,
     )
     from lamindb.models.feature import parse_dtype
@@ -557,34 +521,43 @@ def get_feature_annotate_kwargs(
             )
             feature_ids_for_link_model = links.values_list("feature__id", flat=True)
             feature_ids += feature_ids_for_link_model
-        if registry is Record:
+        if registry is Artifact:
+            feature_ids += (
+                ArtifactJsonValue.objects.using(qs.db)
+                .filter(artifact_id__in=ids_list)
+                .values_list("jsonvalue__feature_id", flat=True)
+            )
+        elif registry is Run:
+            feature_ids += (
+                RunJsonValue.objects.using(qs.db)
+                .filter(run_id__in=ids_list)
+                .values_list("jsonvalue__feature_id", flat=True)
+            )
+        elif registry is Record:
             # this request is not strictly necessary, but it makes the resulting reshaped
             # dataframe consistent
-            feature_ids += RecordJson.filter(record_id__in=ids_list).values_list(
-                "feature__id", flat=True
+            feature_ids += (
+                RecordJson.objects.using(qs.db)
+                .filter(record_id__in=ids_list)
+                .values_list("feature__id", flat=True)
             )
         feature_ids = list(set(feature_ids))  # remove duplicates
 
-    feature_qs = Feature.connect(None if qs is None else qs.db).filter(
-        _dtype_str__isnull=False
-    )
-    if isinstance(features, list):
-        feature_qs = feature_qs.filter(name__in=features)
-        if len(features) != feature_qs.count():
+    feature_qs = Feature.connect(qs.db).filter(_dtype_str__isnull=False)
+    explicit_feature_names = None
+    if isinstance(features, list) or (
+        isinstance(features, str) and features != "queryset"
+    ):
+        explicit_feature_names = features if isinstance(features, list) else [features]
+        feature_qs = feature_qs.filter(name__in=explicit_feature_names)
+        if len(explicit_feature_names) != feature_qs.count():
             logger.warning(
-                f"found features and passed features differ:\n - passed: {features}\n - found: {feature_qs.to_list('name')}"
+                f"found features and passed features differ:\n - passed: {explicit_feature_names}\n - found: {feature_qs.to_list('name')}"
             )
-    elif feature_ids:
+    elif features == "queryset":
         feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
-        feature_qs = feature_qs.filter(
-            ~Q(_dtype_str__startswith="cat[")
-            | Q(_dtype_str__startswith="cat[ULabel")
-            | Q(_dtype_str__startswith="cat[Record")
-        )
-        logger.important(
-            f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
-        )
+        feature_qs = feature_qs.none()
 
     # Duplicate feature names map to ambiguous dataframe columns.
     # - for explicit user-provided lists, fail fast and ask for disambiguation
@@ -598,11 +571,11 @@ def get_feature_annotate_kwargs(
         if len(records) > 1
     }
     if duplicate_feature_names:
-        if isinstance(features, list):
+        if explicit_feature_names is not None:
             duplicate_features_requested = {
                 name: ids
                 for name, ids in duplicate_feature_names.items()
-                if name in features
+                if name in explicit_feature_names
             }
             if duplicate_features_requested:
                 raise ValueError(
@@ -1223,9 +1196,14 @@ class BasicQuerySet(models.QuerySet):
         if "features" in include_input:
             include_input.remove("features")
             if features is None:
-                # indicate the default features with True
-                # should refactor this in the future
-                features = True  # type: ignore
+                features = "queryset"
+        if features is True:
+            warnings.warn(
+                '`features=True` is deprecated, pass `include="features"` instead.',
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            features = "queryset"
         features_input = [] if features is None else features
         include = map_query_kwargs(subset, include_input)
         field_names = get_basic_field_names(
@@ -1313,7 +1291,7 @@ class BasicQuerySet(models.QuerySet):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             float
                         )
-        if is_truncated:
+        if is_truncated and limit == SEARCH_QUERY_DEFAULT_LIMIT:
             logger.warning(
                 f"truncated query result to limit={limit} {self.model.__name__} objects"
             )
@@ -1323,7 +1301,7 @@ class BasicQuerySet(models.QuerySet):
     def df(
         self,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str | None = None,
+        features: list[str] | str | None = None,
     ) -> pd.DataFrame:
         return self.to_dataframe(include=include, features=features)
 
@@ -1604,271 +1582,3 @@ class QuerySet(BasicQuerySet):
                 qs._to_class(BasicQuerySet, copy=True), feature_predicates
             )._to_class(type(qs), copy=False)
         return qs
-
-
-@final
-class NonInstantiableQuerySet:
-    """Wrapper around QuerySet that prevents instantiation while preserving query methods."""
-
-    def __init__(self, qs: QuerySet, registry_name: str):
-        self._qs = qs
-        self._name = registry_name
-
-    def __repr__(self) -> str:
-        return f"<QuerySet [{self._name}]>"
-
-    def __call__(self, *args, **kwargs):
-        raise TypeError(
-            f"Cannot instantiate {self._name} from DB. "
-            f"Use {self._name}.filter(), {self._name}.get(), etc. to query records."
-        )
-
-    def __getattr__(self, attr):
-        return getattr(self._qs, attr)
-
-
-class ModuleNamespace:
-    """Namespace for accessing registries from a specific schema module.
-
-    Args:
-        query_db: Parent DB instance.
-        module_name: Name of the schema module (e.g., 'bionty', 'pertdb').
-    """
-
-    def __init__(self, query_db: DB, module_name: str):
-        self._query_db = query_db
-        self._module_name = module_name
-        self._cache: dict[str, NonInstantiableQuerySet] = {}
-
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet:
-        """Access a registry class from this schema module.
-
-        Args:
-            name: Registry class name (e.g., 'Gene', 'CellType').
-
-        Returns:
-            QuerySet for the specified registry scoped to the parent instance.
-        """
-        if name in self._cache:
-            return self._cache[name]
-
-        try:
-            schema_module = import_module(self._module_name)
-            if hasattr(schema_module, name):
-                model_class = getattr(schema_module, name)
-                queryset = model_class.connect(self._query_db._instance)
-                wrapped = NonInstantiableQuerySet(queryset, name)
-                self._cache[name] = wrapped
-                return wrapped
-        except (ImportError, AttributeError):
-            pass
-
-        raise AttributeError(
-            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .pertdb.{name} for schema-specific registries."
-        )
-
-    def __dir__(self) -> list[str]:
-        """Return list of available registries in this schema module."""
-        base_attrs = [attr for attr in object.__dir__(self) if not attr.startswith("_")]
-        try:
-            schema_module = import_module(self._module_name)
-            if hasattr(schema_module, "__all__"):
-                registries = set()
-                for class_name in schema_module.__all__:
-                    model_class = getattr(schema_module, class_name, None)
-                    if model_class and hasattr(model_class, "connect"):
-                        registries.add(class_name)
-                return sorted(set(base_attrs) | registries)
-        except ImportError:
-            pass
-        return base_attrs
-
-
-class BiontyDB(ModuleNamespace):
-    """Namespace for Bionty registries (Gene, CellType, Disease, etc.)."""
-
-    Gene: QuerySet[Gene]  # type: ignore[type-arg]
-    Protein: QuerySet[Protein]  # type: ignore[type-arg]
-    CellType: QuerySet[CellType]  # type: ignore[type-arg]
-    Disease: QuerySet[Disease]  # type: ignore[type-arg]
-    Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
-    Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
-    Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
-    CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
-    CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
-    Organism: QuerySet[Organism]  # type: ignore[type-arg]
-    ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
-    DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
-    Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
-
-
-class PertdbDB(ModuleNamespace):
-    """Namespace for `PertDB` registries (Biologic, Compound, etc.)."""
-
-    Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
-    Compound: QuerySet[Compound]  # type: ignore[type-arg]
-    CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
-    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
-    EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
-    CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
-    PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
-
-
-class DB:
-    """Query any registry of any instance.
-
-    Args:
-        instance: Instance identifier in format "account/instance".
-
-    Examples
-    --------
-
-    Query objects from an instance::
-
-        db = ln.DB("laminlabs/cellxgene")
-
-    Query artifacts and filter by `suffix`::
-
-        db.Artifact.filter(suffix=".h5ad").to_dataframe()
-
-    Get a single artifact by uid::
-
-        artifact = db.Artifact.get("abcDEF123456")
-
-    Query records and filter by name::
-
-        db.Record.filter(name__startswith="sample").to_dataframe()
-
-    Get a cell type object::
-
-        t_cell = db.bionty.CellType.get(name="T cell")
-
-    Create a lookup object to auto-complete all cell types in the database::
-
-        cell_types = db.bionty.CellType.lookup()
-
-    Return a `DataFrame` with additional info::
-
-        db.Artifact.filter(
-            suffix=".h5ad",
-            description__contains="immune",
-            size__gt=1e9,  # size > 1GB
-            cell_types__name__in=["B cell", "T cell"],
-        ).order_by("created_at").to_dataframe(
-            include=["cell_types__name", "created_by__handle"]  # include additional info
-        ).head()
-    """
-
-    Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
-    Collection: QuerySet[Collection]  # type: ignore[type-arg]
-    Transform: QuerySet[Transform]  # type: ignore[type-arg]
-    Run: QuerySet[Run]  # type: ignore[type-arg]
-    User: QuerySet[User]  # type: ignore[type-arg]
-    Storage: QuerySet[Storage]  # type: ignore[type-arg]
-    Feature: QuerySet[Feature]  # type: ignore[type-arg]
-    ULabel: QuerySet[ULabel]  # type: ignore[type-arg]
-    Record: QuerySet[Record]  # type: ignore[type-arg]
-    Schema: QuerySet[Schema]  # type: ignore[type-arg]
-    Project: QuerySet[Project]  # type: ignore[type-arg]
-    Reference: QuerySet[Reference]  # type: ignore[type-arg]
-    Branch: QuerySet[Branch]  # type: ignore[type-arg]
-    Space: QuerySet[Space]  # type: ignore[type-arg]
-
-    bionty: BiontyDB
-    pertdb: PertdbDB
-
-    def __init__(self, instance: str):
-        self._instance = instance
-        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
-        self._available_registries: set[str] | None = None
-
-        owner, instance_name = (
-            ln_setup._connect_instance.get_owner_name_from_identifier(instance)
-        )
-        instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner,
-            name=instance_name,
-            allow_sqlite_clone_fallback=True,
-        )
-        self._instance_info = instance_info
-        self._modules = ["lamindb"] + list(instance_info.modules)
-        warning = ln_setup.core.django._warn_module_mismatch(
-            target_apps={"lamindb"} | instance_info.modules,
-            # Read-only DB querying should only warn when instance modules are missing
-            # from the local environment, not when local modules are additional.
-            current_apps={"lamindb"} | (setup_settings.modules & instance_info.modules),
-        )
-        if warning is not None:
-            logger.warning(warning)
-
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
-        """Access a registry class or schema namespace for this database instance.
-
-        Args:
-            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'pertdb').
-
-        Returns:
-            QuerySet for the specified registry or schema namespace scoped to this instance.
-        """
-        if name in self._cache:
-            return self._cache[name]
-
-        if name == "bionty":
-            if "bionty" not in self._modules:
-                raise AttributeError(
-                    f"Schema 'bionty' not available in instance '{self._instance}'."
-                )
-            if "bionty" not in self._cache:
-                namespace = BiontyDB(self, "bionty")
-                self._cache["bionty"] = namespace
-            return self._cache["bionty"]
-
-        if name == "pertdb":
-            if "pertdb" not in self._modules:
-                raise AttributeError(
-                    f"Schema 'pertdb' not available in instance '{self._instance}'."
-                )
-            if "pertdb" not in self._cache:
-                namespace = PertdbDB(self, "pertdb")  # type: ignore
-                self._cache["pertdb"] = namespace
-            return self._cache["pertdb"]
-
-        lamindb_module = import_module("lamindb")
-        if hasattr(lamindb_module, name):
-            model_class = getattr(lamindb_module, name)
-            queryset = model_class.connect(
-                self._instance, _instance_info=self._instance_info
-            )
-            wrapped = NonInstantiableQuerySet(queryset, name)
-            self._cache[name] = wrapped
-            return wrapped
-        else:
-            raise AttributeError(
-                f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
-            )
-
-    def __repr__(self) -> str:
-        return f"DB('{self._instance}')"
-
-    def __dir__(self) -> list[str]:
-        """Return list of available registries and schema namespaces."""
-        base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
-
-        lamindb_registries = set()
-        try:
-            lamindb_module = import_module("lamindb")
-            if hasattr(lamindb_module, "__all__"):
-                for class_name in lamindb_module.__all__:
-                    model_class = getattr(lamindb_module, class_name, None)
-                    if model_class and hasattr(model_class, "connect"):
-                        lamindb_registries.add(class_name)
-        except ImportError:
-            pass
-
-        module_namespaces = set()
-        if "bionty" in self._modules:
-            module_namespaces.add("bionty")
-        if "pertdb" in self._modules:
-            module_namespaces.add("pertdb")
-
-        return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

@@ -3,17 +3,20 @@ from __future__ import annotations
 import builtins
 import importlib
 import inspect
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
+from lamindb_setup.errors import ModuleWasntConfigured
 
-from lamindb.models import Feature, JsonValue, SQLRecord
-
-from .models.feature import serialize_pandas_dtype
+from .feature import Feature, serialize_pandas_dtype
+from .sqlrecord import SQLRecord
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import ModuleType
+
     import pandas as pd
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -28,41 +31,33 @@ def display_df_with_descriptions(
         display(df)
         return None
 
-    # Start building HTML table
     html = '<table class="dataframe">'
-
-    # Create header with title and description rows
     html += "<thead>"
 
-    # Column names row
     html += "<tr>"
-    html += '<th class="header-title index-header"></th>'  # Index header
+    html += '<th class="header-title index-header"></th>'
     for col in df.columns:
         html += f'<th class="header-title">{col}</th>'
     html += "</tr>"
 
-    # Descriptions row
     html += "<tr>"
-    html += f'<th class="header-desc index-header">{df.index.name or ""}</th>'  # Index column
+    html += f'<th class="header-desc index-header">{df.index.name or ""}</th>'
     for col in df.columns:
         desc = descriptions.get(col, "")
         html += f'<th class="header-desc">{desc}</th>'
     html += "</tr>"
 
     html += "</thead>"
-
-    # Add body rows
     html += "<tbody>"
     for idx, row in df.iterrows():
         html += "<tr>"
-        html += f'<th class="row-index">{idx}</th>'  # Index value
+        html += f'<th class="row-index">{idx}</th>'
         for col in df.columns:
             html += f"<td>{row[col]}</td>"
         html += "</tr>"
     html += "</tbody>"
     html += "</table>"
 
-    # Add CSS styles
     styled_html = f"""
     <style>
         .dataframe {{
@@ -93,23 +88,16 @@ def display_df_with_descriptions(
     return display(HTML(styled_html))
 
 
-def view(
+def _view(
     *,
     limit: int = 7,
     modules: str | None = None,
     registries: list[str] | None = None,
     df: pd.DataFrame | None = None,
+    default_modules: list[str] | None = None,
+    get_schema_module: Callable[[str], ModuleType] | None = None,
+    get_queryable: Callable[[type[SQLRecord], str], Any] | None = None,
 ) -> None:
-    """View metadata.
-
-    Args:
-        limit: Display the latest `n` records
-        modules: schema module to view. Default's to
-            `None` and displays all registry modules.
-        registries: List of SQLRecord names. Defaults to
-            `None` and lists all registries.
-        df: A DataFrame to display.
-    """
     if df is not None:
         descriptions = {
             col_name: serialize_pandas_dtype(dtype)
@@ -127,15 +115,29 @@ def view(
 
     if modules is not None:
         module_names = [modules]
+    elif default_modules is not None:
+        module_names = default_modules
     else:
         module_names = ["core"] + list(settings.instance.modules)
+    if get_schema_module is None:
+
+        def get_schema_module(module_name: str) -> ModuleType:
+            schema_module = importlib.import_module(get_schema_module_name(module_name))
+            # the below is necessary because a schema module might not have been
+            # explicitly accessed
+            return importlib.reload(schema_module)
+
+    if get_queryable is None:
+
+        def get_queryable(registry: type[SQLRecord], module_name: str) -> Any:
+            return registry
 
     for module_name in module_names:
-        schema_module = importlib.import_module(get_schema_module_name(module_name))
-        # the below is necessary because a schema module might not have been
-        # explicitly accessed
-        importlib.reload(schema_module)
-
+        try:
+            schema_module = get_schema_module(module_name)
+        except (ImportError, ModuleWasntConfigured) as error:
+            logger.warning(f"skipping module '{module_name}': {error}")
+            continue
         all_registries = {
             registry
             for registry in schema_module.__dict__.values()
@@ -143,8 +145,6 @@ def view(
             and issubclass(registry, SQLRecord)
             and registry is not SQLRecord
         }
-        if module_name == "core":
-            all_registries.update({JsonValue})
         if registries is not None:
             filtered_registries = {
                 registry
@@ -160,7 +160,28 @@ def view(
             logger.print(section)
             logger.print("*" * len(section_no_color))
         for registry in sorted(filtered_registries, key=lambda x: x.__name__):
-            df = registry.to_dataframe(limit=limit)
+            queryable = get_queryable(registry, module_name)
+            df = queryable.to_dataframe(limit=limit)
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(registry.__name__)))
                 show(df)
+
+
+def view(
+    *,
+    limit: int = 7,
+    modules: str | None = None,
+    registries: list[str] | None = None,
+    df: pd.DataFrame | None = None,
+) -> None:
+    """View metadata.
+
+    Args:
+        limit: Display the latest `n` records
+        modules: schema module to view. Default's to
+            `None` and displays all registry modules.
+        registries: List of SQLRecord names. Defaults to
+            `None` and lists all registries.
+        df: A DataFrame to display.
+    """
+    return _view(limit=limit, modules=modules, registries=registries, df=df)
