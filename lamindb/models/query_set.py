@@ -512,7 +512,7 @@ def get_basic_field_names(
 def get_feature_annotate_kwargs(
     registry: Registry,
     features: list[str] | str | None,
-    qs: QuerySet | None = None,
+    qs: QuerySet,
 ) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
         Artifact,
@@ -533,8 +533,6 @@ def get_feature_annotate_kwargs(
 
     feature_ids = []
     if features == "queryset":
-        if qs is None:
-            raise ValueError("queryset-based feature inclusion requires a queryset")
         ids_list = qs.values_list("id", flat=True)
         for obj in registry._meta.related_objects:
             related_name_attr = getattr(registry, obj.related_name, None)
@@ -583,9 +581,7 @@ def get_feature_annotate_kwargs(
             )
         feature_ids = list(set(feature_ids))  # remove duplicates
 
-    feature_qs = Feature.connect(None if qs is None else qs.db).filter(
-        _dtype_str__isnull=False
-    )
+    feature_qs = Feature.connect(qs.db).filter(_dtype_str__isnull=False)
     explicit_feature_names = None
     if isinstance(features, list) or (
         isinstance(features, str) and features != "queryset"
