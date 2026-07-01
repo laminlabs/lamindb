@@ -1,7 +1,9 @@
 from types import SimpleNamespace
 
 import lamindb as ln
+import pandas as pd
 import pytest
+from lamindb_setup.errors import ModuleWasntConfigured
 
 
 def test_DB_multiple_instances():
@@ -86,48 +88,90 @@ def test_DB_dir():
     assert "bionty" in dir_result
 
 
+def test_DB_view(monkeypatch):
+    db = object.__new__(ln.DB)
+    db._instance = "owner/name"
+    db._instance_info = SimpleNamespace(modules=set())
+
+    calls = []
+    df = pd.DataFrame({"uid": ["abc"]})
+
+    def get_registry(self, name):
+        calls.append(name)
+        return SimpleNamespace(to_dataframe=lambda limit: df)
+
+    monkeypatch.setattr(ln.DB, "__getattr__", get_registry)
+    monkeypatch.setattr("lamindb.models._view.logger.print", lambda value: None)
+
+    db.view(modules="core", registries=["Artifact"], limit=3)
+
+    assert calls == ["Artifact"]
+
+
+def test_DB_view_warns_for_unconfigured_module(monkeypatch):
+    db = object.__new__(ln.DB)
+    db._instance = "owner/name"
+    db._instance_info = SimpleNamespace(modules={"pertdb"})
+
+    warning_calls = []
+
+    def import_module(name):
+        raise ModuleWasntConfigured(f"'{name}' wasn't configured in this environment")
+
+    monkeypatch.setattr("lamindb.models.db.import_module", import_module)
+    monkeypatch.setattr(
+        "lamindb.models._view.logger.warning",
+        lambda message: warning_calls.append(message),
+    )
+
+    db.view(modules="pertdb")
+
+    assert len(warning_calls) == 1
+    assert "skipping module 'pertdb'" in warning_calls[0]
+
+
 def test_DB_warns_for_missing_local_modules(monkeypatch):
     warning_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.query_set.logger.warning",
+        "lamindb.models.db.logger.warning",
         lambda message: warning_calls.append(message),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
         lambda identifier: ("owner", "name"),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        "lamindb.models.db.ln_setup._connect_instance._connect_instance",
         lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty", "pertdb"}),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.setup_settings",
+        "lamindb.models.db.setup_settings",
         SimpleNamespace(modules={"bionty"}),
     )
 
     ln.DB("owner/name")
 
     assert len(warning_calls) == 1
-    assert "non-configured modules: pertdb" in warning_calls[0]
+    assert "database has module pertdb" in warning_calls[0]
     assert "lamin settings modules set bionty,pertdb" in warning_calls[0]
 
 
 def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
     warning_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.query_set.logger.warning",
+        "lamindb.models.db.logger.warning",
         lambda message: warning_calls.append(message),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
         lambda identifier: ("owner", "name"),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        "lamindb.models.db.ln_setup._connect_instance._connect_instance",
         lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty"}),
     )
     monkeypatch.setattr(
-        "lamindb.models.query_set.setup_settings",
+        "lamindb.models.db.setup_settings",
         SimpleNamespace(modules={"bionty", "pertdb"}),
     )
 

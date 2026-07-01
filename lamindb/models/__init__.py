@@ -134,8 +134,8 @@ Utils
 .. autoclass:: InspectResult
 .. autoclass:: ValidateFields
 .. autoclass:: SchemaOptionals
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
+.. autoclass:: lamindb.models.db.BiontyDB
+.. autoclass:: lamindb.models.db.PertdbDB
 
 """
 
@@ -171,7 +171,8 @@ from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager
-from .query_set import BasicQuerySet, QuerySet, DB, SQLRecordList
+from .query_set import BasicQuerySet, QuerySet, SQLRecordList
+from .db import DB
 from .artifact_set import ArtifactSet, RecordSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
