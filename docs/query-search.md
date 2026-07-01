@@ -94,15 +94,15 @@ qs
 This returns a {class}`~lamindb.models.QuerySet` with the objects that match the filter. You can filter a queryset:
 
 ```python
-qs = qs.filter(records=experiment_1)
+qs = qs.filter(records=experiment_1)  # filter to artifacts annotated with a record
 qs.to_dataframe()
 ```
 
-To access the results encoded in a queryset, you can call one of:
+To access the results in a queryset, call one of:
 
-- {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
-- {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
-- {meth}`~lamindb.models.BasicQuerySet.one_or_none`: Either one record or `None` if there is no query result.
+- {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each object in a row.
+- {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one object. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
+- {meth}`~lamindb.models.BasicQuerySet.one_or_none`: Either one object or `None` if there is no query result.
 
 Alternatively,
 
