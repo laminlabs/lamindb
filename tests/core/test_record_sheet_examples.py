@@ -567,12 +567,9 @@ def test_record_export_applies_filters():
     sample_sheet.delete(permanent=True)
 
 
-def test_recordset_to_artifact_uses_default_record_exports_key(
-    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
-):
-    _, sample_sheet = populate_sheets_compound_treatment
-    record = ln.Record.filter(type=sample_sheet).order_by("id").first()
-    assert record is not None
+def test_recordset_to_artifact_uses_default_record_exports_key():
+    sample_sheet = ln.Record(name="RecordSetExportSheet", is_type=True).save()
+    record = ln.Record(name="recordset-export-row", type=sample_sheet).save()
 
     artifact = ln.Record.filter(id=record.id).to_artifact()
     try:
@@ -582,6 +579,8 @@ def test_recordset_to_artifact_uses_default_record_exports_key(
         assert artifact.run.input_records.count() == 2
     finally:
         artifact.delete(permanent=True)
+        record.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
 
 
 def test_record_export_applies_feature_predicate_filters():
