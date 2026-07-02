@@ -14,19 +14,20 @@ if TYPE_CHECKING:
 
 
 def _resolve_branch(branch: str | Branch) -> Branch:
+    """Resolve a branch by object, name, or uid."""
     from lamindb import Branch, Q
     from lamindb.errors import ObjectDoesNotExist
 
     if isinstance(branch, Branch):
-        resolved = branch
-        if resolved._state.adding:
+        branch_record = branch
+        if branch_record._state.adding:
             raise ObjectDoesNotExist("Branch must be saved.")
-        return resolved
+        return branch_record
 
-    resolved = Branch.filter(Q(name=branch) | Q(uid=branch)).one_or_none()
-    if resolved is None:
+    branch_record = Branch.filter(Q(name=branch) | Q(uid=branch)).one_or_none()
+    if branch_record is None:
         raise ObjectDoesNotExist(f"Branch '{branch}' not found.")
-    return resolved
+    return branch_record
 
 
 def merge(branch: str | Branch, target: str | Branch | None = None) -> None:
