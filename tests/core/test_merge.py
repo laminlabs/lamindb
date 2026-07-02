@@ -201,3 +201,21 @@ def test_merge_updates_recordblock_branch():
 
     record.delete(permanent=True)
     source_branch.delete(permanent=True)
+
+
+def test_merge_with_identical_source_and_target_is_noop():
+    source_branch = ln.Branch(name="test_merge_explicit_self_target").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_explicit_self_target_record").save()
+
+    ln.setup.merge(source_branch.name, target=source_branch.name)
+
+    ulabel.refresh_from_db()
+    source_branch.refresh_from_db()
+    assert ulabel.branch == source_branch
+    assert ulabel.created_on == source_branch
+    assert source_branch.status == "standalone"
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch("main")
