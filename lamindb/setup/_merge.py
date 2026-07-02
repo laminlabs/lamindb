@@ -13,7 +13,23 @@ if TYPE_CHECKING:
     from lamindb.models import Branch
 
 
-def merge(branch: str | Branch) -> None:
+def _resolve_branch(branch: str | Branch) -> Branch:
+    from lamindb import Branch, Q
+    from lamindb.errors import ObjectDoesNotExist
+
+    if isinstance(branch, Branch):
+        resolved = branch
+        if resolved._state.adding:
+            raise ObjectDoesNotExist("Branch must be saved.")
+        return resolved
+
+    resolved = Branch.filter(Q(name=branch) | Q(uid=branch)).one_or_none()
+    if resolved is None:
+        raise ObjectDoesNotExist(f"Branch '{branch}' not found.")
+    return resolved
+
+
+def merge(branch: str | Branch, target: str | Branch | None = None) -> None:
     """Merge a branch into the current branch.
 
     All `SQLRecord` objects that have `branch_id` equal to the source branch's id
@@ -23,28 +39,18 @@ def merge(branch: str | Branch) -> None:
 
     Args:
         branch: The source branch to merge from. Accepts a `name`, a `uid`, or the `Branch` object.
+        target: The destination branch to merge into. If `None`, uses the current branch.
 
     Raises:
         DoesNotExist: If the branch does not exist.
     """
-    from lamindb import Branch, Q
-    from lamindb.errors import ObjectDoesNotExist
-
     from ..models import SQLRecord
     from ..models._is_versioned import IsVersioned, reconcile_is_latest_within_branch
     from ..models.sqlrecord import BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
-    if isinstance(branch, Branch):
-        source = branch
-        if source._state.adding:
-            raise ObjectDoesNotExist("Branch must be saved.")
-    else:
-        source = Branch.filter(Q(name=branch) | Q(uid=branch)).one_or_none()
-        if source is None:
-            raise ObjectDoesNotExist(f"Branch '{branch}' not found.")
-
-    current = ln_setup.settings.branch
-    if current.id == source.id:
+    source = _resolve_branch(branch)
+    destination = ln_setup.settings.branch if target is None else _resolve_branch(target)
+    if destination.id == source.id:
         logger.important("already on branch, nothing to merge")
         return
 
@@ -73,7 +79,7 @@ def merge(branch: str | Branch) -> None:
                 for tbl in quoted_tables
             ]
             sql = "BEGIN; " + "; ".join(statements) + "; COMMIT;"
-            params = [current.id, source.id] * len(quoted_tables)
+            params = [destination.id, source.id] * len(quoted_tables)
             try:
                 cursor.execute(sql, params)
             except DatabaseError as e:
@@ -90,13 +96,13 @@ def merge(branch: str | Branch) -> None:
                     # Django uses %s; SQLite backend converts to ?
                     cursor.execute(
                         f"UPDATE {tbl} SET branch_id = %s WHERE branch_id = %s",
-                        [current.id, source.id],
+                        [destination.id, source.id],
                     )
 
     versioned_models = [m for m in models if issubclass(m, IsVersioned)]
     for model in versioned_models:
-        reconcile_is_latest_within_branch(model, branch_id=current.id)
+        reconcile_is_latest_within_branch(model, branch_id=destination.id)
 
     source._status_code = -1  # merged
     source.save(update_fields=["_status_code"])
-    logger.important(f"merged branch '{source.name}' into '{current.name}'")
+    logger.important(f"merged branch '{source.name}' into '{destination.name}'")

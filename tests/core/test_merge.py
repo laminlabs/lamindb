@@ -96,6 +96,52 @@ def test_merge_nonexistent_branch_raises():
     assert "not found" in str(exc_info.value).lower()
 
 
+def test_merge_without_switch_via_explicit_target():
+    main_branch = ln.Branch.get(name="main")
+    source_branch = ln.Branch(name="test_merge_explicit_target_source").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_explicit_target_record").save()
+    assert ln.setup.settings.branch.name == source_branch.name
+    assert ulabel.branch == source_branch
+
+    ln.setup.merge(source_branch.name, target=main_branch.name)
+
+    ulabel.refresh_from_db()
+    assert ln.setup.settings.branch.name == source_branch.name
+    assert ulabel.branch.name == main_branch.name
+    assert ulabel.created_on == source_branch
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch(main_branch.name)
+
+
+def test_merge_with_target_branch_object():
+    main_branch = ln.Branch.get(name="main")
+    source_branch = ln.Branch(name="test_merge_target_object_source").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_target_object_record").save()
+    assert ulabel.branch == source_branch
+
+    ln.setup.merge(source_branch, target=main_branch)
+
+    ulabel.refresh_from_db()
+    assert ulabel.branch == main_branch
+    assert ulabel.created_on == source_branch
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch(main_branch.name)
+
+
+def test_merge_explicit_target_not_found_raises():
+    source_branch = ln.Branch(name="test_merge_target_not_found_source").save()
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as exc_info:
+        ln.setup.merge(source_branch.name, target="nonexistent_target_branch_xyz")
+    assert "not found" in str(exc_info.value).lower()
+    source_branch.delete(permanent=True)
+
+
 def test_merge_reconciles_is_latest_for_versioned_records():
     main_branch = ln.Branch.get(name="main")
     ln.setup.switch(main_branch.name)
