@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
-from ._valid_suffixes import VALID_SUFFIXES
 from .paths import delete_storage
 
 if TYPE_CHECKING:
