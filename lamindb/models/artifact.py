@@ -20,11 +20,11 @@ from lamindb_setup.core._hub_core import (
     select_storage_or_parent,
 )
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
+from lamindb_setup.core.suffix import extract_suffix_from_path
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
     create_path,
-    extract_suffix_from_path,
     fs_for_moving,
     get_stat_dir_cloud,
     get_stat_file_cloud,
@@ -284,7 +284,7 @@ def process_data(
         is_pathlike = False
 
     if key is not None:
-        key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
+        key_suffix = extract_suffix_from_path(PurePosixPath(key))
         # use suffix as the (adata) format if the format is not provided
         if is_anndata and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
@@ -1120,11 +1120,11 @@ class LazyArtifact:
         self.kwargs = kwargs
         self.kwargs["overwrite_versions"] = overwrite_versions
 
-        if (key := kwargs.get("key")) is not None and extract_suffix_from_path(
-            PurePosixPath(key)
+        if (key := kwargs.get("key")) is not None and (
+            key_suffix := extract_suffix_from_path(PurePosixPath(key))
         ) != suffix:
             raise ValueError(
-                "The suffix argument and the suffix of key should be the same."
+                f"The suffix argument {suffix} and the suffix of key {key_suffix} should be the same."
             )
 
         uid = create_uid(n_full_id=20)
@@ -3280,9 +3280,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
-            new_key_suffix = extract_suffix_from_path(
-                PurePosixPath(new_key), arg_name="key"
-            )
+            new_key_suffix = extract_suffix_from_path(PurePosixPath(new_key))
             if new_key_suffix != self.suffix:
                 raise InvalidArgument(
                     f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."

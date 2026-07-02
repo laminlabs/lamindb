@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup.core.suffix import extract_suffix_from_path
 from lamindb_setup.core.upath import (
     create_path,
-    extract_suffix_from_path,
     infer_filesystem,
 )
 
