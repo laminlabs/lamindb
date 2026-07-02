@@ -170,6 +170,7 @@ class RecordSet(Iterable):
 
         qs = cast(BasicQuerySet, self)
         qs._record_export_type = None
+        qs._record_export_run = None
 
         include_features = include == "features" or (
             isinstance(include, list) and "features" in include
@@ -194,6 +195,8 @@ class RecordSet(Iterable):
                     "falling back to generic Record queryset export because the queryset "
                     "does not resolve to exactly one non-null `type_id`"
                 )
+                qs._record_export_type = None
+                qs._record_export_run = None
                 return BasicQuerySet.to_dataframe(
                     qs,
                     include=include,
@@ -330,6 +333,9 @@ class RecordSet(Iterable):
             **kwargs,
         )
         record_type = getattr(qs, "_record_export_type", None)
+        export_run = getattr(qs, "_record_export_run", None)
+        if export_run is None and record_type is not None:
+            export_run = getattr(record_type, "_export_run", None)
         if key is None:
             suffix = ".csv" if suffix is None else suffix
             type_name = record_type.name if record_type is not None else "record"
@@ -345,7 +351,7 @@ class RecordSet(Iterable):
             ),
             schema=schema,
             csv_kwargs={"index": schema is not None and schema.index is not None},
-            run=getattr(qs, "_record_export_run", None),
+            run=export_run,
             space=record_type.space if record_type is not None else None,
         ).save()
 
