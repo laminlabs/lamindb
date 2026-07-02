@@ -1964,11 +1964,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
             assert _s().AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
-            uid = (
-                kwargs["key"]
-                .replace(_s().AUTO_KEY_PREFIX, "")
-                .replace(kwargs["suffix"], "")
-            )
+            uid = PurePosixPath(kwargs["key"]).stem
             kwargs["key"] = user_provided_key
             if revises is not None:
                 assert uid.startswith(revises.stem_uid)  # noqa: S101
