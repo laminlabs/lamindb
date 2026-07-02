@@ -31,16 +31,16 @@ def _resolve_branch(branch: str | Branch) -> Branch:
 
 
 def merge(branch: str | Branch, *, target: str | Branch | None = None) -> None:
-    """Merge a source branch into a destination branch.
+    """Merge a source branch into a target branch.
 
     All `SQLRecord` objects that have `branch_id` equal to the source branch's id
-    are updated to the destination branch's id.
+    are updated to the target branch's id.
 
     Find more info in the :class:`~lamindb.Branch` document.
 
     Args:
         branch: The source branch to merge from. Accepts a `name`, a `uid`, or the `Branch` object.
-        target: The destination branch to merge into. If `None`, uses the currently active branch as destination.
+        target: The target branch to merge into. If `None`, uses the currently active branch as target.
 
     Raises:
         DoesNotExist: If the branch does not exist.
@@ -50,9 +50,9 @@ def merge(branch: str | Branch, *, target: str | Branch | None = None) -> None:
     from ..models.sqlrecord import BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
     source = _resolve_branch(branch)
-    destination = ln_setup.settings.branch if target is None else _resolve_branch(target)
-    if destination.id == source.id:
-        logger.important("source and destination branch are identical, nothing to merge")
+    target = ln_setup.settings.branch if target is None else _resolve_branch(target)
+    if target.id == source.id:
+        logger.important("source and target branch are identical, nothing to merge")
         return
 
     sqlrecord_models = [
@@ -80,7 +80,7 @@ def merge(branch: str | Branch, *, target: str | Branch | None = None) -> None:
                 for tbl in quoted_tables
             ]
             sql = "BEGIN; " + "; ".join(statements) + "; COMMIT;"
-            params = [destination.id, source.id] * len(quoted_tables)
+            params = [target.id, source.id] * len(quoted_tables)
             try:
                 cursor.execute(sql, params)
             except DatabaseError as e:
@@ -97,13 +97,13 @@ def merge(branch: str | Branch, *, target: str | Branch | None = None) -> None:
                     # Django uses %s; SQLite backend converts to ?
                     cursor.execute(
                         f"UPDATE {tbl} SET branch_id = %s WHERE branch_id = %s",
-                        [destination.id, source.id],
+                        [target.id, source.id],
                     )
 
     versioned_models = [m for m in models if issubclass(m, IsVersioned)]
     for model in versioned_models:
-        reconcile_is_latest_within_branch(model, branch_id=destination.id)
+        reconcile_is_latest_within_branch(model, branch_id=target.id)
 
     source._status_code = -1  # merged
     source.save(update_fields=["_status_code"])
-    logger.important(f"merged branch '{source.name}' into '{destination.name}'")
+    logger.important(f"merged branch '{source.name}' into '{target.name}'")
