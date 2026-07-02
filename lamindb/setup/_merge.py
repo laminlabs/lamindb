@@ -30,17 +30,17 @@ def _resolve_branch(branch: str | Branch) -> Branch:
     return branch_record
 
 
-def merge(branch: str | Branch, target: str | Branch | None = None) -> None:
-    """Merge a branch into the current branch.
+def merge(branch: str | Branch, *, target: str | Branch | None = None) -> None:
+    """Merge a source branch into a destination branch.
 
     All `SQLRecord` objects that have `branch_id` equal to the source branch's id
-    are updated to the current branch's id.
+    are updated to the destination branch's id.
 
     Find more info in the :class:`~lamindb.Branch` document.
 
     Args:
         branch: The source branch to merge from. Accepts a `name`, a `uid`, or the `Branch` object.
-        target: The destination branch to merge into. If `None`, uses the current branch.
+        target: The destination branch to merge into. If `None`, uses the currently active branch as destination.
 
     Raises:
         DoesNotExist: If the branch does not exist.
@@ -52,7 +52,7 @@ def merge(branch: str | Branch, target: str | Branch | None = None) -> None:
     source = _resolve_branch(branch)
     destination = ln_setup.settings.branch if target is None else _resolve_branch(target)
     if destination.id == source.id:
-        logger.important("already on branch, nothing to merge")
+        logger.important("source and destination branch are identical, nothing to merge")
         return
 
     sqlrecord_models = [
