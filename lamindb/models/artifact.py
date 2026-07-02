@@ -284,7 +284,9 @@ def process_data(
         is_pathlike = False
 
     if key is not None:
-        key_suffix = extract_suffix_from_path(PurePosixPath(key))
+        key_path = PurePosixPath(key)
+        key_suffix = extract_suffix_from_path(key_path)
+        key_raw_suffix = "".join(key_path.suffixes)
         # use suffix as the (adata) format if the format is not provided
         if is_anndata and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
@@ -327,9 +329,12 @@ def process_data(
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
         if is_pathlike:
-            message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
+            # suffix is from extract_suffix_from_path, so it is empty for non-valid suffixes
+            display_suffix = "".join(path.suffixes) if suffix == "" else suffix
+            message = f"The passed path's suffix '{display_suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
-            message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
+            display_suffix = key_raw_suffix if key_suffix == "" else key_suffix
+            message = f"The passed key's suffix '{display_suffix}' must match the passed path's suffix '{suffix}'."
         raise InvalidArgument(message)
 
     # in case we have an in-memory representation, we need to write it to disk
@@ -3276,10 +3281,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
-            new_key_suffix = extract_suffix_from_path(PurePosixPath(new_key))
+            new_key_path = PurePosixPath(new_key)
+            new_key_suffix = extract_suffix_from_path(new_key_path)
             if new_key_suffix != self.suffix:
+                # the case where the new suffix is invalid but so extract_suffix_from_path returns an empty string
+                display_suffix = (
+                    "".join(new_key_path.suffixes)
+                    if new_key_suffix == ""
+                    else new_key_suffix
+                )
                 raise InvalidArgument(
-                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
+                    f"The suffix '{display_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
                 )
             # Virtual key updates are metadata-only because physical storage keys are
             # uid-based.
