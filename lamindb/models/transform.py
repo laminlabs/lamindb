@@ -212,7 +212,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
-    """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
+    """`ULabel` annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
@@ -247,7 +247,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
-    """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
+    """The user that created the transform ← :attr:`~lamindb.User.created_transforms`."""
     ablocks: RelatedManager[TransformBlock]
     """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
