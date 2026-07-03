@@ -285,12 +285,11 @@ def process_data(
 
     if key is not None:
         key_path = PurePosixPath(key)
-        key_suffix, key_raw_suffix = extract_suffixes_from_path(key_path)
+        _, key_raw_suffix = extract_suffixes_from_path(key_path)
         # use suffix as the (adata) format if the format is not provided
-        if is_anndata and format is None and key_suffix != "":
-            format = key_suffix
+        if is_anndata and format is None and key_raw_suffix != "":
+            format = key_raw_suffix
     else:
-        key_suffix = None
         key_raw_suffix = None
 
     if is_pathlike:
