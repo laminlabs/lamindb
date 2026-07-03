@@ -13,6 +13,7 @@ Array accessors.
 
 from typing import TYPE_CHECKING, Any
 
+from lamindb_setup.core.suffix import VALID_SUFFIXES
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
 from .paths import delete_storage
