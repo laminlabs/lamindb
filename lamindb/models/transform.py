@@ -237,7 +237,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     references: RelatedManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     run: Run | None = ForeignKey(
-        Run, PROTECT, null=True, default=current_run, related_name="+"
+        Run, PROTECT, null=True, default=current_run, related_name="output_transforms"
     )
     """The run that created the transform ← :attr:`~lamindb.Run.output_transforms`."""
     updated_at: datetime = DateTimeField(

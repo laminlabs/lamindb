@@ -4118,7 +4118,7 @@ class Migration(migrations.Migration):
                         default=lamindb.models.run.current_run,
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
+                        related_name="output_transforms",
                         to="lamindb.run",
                     ),
                 ),
