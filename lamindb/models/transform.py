@@ -30,7 +30,7 @@ from ._is_versioned import (
     increment_base62,
 )
 from ._is_versioned import bump_version as bump_version_function
-from .run import Run, TracksRun, User
+from .run import Run, TracksRun, User, current_run
 from .sqlrecord import (
     BaseSQLRecord,
     Branch,
@@ -61,9 +61,7 @@ if TYPE_CHECKING:
 class Transform(SQLRecord, IsVersioned, TracksRun):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
-    If you execute a transform, you generate a run
-    (:class:`~lamindb.Run`).
-
+    If you execute a transform, you generate a run (:class:`~lamindb.Run`).
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
@@ -238,6 +236,10 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     """Linked projects ← :attr:`~lamindb.Project.transforms`."""
     references: RelatedManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
+    run: Run | None = ForeignKey(
+        Run, PROTECT, null=True, default=current_run, related_name="+"
+    )
+    """The run that created the transform ← :attr:`~lamindb.Run.output_transforms`."""
     updated_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
