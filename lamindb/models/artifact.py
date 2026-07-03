@@ -288,7 +288,7 @@ def process_data(
         _, key_raw_suffix = extract_suffixes_from_path(key_path)
         # use suffix as the (adata) format if the format is not provided
         if is_anndata and format is None and key_raw_suffix != "":
-            format = key_raw_suffix
+            format = key_raw_suffix[1:]
     else:
         key_raw_suffix = None
 
