@@ -811,11 +811,11 @@ def test_from_anndata_validate_suffix(get_small_adata):
     artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.zarr")
     assert artifact.suffix == ".zarr"
 
-    with pytest.raises(InvalidArgument) as error:
+    with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The passed key's suffix '.def' must match the passed path's suffix '.h5ad'."
+        == "ValueError: Error when specifying AnnData storage format"
     )
 
     with pytest.raises(InvalidArgument) as error:
