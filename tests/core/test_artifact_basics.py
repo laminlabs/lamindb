@@ -374,7 +374,7 @@ def test_upload_checks_hash_by_default(tmp_path):
     artifact_1.delete(permanent=True)
 
 
-def test_unknown_text_suffix_is_empty(tmp_path):
+def test_invalid_suffix_is_empty(tmp_path):
     filepath = tmp_path / "test.xyz"
     filepath.write_text("test-content")
 
