@@ -40,6 +40,43 @@ def test_merge_branch_into_main():
     branch.delete(permanent=True)
     ln.setup.switch("main")
 
+def test_merge_without_switch_via_explicit_target():
+    main_branch = ln.Branch.get(name="main")
+    source_branch = ln.Branch(name="test_merge_explicit_target_source").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_explicit_target_record").save()
+    assert ln.setup.settings.branch.name == source_branch.name
+    assert ulabel.branch == source_branch
+
+    ln.setup.merge(source_branch.name, target=main_branch.name)
+
+    ulabel.refresh_from_db()
+    assert ln.setup.settings.branch.name == source_branch.name
+    assert ulabel.branch.name == main_branch.name
+    assert ulabel.created_on == source_branch
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch(main_branch.name)
+
+
+def test_merge_with_branch_objects():
+    main_branch = ln.Branch.get(name="main")
+    source_branch = ln.Branch(name="test_merge_target_object_source").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_target_object_record").save()
+    assert ulabel.branch == source_branch
+
+    ln.setup.merge(source_branch, target=main_branch)
+
+    ulabel.refresh_from_db()
+    assert ulabel.branch == main_branch
+    assert ulabel.created_on == source_branch
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch(main_branch.name)
+
 
 def test_branch_status_values():
     """Branch status maps codes onto standalone/draft/review/merged/closed."""
@@ -95,6 +132,13 @@ def test_merge_nonexistent_branch_raises():
         ln.setup.merge("nonexistent_branch_xyz")
     assert "not found" in str(exc_info.value).lower()
 
+
+def test_merge_nonexistent_target_branch_raises():
+    source_branch = ln.Branch(name="test_merge_target_not_found_source").save()
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as exc_info:
+        ln.setup.merge(source_branch.name, target="nonexistent_target_branch_xyz")
+    assert "not found" in str(exc_info.value).lower()
+    source_branch.delete(permanent=True)
 
 def test_merge_reconciles_is_latest_for_versioned_records():
     main_branch = ln.Branch.get(name="main")
@@ -157,3 +201,21 @@ def test_merge_updates_recordblock_branch():
 
     record.delete(permanent=True)
     source_branch.delete(permanent=True)
+
+
+def test_merge_with_identical_source_and_target_is_noop():
+    source_branch = ln.Branch(name="test_merge_explicit_self_target").save()
+    ln.setup.switch(source_branch.name)
+    ulabel = ln.ULabel(name="test_merge_explicit_self_target_record").save()
+
+    ln.setup.merge(source_branch.name, target=source_branch.name)
+
+    ulabel.refresh_from_db()
+    source_branch.refresh_from_db()
+    assert ulabel.branch == source_branch
+    assert ulabel.created_on == source_branch
+    assert source_branch.status == "standalone"
+
+    ulabel.delete(permanent=True)
+    source_branch.delete(permanent=True)
+    ln.setup.switch("main")
