@@ -1482,9 +1482,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
-    """The path suffix or an empty string if no suffix exists.
+    """Canonical suffix inferred from the artifact path.
 
-    This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
+    The inferred value is one of the recognized valid suffixes in
+    :class:`lamindb_setup.core.suffix.VALID_SUFFIXES`:
+    simple suffixes (e.g. `".csv"`, `".h5ad"`), composite suffixes
+    (e.g. `".anndata.zarr"`), and supported compression combinations
+    (e.g. `".csv.gz"`, `".h5ad.tar.gz"`).
+
+    If a path has no recognized suffix (for example `test.xyz`), the stored value is
+    the empty string `""`.
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
