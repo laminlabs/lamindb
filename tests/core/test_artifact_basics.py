@@ -374,6 +374,28 @@ def test_upload_checks_hash_by_default(tmp_path):
     artifact_1.delete(permanent=True)
 
 
+def test_unknown_text_suffix_is_empty(tmp_path):
+    filepath = tmp_path / "test.xyz"
+    filepath.write_text("test-content")
+
+    with pytest.raises(InvalidArgument) as error:
+        ln.Artifact(filepath, key="uploads/test")
+    assert error.exconly() == (
+        "lamindb.errors.InvalidArgument: The passed path's suffix '.xyz' must match"
+        " the passed key's suffix ''."
+    )
+
+    artifact = ln.Artifact(
+        filepath, key="uploads/test.xyz", description="unknown text suffix"
+    )
+    artifact.save()
+
+    assert artifact.suffix == ""
+    assert artifact.key == "uploads/test.xyz"
+
+    artifact.delete(permanent=True)
+
+
 def test_existing_storage_can_force_hash_lookup(tmp_path):
     storage_root = tmp_path / "registered-storage-check"
     storage_root.mkdir()
