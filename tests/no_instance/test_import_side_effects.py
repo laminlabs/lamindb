@@ -15,7 +15,7 @@ LIGHT_IMPORTS = {name: False for name in MODULE_NAMES}
 PROBE_CASES = [
     (
         "storage package constants stay light",
-        "import lamindb.core.storage as storage\n_ = storage.VALID_SUFFIXES\n_ = storage.delete_storage\n_ = storage.infer_filesystem",
+        "import lamindb.core.storage as storage\n_ = storage.delete_storage\n_ = storage.infer_filesystem",
         LIGHT_IMPORTS,
         (),
     ),

@@ -20,11 +20,11 @@ from lamindb_setup.core._hub_core import (
     select_storage_or_parent,
 )
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
+from lamindb_setup.core.suffix import extract_suffixes_from_path
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
     create_path,
-    extract_suffix_from_path,
     fs_for_moving,
     get_stat_dir_cloud,
     get_stat_file_cloud,
@@ -284,12 +284,13 @@ def process_data(
         is_pathlike = False
 
     if key is not None:
-        key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
+        key_path = PurePosixPath(key)
+        _, key_raw_suffix = extract_suffixes_from_path(key_path)
         # use suffix as the (adata) format if the format is not provided
-        if is_anndata and format is None and len(key_suffix) > 0:
-            format = key_suffix[1:]
+        if is_anndata and format is None and key_raw_suffix != "":
+            format = key_raw_suffix[1:]
     else:
-        key_suffix = None
+        key_raw_suffix = None
 
     if is_pathlike:
         access_token = (
@@ -307,7 +308,7 @@ def process_data(
             using_key=using_key,
             skip_existence_check=skip_existence_check,
         )
-        suffix = extract_suffix_from_path(path)
+        suffix, raw_suffix = extract_suffixes_from_path(path)
         memory_rep = None
     elif (
         is_anndata
@@ -317,19 +318,19 @@ def process_data(
     ):
         storage = storage
         memory_rep = data
-        suffix = _s().infer_suffix(data, format)
+        suffix = raw_suffix = _s().infer_suffix(data, format)
     else:
         raise NotImplementedError(
             f"Do not know how to create an Artifact from {data}, pass a path instead."
         )
 
     # Check for suffix consistency
-    if key_suffix is not None and key_suffix != suffix and not is_replace:
+    if key_raw_suffix is not None and key_raw_suffix != raw_suffix and not is_replace:
         # consciously omitting a trailing period
         if is_pathlike:
-            message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
+            message = f"The passed path's suffix '{raw_suffix}' must match the passed key's suffix '{key_raw_suffix}'."
         else:
-            message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
+            message = f"The passed key's suffix '{key_raw_suffix}' must match the passed path's suffix '{raw_suffix}'."
         raise InvalidArgument(message)
 
     # in case we have an in-memory representation, we need to write it to disk
@@ -1120,11 +1121,11 @@ class LazyArtifact:
         self.kwargs = kwargs
         self.kwargs["overwrite_versions"] = overwrite_versions
 
-        if (key := kwargs.get("key")) is not None and extract_suffix_from_path(
-            PurePosixPath(key)
+        if (key := kwargs.get("key")) is not None and (
+            key_raw_suffix := extract_suffixes_from_path(PurePosixPath(key))[1]
         ) != suffix:
             raise ValueError(
-                "The suffix argument and the suffix of key should be the same."
+                f"The suffix argument {suffix} and the suffix of key {key_raw_suffix} should be the same."
             )
 
         uid = create_uid(n_full_id=20)
@@ -1481,9 +1482,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
-    """The path suffix or an empty string if no suffix exists.
+    """Canonical suffix inferred from the artifact path.
 
-    This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
+    The inferred value is one of the recognized valid suffixes in
+    :class:`lamindb_setup.core.suffix.VALID_SUFFIXES`:
+    simple suffixes (e.g. `".csv"`, `".h5ad"`), composite suffixes
+    (e.g. `".anndata.zarr"`), and supported compression combinations
+    (e.g. `".csv.gz"`, `".h5ad.tar.gz"`).
+
+    If a path has no recognized suffix (for example `test.xyz`), the stored value is
+    the empty string `""`.
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
@@ -1964,11 +1972,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
             assert _s().AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
-            uid = (
-                kwargs["key"]
-                .replace(_s().AUTO_KEY_PREFIX, "")
-                .replace(kwargs["suffix"], "")
-            )
+            uid = PurePosixPath(kwargs["key"]).stem
             kwargs["key"] = user_provided_key
             if revises is not None:
                 assert uid.startswith(revises.stem_uid)  # noqa: S101
@@ -3280,12 +3284,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
-            new_key_suffix = extract_suffix_from_path(
-                PurePosixPath(new_key), arg_name="key"
-            )
-            if new_key_suffix != self.suffix:
+            new_key_raw_suffix = extract_suffixes_from_path(PurePosixPath(new_key))[1]
+            if new_key_raw_suffix != self.suffix:
                 raise InvalidArgument(
-                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
+                    f"The suffix '{new_key_raw_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
                 )
             # Virtual key updates are metadata-only because physical storage keys are
             # uid-based.
