@@ -1483,18 +1483,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     suffix: CanonicalSuffix | str = CharField(
         max_length=30, db_index=True, editable=False
     )
-    """A canonical suffix informing the storage format.
+    """:class:`~lamindb.base.types.CanonicalSuffix` or user-defined strings.
 
-    Note that unkown formats map to the empty string `""`.
+    A canonical suffix such as `".csv"`, `".parquet"`, or `".zarr"` indicates the storage format of an artifact.
 
-    See :class:`~lamindb.base.types.CanonicalSuffix` for how to extend the set of known formats.
+    Unknown formats map to the empty string: `""`.
+    Known formats are based on MIME types and can be extended via :class:`~lamindb.base.types.CanonicalSuffix`.
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
+    """:class:`~lamindb.base.types.ArtifactKind` or user-defined strings (default `None`)."""
     otype: (
         Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma"]
         | str
