@@ -1,14 +1,18 @@
 """Base types.
 
-Central object types
---------------------
+Classes
+-------
+
+.. autoclass:: CanonicalSuffix
+
+Central types
+-------------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
 .. autoclass:: BlockKind
 .. autoclass:: BranchStatus
 .. autoclass:: RunStatus
-.. autoclass:: CanonicalSuffix
 .. autoclass:: SimpleDtype
 .. autoclass:: SimpleDtypeStr
 .. autoclass:: SimpleDvalue
@@ -30,6 +34,7 @@ from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix  # noqa: F401
 from lamindb_setup.types import AnyPathStr  # noqa: F401
 
 if TYPE_CHECKING:

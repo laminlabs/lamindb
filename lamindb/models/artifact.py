@@ -19,7 +19,6 @@ from lamindb_setup.core._hub_core import (
     get_instance_slug_by_uid,
     select_storage_or_parent,
 )
-from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.upath import (
     LocalPathClasses,
@@ -29,6 +28,8 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+
+from lamindb.base.types import CanonicalSuffix
 
 from ..base.fields import (
     BigIntegerField,
