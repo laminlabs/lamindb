@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install git+https://github.com/laminlabs/laminci
-      - run: nox -s "install_ci(group='unit-core-sqlite')"
+      - run: nox -s "install_ci(group='profile')"
       - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
       - run: lamin login
       - run: laminprofiler check tests/profiling/import_lamindb_and_connect.py --threshold 3.5
