@@ -43,7 +43,7 @@ from lamindb.models.artifact import (
     get_relative_path_to_directory,
     process_data,
 )
-from lamindb_setup.core.suffix import extract_suffixes_from_path
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
@@ -184,7 +184,7 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
     test_filepath = get_test_filepaths[3]
     suffix = get_test_filepaths[4]  # path suffix
     if key is not None:
-        key_suffix, _ = extract_suffixes_from_path(PurePosixPath(key))  # key suffix
+        key_suffix = CanonicalSuffix.from_path(PurePosixPath(key))
     else:
         key_suffix = None
     # this tests if insufficient information is being provided
