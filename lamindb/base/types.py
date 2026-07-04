@@ -8,6 +8,7 @@ Central object types
 .. autoclass:: BlockKind
 .. autoclass:: BranchStatus
 .. autoclass:: RunStatus
+.. autoclass:: CanonicalSuffix
 .. autoclass:: SimpleDtype
 .. autoclass:: SimpleDtypeStr
 .. autoclass:: SimpleDvalue
