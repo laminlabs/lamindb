@@ -2299,7 +2299,10 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
 
     data: dict[str, pd.Series] = {}
     for column in ordered_columns:
-        values = [row.get(column, pd.NA) for row in prepared_rows]
+        values = [
+            pd.NA if v is None else v
+            for v in (row.get(column, pd.NA) for row in prepared_rows)
+        ]
         target_dtype = feature_dtype_by_name.get(column)
         if target_dtype is not None:
             data[column] = pd.Series(values, dtype=target_dtype)
