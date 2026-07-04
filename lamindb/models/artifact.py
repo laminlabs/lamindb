@@ -1480,7 +1480,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Storage, PROTECT, related_name="artifacts", editable=False
     )
     """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
-    suffix: CanonicalSuffix = CharField(max_length=30, db_index=True, editable=False)
+    suffix: CanonicalSuffix | str = CharField(
+        max_length=30, db_index=True, editable=False
+    )
     """A canonical suffix informing the storage format.
 
     Note that unkown formats map to the empty string `""`.
