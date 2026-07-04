@@ -9,7 +9,7 @@ Array accessors.
 
 from typing import TYPE_CHECKING, Any
 
-from lamindb_setup.core.canonical_suffix import VALID_SUFFIXES
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix  # for backward compat
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
 from .paths import delete_storage
@@ -68,3 +68,9 @@ def __getattr__(name: str) -> Any:
 
     globals()[name] = attr
     return attr
+
+
+class VALID_SUFFIXES:  # for backward compatibility
+    SIMPLE = CanonicalSuffix.simple_formats
+    COMPOSITE = CanonicalSuffix.composite_formats
+    ENCODING = CanonicalSuffix.encoding_formats
