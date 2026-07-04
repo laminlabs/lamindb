@@ -12,5 +12,15 @@ from ._merge import merge  # noqa: F401
 from ._switch import switch  # noqa: F401
 
 del connect  # we have this at the root level, hence, we don't want it here
-__doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup")
+__doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup").replace(
+    """.. autofunction:: delete""",
+    """.. autofunction:: delete
+
+Change management
+-----------------
+
+.. autofunction:: switch
+.. autofunction:: merge
+""",
+)
 settings.__doc__ = settings.__doc__.replace("lamindb_setup", "lamindb.setup")

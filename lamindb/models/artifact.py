@@ -19,8 +19,8 @@ from lamindb_setup.core._hub_core import (
     get_instance_slug_by_uid,
     select_storage_or_parent,
 )
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
-from lamindb_setup.core.suffix import extract_suffixes_from_path
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
@@ -285,7 +285,7 @@ def process_data(
 
     if key is not None:
         key_path = PurePosixPath(key)
-        _, key_raw_suffix = extract_suffixes_from_path(key_path)
+        _, key_raw_suffix = CanonicalSuffix.extract_from_path(key_path)
         # use suffix as the (adata) format if the format is not provided
         if is_anndata and format is None and key_raw_suffix != "":
             format = key_raw_suffix[1:]
@@ -308,7 +308,7 @@ def process_data(
             using_key=using_key,
             skip_existence_check=skip_existence_check,
         )
-        suffix, raw_suffix = extract_suffixes_from_path(path)
+        suffix, raw_suffix = CanonicalSuffix.extract_from_path(path)
         memory_rep = None
     elif (
         is_anndata
@@ -1122,7 +1122,7 @@ class LazyArtifact:
         self.kwargs["overwrite_versions"] = overwrite_versions
 
         if (key := kwargs.get("key")) is not None and (
-            key_raw_suffix := extract_suffixes_from_path(PurePosixPath(key))[1]
+            key_raw_suffix := CanonicalSuffix.extract_from_path(PurePosixPath(key))[1]
         ) != suffix:
             raise ValueError(
                 f"The suffix argument {suffix} and the suffix of key {key_raw_suffix} should be the same."
@@ -1480,12 +1480,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
     suffix: str = CharField(max_length=30, db_index=True, editable=False)
-    # Initially, we thought about having this be nullable to indicate folders
-    # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
-    """Canonical suffix inferred from the artifact path.
+    """A canonical suffix inferred from the artifact path.
 
     The inferred value is one of the recognized valid suffixes in
-    :class:`lamindb_setup.core.suffix.VALID_SUFFIXES`:
+    :class:`lamindb_setup.core.canonical_suffix.CanonicalSuffix`:
     simple suffixes (e.g. `".csv"`, `".h5ad"`), composite suffixes
     (e.g. `".anndata.zarr"`), and supported compression combinations
     (e.g. `".csv.gz"`, `".h5ad.tar.gz"`).
@@ -3284,7 +3282,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
-            new_key_raw_suffix = extract_suffixes_from_path(PurePosixPath(new_key))[1]
+            new_key_raw_suffix = CanonicalSuffix.extract_from_path(
+                PurePosixPath(new_key)
+            )[1]
             if new_key_raw_suffix != self.suffix:
                 raise InvalidArgument(
                     f"The suffix '{new_key_raw_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
