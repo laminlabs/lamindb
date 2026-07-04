@@ -5,8 +5,8 @@ Classes
 
 .. autoclass:: CanonicalSuffix
 
-Central types
--------------
+Simple types
+------------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
