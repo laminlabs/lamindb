@@ -189,6 +189,50 @@ def test_record_from_dataframe_partial_null_bool_int():
     label.delete(permanent=True)
 
 
+def test_record_from_dataframe_all_null_column_preserved_in_features():
+    """An entirely-null column must appear in each record's features dict as None.
+
+    A column where every cell is NaN has a declared dtype in the schema.
+    Previously it was silently dropped because the per-cell NaN skip also
+    removed fully-empty columns.  After the fix, such columns are added with
+    value=None so the feature is at least acknowledged for every record.
+    Because _collect_record_feature_writes skips None values, no storage link
+    is written -- but the feature is present in the features dict passed to the
+    record constructor, confirming the column was not silently ignored.
+    """
+    present = ln.Feature(name="null-col-label", dtype=str).save()
+    empty = ln.Feature(name="null-col-score", dtype=str).save()
+    schema = ln.Schema([present, empty], name="null-col-schema").save()
+    sheet = ln.Record(name="null-col-sheet", is_type=True, schema=schema).save()
+
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["null-col-a", "null-col-b"],
+            "null-col-label": ["val1", "val2"],
+            "null-col-score": pd.array([None, None], dtype="object"),
+        }
+    )
+
+    assert df["null-col-score"].isna().all(), "test setup: empty column must be all-NaN"
+
+    ln.Record.from_dataframe(df, type=sheet).save()
+
+    exported = sheet.to_dataframe()
+    # the entirely-null column must still appear in the export because it is in the schema
+    assert "null-col-score" in exported.columns, (
+        "entirely-null column was silently dropped and is missing from exported DataFrame"
+    )
+    assert exported["null-col-score"].isna().all()
+    # the present column round-trips correctly
+    assert set(exported["null-col-label"]) == {"val1", "val2"}
+
+    ln.Record.filter(name__in=["null-col-a", "null-col-b"]).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    present.delete(permanent=True)
+    empty.delete(permanent=True)
+
+
 def test_record_from_dataframe_bulk_save_paths():
     score = ln.Feature(name="from-df-score", dtype=float).save()
     schema = ln.Schema([score], name="from-df-schema").save()
