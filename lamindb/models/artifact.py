@@ -1479,17 +1479,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Storage, PROTECT, related_name="artifacts", editable=False
     )
     """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
-    suffix: str = CharField(max_length=30, db_index=True, editable=False)
-    """A canonical suffix inferred from the artifact path.
+    suffix: CanonicalSuffix = CharField(max_length=30, db_index=True, editable=False)
+    """A canonical suffix informing the storage format.
 
-    The inferred value is one of the recognized valid suffixes in
-    :class:`lamindb_setup.core.canonical_suffix.CanonicalSuffix`:
-    simple suffixes (e.g. `".csv"`, `".h5ad"`), composite suffixes
-    (e.g. `".anndata.zarr"`), and supported compression combinations
-    (e.g. `".csv.gz"`, `".h5ad.tar.gz"`).
+    Note that unkown formats map to the empty string `""`.
 
-    If a path has no recognized suffix (for example `test.xyz`), the stored value is
-    the empty string `""`.
+    See :class:`~lamindb.base.types.CanonicalSuffix` for how to extend the set of known formats.
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
