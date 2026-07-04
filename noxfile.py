@@ -87,6 +87,7 @@ def install(session):
         "docs",
         "cli",
         "permissions",
+        "profile",
     ],
 )
 def install_ci(session, group):
@@ -166,6 +167,8 @@ def install_ci(session, group):
         pass
     elif group == "permissions":
         pass
+    elif group == "profile":
+        pass
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[full,dev{extras}]")
@@ -175,7 +178,7 @@ def install_ci(session, group):
     # to push docs fixes fast
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
-    if IS_PR or group == "docs":
+    if IS_PR or group == "docs" or group == "profile":
         run(
             session,
             "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
