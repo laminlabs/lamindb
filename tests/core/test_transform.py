@@ -1,3 +1,4 @@
+import os
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -9,7 +10,8 @@ import pytest
 
 def test_transform_from_path_infers_kind_and_key(tmp_path):
     script_path = tmp_path / f"workflow-{time.time_ns()}.py"
-    script_path.write_text("print('hello')\n")
+    script_body = "print('hello')\n"
+    script_path.write_text(script_body)
     notebook_path = tmp_path / f"analysis-{time.time_ns()}.ipynb"
     notebook_path.write_text(
         '{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}\n'
@@ -20,6 +22,7 @@ def test_transform_from_path_infers_kind_and_key(tmp_path):
 
     assert script_transform.kind == "script"
     assert script_transform.key == script_path.name
+    assert script_transform.source_code == script_body
     assert notebook_transform.kind == "notebook"
     assert notebook_transform.key == notebook_path.name
 
@@ -35,6 +38,38 @@ def test_transform_from_path_uses_dev_dir_relative_key(tmp_path):
         assert transform.key == f"pipelines/{path_in_dev_dir.name}"
     finally:
         ln_setup.settings.dev_dir = previous_dev_dir
+
+
+def test_transform_from_path_uses_dev_dir_relative_key_for_relative_path(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_cwd = Path.cwd()
+    path_in_dev_dir = tmp_path / "pipelines" / f"wf-{time.time_ns()}.py"
+    path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
+    path_in_dev_dir.write_text("print('hello')\n")
+    try:
+        ln_setup.settings.dev_dir = tmp_path
+        os.chdir(tmp_path)
+        relative_path = Path("pipelines") / path_in_dev_dir.name
+        transform = ln.Transform.from_path(relative_path)
+        assert transform.key == f"pipelines/{path_in_dev_dir.name}"
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.dev_dir = previous_dev_dir
+
+
+def test_transform_from_path_persists_source_code_once(tmp_path):
+    script_path = tmp_path / f"workflow-{time.time_ns()}.py"
+    script_path.write_text("print('persist once')\n")
+
+    with patch.object(
+        ln.Transform,
+        "_update_source_code_from_path",
+        autospec=True,
+        wraps=ln.Transform._update_source_code_from_path,
+    ) as update_source_code:
+        ln.Transform.from_path(script_path)
+
+    assert update_source_code.call_count == 1
 
 
 def test_transform_recovery_based_on_hash():
