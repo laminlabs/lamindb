@@ -110,12 +110,17 @@ def _create_tracked_decorator(
                 result = func(*args, **kwargs)
                 context._finish()
                 return result
-            except Exception as e:
+            except Exception:
                 run = context.run
-                run.finished_at = datetime.now(timezone.utc)
-                run._status_code = 1  # errored
-                run.save()
-                raise e
+                if is_flow:
+                    # For flow runs, stream tracking is enabled and cleanup persists
+                    # errored status together with the run report upload.
+                    context._stream_tracker.cleanup()
+                else:
+                    run.finished_at = datetime.now(timezone.utc)
+                    run._status_code = 1  # errored
+                    run.save()
+                raise
             finally:
                 if (
                     global_run == "clear"
