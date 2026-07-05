@@ -10,7 +10,8 @@ import pytest
 
 def test_transform_from_path_infers_kind_and_key(tmp_path):
     script_path = tmp_path / f"workflow-{time.time_ns()}.py"
-    script_path.write_text("print('hello')\n")
+    script_body = "print('hello')\n"
+    script_path.write_text(script_body)
     notebook_path = tmp_path / f"analysis-{time.time_ns()}.ipynb"
     notebook_path.write_text(
         '{"cells":[],"metadata":{},"nbformat":4,"nbformat_minor":5}\n'
@@ -21,6 +22,7 @@ def test_transform_from_path_infers_kind_and_key(tmp_path):
 
     assert script_transform.kind == "script"
     assert script_transform.key == script_path.name
+    assert script_transform.source_code == script_body
     assert notebook_transform.kind == "notebook"
     assert notebook_transform.key == notebook_path.name
 
@@ -53,16 +55,6 @@ def test_transform_from_path_uses_dev_dir_relative_key_for_relative_path(tmp_pat
     finally:
         os.chdir(previous_cwd)
         ln_setup.settings.dev_dir = previous_dev_dir
-
-
-def test_transform_from_path_populates_source_code(tmp_path):
-    script_path = tmp_path / f"workflow-{time.time_ns()}.py"
-    script_body = "print('hello from from_path')\n"
-    script_path.write_text(script_body)
-
-    transform = ln.Transform.from_path(script_path)
-
-    assert transform.source_code == script_body
 
 
 def test_transform_from_path_persists_source_code_once(tmp_path):
