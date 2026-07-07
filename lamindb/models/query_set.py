@@ -1442,7 +1442,7 @@ class BasicQuerySet(models.QuerySet):
 
     @doc_args(CanCurate.standardize.__doc__)
     def standardize(
-        self, values: Iterable, field: str | StrField | None = None, **kwargs
+        self, values: ListLike, field: str | StrField | None = None, **kwargs
     ):
         """{}"""  # noqa: D415
         return _standardize(cls=self, values=values, field=field, **kwargs)
