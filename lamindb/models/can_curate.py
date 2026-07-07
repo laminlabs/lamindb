@@ -462,8 +462,8 @@ class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
     @strict_classmethod
-    def inspect(
-        cls,
+    def inspect(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         *,
@@ -518,8 +518,8 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def validate(
-        cls,
+    def validate(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         *,
@@ -572,8 +572,8 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def from_values(
-        cls,
+    def from_values(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         create: bool = False,
@@ -626,8 +626,8 @@ class CanCurate:
         )
 
     @strict_classmethod
-    def standardize(
-        cls,
+    def standardize(  # type: ignore[misc]
+        cls: type[CanCurate],
         values: ListLike,
         field: StrField | None = None,
         *,

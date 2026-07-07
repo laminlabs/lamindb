@@ -340,7 +340,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @strict_classmethod
     def get(
-        cls,
+        cls: type[Collection],
         idlike: int | str | None = None,
         *,
         is_run_input: bool | Run = False,

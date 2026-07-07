@@ -2125,7 +2125,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @strict_classmethod
     def get(
-        cls,
+        cls: type[Artifact],
         idlike: int | str | None = None,
         *,
         key: str | None = None,
@@ -2167,7 +2167,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @strict_classmethod
     def filter(
-        cls,
+        cls: type[Artifact],
         *queries,
         **expressions,
     ) -> QuerySet:

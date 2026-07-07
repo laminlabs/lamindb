@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Type, overload
+from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
 import numpy as np
 import pgtrigger
@@ -1436,10 +1436,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self.save(print_hash_mutation_warning=False)
 
     @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
+    def describe(
+        cls_or_self,
+        return_str: bool = False,
+        include: None | Literal["comments"] = None,
+    ) -> None | str:
         """Describe schema."""
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+            return type(cls_or_self).describe(
+                cls_or_self, return_str=return_str, include=include
+            )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")
         tree = describe_schema(cls_or_self)
