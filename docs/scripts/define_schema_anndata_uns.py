@@ -6,6 +6,6 @@ anndata_uns_schema = ln.Schema(
     name="anndata_study_metadata",
     otype="AnnData",
     slots={
-        "uns:study_metadata": study_metadata_schema,
+        "uns": study_metadata_schema,
     },
 ).save()
