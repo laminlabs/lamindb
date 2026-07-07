@@ -113,13 +113,15 @@ def install_ci(session, group):
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
-        extras += "zarr_v2"
+        # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
+        # so do not force the zarr_v2 compatibility extra in this group.
         run(
             session,
             f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "tiledbsoma":
-        extras += "zarr_v2"
+        # this group also exercises spatialdata through docs notebooks
+        # and should resolve against zarr>=3.
         run(
             session,
             f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
@@ -151,7 +153,7 @@ def install_ci(session, group):
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
     elif group == "docs":
-        extras += "zarr_v2"
+        # docs include spatialdata examples; avoid forcing zarr<3.
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
