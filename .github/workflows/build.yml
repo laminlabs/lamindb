@@ -3,7 +3,11 @@ name: build
 on:
   push:
     branches: [release]
+    paths-ignore:
+      - ".agents/**"
   pull_request:
+    paths-ignore:
+      - ".agents/**"
 
 jobs:
   pre-filter:

@@ -3,7 +3,11 @@ name: profile
 on:
   push:
     branches: [main, release]
+    paths-ignore:
+      - ".agents/**"
   pull_request:
+    paths-ignore:
+      - ".agents/**"
 
 jobs:
   profile:
