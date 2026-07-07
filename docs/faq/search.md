@@ -6,22 +6,13 @@ execute_via: python
 
 ```python
 from laminci.db import setup_local_test_postgres
+import shlex
 import subprocess
 
 pgurl = setup_local_test_postgres()
 subprocess.run(
-    [
-        "lamin",
-        "init",
-        "--name",
-        "benchmark_search",
-        "--db",
-        pgurl,
-        "--modules",
-        "bionty",
-        "--storage",
-        "./benchmark_search",
-    ],
+    f"lamin init --name benchmark_search --db {shlex.quote(pgurl)} --modules bionty --storage ./benchmark_search",
+    shell=True,
     check=True,
 )
 ```
