@@ -7,6 +7,7 @@ sys.path.append(str(docs_path))
 import anndata as ad
 import bionty as bt
 import lamindb as ln
+import numpy as np
 import pandas as pd
 import pytest
 from lamindb.core import datasets
@@ -751,6 +752,46 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
 
             anndata_schema.delete(permanent=True)
             varT_schema.delete(permanent=True)
+
+
+def test_anndata_curator_allows_reusing_schema_across_slots():
+    shared_feature = ln.Feature(name="shared_slot_feature", dtype=str).save()
+    shared_schema = ln.Schema(
+        name="shared_slot_schema_curator", features=[shared_feature]
+    ).save()
+    anndata_schema = ln.Schema(
+        name="anndata_shared_slot_schema_curator",
+        otype="AnnData",
+        slots={"obs": shared_schema, "uns:meta": shared_schema},
+    ).save()
+
+    adata = ad.AnnData(
+        X=np.array([[1.0], [2.0]]),
+        obs=pd.DataFrame(
+            {"shared_slot_feature": ["value1", "value2"]},
+            index=["cell1", "cell2"],
+        ),
+        var=pd.DataFrame(index=["gene1"]),
+    )
+    adata.uns["meta"] = {"shared_slot_feature": "value3"}
+
+    artifact = ln.Artifact.from_anndata(
+        adata,
+        key="examples/anndata_shared_slot_schema.h5ad",
+        schema=anndata_schema,
+    ).save()
+
+    links = artifact.schemas.through.objects.filter(
+        artifact_id=artifact.id,
+        schema_id=shared_schema.id,
+    )
+    assert links.count() == 2
+    assert {link.slot for link in links} == {"obs", "uns:meta"}
+
+    artifact.delete(permanent=True)
+    anndata_schema.delete(permanent=True)
+    shared_schema.delete(permanent=True)
+    shared_feature.delete(permanent=True)
 
 
 def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
