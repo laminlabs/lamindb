@@ -148,10 +148,19 @@ if TYPE_CHECKING:
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
-    from spatialdata import SpatialData  # noqa: TC004
-    from tiledbsoma import Collection as SOMACollection
-    from tiledbsoma import Experiment as SOMAExperiment
-    from tiledbsoma import Measurement as SOMAMeasurement
+
+    try:
+        from spatialdata import SpatialData  # noqa: TC004
+    except Exception:  # pragma: no cover
+        SpatialData = Any
+    try:
+        from tiledbsoma import Collection as SOMACollection
+        from tiledbsoma import Experiment as SOMAExperiment
+        from tiledbsoma import Measurement as SOMAMeasurement
+    except Exception:  # pragma: no cover
+        SOMACollection = Any
+        SOMAExperiment = Any
+        SOMAMeasurement = Any
 
     from ..base.types import (
         ArtifactKind,
@@ -170,6 +179,31 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
+else:
+    AnyPathStr = Any
+    AnnData = Any
+    MuData = Any
+    SpatialData = Any
+    SOMACollection = Any
+    SOMAExperiment = Any
+    SOMAMeasurement = Any
+    PyArrowDataset = Any
+    PolarsLazyFrame = Any
+    AbstractFileSystem = Any
+    ArtifactKind = Any
+    StrField = Any
+    AnnDataAccessor = Any
+    BackedAccessor = Any
+    SpatialDataAccessor = Any
+    ScverseDataStructures = Any
+    LabelManager = Any
+    ArtifactBlock = Any
+    Collection = Any
+    Project = Any
+    Reference = Any
+    RelatedManager = Any
+    Record = Any
+    Transform = Any
 
 
 OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
