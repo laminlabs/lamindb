@@ -4,10 +4,10 @@ on:
   push:
     branches: [release]
     paths-ignore:
-      - ".agents/**"
+      - "lamindb/.agents/**"
   pull_request:
     paths-ignore:
-      - ".agents/**"
+      - "lamindb/.agents/**"
 
 jobs:
   pre-filter:
