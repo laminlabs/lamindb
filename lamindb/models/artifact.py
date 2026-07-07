@@ -1751,6 +1751,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
+        if overwrite_versions is True and not _is_internal_call:
+            logger.warning(
+                "`overwrite_versions=True` in the Artifact constructor saves storage cost but means that artifact versions are overwritten in storage"
+            )
 
         if key is not None and _s().AUTO_KEY_PREFIX in key:
             raise ValueError(
