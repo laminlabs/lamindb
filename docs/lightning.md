@@ -77,7 +77,7 @@ lineage tracking and optional feature annotations.
 Note that artifact keys in LaminDB do **not** mirror the local directory layout
 exactly — the callback uses the LaminDB run UID instead of Lightning's
 auto-incrementing `version_N` directory by default. See
-[How artifact keys are derived](#how-artifact-keys-are-derived) for details.
+[How artifact keys are derived](#how-are-artifact-keys-derived) for details.
 
 ### Which kind of artifacts?
 
