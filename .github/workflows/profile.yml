@@ -3,7 +3,11 @@ name: profile
 on:
   push:
     branches: [main, release]
+    paths-ignore:
+      - "lamindb/.agents/**"
   pull_request:
+    paths-ignore:
+      - "lamindb/.agents/**"
 
 jobs:
   profile:
