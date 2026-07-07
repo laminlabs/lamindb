@@ -110,5 +110,6 @@ assert len(ln.Run.get(id=ln.context.run.id).input_artifacts.all()) == 2
 ```
 
 ```bash
+rm -r test-run-inputs
 lamin delete --force test-run-inputs
 ```
