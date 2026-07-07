@@ -58,14 +58,26 @@ from ..models.feature import get_record_type_from_uid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from typing import Any
 
     from anndata import AnnData
     from mudata import MuData
-    from spatialdata import SpatialData
-    from tiledbsoma._experiment import Experiment as SOMAExperiment
+
+    try:
+        from spatialdata import SpatialData
+    except Exception:  # pragma: no cover
+        SpatialData = Any
+    try:
+        from tiledbsoma._experiment import Experiment as SOMAExperiment
+    except Exception:  # pragma: no cover
+        SOMAExperiment = Any
 
     from lamindb.core.storage.types import ScverseDataStructures
+else:
+    AnnData = Any
+    MuData = Any
+    SpatialData = Any
+    SOMAExperiment = Any
+    ScverseDataStructures = Any
 
 
 def strip_ansi_codes(text):

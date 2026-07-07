@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from anndata import AnnData
     from mudata import MuData
-    from spatialdata import SpatialData
+
+    try:
+        from spatialdata import SpatialData
+    except Exception:  # pragma: no cover
+        SpatialData = Any
 
     ScverseDataStructures = AnnData | MuData | SpatialData
 else:

@@ -8,9 +8,9 @@ If you want to default to keeping artifacts local in a cloud instance, enable {a
 
 Let us first create a cloud instance that woul store artifacts exclusively on S3.
 
-```python
-!lamin login testuser1
-!lamin init --storage s3://lamindb-ci/keep-artifacts-local
+```bash
+lamin login testuser1
+lamin init --storage s3://lamindb-ci/keep-artifacts-local
 ```
 
 Let's import lamindb and track the current notebook run.

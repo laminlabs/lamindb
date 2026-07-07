@@ -106,8 +106,8 @@ schema = ln.Schema(
 
 If you're not connected to a database, create one:
 
-```python
-!lamin init --storage ./test-curate --modules bionty
+```bash
+lamin init --storage ./test-curate --modules bionty
 ```
 
 Let's import `lamindb` and optionally track this run:
@@ -374,8 +374,8 @@ For instance, you might want to validate a separate metadata dictionary or JSON 
    :caption: curate_dataframe_external_features.py
 ```
 
-```python
-!python scripts/curate_dataframe_external_features.py
+```bash
+python scripts/curate_dataframe_external_features.py
 ```
 
 ## Union dtypes
@@ -389,8 +389,8 @@ This script demonstrates how to configure a feature that accepts values from mul
    :caption: curate_dataframe_union_features.py
 ```
 
-```python
-!python scripts/curate_dataframe_union_features.py
+```bash
+python scripts/curate_dataframe_union_features.py
 ```
 
 ## AnnData
@@ -409,8 +409,8 @@ We can also allow a flexible schema for an `AnnData` and only require that it's 
 
 Let's run the script.
 
-```python
-!python scripts/curate_anndata_flexible.py
+```bash
+python scripts/curate_anndata_flexible.py
 ```
 
 Under the hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
@@ -498,6 +498,16 @@ Most data structures support unstructured metadata stored as dictionaries:
 - MuData: `.uns` and `modality:uns`
 - SpatialData: `.attrs`
 
+These dictionaries can be nested, and sometimes you want to define a schema
+specifically for a dictionary inside the dictionary. Here, we look at the case where
+we want to validate a key within the `.uns` slot of an `AnnData` to ensure that they contain the `"experiment"` and `"temperature"` keys:
+
+```
+{
+    "study_metadata": {"experiment": "Experiment 1", "temperature": 21.2}
+}
+```
+
 Here, we demonstrate how to curate such metadata for AnnData:
 
 ```{eval-rst}
@@ -506,8 +516,8 @@ Here, we demonstrate how to curate such metadata for AnnData:
    :caption: define_schema_anndata_uns.py
 ```
 
-```python
-!python scripts/define_schema_anndata_uns.py
+```bash
+python scripts/define_schema_anndata_uns.py
 ```
 
 ```{eval-rst}
@@ -516,8 +526,8 @@ Here, we demonstrate how to curate such metadata for AnnData:
    :caption: curate_anndata_uns.py
 ```
 
-```python
-!python scripts/curate_anndata_uns.py
+```bash
+python scripts/curate_anndata_uns.py
 ```
 
 ## MuData
@@ -531,8 +541,8 @@ The following script shows how to define and validate schemas across different m
    :caption: curate_mudata.py
 ```
 
-```python
-!python scripts/curate_mudata.py
+```bash
+python scripts/curate_mudata.py
 ```
 
 ## SpatialData
@@ -546,8 +556,8 @@ This script illustrates how to target and curate these nested metadata fields.
    :caption: define_schema_spatialdata.py
 ```
 
-```python
-!python scripts/define_schema_spatialdata.py
+```bash
+python scripts/define_schema_spatialdata.py
 ```
 
 ```{eval-rst}
@@ -556,8 +566,8 @@ This script illustrates how to target and curate these nested metadata fields.
    :caption: curate_spatialdata.py
 ```
 
-```python
-!python scripts/curate_spatialdata.py
+```bash
+python scripts/curate_spatialdata.py
 ```
 
 ## TiledbsomaExperiment
@@ -571,16 +581,16 @@ Here we show how to validate the `obs` and `var` dataframes of a SOMA experiment
    :caption: curate_soma_experiment.py
 ```
 
-```python
-!python scripts/curate_soma_experiment.py
+```bash
+python scripts/curate_soma_experiment.py
 ```
 
 ## Other data structures
 
 If you have other data structures, read: {doc}`/faq/curate-any`.
 
-```python
-!rm -rf ./test-curate
-!rm -rf ./small_dataset.tiledbsoma
-!lamin delete --force test-curate
+```bash
+rm -rf ./test-curate
+rm -rf ./small_dataset.tiledbsoma
+lamin delete --force test-curate
 ```

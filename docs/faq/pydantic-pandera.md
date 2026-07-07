@@ -6,8 +6,8 @@ execute_via: python
 
 This doc explains conceptual differences between data validation with `pydantic`, `pandera`, and `LaminDB`.
 
-```python
-!lamin init --storage test-pydantic-pandera --modules bionty
+```bash
+lamin init --storage test-pydantic-pandera --modules bionty
 ```
 
 Let us work with a test dataframe.

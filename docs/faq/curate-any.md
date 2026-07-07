@@ -18,9 +18,9 @@ By default, {meth}`~lamindb.models.CanCurate.from_values` considers a match in a
 
 :::
 
-```python
+```bash
 # pip install 'lamindb[zarr]'
-!lamin init --storage ./test-curate-any --modules bionty
+lamin init --storage ./test-curate-any --modules bionty
 ```
 
 Define a test dataset.
@@ -110,9 +110,9 @@ artifact.features.set_values(
 artifact.describe()
 ```
 
-```python
+```bash
 # clean up test instance
-!rm -r data.zarr
-!rm -r ./test-curate-any
-!lamin delete --force test-curate-any
+rm -r data.zarr
+rm -r ./test-curate-any
+lamin delete --force test-curate-any
 ```

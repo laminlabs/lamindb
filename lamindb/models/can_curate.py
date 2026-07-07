@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Literal, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
 from django.core.exceptions import FieldDoesNotExist
@@ -36,7 +36,7 @@ def _check_if_record_in_db(record: str | SQLRecord | None, using_key: str | None
                 )
 
 
-def _concat_lists(values: ListLike | str) -> list[str]:
+def _concat_lists(values: ListLike | list[list[str]] | str) -> ListLike:
     """Concatenate a list of lists of strings into a single list."""
     import pandas as pd
 
@@ -50,7 +50,7 @@ def _concat_lists(values: ListLike | str) -> list[str]:
             values = [
                 v for sublist in values if isinstance(sublist, list) for v in sublist
             ]
-    return values
+    return values  # type: ignore
 
 
 def _inspect(
@@ -628,7 +628,7 @@ class CanCurate:
     @strict_classmethod
     def standardize(
         cls,
-        values: Iterable,
+        values: ListLike,
         field: StrField | None = None,
         *,
         return_field: StrField | None = None,

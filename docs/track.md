@@ -12,8 +12,8 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 
 **Note:** To run examples, if you don't have a `lamindb` instance, create one:
 
-```python
-!lamin init --storage ./test-track
+```bash
+lamin init --storage ./test-track
 ```
 
 ## Manage notebooks and scripts
@@ -221,8 +221,8 @@ Decorate a function with {func}`~lamindb.flow` to track it as a workflow:
 
 Let's run the workflow:
 
-```python
-!python scripts/my_workflow.py
+```bash
+python scripts/my_workflow.py
 ```
 
 Query the workflow via its filename:
@@ -266,8 +266,8 @@ Here, the workflow calls an additional processing step:
 
 Let's run the workflow:
 
-```python
-!python scripts/my_workflow_with_step.py
+```bash
+python scripts/my_workflow_with_step.py
 ```
 
 The lineage of the subsetted artifact resolves the subsetting step:
@@ -319,8 +319,8 @@ Let's use `click` to parse CLI arguments:
 
 Let's run the workflow:
 
-```python
-!python scripts/my_workflow_with_click.py --key my_analysis/dataset2.parquet
+```bash
+python scripts/my_workflow_with_click.py --key my_analysis/dataset2.parquet
 ```
 
 CLI arguments are tracked and accessible via `run.cli_args`:
@@ -346,8 +346,8 @@ We just saw that the function decorators `@ln.flow()` and `@ln.step()` track par
 
 Run the script.
 
-```python
-!python scripts/run_track_with_params.py  --input-dir ./mydataset --learning-rate 0.01 --downsample
+```bash
+python scripts/run_track_with_params.py  --input-dir ./mydataset --learning-rate 0.01 --downsample
 ```
 
 Query for all runs that match certain parameters:
@@ -386,8 +386,8 @@ ln.Feature(name="s3_folder", dtype=str).save()
 ln.Feature(name="experiment", dtype=experiment_type).save()
 ```
 
-```python
-!python scripts/run_track_with_features_and_params.py  --s3-folder s3://my-bucket/my-folder --experiment Experiment1
+```bash
+python scripts/run_track_with_features_and_params.py  --s3-folder s3://my-bucket/my-folder --experiment Experiment1
 ```
 
 ```python
@@ -482,8 +482,8 @@ subsetted_artifact.run.output_artifacts.to_dataframe()
    :caption: run_script_with_step.py
 ```
 
-```python
-!python scripts/run_script_with_step.py --subset
+```bash
+python scripts/run_script_with_step.py --subset
 ```
 
 ```python
