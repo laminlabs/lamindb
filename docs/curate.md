@@ -498,6 +498,16 @@ Most data structures support unstructured metadata stored as dictionaries:
 - MuData: `.uns` and `modality:uns`
 - SpatialData: `.attrs`
 
+These dictionaries can be nested, and sometimes you want to define a schema
+specifically for a dictionary inside the dictionary. Here, we look at the case where
+we want to validate a key within the `.uns` slot of an `AnnData` to ensure that they contain the `"experiment"` and `"temperature"` keys:
+
+```
+{
+    "study_metadata": {"experiment": "Experiment 1", "temperature": 21.2}
+}
+```
+
 Here, we demonstrate how to curate such metadata for AnnData:
 
 ```{eval-rst}
