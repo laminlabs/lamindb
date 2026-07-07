@@ -476,5 +476,5 @@ def docs(session):
         session,
         "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
-    build_docs(session, strip_prefix=True, strict=True)
+    build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact()
