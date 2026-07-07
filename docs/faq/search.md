@@ -6,9 +6,24 @@ execute_via: python
 
 ```python
 from laminci.db import setup_local_test_postgres
+import subprocess
 
 pgurl = setup_local_test_postgres()
-!lamin init --name benchmark_search --db {pgurl} --modules bionty --storage ./benchmark_search
+subprocess.run(
+    [
+        "lamin",
+        "init",
+        "--name",
+        "benchmark_search",
+        "--db",
+        pgurl,
+        "--modules",
+        "bionty",
+        "--storage",
+        "./benchmark_search",
+    ],
+    check=True,
+)
 ```
 
 Here we show how to perform text search on `SQLRecord` and evaluate some search queries for the {class}`bionty.CellType` ontology.
@@ -77,7 +92,7 @@ assert df.iloc[0]["name"] == "B cell"
 df
 ```
 
-```python
-!docker stop pgtest && docker rm pgtest
-!lamin delete --force benchmark_search
+```bash
+docker stop pgtest && docker rm pgtest
+lamin delete --force benchmark_search
 ```

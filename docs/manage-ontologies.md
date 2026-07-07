@@ -15,9 +15,9 @@ If instead you're interested in
 - accessing public ontologies, see {doc}`docs:public-ontologies`
 - flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
-```python
+```bash
 # pip install lamindb
-!lamin init --storage ./test-ontologies --modules bionty
+lamin init --storage ./test-ontologies --modules bionty
 ```
 
 ## Import records from public ontologies

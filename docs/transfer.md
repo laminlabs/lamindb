@@ -10,8 +10,8 @@ This guide shows how to sync objects from a source database to your default data
 
 We need a target database:
 
-```python
-!lamin init --storage ./test-sync --modules bionty
+```bash
+lamin init --storage ./test-sync --modules bionty
 ```
 
 Import `lamindb` and optionally run `ln.track()`:

@@ -6,9 +6,9 @@ execute_via: python
 
 [Django field validation](https://docs.djangoproject.com/en/5.1/ref/validators/) are enabled for models that inherit the `ValidateFields` class.
 
-```python
+```bash
 # pip install lamindb
-!lamin init --storage ./test-django-validation
+lamin init --storage ./test-django-validation
 ```
 
 ```python
@@ -23,6 +23,6 @@ except FieldValidationError as e:
     print(e)
 ```
 
-```python
-!lamin delete --force test-django-validation
+```bash
+lamin delete --force test-django-validation
 ```
