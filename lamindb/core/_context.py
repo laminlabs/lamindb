@@ -531,7 +531,7 @@ class Context:
             transform: A transform (stem) `uid` or object. If `None`, auto-creates a `transform` with its `uid`.
             project: A project or its `name` or `uid` for labeling entities created during the run.
             space: A restricted space or its `name` or `uid` in which to store entities created during the run.
-                Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
+                Default: the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
             plan: A plan, typically an agent plan. Pass an artifact (or its `key` or `uid`).
