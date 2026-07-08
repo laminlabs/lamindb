@@ -1,3 +1,7 @@
+---
+execute_via: python
+---
+
 # Query tables from storage
 
 This guide walks through querying tabular data stored as Parquet — streaming directly from disk or cloud storage with PyArrow, Polars, DuckDB, Iceberg, or LanceDB.
@@ -94,6 +98,7 @@ import pyarrow.compute as pc
 dataset = collection.open()
 result = dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas()
 ```
+
 :::::
 
 :::::{tab-item} Polars
@@ -105,6 +110,7 @@ import polars as pl
 with collection.open(engine="polars") as lazy_df:
     result = lazy_df.filter(pl.col("disease").is_not_null()).collect()
 ```
+
 :::::
 
 :::::{tab-item} DuckDB
@@ -122,6 +128,7 @@ con.execute(f"CREATE OR REPLACE VIEW data AS SELECT * FROM read_parquet({s3_path
 
 result = con.execute("SELECT * FROM data WHERE disease IS NOT NULL").df()
 ```
+
 :::::
 
 :::::{tab-item} Iceberg
@@ -142,6 +149,7 @@ table.append(arrow)
 
 result = table.scan(row_filter=NotNull("disease")).to_arrow().to_pandas()
 ```
+
 :::::
 
 :::::{tab-item} LanceDB
@@ -156,6 +164,7 @@ table = db_lance.create_table("data", data=arrow, mode="overwrite")
 
 result = table.search().where("disease IS NOT NULL", prefilter=True).to_pandas()
 ```
+
 :::::
 ::::::
 
@@ -164,12 +173,15 @@ result = table.search().where("disease IS NOT NULL", prefilter=True).to_pandas()
 The charts below compare PyArrow, Polars, DuckDB, Iceberg, and LanceDB on the same LaminDB collection (8,929 rows, 6 Parquet shards) on S3. See the [full blog post](https://lamin.ai/blog/lakehouse-benchmark) for methodology and caveats.
 
 <!-- PLOT: setup_cost.svg -->
+
 ![Setup cost](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Lf8f0LJY63quZ3n70000.svg)
 
 <!-- PLOT: query_times.svg -->
+
 ![Query times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/d2r3p1yUGrcVTLtw0000.svg)
 
 <!-- PLOT: write_path.svg -->
+
 ![Write-path times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/VnVruqKX9KK0uhUw0000.svg)
 
 ```python

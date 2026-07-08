@@ -29,6 +29,7 @@ GROUPS = {}
 GROUPS["tutorial"] = [
     "README.ipynb",
     "transfer.ipynb",
+    "parquet.ipynb",
     "arrays.ipynb",
     "query-search.ipynb",
 ]
