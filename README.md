@@ -40,9 +40,9 @@ Architecture?
 
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → just `pip install` or `install.packages('laminr')` - no docker required, no separate backend to deploy
+- **simple** → just `pip install` or `install.packages('laminr')` - no Docker required, no separate backend
 - **idempotent** → re-run logic without worries about duplications or overwrites
-- **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
+- **distributed** → zero-copy & lineage-aware data sharing across infrastructure
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
