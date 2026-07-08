@@ -1971,13 +1971,13 @@ class Branch(BaseSQLRecord):
         through="BranchULabel",
         related_name="branches",
     )
-    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    """ULabels annotating this branch ← :attr:`~lamindb.ULabel.branches`."""
     projects: RelatedManager[Project] = models.ManyToManyField(
         "Project",
         through="BranchProject",
         related_name="branches",
     )
-    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+    """Projects annotating this branch ← :attr:`~lamindb.Project.branches`."""
 
     @property
     def status(self) -> BranchStatus:
