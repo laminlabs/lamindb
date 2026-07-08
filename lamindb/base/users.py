@@ -52,7 +52,7 @@ def current_user_id() -> int:
                     raise e
             return user_id
 
-    if settings._instance_exists:
+    if settings.is_configured:
         slug = settings.instance.slug
         if slug not in user_id_cache:
             user_id_cache[slug] = query_user_id()
