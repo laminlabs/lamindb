@@ -1,95 +1,83 @@
----
-execute_via: python
----
-
 # Query tables from storage
 
 This guide walks through querying tabular data stored as Parquet — streaming directly from disk or cloud storage with PyArrow, Polars, DuckDB, Iceberg, or LanceDB.
 
-```
-# replace with your username and S3 bucket
-!lamin login testuser1
-!lamin init --storage s3://lamindb-ci/test-tables
-```
-
 Import lamindb and track this notebook.
 
-```
+```python
 import lamindb as ln
 
-ln.track()
+ln.track()  # this step is optional
 db = ln.DB("laminlabs/lamindata")  # we'll pull datasets from there
 ```
 
-## Streaming from a single artifact
+## Stream a table from storage
 
-A dataframe stored as sharded `parquet`.
+Start with a single Parquet file. Get the artifact and open it — nothing is downloaded, you get a lazy [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html) backed by storage.
 
-```
-artifact = db.Artifact.get(key="sharded_parquet")
-```
+```python
+artifact = db.Artifact.filter(
+    key__startswith="example_datasets/small", suffix=".parquet"
+).first()
 
-```
-artifact.path.view_tree()
-```
-
-```
 dataset = artifact.open()
-```
-
-This returns a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html).
-
-```
 dataset
 ```
 
-```
+Peek at the first few rows:
+
+```python
 dataset.head(5).to_pandas()
 ```
 
-## Streaming from a set of artifacts
+The same `.open()` call scales to many files. Call it on a query to stream a whole set of Parquet artifacts as one dataset:
 
-You can open several parquet files as a single dataset by calling `.open()` on the result of a query:
-
-```
+```python
 dataset = db.Artifact.filter(
     key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
-).open()  # open an ArtifactSet for streaming
+).open()
 dataset
 ```
 
-The same is possible for the artifacts in a collection:
+Or on a collection, which streams all of its member Parquet files together:
 
-```
+```python
 collection = db.Collection.get(key="sharded_parquet_collection")
 dataset = collection.open()
-dataset
-```
-
-Once you have a storage-backed dataset, you can query it like this:
-
-```
 dataset.to_table().to_pandas()
 ```
 
-## Filtering with predicate pushdown
+Whether the data is one file or a thousand shards, you query it the same way.
 
-Filters push down into Parquet row groups — only matching data is read from storage.
+## Queries
 
-```
+Filters push down into Parquet row groups — only matching data is read from storage, not the whole file.
+
+```python
 import pyarrow.compute as pc
 
-filtered = dataset.to_table(
-    filter=pc.field("disease").is_valid()
-).to_pandas()
-filtered.head(5)
+dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas().head(5)
 ```
+
+You can build up from there. Materialize the filtered result once, then compute against it in memory — for example, count rows per disease without re-reading storage:
+
+```python
+counts = (
+    dataset.to_table(filter=pc.field("disease").is_valid())
+    .group_by("disease")
+    .aggregate([("disease", "count")])
+    .to_pandas()
+)
+counts.head()
+```
+
+These filters run the same way on every engine below. For heavier patterns — schema evolution, time travel, appends, and concurrent writers — the [LaminDB lakehouse benchmark](https://lamin.ai/blog/lakehouse-benchmark) walks through all six operations end to end across the five engines on a shared genomics dataset.
 
 ## Choosing a query engine
 
 By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can also be used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
 
-```
+```python
 with collection.open(engine="polars", use_fsspec=True) as lazy_df:
     display(lazy_df.collect().to_pandas())
 ```
@@ -100,7 +88,7 @@ LaminDB artifacts are plain Parquet files on S3, so any engine that reads Parque
 :::::{tab-item} PyArrow
 `.open()` returns a lazy PyArrow dataset backed by S3. Filters push down into Parquet row groups.
 
-```
+```python
 import pyarrow.compute as pc
 
 dataset = collection.open()
@@ -111,7 +99,7 @@ result = dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas()
 :::::{tab-item} Polars
 `.open(engine="polars")` returns a context manager yielding a Polars LazyFrame backed by S3. No data is read until `.collect()` is called.
 
-```
+```python
 import polars as pl
 
 with collection.open(engine="polars") as lazy_df:
@@ -122,7 +110,7 @@ with collection.open(engine="polars") as lazy_df:
 :::::{tab-item} DuckDB
 DuckDB reads Parquet files directly via `read_parquet()`. Use `.cache()` to get a local path, or register a view over S3 paths via `httpfs` for a collection:
 
-```
+```python
 import duckdb
 
 con = duckdb.connect()
@@ -139,7 +127,7 @@ result = con.execute("SELECT * FROM data WHERE disease IS NOT NULL").df()
 :::::{tab-item} Iceberg
 Iceberg requires a one-time ingestion into a catalog-managed table on S3. After ingestion you get native partition pruning, metadata-only schema evolution, and snapshot-based time travel.
 
-```
+```python
 from pyiceberg.catalog.sql import SqlCatalog
 from pyiceberg.expressions import NotNull
 
@@ -154,14 +142,12 @@ table.append(arrow)
 
 result = table.scan(row_filter=NotNull("disease")).to_arrow().to_pandas()
 ```
-
-Note: a SQLite catalog is used here for portability. Production deployments would use a Glue or REST catalog.
 :::::
 
 :::::{tab-item} LanceDB
 LanceDB ingests data into Lance columnar format on S3 — the only engine here that copies data out of the source Parquet files. In exchange you get combined SQL filtering and vector search, plus versioned appends with time travel.
 
-```
+```python
 import lancedb
 
 arrow = collection.open().to_table()
@@ -172,8 +158,6 @@ result = table.search().where("disease IS NOT NULL", prefilter=True).to_pandas()
 ```
 :::::
 ::::::
-
-For schema evolution, time travel, appends, and concurrent writers across these engines, see the [LaminDB lakehouse benchmark](https://lamin.ai/blog/lakehouse-benchmark), which walks through all six operations end to end on a shared genomics dataset.
 
 ## Performance
 
@@ -188,7 +172,7 @@ The charts below compare PyArrow, Polars, DuckDB, Iceberg, and LanceDB on the sa
 <!-- PLOT: write_path.svg -->
 ![Write-path times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/VnVruqKX9KK0uhUw0000.svg)
 
-```
+```python
 # clean up test instance
 ln.setup.delete("test-tables", force=True)
 ```
