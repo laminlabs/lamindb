@@ -437,7 +437,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     )
     """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
     branches: RelatedManager[Branch]
-    """Annotated branches ← :attr:`~lamindb.BranchProject.project`."""
+    """Annotated branches ← :attr:`~lamindb.Branch.projects`."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
