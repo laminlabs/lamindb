@@ -650,3 +650,16 @@ def test_explicit_default_ids_override_context():
     explicit_main.delete(permanent=True)
     space.delete(permanent=True)
     branch.delete(permanent=True)
+
+
+def test_context_space_applies_to_bionty_records():
+    suffix = uuid4().hex[:8]
+    space = ln.Space(name=f"ctx-bionty-space-{suffix}").save()
+
+    with patch.object(ln.context, "_space", space):
+        organism = bt.Organism(name=f"ctx-organism-{suffix}").save()
+
+    assert organism.space_id == space.id
+
+    organism.delete(permanent=True)
+    space.delete(permanent=True)

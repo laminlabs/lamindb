@@ -1167,8 +1167,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 if (
                     issubclass(self.__class__, SQLRecord)
                     and self.__class__.__name__ != "Storage"
-                    # do not save bionty entities in restricted spaces by default
-                    and self.__class__.__module__ != "bionty.models"
                 ):
                     from lamindb import context as run_context
 
