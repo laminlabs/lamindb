@@ -21,9 +21,9 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.upath import (
     create_path,
-    extract_suffix_from_path,
     infer_filesystem,
 )
 
@@ -223,11 +223,11 @@ def load_to_memory(
     May return None in interactive sessions for images.
     """
     filepath = create_path(filepath)
-    suffix = extract_suffix_from_path(filepath)
-    loader = FILE_LOADERS.get(suffix, None)
+    _, raw_suffix = CanonicalSuffix.extract_from_path(filepath)
+    loader = FILE_LOADERS.get(raw_suffix, None)
     if loader is None:
         raise NotImplementedError(
-            f"There is no loader for {suffix} files. Use .cache() to get the path."
+            f"There is no loader for {raw_suffix} files. Use .cache() to get the path."
         )
 
     filepath = setup_settings.paths.cloud_to_local(filepath, print_progress=True)

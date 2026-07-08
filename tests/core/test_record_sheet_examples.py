@@ -567,6 +567,22 @@ def test_record_export_applies_filters():
     sample_sheet.delete(permanent=True)
 
 
+def test_recordset_to_artifact_uses_default_record_exports_key():
+    sample_sheet = ln.Record(name="RecordSetExportSheet", is_type=True).save()
+    record = ln.Record(name="recordset-export-row", type=sample_sheet).save()
+
+    artifact = ln.Record.filter(id=record.id).to_artifact()
+    try:
+        assert artifact.key == f"record_exports/{sample_sheet.name}_subset.csv"
+        assert artifact.description == f"Export of {sample_sheet.name} subset"
+        assert artifact.run is not None
+        assert artifact.run.input_records.count() == 2
+    finally:
+        artifact.delete(permanent=True)
+        record.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
+
+
 def test_record_export_applies_feature_predicate_filters():
     sample_sheet = ln.Record(name="PredicateFilterSheet", is_type=True).save()
     sample1 = ln.Record(name="sample1", type=sample_sheet).save()

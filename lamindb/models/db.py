@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Any, final
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -9,30 +9,55 @@ from lamindb_setup import settings as setup_settings
 
 if TYPE_CHECKING:
     import pandas as pd
-    from bionty.models import (
-        CellLine,
-        CellMarker,
-        CellType,
-        DevelopmentalStage,
-        Disease,
-        Ethnicity,
-        ExperimentalFactor,
-        Gene,
-        Organism,
-        Pathway,
-        Phenotype,
-        Protein,
-        Tissue,
-    )
-    from pertdb.models import (
-        Biologic,
-        CombinationPerturbation,
-        Compound,
-        CompoundPerturbation,
-        EnvironmentalPerturbation,
-        GeneticPerturbation,
-        PerturbationTarget,
-    )
+
+    try:
+        from bionty.models import (
+            CellLine,
+            CellMarker,
+            CellType,
+            DevelopmentalStage,
+            Disease,
+            Ethnicity,
+            ExperimentalFactor,
+            Gene,
+            Organism,
+            Pathway,
+            Phenotype,
+            Protein,
+            Tissue,
+        )
+    except Exception:  # pragma: no cover
+        CellLine = Any
+        CellMarker = Any
+        CellType = Any
+        DevelopmentalStage = Any
+        Disease = Any
+        Ethnicity = Any
+        ExperimentalFactor = Any
+        Gene = Any
+        Organism = Any
+        Pathway = Any
+        Phenotype = Any
+        Protein = Any
+        Tissue = Any
+    try:
+        from pertdb.models import (
+            Biologic,
+            CombinationPerturbation,
+            Compound,
+            CompoundPerturbation,
+            EnvironmentalPerturbation,
+            GeneticPerturbation,
+            PerturbationTarget,
+        )
+    except Exception:  # pragma: no cover
+        Biologic = Any
+        CombinationPerturbation = Any
+        Compound = Any
+        CompoundPerturbation = Any
+        EnvironmentalPerturbation = Any
+        GeneticPerturbation = Any
+        PerturbationTarget = Any
 
     from lamindb.models import (
         Artifact,

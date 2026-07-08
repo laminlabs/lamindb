@@ -45,6 +45,7 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    import builtins
     from datetime import datetime
 
     import pandas as pd
@@ -502,7 +503,10 @@ class RecordBatch:
                 if name is None:
                     name = name_from_features
 
-            record_kwargs: dict[str, Any] = {"type": self._resolved_type, "_search_names": False}
+            record_kwargs: dict[str, Any] = {
+                "type": self._resolved_type,
+                "_search_names": False,
+            }
             if features:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
@@ -940,7 +944,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     @strict_classmethod
     def from_dataframe(
-        cls,
+        cls: builtins.type[Record],
         df: pd.DataFrame,
         *,
         type: Record | str,
@@ -1194,7 +1198,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
 
-        The format defaults to `.csv` unless the key specifies another format or suffix is passed.
+        The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
 
@@ -1208,8 +1212,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 sample_sheet.to_artifact()
 
         Args:
-            key: `str | None = None` The artifact key.
-            suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            key: The artifact key.
+            suffix: The suffix to append to the default key if no key is passed.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the export run. If `False`, only links the record type.

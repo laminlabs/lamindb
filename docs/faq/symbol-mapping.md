@@ -23,9 +23,9 @@ Storing ENSEMBL gene IDs alongside gene symbols offers readability for visualiza
 
 If only symbols are available for a dataset, you can map them to ENSEMBL IDs using {meth}`~bionty.Gene.standardize`.
 
-```python
+```bash
 # !pip install 'lamindb[bionty]'
-!lamin init --storage test-symbols --modules bionty
+lamin init --storage test-symbols --modules bionty
 ```
 
 ```python
@@ -110,6 +110,6 @@ Gene symbols do not map one-to-one with ENSEMBL IDs. A single gene symbol may co
 {meth}`~bionty.Gene.standardize` retrieves the first match in cases of multiple hits, which is generally sufficient but not perfectly accurate.
 ```
 
-```python
-!lamin delete --force test-symbols
+```bash
+lamin delete --force test-symbols
 ```

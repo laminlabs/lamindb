@@ -13,7 +13,14 @@ from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
     from mudata import MuData
-    from spatialdata import SpatialData
+
+    try:
+        from spatialdata import SpatialData
+    except Exception:  # pragma: no cover
+        SpatialData = Any
+else:
+    MuData = Any
+    SpatialData = Any
 
 
 def file_fcs() -> Path:

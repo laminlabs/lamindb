@@ -10,8 +10,8 @@ Transactions within Python across data & metadata are [ACID](https://en.wikipedi
 
 If an upload process is externally killed and Python cannot run clean-up operations anymore, the artifact is internally still flagged with `artifact._storage_ongoing = True`. This is visible on the UI. You can then re-run `lamin save` or `artifact.save()` to attempt uploading the artifact a second time.
 
-```python
-!lamin init --storage ./test-acid
+```bash
+lamin init --storage ./test-acid
 ```
 
 ```python
@@ -100,7 +100,7 @@ assert not artifact._storage_ongoing
 assert artifact._aux is None
 ```
 
-```python
-!rm -r ./test-acid
-!lamin delete --force test-acid
+```bash
+rm -r ./test-acid
+lamin delete --force test-acid
 ```

@@ -322,6 +322,8 @@ class Run(SQLRecord, TracksUpdates):
 
     Collections are *recreated* if they trigger a hash lookup match for an existing collection.
     """
+    output_transforms: RelatedManager[Transform]
+    """The transforms created in this run ← :attr:`~lamindb.Transform.run`."""
     params: dict | None = models.JSONField(null=True)
     """Parameters (plain JSON values)."""
     extra_data: dict | None = models.JSONField(null=True)
@@ -533,7 +535,7 @@ class Run(SQLRecord, TracksUpdates):
 
     @strict_classmethod
     def filter(
-        cls,
+        cls: type[Run],
         *queries,
         **expressions,
     ) -> QuerySet:

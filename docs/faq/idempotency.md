@@ -23,9 +23,9 @@ You can override this via `skip_hash_lookup=False` (or force skipping via `skip_
 
 :::
 
-```python
+```bash
 # pip install lamindb
-!lamin init --storage ./test-idempotency
+lamin init --storage ./test-idempotency
 ```
 
 ```python
@@ -142,7 +142,7 @@ assert artifact3.run == artifact2.run != ln.context.run  # run is not updated
 assert artifact2.recreating_runs.first() == ln.context.run
 ```
 
-```python
-!rm -rf ./test-idempotency
-!lamin delete --force test-idempotency
+```bash
+rm -rf ./test-idempotency
+lamin delete --force test-idempotency
 ```

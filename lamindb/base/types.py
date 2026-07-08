@@ -1,7 +1,12 @@
 """Base types.
 
-Central object types
---------------------
+Classes
+-------
+
+.. autoclass:: CanonicalSuffix
+
+Simple types
+------------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
@@ -25,19 +30,17 @@ Basic types
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING, Literal, Union
+from collections.abc import Sequence
+from typing import Literal, Union
 
-import numpy as np
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix  # noqa: F401
 from lamindb_setup.types import AnyPathStr  # noqa: F401
 
-if TYPE_CHECKING:
-    import pandas as pd
-
+# Examples of list-like inputs: list[str], pandas.Series, numpy.ndarray
+ListLike = Sequence[str]
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
-# pd.Series as string to avoid importing pandas at runtime
-ListLike = Union[list[str], "pd.Series", np.ndarray]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformKind = Literal["pipeline", "notebook", "script", "function"]

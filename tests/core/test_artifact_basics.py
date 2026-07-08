@@ -43,11 +43,11 @@ from lamindb.models.artifact import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
     UPath,
-    extract_suffix_from_path,
 )
 
 # how do we properly abstract out the default storage variable?
@@ -184,9 +184,7 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
     test_filepath = get_test_filepaths[3]
     suffix = get_test_filepaths[4]  # path suffix
     if key is not None:
-        key_suffix = extract_suffix_from_path(
-            PurePosixPath(key), arg_name="key"
-        )  # key suffix
+        key_suffix = CanonicalSuffix.from_path(PurePosixPath(key))
     else:
         key_suffix = None
     # this tests if insufficient information is being provided
@@ -374,6 +372,28 @@ def test_upload_checks_hash_by_default(tmp_path):
     assert artifact_2.uid == artifact_1.uid
 
     artifact_1.delete(permanent=True)
+
+
+def test_invalid_suffix_is_empty(tmp_path):
+    filepath = tmp_path / "test.xyz"
+    filepath.write_text("test-content")
+
+    with pytest.raises(InvalidArgument) as error:
+        ln.Artifact(filepath, key="uploads/test")
+    assert error.exconly() == (
+        "lamindb.errors.InvalidArgument: The passed path's suffix '.xyz' must match"
+        " the passed key's suffix ''."
+    )
+
+    artifact = ln.Artifact(
+        filepath, key="uploads/test.xyz", description="unknown text suffix"
+    )
+    artifact.save()
+
+    assert artifact.suffix == ""
+    assert artifact.key == "uploads/test.xyz"
+
+    artifact.delete(permanent=True)
 
 
 def test_existing_storage_can_force_hash_lookup(tmp_path):

@@ -8,7 +8,7 @@ The public API has two layers:
 External integrations can either subclass :class:`Checkpoint` directly or attach
 an :class:`ArtifactObserver` to react to saved and removed artifacts.
 
-Here is a guide: :doc:`lightning`.
+Here is a guide: :doc:`docs:lightning`.
 
 Main API
 --------
@@ -877,7 +877,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             # Run with:
             # python main.py fit --config config.yaml
 
-        For more, see the guide: :doc:`lightning`.
+        For more, see the guide: :doc:`docs:lightning`.
     """
 
     def __init__(

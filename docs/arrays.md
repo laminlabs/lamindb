@@ -2,10 +2,10 @@
 
 This guide covers streaming array-like data — AnnData, SpatialData, and generic HDF5 — directly from disk or cloud storage. For tabular data (DataFrame, Parquet, and querying with PyArrow, Polars, DuckDB, Iceberg, or LanceDB), see [Query tables](tables.md).
 
-```python
+```bash
 # replace with your username and S3 bucket
-!lamin login testuser1
-!lamin init --storage s3://lamindb-ci/test-arrays
+lamin login testuser1
+lamin init --storage s3://lamindb-ci/test-arrays
 ```
 
 Import lamindb and track this notebook.

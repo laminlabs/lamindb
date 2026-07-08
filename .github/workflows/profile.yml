@@ -1,0 +1,33 @@
+name: profile
+
+on:
+  push:
+    branches: [main, release]
+    paths-ignore:
+      - "lamindb/.agents/**"
+  pull_request:
+    paths-ignore:
+      - "lamindb/.agents/**"
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: pip install git+https://github.com/laminlabs/laminci
+      - run: nox -s "install_ci(group='profile')"
+      - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
+      - run: lamin login
+      - run: laminprofiler check tests/profiling/import_lamindb_and_connect.py --threshold 3.5
+      - run: lamin connect laminlabs/lamindata
+      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.5
+      - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 1.5

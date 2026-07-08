@@ -1,9 +1,5 @@
 """Storage API.
 
-Valid suffixes.
-
-.. autodata:: VALID_SUFFIXES
-
 Array accessors.
 
 .. autoclass:: AnnDataAccessor
@@ -13,9 +9,9 @@ Array accessors.
 
 from typing import TYPE_CHECKING, Any
 
+from lamindb_setup.core.canonical_suffix import CanonicalSuffix  # for backward compat
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
-from ._valid_suffixes import VALID_SUFFIXES
 from .paths import delete_storage
 
 if TYPE_CHECKING:
@@ -72,3 +68,9 @@ def __getattr__(name: str) -> Any:
 
     globals()[name] = attr
     return attr
+
+
+class VALID_SUFFIXES:  # for backward compatibility
+    SIMPLE = CanonicalSuffix.simple_formats
+    COMPOSITE = CanonicalSuffix.composite_formats
+    ENCODING = CanonicalSuffix.encoding_formats

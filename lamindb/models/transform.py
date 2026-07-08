@@ -30,7 +30,7 @@ from ._is_versioned import (
     increment_base62,
 )
 from ._is_versioned import bump_version as bump_version_function
-from .run import Run, TracksRun, User
+from .run import Run, TracksRun, User, current_run
 from .sqlrecord import (
     BaseSQLRecord,
     Branch,
@@ -61,9 +61,7 @@ if TYPE_CHECKING:
 class Transform(SQLRecord, IsVersioned, TracksRun):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
-    If you execute a transform, you generate a run
-    (:class:`~lamindb.Run`).
-
+    If you execute a transform, you generate a run (:class:`~lamindb.Run`).
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
@@ -214,7 +212,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
-    """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
+    """`ULabel` annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
@@ -238,6 +236,10 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     """Linked projects ← :attr:`~lamindb.Project.transforms`."""
     references: RelatedManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
+    run: Run | None = ForeignKey(
+        Run, PROTECT, null=True, default=current_run, related_name="output_transforms"
+    )
+    """The run that created the transform ← :attr:`~lamindb.Run.output_transforms`."""
     updated_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -245,7 +247,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
-    """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
+    """The user that created the transform ← :attr:`~lamindb.User.created_transforms`."""
     ablocks: RelatedManager[TransformBlock]
     """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
@@ -445,9 +447,9 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         notebook_runner: str | None = None,
     ) -> tuple[Transform, str]:
         from .._finish import notebook_to_script
-        from ..core._settings import settings
 
         source_code_to_store = source_code
+        normalized_path = cls._normalize_local_path(path) if path is not None else None
         if source_code is not None:
             source_code_to_store, redaction_count = redact_secrets_in_source_code(
                 source_code
@@ -458,15 +460,16 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 )
             transform_hash = hash_string(source_code)
         else:
-            assert path is not None  # noqa: S101
-            if path.suffix != ".ipynb":
-                _, transform_hash, _ = hash_file(path)
+            assert normalized_path is not None  # noqa: S101
+            if normalized_path.suffix != ".ipynb":
+                _, transform_hash, _ = hash_file(normalized_path)
             else:
-                source_code_path = ln_setup.settings.cache_dir / path.name.replace(
-                    ".ipynb", ".py"
+                source_code_path = (
+                    ln_setup.settings.cache_dir
+                    / normalized_path.name.replace(".ipynb", ".py")
                 )
-                if path.exists():
-                    notebook_to_script(description, path, source_code_path)
+                if normalized_path.exists():
+                    notebook_to_script(description, normalized_path, source_code_path)
                     _, transform_hash, _ = hash_file(source_code_path)
                 else:
                     logger.debug(
@@ -480,35 +483,20 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             else None
         )
 
-        if key is None:
-            assert path is not None  # noqa: S101
-            if ln_setup.settings.dev_dir is not None:
-                try:
-                    key = path.relative_to(ln_setup.settings.dev_dir).as_posix()
-                except ValueError as e:
-                    if "subpath" in str(e):
-                        logger.warning(
-                            f"path {path} is not within the configured dev directory "
-                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
-                            f"('{path.name}')"
-                        )
-                        key = path.name
-                    else:
-                        raise
-            else:
-                key = path.name
-
-        if (
-            path is not None
-            and transform_ref is None
-            and transform_ref_type is None
-            and settings.sync_git_repo is not None
-            and path.suffix != ".ipynb"
-        ):
-            from ..core._sync_git import get_transform_reference_from_git_repo
-
-            transform_ref = get_transform_reference_from_git_repo(path)
-            transform_ref_type = "url"
+        if normalized_path is not None:
+            inferred_key, inferred_kind, inferred_ref, inferred_ref_type = (
+                cls._infer_from_file_metadata(
+                    path=normalized_path,
+                    key=key,
+                    kind=transform_kind,
+                )
+            )
+            key = inferred_key
+            if transform_kind is None:
+                transform_kind = inferred_kind
+            if transform_ref is None and transform_ref_type is None:
+                transform_ref = inferred_ref
+                transform_ref_type = inferred_ref_type
 
         if uid is None and aux_transform is None:
 
@@ -526,9 +514,9 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             if len(transforms) != 0:
                 message = ""
                 found_key = False
-                if path is not None:
+                if normalized_path is not None:
                     for candidate in transforms:
-                        if candidate.key in path.as_posix():
+                        if candidate.key in normalized_path.as_posix():
                             key = candidate.key
                             resolved_uid, target_transform, message = (
                                 cls._process_aux_transform_for_source(
@@ -681,6 +669,44 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         return transform, logging_message
 
     @classmethod
+    def _normalize_local_path(cls, path: Path) -> Path:
+        return path.expanduser().resolve(strict=False)
+
+    @classmethod
+    def _get_source_code_path_for_transform(
+        cls, *, path: Path, kind: TransformKind, description: str | None
+    ) -> Path | None:
+        if not path.exists():
+            return None
+        if kind == "notebook" and path.suffix == ".ipynb":
+            from .._finish import notebook_to_script
+
+            source_code_path = ln_setup.settings.cache_dir / path.name.replace(
+                ".ipynb", ".py"
+            )
+            notebook_to_script(description, path, source_code_path)
+            return source_code_path
+        return path
+
+    @classmethod
+    def _persist_source_code_from_path(
+        cls,
+        *,
+        transform: Transform,
+        path: Path,
+        kind: TransformKind,
+        description: str | None,
+    ) -> None:
+        source_code_path = cls._get_source_code_path_for_transform(
+            path=path, kind=kind, description=description
+        )
+        if source_code_path is None:
+            return
+        return_code = transform._update_source_code_from_path(source_code_path)
+        if return_code != "rerun-the-notebook":
+            transform.save()
+
+    @classmethod
     def _infer_from_file_metadata(
         cls,
         *,
@@ -692,30 +718,37 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
 
         from ..core._settings import settings
 
+        normalized_path = cls._normalize_local_path(path)
         if kind is None:
-            kind = "notebook" if path.suffix in {".ipynb", ".Rmd", ".qmd"} else "script"
+            kind = (
+                "notebook"
+                if normalized_path.suffix in {".ipynb", ".Rmd", ".qmd"}
+                else "script"
+            )
         if key is None:
             if ln_setup.settings.dev_dir is not None:
                 try:
-                    key = path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                    key = normalized_path.relative_to(
+                        ln_setup.settings.dev_dir
+                    ).as_posix()
                 except ValueError as e:
                     if "subpath" in str(e):
                         logger.warning(
-                            f"path {path} is not within the configured dev directory "
+                            f"path {normalized_path} is not within the configured dev directory "
                             f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
-                            f"('{path.name}')"
+                            f"('{normalized_path.name}')"
                         )
-                        key = path.name
+                        key = normalized_path.name
                     else:
                         raise
             else:
-                key = path.name
+                key = normalized_path.name
         reference = None
         reference_type = None
-        if settings.sync_git_repo is not None and path.suffix != ".ipynb":
+        if settings.sync_git_repo is not None and normalized_path.suffix != ".ipynb":
             from ..core._sync_git import get_transform_reference_from_git_repo
 
-            reference = get_transform_reference_from_git_repo(path)
+            reference = get_transform_reference_from_git_repo(normalized_path)
             reference_type = "url"
         return key, kind, reference, reference_type
 
@@ -743,7 +776,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             Kind inference defaults to `"script"` and uses `"notebook"` for
             `.ipynb`, `.Rmd`, and `.qmd` files.
         """
-        path = Path(path)
+        path = cls._normalize_local_path(Path(path))
         inferred_key, inferred_kind, reference, reference_type = (
             cls._infer_from_file_metadata(
                 path=path,
@@ -759,6 +792,12 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             transform_kind=inferred_kind,
             key=inferred_key,
             version=version,
+        )
+        cls._persist_source_code_from_path(
+            transform=transform,
+            path=path,
+            kind=inferred_kind,
+            description=description,
         )
         if logging_message:
             logger.important(logging_message)

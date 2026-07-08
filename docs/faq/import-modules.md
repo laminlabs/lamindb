@@ -4,9 +4,9 @@ execute_via: python
 
 # What happens if I import a schema module without lamindb?
 
-```python
+```bash
 # !pip install 'lamindb[bionty]'
-!lamin init --storage testmodule --modules bionty
+lamin init --storage testmodule --modules bionty
 ```
 
 Upon `import`, nothing yet happens:
@@ -23,6 +23,6 @@ Under the hood, `lamindb` is imported!
 assert bt.Organism(name="human") is not None
 ```
 
-```python
-!lamin delete --force testmodule
+```bash
+lamin delete --force testmodule
 ```
