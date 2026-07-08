@@ -1164,10 +1164,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 return fk_record is not None
 
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
-                if (
-                    issubclass(self.__class__, SQLRecord)
-                    and self.__class__.__name__ != "Storage"
-                ):
+                if issubclass(self.__class__, SQLRecord):
                     from lamindb import context as run_context
 
                     # Precedence is uniform across SQLRecord children:
