@@ -18,7 +18,6 @@ Import lamindb and track this notebook.
 import lamindb as ln
 import numpy as np
 
-ln.track()  # this step is optional
 db = ln.DB("laminlabs/lamindata")  # we'll pull the SpatialData example from there
 ```
 
