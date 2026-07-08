@@ -112,3 +112,40 @@ def test_flow_track_arg_aliases_false():
         if run is not None:
             run.delete(permanent=True)
             run.transform.delete(permanent=True)
+
+
+def test_flow_exception_uploads_run_report():
+    run_uid: str | None = None
+    run = None
+    transform = None
+    report = None
+    try:
+
+        @ln.flow(global_run="clear")
+        def failing_flow() -> None:
+            nonlocal run_uid
+            assert ln.context.run is not None
+            run_uid = ln.context.run.uid
+            print("before flow error")
+            raise ValueError("flow failed")
+
+        with pytest.raises(ValueError, match="flow failed"):
+            failing_flow()
+
+        assert ln.context.run is None
+        assert run_uid is not None
+        run = ln.Run.get(uid=run_uid)
+        transform = run.transform
+        report = run.report
+        assert run.status == "errored"
+        assert report is not None
+        report_text = report.cache().read_text()
+        assert "before flow error" in report_text
+    finally:
+        ln.context._run = None
+        if run is not None:
+            run.delete(permanent=True)
+        if report is not None:
+            report.delete(permanent=True)
+        if transform is not None:
+            transform.delete(permanent=True)

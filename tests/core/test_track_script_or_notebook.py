@@ -1,3 +1,4 @@
+import os
 import signal
 import subprocess
 import sys
@@ -535,6 +536,30 @@ def test_create_or_load_transform_warns_when_outside_dev_dir(
             transform.delete(permanent=True)
 
 
+def test_create_or_load_transform_uses_dev_dir_relative_key_for_relative_path(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_cwd = Path.cwd()
+    path_in_dev_dir = tmp_path / "flows" / f"track-{time.time_ns()}.py"
+    path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
+    path_in_dev_dir.write_text("print('track relative key test')\n")
+    transform: ln.Transform | None = None
+    try:
+        ln_setup.settings.dev_dir = tmp_path
+        os.chdir(tmp_path)
+        context._path = Path("flows") / path_in_dev_dir.name
+        transform, _ = ln.Transform._create_or_load_from_source(path=context._path)
+        assert transform.key == f"flows/{path_in_dev_dir.name}"
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.dev_dir = previous_dev_dir
+        ln.context._uid = None
+        ln.context._run = None
+        ln.context._transform = None
+        ln.context._path = None
+        if transform is not None:
+            transform.delete(permanent=True)
+
+
 def test_run_scripts():
     # regular execution
     result = subprocess.run(  # noqa: S602
@@ -547,6 +572,8 @@ def test_run_scripts():
     assert "started new Run(" in result.stdout.decode()
     transform = ln.Transform.get("Ro1gl7n8YrdH0000")
     assert transform.latest_run.cli_args == "--param 42"
+    assert transform.source_code is not None
+    assert "ln.track(" in transform.source_code
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602

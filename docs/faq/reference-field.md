@@ -8,9 +8,9 @@ When registering data in LaminDB, you might want to store a reference link or ID
 
 We have `reference` and `reference_type` fields for this purpose, they are available for {class}`~lamindb.Collection`, {class}`~lamindb.Transform`, {class}`~lamindb.Run` and {class}`~lamindb.Record`.
 
-```python
+```bash
 # !pip install lamindb
-!lamin init --storage testreference
+lamin init --storage testreference
 ```
 
 ```python
@@ -25,6 +25,6 @@ ln.Record(
 )
 ```
 
-```python
-!lamin delete --force testreference
+```bash
+lamin delete --force testreference
 ```

@@ -45,6 +45,7 @@ from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    import builtins
     from datetime import datetime
 
     import pandas as pd
@@ -946,7 +947,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     @strict_classmethod
     def from_dataframe(
-        cls,
+        cls: builtins.type[Record],
         df: pd.DataFrame,
         *,
         type: Record | str,

@@ -20,7 +20,6 @@ from lamindb_setup.core._hub_core import (
     select_storage_or_parent,
 )
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
-from lamindb_setup.core.suffix import extract_suffixes_from_path
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
@@ -29,6 +28,8 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+
+from lamindb.base.types import CanonicalSuffix
 
 from ..base.fields import (
     BigIntegerField,
@@ -147,10 +148,19 @@ if TYPE_CHECKING:
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
-    from spatialdata import SpatialData  # noqa: TC004
-    from tiledbsoma import Collection as SOMACollection
-    from tiledbsoma import Experiment as SOMAExperiment
-    from tiledbsoma import Measurement as SOMAMeasurement
+
+    try:
+        from spatialdata import SpatialData  # noqa: TC004
+    except Exception:  # pragma: no cover
+        SpatialData = Any
+    try:
+        from tiledbsoma import Collection as SOMACollection
+        from tiledbsoma import Experiment as SOMAExperiment
+        from tiledbsoma import Measurement as SOMAMeasurement
+    except Exception:  # pragma: no cover
+        SOMACollection = Any
+        SOMAExperiment = Any
+        SOMAMeasurement = Any
 
     from ..base.types import (
         ArtifactKind,
@@ -169,6 +179,31 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
+else:
+    AnyPathStr = Any
+    AnnData = Any
+    MuData = Any
+    SpatialData = Any
+    SOMACollection = Any
+    SOMAExperiment = Any
+    SOMAMeasurement = Any
+    PyArrowDataset = Any
+    PolarsLazyFrame = Any
+    AbstractFileSystem = Any
+    ArtifactKind = Any
+    StrField = Any
+    AnnDataAccessor = Any
+    BackedAccessor = Any
+    SpatialDataAccessor = Any
+    ScverseDataStructures = Any
+    LabelManager = Any
+    ArtifactBlock = Any
+    Collection = Any
+    Project = Any
+    Reference = Any
+    RelatedManager = Any
+    Record = Any
+    Transform = Any
 
 
 OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
@@ -285,7 +320,7 @@ def process_data(
 
     if key is not None:
         key_path = PurePosixPath(key)
-        _, key_raw_suffix = extract_suffixes_from_path(key_path)
+        _, key_raw_suffix = CanonicalSuffix.extract_from_path(key_path)
         # use suffix as the (adata) format if the format is not provided
         if is_anndata and format is None and key_raw_suffix != "":
             format = key_raw_suffix[1:]
@@ -308,7 +343,7 @@ def process_data(
             using_key=using_key,
             skip_existence_check=skip_existence_check,
         )
-        suffix, raw_suffix = extract_suffixes_from_path(path)
+        suffix, raw_suffix = CanonicalSuffix.extract_from_path(path)
         memory_rep = None
     elif (
         is_anndata
@@ -1122,7 +1157,7 @@ class LazyArtifact:
         self.kwargs["overwrite_versions"] = overwrite_versions
 
         if (key := kwargs.get("key")) is not None and (
-            key_raw_suffix := extract_suffixes_from_path(PurePosixPath(key))[1]
+            key_raw_suffix := CanonicalSuffix.extract_from_path(PurePosixPath(key))[1]
         ) != suffix:
             raise ValueError(
                 f"The suffix argument {suffix} and the suffix of key {key_raw_suffix} should be the same."
@@ -1479,26 +1514,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Storage, PROTECT, related_name="artifacts", editable=False
     )
     """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
-    suffix: str = CharField(max_length=30, db_index=True, editable=False)
-    # Initially, we thought about having this be nullable to indicate folders
-    # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
-    """Canonical suffix inferred from the artifact path.
+    suffix: CanonicalSuffix | str = CharField(
+        max_length=30, db_index=True, editable=False
+    )
+    """:class:`~lamindb.base.types.CanonicalSuffix` or user-defined strings.
 
-    The inferred value is one of the recognized valid suffixes in
-    :class:`lamindb_setup.core.suffix.VALID_SUFFIXES`:
-    simple suffixes (e.g. `".csv"`, `".h5ad"`), composite suffixes
-    (e.g. `".anndata.zarr"`), and supported compression combinations
-    (e.g. `".csv.gz"`, `".h5ad.tar.gz"`).
+    A canonical suffix such as `".csv"`, `".parquet"`, or `".zarr"` indicates the storage format of an artifact.
 
-    If a path has no recognized suffix (for example `test.xyz`), the stored value is
-    the empty string `""`.
+    Unknown formats map to the empty string: `""`.
+    Known formats are based on MIME types and can be extended via :class:`~lamindb.base.types.CanonicalSuffix`.
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
+    """:class:`~lamindb.base.types.ArtifactKind` or user-defined strings (default `None`)."""
     otype: (
         Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma"]
         | str
@@ -2094,7 +2125,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @strict_classmethod
     def get(
-        cls,
+        cls: type[Artifact],
         idlike: int | str | None = None,
         *,
         key: str | None = None,
@@ -2136,7 +2167,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @strict_classmethod
     def filter(
-        cls,
+        cls: type[Artifact],
         *queries,
         **expressions,
     ) -> QuerySet:
@@ -3284,7 +3315,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
-            new_key_raw_suffix = extract_suffixes_from_path(PurePosixPath(new_key))[1]
+            new_key_raw_suffix = CanonicalSuffix.extract_from_path(
+                PurePosixPath(new_key)
+            )[1]
             if new_key_raw_suffix != self.suffix:
                 raise InvalidArgument(
                     f"The suffix '{new_key_raw_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
@@ -3780,7 +3813,7 @@ def track_run_input(
     if is_run_input:
         if run is None:
             # Don't emit this warning when no global instance is configured.
-            if setup_settings._instance_exists:
+            if setup_settings.is_configured:
                 isettings = setup_settings.instance
                 if not (isettings._is_clone or isettings.is_read_only_connection):
                     logger.warning(WARNING_NO_INPUT)

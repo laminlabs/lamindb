@@ -1,6 +1,8 @@
 __MACOSX/
 
 # LaminDB
+docs/pertdb.*.rst
+docs/bionty.*.rst
 README_stripped.md
 docs/scripts/test_artifact_parquet.py
 README.ipynb

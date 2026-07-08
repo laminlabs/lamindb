@@ -6,10 +6,10 @@ execute_via: python
 
 This guide walks through streaming datasets from disk or cloud storage.
 
-```python
+```bash
 # replace with your username and S3 bucket
-!lamin login testuser1
-!lamin init --storage s3://lamindb-ci/test-arrays
+lamin login testuser1
+lamin init --storage s3://lamindb-ci/test-arrays
 ```
 
 Import lamindb and track this notebook.

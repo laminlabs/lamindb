@@ -13,3 +13,6 @@
 [submodule "sub/cellxgene-lamin"]
 	path = sub/cellxgene-lamin
 	url = https://github.com/laminlabs/cellxgene-lamin.git
+[submodule "lamindb/.agents"]
+	path = lamindb/.agents
+	url = https://github.com/laminlabs/lamin-skills

@@ -535,7 +535,7 @@ class Run(SQLRecord, TracksUpdates):
 
     @strict_classmethod
     def filter(
-        cls,
+        cls: type[Run],
         *queries,
         **expressions,
     ) -> QuerySet:

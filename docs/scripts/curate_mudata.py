@@ -36,7 +36,7 @@ obs_schema_rna = ln.Schema(
 obs_schema_hto = ln.Schema(
     name="mudata_papalexi21_subset_hto_obs_schema",
     features=[
-        ln.Feature(name="nCount_HTO", dtype=float).save(),
+        ln.Feature(name="nCount_HTO", dtype=int).save(),
         ln.Feature(name="nFeature_HTO", dtype=int).save(),
         ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
     ],
