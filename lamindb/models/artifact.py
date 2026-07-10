@@ -3813,7 +3813,7 @@ def track_run_input(
     if is_run_input:
         if run is None:
             # Don't emit this warning when no global instance is configured.
-            if setup_settings._instance_exists:
+            if setup_settings.is_configured:
                 isettings = setup_settings.instance
                 if not (isettings._is_clone or isettings.is_read_only_connection):
                     logger.warning(WARNING_NO_INPUT)

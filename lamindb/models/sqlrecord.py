@@ -1164,12 +1164,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 return fk_record is not None
 
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
-                if (
-                    issubclass(self.__class__, SQLRecord)
-                    and self.__class__.__name__ != "Storage"
-                    # do not save bionty entities in restricted spaces by default
-                    and self.__class__.__module__ != "bionty.models"
-                ):
+                if issubclass(self.__class__, SQLRecord):
                     from lamindb import context as run_context
 
                     # Precedence is uniform across SQLRecord children:
@@ -1973,13 +1968,13 @@ class Branch(BaseSQLRecord):
         through="BranchULabel",
         related_name="branches",
     )
-    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    """ULabels annotating this branch ← :attr:`~lamindb.ULabel.branches`."""
     projects: RelatedManager[Project] = models.ManyToManyField(
         "Project",
         through="BranchProject",
         related_name="branches",
     )
-    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+    """Projects annotating this branch ← :attr:`~lamindb.Project.branches`."""
 
     @property
     def status(self) -> BranchStatus:
