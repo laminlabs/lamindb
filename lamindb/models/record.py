@@ -1157,10 +1157,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
         are omitted. Sheets without `index` keep the previous export behavior.
 
-        When tracking is active, it links the record type (and optionally the
-        exported records) directly to the active run inputs. It does not create a
-        mediating ``__lamindb_record_export__`` run.
-
         Example:
 
             Export all records on a sheet::
@@ -1172,6 +1168,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
                 inputs of the run. If `False`, only links the record type.
+            use_export_run: Whether to create and use a mediating
+                `__lamindb_record_export__` run for lineage.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         if isinstance(cls_or_self, type):
@@ -1216,9 +1214,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         When the sheet schema defines :attr:`~lamindb.Schema.index`, the CSV is written
         with `index=True` so the index feature is preserved on export.
-
-        `to_artifact()` uses a mediating ``__lamindb_record_export__`` run to capture
-        export lineage before persisting the artifact.
 
         Example:
 
