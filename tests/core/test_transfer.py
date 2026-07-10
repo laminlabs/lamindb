@@ -78,7 +78,20 @@ def test_schema_transfer_defaults_to_annotations():
     perturbation_names = sorted(
         perturbation_feature.dtype_as_object.records.values_list("name", flat=True)
     )
-    assert perturbation_names == ["DMSO", "IFNG"]
+    assert perturbation_names == [
+        "Compound A",
+        "Compound B",
+        "DMSO",
+        "IAA",
+        "IFNG",
+        "IL-2",
+        "PMA/ionomycin",
+        "VEGF",
+        "Vehicle",
+        "anti-CD20",
+        "anti-CD3/CD28",
+        "anti-PD1",
+    ]
 
     before_count = transferred.links_feature.count()
     transferred_repeat = db.Schema.get(schema_uid).save()
