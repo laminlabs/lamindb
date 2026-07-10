@@ -1,6 +1,6 @@
 # Manage changes
 
-You can manage updates to objects through versioning, and safely remove obsolete data by moving it to the `archive` or `trash` branches. For more complex workflows, you can use contribution branches similar to branches in git.
+You can manage updates to objects through versioning and safely remove obsolete data by moving it to the `archive` or `trash` branches. For more complex workflows, you can use contribution branches similar to branches in Git.
 
 ## Versioning
 
@@ -29,13 +29,13 @@ There are three built-in branches: `main`, `trash`, and `archive`. By default, o
 
 ::::{tab-set}
 :::{tab-item} UI 
-LaminHub has a Changes tab, which allows the user to have an overview of all the branches that have been created in the instance. Clicking on an individual branch page allows the user to view the entities like artifacts, transforms,etc. corresponding to the branch. 
+LaminHub has a Changes tab that provides an overview of all branches created in the instance. Clicking an individual branch page lets you view entities like artifacts, transforms, etc., associated with that branch.
 
-<img width="400" alt="branch list page" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
+<img width="800" alt="branch list page" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
 :::
 
 :::{tab-item} CLI
-List all the branches in an instance by running
+List all branches in an instance by running:
 
 ```bash
 lamin list branch
@@ -46,7 +46,7 @@ lamin list branch
 
 ### Archive & trash
 
-If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
+If you delete an object, it gets moved into the `trash`. There, it's hidden from queries and searches and scheduled for deletion.
 
 ```python
 artifact.delete()
@@ -69,17 +69,17 @@ artifact.branch_id = 0
 artifact.save()
 ```
 
-Objects in the archive are hidden from queries & search like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
+Objects in the archive are hidden from queries and searches, like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
 
-### Contribution branches
-
+### Contribution workflow
+#### Create a branch
 To create a contribution branch and switch to it, run:
 
 ```bash
 lamin switch -c my_branch
 ```
 
-This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects that you create will then be created on that branch. Alternatively, you can directly configure a branch via the API:
+This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects you create are then created on that branch. Alternatively, you can directly configure a branch via the API:
 
 ::::{tab-set}
 
@@ -94,7 +94,7 @@ ln.setup.settings.branch = "my_branch"  # globally switch the default branch
 :::{tab-item} Via `ln.track()`
 
 ```python
-ln.track(branch="my_branch")  # default branch for all objects created in a run to my_branch
+ln.track(branch="my_branch")  # default branch for all objects created in a run on my_branch
 ```
 
 :::
@@ -109,17 +109,19 @@ ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
 :::
 ::::
 
-To open a Change Request for a branch:
+#### Open a change request
 
 ::::{tab-set}
 
 :::{tab-item} UI
 
-Open the branch in the Changes page, and use the 'Make change request' button to make it a 'draft' branch.
-<img width="400" alt="branch make change request" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
+Open the branch in the Changes page, and use the "Make change request" button to set it to "draft."
 
-Once you think the branch is ready to be reviewed, use the 'Mark ready for review' button to submit it for review.
-<img width="400" alt="branch mark ready" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
+<img width="800" alt="branch make change request" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
+
+Once you think the branch is ready, use the "Mark ready for review" button to submit it for review.
+
+<img width="800" alt="branch mark ready" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
 
 :::
 
@@ -146,14 +148,15 @@ branch.save()
 :::
 ::::
 
-Merging a contribution branch into `main`:
+#### Merge changes
 
 ::::{tab-set}
 
 :::{tab-item} UI
 
-Use the 'Target Branch' dropdown to select 'main' as the target branch for the merge and use the 'Merge' button. 
-<img width="400" alt="branch merge changes" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
+To merge your contribution branch into the `main` branch, set the "Target Branch" dropdown to `main` and use the "Merge" button.
+
+<img width="800" alt="branch merge changes" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
 
 :::
 
@@ -174,17 +177,18 @@ ln.setup.merge("my_branch", target="main")
 :::
 ::::
 
+### Work with branches
 To see the current branch along with other information, run:
 
 ```bash
 lamin info
 ```
 
-Adding a branch readme
+Add a branch README:
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="400" alt="branch readme" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
+<img width="800" alt="branch readme" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
 :::
 
 :::{tab-item} CLI
@@ -195,12 +199,12 @@ lamin annotate branch --readme README.md
 :::
 ::::
 
-Commenting on a branch
+Comment on a branch:
 
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="400" alt="branch commenting" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
+<img width="800" alt="branch commenting" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
 :::
 
 :::{tab-item} CLI
@@ -224,7 +228,6 @@ sqlrecord.created_on.describe()
 ```
 
 
-Just like Pull Requests on GitHub, branches are never deleted
-so that the provenance of a change stays traceable.
+Just like pull requests on GitHub, branches are never deleted so that the provenance of a change stays traceable.
 
 For the API reference, see {class}`~lamindb.Branch`.
