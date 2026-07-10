@@ -152,6 +152,7 @@ class RecordSet(Iterable):
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         _record_type: Record | None = None,
+        use_export_run: bool = False,
     ) -> DataFrame:
         import pandas as pd
 
@@ -284,19 +285,23 @@ class RecordSet(Iterable):
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
 
-        record_type._set_export_run(is_run_input=is_run_input)
-        export_run = record_type._export_run
-        if export_run is not None:
-            export_run.input_records.add(record_type)
+        record_type._set_export_run(
+            is_run_input=is_run_input,
+            use_export_run=use_export_run,
+        )
+        run_for_input_linking = record_type._export_run
+        if run_for_input_linking is not None:
+            run_for_input_linking.input_records.add(record_type)
             if link_individual_inputs:
                 input_record_ids = qs.values_list("id", flat=True)
-                export_run.input_records.add(*input_record_ids)
+                run_for_input_linking.input_records.add(*input_record_ids)
+        if use_export_run and run_for_input_linking is not None:
             from datetime import datetime, timezone
 
-            export_run.finished_at = datetime.now(timezone.utc)
-            export_run._status_code = 0
-            export_run.save()
-        qs._record_export_run = export_run
+            run_for_input_linking.finished_at = datetime.now(timezone.utc)
+            run_for_input_linking._status_code = 0
+            run_for_input_linking.save()
+        qs._record_export_run = run_for_input_linking if use_export_run else None
         return df.sort_index()
 
     def to_artifact(
@@ -330,6 +335,7 @@ class RecordSet(Iterable):
         df = self.to_dataframe(
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
+            use_export_run=True,
             **kwargs,
         )
         record_type = getattr(qs, "_record_export_type", None)
