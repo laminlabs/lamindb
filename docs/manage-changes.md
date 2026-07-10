@@ -143,7 +143,8 @@ branch.status = "review"
 branch.save()
 ```
 
-::: ::::
+:::
+::::
 
 Merging a contribution branch into `main`:
 
@@ -162,7 +163,7 @@ Use the 'Target Branch' dropdown to select 'main' as the target branch for the m
 lamin switch main  # switch to the main branch
 lamin merge my_branch  # merge contribution branch into main
 ```
-::
+:::
 
 :::{tab-item} Python
 
@@ -191,7 +192,8 @@ To annotate the current branch with a `README.md`, run:
 ```bash
 lamin annotate branch --readme README.md
 ```
-::: ::::
+:::
+::::
 
 Commenting on a branch
 
@@ -206,7 +208,8 @@ To comment on the current branch, run:
 ```bash
 lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 ```
-::: ::::
+:::
+::::
 
 To describe the current branch (optionally include comments), run:
 
