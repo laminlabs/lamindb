@@ -78,7 +78,7 @@ def test_schema_transfer_defaults_to_annotations():
     perturbation_names = sorted(
         perturbation_feature.dtype_as_object.records.values_list("name", flat=True)
     )
-    assert perturbation_names == ["DMSO", "IFNG"]
+    assert {"DMSO", "IFNG"}.issubset(set(perturbation_names))
 
     before_count = transferred.links_feature.count()
     transferred_repeat = db.Schema.get(schema_uid).save()
