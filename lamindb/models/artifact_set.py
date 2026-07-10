@@ -152,7 +152,7 @@ class RecordSet(Iterable):
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
         _record_type: Record | None = None,
-        _use_mediating_export_run: bool = False,
+        use_export_run: bool = False,
     ) -> DataFrame:
         import pandas as pd
 
@@ -287,7 +287,7 @@ class RecordSet(Iterable):
 
         record_type._set_export_run(
             is_run_input=is_run_input,
-            use_mediating_export_run=_use_mediating_export_run,
+            use_export_run=use_export_run,
         )
         run_for_input_linking = record_type._export_run
         if run_for_input_linking is not None:
@@ -295,15 +295,13 @@ class RecordSet(Iterable):
             if link_individual_inputs:
                 input_record_ids = qs.values_list("id", flat=True)
                 run_for_input_linking.input_records.add(*input_record_ids)
-        if _use_mediating_export_run and run_for_input_linking is not None:
+        if use_export_run and run_for_input_linking is not None:
             from datetime import datetime, timezone
 
             run_for_input_linking.finished_at = datetime.now(timezone.utc)
             run_for_input_linking._status_code = 0
             run_for_input_linking.save()
-        qs._record_export_run = (
-            run_for_input_linking if _use_mediating_export_run else None
-        )
+        qs._record_export_run = run_for_input_linking if use_export_run else None
         return df.sort_index()
 
     def to_artifact(
@@ -337,7 +335,7 @@ class RecordSet(Iterable):
         df = self.to_dataframe(
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
-            _use_mediating_export_run=True,
+            use_export_run=True,
             **kwargs,
         )
         record_type = getattr(qs, "_record_export_type", None)

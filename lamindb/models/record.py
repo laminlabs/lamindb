@@ -1077,7 +1077,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self,
         is_run_input: bool | Run | None = None,
         *,
-        use_mediating_export_run: bool = True,
+        use_export_run: bool = True,
     ) -> None:
         from lamindb.core._context import context
         from lamindb.models import Run, Transform
@@ -1085,7 +1085,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if isinstance(is_run_input, Run):
             run = is_run_input
         elif is_run_input in {True, None}:
-            if use_mediating_export_run:
+            if use_export_run:
                 # If there is an active run context, link it as initiator of the
                 # internal record export run.
                 initiated_by_run = context.run
@@ -1141,7 +1141,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         recurse: bool = False,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
-        _use_mediating_export_run: bool = False,
+        use_export_run: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -1194,7 +1194,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
             _record_type=self,
-            _use_mediating_export_run=_use_mediating_export_run,
+            use_export_run=use_export_run,
             **kwargs,
         )
         self._export_run = getattr(qs, "_record_export_run", None)
@@ -1244,7 +1244,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self.to_dataframe(
                 is_run_input=is_run_input,
                 link_individual_inputs=link_individual_inputs,
-                _use_mediating_export_run=True,
+                use_export_run=True,
                 **kwargs,
             ),
             key=key,
