@@ -167,7 +167,7 @@ lamin merge my_branch  # merge contribution branch into main
 :::{tab-item} Python
 
 ```python
-ln.Branch.merge("my_branch", target="main")
+ln.setup.merge("my_branch", target="main")
 ```
 
 :::
