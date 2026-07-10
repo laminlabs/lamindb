@@ -31,7 +31,7 @@ There are three built-in branches: `main`, `trash`, and `archive`. By default, o
 :::{tab-item} UI 
 LaminHub has a Changes tab, which allows the user to have an overview of all the branches that have been created in the instance. Clicking on an individual branch page allows the user to view the entities like artifacts, transforms,etc. corresponding to the branch. 
 
-<img width="400" alt="branch list page" src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
+<img width="400" alt="branch list page" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
 :::
 
 :::{tab-item} CLI
@@ -116,10 +116,10 @@ To open a Change Request for a branch:
 :::{tab-item} UI
 
 Open the branch in the Changes page, and use the 'Make change request' button to make it a 'draft' branch.
-<img width="400" alt="branch make change request"src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
+<img width="400" alt="branch make change request" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
 
 Once you think the branch is ready to be reviewed, use the 'Mark ready for review' button to submit it for review.
-<img width="400" alt="branch mark ready" src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
+<img width="400" alt="branch mark ready" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
 
 :::
 
@@ -153,7 +153,7 @@ Merging a contribution branch into `main`:
 :::{tab-item} UI
 
 Use the 'Target Branch' dropdown to select 'main' as the target branch for the merge and use the 'Merge' button. 
-<img width="400" alt="branch merge changes" src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/HOykpFPugonJyerM0000.png"/>
+<img width="400" alt="branch merge changes" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
 
 :::
 
@@ -184,7 +184,7 @@ Adding a branch readme
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="400" alt="branch readme" src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
+<img width="400" alt="branch readme" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
 :::
 
 :::{tab-item} CLI
@@ -200,7 +200,7 @@ Commenting on a branch
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="400" alt="branch commenting" src="https://lamin.ai/storage/s3/lamin-site-assets%2F/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
+<img width="400" alt="branch commenting" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
 :::
 
 :::{tab-item} CLI
