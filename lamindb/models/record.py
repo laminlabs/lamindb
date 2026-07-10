@@ -472,6 +472,9 @@ class RecordBatch:
         index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
+        # columns where every cell is NaN would be silently dropped by the
+        # per-cell skip below; preserve them as None so they reach validation
+        all_null_cols = {col for col in work_df.columns if work_df[col].isna().all()}
         row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
             row = dict(row)
@@ -495,6 +498,10 @@ class RecordBatch:
                 if pd.api.types.is_scalar(value) and pd.isna(value):
                     continue
                 features[key] = value
+            for col in all_null_cols:
+                features[col] = (
+                    None  # None is skipped by _collect_record_feature_writes, not stored
+                )
 
             if index_feature is not None and self._resolved_type.schema is not None:
                 name_from_features, features = pop_index_from_feature_dictionary(
