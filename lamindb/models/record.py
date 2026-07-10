@@ -1073,56 +1073,64 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "records")  # type: ignore
 
-    def _set_export_run(self, is_run_input: bool | Run | None = None) -> None:
+    def _set_export_run(
+        self,
+        is_run_input: bool | Run | None = None,
+        *,
+        use_mediating_export_run: bool = True,
+    ) -> None:
         from lamindb.core._context import context
         from lamindb.models import Run, Transform
 
         if isinstance(is_run_input, Run):
             run = is_run_input
         elif is_run_input in {True, None}:
-            # If there is an active run context, link it as initiator of the
-            # internal record export run.
-            initiated_by_run = context.run
-            # Compatibility path for older instances:
-            # historically, "__lamindb_record_export__" transforms could have
-            # arbitrary UIDs. We now standardize on a fixed UID to make creation
-            # idempotent under concurrency and to avoid duplicate internal
-            # transforms. This follows the fixed-UID pattern already used by
-            # "save_vitessce_config" (integrations/_vitessce.py) and
-            # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
-            # After a few lamindb release cycles (once legacy UIDs are no
-            # longer expected), this normalization branch can be removed.
-            export_transform_uid = "v6KpQx9mRt2B0000"
-            transform = Transform.objects.filter(uid=export_transform_uid).first()
-            if transform is None:
-                transform = (
-                    Transform.objects.filter(
-                        key="__lamindb_record_export__", kind="function"
+            if use_mediating_export_run:
+                # If there is an active run context, link it as initiator of the
+                # internal record export run.
+                initiated_by_run = context.run
+                # Compatibility path for older instances:
+                # historically, "__lamindb_record_export__" transforms could have
+                # arbitrary UIDs. We now standardize on a fixed UID to make creation
+                # idempotent under concurrency and to avoid duplicate internal
+                # transforms. This follows the fixed-UID pattern already used by
+                # "save_vitessce_config" (integrations/_vitessce.py) and
+                # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
+                # After a few lamindb release cycles (once legacy UIDs are no
+                # longer expected), this normalization branch can be removed.
+                export_transform_uid = "v6KpQx9mRt2B0000"
+                transform = Transform.objects.filter(uid=export_transform_uid).first()
+                if transform is None:
+                    transform = (
+                        Transform.objects.filter(
+                            key="__lamindb_record_export__", kind="function"
+                        )
+                        .order_by("created_at")
+                        .first()
                     )
-                    .order_by("created_at")
-                    .first()
+                if transform is None:
+                    transform, _ = Transform.objects.get_or_create(
+                        uid=export_transform_uid,
+                        defaults={
+                            "key": "__lamindb_record_export__",
+                            "kind": "function",
+                        },
+                    )
+                elif transform.uid != export_transform_uid:
+                    transform.uid = export_transform_uid
+                    transform.save()
+                # Export is treated as a discrete user action, so always create a new
+                # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+                run = Run(
+                    transform=transform,
+                    initiated_by_run=initiated_by_run,
+                    status="started",
                 )
-            if transform is None:
-                transform, _ = Transform.objects.get_or_create(
-                    uid=export_transform_uid,
-                    defaults={
-                        "key": "__lamindb_record_export__",
-                        "kind": "function",
-                    },
-                )
-            elif transform.uid != export_transform_uid:
-                transform.uid = export_transform_uid
-                transform.save()
-            # Export is treated as a discrete user action, so always create a new
-            # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
-            run = Run(
-                transform=transform,
-                initiated_by_run=initiated_by_run,
-                status="started",
-            )
-            run.space = self.space
-            run.save()  # type: ignore
-            run.initiated_by_run = initiated_by_run  # available in memory
+                run.space = self.space
+                run.save()  # type: ignore
+                run.initiated_by_run = initiated_by_run  # available in memory
+            else:
+                run = context.run
         else:
             run = None
         self._export_run = run
@@ -1133,6 +1141,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         recurse: bool = False,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
+        _use_mediating_export_run: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -1148,7 +1157,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
         are omitted. Sheets without `index` keep the previous export behavior.
 
-        It will also track the record as an input to the current run.
+        When tracking is active, it links the record type (and optionally the
+        exported records) directly to the active run inputs. It does not create a
+        mediating ``__lamindb_record_export__`` run.
 
         Example:
 
@@ -1160,7 +1171,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             recurse: Whether to include records of sub-types recursively.
             is_run_input: Whether to track the record as a run input.
             link_individual_inputs: Whether to link all exported records as
-                inputs of the export run. If `False`, only links the record type.
+                inputs of the run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         if isinstance(cls_or_self, type):
@@ -1183,6 +1194,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             is_run_input=is_run_input,
             link_individual_inputs=link_individual_inputs,
             _record_type=self,
+            _use_mediating_export_run=_use_mediating_export_run,
             **kwargs,
         )
         self._export_run = getattr(qs, "_record_export_run", None)
@@ -1204,6 +1216,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         When the sheet schema defines :attr:`~lamindb.Schema.index`, the CSV is written
         with `index=True` so the index feature is preserved on export.
+
+        `to_artifact()` uses a mediating ``__lamindb_record_export__`` run to capture
+        export lineage before persisting the artifact.
 
         Example:
 
@@ -1229,6 +1244,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self.to_dataframe(
                 is_run_input=is_run_input,
                 link_individual_inputs=link_individual_inputs,
+                _use_mediating_export_run=True,
                 **kwargs,
             ),
             key=key,

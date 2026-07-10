@@ -109,6 +109,16 @@ artifact.view_lineage()
 assert len(ln.Run.get(id=ln.context.run.id).input_artifacts.all()) == 2
 ```
 
+## How sheet exports are tracked
+
+For sheet-style exports (`Record(is_type=True)`):
+
+- `sheet.to_dataframe()` links the sheet (and exported rows, unless
+  `link_individual_inputs=False`) directly to the active run inputs
+  (`run.input_records`).
+- `sheet.to_artifact()` creates a mediating `__lamindb_record_export__` run and
+  links export inputs on that run before saving the artifact.
+
 ```bash
 rm -r test-run-inputs
 lamin delete --force test-run-inputs

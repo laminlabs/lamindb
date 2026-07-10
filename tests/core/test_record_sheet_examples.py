@@ -115,9 +115,9 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    assert sample_sheet1.input_of_runs.count() == 1
+    assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
-    assert sample_sheet1.input_of_runs.count() == 2
+    assert sample_sheet1.input_of_runs.count() == 0
     assert df.index.name == "name"
     assert df.index.tolist() == ["Sample 1", "Sample 2"]
     assert "name" not in df.columns
@@ -531,9 +531,7 @@ def test_record_export_links_record_type_when_link_records_false(
     _, sample_sheet = populate_sheets_compound_treatment
 
     sample_sheet.to_dataframe(link_individual_inputs=False)
-    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
-    assert dataframe_export_run.input_records.count() == 1
-    assert dataframe_export_run.input_records.get().id == sample_sheet.id
+    assert sample_sheet.input_of_runs.count() == 0
 
     artifact = sample_sheet.to_artifact(link_individual_inputs=False)
     try:
@@ -554,13 +552,7 @@ def test_record_export_applies_filters():
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
 
-    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
-    assert dataframe_export_run is not None
-    assert dataframe_export_run.input_records.count() == 2
-    assert set(dataframe_export_run.input_records.to_list("name")) == {
-        "sample1",
-        "FilterSheet",
-    }
+    assert sample_sheet.input_of_runs.count() == 0
 
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
@@ -597,13 +589,7 @@ def test_record_export_applies_feature_predicate_filters():
     assert len(filtered_df) == 1
     assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
 
-    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
-    assert dataframe_export_run is not None
-    assert dataframe_export_run.input_records.count() == 2
-    assert set(dataframe_export_run.input_records.to_list("name")) == {
-        "sample2",
-        "PredicateFilterSheet",
-    }
+    assert sample_sheet.input_of_runs.count() == 0
 
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
@@ -677,3 +663,34 @@ def test_record_export_populates_initiated_by_run(
     finally:
         ln.context._run = None
         artifact.delete(permanent=True)
+
+
+def test_record_dataframe_tracks_active_run_without_export_run():
+    sheet = ln.Record(name="DataFrameInputSheet", is_type=True).save()
+    record_a = ln.Record(name="row_a", type=sheet).save()
+    record_b = ln.Record(name="row_b", type=sheet).save()
+    transform = ln.Transform(key="test_record_dataframe_tracks_active_run").save()
+    ln.track(transform=transform, new_run=True)
+    active_run = ln.context.run
+    try:
+        _ = sheet.to_dataframe()
+        active_run = ln.Run.get(id=active_run.id)
+        assert set(active_run.input_records.to_list("id")) == {
+            sheet.id,
+            record_a.id,
+            record_b.id,
+        }
+        assert (
+            ln.Run.filter(
+                initiated_by_run=active_run,
+                transform__key="__lamindb_record_export__",
+            ).count()
+            == 0
+        )
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        sheet.delete(permanent=True)
+        transform.delete(permanent=True)
