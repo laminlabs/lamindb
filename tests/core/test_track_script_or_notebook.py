@@ -376,31 +376,6 @@ def test_track_input_record(create_record, kind):
     assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
 
 
-def test_track_input_record_dataframe_links_parent_run_only():
-    sheet = ln.Record(name="track-input-record-sheet", is_type=True).save()
-    row = ln.Record(name="track-input-record-row", type=sheet).save()
-    transform = ln.Transform(key="test-track-record-dataframe-input").save()
-    ln.track(transform=transform, new_run=True)
-    run = ln.context.run
-    try:
-        sheet.to_dataframe()
-        run = ln.Run.get(id=run.id)
-        assert set(run.input_records.to_list("id")) == {sheet.id, row.id}
-        assert (
-            ln.Run.filter(
-                initiated_by_run=run,
-                transform__key="__lamindb_record_export__",
-            ).count()
-            == 0
-        )
-    finally:
-        ln.context._run = None
-        ln.Run.filter(transform=transform).delete(permanent=True)
-        row.delete(permanent=True)
-        sheet.delete(permanent=True)
-        transform.delete(permanent=True)
-
-
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
     ln.context._track_notebook(path_str=notebook_path)

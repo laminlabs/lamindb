@@ -527,34 +527,62 @@ def test_record_export_links_record_type_when_link_records_false(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):
     _, sample_sheet = populate_sheets_compound_treatment
-
-    sample_sheet.to_dataframe(link_individual_inputs=False)
-    assert sample_sheet.input_of_runs.count() == 0
-
-    artifact = sample_sheet.to_artifact(link_individual_inputs=False)
+    transform = ln.Transform(
+        key="test_record_export_links_record_type_when_link_records_false",
+        kind="function",
+    ).save()
+    ln.track(transform=transform, new_run=True)
+    active_run = ln.context.run
     try:
+        sample_sheet.to_dataframe(link_individual_inputs=False)
+        dataframe_export_run = sample_sheet.input_of_runs.order_by(
+            "-created_at"
+        ).first()
+        assert dataframe_export_run is not None
+        assert dataframe_export_run.id == active_run.id
+        assert dataframe_export_run.input_records.count() == 1
+        assert dataframe_export_run.input_records.get().id == sample_sheet.id
+
+        artifact = sample_sheet.to_artifact(link_individual_inputs=False)
         assert artifact.run.input_records.count() == 1
         assert artifact.run.input_records.get().id == sample_sheet.id
     finally:
-        artifact.delete(permanent=True)
+        ln.context._run = None
+        if "artifact" in locals():
+            artifact.delete(permanent=True)
 
 
 def test_record_export_applies_filters():
     sample_sheet = ln.Record(name="FilterSheet", is_type=True).save()
     sample1 = ln.Record(name="sample1", type=sample_sheet).save()
     sample2 = ln.Record(name="sample2", type=sample_sheet).save()
+    transform = ln.Transform(
+        key="test_record_export_applies_filters", kind="function"
+    ).save()
+    ln.track(transform=transform, new_run=True)
+    active_run = ln.context.run
+    try:
+        filtered_df = ln.Record.filter(type=sample_sheet, name="sample1").to_dataframe(
+            include="features"
+        )
+        assert len(filtered_df) == 1
+        assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
 
-    filtered_df = ln.Record.filter(type=sample_sheet, name="sample1").to_dataframe(
-        include="features"
-    )
-    assert len(filtered_df) == 1
-    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
-
-    assert sample_sheet.input_of_runs.count() == 0
-
-    sample1.delete(permanent=True)
-    sample2.delete(permanent=True)
-    sample_sheet.delete(permanent=True)
+        dataframe_export_run = sample_sheet.input_of_runs.order_by(
+            "-created_at"
+        ).first()
+        assert dataframe_export_run is not None
+        assert dataframe_export_run.id == active_run.id
+        assert dataframe_export_run.input_records.count() == 2
+        assert set(dataframe_export_run.input_records.to_list("name")) == {
+            "sample1",
+            "FilterSheet",
+        }
+    finally:
+        ln.context._run = None
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
 
 
 def test_recordset_to_artifact_uses_default_record_exports_key():
@@ -580,19 +608,35 @@ def test_record_export_applies_feature_predicate_filters():
     export_filter_score = ln.Feature(name="export_filter_score", dtype=int).save()
     sample1.features.add_values({"export_filter_score": 10})
     sample2.features.add_values({"export_filter_score": 20})
+    transform = ln.Transform(
+        key="test_record_export_applies_feature_predicate_filters",
+        kind="function",
+    ).save()
+    ln.track(transform=transform, new_run=True)
+    active_run = ln.context.run
+    try:
+        filtered_df = ln.Record.filter(
+            export_filter_score > 15, type=sample_sheet
+        ).to_dataframe(include="features")
+        assert len(filtered_df) == 1
+        assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
 
-    filtered_df = ln.Record.filter(
-        export_filter_score > 15, type=sample_sheet
-    ).to_dataframe(include="features")
-    assert len(filtered_df) == 1
-    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
-
-    assert sample_sheet.input_of_runs.count() == 0
-
-    sample1.delete(permanent=True)
-    sample2.delete(permanent=True)
-    sample_sheet.delete(permanent=True)
-    export_filter_score.delete(permanent=True)
+        dataframe_export_run = sample_sheet.input_of_runs.order_by(
+            "-created_at"
+        ).first()
+        assert dataframe_export_run is not None
+        assert dataframe_export_run.id == active_run.id
+        assert dataframe_export_run.input_records.count() == 2
+        assert set(dataframe_export_run.input_records.to_list("name")) == {
+            "sample2",
+            "PredicateFilterSheet",
+        }
+    finally:
+        ln.context._run = None
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
+        export_filter_score.delete(permanent=True)
 
 
 def test_record_queryset_to_dataframe_mixed_types_falls_back_to_generic():
@@ -661,34 +705,3 @@ def test_record_export_populates_initiated_by_run(
     finally:
         ln.context._run = None
         artifact.delete(permanent=True)
-
-
-def test_record_dataframe_tracks_active_run_without_export_run():
-    sheet = ln.Record(name="DataFrameInputSheet", is_type=True).save()
-    record_a = ln.Record(name="row_a", type=sheet).save()
-    record_b = ln.Record(name="row_b", type=sheet).save()
-    transform = ln.Transform(key="test_record_dataframe_tracks_active_run").save()
-    ln.track(transform=transform, new_run=True)
-    active_run = ln.context.run
-    try:
-        _ = sheet.to_dataframe()
-        active_run = ln.Run.get(id=active_run.id)
-        assert set(active_run.input_records.to_list("id")) == {
-            sheet.id,
-            record_a.id,
-            record_b.id,
-        }
-        assert (
-            ln.Run.filter(
-                initiated_by_run=active_run,
-                transform__key="__lamindb_record_export__",
-            ).count()
-            == 0
-        )
-    finally:
-        ln.context._run = None
-        ln.Run.filter(transform=transform).delete(permanent=True)
-        record_a.delete(permanent=True)
-        record_b.delete(permanent=True)
-        sheet.delete(permanent=True)
-        transform.delete(permanent=True)
