@@ -11,7 +11,6 @@ Import lamindb and track this notebook.
 ```python
 import lamindb as ln
 
-ln.track()  # this step is optional
 db = ln.DB("laminlabs/lamindata")  # we'll pull datasets from there
 ```
 
@@ -183,8 +182,3 @@ The charts below compare PyArrow, Polars, DuckDB, Iceberg, and LanceDB on the sa
 <!-- PLOT: write_path.svg -->
 
 ![Write-path times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/VnVruqKX9KK0uhUw0000.svg)
-
-```python
-# clean up test instance
-ln.setup.delete("test-tables", force=True)
-```
