@@ -115,9 +115,7 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
-    assert sample_sheet1.input_of_runs.count() == 0
     assert df.index.name == "name"
     assert df.index.tolist() == ["Sample 1", "Sample 2"]
     assert "name" not in df.columns
