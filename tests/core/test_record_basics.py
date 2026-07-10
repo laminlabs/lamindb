@@ -142,7 +142,10 @@ def test_record_from_dataframe_partial_null_bool_int():
     flag = ln.Feature(name="from-df-flag", dtype=bool).save()
     count = ln.Feature(name="from-df-count", dtype=int).save()
     label = ln.Feature(name="from-df-label", dtype=str).save()
-    schema = ln.Schema([flag, count, label], name="from-df-bool-int-schema").save()
+    empty = ln.Feature(name="from-df-empty", dtype=str).save()
+    schema = ln.Schema(
+        [flag, count, label, empty], name="from-df-bool-int-schema"
+    ).save()
     sheet = ln.Record(name="from-df-bool-int-sheet", is_type=True, schema=schema).save()
 
     df = pd.DataFrame(
@@ -151,12 +154,14 @@ def test_record_from_dataframe_partial_null_bool_int():
             "from-df-flag": pd.array([True, None, False], dtype="boolean"),
             "from-df-count": pd.array([1, None, 3], dtype="Int64"),
             "from-df-label": ["a", "b", "c"],
+            "from-df-empty": pd.array([None, None, None], dtype="object"),
         }
     )
 
     # the supplied dtypes are genuinely correct/nullable
     assert df["from-df-flag"].dtype.name == "boolean"
     assert df["from-df-count"].dtype.name == "Int64"
+    assert df["from-df-empty"].isna().all()
 
     records = ln.Record.from_dataframe(df, type=sheet)
     assert len(records) == 3
@@ -179,6 +184,13 @@ def test_record_from_dataframe_partial_null_bool_int():
     assert exported["from-df-flag"].dtype.name == "boolean"
     assert exported["from-df-count"].dtype.name == "Int64"
 
+    # entirely-null column: present in export but nothing stored in RecordJson
+    from lamindb.models.record import RecordJson
+
+    assert "from-df-empty" in exported.columns
+    assert exported["from-df-empty"].isna().all()
+    assert RecordJson.objects.filter(feature=empty).count() == 0
+
     ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
         permanent=True
     )
@@ -187,49 +199,6 @@ def test_record_from_dataframe_partial_null_bool_int():
     flag.delete(permanent=True)
     count.delete(permanent=True)
     label.delete(permanent=True)
-
-
-def test_record_from_dataframe_all_null_column_preserved_in_features():
-    """An entirely-null column must appear in each record's features dict as None.
-
-    A column where every cell is NaN has a declared dtype in the schema.
-    Previously it was silently dropped because the per-cell NaN skip also
-    removed fully-empty columns.  After the fix, such columns are added with
-    value=None so the feature is at least acknowledged for every record.
-    Because _collect_record_feature_writes skips None values, no storage link
-    is written -- but the feature is present in the features dict passed to the
-    record constructor, confirming the column was not silently ignored.
-    """
-    present = ln.Feature(name="null-col-label", dtype=str).save()
-    empty = ln.Feature(name="null-col-score", dtype=str).save()
-    schema = ln.Schema([present, empty], name="null-col-schema").save()
-    sheet = ln.Record(name="null-col-sheet", is_type=True, schema=schema).save()
-
-    df = pd.DataFrame(
-        {
-            "__lamindb_record_name__": ["null-col-a", "null-col-b"],
-            "null-col-label": ["val1", "val2"],
-            "null-col-score": pd.array([None, None], dtype="object"),
-        }
-    )
-
-    assert df["null-col-score"].isna().all(), "test setup: empty column must be all-NaN"
-
-    ln.Record.from_dataframe(df, type=sheet).save()
-
-    exported = sheet.to_dataframe()
-    # the entirely-null column must still appear in the export because it is in the schema
-    assert "null-col-score" in exported.columns, (
-        "entirely-null column was silently dropped and is missing from exported DataFrame"
-    )
-    assert exported["null-col-score"].isna().all()
-    # the present column round-trips correctly
-    assert set(exported["null-col-label"]) == {"val1", "val2"}
-
-    ln.Record.filter(name__in=["null-col-a", "null-col-b"]).delete(permanent=True)
-    sheet.delete(permanent=True)
-    schema.delete(permanent=True)
-    present.delete(permanent=True)
     empty.delete(permanent=True)
 
 

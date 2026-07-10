@@ -2299,6 +2299,8 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
 
     data: dict[str, pd.Series] = {}
     for column in ordered_columns:
+        # None from entirely-null columns is not a valid sentinel for extension
+        # dtypes (StringDtype, BooleanDtype, Int64Dtype) — convert to pd.NA
         values = [
             pd.NA if v is None else v
             for v in (row.get(column, pd.NA) for row in prepared_rows)
