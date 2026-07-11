@@ -29,16 +29,22 @@ There are three built-in branches: `main`, `trash`, and `archive`. By default, o
 
 ::::{tab-set}
 :::{tab-item} UI
-LaminHub has a Changes tab that provides an overview of all branches created in the instance. Clicking an individual branch page lets you view entities like artifacts, transforms, etc., associated with that branch.
 
-<img width="800" alt="branch list page" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50001.png"/>
 :::
 
 :::{tab-item} CLI
-List all branches in an instance by running:
 
 ```bash
 lamin list branch
+```
+
+:::
+
+:::{tab-item} Python
+
+```python
+ln.Branch.to_dataframe()
 ```
 
 :::
@@ -81,14 +87,16 @@ To create a contribution branch and switch to it, run:
 lamin switch -c my_branch
 ```
 
-This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects you create are then created on that branch. Alternatively, you can directly configure a branch via the API:
+This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects you create are then created on that branch.
+
+:::::{dropdown} Alternatively, you can configure a branch via the API:
 
 ::::{tab-set}
 
 :::{tab-item} Via settings
 
 ```python
-ln.setup.settings.branch = "my_branch"  # globally switch the default branch
+ln.setup.settings.branch = "my_branch"  # equivalent to lamin switch my_branch via CLI
 ```
 
 :::
@@ -101,7 +109,7 @@ ln.track(branch="my_branch")  # default branch for all objects created in a run 
 
 :::
 
-:::{tab-item} Via object constructor
+:::{tab-item} Via constructor
 
 ```python
 ln.Artifact(..., branch="my_branch")  # add an artifact on my_branch
@@ -110,8 +118,9 @@ ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
 
 :::
 ::::
+:::::
 
-#### Open a change request
+#### Open a Change Request
 
 ::::{tab-set}
 
