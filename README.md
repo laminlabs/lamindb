@@ -16,7 +16,7 @@ Based on open standards, it provides fine-grained data lineage and support for b
 <details>
 <summary>Why?</summary>
 
-1. It's hard to trust results if you don't know where they come from, in particular in the age of agents.
+1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
 2. It's hard to use models if they can't effectively access data.
 
 LaminDB fixes both.
