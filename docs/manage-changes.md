@@ -1,6 +1,6 @@
 # Manage changes
 
-You can manage updates to objects through versioning, and safely remove obsolete data by moving it to the `archive` or `trash` branches. For more complex workflows, you can use contribution branches similar to branches in git.
+To manage changes, you can use versioning, branching, an `archive` and the `trash`.
 
 ## Versioning
 
@@ -27,9 +27,32 @@ All primary objects like artifacts, records, transforms, etc. (any that inherit 
 
 There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches.
 
+::::{tab-set}
+:::{tab-item} UI
+
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50001.png"/>
+:::
+
+:::{tab-item} CLI
+
+```bash
+lamin list branch
+```
+
+:::
+
+:::{tab-item} Python
+
+```python
+ln.Branch.to_dataframe()
+```
+
+:::
+::::
+
 ### Archive & trash
 
-If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
+If you delete an object, it gets moved into the `trash`. There, it's hidden from queries and searches and scheduled for deletion.
 
 ```python
 artifact.delete()
@@ -52,9 +75,11 @@ artifact.branch_id = 0
 artifact.save()
 ```
 
-Objects in the archive are hidden from queries & search like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
+Objects in the archive are hidden from queries and searches, like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
 
-### Contribution branches
+### Contribution workflow
+
+#### Create a branch
 
 To create a contribution branch and switch to it, run:
 
@@ -62,14 +87,16 @@ To create a contribution branch and switch to it, run:
 lamin switch -c my_branch
 ```
 
-This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects that you create will then be created on that branch. Alternatively, you can directly configure a branch via the API:
+This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects you create are then created on that branch.
+
+:::::{dropdown} Alternatively, you can configure a branch via the API:
 
 ::::{tab-set}
 
 :::{tab-item} Via settings
 
 ```python
-ln.setup.settings.branch = "my_branch"  # globally switch the default branch
+ln.setup.settings.branch = "my_branch"  # equivalent to lamin switch my_branch via CLI
 ```
 
 :::
@@ -77,12 +104,12 @@ ln.setup.settings.branch = "my_branch"  # globally switch the default branch
 :::{tab-item} Via `ln.track()`
 
 ```python
-ln.track(branch="my_branch")  # default branch for all objects created in a run to my_branch
+ln.track(branch="my_branch")  # default branch for all objects created in a run on my_branch
 ```
 
 :::
 
-:::{tab-item} Via object constructor
+:::{tab-item} Via constructor
 
 ```python
 ln.Artifact(..., branch="my_branch")  # add an artifact on my_branch
@@ -91,47 +118,23 @@ ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
 
 :::
 ::::
+:::::
 
-To merge a contribution branch into `main`, run:
-
-```bash
-lamin switch main  # switch to the main branch
-lamin merge my_branch  # merge contribution branch into main
-```
-
-To see the current branch along with other information, run:
-
-```bash
-lamin info
-```
-
-To annotate the current branch with a `README.md`, run:
-
-```bash
-lamin annotate branch --readme README.md
-```
-
-To comment on the current branch, run:
-
-```bash
-lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
-```
-
-To describe the current branch (optionally include comments), run:
-
-```bash
-lamin describe branch --include comments
-```
-
-To trace on which branch a `SQLRecord` object was created, run:
-
-```python
-sqlrecord.created_on.describe()
-```
-
-To open a Change Request for a branch, run:
+#### Open a Change Request
 
 ::::{tab-set}
+
+:::{tab-item} UI
+
+Open the branch in the Changes page, and use the "Make change request" button to set it to "draft."
+
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
+
+Once you think the branch is ready, use the "Mark ready for review" button to submit it for review.
+
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
+
+:::
 
 :::{tab-item} CLI
 
@@ -156,7 +159,90 @@ branch.save()
 :::
 ::::
 
-Just like Pull Requests on GitHub, branches are never deleted
-so that the provenance of a change stays traceable.
+#### Merge a branch
+
+::::{tab-set}
+
+:::{tab-item} UI
+
+To merge your contribution branch into the `main` branch, set the "Target Branch" dropdown to `main` and use the "Merge" button.
+
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
+
+:::
+
+:::{tab-item} CLI
+
+```bash
+lamin switch main  # switch to the main branch
+lamin merge my_branch  # merge contribution branch into main
+```
+
+:::
+
+:::{tab-item} Python
+
+```python
+ln.setup.merge("my_branch", target="main")
+```
+
+:::
+::::
+
+### Work with branches
+
+To see the current branch along with other information, run:
+
+```bash
+lamin info
+```
+
+Add notes to a branch:
+::::{tab-set}
+
+:::{tab-item} UI
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
+:::
+
+:::{tab-item} CLI
+
+```bash
+lamin annotate branch --readme README.md
+```
+
+:::
+::::
+
+Comment on a branch:
+
+::::{tab-set}
+
+:::{tab-item} UI
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
+:::
+
+:::{tab-item} CLI
+To comment on the current branch, run:
+
+```bash
+lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+```
+
+:::
+::::
+
+To describe the current branch (optionally include comments), run:
+
+```bash
+lamin describe branch --include comments
+```
+
+To see on which branch a `SQLRecord` object was created, run:
+
+```python
+sqlrecord.created_on
+```
+
+Just like Pull Requests on GitHub, branches are never deleted so that the provenance of a change stays traceable.
 
 For the API reference, see {class}`~lamindb.Branch`.
