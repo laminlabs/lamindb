@@ -1,6 +1,6 @@
 # Manage changes
 
-You can manage updates to objects through versioning and safely remove obsolete data by moving it to the `archive` or `trash` branches. For more complex workflows, you can use contribution branches similar to branches in Git.
+To manage changes, you can use versioning, branching, an `archive` and the `trash`.
 
 ## Versioning
 
@@ -28,7 +28,7 @@ All primary objects like artifacts, records, transforms, etc. (any that inherit 
 There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches.
 
 ::::{tab-set}
-:::{tab-item} UI 
+:::{tab-item} UI
 LaminHub has a Changes tab that provides an overview of all branches created in the instance. Clicking an individual branch page lets you view entities like artifacts, transforms, etc., associated with that branch.
 
 <img width="800" alt="branch list page" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50000.png"/>
@@ -72,7 +72,9 @@ artifact.save()
 Objects in the archive are hidden from queries and searches, like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
 
 ### Contribution workflow
+
 #### Create a branch
+
 To create a contribution branch and switch to it, run:
 
 ```bash
@@ -166,6 +168,7 @@ To merge your contribution branch into the `main` branch, set the "Target Branch
 lamin switch main  # switch to the main branch
 lamin merge my_branch  # merge contribution branch into main
 ```
+
 :::
 
 :::{tab-item} Python
@@ -178,6 +181,7 @@ ln.setup.merge("my_branch", target="main")
 ::::
 
 ### Work with branches
+
 To see the current branch along with other information, run:
 
 ```bash
@@ -193,9 +197,11 @@ Add a branch README:
 
 :::{tab-item} CLI
 To annotate the current branch with a `README.md`, run:
+
 ```bash
 lamin annotate branch --readme README.md
 ```
+
 :::
 ::::
 
@@ -209,9 +215,11 @@ Comment on a branch:
 
 :::{tab-item} CLI
 To comment on the current branch, run:
+
 ```bash
 lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 ```
+
 :::
 ::::
 
@@ -226,7 +234,6 @@ To trace on which branch a `SQLRecord` object was created, run:
 ```python
 sqlrecord.created_on.describe()
 ```
-
 
 Just like pull requests on GitHub, branches are never deleted so that the provenance of a change stays traceable.
 
