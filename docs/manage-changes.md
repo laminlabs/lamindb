@@ -52,17 +52,18 @@ ln.Branch.to_dataframe()
 
 ### Archive & trash
 
-If you delete an object, it gets moved into the `trash`. There, it's hidden from queries and searches and scheduled for deletion.
+If you delete an object, it gets moved into the `trash`. There, it's hidden from queries and search and scheduled for deletion.
 
 ```python
 artifact.delete()
-assert artifact.branch.name == "trash"
+trash = ln.Branch.get(name="trash")
+assert artifact.branch == trash
 
 # the artifact does not show up in a default query
 ln.Artifact.filter(key="my_file.txt")
 
 # you can still query for it by adding the trash branch to the filter
-ln.Artifact.filter(key="my_file.txt", branch__name="trash")
+ln.Artifact.filter(key="my_file.txt", branch=trash)
 
 # you can restore it from trash
 artifact.restore()
@@ -71,11 +72,15 @@ artifact.restore()
 To move an object into the archive, run:
 
 ```python
-artifact.branch_id = 0
+archive = ln.Branch.get(name="archive")
+artifact.branch = archive
 artifact.save()
+
+# you can still query for it by adding the archive branch to the filter
+ln.Artifact.filter(key="my_file.txt", branch=archive)
 ```
 
-Objects in the archive are hidden from queries and searches, like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
+Objects in the archive are hidden from queries and search but they are not scheduled for deletion.
 
 ### Contribution workflow
 
