@@ -11,9 +11,8 @@ It comes with built-in data lineage and support for bio-formats, registries & on
 <details>
 <summary>Why?</summary>
 
-(1) It's hard to trust results if you don't know where they come from, in particular in the age of agents.
-
-(2) It's hard to use models if they can't effectively access data.
+1. It's hard to trust results if you don't know where they come from, in particular in the age of agents.
+2. It's hard to use models if they can't effectively access data.
 
 LaminDB fixes both.
 
