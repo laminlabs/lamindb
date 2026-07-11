@@ -3,7 +3,7 @@
 # LaminDB - Open-source data framework for biology
 
 LaminDB makes it easy to query, trace, and validate datasets across diverse storage formats and locations.
-It's built on open data standards with built-in data lineage and support for bio-formats, registries & ontologies.
+It comes with built-in data lineage and support for bio-formats, registries & ontologies based on open standards.
 
 - LLM? [llms.txt](https://docs.lamin.ai/llms.txt)
 - Agent? See skills at `lamindb/.agents` or install [lamin-skills](https://github.com/laminlabs/lamin-skills).
@@ -11,17 +11,11 @@ It's built on open data standards with built-in data lineage and support for bio
 <details>
 <summary>Why?</summary>
 
-While running comp bio, comp chem, and ML engineering teams for several years, we faced two main problems:
+(1) It's hard to trust results if you don't know where they come from, in particular in the age of agents.
 
-(1) We made incorrect assumptions about how datasets were generated because their processing steps couldn't always be traced.
+(2) It's hard to use models if they can't effectively access data.
 
-(2) We found it difficult to train models on thousands of datasets across storage, LIMS, and ELN systems due to the lack of a unified query interface.
-
-To fix these, we reduced data lineage tracking to a single line of code and unified queries across storage and databases, scaling to millions of features.
-
-<img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
-
-Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
+LaminDB fixes both.
 
 </details>
 
