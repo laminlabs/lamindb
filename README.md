@@ -7,7 +7,7 @@ It's built on open data standards with built-in data lineage and support for bio
 
 LLM? [llms.txt](https://docs.lamin.ai/llms.txt)
 
-Agent? [lamindb/.agents](lamindb/.agents) -- Or manually install [lamin-skills](https://github.com/laminlabs/lamin-skills).
+Agent? See skills at `lamindb/.agents` or install [lamin-skills](https://github.com/laminlabs/lamin-skills).
 
 <details>
 <summary>Why?</summary>
