@@ -223,7 +223,10 @@ def process_pathlike(
     if not skip_existence_check:
         try:  # check if file exists
             if not filepath.exists():
-                raise FileNotFoundError(filepath)
+                hint = ""
+                if Artifact.filter(uid=filepath.name).first() is not None:
+                    hint = f', did you mean Artifact.get("{filepath.name}")?'
+                raise FileNotFoundError(str(filepath) + hint)
         except PermissionError:
             pass
     if _s().check_path_is_child_of_root(filepath, storage.root):

@@ -95,6 +95,21 @@ def test_basic_validation():
         == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory for non-s3/gs paths."
     )
 
+    # path whose name is an existing artifact uid → hint in FileNotFoundError
+    tmp_file = Path("test_uid_hint.txt")
+    tmp_file.write_text("test")
+    artifact = ln.Artifact(tmp_file, description="test uid hint").save()
+    tmp_file.unlink()
+    with pytest.raises(FileNotFoundError) as error:
+        ln.Artifact(artifact.uid)
+    assert f'did you mean Artifact.get("{artifact.uid}")' in error.exconly()
+    artifact.delete(permanent=True, storage=True)
+
+    # non-existent path with no matching uid → plain FileNotFoundError, no hint
+    with pytest.raises(FileNotFoundError) as error:
+        ln.Artifact("nonexistent_file.csv")
+    assert "did you mean" not in error.exconly()
+
 
 def test_cloud_path_init_missing_storage_raises(monkeypatch):
     path = "s3://missing-storage/.lamindb/test_df.parquet"
