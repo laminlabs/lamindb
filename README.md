@@ -2,25 +2,24 @@
 
 # LaminDB - Open-source data framework for biology
 
-LaminDB makes it easy to query, trace, and validate millions of datasets across diverse storage formats.
-It's built on open data standards with built-in data lineage and support for bio-formats, registries & ontologies.
+LaminDB makes it easy to query, trace, and validate datasets across diverse storage formats and locations.
+Based on open standards, it provides fine-grained data lineage and support for bio-formats, registries & ontologies.
 
-Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
+<details>
+<summary>LLM?</summary>
+
+- Docs: [llms.txt](https://docs.lamin.ai/llms.txt)
+- Skills: See `lamindb/.agents` or manually install the latest version from [lamin-skills](https://github.com/laminlabs/lamin-skills).
+
+</details>
 
 <details>
 <summary>Why?</summary>
 
-While running comp bio, comp chem, and ML engineering teams for several years, we faced two main problems:
+1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
+2. It's hard to use models if they can't effectively access data.
 
-(1) We made incorrect assumptions about how datasets were generated because their processing steps couldn't always be traced.
-
-(2) We found it difficult to train models on thousands of datasets across storage, LIMS, and ELN systems due to the lack of a unified query interface.
-
-To fix these, we reduced data lineage tracking to a single line of code and unified queries across storage and databases, scaling to millions of features.
-
-<img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
-
-Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
+LaminDB fixes both.
 
 </details>
 
@@ -28,13 +27,13 @@ Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-meas
 
 How?
 
-- **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **lakehouse** → manage, monitor & validate schemas for standard and bio formats; query across many datasets
+- **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
+- **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
-- **change management** → branching & merging similar to git, plan management for agents
+- **change management** → branching & merging similar to git
 
 Architecture?
 
