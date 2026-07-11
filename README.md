@@ -5,7 +5,9 @@
 LaminDB makes it easy to query, trace, and validate millions of datasets across diverse storage formats.
 It's built on open data standards with built-in data lineage and support for bio-formats, registries & ontologies.
 
-Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
+LLM? [llms.txt](https://docs.lamin.ai/llms.txt)
+
+Agent? [lamindb/.agents](lamindb/.agents) -- Or manually install [lamin-skills](https://github.com/laminlabs/lamin-skills).
 
 <details>
 <summary>Why?</summary>
@@ -28,8 +30,8 @@ Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-meas
 
 How?
 
-- **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **lakehouse** → manage, monitor & validate schemas for standard and bio formats; query across many datasets
+- **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
+- **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
