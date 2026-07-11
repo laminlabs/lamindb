@@ -5,9 +5,7 @@
 LaminDB makes it easy to query, trace, and validate millions of datasets across diverse storage formats.
 It's built on open data standards with built-in data lineage and support for bio-formats, registries & ontologies.
 
-LLM? [llms.txt](https://docs.lamin.ai/llms.txt)
-
-Agent? See skills at `lamindb/.agents` or install [lamin-skills](https://github.com/laminlabs/lamin-skills).
+LLM: [llms.txt](https://docs.lamin.ai/llms.txt). Agent: See skills at `lamindb/.agents` or install [lamin-skills](https://github.com/laminlabs/lamin-skills).
 
 <details>
 <summary>Why?</summary>
