@@ -33,7 +33,7 @@ How?
 - **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
-- **change management** → branching & merging similar to git, plan management for agents
+- **change management** → branching & merging similar to git
 
 Architecture?
 
