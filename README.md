@@ -3,10 +3,15 @@
 # LaminDB - Open-source data framework for biology
 
 LaminDB makes it easy to query, trace, and validate datasets across diverse storage formats and locations.
-It comes with built-in data lineage and support for bio-formats, registries & ontologies based on open standards.
+Based on open standards, it provides fine-grained data lineage and support for bio-formats, registries & ontologies.
 
-- LLM? [llms.txt](https://docs.lamin.ai/llms.txt)
-- Agent? See skills at `lamindb/.agents` or install [lamin-skills](https://github.com/laminlabs/lamin-skills).
+<details>
+<summary>LLM?</summary>
+
+- Docs: [llms.txt](https://docs.lamin.ai/llms.txt)
+- Skills: See `lamindb/.agents` or manually install the latest version from [lamin-skills](https://github.com/laminlabs/lamin-skills).
+
+</details>
 
 <details>
 <summary>Why?</summary>
