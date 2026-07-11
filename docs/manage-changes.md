@@ -128,11 +128,11 @@ ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
 
 Open the branch in the Changes page, and use the "Make change request" button to set it to "draft."
 
-<img width="800" alt="branch make change request" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70000.png"/>
 
 Once you think the branch is ready, use the "Mark ready for review" button to submit it for review.
 
-<img width="800" alt="branch mark ready" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0000.png"/>
 
 :::
 
@@ -159,7 +159,7 @@ branch.save()
 :::
 ::::
 
-#### Merge changes
+#### Merge a branch
 
 ::::{tab-set}
 
@@ -167,7 +167,7 @@ branch.save()
 
 To merge your contribution branch into the `main` branch, set the "Target Branch" dropdown to `main` and use the "Merge" button.
 
-<img width="800" alt="branch merge changes" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0000.png"/>
 
 :::
 
@@ -197,15 +197,14 @@ To see the current branch along with other information, run:
 lamin info
 ```
 
-Add a branch README:
+Add notes to a branch:
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="800" alt="branch readme" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0000.png"/>
 :::
 
 :::{tab-item} CLI
-To annotate the current branch with a `README.md`, run:
 
 ```bash
 lamin annotate branch --readme README.md
@@ -219,7 +218,7 @@ Comment on a branch:
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="800" alt="branch commenting" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0000.png"/>
 :::
 
 :::{tab-item} CLI
@@ -238,12 +237,12 @@ To describe the current branch (optionally include comments), run:
 lamin describe branch --include comments
 ```
 
-To trace on which branch a `SQLRecord` object was created, run:
+To see on which branch a `SQLRecord` object was created, run:
 
 ```python
-sqlrecord.created_on.describe()
+sqlrecord.created_on
 ```
 
-Just like pull requests on GitHub, branches are never deleted so that the provenance of a change stays traceable.
+Just like Pull Requests on GitHub, branches are never deleted so that the provenance of a change stays traceable.
 
 For the API reference, see {class}`~lamindb.Branch`.
