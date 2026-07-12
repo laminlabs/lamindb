@@ -88,6 +88,7 @@ def install(session):
         "cli",
         "permissions",
         "profile",
+        "minimal",
     ],
 )
 def install_ci(session, group):
@@ -171,6 +172,9 @@ def install_ci(session, group):
         pass
     elif group == "profile":
         pass
+    elif group == "minimal":
+        run(session, "uv pip install --system .")
+        return
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[full,dev{extras}]")
@@ -287,11 +291,12 @@ def prepare(session):
         "transfer",
         "cli",
         "permissions",
+        "minimal",
     ],
 )
 def test(session, group):
     # we likely don't need auth in many other groups, but have to carefully expand this
-    if group not in {"curator", "no-instance"}:
+    if group not in {"curator", "no-instance", "minimal"}:
         login_testuser2(session)
         login_testuser1(session)
     # this is mostly needed for the docs so that we don't render Django's entire public API
@@ -365,6 +370,8 @@ def test(session, group):
         )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
+    elif group == "minimal":
+        run(session, "pytest ./tests/minimal")
     # move artifacts into right place
     if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
         target_dir = Path(f"./docs/{group}")
