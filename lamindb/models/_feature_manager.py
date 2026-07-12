@@ -8,10 +8,6 @@ from itertools import compress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-try:
-    import numpy as np
-except ModuleNotFoundError:  # optional dependency for minimal imports
-    np = None
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
@@ -758,6 +754,7 @@ def describe_features(
 def infer_convert_dtype_key_value(
     key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
+    import numpy as np
     import pandas as pd
 
     from lamindb.base.dtypes import is_valid_datetime_str
@@ -1005,6 +1002,8 @@ def filter_base(
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
+    import numpy as np
+
     from lamindb.models import BasicQuerySet, QuerySet
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
@@ -1037,6 +1036,8 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
+    import numpy as np
+
     from lamindb.models import BasicQuerySet, QuerySet
 
     feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
@@ -1431,6 +1432,8 @@ class FeatureManager:
         | None = None,
         index_feature: Feature | None = None,
     ) -> None:
+        import numpy as np
+
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
         from .record import (
@@ -1722,6 +1725,8 @@ class FeatureManager:
         *,
         values_by_feature_uid: dict[str, Any] | None = None,
     ):
+        import numpy as np
+
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
 
@@ -2217,6 +2222,8 @@ class FeatureManager:
 
 
 def bulk_set_features_in_records(records: Iterable[Record]) -> None:
+    import numpy as np
+
     """Bulk-set lazy feature dictionaries for records.
 
     Intended for records created via `Record(features=...)` and persisted with
