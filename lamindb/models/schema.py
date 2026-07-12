@@ -3,7 +3,6 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
-import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models, transaction
@@ -986,6 +985,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             dtype = NUMBER_TYPE
             logger.debug("setting feature set to 'number'")
         validated = registry.validate(values, field=field, mute=mute, organism=organism)
+        import numpy as np
+
         values_array = np.array(values)
         validated_values = values_array[validated]
         if validated.sum() != len(values):

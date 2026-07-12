@@ -8,7 +8,10 @@ from itertools import compress
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
+try:
+    import numpy as np
+except ModuleNotFoundError:  # optional dependency for minimal imports
+    np = None
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery

@@ -5,7 +5,6 @@ import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
-import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models
@@ -71,6 +70,14 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
+
+
+def _is_numpy_dtype(value: Any) -> bool:
+    try:
+        import numpy as np
+    except ModuleNotFoundError:
+        return False
+    return isinstance(value, np.dtype)
 
 
 @dataclass(frozen=True)
@@ -488,7 +495,7 @@ def serialize_dtype(
     else:
         from pandas.core.dtypes.base import ExtensionDtype
 
-        if isinstance(dtype, (ExtensionDtype, np.dtype)):
+        if isinstance(dtype, ExtensionDtype) or _is_numpy_dtype(dtype):
             dtype_str = serialize_pandas_dtype(dtype)
         else:
             error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
