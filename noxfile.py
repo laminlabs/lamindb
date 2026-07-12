@@ -173,6 +173,7 @@ def install_ci(session, group):
     elif group == "profile":
         pass
     elif group == "minimal":
+        run(session, "uv pip install --system pytest")
         run(session, "uv pip install --system .")
         return
 
