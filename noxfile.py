@@ -71,8 +71,8 @@ def install(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core-sqlite",
-        "unit-core-postgres",
+        "unit-pydata-sqlite",
+        "unit-pydata-postgres",
         "unit-storage",
         "no-instance",
         "tutorial",
@@ -93,7 +93,7 @@ def install(session):
 )
 def install_ci(session, group):
     extras = ""
-    if group in ["unit-core-sqlite", "unit-core-postgres"]:
+    if group in ["unit-pydata-sqlite", "unit-pydata-postgres"]:
         extras += "fcs"
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system mudata")
@@ -256,7 +256,7 @@ def prepare(session):
 
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
     convert_executable_md_files()
-    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
+    os.system("cp ./tests/pydata/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
         "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
@@ -276,8 +276,8 @@ def prepare(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core-sqlite",
-        "unit-core-postgres",
+        "unit-pydata-sqlite",
+        "unit-pydata-postgres",
         "unit-storage",
         "no-instance",
         "curator",
@@ -305,18 +305,18 @@ def test(session, group):
     duration_args = "--durations=10"
 
     env = os.environ.copy()
-    if group == "unit-core-sqlite":
+    if group == "unit-pydata-sqlite":
         env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
-            f"pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/pydata {duration_args}",
             env=env,
         )
-    elif group == "unit-core-postgres":
+    elif group == "unit-pydata-postgres":
         env["LAMINDB_TEST_DB_VENDOR"] = "postgresql"
         run(
             session,
-            f"pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/pydata {duration_args}",
             env=env,
         )
     elif group == "unit-storage":

@@ -35,7 +35,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core-sqlite", "unit-core-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
+          BASE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
           ADDITIONAL_GROUPS=[]
 
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
@@ -98,7 +98,7 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
         id: cache-postgres
         uses: actions/cache@v4
         with:
@@ -107,10 +107,10 @@ jobs:
           restore-keys: |
             cache-postgres-
       - name: cache postgres miss
-        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-pydata-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
 
       - run: pip install "laminci@git+https://github.com/laminlabs/laminci"

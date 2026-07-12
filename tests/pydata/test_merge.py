@@ -40,6 +40,7 @@ def test_merge_branch_into_main():
     branch.delete(permanent=True)
     ln.setup.switch("main")
 
+
 def test_merge_without_switch_via_explicit_target():
     main_branch = ln.Branch.get(name="main")
     source_branch = ln.Branch(name="test_merge_explicit_target_source").save()
@@ -139,6 +140,7 @@ def test_merge_nonexistent_target_branch_raises():
         ln.setup.merge(source_branch.name, target="nonexistent_target_branch_xyz")
     assert "not found" in str(exc_info.value).lower()
     source_branch.delete(permanent=True)
+
 
 def test_merge_reconciles_is_latest_for_versioned_records():
     main_branch = ln.Branch.get(name="main")

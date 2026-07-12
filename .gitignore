@@ -76,7 +76,7 @@ curate.tiledbsoma
 small_dataset.tiledbsoma
 nonregistered_storage
 registered_storage
-tests/core/notebooks/no-uid-renamed.ipynb
+tests/pydata/notebooks/no-uid-renamed.ipynb
 
 # General
 .DS_Store

@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-<!-- this guide is replicated in `tests/core/test_transfer.py` via `test_transfer_tutorial_artifact_annotations` -->
+<!-- this guide is replicated in `tests/pydata/test_transfer.py` via `test_transfer_tutorial_artifact_annotations` -->
 
 # Transfer & sync data across databases
 
