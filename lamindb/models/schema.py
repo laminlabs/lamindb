@@ -306,7 +306,14 @@ KNOWN_SCHEMAS = {  # by hash
 
 
 class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Schemas of datasets such as column sets of dataframes.
+    """Schemas to impose structure on artifacts and records.
+
+    The simplest example for a schema is the set of columns of a `DataFrame`.
+    LaminDB's schemas generalize those of pyarrow, pydantic, and pandera in two important ways:
+
+    1. They can be used to validate arbitrary array-like data structures, not just tabular data.
+    2. They're anchored in a database, not just in code, so that you can leverage them in queries.
+    3. They can be used to curate external data structures and define sheets via LaminDB's records.
 
     To create a schema, at least one of the following parameters must be passed:
 

@@ -531,19 +531,17 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records with markdown notes, dynamic registries, and sheets.
+    """Records that support sheets and markdown notes.
 
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
-    and other custom entities with their features.
+    and other custom entities.
 
     Args:
         name: `str | None = None` A name.
         description: `str | None = None` A description.
         type: `Record | None = None` The type of this record.
-        is_type: `bool = False` Whether this record is a type (a record that
-            classifies other records).
-        features: `dict[str | Feature, Any] | None = None` Lazy feature values
-            to persist on `.save()` or `ln.save([...])`.
+        is_type: `bool = False` Whether this record is a type.
+        features: `dict[str | Feature, Any] | None = None` Feature annotations.
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
@@ -573,16 +571,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group records in a dynamic registry by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # create an experiments registry
+        # use a record type to create an experiments registry
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
         # create a feature to link experiments
         experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-        # constrain a samples registry with a schema, turning it into a sheet
+        # create a samples sheet by constraining a record type with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
@@ -640,30 +638,30 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Notes
     -----
 
-    **Schema index.** When a sheet schema defines :attr:`~lamindb.Schema.index`, the
-    index feature acts as the row key — analogous to `df.index` for tabular data.
-    The index feature must have `dtype=str` because values are stored on
-    :attr:`~lamindb.Record.name`:
-
-    - **Write**: `Record(features=...)`, `features.add_values()`, and
-      :meth:`~lamindb.Record.from_dataframe` route the index feature to
-      :attr:`~lamindb.Record.name` and do not write it to link tables.
-    - **Read**: `features.get_values()` injects the index from `Record.name`.
-    - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
-      (named after the index feature) and omits encoded metadata columns
-      (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
-      Sheets without `index` keep the previous export behavior.
-    - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
-      matches the schema index feature (or the index feature as a column).
-    - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
-      is configured.
-
-    You can edit records like spreadsheets on the hub:
+    You can edit records like spreadsheets in the UI:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
         :width: 800px
 
-    Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
+    .. dropdown:: An index feature maps onto the name field of a record.
+
+        When a sheet schema defines :attr:`~lamindb.Schema.index`, the
+        index feature acts as the row key and maps to the `index` in a `DataFrame` and to the
+        :attr:`~lamindb.Record.name` field of a `Record`:
+
+        - **Write**: `Record(features=...)`, `features.add_values()`, and
+          :meth:`~lamindb.Record.from_dataframe` route the index feature to
+          :attr:`~lamindb.Record.name` and do not write it to link tables.
+        - **Read**: `features.get_values()` injects the index from `Record.name`.
+        - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
+          (named after the index feature) and omits encoded metadata columns
+          (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
+          Sheets without `index` keep the previous export behavior.
+        - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
+          matches the schema index feature (or the index feature as a column).
+        - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
+          is configured.
+
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 

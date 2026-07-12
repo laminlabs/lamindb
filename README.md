@@ -1,9 +1,10 @@
 [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-# LaminDB - Open-source data framework for biology
+# LaminDB - Open-source data management for biology
 
-LaminDB makes it easy to query, trace, and validate datasets across diverse storage formats and locations.
-Based on open standards, it provides fine-grained data lineage and support for bio-formats, registries & ontologies.
+LaminDB makes it easy to query, trace & validate datasets across diverse storage formats and locations.
+It gives you context through annotations, memory through lineage, and governance through branching and versioning.
+It uses a scalable lakehouse architecture that understands bio-formats, registries, ontologies, and markdown notes.
 
 <details>
 <summary>LLM?</summary>
@@ -18,8 +19,9 @@ Based on open standards, it provides fine-grained data lineage and support for b
 
 1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
 2. It's hard to use models if they can't effectively access data.
+3. It's hard to govern changes to data that doesn't fit git.
 
-LaminDB fixes both.
+LaminDB fixes these.
 
 </details>
 
@@ -30,22 +32,22 @@ How?
 - **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
 - **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
+- **LIMS & ELN** → schema-based records management with support for ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments with data & code versioning
-- **change management** → branching & merging similar to git
+- **reproducible** → auto-track source code & compute environments
+- **change management** → versioning & branching similar to git
 
 Architecture?
 
-- **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
-- **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
+- **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
+- **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` or `install.packages('laminr')` - no Docker required, no separate backend
 - **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure
-- **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
-GUI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
+UI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 <details>
 <summary>Who?</summary>
@@ -134,7 +136,7 @@ To connect to an existing instance, run:
 
 ```shell
 lamin login
-lamin connect account/name  # add flag --here to sync with current development directory
+lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
 
 If you prefer to init a new instance instead (no login required), run:
