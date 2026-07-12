@@ -837,7 +837,7 @@ class Context:
             if entrypoint is not None:
                 if stream_tracking:
                     logger.important_hint(
-                        f'recommendation: to identify the script across renames, pass the uid: @ln.flow(uid="{self.transform.uid[:-4]}")'
+                        f'tip: to identify the script across renames, pass the uid: @ln.flow(uid="{self.transform.uid[:-4]}")'
                     )
             else:
                 notebook_or_script = (
@@ -864,7 +864,7 @@ class Context:
                 )  # do not put the values because typically parameterized by user
                 kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
                 logger.important_hint(
-                    f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
+                    f'tip: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
                 )
         if (
             self.transform.kind == "script"

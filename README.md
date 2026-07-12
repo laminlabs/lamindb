@@ -136,7 +136,7 @@ To connect to an existing instance, run:
 
 ```shell
 lamin login
-lamin connect account/name  # add flag --here to sync with current development directory
+lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
 
 If you prefer to init a new instance instead (no login required), run:
