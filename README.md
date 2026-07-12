@@ -1,9 +1,9 @@
 [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-# LaminDB - Open-source data framework for biology
+# LaminDB - Open-source data management for biology
 
-LaminDB makes it easy to query, trace, and validate datasets across diverse storage formats and locations.
-Based on open standards, it provides fine-grained data lineage and support for bio-formats, registries & ontologies.
+LaminDB makes it easy to query, trace, and manage datasets across diverse storage formats and locations.
+It provides context & memory based on a lineage-native lakehouse that supports bio-formats, registries & ontologies.
 
 <details>
 <summary>LLM?</summary>
@@ -18,6 +18,7 @@ Based on open standards, it provides fine-grained data lineage and support for b
 
 1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
 2. It's hard to use models if they can't effectively access data.
+3. Governing changes to other types of data makes as much sense as governing changes to code.
 
 LaminDB fixes both.
 
@@ -30,10 +31,10 @@ How?
 - **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
 - **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
+- **LIMS & ELN** → bio-registries, ontologies & markdown notes based on lakehouse schemas
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments with data & code versioning
-- **change management** → branching & merging similar to git
+- **reproducible** → auto-track source code & compute environments
+- **change management** → versioning & branching similar to git
 
 Architecture?
 

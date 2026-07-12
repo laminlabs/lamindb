@@ -1,4 +1,4 @@
-"""A data framework for biology.
+"""Data management for biology.
 
 Installation::
 
