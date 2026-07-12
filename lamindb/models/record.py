@@ -638,29 +638,30 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Notes
     -----
 
-    .. dropdown:: Using indexed schemas.
+    You can edit records like spreadsheets in the UI:
+
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
+        :width: 800px
+
+    .. dropdown:: An index feature maps onto the name field of a record.
 
         When a sheet schema defines :attr:`~lamindb.Schema.index`, the
         index feature acts as the row key and maps to the `index` in a `DataFrame` and to the
         :attr:`~lamindb.Record.name` field of a `Record`:
 
         - **Write**: `Record(features=...)`, `features.add_values()`, and
-        :meth:`~lamindb.Record.from_dataframe` route the index feature to
-        :attr:`~lamindb.Record.name` and do not write it to link tables.
+          :meth:`~lamindb.Record.from_dataframe` route the index feature to
+          :attr:`~lamindb.Record.name` and do not write it to link tables.
         - **Read**: `features.get_values()` injects the index from `Record.name`.
         - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
-        (named after the index feature) and omits encoded metadata columns
-        (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
-        Sheets without `index` keep the previous export behavior.
+          (named after the index feature) and omits encoded metadata columns
+          (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
+          Sheets without `index` keep the previous export behavior.
         - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
-        matches the schema index feature (or the index feature as a column).
+          matches the schema index feature (or the index feature as a column).
         - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
-        is configured.
+          is configured.
 
-    You can edit sheets like spreadsheets in the UI:
-
-    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
-        :width: 800px
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
