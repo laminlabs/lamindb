@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, Union
 
-import numpy as np
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
@@ -18,6 +17,7 @@ from ._from_values import (
 from .sqlrecord import SQLRecord, get_name_field
 
 if TYPE_CHECKING:
+    import numpy as np
     from lamin_utils._inspect import InspectResult
     from pandas import DataFrame
 
@@ -167,6 +167,7 @@ def _validate(
     strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
+    import numpy as np
     import pandas as pd
     from lamin_utils._inspect import validate
 
@@ -232,6 +233,7 @@ def _standardize(
     strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
+    import numpy as np
     import pandas as pd
     from lamin_utils._standardize import standardize as map_synonyms
 

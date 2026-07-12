@@ -372,7 +372,9 @@ def test(session, group):
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
     elif group == "minimal":
-        run(session, "pytest ./tests/minimal")
+        env_minimal = os.environ.copy()
+        env_minimal["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+        run(session, "pytest ./tests/minimal", env=env_minimal)
     # move artifacts into right place
     if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
         target_dir = Path(f"./docs/{group}")
