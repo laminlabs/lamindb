@@ -31,7 +31,6 @@ UNORDERED_WARNING = (
 )
 
 
-# maybe make this abstract
 class ArtifactSet(Iterable):
     """Abstract class representing sets of artifacts returned by queries.
 
@@ -151,9 +150,27 @@ class RecordSet(Iterable):
         record_metadata: bool = True,
         is_run_input: bool | Run | None = None,
         link_individual_inputs: bool = True,
-        _record_type: Record | None = None,
         use_export_run: bool = False,
+        _record_type: Record | None = None,
     ) -> DataFrame:
+        """Export records in the queryset to a pandas DataFrame.
+
+        Run-input linking is only performed when feature export is requested,
+        i.e., `include="features"` (or `include` contains `"features"`).
+        If features are not included, the method falls back to the generic
+        queryset export path and does not link inputs.
+
+        Args:
+            include: Fields to include. Pass `"features"` (or include it in a
+              list) for sheet-style export and optional run-input linking.
+            features: Feature names to include when exporting features.
+            limit: Maximum number of records to export.
+            order_by: Ordering for exported records.
+            record_metadata: Whether to include encoded record metadata columns.
+            is_run_input: Whether to link exported records as run inputs.
+            link_individual_inputs: Whether to link each exported record as an input.
+            use_export_run: Whether to use a dedicated internal export run.
+        """
         import pandas as pd
 
         from .feature import convert_to_pandas_dtype
