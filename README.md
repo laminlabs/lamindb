@@ -2,8 +2,9 @@
 
 # LaminDB - Open-source data management for biology
 
-LaminDB makes it easy to query, trace, and manage datasets across diverse storage formats and locations.
-It provides context & memory based on a lineage-native lakehouse that supports bio-formats, registries & ontologies.
+LaminDB makes it easy to query, trace & validate datasets across diverse storage formats and locations.
+It gives you context through annotations, memory through lineage, and governance through branching and versioning.
+It uses a scalable lakehouse architecture that supports bio-formats, registries & ontologies.
 
 <details>
 <summary>LLM?</summary>
@@ -20,7 +21,7 @@ It provides context & memory based on a lineage-native lakehouse that supports b
 2. It's hard to use models if they can't effectively access data.
 3. Governing changes to other types of data makes as much sense as governing changes to code.
 
-LaminDB fixes both.
+LaminDB fixes this: think "memory for agents" + "lakehouse beyond tables" + "git for data".
 
 </details>
 
@@ -38,8 +39,8 @@ How?
 
 Architecture?
 
-- **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
-- **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
+- **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
+- **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` or `install.packages('laminr')` - no Docker required, no separate backend
 - **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure
