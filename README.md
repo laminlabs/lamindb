@@ -4,7 +4,7 @@
 
 LaminDB makes it easy to query, trace & validate datasets across diverse storage formats and locations.
 It gives you context through annotations, memory through lineage, and governance through branching and versioning.
-It uses a scalable lakehouse architecture that supports bio-formats, registries & ontologies.
+It uses a scalable lakehouse architecture that understands bio-formats, registries, ontologies, and markdown notes.
 
 <details>
 <summary>LLM?</summary>
@@ -19,9 +19,9 @@ It uses a scalable lakehouse architecture that supports bio-formats, registries 
 
 1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
 2. It's hard to use models if they can't effectively access data.
-3. Governing changes to other types of data makes as much sense as governing changes to code.
+3. It's hard to govern changes to data that doesn't fit git.
 
-LaminDB fixes this: think "memory for agents" + "lakehouse beyond tables" + "git for data".
+LaminDB fixes these.
 
 </details>
 
@@ -32,7 +32,7 @@ How?
 - **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
 - **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → bio-registries, ontologies & markdown notes based on lakehouse schemas
+- **LIMS & ELN** → schema-based records management with support for ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments
 - **change management** → versioning & branching similar to git
@@ -44,10 +44,10 @@ Architecture?
 - **simple** → just `pip install` or `install.packages('laminr')` - no Docker required, no separate backend
 - **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure
-- **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
-GUI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
+UI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 <details>
 <summary>Who?</summary>
