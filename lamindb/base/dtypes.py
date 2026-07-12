@@ -4,10 +4,9 @@
 
 """
 
+from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Any, Callable, Iterable
-
-import numpy as np
+from typing import Any, Callable
 
 
 def is_list_of_type(value: Any, expected_type: Any) -> bool:
@@ -31,8 +30,6 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
         A function that checks if a series has the expected dtype or contains mixed types
     """
     import pandas as pd
-
-    from lamindb.models.query_set import SQLRecordList
 
     def check_function(series):
         # empty series are considered valid if feature is nullable
@@ -78,7 +75,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
                 return series.apply(lambda x: is_list_of_type(x, str)).all()
             elif expected_type_member == "list":
                 return series.apply(
-                    lambda x: isinstance(x, (list, np.ndarray, SQLRecordList))
+                    lambda x: isinstance(x, Sequence)
+                    and not isinstance(x, (str, bytes))
                 ).all()
 
         # if we get here, the validation failed
