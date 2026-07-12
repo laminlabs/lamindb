@@ -37,7 +37,7 @@ from django.db.models.query_utils import DeferredAttribute as FieldAttr
 from lamindb_setup.core.canonical_suffix import CanonicalSuffix  # noqa: F401
 from lamindb_setup.types import AnyPathStr  # noqa: F401
 
-# Examples of list-like inputs: list[str], tuple[str, ...]
+# Examples of list-like inputs: list[str], pandas.Series, numpy.ndarray
 ListLike = Sequence[str]
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
