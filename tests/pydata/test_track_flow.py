@@ -114,6 +114,32 @@ def test_flow_track_arg_aliases_false():
             run.transform.delete(permanent=True)
 
 
+def test_flow_skip_track():
+    executed = []
+
+    @ln.flow(global_run="clear")
+    def skippable_flow() -> None:
+        executed.append(True)
+
+    @ln.flow(global_run="clear", skip_track=True)
+    def always_skipped_flow() -> None:
+        executed.append(True)
+
+    assert ln.context.run is None
+    skippable_flow(skip_track=True)
+    assert ln.context.run is None
+    assert executed == [True]
+
+    always_skipped_flow()
+    assert ln.context.run is None
+    assert executed == [True, True]
+
+    runs = ln.Run.filter(transform__key__endswith="test_track_flow.py").all()
+    entrypoints = {r.entrypoint for r in runs}
+    assert "skippable_flow" not in entrypoints
+    assert "always_skipped_flow" not in entrypoints
+
+
 def test_flow_exception_uploads_run_report():
     run_uid: str | None = None
     run = None
