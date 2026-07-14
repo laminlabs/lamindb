@@ -33,12 +33,14 @@ def _create_tracked_decorator(
     is_flow: bool = True,
     global_run: Literal["memorize", "clear", "none"] = "none",
     track_arg_aliases: bool = False,
+    skip_track: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
         is_flow: Triggered through @ln.flow(), otherwise @ln.step().
+        skip_track: If True, skip tracking for all calls to this function.
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -47,6 +49,10 @@ def _create_tracked_decorator(
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
+            # Allow per-call override via skip_track kwarg; fall back to decorator-level default
+            call_skip_track = kwargs.pop("skip_track", skip_track)
+            if call_skip_track:
+                return func(*args, **kwargs)
             if global_context.run is None:
                 if not is_flow:
                     raise RuntimeError(
@@ -138,6 +144,7 @@ def flow(
     uid: str | None = None,
     global_run: Literal["memorize", "clear", "none"] = "clear",
     track_arg_aliases: bool = True,
+    skip_track: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
@@ -159,6 +166,9 @@ def flow(
         track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
             `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
             for reproducibility. Pass `False` to disable this mapping.
+        skip_track: If `True`, disable tracking for every call to this function — no `Transform` or `Run` is
+            created and artifact auto-linking is suppressed. Can also be overridden per-call by passing
+            ``skip_track=True`` as a keyword argument at call time (e.g. ``my_flow(skip_track=True)``).
 
     Examples
     --------
@@ -185,6 +195,7 @@ def flow(
         is_flow=True,
         global_run=global_run,
         track_arg_aliases=track_arg_aliases,
+        skip_track=skip_track,
     )
 
 
