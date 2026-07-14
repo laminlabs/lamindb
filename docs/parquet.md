@@ -81,7 +81,7 @@ These filters run the same way on every engine below. For heavier patterns — s
 By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can also be used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
 
 ```python
-with collection.open(engine="polars", use_fsspec=True) as lazy_df:
+with collection.open(engine="polars") as lazy_df:
     display(lazy_df.collect().to_pandas())
 ```
 
