@@ -25,6 +25,20 @@ To prevent dangling metadata or orphaned files, LaminDB executes a save operatio
 
 If an upload process is externally killed during Phase 2, the artifact remains flagged with `_storage_ongoing = True`. This is visible in the UI, and the system knows the data is incomplete. You can then re-run `lamin save` or `artifact.save()` to attempt uploading the artifact a second time.
 
+### ACID guarantees for Collection.append()
+
+In tabular lakehouse formats like Iceberg, appending rows to a table means writing new Parquet files to storage and atomically updating a manifest file to point to a new snapshot.
+
+In LaminDB, appending data to a dataset is handled via `Collection.append()`. Because LaminDB manages immutable artifacts, it does not mutate existing files. Instead, it provides ACID guarantees and snapshot isolation through versioning:
+
+1. **Artifact creation:** The new data is saved as a new `Artifact` (following the two-phase commit described above).
+2. **Collection versioning:** LaminDB creates a _new version_ of the `Collection` that links to the new artifact alongside the existing ones.
+
+This architecture guarantees:
+
+- **Atomicity:** The new collection version is only created if the new artifact is successfully stored and registered.
+- **Isolation (Snapshot/Time Travel):** Concurrent readers querying the original collection version are completely unaffected by the append. The previous state of the collection remains addressable via its original version, providing the exact same "time travel" capabilities as Iceberg.
+
 ## Proving it in practice: Simulating failures
 
 Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted.
