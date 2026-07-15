@@ -4,11 +4,30 @@ execute_via: python
 
 # Will data & metadata stay in sync?
 
-Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted by dangling metadata or artifacts.
+Yes. Transactions within Python across data & metadata are [ACID](https://en.wikipedia.org/wiki/ACID).
 
-Transactions within Python across data & metadata are [ACID](https://en.wikipedia.org/wiki/ACID).
+Because LaminDB manages a hybrid architecture—a relational database for metadata and object storage (like AWS S3) for actual file data—it uses a **two-phase commit** mechanism to guarantee that the database and storage never permanently diverge.
 
-If an upload process is externally killed and Python cannot run clean-up operations anymore, the artifact is internally still flagged with `artifact._storage_ongoing = True`. This is visible on the UI. You can then re-run `lamin save` or `artifact.save()` to attempt uploading the artifact a second time.
+## How LaminDB achieves ACID
+
+- **Atomicity:** A file upload and its corresponding metadata registration succeed or fail together as a single unit at the individual artifact level.
+- **Consistency:** The storage state and the database state are never allowed to permanently diverge. If an upload fails, the database knows the file is incomplete and prevents users from querying corrupted data.
+- **Isolation:** Metadata transactions inherit the strong isolation levels of the underlying relational database (e.g., PostgreSQL). Concurrent writers are safely managed by the database's native concurrency controls.
+- **Durability:** Once a transaction is committed, the metadata is persisted in the relational DB and the file is safely written to storage.
+
+### The Two-Phase Commit mechanism
+
+To prevent dangling metadata or orphaned files, LaminDB executes a save operation in three steps:
+
+1. **Phase 1:** LaminDB writes the metadata to the database with an internal flag `_storage_ongoing = True`.
+2. **Phase 2:** The actual file bytes are uploaded to storage.
+3. **Phase 3:** LaminDB updates the database to set `_storage_ongoing = False`.
+
+If an upload process is externally killed during Phase 2, the artifact remains flagged with `_storage_ongoing = True`. This is visible in the UI, and the system knows the data is incomplete. You can then re-run `lamin save` or `artifact.save()` to attempt uploading the artifact a second time.
+
+## Proving it in practice: Simulating failures
+
+Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted.
 
 ```bash
 lamin init --storage ./test-acid
@@ -20,13 +39,11 @@ import lamindb as ln
 from upath import UPath
 
 ln.settings.verbosity = "debug"
-```
 
-```python
 open("sample.fasta", "w").write(">seq1\nACGT\n")
 ```
 
-## Save error due to failed upload within Python
+### Simulating a failed upload within Python
 
 Let's try to save an artifact to a storage location without permission.
 
@@ -34,13 +51,13 @@ Let's try to save an artifact to a storage location without permission.
 artifact = ln.Artifact("sample.fasta", key="sample.fasta")
 ```
 
-Because the public API only allows you to set a default storage for which you have permission, we need to hack it:
+To simulate an unauthorized storage location, we temporarily override the default storage root:
 
 ```python
 ln.settings.storage._root = UPath("s3://nf-core-awsmegatests")
 ```
 
-This raises an exception but nothing gets saved:
+This raises an exception, and because the transaction is atomic, nothing gets saved to the database:
 
 ```python
 with pytest.raises(PermissionError) as error:
@@ -49,26 +66,24 @@ print(error.exconly())
 assert len(ln.Artifact.filter()) == 0
 ```
 
-## Save error during bulk creation
+### Atomicity during bulk creation
+
+Atomicity is guaranteed at the _individual artifact_ level. If a list of data objects is passed to `ln.save()` and the upload of one of these data objects fails, the successful uploads up to that point are maintained, and a `RuntimeError` is raised.
+
+If the failure happens before any uploads begin (e.g., due to a validation error), nothing is saved:
 
 ```python
 artifacts = [artifact, "this is not a record"]
-```
 
-This raises an exception but nothing gets saved:
-
-```python
 with pytest.raises(Exception) as error:
     ln.save(artifacts)
 print(error.exconly())
 assert len(ln.Artifact.filter()) == 0  # nothing got saved
 ```
 
-If a list of data objects is passed to `ln.save()` and the upload of one of these data objects fails, the successful uploads are maintained and a `RuntimeError` is raised, listing the successfully uploaded data objects up until that point.
+### Simulating an externally aborted upload
 
-## Save error due to externally aborted upload
-
-Back to a proper storage location:
+Let's restore a proper storage location:
 
 ```python
 ln.settings.storage._root = UPath("./test-acid").absolute()
@@ -80,7 +95,7 @@ The save operation works:
 artifact.save()
 ```
 
-Let's pretend the upload was killed.
+Now, we simulate an upload that was killed mid-flight by manually setting the ongoing flag and deleting the file:
 
 ```python
 artifact._storage_ongoing = True
@@ -89,7 +104,7 @@ artifact.path.unlink()
 assert artifact._aux == {"so": 1}  # storage/upload is ongoing
 ```
 
-We can re-run it:
+Because the system knows the upload is incomplete, we can safely re-run the save operation to recover:
 
 ```python
 artifact = ln.Artifact("sample.fasta", key="sample.fasta").save()
@@ -100,7 +115,7 @@ assert not artifact._storage_ongoing
 assert artifact._aux is None
 ```
 
-```bash
+```bash tags=["hide-cell"]
 rm -r ./test-acid
 lamin delete --force test-acid
 ```
