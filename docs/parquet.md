@@ -91,7 +91,7 @@ LaminDB artifacts are plain Parquet files on S3, so any engine that reads Parque
 :::::{tab-item} PyArrow
 `.open()` returns a lazy PyArrow dataset backed by S3. Filters push down into Parquet row groups.
 
-```python
+```{code-block} python
 import pyarrow.compute as pc
 
 dataset = collection.open()
@@ -103,7 +103,7 @@ result = dataset.to_table(filter=pc.field("cell_type").is_valid()).to_pandas()
 :::::{tab-item} Polars
 `.open(engine="polars")` returns a context manager yielding a Polars LazyFrame backed by S3. No data is read until `.collect()` is called.
 
-```python
+```{code-block} python
 import polars as pl
 
 with collection.open(engine="polars") as lazy_df:
@@ -115,7 +115,7 @@ with collection.open(engine="polars") as lazy_df:
 :::::{tab-item} DuckDB
 DuckDB reads Parquet files directly via `read_parquet()`. Use `.cache()` to get a local path, or register a view over S3 paths via `httpfs` for a collection:
 
-```python
+```{code-block} python
 import duckdb
 
 con = duckdb.connect()
@@ -133,7 +133,7 @@ result = con.execute("SELECT * FROM data WHERE cell_type IS NOT NULL").df()
 :::::{tab-item} Iceberg
 Iceberg requires a one-time ingestion into a catalog-managed table on S3. After ingestion you get native partition pruning, metadata-only schema evolution, and snapshot-based time travel.
 
-```python
+```{code-block} python
 from pyiceberg.catalog.sql import SqlCatalog
 from pyiceberg.expressions import NotNull
 
@@ -155,7 +155,7 @@ result = table.scan(row_filter=NotNull("cell_type")).to_arrow().to_pandas()
 :::::{tab-item} LanceDB
 LanceDB ingests data into Lance columnar format on S3 — the only engine here that copies data out of the source Parquet files. In exchange you get combined SQL filtering and vector search, plus versioned appends with time travel.
 
-```python
+```{code-block} python
 import lancedb
 import pyarrow as pa
 
