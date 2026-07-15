@@ -282,7 +282,7 @@ class Settings:
         finally:
             if prev_testing is None:
                 del os.environ["LAMIN_TESTING"]
-            else:
+            else:  # pragma: no cover
                 os.environ["LAMIN_TESTING"] = prev_testing
 
     @property
