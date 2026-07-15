@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import copy
 import re
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -678,11 +678,23 @@ class ComponentCurator(Curator):
             else:
                 schema_features = schema.members.to_list()  # type: ignore
             if feature_ids:
-                features.extend(
-                    feature
-                    for feature in schema_features
-                    if feature.id not in feature_ids  # type: ignore
+                # Schema features take precedence over flexible-fetched features
+                # of the same name. Remove any flexible-fetched feature whose name
+                # is explicitly defined by the schema, then append the schema version.
+                schema_feature_names = {
+                    f.name for f in schema_features if isinstance(f, Feature)
+                }
+                features_filtered: list[Feature] = [
+                    f
+                    for f in features
+                    if isinstance(f, Feature) and f.name not in schema_feature_names
+                ]
+                # schema_features is expected to be a list[Feature] (members of Schema)
+                # but we still guard via isinstance for type-checking.
+                features_filtered.extend(
+                    f for f in schema_features if isinstance(f, Feature)
                 )
+                features = features_filtered
             else:
                 features.extend(schema_features)
         else:
@@ -1777,6 +1789,34 @@ class CatVector:
                 records = subtype_query_set.filter(
                     **{f"{field_name}__in": validated_values}
                 ).to_list()
+                # If the schema explicitly defines a Feature with this name, prefer that
+                # specific Feature instance over any duplicates that may exist in the DB.
+                # This prevents ambiguity errors for schema-defined column/features in
+                # flexible schemas when duplicate root-level Features exist.
+                if (
+                    registry.__name__ == "Feature"
+                    and self._schema
+                    and self._schema.n_members
+                ):
+                    schema_members = [
+                        f
+                        for f in self._schema.members.to_list()  # type: ignore[attr-defined]
+                        if isinstance(f, Feature)
+                    ]
+                    schema_feature_by_name = {f.name: f.id for f in schema_members}
+                    filtered_records: list[Any] = []
+                    for r in records:
+                        if isinstance(r, Feature):
+                            if (
+                                r.name in schema_feature_by_name
+                                and r.id != schema_feature_by_name[r.name]
+                            ):
+                                continue
+                        filtered_records.append(r)
+                    records = cast(
+                        SQLRecordList[Any],
+                        SQLRecordList(filtered_records),
+                    )
                 records = keep_topmost_matches(records)
             else:
                 existing_and_public_records = _from_values(

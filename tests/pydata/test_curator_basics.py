@@ -519,6 +519,53 @@ def test_curator_partial_null_bool_int():
     count.delete(permanent=True)
 
 
+def test_flexible_schema_schema_feature_takes_precedence():
+    """Schema-defined features must win over flexible-fetched duplicates.
+
+    When a flexible schema has an explicit member (e.g. nucleus_count, nullable=True)
+    and a duplicate feature with the same name but different settings exists in the DB
+    (e.g. nucleus_count, nullable=False), the curator must use the schema's version for
+    validation — not whichever duplicate the broad name-only flexible fetch returns first.
+    """
+    # Schema feature: nucleus_count is int and nullable
+    nucleus_count = ln.Feature(name="nucleus_count", dtype=int, nullable=True).save()
+
+    # Create a duplicate root-level feature with same name but nullable=False.
+    # We bypass the constructor's "existing record" lookup via _skip_validation,
+    # but still go through normal field assignment.
+    duplicate = ln.Feature(
+        name="nucleus_count", dtype=int, nullable=False, _skip_validation=True
+    ).save()
+
+    # Sanity check: we truly have two distinct Feature rows with different nullable settings.
+    features = ln.Feature.filter(name="nucleus_count").to_list()
+    nullable_values = {f.nullable for f in features}
+    assert nullable_values == {True, False}
+
+    schema = ln.Schema(
+        features=[nucleus_count],
+        flexible=True,
+    ).save()
+
+    # Data has a null in nucleus_count — valid only if nullable=True (schema feature) wins
+    df = pd.DataFrame(
+        {
+            "nucleus_count": pd.array([1, None, 3], dtype="Int64"),
+            "extra_col": ["a", "b", "c"],
+        }
+    )
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    # Should pass: the schema feature (nullable=True) must take precedence over the
+    # duplicate (nullable=False) that the flexible fetch also returns.
+    curator.validate()
+
+    # Clean up
+    schema.delete(permanent=True)
+    nucleus_count.delete(permanent=True)
+    duplicate.delete(permanent=True)
+
+
 def test_pandera_dataframe_schema(
     df,
     df_missing_sample_type_column,
