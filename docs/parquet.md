@@ -140,9 +140,10 @@ from pyiceberg.expressions import NotNull
 arrow = collection.open().to_table()
 
 catalog = SqlCatalog(
-    "local", uri="sqlite:///iceberg_catalog.db", warehouse="s3://your-bucket/iceberg_warehouse"
+    "local", uri="sqlite:///iceberg_catalog.db", warehouse="/tmp/iceberg_warehouse"
 )
-catalog.create_namespace("demo")
+if not catalog.namespace_exists("demo"):
+    catalog.create_namespace("demo")
 table = catalog.create_table("demo.data", schema=arrow.schema)
 table.append(arrow)
 
@@ -158,7 +159,7 @@ LanceDB ingests data into Lance columnar format on S3 — the only engine here t
 import lancedb
 
 arrow = collection.open().to_table()
-db_lance = lancedb.connect("s3://your-bucket/lancedb_warehouse")
+db_lance = lancedb.connect("/tmp/lancedb_warehouse")
 table = db_lance.create_table("data", data=arrow, mode="overwrite")
 
 result = table.search().where("cell_type IS NOT NULL", prefilter=True).to_pandas()
