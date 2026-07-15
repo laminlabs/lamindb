@@ -157,8 +157,14 @@ LanceDB ingests data into Lance columnar format on S3 — the only engine here t
 
 ```python
 import lancedb
+import pyarrow as pa
 
 arrow = collection.open().to_table()
+schema = pa.schema([
+    f.with_type(pa.string()) if pa.types.is_dictionary(f.type) else f
+    for f in arrow.schema
+])
+arrow = arrow.cast(schema)
 db_lance = lancedb.connect("/tmp/lancedb_warehouse")
 table = db_lance.create_table("data", data=arrow, mode="overwrite")
 
