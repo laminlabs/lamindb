@@ -59,16 +59,16 @@ Filters push down into Parquet row groups — only matching data is read from st
 ```python
 import pyarrow.compute as pc
 
-dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas().head(5)
+dataset.to_table(filter=pc.field("cell_type").is_valid()).to_pandas().head(5)
 ```
 
-You can build up from there. Materialize the filtered result once, then compute against it in memory — for example, count rows per disease without re-reading storage:
+You can build up from there. Materialize the filtered result once, then compute against it in memory — for example, count rows per cell type without re-reading storage:
 
 ```python
 counts = (
-    dataset.to_table(filter=pc.field("disease").is_valid())
-    .group_by("disease")
-    .aggregate([("disease", "count")])
+    dataset.to_table(filter=pc.field("cell_type").is_valid())
+    .group_by("cell_type")
+    .aggregate([("cell_type", "count")])
     .to_pandas()
 )
 counts.head()
@@ -95,7 +95,7 @@ LaminDB artifacts are plain Parquet files on S3, so any engine that reads Parque
 import pyarrow.compute as pc
 
 dataset = collection.open()
-result = dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas()
+result = dataset.to_table(filter=pc.field("cell_type").is_valid()).to_pandas()
 ```
 
 :::::
@@ -107,7 +107,7 @@ result = dataset.to_table(filter=pc.field("disease").is_valid()).to_pandas()
 import polars as pl
 
 with collection.open(engine="polars") as lazy_df:
-    result = lazy_df.filter(pl.col("disease").is_not_null()).collect()
+    result = lazy_df.filter(pl.col("cell_type").is_not_null()).collect()
 ```
 
 :::::
@@ -125,7 +125,7 @@ con.execute("CREATE OR REPLACE SECRET s3 (TYPE s3, PROVIDER credential_chain);")
 s3_paths = [str(a.path) for a in collection.ordered_artifacts.all()]
 con.execute(f"CREATE OR REPLACE VIEW data AS SELECT * FROM read_parquet({s3_paths})")
 
-result = con.execute("SELECT * FROM data WHERE disease IS NOT NULL").df()
+result = con.execute("SELECT * FROM data WHERE cell_type IS NOT NULL").df()
 ```
 
 :::::
@@ -146,7 +146,7 @@ catalog.create_namespace("demo")
 table = catalog.create_table("demo.data", schema=arrow.schema)
 table.append(arrow)
 
-result = table.scan(row_filter=NotNull("disease")).to_arrow().to_pandas()
+result = table.scan(row_filter=NotNull("cell_type")).to_arrow().to_pandas()
 ```
 
 :::::
@@ -161,7 +161,7 @@ arrow = collection.open().to_table()
 db_lance = lancedb.connect("s3://your-bucket/lancedb_warehouse")
 table = db_lance.create_table("data", data=arrow, mode="overwrite")
 
-result = table.search().where("disease IS NOT NULL", prefilter=True).to_pandas()
+result = table.search().where("cell_type IS NOT NULL", prefilter=True).to_pandas()
 ```
 
 :::::
