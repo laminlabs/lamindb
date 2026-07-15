@@ -161,6 +161,10 @@ ln.track(space="Our team space")
 
 <!-- #endregion -->
 
+### Track agent workflows
+
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/lamindb/`. Copy it to `.claude/skills/` to have Claude Code automatically track its sessions.
+
 ### Track agent plans
 
 <!-- #region -->
