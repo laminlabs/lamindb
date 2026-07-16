@@ -20,7 +20,7 @@ lamin init --storage ./test-track
 
 ### Transcripts
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/lamindb/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
 
 ### Plans
 
