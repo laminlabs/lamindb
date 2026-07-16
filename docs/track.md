@@ -16,6 +16,21 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 lamin init --storage ./test-track
 ```
 
+## Track agentic workflows
+
+### Transcripts
+
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/lamindb/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+
+### Plans
+
+You can save an agent plan like this:
+
+```bash
+lamin save /path/to/.cursor/plans/my_task.plan.md
+lamin save /path/to/.claude/plans/my_task.md
+```
+
 ## Manage notebooks and scripts
 
 Call {meth}`~lamindb.track` to save your notebook or script as a `transform` and start tracking inputs & outputs of a run.
@@ -158,33 +173,6 @@ You can write the entities created during a run into a space that you configure 
 ```python
 ln.track(space="Our team space")
 ```
-
-<!-- #endregion -->
-
-### Track agent workflows
-
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/lamindb/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
-
-### Track agent plans
-
-<!-- #region -->
-
-Saving an agent plan automatically tags with `artifact.kind = "plan"` and infers a `key` starting with `.plans/`:
-
-```bash
-lamin save /path/to/.cursor/plans/my_task.plan.md
-lamin save /path/to/.claude/plans/my_task.md
-```
-
-Link an agent plan against a run:
-
-```python
-ln.track(plan=".plans/my-agent-plan.md")
-```
-
-This links the `plan` artifact to a run in the same way as `transform`, an initiating run (`initiated_by_run`), and `report` / `environment` artifacts are linked to the run.
-
-While `transform` acts as the deterministic source code for the run and `initiated_by_run` enables higher-level runs in workflow orchestration, the agent `plan` complements these by linking a plan that steers a non-deterministic agent.
 
 <!-- #endregion -->
 
