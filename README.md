@@ -175,6 +175,10 @@ lamin load --key sample.fasta
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
+### Lineage: agents
+
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+
 ### Lineage: scripts & notebooks
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:

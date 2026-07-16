@@ -10,11 +10,30 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 <iframe width="560" height="315" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
-**Note:** To run examples, if you don't have a `lamindb` instance, create one:
+To run examples, if you don't have a `lamindb` instance, create one:
 
 ```bash
 lamin init --storage ./test-track
 ```
+
+## Track agentic workflows
+
+### Transcripts
+
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+
+### Plans
+
+<!-- #region -->
+
+You can save an agent plan like this:
+
+```bash
+lamin save /path/to/.cursor/plans/my_task.plan.md
+lamin save /path/to/.claude/plans/my_task.md
+```
+
+<!-- #endregion -->
 
 ## Manage notebooks and scripts
 
@@ -59,8 +78,6 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
-(sync-code-with-git)=
-
 ### Organize local development
 
 <!-- #region -->
@@ -83,7 +100,11 @@ lamin info
 
 When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
 
-To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
+(sync-code-with-git)=
+
+### Sync code with git
+
+To sync scripts or workflow definitions with their correponding files in a git repo, either export an environment variable:
 
 ```shell
 export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
@@ -158,29 +179,6 @@ You can write the entities created during a run into a space that you configure 
 ```python
 ln.track(space="Our team space")
 ```
-
-<!-- #endregion -->
-
-### Track agent plans
-
-<!-- #region -->
-
-Saving an agent plan automatically tags with `artifact.kind = "plan"` and infers a `key` starting with `.plans/`:
-
-```bash
-lamin save /path/to/.cursor/plans/my_task.plan.md
-lamin save /path/to/.claude/plans/my_task.md
-```
-
-Link an agent plan against a run:
-
-```python
-ln.track(plan=".plans/my-agent-plan.md")
-```
-
-This links the `plan` artifact to a run in the same way as `transform`, an initiating run (`initiated_by_run`), and `report` / `environment` artifacts are linked to the run.
-
-While `transform` acts as the deterministic source code for the run and `initiated_by_run` enables higher-level runs in workflow orchestration, the agent `plan` complements these by linking a plan that steers a non-deterministic agent.
 
 <!-- #endregion -->
 
