@@ -10,7 +10,7 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 <iframe width="560" height="315" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
-**Note:** To run examples, if you don't have a `lamindb` instance, create one:
+To run examples, if you don't have a `lamindb` instance, create one:
 
 ```bash
 lamin init --storage ./test-track
@@ -24,12 +24,16 @@ The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills
 
 ### Plans
 
+<!-- #region -->
+
 You can save an agent plan like this:
 
 ```bash
 lamin save /path/to/.cursor/plans/my_task.plan.md
 lamin save /path/to/.claude/plans/my_task.md
 ```
+
+<!-- #endregion -->
 
 ## Manage notebooks and scripts
 
