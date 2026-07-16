@@ -660,6 +660,7 @@ class ComponentCurator(Curator):
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
 
+        self._features = None
         categoricals = []
         features = []
         feature_ids: set[int] = set()
@@ -691,6 +692,8 @@ class ComponentCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
+
+        self._features = features
 
         pandera_columns = {}
         self._pandera_schema = None
@@ -823,7 +826,13 @@ class ComponentCurator(Curator):
             slot=slot,
             maximal_set=schema.maximal_set,
             schema=schema,
+            component_curator=self,
         )
+
+    @property
+    def features(self) -> list[Feature] | None:
+        """The features for validating and annotating the DataFrame."""
+        return self._features
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
@@ -1519,6 +1528,7 @@ class CatVector:
         type_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
         schema: Schema = None,
+        features: list[Feature] | None = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -1539,6 +1549,9 @@ class CatVector:
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
         self._schema = schema
+        self._features = features
+        if self._features is not None:
+            return
         if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
@@ -1591,16 +1604,9 @@ class CatVector:
     @property
     def is_validated(self) -> bool:
         """Whether the vector is validated."""
-        # if nothing was validated, something likely is fundamentally wrong
-        # should probably add a setting `at_least_one_validated`
         result = True
         if len(self.values) > 0 and len(self.values) == len(self._non_validated):
             logger.warning(f"no values were validated for {self._key}!")
-        # len(self._non_validated) != 0
-        #     if maximal_set is True, return False
-        #     if maximal_set is False, return True
-        # len(self._non_validated) == 0
-        #     return True
         if len(self._non_validated) != 0:
             if self._maximal_set:
                 result = False
@@ -1659,6 +1665,9 @@ class CatVector:
         """Save features or labels records in the default instance."""
         from lamindb.models.has_parents import keep_topmost_matches
         from lamindb.models.save import save as ln_save
+
+        if self._features is not None:
+            return self._features, []
 
         model_field = self._registry.__get_name_with_module__()
 
@@ -2048,6 +2057,7 @@ class DataFrameCatManager:
         slot: str | None = None,
         maximal_set: bool = False,
         schema: Schema | None = None,
+        component_curator: ComponentCurator | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -2089,6 +2099,7 @@ class DataFrameCatManager:
             if schema.id is None
             else f"schemas__id={schema.id}",
             schema=schema,
+            features=component_curator.features,
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]
