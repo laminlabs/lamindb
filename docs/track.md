@@ -78,8 +78,6 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
-(sync-code-with-git)=
-
 ### Organize local development
 
 <!-- #region -->
@@ -102,7 +100,11 @@ lamin info
 
 When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
 
-To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
+(sync-code-with-git)=
+
+### Sync code with git
+
+To sync scripts or workflow definitions with their correponding files in a git repo, either export an environment variable:
 
 ```shell
 export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
