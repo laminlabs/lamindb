@@ -681,20 +681,12 @@ class ComponentCurator(Curator):
                 # Schema features take precedence over flexible-fetched features
                 # of the same name. Remove any flexible-fetched feature whose name
                 # is explicitly defined by the schema, then append the schema version.
-                schema_feature_names = {
-                    f.name for f in schema_features if isinstance(f, Feature)
-                }
-                features_filtered: list[Feature] = [
+                schema_feature_names = {f.name for f in schema_features}  # type: ignore
+                features = [
                     f
                     for f in features
-                    if isinstance(f, Feature) and f.name not in schema_feature_names
-                ]
-                # schema_features is expected to be a list[Feature] (members of Schema)
-                # but we still guard via isinstance for type-checking.
-                features_filtered.extend(
-                    f for f in schema_features if isinstance(f, Feature)
-                )
-                features = features_filtered
+                    if f.name not in schema_feature_names  # type: ignore
+                ] + schema_features  # type: ignore
             else:
                 features.extend(schema_features)
         else:
@@ -1798,21 +1790,17 @@ class CatVector:
                     and self._schema
                     and self._schema.n_members
                 ):
-                    schema_members = [
-                        f
-                        for f in self._schema.members.to_list()  # type: ignore[attr-defined]
-                        if isinstance(f, Feature)
-                    ]
+                    schema_members = cast(
+                        list[Feature],
+                        self._schema.members.to_list(),  # type: ignore
+                    )
                     schema_feature_by_name = {f.name: f.id for f in schema_members}
-                    filtered_records: list[Any] = []
-                    for r in records:
-                        if isinstance(r, Feature):
-                            if (
-                                r.name in schema_feature_by_name
-                                and r.id != schema_feature_by_name[r.name]
-                            ):
-                                continue
-                        filtered_records.append(r)
+                    filtered_records: list[Any] = [
+                        r
+                        for r in cast(list[Feature], records)
+                        if r.name not in schema_feature_by_name
+                        or r.id == schema_feature_by_name[r.name]
+                    ]
                     records = cast(
                         SQLRecordList[Any],
                         SQLRecordList(filtered_records),
