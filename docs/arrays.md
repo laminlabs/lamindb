@@ -4,7 +4,7 @@ execute_via: python
 
 # Query arrays in storage
 
-This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular data, see {doc}`parquet`.
+This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular datasets, see {doc}`tables`.
 
 ```bash
 # replace with your username and S3 bucket

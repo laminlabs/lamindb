@@ -4,7 +4,8 @@ execute_via: python
 
 # Query tables in storage
 
-This guide walks through querying tabular data stored as Parquet — streaming directly from disk or cloud storage with PyArrow, Polars, DuckDB, Iceberg, or LanceDB.
+This guide walks through querying tabular datasets stored in parquet and related file formats.
+Queries stream directly from disk or cloud storage with PyArrow, Polars or DuckDB.
 
 ```python
 import lamindb as ln
