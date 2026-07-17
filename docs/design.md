@@ -97,7 +97,7 @@ If you'd like to create your own module:
 1. Create a git repository with registries similar to [pertdb](https://github.com/laminlabs/pertdb)
 2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
 
-For more information, see {doc}`setup`.
+For more information, see {doc}`docs:setup`.
 
 ## Repositories
 
@@ -110,7 +110,7 @@ LaminDB and its plugins consist in open-source Python libraries & publicly hoste
 Tightly integrated dependencies are available as git submodules [here](https://github.com/laminlabs/lamindb/tree/main/sub), for instance,
 
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB.
-- [lamin-cli](https://github.com/laminlabs/lamin-cli): CLI for `lamindb` and `lamindb-setup`.
+- [lamin-cli](https://github.com/laminlabs/lamin-cli): The CLI.
 
 Use cases / domain-specific repos:
 
