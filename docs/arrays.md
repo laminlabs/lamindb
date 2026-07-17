@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Stream arrays from storage
+# Query arrays in storage
 
 This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular data, see {doc}`parquet`.
 

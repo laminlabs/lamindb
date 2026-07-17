@@ -6,23 +6,20 @@ execute_via: python
 
 This guide walks through querying tabular data stored as Parquet — streaming directly from disk or cloud storage with PyArrow, Polars, DuckDB, Iceberg, or LanceDB.
 
-Import lamindb and track this notebook.
-
 ```python
 import lamindb as ln
 
-db = ln.DB("laminlabs/lamindata")  # we'll pull datasets from there
+db = ln.DB("laminlabs/lamindata")
 ```
 
 ## Stream a table from storage
 
-Start with a single Parquet file. Get the artifact and open it — nothing is downloaded, you get a lazy [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html) backed by storage.
+Start with a single parquet file. Get the artifact and open it — nothing is downloaded, you get a lazy [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html):
 
 ```python
 artifact = db.Artifact.filter(
     key__startswith="example_datasets/small", suffix=".parquet"
 ).first()
-
 dataset = artifact.open()
 dataset
 ```
@@ -33,7 +30,7 @@ Peek at the first few rows:
 dataset.head(5).to_pandas()
 ```
 
-The same `.open()` call scales to many files. Call it on a query to stream a whole set of Parquet artifacts as one dataset:
+The same `.open()` call works across parquet files. Call it on a query to stream a whole set of Parquet artifacts as one dataset:
 
 ```python
 dataset = db.Artifact.filter(
@@ -49,8 +46,6 @@ collection = db.Collection.get(key="sharded_parquet_collection")
 dataset = collection.open()
 dataset.to_table().to_pandas()
 ```
-
-Whether the data is one file or a thousand shards, you query it the same way.
 
 ## Queries
 
@@ -173,19 +168,3 @@ result = table.search().where("cell_type IS NOT NULL", prefilter=True).to_pandas
 
 :::::
 ::::::
-
-## Performance
-
-The charts below compare PyArrow, Polars, DuckDB, Iceberg, and LanceDB on the same LaminDB collection (8,929 rows, 6 Parquet shards) on S3. See the [full blog post](https://lamin.ai/blog/lakehouse-benchmark) for methodology and caveats.
-
-<!-- PLOT: setup_cost.svg -->
-
-![Setup cost](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Lf8f0LJY63quZ3n70000.svg)
-
-<!-- PLOT: query_times.svg -->
-
-![Query times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/d2r3p1yUGrcVTLtw0000.svg)
-
-<!-- PLOT: write_path.svg -->
-
-![Write-path times](https://lamin-site-assets.s3.amazonaws.com/.lamindb/VnVruqKX9KK0uhUw0000.svg)
