@@ -4,7 +4,7 @@ class CreationSettings:
 
     If `True`, search for alternative names and avoids duplicates.
 
-    FAQ: :doc:`/faq/idempotency`
+    See: :doc:`idempotency`
     """
     artifact_skip_size_hash: bool = False
     """To speed up registering high numbers of files (default `False`).

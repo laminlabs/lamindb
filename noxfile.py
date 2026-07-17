@@ -35,6 +35,8 @@ GROUPS["tutorial"] = [
 ]
 GROUPS["guide"] = [
     "track.ipynb",
+    "acid.ipynb",
+    "idempotency.ipynb",
 ]
 GROUPS["tiledbsoma"] = [
     "curate.ipynb",
