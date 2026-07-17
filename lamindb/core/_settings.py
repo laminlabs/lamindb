@@ -275,7 +275,15 @@ class Settings:
                 return None
         else:
             raise_if_storage_not_managed_by_current_instance(exists)
-        ln_setup.settings.instance.local_storage = local_root
+        prev_testing = os.environ.get("LAMIN_TESTING")
+        os.environ["LAMIN_TESTING"] = "true"
+        try:
+            ln_setup.settings.instance.local_storage = local_root
+        finally:
+            if prev_testing is None:
+                del os.environ["LAMIN_TESTING"]
+            else:  # pragma: no cover
+                os.environ["LAMIN_TESTING"] = prev_testing
 
     @property
     def verbosity(self) -> str:

@@ -2,9 +2,9 @@
 execute_via: python
 ---
 
-# Stream datasets from storage
+# Query arrays in storage
 
-This guide walks through streaming datasets from disk or cloud storage.
+This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular datasets, see {doc}`tables`.
 
 ```bash
 # replace with your username and S3 bucket
@@ -18,68 +18,7 @@ Import lamindb and track this notebook.
 import lamindb as ln
 import numpy as np
 
-ln.track()
-db = ln.DB("laminlabs/lamindata")  # we'll pull dataset from there
-```
-
-## DataFrame
-
-### Streaming from a single artifact
-
-A dataframe stored as sharded `parquet`.
-
-```python
-artifact = db.Artifact.get(key="sharded_parquet")
-```
-
-```python
-artifact.path.view_tree()
-```
-
-```python
-dataset = artifact.open()
-```
-
-This returns a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html).
-
-```python
-dataset
-```
-
-```python
-dataset.head(5).to_pandas()
-```
-
-### Streaming from a set of artifacts
-
-You can open several parquet files as a single dataset by calling `.open()` on the result of a query:
-
-```python
-dataset = db.Artifact.filter(
-    key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
-).open()  # open an ArtifactSet for streaming
-dataset
-```
-
-The same is possible for the artifacts in a collection:
-
-```python
-collection = db.Collection.get(key="sharded_parquet_collection")
-dataset = collection.open()
-dataset
-```
-
-Once you have a storage-backed dataset, you can query it like this:
-
-```python
-dataset.to_table().to_pandas()
-```
-
-By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can be also used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
-
-```python
-with collection.open(engine="polars", use_fsspec=True) as lazy_df:
-    display(lazy_df.collect().to_pandas())
+db = ln.DB("laminlabs/lamindata")  # we'll pull the SpatialData example from there
 ```
 
 ## AnnData
@@ -105,13 +44,13 @@ artifact.path
 adata = artifact.open()
 ```
 
-This object is an `AnnDataAccessor` object, an `AnnData` object backed in the cloud:
+This is an `AnnDataAccessor` — an `AnnData` backed by cloud storage:
 
 ```python
 adata
 ```
 
-Without subsetting, the `AnnDataAccessor` object references underlying lazy `h5` or `zarr` arrays:
+Without subsetting, it references the underlying lazy `h5` or `zarr` arrays:
 
 ```python
 adata.X
@@ -139,7 +78,7 @@ To load the entire subset into memory as an actual `AnnData` object, use `to_mem
 adata_subset.to_memory()
 ```
 
-It is also possible to add columns to `.obs` and `.var` of cloud AnnData objects without downloading them. First, create a new `AnnData` `zarr` artifact:
+You can also add columns to `.obs` and `.var` of a cloud `AnnData` without downloading it. First, create a new `AnnData` `zarr` artifact:
 
 ```python
 adata_subset.to_memory().write_zarr("adata_subset.zarr")
@@ -168,12 +107,10 @@ artifact.delete(permanent=True)
 
 ## SpatialData
 
-It is also possible to access `AnnData` objects inside `SpatialData` `tables`:
+You can also access `AnnData` objects inside `SpatialData` tables:
 
 ```python
-artifact = ln.Artifact.connect("laminlabs/lamindata").get(
-    key="visium_aligned_guide_min.zarr"
-)
+artifact = db.Artifact.get(key="visium_aligned_guide_min.zarr")
 
 access = artifact.open()
 ```
@@ -202,13 +139,9 @@ table_subset = table[table.obs["clone"] == "diploid"]
 table_subset
 ```
 
-<!-- #region -->
-
 ```python
 adata = table_subset.to_memory()
 ```
-
-<!-- #endregion -->
 
 ## Generic HDF5
 
@@ -234,7 +167,6 @@ backed
 backed.storage
 ```
 
-```python
-# clean up test instance
-ln.setup.delete("test-arrays", force=True)
+```bash tags=["hide-cell"]
+lamin delete --force test-arrays
 ```
