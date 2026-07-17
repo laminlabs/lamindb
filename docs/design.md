@@ -71,7 +71,7 @@ ln <- ln$connect("account/instance")
 :::
 ::::
 
-For learning more about how to create & host LaminDB instances, see {doc}`setup`. LaminDB instances work standalone but can optionally be managed by LaminHub. For an architecture diagram of LaminHub, [reach out](https://lamin.ai/contact)!
+For learning more about how to create & host LaminDB instances, see {doc}`docs:setup`. LaminDB instances work standalone but can optionally be managed by LaminHub. For an architecture diagram of LaminHub, [reach out](https://lamin.ai/contact)!
 
 ## Database schema & API
 
