@@ -4,8 +4,6 @@
 :maxdepth: 1
 
 faq/pydantic-pandera
-faq/idempotency
-faq/acid
 faq/track-run-inputs
 faq/curate-any
 faq/import-modules
