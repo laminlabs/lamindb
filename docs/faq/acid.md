@@ -100,7 +100,7 @@ assert not artifact._storage_ongoing
 assert artifact._aux is None
 ```
 
-```bash
+```bash tags=["hide-cell"]
 rm -r ./test-acid
 lamin delete --force test-acid
 ```

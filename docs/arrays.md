@@ -4,7 +4,7 @@ execute_via: python
 
 # Stream arrays from storage
 
-This guide covers streaming array-like data — AnnData, SpatialData, and generic HDF5 — directly from disk or cloud storage. For tabular data (DataFrame, Parquet, and querying with PyArrow, Polars, DuckDB, Iceberg, or LanceDB), see {doc}`Query tables <parquet>`.
+This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular data, see {doc}`parquet`.
 
 ```bash
 # replace with your username and S3 bucket
@@ -167,7 +167,6 @@ backed
 backed.storage
 ```
 
-```python
-# clean up test instance
-ln.setup.delete("test-arrays", force=True)
+```bash tags=["hide-cell"]
+lamin delete --force test-arrays
 ```
