@@ -10,8 +10,8 @@ Because LaminDB manages a hybrid architecture—a relational database for metada
 
 ## How LaminDB achieves ACID
 
-- **Atomicity:** A file upload and its corresponding metadata registration succeed or fail together as a single unit at the individual artifact level.
-- **Consistency:** The storage state and the database state are never allowed to permanently diverge. If an upload fails, the database knows the file is incomplete and prevents users from querying corrupted data.
+- **Atomicity:** Under normal operation, a file upload and its corresponding metadata registration succeed or fail together. If a standard error occurs (e.g., network failure or permission denied), the operation is cleanly rolled back, leaving no trace in the database or storage.
+- **Consistency:** The storage state and the database state are never allowed to permanently diverge, even in the event of a hard crash (e.g., power loss). If the process is externally killed mid-upload, an internal flag ensures the database knows the file is incomplete, preventing users from querying corrupted data.
 - **Isolation:** Metadata transactions inherit the strong isolation levels of the underlying relational database (e.g., PostgreSQL). Concurrent writers are safely managed by the database's native concurrency controls.
 - **Durability:** Once a transaction is committed, the metadata is persisted in the relational DB and the file is safely written to storage.
 
@@ -25,14 +25,14 @@ To prevent dangling metadata or orphaned files, LaminDB executes a save operatio
 
 If an upload process is externally killed during Phase 2, the artifact remains flagged with `_storage_ongoing = True`. This is visible in the UI, and the system knows the data is incomplete. You can then re-run `lamin save` or `artifact.save()` to attempt uploading the artifact a second time.
 
-### ACID guarantees for Collection.append()
+### ACID guarantees for collections
 
-In tabular lakehouse formats like Iceberg, appending rows to a table means writing new Parquet files to storage and atomically updating a manifest file to point to a new snapshot.
+In tabular lakehouse formats like Iceberg or DuckLake, appending rows to a table means writing new Parquet files to storage and atomically updating a metadata file (or relational database, in DuckLake's case) to point to a new snapshot.
 
-In LaminDB, appending data to a dataset is handled via `Collection.append()`. Because LaminDB manages immutable artifacts, it does not mutate existing files. Instead, it provides ACID guarantees and snapshot isolation through versioning:
+LaminDB uses an identical architectural pattern for dataset appends, but generalized beyond tabular data. When you call `Collection.append()`, LaminDB does not mutate existing files. Instead, it provides ACID guarantees and snapshot isolation through versioning:
 
-1. **Artifact creation:** The new data is saved as a new `Artifact` (following the two-phase commit described above).
-2. **Collection versioning:** LaminDB creates a _new version_ of the `Collection` that links to the new artifact alongside the existing ones.
+1. **Artifact creation:** The new data is saved as a new `Artifact` (following the two-phase commit described above). Just like Iceberg writing a new Parquet file, the data is staged in storage.
+2. **Collection versioning:** LaminDB creates a _new version_ of the `Collection` that links to the new artifact alongside the existing ones. This is the equivalent of Iceberg atomically updating its manifest to point to a new snapshot.
 
 This architecture guarantees:
 
