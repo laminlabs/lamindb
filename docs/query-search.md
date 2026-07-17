@@ -8,13 +8,13 @@ execute_via: python
 :maxdepth: 1
 :hidden:
 
-parquet
+tables
 arrays
 ```
 
 This guide walks through querying & searching registries.
 To understand the links between objects that enable relational queries, see {doc}`organize`.
-To stream datasets from storage, see {doc}`arrays`.
+To query datasets in storage, see {doc}`tables` and {doc}`arrays`.
 
 ## Basics
 
