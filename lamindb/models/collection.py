@@ -16,7 +16,7 @@ from lamindb.base.fields import (
 from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_20
-from ..errors import FieldValidationError
+from ..errors import FieldValidationError, ValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
+    from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
 
@@ -189,6 +190,14 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
     """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
+    schema: Schema | None = ForeignKey(
+        "Schema",
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="validated_collections",
+    )
+    """The validating schema of this collection ← :attr:`~lamindb.Schema.validated_collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -288,7 +297,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not hasattr(artifacts, "__getitem__"):
                 raise ValueError("Artifact or list[Artifact] is allowed.")
             assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
-        hash = from_artifacts(artifacts)  # type: ignore
+        hash, schema = from_artifacts(artifacts)  # type: ignore
         if meta_artifact is not None:
             if not isinstance(meta_artifact, Artifact):
                 raise ValueError("meta_artifact has to be an Artifact")
@@ -315,7 +324,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"returning collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
             init_self_from_db(self, existing_collection)
-            update_attributes(self, {"description": description, "key": key})
+            update_attributes(
+                self,
+                {"description": description, "key": key, "schema": schema},
+            )
             populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
@@ -326,6 +338,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 reference=reference,
                 reference_type=reference_type,
                 meta_artifact=meta_artifact,
+                schema=schema,
                 hash=hash,
                 run=run,
                 version_tag=version_tag,
@@ -567,6 +580,20 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         track_run_input(self, is_run_input)
         return concat_object
 
+    def verify_schema(self) -> None:
+        """Verify all collection artifacts match the collection schema."""
+        if self.schema_id is None:
+            raise ValueError("First set a schema")
+        artifacts = (
+            self._artifacts if self._state.adding else self.ordered_artifacts.all()  # type: ignore[attr-defined]
+        )
+        validate_artifact_schemas(
+            artifacts,
+            expected_schema_id=self.schema_id,
+            validate_expected_schema=True,
+            collection_uid=self.uid,
+        )
+
     def save(self, using: str | None = None) -> Collection:
         """Save the collection and underlying artifacts to database & storage.
 
@@ -578,6 +605,14 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
+        if hasattr(self, "_artifacts"):
+            _, schema = from_artifacts(
+                self._artifacts,
+                expected_schema_id=self.schema_id,
+                validate_expected_schema=True,
+                collection_uid=self.uid,
+            )
+            self.schema = schema
         super().save()
         # we don't allow updating the collection of artifacts
         # if users want to update the set of artifacts, they
@@ -648,11 +683,59 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
 
 # internal function, not exposed to user
-def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
+def validate_artifact_schemas(
+    artifacts: list[Artifact] | Iterable[Artifact],
+    expected_schema_id: int | None = None,
+    validate_expected_schema: bool = False,
+    collection_uid: str | None = None,
+) -> Schema | None:
+    if not isinstance(artifacts, list):
+        artifacts = list(artifacts)
+    if len(artifacts) == 0:
+        raise ValueError("Collection requires at least one artifact")
+    schema_ids = {artifact.schema_id for artifact in artifacts}
+    if len(schema_ids) > 1:
+        artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
+        collection_info = (
+            f" in collection {collection_uid}" if collection_uid is not None else ""
+        )
+        raise ValidationError(
+            "All artifacts in a collection must have the same schema"
+            f"{collection_info}. Got: {artifact_schemas}"
+        )
+    schema = artifacts[0].schema
+    schema_id = schema.id if schema is not None else None
+    if validate_expected_schema and expected_schema_id != schema_id:
+        artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
+        collection_info = (
+            f" in collection {collection_uid}" if collection_uid is not None else ""
+        )
+        raise ValidationError(
+            "Artifact schemas do not match the collection schema"
+            f"{collection_info}. Expected schema_id={expected_schema_id}, got: {artifact_schemas}"
+        )
+    return schema
+
+
+# internal function, not exposed to user
+def from_artifacts(
+    artifacts: list[Artifact] | Iterable[Artifact],
+    expected_schema_id: int | None = None,
+    validate_expected_schema: bool = False,
+    collection_uid: str | None = None,
+) -> tuple[str, Schema | None]:
+    if not isinstance(artifacts, list):
+        artifacts = list(artifacts)
     # assert all artifacts are already saved
     saved = not any(artifact._state.adding for artifact in artifacts)
     if not saved:
         raise ValueError("Not all artifacts are yet saved, please save them")
+    schema = validate_artifact_schemas(
+        artifacts,
+        expected_schema_id=expected_schema_id,
+        validate_expected_schema=validate_expected_schema,
+        collection_uid=collection_uid,
+    )
     # validate consistency of hashes - we do not allow duplicate hashes
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
     hashes_set = set(hashes)
@@ -663,7 +746,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
             f"your collection contains artifacts with non-unique hashes:  {non_unique}"
         )
     hash = hash_set(hashes_set)
-    return hash
+    return hash, schema
 
 
 class CollectionArtifact(BaseSQLRecord, IsLink, TracksRun):

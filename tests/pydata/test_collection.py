@@ -5,7 +5,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
 
@@ -33,6 +33,20 @@ def adata2():
         var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
         obsm={"X_pca": np.array([[1, 2], [3, 4]])},
     )
+
+
+def _schema_from_dataframe(
+    dataframe: pd.DataFrame, feature_names: list[str]
+) -> ln.Schema:
+    features = ln.Feature.from_dataframe(dataframe)
+    validated = ln.Feature.validate(
+        [feature.name for feature in features], field="name"
+    )
+    ln.save([feature for feature, valid in zip(features, validated) if valid])
+    selected_features = [
+        feature for feature in features if feature.name in feature_names
+    ]
+    return ln.Schema(selected_features).save()
 
 
 def test_from_single_artifact(adata):
@@ -488,6 +502,95 @@ def test_collection_append(df, adata):
 
     new_collection.versions.delete(permanent=True)
     artifacts.delete(permanent=True)
+
+
+def test_collection_schema_set_on_init_and_verify(df):
+    schema = _schema_from_dataframe(df, ["feat1", "feat2"])
+    df2 = df.copy()
+    df2.iloc[0, 0] = -1
+    artifact1 = ln.Artifact.from_dataframe(
+        df, description="schema set init 1", schema=schema
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        df2, description="schema set init 2", schema=schema
+    ).save()
+    collection = ln.Collection([artifact1, artifact2], key="schema-set-on-init").save()
+
+    assert collection.schema == schema
+    collection.verify_schema()
+
+    collection.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+
+
+def test_collection_schema_mixed_fails_on_init(df):
+    schema1 = _schema_from_dataframe(df, ["feat1", "feat2"])
+    schema2 = _schema_from_dataframe(df, ["feat1"])
+    artifact1 = ln.Artifact.from_dataframe(
+        df, description="schema mismatch 1", schema=schema1
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        df, description="schema mismatch 2", schema=schema2
+    ).save()
+
+    with pytest.raises(ValidationError, match="same schema"):
+        ln.Collection([artifact1, artifact2], key="schema-mismatch-init")
+
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+
+
+def test_collection_append_schema_mismatch_fails(df):
+    schema1 = _schema_from_dataframe(df, ["feat1", "feat2"])
+    schema2 = _schema_from_dataframe(df, ["feat1"])
+    artifact1 = ln.Artifact.from_dataframe(
+        df, description="append schema 1", schema=schema1
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        df, description="append schema 2", schema=schema2
+    ).save()
+    collection = ln.Collection(artifact1, key="append-schema-mismatch").save()
+
+    with pytest.raises(ValidationError, match="same schema"):
+        collection.append(artifact2)
+
+    collection.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+
+
+def test_collection_verify_schema_after_artifact_mutation(df):
+    schema1 = _schema_from_dataframe(df, ["feat1", "feat2"])
+    schema2 = _schema_from_dataframe(df, ["feat1"])
+    artifact1 = ln.Artifact.from_dataframe(
+        df, description="verify schema 1", schema=schema1
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        df, description="verify schema 2", schema=schema1
+    ).save()
+    collection = ln.Collection([artifact1, artifact2], key="verify-schema").save()
+
+    collection.verify_schema()
+    artifact2.schema = schema2
+    artifact2.save()
+    with pytest.raises(ValidationError, match="collection schema"):
+        collection.verify_schema()
+
+    collection.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+
+
+def test_collection_verify_schema_requires_collection_schema(df):
+    artifact = ln.Artifact.from_dataframe(df, description="verify no schema").save()
+    collection = ln.Collection([artifact], key="verify-schema-none").save()
+
+    with pytest.raises(ValueError, match="First set a schema"):
+        collection.verify_schema()
+
+    collection.delete(permanent=True)
+    artifact.delete(permanent=True)
 
 
 def test_with_metadata(df, adata):
