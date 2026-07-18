@@ -9,9 +9,9 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 <details>
 <summary>Why?</summary>
 
-1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
-2. It's hard to use models if they can't effectively access data.
-3. It's hard to govern changes to data that doesn't fit git.
+1. Untraceable results cannot be trusted, especially in the age of agents.
+2. Without effective data access, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
+3. We want to govern changes to data like we govern changes to code with git.
 
 </details>
 
@@ -19,7 +19,7 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 
 How?
 
-- **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
+- **lineage** → trace results through agent sessions, notebooks, scripts & workflows
 - **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
