@@ -147,13 +147,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         There is only a single `.lamindb/` directory per storage location.
 
-    .. dropdown:: What should I do if I want to bulk migrate all artifacts to another storage?
+    .. dropdown:: What should I do if I want to bulk migrate all artifacts to another storage location?
 
-        Currently, you can only achieve this manually and you should be careful with it.
+        Currently, you can only achieve this manually:
 
         1. Copy or move artifacts into the desired new storage location
         2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
-        3. If your LaminDB storage location is connected to the hub, you also need to update the storage record on the hub
+        3. If your storage location is connected to the hub, you also need to update the storage record on the hub
 
     """
 
