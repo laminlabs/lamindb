@@ -23,7 +23,7 @@ How?
 - **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
 - **LIMS & ELN** → manage records schema-based with support for ontologies & markdown notes
-- **change management** → version & branch data & code together, similar to git
+- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code together
 - **reproducible** → auto-tracked agent traces, source code & compute environments
 
 Architecture?
