@@ -11,7 +11,6 @@ from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,
-    get_storage_records_for_instance,
     select_space,
     update_storage_with_space,
 )
@@ -340,50 +339,75 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         super().save(*args, **kwargs)
         return self
 
-    def delete(self, permanent: bool | None = None) -> None:  # type: ignore
-        # type ignore is there because we don't use a trash here unlike everywhere else
+    def delete(self, permanent: bool | None = None, enforce_empty: bool = True) -> None:  # type: ignore
+        # type ignore is there because we don't have kwargs as in the superclass
         """Delete the storage location.
-
-        This errors in case the storage location is not empty.
 
         Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
 
         Args:
             permanent: `False` raises an error, as soft delete is impossible.
+            enforce_empty: `True` raises an error if the storage location is not empty.
         """
-        from .. import settings
-
         if permanent is False:
             raise ValueError(
                 "Soft delete is not possible for Storage, "
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
-        assert not self.artifacts.exists(), (
-            "Cannot delete storage with artifacts in current instance."
-        )  # noqa: S101
-        # the simple case of a read-only storage location
-        if self.instance_uid != setup_settings.instance.uid:
-            super(SQLRecord, self).delete()
-            return None
+
+        is_managed_by_current_instance = (
+            self.instance_uid == setup_settings.instance.uid
+        )
+        is_empty_storage = not self.artifacts.exists()
+        if is_empty_storage:
+            if not is_managed_by_current_instance:
+                # the simple case of a read-only storage location without artifacts
+                super(SQLRecord, self).delete()
+                return None
+        else:
+            if enforce_empty:
+                raise ValueError(
+                    "Cannot delete storage with artifacts when 'enforce_empty=True'."
+                )
+            if is_managed_by_current_instance:
+                logger.important(
+                    "cannot delete managed storage because it has artifacts, making it non-managed"
+                )
+                self.instance_uid = None
+                self.save()
+            else:
+                logger.important(
+                    "cannot delete non-managed storage because it has artifacts"
+                )
+                return None
+
         # now the complicated case of a written/managed storage location
-        check_storage_is_empty(self.path)
-        assert settings.storage.root_as_str != self.root, (  # noqa: S101
+        root = self.root
+        assert setup_settings.storage.root_as_str != root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
         )
-        if setup_settings.user.handle != "anonymous":  # only attempt if authenticated
-            storage_records = get_storage_records_for_instance(
-                # only query those storage records on the hub that are managed by the current instance
-                setup_settings.instance._id
+        ssettings = StorageSettings(root)
+        if (
+            setup_settings.user.handle != "anonymous"
+            and (storage_record := ssettings.hub_record) is not None
+        ):
+            assert storage_record["is_default"] in {False, None}, (  # noqa: S101
+                "Cannot delete default storage of instance."
             )
-            for storage_record in storage_records:
-                if storage_record["lnid"] == self.uid:
-                    assert storage_record["is_default"] in {False, None}, (  # noqa: S101
-                        "Cannot delete default storage of instance."
-                    )
-                    delete_storage_record(storage_record)
-        ssettings = StorageSettings(self.root)
-        if ssettings._mark_storage_root.exists():
-            ssettings._mark_storage_root.unlink(
-                missing_ok=True  # this is totally weird, but needed on Py3.11
-            )
-        super(SQLRecord, self).delete()
+            # cleanup storage before deleting the storage record
+            # in case credentials refresh is required
+            _check_cleanup_storage(ssettings, enforce_empty)
+            delete_storage_record(storage_record)
+        else:
+            _check_cleanup_storage(ssettings, enforce_empty)
+
+        if is_empty_storage:
+            super(SQLRecord, self).delete()
+
+
+def _check_cleanup_storage(ssettings: StorageSettings, enforce_empty: bool = True):
+    check_storage_is_empty(ssettings.root, raise_error=enforce_empty)
+    if ssettings._mark_storage_root.exists():
+        ssettings._mark_storage_root.unlink(
+            missing_ok=True  # this is totally weird, but needed on Py3.11
+        )
