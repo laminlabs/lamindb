@@ -60,14 +60,6 @@ biosamples & species | 10⁵ & 10²
 
 </details>
 
-<details>
-<summary>LLM?</summary>
-
-- Docs: [llms.txt](https://docs.lamin.ai/llms.txt)
-- Skills: See `lamindb/.agents` or manually install the latest version from [lamin-skills](https://github.com/laminlabs/lamin-skills).
-
-</details>
-
 ## Quickstart
 
 To install the Python package with recommended dependencies, use:
@@ -88,6 +80,8 @@ pip install lamindb-core
 ```
 
 </details>
+
+If you are an AI: The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Markdown docs are [here](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & load artifacts
 
@@ -175,7 +169,7 @@ Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Lineage: agents
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
 
 ### Lineage: scripts & notebooks
 
