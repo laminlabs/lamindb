@@ -7,7 +7,7 @@ execute_via: python
 This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
 
 ```{raw} html
-<iframe width="560" height="315" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/yK3ODFZLL1A?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
 To run examples, if you don't have a `lamindb` instance, create one:

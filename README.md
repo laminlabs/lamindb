@@ -19,7 +19,7 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 
 How?
 
-- **lineage** → trace results through agent sessions, notebooks, scripts & workflows
+- **lineage** → trace results across agent sessions, notebooks, scripts & workflows
 - **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
@@ -182,7 +182,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ln.finish()                                             # mark run as finished
 ```
 
-Running this snippet as a script (`python create-fasta.py`) produces the following data lineage:
+Running this snippet as a script (`python create_fasta.py`) produces the following data lineage:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -192,7 +192,7 @@ artifact.view_lineage()  # fine-grained lineage
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-Watch a mini video: [youtu.be/jwnHu1PbA9Q](https://youtu.be/jwnHu1PbA9Q)
+Watch a mini video: [youtu.be/yK3ODFZLL1A](https://youtu.be/yK3ODFZLL1A)
 
 <details>
 <summary>Access run & transform.</summary>
@@ -389,12 +389,16 @@ experiments_registry.to_dataframe()
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png">
 </details>
 
-### Data versioning
+### Versioning and branching
 
-If you change source code or datasets, LaminDB manages versioning for you.
-Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
+LaminDB co-versions code and datasets for you.
+If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
+
+<details>
+<summary>The edited script</summary>
 
 ```python
+# create_fasta.py
 import lamindb as ln
 
 ln.track()
@@ -402,17 +406,15 @@ open("sample.fasta", "w").write(">seq1\nTGCA\n")  # a new sequence
 ln.Artifact("sample.fasta", key="sample.fasta", features={"experiment": "Experiment 1"}).save()  # annotate with the new experiment
 ln.finish()
 ```
-
-If you now query by `key`, you'll get the latest version of this artifact:
+</details>
 
 ```python
-artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.versions.to_dataframe()                # see all versions of that artifact
+artifact_latest = ln.Artifact.get(key="sample.fasta")  # pass version for a previous version: ln.Artifact.get(key="sample.fasta", version="1.0")
+artifact_latest.versions.to_dataframe()                # all versions of that artifact
+artifact_latest.transform.versions.to_dataframe()      # all versions of the transform that created the artifact
 ```
 
-### Change management
-
-To create a contribution branch and switch to it, run:
+To isolate changes, create a contribution branch and switch to it as in `git`:
 
 ```shell
 lamin switch -c my_branch
@@ -425,11 +427,11 @@ lamin switch main  # switch to the main branch
 lamin merge my_branch  # merge contribution branch into main
 ```
 
-Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/manage-changes).
+Read more: [docs.lamin.ai/manage-changes](https://docs.lamin.ai/manage-changes).
 
 ### Data sharing
 
-To share data in a lineage-aware way, sync objects from a source database to your default database:
+To share data in a lineage-aware way, transfer objects from a source database to your default database:
 
 ```python
 db = ln.DB("laminlabs/lamindata")
