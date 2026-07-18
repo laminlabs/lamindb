@@ -13,8 +13,6 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 2. It's hard to use models if they can't effectively access data.
 3. It's hard to govern changes to data that doesn't fit git.
 
-LaminDB fixes these.
-
 </details>
 
 <img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
@@ -22,20 +20,20 @@ LaminDB fixes these.
 How?
 
 - **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
-- **lakehouse** → manage, monitor & validate schemas for tables and arrays; query across many datasets
-- **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → schema-based records management with support for ontologies & markdown notes
-- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments
-- **change management** → versioning & branching similar to git
+- **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
+- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
+- **LIMS & ELN** → manage records schema-based with support for ontologies & markdown notes
+- **change management** → version & branch data & code together, similar to git
+- **reproducible** → auto-tracked agent traces, source code & compute environments
 
 Architecture?
 
 - **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → just `pip install` or `install.packages('laminr')` - no Docker required, no separate backend
-- **idempotent** → re-run logic without worries about duplications or overwrites
-- **distributed** → zero-copy & lineage-aware data sharing across infrastructure
+- **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
+- **distributed** → federate data zero-copy & lineage-aware [across infrastructure](https://docs.lamin.ai/transfer)
+- **unified** → storage locations (local, S3, GCP, …), SQL databases & ontologies
+- [**idempotent**](https://docs.lamin.ai/idempotency) → re-run logic without worries about duplications or overwrites
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
