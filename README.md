@@ -7,14 +7,6 @@ It gives you context through annotations, memory through lineage, and governance
 It uses a scalable lakehouse architecture that understands bio-formats, registries, ontologies, and markdown notes.
 
 <details>
-<summary>LLM?</summary>
-
-- Docs: [llms.txt](https://docs.lamin.ai/llms.txt)
-- Skills: See `lamindb/.agents` or manually install the latest version from [lamin-skills](https://github.com/laminlabs/lamin-skills).
-
-</details>
-
-<details>
 <summary>Why?</summary>
 
 1. It's hard to trust results if you don't know where they come from, especially in the age of agents.
@@ -67,6 +59,14 @@ runs & transforms| 10⁹ & 10⁵
 proteins & genes | 10⁹ & 10⁶
 biosamples & species | 10⁵ & 10²
 ... | ...
+
+</details>
+
+<details>
+<summary>LLM?</summary>
+
+- Docs: [llms.txt](https://docs.lamin.ai/llms.txt)
+- Skills: See `lamindb/.agents` or manually install the latest version from [lamin-skills](https://github.com/laminlabs/lamin-skills).
 
 </details>
 
