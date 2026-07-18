@@ -395,9 +395,10 @@ LaminDB co-versions code and datasets for you.
 If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
 
 <details>
-<summary>Source code</summary>
+<summary>The edited script</summary>
 
 ```python
+# create_fasta.py
 import lamindb as ln
 
 ln.track()
@@ -413,7 +414,7 @@ artifact_latest.versions.to_dataframe()                # all versions of that ar
 artifact_latest.transform.versions.to_dataframe()      # all versions of the transform that created the artifact
 ```
 
-To can isolate changes, create a contribution branch and switch to it as in `git`:
+To isolate changes, create a contribution branch and switch to it as in `git`:
 
 ```shell
 lamin switch -c my_branch
