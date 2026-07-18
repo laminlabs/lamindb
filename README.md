@@ -32,7 +32,7 @@ Architecture?
 - **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
 - **unified** → federate data [across storage locations (local, S3, GCP, …)]() in any database
 - **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
-- **reproducible** → auto-tracked agent traces, source code & compute environments
+- **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - [**idempotent**](https://docs.lamin.ai/idempotency) → re-run logic without worries about duplications or overwrites
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
