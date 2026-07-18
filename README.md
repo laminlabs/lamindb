@@ -21,10 +21,9 @@ How?
 
 - **lineage** → track inputs & outputs of agent sessions, notebooks, scripts, functions & workflows
 - **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
+- **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
-- **LIMS & ELN** → manage records schema-based with support for ontologies & markdown notes
 - **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code together
-- **reproducible** → auto-tracked agent traces, source code & compute environments
 
 Architecture?
 
@@ -33,6 +32,7 @@ Architecture?
 - **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
 - **distributed** → federate data zero-copy & lineage-aware [across infrastructure](https://docs.lamin.ai/transfer)
 - **unified** → storage locations (local, S3, GCP, …), SQL databases & ontologies
+- **reproducible** → auto-tracked agent traces, source code & compute environments
 - [**idempotent**](https://docs.lamin.ai/idempotency) → re-run logic without worries about duplications or overwrites
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
