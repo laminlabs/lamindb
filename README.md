@@ -192,7 +192,7 @@ artifact.view_lineage()  # fine-grained lineage
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-Watch a mini video: [youtu.be/jwnHu1PbA9Q](https://youtu.be/jwnHu1PbA9Q)
+Watch a mini video: [youtu.be/yK3ODFZLL1A](https://youtu.be/yK3ODFZLL1A)
 
 <details>
 <summary>Access run & transform.</summary>
