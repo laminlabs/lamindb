@@ -85,7 +85,7 @@ If you are an AI: The `lamindb` [skill](https://github.com/laminlabs/lamin-skill
 
 ### Query databases & load artifacts
 
-You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
+You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
 ```python
 import lamindb as ln
@@ -114,12 +114,7 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-You can query by biological entities like `Disease` through plug-in `bionty`:
-
-```python
-alzheimers = db.bionty.Disease.get(name="Alzheimer disease")
-df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
-```
+To query datasets from `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
 
 ### Configure your database
 
@@ -131,15 +126,17 @@ lamin login
 lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
 
-If you prefer to init a new instance instead (no login required), run:
+<details>
+<summary>Or init a new instance instead (no login required).</summary>
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
 ```
 
-For more configuration, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
+</details>
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
+For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
 ### Save files & folders as artifacts
 
