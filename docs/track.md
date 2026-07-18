@@ -18,9 +18,9 @@ lamin init --storage ./test-track
 
 ## Track agentic workflows
 
-### Transcripts
+### Sessions
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills/tree/main/skills/lamindb) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks transcripts.
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
 
 ### Plans
 
