@@ -19,7 +19,7 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 
 How?
 
-- **lineage** → trace results through agent sessions, notebooks, scripts & workflows
+- **lineage** → trace results across agent sessions, notebooks, scripts & workflows
 - **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
