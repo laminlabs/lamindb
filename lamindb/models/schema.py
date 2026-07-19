@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
 
 import pgtrigger
@@ -18,7 +19,7 @@ from lamindb.base.fields import (
     IntegerField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.types import CanonicalSuffix, FieldAttr, ListLike
 from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
@@ -336,7 +337,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
         otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
-        suffix: `str | None = None` A required artifact suffix for schema-validated artifacts, e.g., `".parquet"`.
+        suffix: `str | None = None` A required artifact suffix for schema-validated artifacts.
+            Must be a canonical suffix as defined by :class:`~lamindb.base.types.CanonicalSuffix`, e.g., `".csv"`, `".parquet"`, or `".zarr"`.
         dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
             Defaults to `None` if `itype` is `Feature`. Otherwise to `"num"`, e.g., if `itype` is `bt.Gene.ensembl_gene_id`.
         minimal_set: `bool = True` Whether all passed features are required by default.
@@ -558,7 +560,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     suffix: str | None = CharField(
         max_length=30, db_index=True, null=True, default=None
     )
-    """Required artifact suffix for validating artifacts, e.g., `.parquet`."""
+    """A required canonical suffix for artifacts validated with this schema.
+
+    Like :attr:`~lamindb.Artifact.suffix`, this uses canonical storage-format suffixes
+    from :class:`~lamindb.base.types.CanonicalSuffix`, such as `".csv"`,
+    `".parquet"`, or `".zarr"`.
+
+    If set, :meth:`~lamindb.Artifact.save` raises a
+    :class:`~lamindb.errors.ValidationError` when an artifact's suffix does not match.
+    """
     _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
@@ -795,6 +805,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         n_features: int | None,
         optional_features_manual: list[Feature] | None = None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
+        suffix = validate_schema_suffix(suffix)
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
@@ -1482,6 +1493,17 @@ def get_type_str(dtype: str | None) -> str | None:
     else:
         type_str = None
     return type_str
+
+
+def validate_schema_suffix(suffix: str | None) -> str | None:
+    if suffix is None:
+        return None
+    canonical_suffix = CanonicalSuffix.from_path(PurePosixPath(f"file{suffix}"))
+    if canonical_suffix != suffix:
+        raise FieldValidationError(
+            f"Invalid suffix '{suffix}'. Please pass a canonical suffix: https://docs.lamin.ai/lamindb.base.types"
+        )
+    return suffix
 
 
 def _get_related_name(self: Schema) -> str | None:

@@ -156,6 +156,13 @@ def test_schema_suffix_field_and_hash():
     schema_csv = ln.Schema(features=[feature], suffix=".csv").save()
     assert schema_csv.id != schema_parquet.id
 
+    with pytest.raises(FieldValidationError) as error:
+        ln.Schema(features=[feature], suffix=".notacanonicalsuffix")
+    assert (
+        "Invalid suffix '.notacanonicalsuffix'. Please pass a canonical suffix: https://docs.lamin.ai/lamindb.base.types"
+        in error.exconly()
+    )
+
     schema_without_suffix.delete(permanent=True)
     schema_parquet.delete(permanent=True)
     schema_csv.delete(permanent=True)

@@ -901,17 +901,6 @@ def save_schema_links(self: Artifact) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-def validate_schema_suffix(self: Artifact) -> None:
-    schema = self.schema
-    if schema is None or schema.suffix is None:
-        return None
-    if self.suffix != schema.suffix:
-        raise ValidationError(
-            "Artifact not validated. Artifact suffix "
-            f"'{self.suffix}' does not match schema suffix '{schema.suffix}'."
-        )
-
-
 def validate_feature(feature: Feature, records: list[SQLRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
@@ -3312,7 +3301,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
 
-        validate_schema_suffix(self)
+        schema = self.schema
+        if (
+            schema is not None
+            and schema.suffix is not None
+            and self.suffix != schema.suffix
+        ):
+            raise ValidationError(
+                "Artifact not validated. Artifact suffix "
+                f"'{self.suffix}' does not match schema suffix '{schema.suffix}'."
+            )
 
         access_token = kwargs.pop("access_token", None)
 
