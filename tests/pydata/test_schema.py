@@ -140,6 +140,28 @@ def test_kwargs():
         ln.Schema(x="1", features=[])
 
 
+def test_schema_suffix_field_and_hash():
+    feature = ln.Feature(name="schema_suffix_feature", dtype=str).save()
+
+    schema_without_suffix = ln.Schema(features=[feature]).save()
+    schema_without_suffix_again = ln.Schema(features=[feature]).save()
+    assert schema_without_suffix.id == schema_without_suffix_again.id
+    assert schema_without_suffix.suffix is None
+
+    schema_parquet = ln.Schema(features=[feature], suffix=".parquet").save()
+    schema_parquet_again = ln.Schema(features=[feature], suffix=".parquet").save()
+    assert schema_parquet.id == schema_parquet_again.id
+    assert schema_parquet.suffix == ".parquet"
+
+    schema_csv = ln.Schema(features=[feature], suffix=".csv").save()
+    assert schema_csv.id != schema_parquet.id
+
+    schema_without_suffix.delete(permanent=True)
+    schema_parquet.delete(permanent=True)
+    schema_csv.delete(permanent=True)
+    feature.delete(permanent=True)
+
+
 def test_edge_cases():
     feature = ln.Feature(name="rna", dtype="float")
     ln.save([feature])

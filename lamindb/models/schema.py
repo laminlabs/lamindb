@@ -336,6 +336,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
         otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
+        suffix: `str | None = None` A required artifact suffix for schema-validated artifacts, e.g., `".parquet"`.
         dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
             Defaults to `None` if `itype` is `Feature`. Otherwise to `"num"`, e.g., if `itype` is `bt.Gene.ensembl_gene_id`.
         minimal_set: `bool = True` Whether all passed features are required by default.
@@ -554,6 +555,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
+    suffix: str | None = CharField(
+        max_length=30, db_index=True, null=True, default=None
+    )
+    """Required artifact suffix for validating artifacts, e.g., `.parquet`."""
     _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
@@ -620,6 +625,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         index: Feature | None = None,
         flexible: bool | None = None,
         otype: str | None = None,
+        suffix: str | None = None,
         dtype: str | Type[int | float | str] | None = None,  # noqa
         minimal_set: bool = True,
         maximal_set: bool = False,
@@ -659,6 +665,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         type: Feature | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
+        suffix: str | None = kwargs.pop("suffix", None)
         dtype: str | None = kwargs.pop("dtype", None)
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
@@ -712,6 +719,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             type=type,
             is_type=is_type,
             otype=otype,
+            suffix=suffix,
             dtype=dtype,
             minimal_set=minimal_set,
             ordered_set=ordered_set,
@@ -778,6 +786,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         type: Feature | None,
         is_type: bool,
         otype: str | None,
+        suffix: str | None,
         dtype: str | None,
         minimal_set: bool,
         ordered_set: bool,
@@ -841,6 +850,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
+            "suffix": suffix,
             "n_members": n_features,
             "itype": itype_str,
             "minimal_set": minimal_set,
@@ -878,6 +888,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "features_hash": "j",
             "index": "k",
             "slots_hash": "l",
+            "suffix": "m",
         }
         # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -891,6 +902,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
         if coerce is not None and coerce != coerce_default:
             list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce}")
+        if suffix is not None:
+            list_for_hashing.append(f"{HASH_CODE['suffix']}={suffix}")
         if n_features is not None and n_features != n_features_default:
             list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
         if index is not None:
@@ -1124,6 +1137,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 type=self.type,
                 is_type=self.is_type,
                 otype=self.otype,
+                suffix=self.suffix,
                 dtype=self.dtype,
                 minimal_set=self.minimal_set,
                 ordered_set=self.ordered_set,
