@@ -70,8 +70,7 @@ def test_schema_from_records(df):
     with pytest.raises(ValueError) as error:
         schema = ln.Schema(features)
     assert (
-        error.exconly()
-        == "ValueError: Can only construct feature sets from validated features"
+        error.exconly() == "ValueError: Can only create schema from validated features"
     )
 
     ln.save(features)

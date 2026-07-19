@@ -39,13 +39,10 @@ def _schema_from_dataframe(
     dataframe: pd.DataFrame, feature_names: list[str]
 ) -> ln.Schema:
     features = ln.Feature.from_dataframe(dataframe)
-    validated = ln.Feature.validate(
-        [feature.name for feature in features], field="name"
-    )
-    ln.save([feature for feature, valid in zip(features, validated) if valid])
     selected_features = [
         feature for feature in features if feature.name in feature_names
     ]
+    ln.save(selected_features)
     return ln.Schema(selected_features).save()
 
 
@@ -544,11 +541,13 @@ def test_collection_schema_mixed_fails_on_init(df):
 def test_collection_append_schema_mismatch_fails(df):
     schema1 = _schema_from_dataframe(df, ["feat1", "feat2"])
     schema2 = _schema_from_dataframe(df, ["feat1"])
+    df2 = df.copy()
+    df2.iloc[0, 0] = -2
     artifact1 = ln.Artifact.from_dataframe(
         df, description="append schema 1", schema=schema1
     ).save()
     artifact2 = ln.Artifact.from_dataframe(
-        df, description="append schema 2", schema=schema2
+        df2, description="append schema 2", schema=schema2
     ).save()
     collection = ln.Collection(artifact1, key="append-schema-mismatch").save()
 
