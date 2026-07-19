@@ -61,6 +61,194 @@ class Migration(migrations.Migration):
             name="transformrecord",
             unique_together=set(),
         ),
+        migrations.RunSQL(
+            sql="""
+            -- Deduplicate rows that would violate nulls_distinct=False unique constraints.
+            -- Keep the oldest row (smallest id) per pair where feature_id IS NULL.
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, value_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactartifact
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactartifact t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, project_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactproject
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactproject t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactrecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactrecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, reference_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactreference
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactreference t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, run_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactrun
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactrun t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, ulabel_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactulabel
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactulabel t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY artifact_id, user_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_artifactuser
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_artifactuser t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY collection_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_collectionrecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_collectionrecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY project_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_projectrecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_projectrecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY reference_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_referencerecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_referencerecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY run_id, artifact_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_runartifact
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_runartifact t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY run_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_runrecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_runrecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY transform_id, record_id
+                        ORDER BY id
+                    ) AS rn
+                FROM lamindb_transformrecord
+                WHERE feature_id IS NULL
+            )
+            DELETE FROM lamindb_transformrecord t
+            USING ranked r
+            WHERE t.id = r.id AND r.rn > 1;
+            """,
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AddConstraint(
             model_name="artifactartifact",
             constraint=models.UniqueConstraint(
