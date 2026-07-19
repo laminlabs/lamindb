@@ -64,7 +64,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
     If you execute a transform, you generate a run (:class:`~lamindb.Run`).
 
     Args:
-        key: `str | None = None` A short name or path-like semantic key.
+        key: `str | None = None` A filepath-like key.
         kind: `TransformKind | None = "pipeline"` See :class:`~lamindb.base.types.TransformKind`.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
