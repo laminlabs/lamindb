@@ -610,13 +610,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
     def save(self, using: str | None = None) -> Collection:
-        """Save the collection and underlying artifacts to database & storage.
+        """Save the collection.
 
         Args:
             using: The database to which you want to save.
-
-        Examples:
-                collection = ln.Collection("./myfile.csv", name="myfile")
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
