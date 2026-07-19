@@ -493,8 +493,13 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "project", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactproject",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "project"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactproject_null_feature",
             ),
         ]
 
@@ -613,8 +618,13 @@ class ReferenceRecord(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["reference", "feature", "record"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_referencerecord",
+            ),
+            models.UniqueConstraint(
+                fields=["reference", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_referencerecord_null_feature",
             ),
         ]
 
@@ -650,8 +660,13 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "feature", "record"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_projectrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["project", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_projectrecord_null_feature",
             ),
         ]
 
@@ -694,8 +709,13 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "reference", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactreference",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "reference"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactreference_null_feature",
             ),
         ]
 

@@ -298,8 +298,13 @@ class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "ulabel", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactulabel",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "ulabel"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactulabel_null_feature",
             ),
         ]
 

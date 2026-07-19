@@ -644,7 +644,12 @@ class RunArtifact(BaseSQLRecord, IsLink):
         constraints = [
             models.UniqueConstraint(
                 fields=["run", "artifact", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_runartifact",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "artifact"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_runartifact_null_feature",
             ),
         ]

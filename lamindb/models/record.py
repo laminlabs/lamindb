@@ -1343,8 +1343,13 @@ class RunRecord(BaseSQLRecord, IsLink):
         constraints = [
             models.UniqueConstraint(
                 fields=["run", "record", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_runrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_runrecord_null_feature",
             ),
         ]
 
@@ -1375,8 +1380,13 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "record", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactrecord_null_feature",
             ),
         ]
 
@@ -1411,8 +1421,13 @@ class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["collection", "record", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_collectionrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["collection", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_collectionrecord_null_feature",
             ),
         ]
 
@@ -1451,7 +1466,12 @@ class TransformRecord(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["transform", "record", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_transformrecord",
+            ),
+            models.UniqueConstraint(
+                fields=["transform", "record"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_transformrecord_null_feature",
             ),
         ]

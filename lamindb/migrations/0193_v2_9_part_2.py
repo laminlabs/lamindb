@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunSQL(
             sql="""
-            -- Deduplicate rows that would violate nulls_distinct=False unique constraints.
+            -- Deduplicate rows that would violate feature IS NULL uniqueness constraints.
             -- Keep the oldest row (smallest id) per pair where feature_id IS NULL.
             DELETE FROM lamindb_artifactartifact
             WHERE feature_id IS NULL
@@ -188,104 +188,208 @@ class Migration(migrations.Migration):
             model_name="artifactartifact",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "value", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactartifact",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactartifact",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "value"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactartifact_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactproject",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "project", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactproject",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactproject",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "project"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactproject_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactrecord",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "record", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactrecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactrecord",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactrecord_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactreference",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "reference", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactreference",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactreference",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "reference"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactreference_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactrun",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "run", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactrun",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactrun",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "run"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactrun_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactulabel",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "ulabel", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactulabel",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactulabel",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "ulabel"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactulabel_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="artifactuser",
             constraint=models.UniqueConstraint(
                 fields=("artifact", "user", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_artifactuser",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="artifactuser",
+            constraint=models.UniqueConstraint(
+                fields=("artifact", "user"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_artifactuser_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="collectionrecord",
             constraint=models.UniqueConstraint(
                 fields=("collection", "record", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_collectionrecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="collectionrecord",
+            constraint=models.UniqueConstraint(
+                fields=("collection", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_collectionrecord_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="projectrecord",
             constraint=models.UniqueConstraint(
                 fields=("project", "feature", "record"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_projectrecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="projectrecord",
+            constraint=models.UniqueConstraint(
+                fields=("project", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_projectrecord_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="referencerecord",
             constraint=models.UniqueConstraint(
                 fields=("reference", "feature", "record"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_referencerecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="referencerecord",
+            constraint=models.UniqueConstraint(
+                fields=("reference", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_referencerecord_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="runartifact",
             constraint=models.UniqueConstraint(
                 fields=("run", "artifact", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_runartifact",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="runartifact",
+            constraint=models.UniqueConstraint(
+                fields=("run", "artifact"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_runartifact_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="runrecord",
             constraint=models.UniqueConstraint(
                 fields=("run", "record", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_runrecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="runrecord",
+            constraint=models.UniqueConstraint(
+                fields=("run", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_runrecord_null_feature",
             ),
         ),
         migrations.AddConstraint(
             model_name="transformrecord",
             constraint=models.UniqueConstraint(
                 fields=("transform", "record", "feature"),
+                condition=models.Q(("feature__isnull", False)),
                 name="unique_transformrecord",
-                nulls_distinct=False,
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="transformrecord",
+            constraint=models.UniqueConstraint(
+                fields=("transform", "record"),
+                condition=models.Q(("feature__isnull", True)),
+                name="unique_transformrecord_null_feature",
             ),
         ),
     ]

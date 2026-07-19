@@ -3713,8 +3713,13 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "user", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactuser",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "user"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactuser_null_feature",
             ),
         ]
 
@@ -3735,8 +3740,13 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "run", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactrun",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "run"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactrun_null_feature",
             ),
         ]
 
@@ -3757,8 +3767,13 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         constraints = [
             models.UniqueConstraint(
                 fields=["artifact", "value", "feature"],
-                nulls_distinct=False,
+                condition=models.Q(feature__isnull=False),
                 name="unique_artifactartifact",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "value"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactartifact_null_feature",
             ),
         ]
 
