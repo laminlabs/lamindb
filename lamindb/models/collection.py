@@ -490,23 +490,23 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             This method currently only works for collections or query sets of `AnnData` artifacts.
 
         Args:
-            layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
-                retrieves ``.X``.
-            obs_keys: Keys from the ``.obs`` slots.
-            obsm_keys: Keys from the ``.obsm`` slots.
+            layers_keys: Keys from the `.layers` slot. `layers_keys=None` or `"X"` in the list
+                retrieves `.X`.
+            obs_keys: Keys from the `.obs` slots.
+            obsm_keys: Keys from the `.obsm` slots.
             obs_filter: Select only observations with these values for the given obs columns.
                 Should be a dictionary with obs column names as keys
                 and filtering values (a string or a list of strings) as values.
-            join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
+            join: `"inner"` or `"outer"` virtual joins. If `None` is passed,
                 does not join.
             encode_labels: Encode labels into integers.
-                Can be a list with elements from ``obs_keys``.
+                Can be a list with elements from `obs_keys`.
             unknown_label: Encode this label to -1.
-                Can be a dictionary with keys from ``obs_keys`` if ``encode_labels=True``
-                or from ``encode_labels`` if it is a list.
-            cache_categories: Enable caching categories of ``obs_keys`` for faster access.
+                Can be a dictionary with keys from `obs_keys` if `encode_labels=True`
+                or from `encode_labels` if it is a list.
+            cache_categories: Enable caching categories of `obs_keys` for faster access.
             parallel: Enable sampling with multiple processes.
-            dtype: Convert numpy arrays from ``.X``, ``.layers`` and ``.obsm``
+            dtype: Convert numpy arrays from `.X`, `.layers` and `.obsm`
             stream: Whether to stream data from the array backend.
             is_run_input: Whether to track this collection as run input.
 
