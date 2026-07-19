@@ -3301,6 +3301,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
 
+        schema = self.schema
+        if (
+            schema is not None
+            and schema.suffix is not None
+            and self.suffix != schema.suffix
+        ):
+            raise ValidationError(
+                "Artifact not validated. Artifact suffix "
+                f"'{self.suffix}' does not match schema suffix '{schema.suffix}'."
+            )
+
         access_token = kwargs.pop("access_token", None)
 
         current_instance_uid = setup_settings.instance.uid

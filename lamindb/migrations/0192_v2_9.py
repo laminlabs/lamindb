@@ -24,4 +24,14 @@ class Migration(migrations.Migration):
                 to="lamindb.schema",
             ),
         ),
+        migrations.AddField(
+            model_name="schema",
+            name="suffix",
+            field=lamindb.base.fields.CharField(
+                db_index=True,
+                default=None,
+                max_length=30,
+                null=True,
+            ),
+        ),
     ]

@@ -1,6 +1,8 @@
 # Note: Almost all logic for schema-based validation is handled in the curators test suite
 # This here only covers external feature annotation and validation
 
+from pathlib import Path
+
 import lamindb as ln
 import pandas as pd
 import pytest
@@ -276,3 +278,31 @@ Artifact: test_df_with_external_features.parquet (0000)
     schema_no_external.delete(permanent=True)
     schema_correct_external.delete(permanent=True)
     schema_external.delete(permanent=True)
+
+
+def test_artifact_save_validates_schema_suffix():
+    csv_path = "test_schema_suffix_validation.csv"
+    with open(csv_path, "w") as file:
+        file.write("a,b\n1,2\n")
+
+    schema = ln.Schema(itype=ln.Feature, suffix=".csv").save()
+    artifact = ln.Artifact(csv_path, key=csv_path, schema=schema).save()
+
+    schema.suffix = ".h5ad"
+    schema.save()
+    with pytest.raises(ln.errors.ValidationError) as error:
+        ln.Artifact(csv_path, key=csv_path, schema=schema).save()
+    assert (
+        "Artifact not validated. Artifact suffix '.csv' does not match schema "
+        "suffix '.h5ad'." in error.exconly()
+    )
+
+    schema.suffix = None
+    schema.save()
+    artifact_none_suffix = ln.Artifact(csv_path, key=csv_path, schema=schema).save()
+
+    for saved_artifact in [artifact, artifact_none_suffix]:
+        saved_artifact.delete(permanent=True)
+
+    schema.delete(permanent=True)
+    Path(csv_path).unlink(missing_ok=True)
