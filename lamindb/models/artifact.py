@@ -3710,7 +3710,13 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "user", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "user", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactuser",
+            ),
+        ]
 
 
 class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
@@ -3726,7 +3732,13 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "run", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "run", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactrun",
+            ),
+        ]
 
 
 class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
@@ -3742,7 +3754,13 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "value", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "value", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactartifact",
+            ),
+        ]
 
 
 def track_run_input(

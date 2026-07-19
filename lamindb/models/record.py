@@ -1340,7 +1340,13 @@ class RunRecord(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "record", "feature"],
+                nulls_distinct=False,
+                name="unique_runrecord",
+            ),
+        ]
 
 
 # for storing artifact-like values in records
@@ -1366,7 +1372,13 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("artifact", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "record", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactrecord",
+            ),
+        ]
 
 
 # for storing collection-like values in records
@@ -1396,7 +1408,13 @@ class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("collection", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["collection", "record", "feature"],
+                nulls_distinct=False,
+                name="unique_collectionrecord",
+            ),
+        ]
 
 
 # for storing transform-like values in records
@@ -1430,4 +1448,10 @@ class TransformRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("transform", "record", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["transform", "record", "feature"],
+                nulls_distinct=False,
+                name="unique_transformrecord",
+            ),
+        ]

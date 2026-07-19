@@ -490,7 +490,13 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
     class Meta:
         app_label = "lamindb"
         # can have the same label linked to the same artifact if the feature is different
-        unique_together = ("artifact", "project", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "project", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactproject",
+            ),
+        ]
 
 
 class RunProject(BaseSQLRecord, IsLink):
@@ -604,7 +610,13 @@ class ReferenceRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("reference", "feature", "record")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reference", "feature", "record"],
+                nulls_distinct=False,
+                name="unique_referencerecord",
+            ),
+        ]
 
 
 class RecordReference(BaseSQLRecord, IsLink):
@@ -635,7 +647,13 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("project", "feature", "record")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "feature", "record"],
+                nulls_distinct=False,
+                name="unique_projectrecord",
+            ),
+        ]
 
 
 class RecordProject(BaseSQLRecord, IsLink):
@@ -673,7 +691,13 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("artifact", "reference", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "reference", "feature"],
+                nulls_distinct=False,
+                name="unique_artifactreference",
+            ),
+        ]
 
 
 class TransformReference(BaseSQLRecord, IsLink, TracksRun):
