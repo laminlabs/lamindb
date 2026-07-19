@@ -332,9 +332,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"returning collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
             init_self_from_db(self, existing_collection)
+            assert schema is None or self.schema_id == schema.id, (
+                "Cannot update schema on an existing collection returned by hash lookup"
+            )
             update_attributes(
                 self,
-                {"description": description, "key": key, "schema": schema},
+                {"description": description, "key": key},
             )
             populate_subsequent_run(self, run)
         else:
