@@ -295,7 +295,18 @@ class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "ulabel", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "ulabel", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactulabel",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "ulabel"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactulabel_null_feature",
+            ),
+        ]
 
 
 class TransformULabel(BaseSQLRecord, IsLink, TracksRun):

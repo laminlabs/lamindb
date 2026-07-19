@@ -641,4 +641,15 @@ class RunArtifact(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "artifact", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "artifact", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_runartifact",
+            ),
+            models.UniqueConstraint(
+                fields=["run", "artifact"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_runartifact_null_feature",
+            ),
+        ]

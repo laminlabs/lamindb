@@ -3710,7 +3710,18 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "user", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "user", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactuser",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "user"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactuser_null_feature",
+            ),
+        ]
 
 
 class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
@@ -3726,7 +3737,18 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "run", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "run", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactrun",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "run"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactrun_null_feature",
+            ),
+        ]
 
 
 class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
@@ -3742,7 +3764,18 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         # can have the same label linked to the same artifact if the feature is
         # different
         app_label = "lamindb"
-        unique_together = ("artifact", "value", "feature")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["artifact", "value", "feature"],
+                condition=models.Q(feature__isnull=False),
+                name="unique_artifactartifact",
+            ),
+            models.UniqueConstraint(
+                fields=["artifact", "value"],
+                condition=models.Q(feature__isnull=True),
+                name="unique_artifactartifact_null_feature",
+            ),
+        ]
 
 
 def track_run_input(
