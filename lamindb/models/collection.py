@@ -16,7 +16,7 @@ from lamindb.base.fields import (
 from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_20
-from ..errors import FieldValidationError
+from ..errors import FieldValidationError, ValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
+    from .schema import Schema
     from .transform import Transform
     from .ulabel import ULabel
 
@@ -139,6 +140,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
     _name_field: str = "key"
+    _TRACK_FIELDS = ("schema_id",)
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -189,6 +191,14 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
     """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
+    schema: Schema | None = ForeignKey(
+        "Schema",
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="validated_collections",
+    )
+    """The validating schema of this collection ← :attr:`~lamindb.Schema.validated_collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -225,6 +235,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts: Artifact | list[Artifact],
         key: str,
         description: str | None = None,
+        schema: Schema | None = None,
         meta: Any | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -258,6 +269,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
+        schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
@@ -281,6 +293,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         provisional_uid, version_tag, key, description = process_revises(
             revises, version_tag, key, description, Collection
         )
+        if schema is None and revises is not None:
+            schema = revises.schema
         run = get_run(run)
         if isinstance(artifacts, Artifact):
             artifacts = [artifacts]
@@ -288,7 +302,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not hasattr(artifacts, "__getitem__"):
                 raise ValueError("Artifact or list[Artifact] is allowed.")
             assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
-        hash = from_artifacts(artifacts)  # type: ignore
+        hash = from_artifacts(
+            artifacts,
+            collection_uid=provisional_uid,
+            schema=schema,
+        )  # type: ignore
         if meta_artifact is not None:
             if not isinstance(meta_artifact, Artifact):
                 raise ValueError("meta_artifact has to be an Artifact")
@@ -315,7 +333,13 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"returning collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
             init_self_from_db(self, existing_collection)
-            update_attributes(self, {"description": description, "key": key})
+            assert schema is None or self.schema_id == schema.id, (
+                "Cannot update schema on an existing collection returned by hash lookup"
+            )
+            update_attributes(
+                self,
+                {"description": description, "key": key},
+            )
             populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
@@ -326,6 +350,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 reference=reference,
                 reference_type=reference_type,
                 meta_artifact=meta_artifact,
+                schema=schema,
                 hash=hash,
                 run=run,
                 version_tag=version_tag,
@@ -393,6 +418,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self.artifacts.all().to_list() + [artifact],
             # key is automatically derived from revises.key
             description=self.description,
+            schema=self.schema,
             revises=self,
             run=run,
         )
@@ -468,37 +494,42 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             This method currently only works for collections or query sets of `AnnData` artifacts.
 
         Args:
-            layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
-                retrieves ``.X``.
-            obs_keys: Keys from the ``.obs`` slots.
-            obsm_keys: Keys from the ``.obsm`` slots.
+            layers_keys: Keys from the `.layers` slot. `layers_keys=None` or `"X"` in the list
+                retrieves `.X`.
+            obs_keys: Keys from the `.obs` slots.
+            obsm_keys: Keys from the `.obsm` slots.
             obs_filter: Select only observations with these values for the given obs columns.
                 Should be a dictionary with obs column names as keys
                 and filtering values (a string or a list of strings) as values.
-            join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
+            join: `"inner"` or `"outer"` virtual joins. If `None` is passed,
                 does not join.
             encode_labels: Encode labels into integers.
-                Can be a list with elements from ``obs_keys``.
+                Can be a list with elements from `obs_keys`.
             unknown_label: Encode this label to -1.
-                Can be a dictionary with keys from ``obs_keys`` if ``encode_labels=True``
-                or from ``encode_labels`` if it is a list.
-            cache_categories: Enable caching categories of ``obs_keys`` for faster access.
+                Can be a dictionary with keys from `obs_keys` if `encode_labels=True`
+                or from `encode_labels` if it is a list.
+            cache_categories: Enable caching categories of `obs_keys` for faster access.
             parallel: Enable sampling with multiple processes.
-            dtype: Convert numpy arrays from ``.X``, ``.layers`` and ``.obsm``
+            dtype: Convert numpy arrays from `.X`, `.layers` and `.obsm`
             stream: Whether to stream data from the array backend.
             is_run_input: Whether to track this collection as run input.
 
-        Examples:
-            >>> import lamindb as ln
-            >>> from torch.utils.data import DataLoader
-            >>> ds = ln.Collection.get(description="my collection")
-            >>> mapped = collection.mapped(obs_keys=["cell_type", "batch"])
-            >>> dl = DataLoader(mapped, batch_size=128, shuffle=True)
-            >>> # also works for query sets of artifacts, '...' represents some filtering condition
-            >>> # additional filtering on artifacts of the collection
-            >>> mapped = collection.artifacts.all().filter(...).order_by("-created_at").mapped()
-            >>> # or directly from a query set of artifacts
-            >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
+        Example:
+
+            Create a Pytorch data loader from a collection::
+
+                import lamindb as ln
+                from torch.utils.data import DataLoader
+
+                ds = ln.Collection.get(description="my collection")
+                mapped = collection.mapped(obs_keys=["cell_type", "batch"])
+                dl = DataLoader(mapped, batch_size=128, shuffle=True)
+
+                # also works for querysets of artifacts, '...' represents some filtering condition
+                # additional filtering on artifacts of the collection
+                mapped = collection.artifacts.filter(...).order_by("-created_at").mapped()
+                # or directly from a queryset of artifacts
+                mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
         from ..core._mapped_collection import MappedCollection
 
@@ -567,18 +598,37 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         track_run_input(self, is_run_input)
         return concat_object
 
+    def verify_schema(self) -> None:
+        """Verify all collection artifacts match the collection schema."""
+        assert self.schema_id is not None, "First set a schema"
+        artifacts = (
+            self._artifacts if self._state.adding else self.artifacts.all()  # type: ignore[attr-defined]
+        )
+        validate_artifact_schemas(
+            artifacts,
+            collection_uid=self.uid,
+            schema=self.schema,
+        )
+
     def save(self, using: str | None = None) -> Collection:
-        """Save the collection and underlying artifacts to database & storage.
+        """Save the collection.
 
         Args:
             using: The database to which you want to save.
-
-        Examples:
-            >>> collection = ln.Collection("./myfile.csv", name="myfile")
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
+        if self._field_changed("schema_id") and self.schema_id is not None:
+            self.verify_schema()
+        if hasattr(self, "_artifacts"):
+            from_artifacts(
+                self._artifacts,
+                collection_uid=self.uid,
+                schema=self.schema,
+            )
         super().save()
+        if self._original_values is not None:
+            self._original_values["schema_id"] = self.schema_id
         # we don't allow updating the collection of artifacts
         # if users want to update the set of artifacts, they
         # have to create a new collection
@@ -598,14 +648,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
     def restore(self) -> None:
-        """Restore collection record from trash.
-
-        Examples:
-
-            For any `Collection` object `collection`, call:
-
-            >>> collection.restore()
-        """
+        """Restore a collection from trash."""
         self.branch_id = 1
         self.save()
 
@@ -648,11 +691,40 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
 
 # internal function, not exposed to user
-def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
+def validate_artifact_schemas(
+    artifacts: list[Artifact] | Iterable[Artifact],
+    schema: Schema | None,
+    collection_uid: str,
+) -> Schema | None:
+    if schema is not None:
+        expected_schema_id = schema.id
+        artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
+        schema_ids = set(artifact_schemas.values())
+        if schema_ids != {expected_schema_id}:
+            raise ValidationError(
+                "Artifact schemas do not match the collection schema"
+                f" in collection {collection_uid}. Expected schema_id={expected_schema_id}, got: {artifact_schemas}"
+            )
+    return schema
+
+
+# internal function, not exposed to user
+def from_artifacts(
+    artifacts: list[Artifact] | Iterable[Artifact],
+    schema: Schema | None,
+    collection_uid: str,
+) -> str:
+    if not isinstance(artifacts, list):
+        artifacts = list(artifacts)
     # assert all artifacts are already saved
     saved = not any(artifact._state.adding for artifact in artifacts)
     if not saved:
         raise ValueError("Not all artifacts are yet saved, please save them")
+    validate_artifact_schemas(
+        artifacts,
+        schema=schema,
+        collection_uid=collection_uid,
+    )
     # validate consistency of hashes - we do not allow duplicate hashes
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
     hashes_set = set(hashes)

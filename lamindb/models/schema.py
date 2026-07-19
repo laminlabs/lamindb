@@ -88,7 +88,7 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
         raise TypeError("schema can only contain a single type")
     for feature in features:
         if feature._state.adding:
-            raise ValueError("Can only construct feature sets from validated features")
+            raise ValueError("Can only create schema from validated features")
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
