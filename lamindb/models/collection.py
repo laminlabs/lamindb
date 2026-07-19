@@ -140,6 +140,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
     _name_field: str = "key"
+    _TRACK_FIELDS = ("schema_id",)
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -617,6 +618,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
+        if self._field_changed("schema_id") and self.schema_id is not None:
+            self.verify_schema()
         if hasattr(self, "_artifacts"):
             from_artifacts(
                 self._artifacts,
@@ -624,6 +627,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 schema=self.schema,
             )
         super().save()
+        if self._original_values is not None:
+            self._original_values["schema_id"] = self.schema_id
         # we don't allow updating the collection of artifacts
         # if users want to update the set of artifacts, they
         # have to create a new collection

@@ -578,6 +578,32 @@ def test_collection_schema_validation_behaviors(df):
         assert error.exconly().startswith(
             "lamindb.errors.ValidationError: Artifact schemas do not match the collection schema"
         )
+
+        # setting schema on an existing collection validates on save
+        set_schema_collection = ln.Collection(
+            [valid_artifact1, valid_artifact2],
+            key="schema-validation-behavior-set-schema",
+            skip_hash_lookup=True,
+        ).save()
+        created_collections.append(set_schema_collection)
+        assert set_schema_collection.schema is None
+        set_schema_collection.schema = schema1
+        set_schema_collection.save()
+        assert set_schema_collection.schema == schema1
+
+        set_schema_mismatch_collection = ln.Collection(
+            [valid_artifact1, mixed_artifact],
+            key="schema-validation-behavior-set-schema-mismatch",
+            skip_hash_lookup=True,
+        ).save()
+        created_collections.append(set_schema_mismatch_collection)
+        assert set_schema_mismatch_collection.schema is None
+        set_schema_mismatch_collection.schema = schema1
+        with pytest.raises(ValidationError) as error:
+            set_schema_mismatch_collection.save()
+        assert error.exconly().startswith(
+            "lamindb.errors.ValidationError: Artifact schemas do not match the collection schema"
+        )
     finally:
         for collection in reversed(created_collections):
             if ln.Collection.filter(id=collection.id).exists():
