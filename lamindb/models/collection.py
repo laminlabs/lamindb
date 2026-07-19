@@ -582,10 +582,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def verify_schema(self) -> None:
         """Verify all collection artifacts match the collection schema."""
-        if self.schema_id is None:
-            raise ValueError("First set a schema")
+        assert self.schema_id is not None, "First set a schema"
         artifacts = (
-            self._artifacts if self._state.adding else self.ordered_artifacts.all()  # type: ignore[attr-defined]
+            self._artifacts if self._state.adding else self.artifacts.all()  # type: ignore[attr-defined]
         )
         validate_artifact_schemas(
             artifacts,
