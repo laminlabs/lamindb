@@ -80,7 +80,7 @@ def test_edge_cases(df, ccaplog):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only artifacts, key, description, meta, reference, reference_type, run, revises, skip_hash_lookup, branch, space can be passed"
+            "Only artifacts, key, description, schema, meta, reference, reference_type, run, revises, skip_hash_lookup, branch, space can be passed"
         ),
     ) as error:
         ln.Collection(df, invalid_param=1)
