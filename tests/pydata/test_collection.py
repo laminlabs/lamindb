@@ -534,12 +534,15 @@ def test_collection_schema_validation_behaviors(df):
             df_mixed, description="schema behavior mixed", schema=schema2
         ).save()
         created_artifacts.append(mixed_artifact)
-        with pytest.raises(ValidationError, match="collection schema"):
+        with pytest.raises(ValidationError) as error:
             ln.Collection(
                 [valid_artifact1, mixed_artifact],
                 key="schema-validation-behavior-mixed",
                 schema=schema1,
             )
+        assert error.exconly().startswith(
+            "lamindb.errors.ValidationError: Artifact schemas do not match the collection schema"
+        )
 
         # append fails if appended artifact violates collection schema
         append_collection = ln.Collection(
@@ -548,8 +551,11 @@ def test_collection_schema_validation_behaviors(df):
             schema=schema1,
         ).save()
         created_collections.append(append_collection)
-        with pytest.raises(ValidationError, match="collection schema"):
+        with pytest.raises(ValidationError) as error:
             append_collection.append(mixed_artifact)
+        assert error.exconly().startswith(
+            "lamindb.errors.ValidationError: Artifact schemas do not match the collection schema"
+        )
 
         # verify_schema detects artifact schema mutation after collection creation
         df_mutated = df.copy()
@@ -567,8 +573,11 @@ def test_collection_schema_validation_behaviors(df):
         mutation_collection.verify_schema()
         mutated_artifact.schema = schema2
         mutated_artifact.save()
-        with pytest.raises(ValidationError, match="collection schema"):
+        with pytest.raises(ValidationError) as error:
             mutation_collection.verify_schema()
+        assert error.exconly().startswith(
+            "lamindb.errors.ValidationError: Artifact schemas do not match the collection schema"
+        )
     finally:
         for collection in reversed(created_collections):
             if ln.Collection.filter(id=collection.id).exists():
