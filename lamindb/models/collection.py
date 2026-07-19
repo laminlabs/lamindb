@@ -234,6 +234,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts: Artifact | list[Artifact],
         key: str,
         description: str | None = None,
+        schema: Schema | None = None,
         meta: Any | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -267,6 +268,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
+        schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
@@ -290,6 +292,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         provisional_uid, version_tag, key, description = process_revises(
             revises, version_tag, key, description, Collection
         )
+        if schema is None and revises is not None:
+            schema = revises.schema
         run = get_run(run)
         if isinstance(artifacts, Artifact):
             artifacts = [artifacts]
@@ -297,7 +301,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not hasattr(artifacts, "__getitem__"):
                 raise ValueError("Artifact or list[Artifact] is allowed.")
             assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
-        hash, schema = from_artifacts(artifacts)  # type: ignore
+        hash = from_artifacts(
+            artifacts,
+            expected_schema_id=schema.id if schema is not None else None,
+            validate_expected_schema=schema is not None,
+            collection_uid=provisional_uid,
+        )  # type: ignore
         if meta_artifact is not None:
             if not isinstance(meta_artifact, Artifact):
                 raise ValueError("meta_artifact has to be an Artifact")
@@ -406,6 +415,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self.artifacts.all().to_list() + [artifact],
             # key is automatically derived from revises.key
             description=self.description,
+            schema=self.schema,
             revises=self,
             run=run,
         )
@@ -605,13 +615,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self.meta_artifact is not None:
             self.meta_artifact.save()
         if hasattr(self, "_artifacts"):
-            _, schema = from_artifacts(
+            from_artifacts(
                 self._artifacts,
                 expected_schema_id=self.schema_id,
                 validate_expected_schema=True,
                 collection_uid=self.uid,
             )
-            self.schema = schema
         super().save()
         # we don't allow updating the collection of artifacts
         # if users want to update the set of artifacts, they
@@ -688,19 +697,21 @@ def validate_artifact_schemas(
     validate_expected_schema: bool = False,
     collection_uid: str | None = None,
 ) -> Schema | None:
-    schema_ids = {artifact.schema_id for artifact in artifacts}
-    if len(schema_ids) > 1:
+    if validate_expected_schema:
         artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
-        collection_info = (
-            f" in collection {collection_uid}" if collection_uid is not None else ""
-        )
-        raise ValidationError(
-            "All artifacts in a collection must have the same schema"
-            f"{collection_info}. Got: {artifact_schemas}"
-        )
+        schema_ids = set(artifact_schemas.values())
+        if schema_ids != {expected_schema_id}:
+            collection_info = (
+                f" in collection {collection_uid}" if collection_uid is not None else ""
+            )
+            raise ValidationError(
+                "Artifact schemas do not match the collection schema"
+                f"{collection_info}. Expected schema_id={expected_schema_id}, got: {artifact_schemas}"
+            )
+    if expected_schema_id is None:
+        return None
     schema = artifacts[0].schema
-    schema_id = schema.id if schema is not None else None
-    if validate_expected_schema and expected_schema_id != schema_id:
+    if validate_expected_schema and (schema is None or schema.id != expected_schema_id):
         artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
         collection_info = (
             f" in collection {collection_uid}" if collection_uid is not None else ""
@@ -718,14 +729,14 @@ def from_artifacts(
     expected_schema_id: int | None = None,
     validate_expected_schema: bool = False,
     collection_uid: str | None = None,
-) -> tuple[str, Schema | None]:
+) -> str:
     if not isinstance(artifacts, list):
         artifacts = list(artifacts)
     # assert all artifacts are already saved
     saved = not any(artifact._state.adding for artifact in artifacts)
     if not saved:
         raise ValueError("Not all artifacts are yet saved, please save them")
-    schema = validate_artifact_schemas(
+    validate_artifact_schemas(
         artifacts,
         expected_schema_id=expected_schema_id,
         validate_expected_schema=validate_expected_schema,
@@ -741,7 +752,7 @@ def from_artifacts(
             f"your collection contains artifacts with non-unique hashes:  {non_unique}"
         )
     hash = hash_set(hashes_set)
-    return hash, schema
+    return hash
 
 
 class CollectionArtifact(BaseSQLRecord, IsLink, TracksRun):

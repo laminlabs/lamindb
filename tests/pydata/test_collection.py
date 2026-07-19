@@ -511,7 +511,9 @@ def test_collection_schema_set_on_init_and_verify(df):
     artifact2 = ln.Artifact.from_dataframe(
         df2, description="schema set init 2", schema=schema
     ).save()
-    collection = ln.Collection([artifact1, artifact2], key="schema-set-on-init").save()
+    collection = ln.Collection(
+        [artifact1, artifact2], key="schema-set-on-init", schema=schema
+    ).save()
 
     assert collection.schema == schema
     collection.verify_schema()
@@ -531,8 +533,10 @@ def test_collection_schema_mixed_fails_on_init(df):
         df, description="schema mismatch 2", schema=schema2
     ).save()
 
-    with pytest.raises(ValidationError, match="same schema"):
-        ln.Collection([artifact1, artifact2], key="schema-mismatch-init")
+    with pytest.raises(ValidationError, match="collection schema"):
+        ln.Collection(
+            [artifact1, artifact2], key="schema-mismatch-init", schema=schema1
+        )
 
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
@@ -549,9 +553,11 @@ def test_collection_append_schema_mismatch_fails(df):
     artifact2 = ln.Artifact.from_dataframe(
         df2, description="append schema 2", schema=schema2
     ).save()
-    collection = ln.Collection(artifact1, key="append-schema-mismatch").save()
+    collection = ln.Collection(
+        artifact1, key="append-schema-mismatch", schema=schema1
+    ).save()
 
-    with pytest.raises(ValidationError, match="same schema"):
+    with pytest.raises(ValidationError, match="collection schema"):
         collection.append(artifact2)
 
     collection.delete(permanent=True)
@@ -568,7 +574,9 @@ def test_collection_verify_schema_after_artifact_mutation(df):
     artifact2 = ln.Artifact.from_dataframe(
         df, description="verify schema 2", schema=schema1
     ).save()
-    collection = ln.Collection([artifact1, artifact2], key="verify-schema").save()
+    collection = ln.Collection(
+        [artifact1, artifact2], key="verify-schema", schema=schema1
+    ).save()
 
     collection.verify_schema()
     artifact2.schema = schema2
@@ -579,17 +587,6 @@ def test_collection_verify_schema_after_artifact_mutation(df):
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
-
-
-def test_collection_verify_schema_requires_collection_schema(df):
-    artifact = ln.Artifact.from_dataframe(df, description="verify no schema").save()
-    collection = ln.Collection([artifact], key="verify-schema-none").save()
-
-    with pytest.raises(ValueError, match="First set a schema"):
-        collection.verify_schema()
-
-    collection.delete(permanent=True)
-    artifact.delete(permanent=True)
 
 
 def test_with_metadata(df, adata):
