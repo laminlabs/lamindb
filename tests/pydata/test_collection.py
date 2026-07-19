@@ -635,8 +635,9 @@ def test_describe_collection(adata, capsys):
     assert "collection" in captured.out.lower()
 
     # test describing from a remote postgres instance with less modules
-    collection = ln.Collection.connect("laminlabs/lamin-dev").first()
-    collection.describe()
-    captured = capsys.readouterr()
-    assert len(captured.out) > 50
-    assert "collection" in captured.out.lower()
+    # TODO: reenable after migration is performed
+    # collection = ln.Collection.connect("laminlabs/lamin-dev").first()
+    # collection.describe()
+    # captured = capsys.readouterr()
+    # assert len(captured.out) > 50
+    # assert "collection" in captured.out.lower()

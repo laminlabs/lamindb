@@ -62,8 +62,9 @@ def test_query_relatives_connected_instance():
         assert children.db == "laminlabs/cellxgene"
 
 
-def test_view_lineage_connected_instance():
-    af = ln.Artifact.connect("laminlabs/cellxgene").first()
+# TODO: reenable after migration is performed
+# def test_view_lineage_connected_instance():
+#     af = ln.Artifact.connect("laminlabs/cellxgene").first()
 
-    if af and af.run:
-        af.view_lineage()
+#     if af and af.run:
+#         af.view_lineage()
