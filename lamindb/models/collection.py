@@ -688,10 +688,6 @@ def validate_artifact_schemas(
     validate_expected_schema: bool = False,
     collection_uid: str | None = None,
 ) -> Schema | None:
-    if not isinstance(artifacts, list):
-        artifacts = list(artifacts)
-    if len(artifacts) == 0:
-        raise ValueError("Collection requires at least one artifact")
     schema_ids = {artifact.schema_id for artifact in artifacts}
     if len(schema_ids) > 1:
         artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
