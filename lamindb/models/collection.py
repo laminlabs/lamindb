@@ -303,9 +303,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
         hash = from_artifacts(
             artifacts,
-            expected_schema_id=schema.id if schema is not None else None,
-            validate_expected_schema=schema is not None,
             collection_uid=provisional_uid,
+            schema=schema,
         )  # type: ignore
         if meta_artifact is not None:
             if not isinstance(meta_artifact, Artifact):
@@ -598,9 +597,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
         validate_artifact_schemas(
             artifacts,
-            expected_schema_id=self.schema_id,
-            validate_expected_schema=True,
             collection_uid=self.uid,
+            schema=self.schema,
         )
 
     def save(self, using: str | None = None) -> Collection:
@@ -617,9 +615,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_artifacts"):
             from_artifacts(
                 self._artifacts,
-                expected_schema_id=self.schema_id,
-                validate_expected_schema=True,
                 collection_uid=self.uid,
+                schema=self.schema,
             )
         super().save()
         # we don't allow updating the collection of artifacts
@@ -693,11 +690,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 # internal function, not exposed to user
 def validate_artifact_schemas(
     artifacts: list[Artifact] | Iterable[Artifact],
+    schema: Schema | None,
     collection_uid: str,
-    expected_schema_id: int | None = None,
-    validate_expected_schema: bool = False,
 ) -> Schema | None:
-    if validate_expected_schema:
+    if schema is not None:
+        expected_schema_id = schema.id
         artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
         schema_ids = set(artifact_schemas.values())
         if schema_ids != {expected_schema_id}:
@@ -705,24 +702,14 @@ def validate_artifact_schemas(
                 "Artifact schemas do not match the collection schema"
                 f" in collection {collection_uid}. Expected schema_id={expected_schema_id}, got: {artifact_schemas}"
             )
-    if expected_schema_id is None:
-        return None
-    schema = artifacts[0].schema
-    if validate_expected_schema and (schema is None or schema.id != expected_schema_id):
-        artifact_schemas = {artifact.uid: artifact.schema_id for artifact in artifacts}
-        raise ValidationError(
-            "Artifact schemas do not match the collection schema"
-            f" in collection {collection_uid}. Expected schema_id={expected_schema_id}, got: {artifact_schemas}"
-        )
     return schema
 
 
 # internal function, not exposed to user
 def from_artifacts(
     artifacts: list[Artifact] | Iterable[Artifact],
+    schema: Schema | None,
     collection_uid: str,
-    expected_schema_id: int | None = None,
-    validate_expected_schema: bool = False,
 ) -> str:
     if not isinstance(artifacts, list):
         artifacts = list(artifacts)
@@ -732,9 +719,8 @@ def from_artifacts(
         raise ValueError("Not all artifacts are yet saved, please save them")
     validate_artifact_schemas(
         artifacts,
+        schema=schema,
         collection_uid=collection_uid,
-        expected_schema_id=expected_schema_id,
-        validate_expected_schema=validate_expected_schema,
     )
     # validate consistency of hashes - we do not allow duplicate hashes
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
