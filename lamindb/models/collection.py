@@ -643,14 +643,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
     def restore(self) -> None:
-        """Restore collection record from trash.
-
-        Examples:
-
-            For any `Collection` object `collection`, call:
-
-                collection.restore()
-        """
+        """Restore a collection from trash."""
         self.branch_id = 1
         self.save()
 
