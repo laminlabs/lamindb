@@ -510,17 +510,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             stream: Whether to stream data from the array backend.
             is_run_input: Whether to track this collection as run input.
 
-        Examples:
-            >>> import lamindb as ln
-            >>> from torch.utils.data import DataLoader
-            >>> ds = ln.Collection.get(description="my collection")
-            >>> mapped = collection.mapped(obs_keys=["cell_type", "batch"])
-            >>> dl = DataLoader(mapped, batch_size=128, shuffle=True)
-            >>> # also works for query sets of artifacts, '...' represents some filtering condition
-            >>> # additional filtering on artifacts of the collection
-            >>> mapped = collection.artifacts.all().filter(...).order_by("-created_at").mapped()
-            >>> # or directly from a query set of artifacts
-            >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
+        Example:
+
+            Create a Pytorch data loader from a collection::
+
+                import lamindb as ln
+                from torch.utils.data import DataLoader
+
+                ds = ln.Collection.get(description="my collection")
+                mapped = collection.mapped(obs_keys=["cell_type", "batch"])
+                dl = DataLoader(mapped, batch_size=128, shuffle=True)
+
+                # also works for querysets of artifacts, '...' represents some filtering condition
+                # additional filtering on artifacts of the collection
+                mapped = collection.artifacts.filter(...).order_by("-created_at").mapped()
+                # or directly from a queryset of artifacts
+                mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
         from ..core._mapped_collection import MappedCollection
 
@@ -608,7 +613,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using: The database to which you want to save.
 
         Examples:
-            >>> collection = ln.Collection("./myfile.csv", name="myfile")
+                collection = ln.Collection("./myfile.csv", name="myfile")
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
@@ -644,7 +649,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             For any `Collection` object `collection`, call:
 
-            >>> collection.restore()
+                collection.restore()
         """
         self.branch_id = 1
         self.save()
