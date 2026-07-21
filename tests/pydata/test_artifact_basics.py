@@ -749,6 +749,18 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         path.unlink(missing_ok=True)
 
 
+def test_invalid_key_on_artifact_save():
+    artifact = ln.Artifact.from_dataframe(
+        pd.DataFrame({"a": [1]}), key="check-key-ok.parquet"
+    ).save()
+    try:
+        artifact.key = "a/../b"
+        with pytest.raises(ValueError):
+            artifact.save()
+    finally:
+        artifact.delete(permanent=True)
+
+
 def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
     df = example_dataframe
     artifact = ln.Artifact.from_dataframe(df, key="test_.parquet")

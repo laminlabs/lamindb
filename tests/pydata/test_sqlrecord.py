@@ -62,18 +62,6 @@ def test_invalid_key_on_init():
         ln.Transform(key="")
 
 
-def test_invalid_key_on_artifact_save():
-    artifact = ln.Artifact.from_dataframe(
-        pd.DataFrame({"a": [1]}), key="check-key-ok.parquet"
-    ).save()
-    try:
-        artifact.key = "a/../b"
-        with pytest.raises(ValueError):
-            artifact.save()
-    finally:
-        artifact.delete(permanent=True)
-
-
 def test_feature_describe():
     description = textwrap.dedent("""\
     Feature
