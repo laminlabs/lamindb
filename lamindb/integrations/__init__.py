@@ -8,6 +8,11 @@ Modules
 
    lightning
 
+Classes
+-------
+
+.. autoclass:: Notion
+
 Functions
 ---------
 
@@ -18,10 +23,12 @@ Functions
 """
 
 from ._croissant import curate_from_croissant
+from ._notion import Notion
 from ._vitessce import save_vitessce_config
 
 __all__ = [
     "lightning",
+    "Notion",
     "save_tiledbsoma_experiment",
     "curate_from_croissant",
     "save_vitessce_config",

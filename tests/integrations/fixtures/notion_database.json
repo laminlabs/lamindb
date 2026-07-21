@@ -1,0 +1,141 @@
+{
+  "object": "database",
+  "id": "b86daf14-2a54-4728-bda2-496c5760d863",
+  "title": [{ "plain_text": "Test Database", "type": "text" }],
+  "properties": {
+    "Name": {
+      "id": "title",
+      "name": "Name",
+      "type": "title",
+      "title": {}
+    },
+    "Notes": {
+      "id": "notes_id",
+      "name": "Notes",
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Email": {
+      "id": "email_id",
+      "name": "Email",
+      "type": "email",
+      "email": {}
+    },
+    "Phone": {
+      "id": "phone_id",
+      "name": "Phone",
+      "type": "phone_number",
+      "phone_number": {}
+    },
+    "Website": {
+      "id": "url_id",
+      "name": "Website",
+      "type": "url",
+      "url": {}
+    },
+    "Score": {
+      "id": "score_id",
+      "name": "Score",
+      "type": "number",
+      "number": { "format": "number" }
+    },
+    "Active": {
+      "id": "active_id",
+      "name": "Active",
+      "type": "checkbox",
+      "checkbox": {}
+    },
+    "Priority": {
+      "id": "priority_id",
+      "name": "Priority",
+      "type": "select",
+      "select": {
+        "options": [
+          { "id": "1", "name": "High", "color": "red" },
+          { "id": "2", "name": "Medium", "color": "yellow" },
+          { "id": "3", "name": "Low", "color": "gray" }
+        ]
+      }
+    },
+    "State": {
+      "id": "state_id",
+      "name": "State",
+      "type": "status",
+      "status": {
+        "options": [
+          { "id": "a", "name": "Todo", "color": "default" },
+          { "id": "b", "name": "In Progress", "color": "blue" },
+          { "id": "c", "name": "Done", "color": "green" }
+        ],
+        "groups": []
+      }
+    },
+    "Tags": {
+      "id": "tags_id",
+      "name": "Tags",
+      "type": "multi_select",
+      "multi_select": {
+        "options": [
+          { "id": "x", "name": "python", "color": "blue" },
+          { "id": "y", "name": "data", "color": "green" }
+        ]
+      }
+    },
+    "Due": {
+      "id": "due_id",
+      "name": "Due",
+      "type": "date",
+      "date": {}
+    },
+    "Owner": {
+      "id": "owner_id",
+      "name": "Owner",
+      "type": "people",
+      "people": {}
+    },
+    "Related": {
+      "id": "related_id",
+      "name": "Related",
+      "type": "relation",
+      "relation": {
+        "database_id": "other-db-id-0000",
+        "type": "single_property",
+        "single_property": {}
+      }
+    },
+    "Attachment": {
+      "id": "attachment_id",
+      "name": "Attachment",
+      "type": "files",
+      "files": {}
+    },
+    "Created": {
+      "id": "created_id",
+      "name": "Created",
+      "type": "created_time",
+      "created_time": {}
+    },
+    "Edited": {
+      "id": "edited_id",
+      "name": "Edited",
+      "type": "last_edited_time",
+      "last_edited_time": {}
+    },
+    "Rollup": {
+      "id": "rollup_id",
+      "name": "Rollup",
+      "type": "rollup",
+      "rollup": {
+        "rollup_property_name": "Score",
+        "relation_property_name": "Related",
+        "function": "sum"
+      }
+    },
+    "Formula": {
+      "id": "formula_id",
+      "name": "Formula",
+      "type": "formula",
+      "formula": { "expression": "1 + 1" }
+    }
+  }
+}
