@@ -76,6 +76,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     _get_record_kwargs,
+    check_key,
 )
 from .storage import Storage
 from .ulabel import ULabel
@@ -3326,6 +3327,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             new_key = self.key
             if new_key is None:
                 raise InvalidArgument("Cannot update an artifact key to None.")
+            check_key(new_key)
             new_key_raw_suffix = CanonicalSuffix.extract_from_path(
                 PurePosixPath(new_key)
             )[1]
