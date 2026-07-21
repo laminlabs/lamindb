@@ -14,9 +14,64 @@ from lamindb.models import sqlrecord as sqlrecord_module
 from lamindb.models.sqlrecord import (
     _get_record_kwargs,
     _search,
+    check_key,
     get_name_field,
     suggest_records_with_similar_names,
 )
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "myfile.parquet",
+        "my folder/my file.parquet",
+        "Introduction v2",
+    ],
+)
+def test_check_key_valid(key):
+    check_key(key)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "",
+        "/",
+        "/a",
+        "a/",
+        "a//b",
+        ".",
+        "..",
+        "./a",
+        "a/./b",
+        "../a",
+        "a/../b",
+        "/../a",
+        r"a\b",
+    ],
+)
+def test_check_key_invalid(key):
+    with pytest.raises(ValueError):
+        check_key(key)
+
+
+def test_invalid_key_on_init():
+    with pytest.raises(ValueError):
+        ln.Transform(key="a/../b")
+    with pytest.raises(ValueError):
+        ln.Transform(key="")
+
+
+def test_invalid_key_on_artifact_save():
+    artifact = ln.Artifact.from_dataframe(
+        pd.DataFrame({"a": [1]}), key="check-key-ok.parquet"
+    ).save()
+    try:
+        artifact.key = "a/../b"
+        with pytest.raises(ValueError):
+            artifact.save()
+    finally:
+        artifact.delete(permanent=True)
 
 
 def test_feature_describe():
