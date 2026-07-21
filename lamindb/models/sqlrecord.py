@@ -1124,6 +1124,26 @@ class Registry(ModelBase):
         return cls._available_fields
 
 
+def check_key(key: str) -> None:
+    r"""Validate a storage/semantic key.
+
+    A valid key is a non-empty, `/`-separated relative path with no empty
+    segments (no leading/trailing `/`, no `//`), no `\\`, and no `.` or `..`
+    segments (rejects `./`, `/./`, `../`, `/../`, etc.).
+    """
+    if "\\" in key:
+        raise ValueError(f"Backslashes are not allowed in key {key!r}.")
+
+    for segment in key.split("/"):
+        if not segment:
+            raise ValueError(f"Empty segment detected in key {key!r}.")
+
+        if segment in {".", ".."}:
+            raise ValueError(
+                f"Relative path segment {segment!r} detected in key {key!r}."
+            )
+
+
 class BaseSQLRecord(models.Model, metaclass=Registry):
     """Base SQL metadata record.
 
@@ -1163,6 +1183,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 kwargs.pop(fk_id_field, None)
                 return fk_record is not None
 
+            # check key if it is passed
+            if (key := kwargs.get("key")) is not None:
+                check_key(key)
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
                 if issubclass(self.__class__, SQLRecord):
                     from lamindb import context as run_context
