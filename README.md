@@ -30,7 +30,7 @@ Architecture?
 - **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
-- **unified** → federate data [across storage locations (local, S3, GCP, …)]() in any database
+- **unified** → federate data across storage locations (local, S3, GCP, …) in any database
 - **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites

@@ -248,7 +248,7 @@ class Notion:
         such requirement.
 
         Each row is one Notion page. Property values are flattened to plain
-        Python scalars or lists via :func:`_flatten_property`. Two columns are
+        Python scalars or lists via ``_flatten_property``. Two columns are
         always the first two regardless of the database schema:
 
         - ``notion_id``: the page UUID (idempotency key for downstream sync)
