@@ -1,5 +1,0 @@
-HLpS06cjQFQU
-creation info:
-instance_slug=raaghavpillai/testdb-integrations
-instance_id=7edc9ae7e7825edab719dcb3c5159ad7
-instance_uid=3RcrCW9t2nDF
