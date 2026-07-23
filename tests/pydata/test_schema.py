@@ -467,8 +467,9 @@ def test_schema_add_remove_optional_features_api(
     feature_batch = ln.Feature(name="batch", dtype=str).save()
     schema.add(feature_project)
     assert schema.hash != initial_hash
-    with pytest.raises(ValueError, match="optional=False"):
+    with pytest.raises(NotImplementedError) as error:
         schema.add(feature_program, optional=False)
+    assert "optional=False" in error.exconly()
     schema.add([feature_program])
     schema.remove([feature_project, feature_program])
     assert schema.hash == initial_hash
