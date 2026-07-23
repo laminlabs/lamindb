@@ -32,6 +32,19 @@ DS = _load_fixture("notion_data_source.json")
 PAGES = _load_fixture("notion_page.json")
 DS_ID = "ds-1111-2222"
 
+ORG_PAGES = {
+    "results": [
+        {
+            "id": "related-page-id-111",
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}
+            },
+        }
+    ],
+    "has_more": False,
+    "next_cursor": None,
+}
+
 
 @pytest.fixture()
 def reader():
@@ -278,7 +291,7 @@ def test_resolve_no_data_sources_raises(reader):
         reader._resolve("db-1")
 
 
-def test_resolve_multi_source_warns_and_picks_first(reader, capsys):
+def test_resolve_multi_source_warns_and_picks_first(reader):
     multi = {
         "data_sources": [
             {"id": "ds-a", "name": "Alpha"},
@@ -286,14 +299,15 @@ def test_resolve_multi_source_warns_and_picks_first(reader, capsys):
         ]
     }
     reader.s.request.return_value = _make_response(multi)
-    assert reader._resolve("db-1") == "ds-a"
-    out = capsys.readouterr().out
-    assert "2 data sources" in out
-    assert "Alpha" in out
+    with patch("lamindb.integrations.notion.logger") as log:
+        assert reader._resolve("db-1") == "ds-a"
+    msg = log.warning.call_args[0][0]
+    assert "2 data sources" in msg
+    assert "Alpha" in msg
 
 
 # ---------------------------------------------------------------------------
-# columns
+# schema & columns
 # ---------------------------------------------------------------------------
 
 
@@ -311,249 +325,6 @@ def test_columns_hits_data_source_endpoint(reader):
     method, url = reader.s.request.call_args_list[1][0]
     assert method == "GET"
     assert url == f"{BASE}/data_sources/{DS_ID}"
-
-
-# ---------------------------------------------------------------------------
-# rows
-# ---------------------------------------------------------------------------
-
-
-def test_rows_single_page(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False)
-    assert len(rows) == 1
-    assert rows[0]["notion_id"] == "page-abc-1234"
-    assert rows[0]["Name"] == "Row One"
-    assert rows[0]["Score"] == 7.5
-
-
-def test_rows_posts_to_query_endpoint(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    reader.rows("db-1", resolve=False)
-    method, url = reader.s.request.call_args_list[2][0]
-    assert method == "POST"
-    assert url == f"{BASE}/data_sources/{DS_ID}/query"
-    assert reader.s.request.call_args_list[2][1]["json"]["page_size"] == 100
-
-
-def test_rows_pagination_follows_cursor(reader):
-    p1 = _make_response(
-        {
-            "results": [{"id": "p1", "last_edited_time": "t1", "properties": {}}],
-            "has_more": True,
-            "next_cursor": "cursor-abc",
-        }
-    )
-    p2 = _make_response(
-        {
-            "results": [{"id": "p2", "last_edited_time": "t2", "properties": {}}],
-            "has_more": False,
-            "next_cursor": None,
-        }
-    )
-    reader.s.request.side_effect = [_make_response(DB), _make_response(DS), p1, p2]
-    rows = reader.rows("db-1", resolve=False)
-    assert [r["notion_id"] for r in rows] == ["p1", "p2"]
-    assert reader.s.request.call_args_list[3][1]["json"]["start_cursor"] == "cursor-abc"
-
-
-def test_rows_empty_returns_empty_list(reader):
-    empty = _make_response({"results": [], "has_more": False, "next_cursor": None})
-    reader.s.request.side_effect = [_make_response(DB), _make_response(DS), empty]
-    assert reader.rows("db-1", resolve=False) == []
-
-
-def test_rows_first_two_keys_are_page_level(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False)
-    assert list(rows[0])[:2] == ["notion_id", "last_edited_time"]
-
-
-def test_rows_page_fields_win_over_same_named_property(reader):
-    clash = {
-        "results": [
-            {
-                "id": "real-page-id",
-                "last_edited_time": "2024-05-01T00:00:00Z",
-                "properties": {
-                    "notion_id": {
-                        "type": "rich_text",
-                        "rich_text": [{"plain_text": "user-value"}],
-                    }
-                },
-            }
-        ],
-        "has_more": False,
-        "next_cursor": None,
-    }
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(clash),
-    ]
-    rows = reader.rows("db-1", resolve=False)
-    assert rows[0]["notion_id"] == "real-page-id"
-
-
-def test_rows_preserves_property_names_verbatim(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False)
-    for name in ("Name", "Email", "Tags", "Due", "Related", "Author"):
-        assert name in rows[0]
-
-
-# ---------------------------------------------------------------------------
-# to_json
-# ---------------------------------------------------------------------------
-
-
-def test_to_json_structure(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    doc = json.loads(reader.to_json("db-1", resolve=False))
-    assert doc["database_id"] == "db-1"
-    assert doc["columns"]["Name"] == "title"
-    assert len(doc["rows"]) == 1
-    assert doc["rows"][0]["notion_id"] == "page-abc-1234"
-
-
-def test_to_json_writes_file(reader, tmp_path):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    out = tmp_path / "out.json"
-    reader.to_json("db-1", str(out), resolve=False)
-    assert json.loads(out.read_text(encoding="utf-8"))["database_id"] == "db-1"
-
-
-# ---------------------------------------------------------------------------
-# name resolution
-# ---------------------------------------------------------------------------
-
-ORG_PAGES = {
-    "results": [
-        {
-            "id": "related-page-id-111",
-            "properties": {
-                "Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}
-            },
-        }
-    ],
-    "has_more": False,
-    "next_cursor": None,
-}
-
-
-def test_rows_resolve_replaces_ids_with_titles(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-        _make_response(ORG_PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=True)
-    assert rows[0]["Related"] == ["Deepmind"]
-
-
-def test_rows_resolve_leaves_id_when_target_unshared(reader, capsys):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-        _make_response({}, 404),
-    ]
-    rows = reader.rows("db-1", resolve=True)
-    assert rows[0]["Related"] == ["related-page-id-111"]
-    assert "not shared" in capsys.readouterr().out
-
-
-def test_rows_resolve_leaves_id_when_target_missing_from_map(reader):
-    empty_target = {"results": [], "has_more": False, "next_cursor": None}
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-        _make_response(empty_target),
-    ]
-    rows = reader.rows("db-1", resolve=True)
-    assert rows[0]["Related"] == ["related-page-id-111"]
-
-
-def test_title_map_is_cached(reader):
-    reader.s.request.side_effect = [_make_response(ORG_PAGES)]
-    reader.title_map("ds-x")
-    reader.title_map("ds-x")
-    assert reader.s.request.call_count == 1
-
-
-def test_drop_by_property_name(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False, drop={"Notes", "Related"})
-    assert "Notes" not in rows[0]
-    assert "Related" not in rows[0]
-    assert "Name" in rows[0]
-
-
-def test_drop_by_property_type(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False, drop={"created_by", "last_edited_by"})
-    assert "Author" not in rows[0]
-    assert "LastEditor" not in rows[0]
-
-
-def test_drop_does_not_remove_page_level_keys(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(PAGES),
-    ]
-    rows = reader.rows("db-1", resolve=False, drop={"notion_id", "last_edited_time"})
-    assert rows[0]["notion_id"] == "page-abc-1234"
-
-
-def test_page_title_found_by_type_not_name(reader):
-    unnamed = {
-        "results": [
-            {
-                "id": "p-1",
-                "properties": {
-                    "": {"type": "title", "title": [{"plain_text": "No Name Prop"}]}
-                },
-            }
-        ],
-        "has_more": False,
-    }
-    reader.s.request.side_effect = [_make_response(unnamed)]
-    assert reader.title_map("ds-y") == {"p-1": "No Name Prop"}
 
 
 def test_schema_exposes_relation_target(reader):
@@ -588,3 +359,205 @@ def test_schema_single_property_relation_has_no_dual(reader):
     schema = reader.schema("db-1")
     assert schema["Owner"]["target"] == "ds-z"
     assert schema["Owner"]["dual"] is None
+
+
+# ---------------------------------------------------------------------------
+# rows — relation values are always UUIDs
+# ---------------------------------------------------------------------------
+
+
+def test_rows_single_page(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1")
+    assert len(rows) == 1
+    assert rows[0]["notion_id"] == "page-abc-1234"
+    assert rows[0]["Name"] == "Row One"
+    assert rows[0]["Score"] == 7.5
+
+
+def test_rows_posts_to_query_endpoint(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    reader.rows("db-1")
+    method, url = reader.s.request.call_args_list[1][0]
+    assert method == "POST"
+    assert url == f"{BASE}/data_sources/{DS_ID}/query"
+    assert reader.s.request.call_args_list[1][1]["json"]["page_size"] == 100
+
+
+def test_rows_pagination_follows_cursor(reader):
+    p1 = _make_response(
+        {
+            "results": [{"id": "p1", "last_edited_time": "t1", "properties": {}}],
+            "has_more": True,
+            "next_cursor": "cursor-abc",
+        }
+    )
+    p2 = _make_response(
+        {
+            "results": [{"id": "p2", "last_edited_time": "t2", "properties": {}}],
+            "has_more": False,
+            "next_cursor": None,
+        }
+    )
+    reader.s.request.side_effect = [_make_response(DB), p1, p2]
+    rows = reader.rows("db-1")
+    assert [r["notion_id"] for r in rows] == ["p1", "p2"]
+    assert reader.s.request.call_args_list[2][1]["json"]["start_cursor"] == "cursor-abc"
+
+
+def test_rows_empty_returns_empty_list(reader):
+    empty = _make_response({"results": [], "has_more": False, "next_cursor": None})
+    reader.s.request.side_effect = [_make_response(DB), empty]
+    assert reader.rows("db-1") == []
+
+
+def test_rows_first_two_keys_are_page_level(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1")
+    assert list(rows[0])[:2] == ["notion_id", "last_edited_time"]
+
+
+def test_rows_page_fields_win_over_same_named_property(reader):
+    clash = {
+        "results": [
+            {
+                "id": "real-page-id",
+                "last_edited_time": "2024-05-01T00:00:00Z",
+                "properties": {
+                    "notion_id": {
+                        "type": "rich_text",
+                        "rich_text": [{"plain_text": "user-value"}],
+                    }
+                },
+            }
+        ],
+        "has_more": False,
+        "next_cursor": None,
+    }
+    reader.s.request.side_effect = [_make_response(DB), _make_response(clash)]
+    rows = reader.rows("db-1")
+    assert rows[0]["notion_id"] == "real-page-id"
+
+
+def test_rows_preserves_property_names_verbatim(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1")
+    for name in ("Name", "Email", "Tags", "Due", "Related", "Author"):
+        assert name in rows[0]
+
+
+def test_rows_never_contain_titles(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1")
+    assert rows[0]["Related"] == ["related-page-id-111"]
+
+
+def test_drop_by_property_name(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1", drop={"Notes", "Related"})
+    assert "Notes" not in rows[0]
+    assert "Related" not in rows[0]
+    assert "Name" in rows[0]
+
+
+def test_drop_by_property_type(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1", drop={"created_by", "last_edited_by"})
+    assert "Author" not in rows[0]
+    assert "LastEditor" not in rows[0]
+
+
+def test_drop_does_not_remove_page_level_keys(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
+    rows = reader.rows("db-1", drop={"notion_id", "last_edited_time"})
+    assert rows[0]["notion_id"] == "page-abc-1234"
+
+
+# ---------------------------------------------------------------------------
+# relation_titles — display-only side table
+# ---------------------------------------------------------------------------
+
+
+def test_relation_titles_returns_uuid_to_name(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(ORG_PAGES),
+    ]
+    titles = reader.relation_titles("db-1")
+    assert titles["related-page-id-111"] == "Deepmind"
+
+
+def test_relation_titles_empty_when_target_unshared(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response({}, 404),
+    ]
+    with patch("lamindb.integrations.notion.logger") as log:
+        assert reader.relation_titles("db-1") == {}
+    assert "not shared" in log.warning.call_args[0][0]
+
+
+def test_relation_titles_honours_drop(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS)]
+    # Related is the only relation; dropping it means no title queries at all
+    assert reader.relation_titles("db-1", drop={"Related"}) == {}
+    assert reader.s.request.call_count == 2
+
+
+def test_title_map_is_cached(reader):
+    reader.s.request.side_effect = [_make_response(ORG_PAGES)]
+    reader.title_map("ds-x")
+    reader.title_map("ds-x")
+    assert reader.s.request.call_count == 1
+
+
+def test_page_title_found_by_type_not_name(reader):
+    unnamed = {
+        "results": [
+            {
+                "id": "p-1",
+                "properties": {
+                    "": {"type": "title", "title": [{"plain_text": "No Name Prop"}]}
+                },
+            }
+        ],
+        "has_more": False,
+    }
+    reader.s.request.side_effect = [_make_response(unnamed)]
+    assert reader.title_map("ds-y") == {"p-1": "No Name Prop"}
+
+
+# ---------------------------------------------------------------------------
+# to_json
+# ---------------------------------------------------------------------------
+
+
+def test_to_json_structure(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(ORG_PAGES),
+        _make_response(PAGES),
+    ]
+    doc = json.loads(reader.to_json("db-1"))
+    assert doc["database_id"] == "db-1"
+    assert doc["columns"]["Name"] == "title"
+    assert doc["titles"]["related-page-id-111"] == "Deepmind"
+    assert len(doc["rows"]) == 1
+    assert doc["rows"][0]["notion_id"] == "page-abc-1234"
+    # rows keep UUIDs, never titles
+    assert doc["rows"][0]["Related"] == ["related-page-id-111"]
+
+
+def test_to_json_writes_file(reader, tmp_path):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(ORG_PAGES),
+        _make_response(PAGES),
+    ]
+    out = tmp_path / "out.json"
+    reader.to_json("db-1", str(out))
+    assert json.loads(out.read_text(encoding="utf-8"))["database_id"] == "db-1"

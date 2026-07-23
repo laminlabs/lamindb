@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import requests
+from lamin_utils import logger
 
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
@@ -96,8 +97,9 @@ class Reader:
             if not sources:
                 raise LookupError(f"No data sources on database {database_id!r}.")
             if len(sources) > 1:
-                print(
-                    f"note: {len(sources)} data sources; using {sources[0]['name']!r}"
+                logger.warning(
+                    f"database {database_id!r} has {len(sources)} data sources; "
+                    f"using {sources[0]['name']!r}"
                 )
             self._ds[database_id] = sources[0]["id"]
         return self._ds[database_id]
@@ -150,7 +152,10 @@ class Reader:
                     p["id"]: _page_title(p) for p in self._query(ds_id)
                 }
             except LookupError:
-                print(f"  ! data source {ds_id} not shared — leaving IDs in place")
+                logger.warning(
+                    f"data source {ds_id} is not shared with this connection; "
+                    "relation IDs pointing at it cannot be titled"
+                )
                 self._titles[ds_id] = {}
         return self._titles[ds_id]
 
@@ -228,3 +233,6 @@ class Reader:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
         return text
+
+
+__all__ = ["Reader"]
