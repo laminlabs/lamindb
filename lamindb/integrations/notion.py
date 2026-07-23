@@ -103,10 +103,12 @@ class Reader:
         return self._ds[database_id]
 
     def schema(self, database_id: str) -> dict[str, dict]:
-        """{property_name: {"type": str, "target": data source id | None}}.
+        """{property_name: {"type": str, "target": str | None, "dual": dict | None}}.
 
-        `target` is set only for relation properties and names the data source
-        the relation points at. Cached.
+        `target` and `dual` are set only for relation properties. `target` names
+        the data source the relation points at. `dual` is Notion's synced-property
+        info when the relation is two-way — the two sides describe the same edge,
+        so a sync should follow only one of them. Cached.
         """
         if database_id in self._schema:
             return self._schema[database_id]
@@ -116,10 +118,12 @@ class Reader:
         for name, p in props.items():
             t = p.get("type", "")
             target = None
+            dual = None
             if t == "relation":
                 rel = p.get("relation", {})
                 target = rel.get("data_source_id") or rel.get("database_id")
-            out[name] = {"type": t, "target": target}
+                dual = rel.get("dual_property")
+            out[name] = {"type": t, "target": target, "dual": dual}
         self._schema[database_id] = out
         return out
 

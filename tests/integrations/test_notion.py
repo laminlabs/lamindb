@@ -561,3 +561,30 @@ def test_schema_exposes_relation_target(reader):
     schema = reader.schema("db-1")
     assert schema["Related"]["target"] == "other-ds-0000"
     assert schema["Name"]["target"] is None
+
+
+def test_schema_exposes_dual_property(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS)]
+    schema = reader.schema("db-1")
+    assert schema["Related"]["dual"]["synced_property_name"] == "people"
+    assert schema["Name"]["dual"] is None  # not a relation
+
+
+def test_schema_single_property_relation_has_no_dual(reader):
+    single = {
+        "properties": {
+            "Owner": {
+                "id": "o",
+                "type": "relation",
+                "relation": {
+                    "data_source_id": "ds-z",
+                    "type": "single_property",
+                    "single_property": {},
+                },
+            }
+        }
+    }
+    reader.s.request.side_effect = [_make_response(DB), _make_response(single)]
+    schema = reader.schema("db-1")
+    assert schema["Owner"]["target"] == "ds-z"
+    assert schema["Owner"]["dual"] is None

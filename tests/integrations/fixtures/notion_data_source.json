@@ -42,8 +42,11 @@
       "type": "relation",
       "relation": {
         "data_source_id": "other-ds-0000",
-        "type": "single_property",
-        "single_property": {}
+        "type": "dual_property",
+        "dual_property": {
+          "synced_property_name": "people",
+          "synced_property_id": "abc%3D"
+        }
       }
     },
     "Rollup": {
