@@ -2,7 +2,7 @@
 
 # LaminDB - Data management for multimodal AI
 
-LaminDB makes it easy to query, trace & govern datasets across diverse storage formats and locations. It gives you context through annotations, memory through lineage, and governance through branching and versioning. It uses a scalable lakehouse architecture that integrates files, tables, arrays, ontologies, and notes. It was originally built for biological data, and comes with modules for bio-formats and registries — by the creators of Scanpy.
+LaminDB makes it easy to query, trace & govern datasets across diverse storage formats and locations. It gives you context through annotations, memory through lineage, and governance through branching and versioning. It uses a scalable lakehouse architecture that integrates files, tables, arrays, ontologies, and notes. It supports biological data through modules for bio-formats and registries — by the creators of Scanpy.
 
 <details>
 <summary>Why?</summary>
