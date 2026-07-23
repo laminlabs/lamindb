@@ -153,21 +153,20 @@ class Reader:
     def rows(
         self,
         database_id: str,
-        resolve: bool = True,
         drop: set[str] | None = None,
     ) -> list[dict]:
         """Every page flattened to a dict.
 
+        Relation values are always lists of Notion page UUIDs — never titles.
+        UUIDs are the stable join key; titles are not unique and change on
+        rename. Use :meth:`relation_titles` for display names.
+
         Args:
             database_id: the Notion database ID.
-            resolve: replace relation page IDs with the target page titles.
-                Requires the target database to be shared with the connection;
-                unresolvable IDs are left as-is.
             drop: property names or property types to omit, e.g.
                 {"messages", "created_by"}.
         """
         drop = drop or set()
-        schema = self.schema(database_id)
         ds = self._resolve(database_id)
 
         rows: list[dict] = []
@@ -181,29 +180,44 @@ class Reader:
             row["notion_id"] = page.get("id")
             row["last_edited_time"] = page.get("last_edited_time")
             rows.append(row)
-
-        if resolve:
-            for name, spec in schema.items():
-                if spec["type"] != "relation" or not spec["target"] or name in drop:
-                    continue
-                names = self.title_map(spec["target"])
-                if not names:
-                    continue
-                for row in rows:
-                    ids = row.get(name)
-                    if ids:
-                        row[name] = [names.get(i, i) for i in ids]
         return rows
 
-    def to_json(self, database_id: str, path: str | None = None, **kwargs: Any) -> str:
-        """Columns + rows as JSON. Writes to `path` if given.
+    def relation_titles(
+        self,
+        database_id: str,
+        drop: set[str] | None = None,
+    ) -> dict[str, str]:
+        """{page_uuid: title} for every page reachable via this database's relations.
 
-        Extra keyword arguments are forwarded to :meth:`rows`.
+        A display-only side table: join it against the UUIDs in :meth:`rows`.
+        Targets that are not shared with the connection contribute nothing and
+        emit a warning.
         """
-        doc = {
+        drop = drop or set()
+        out: dict[str, str] = {}
+        for name, spec in self.schema(database_id).items():
+            if spec["type"] != "relation" or not spec["target"] or name in drop:
+                continue
+            out.update(self.title_map(spec["target"]))
+        return out
+
+    def to_json(
+        self,
+        database_id: str,
+        path: str | None = None,
+        titles: bool = True,
+        drop: set[str] | None = None,
+    ) -> str:
+        """Columns, rows, and a relation-title lookup as JSON.
+
+        Rows carry relation UUIDs. `titles` maps those UUIDs to display names;
+        set `titles=False` to skip the extra queries.
+        """
+        doc: dict[str, Any] = {
             "database_id": database_id,
             "columns": self.columns(database_id),
-            "rows": self.rows(database_id, **kwargs),
+            "titles": self.relation_titles(database_id, drop=drop) if titles else {},
+            "rows": self.rows(database_id, drop=drop),
         }
         text = json.dumps(doc, indent=2, ensure_ascii=False)
         if path:
