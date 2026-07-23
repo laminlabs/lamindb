@@ -34,16 +34,8 @@
           "type": "url",
           "url": "https://example.com"
         },
-        "Score": {
-          "id": "score_id",
-          "type": "number",
-          "number": 7.5
-        },
-        "Active": {
-          "id": "active_id",
-          "type": "checkbox",
-          "checkbox": true
-        },
+        "Score": { "id": "score_id", "type": "number", "number": 7.5 },
+        "Active": { "id": "active_id", "type": "checkbox", "checkbox": true },
         "Priority": {
           "id": "priority_id",
           "type": "select",
@@ -109,6 +101,16 @@
           "id": "edited_id",
           "type": "last_edited_time",
           "last_edited_time": "2024-01-15T10:30:00.000Z"
+        },
+        "Author": {
+          "id": "author_id",
+          "type": "created_by",
+          "created_by": { "object": "user", "id": "user-created-1" }
+        },
+        "LastEditor": {
+          "id": "editor_id",
+          "type": "last_edited_by",
+          "last_edited_by": { "object": "user", "id": "user-edited-2" }
         },
         "Rollup": {
           "id": "rollup_id",
