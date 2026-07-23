@@ -770,3 +770,18 @@ def test_schema_describe_bracket_names():
     schema.delete(permanent=True)
     for feature in features:
         feature.delete(permanent=True)
+
+
+def test_schema_describe_handles_legacy_none_itype():
+    """Legacy schemas can have members but `itype=None` and must still describe."""
+    feature = ln.Feature(name="legacy_none_itype", dtype="str").save()
+    schema = ln.Schema([feature], name="legacy_none_itype_schema").save()
+    ln.Schema.filter(id=schema.id).update(itype=None)
+    schema = ln.Schema.get(id=schema.id)
+
+    result = schema.describe(return_str=True)
+    assert "Features" in result
+    assert "legacy_none_itype" in result
+
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
