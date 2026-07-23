@@ -48,6 +48,14 @@ def _flatten(prop: dict) -> Any:
     return None  # rollup, formula, unknown
 
 
+def _page_title(page: dict) -> str:
+    """The title of a page, whatever the title property happens to be called."""
+    for prop in page.get("properties", {}).values():
+        if prop.get("type") == "title":
+            return _flatten(prop)
+    return ""
+
+
 class Reader:
     """Read-only Notion reader. Databases contain data sources; rows live on the data source."""
 
@@ -63,6 +71,8 @@ class Reader:
             }
         )
         self._ds: dict[str, str] = {}
+        self._schema: dict[str, dict] = {}
+        self._titles: dict[str, dict[str, str]] = {}
 
     def _call(self, method: str, path: str, body: dict | None = None) -> dict:
         r = self.s.request(method, f"{BASE}{path}", json=body, timeout=30)
@@ -92,37 +102,108 @@ class Reader:
             self._ds[database_id] = sources[0]["id"]
         return self._ds[database_id]
 
-    def columns(self, database_id: str) -> dict[str, str]:
-        """Return {property_name: notion_type} from the data source schema."""
+    def schema(self, database_id: str) -> dict[str, dict]:
+        """{property_name: {"type": str, "target": data source id | None}}.
+
+        `target` is set only for relation properties and names the data source
+        the relation points at. Cached.
+        """
+        if database_id in self._schema:
+            return self._schema[database_id]
         ds = self._resolve(database_id)
         props = self._call("GET", f"/data_sources/{ds}").get("properties", {})
-        return {name: p.get("type", "") for name, p in props.items()}
+        out: dict[str, dict] = {}
+        for name, p in props.items():
+            t = p.get("type", "")
+            target = None
+            if t == "relation":
+                rel = p.get("relation", {})
+                target = rel.get("data_source_id") or rel.get("database_id")
+            out[name] = {"type": t, "target": target}
+        self._schema[database_id] = out
+        return out
 
-    def rows(self, database_id: str) -> list[dict]:
-        """Return every page flattened to a dict. Paginates until exhausted."""
-        ds = self._resolve(database_id)
+    def columns(self, database_id: str) -> dict[str, str]:
+        """Return {property_name: notion_type}."""
+        return {k: v["type"] for k, v in self.schema(database_id).items()}
+
+    def _query(self, ds: str) -> list[dict]:
+        """Every page in a data source, raw. Paginates until exhausted."""
         body: dict[str, Any] = {"page_size": 100}
-        out: list[dict] = []
+        pages: list[dict] = []
         while True:
             payload = self._call("POST", f"/data_sources/{ds}/query", body)
-            for page in payload.get("results", []):
-                row: dict[str, Any] = {"notion_id": None, "last_edited_time": None}
-                for name, prop in page.get("properties", {}).items():
-                    row[name] = _flatten(prop)
-                # page-level fields win over any same-named user property
-                row["notion_id"] = page.get("id")
-                row["last_edited_time"] = page.get("last_edited_time")
-                out.append(row)
+            pages.extend(payload.get("results", []))
             if not payload.get("has_more"):
-                return out
+                return pages
             body["start_cursor"] = payload["next_cursor"]
 
-    def to_json(self, database_id: str, path: str | None = None) -> str:
-        """Columns + rows as JSON. Writes to `path` if given."""
+    def title_map(self, ds_id: str) -> dict[str, str]:
+        """{page_id: title} for a data source. One query per source, cached."""
+        if ds_id not in self._titles:
+            try:
+                self._titles[ds_id] = {
+                    p["id"]: _page_title(p) for p in self._query(ds_id)
+                }
+            except LookupError:
+                print(f"  ! data source {ds_id} not shared — leaving IDs in place")
+                self._titles[ds_id] = {}
+        return self._titles[ds_id]
+
+    def rows(
+        self,
+        database_id: str,
+        resolve: bool = True,
+        drop: set[str] | None = None,
+    ) -> list[dict]:
+        """Every page flattened to a dict.
+
+        Args:
+            database_id: the Notion database ID.
+            resolve: replace relation page IDs with the target page titles.
+                Requires the target database to be shared with the connection;
+                unresolvable IDs are left as-is.
+            drop: property names or property types to omit, e.g.
+                {"messages", "created_by"}.
+        """
+        drop = drop or set()
+        schema = self.schema(database_id)
+        ds = self._resolve(database_id)
+
+        rows: list[dict] = []
+        for page in self._query(ds):
+            row: dict[str, Any] = {"notion_id": None, "last_edited_time": None}
+            for name, prop in page.get("properties", {}).items():
+                if name in drop or prop.get("type") in drop:
+                    continue
+                row[name] = _flatten(prop)
+            # page-level fields win over any same-named user property
+            row["notion_id"] = page.get("id")
+            row["last_edited_time"] = page.get("last_edited_time")
+            rows.append(row)
+
+        if resolve:
+            for name, spec in schema.items():
+                if spec["type"] != "relation" or not spec["target"] or name in drop:
+                    continue
+                names = self.title_map(spec["target"])
+                if not names:
+                    continue
+                for row in rows:
+                    ids = row.get(name)
+                    if ids:
+                        row[name] = [names.get(i, i) for i in ids]
+        return rows
+
+    def to_json(self, database_id: str, path: str | None = None, **kwargs: Any) -> str:
+        """Columns + rows as JSON. Writes to `path` if given.
+
+        Extra keyword arguments are forwarded to :meth:`rows`.
+        """
         doc = {
             "database_id": database_id,
             "columns": self.columns(database_id),
-            "rows": self.rows(database_id),
+            "rows": self.rows(database_id, **kwargs),
         }
         text = json.dumps(doc, indent=2, ensure_ascii=False)
         if path:

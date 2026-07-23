@@ -263,15 +263,11 @@ def test_resolve_hits_databases_endpoint(reader):
 
 
 def test_resolve_is_cached(reader):
-    reader.s.request.side_effect = [
-        _make_response(DB),
-        _make_response(DS),
-        _make_response(DS),
-    ]
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS)]
     reader.columns("db-1")
     reader.columns("db-1")
-    # 1 resolution + 2 schema fetches, not 2 resolutions
-    assert reader.s.request.call_count == 3
+    # resolution and schema are both cached
+    assert reader.s.request.call_count == 2
 
 
 def test_resolve_no_data_sources_raises(reader):
@@ -323,8 +319,12 @@ def test_columns_hits_data_source_endpoint(reader):
 
 
 def test_rows_single_page(reader):
-    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
-    rows = reader.rows("db-1")
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False)
     assert len(rows) == 1
     assert rows[0]["notion_id"] == "page-abc-1234"
     assert rows[0]["Name"] == "Row One"
@@ -332,12 +332,16 @@ def test_rows_single_page(reader):
 
 
 def test_rows_posts_to_query_endpoint(reader):
-    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
-    reader.rows("db-1")
-    method, url = reader.s.request.call_args_list[1][0]
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    reader.rows("db-1", resolve=False)
+    method, url = reader.s.request.call_args_list[2][0]
     assert method == "POST"
     assert url == f"{BASE}/data_sources/{DS_ID}/query"
-    assert reader.s.request.call_args_list[1][1]["json"]["page_size"] == 100
+    assert reader.s.request.call_args_list[2][1]["json"]["page_size"] == 100
 
 
 def test_rows_pagination_follows_cursor(reader):
@@ -355,21 +359,25 @@ def test_rows_pagination_follows_cursor(reader):
             "next_cursor": None,
         }
     )
-    reader.s.request.side_effect = [_make_response(DB), p1, p2]
-    rows = reader.rows("db-1")
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS), p1, p2]
+    rows = reader.rows("db-1", resolve=False)
     assert [r["notion_id"] for r in rows] == ["p1", "p2"]
-    assert reader.s.request.call_args_list[2][1]["json"]["start_cursor"] == "cursor-abc"
+    assert reader.s.request.call_args_list[3][1]["json"]["start_cursor"] == "cursor-abc"
 
 
 def test_rows_empty_returns_empty_list(reader):
     empty = _make_response({"results": [], "has_more": False, "next_cursor": None})
-    reader.s.request.side_effect = [_make_response(DB), empty]
-    assert reader.rows("db-1") == []
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS), empty]
+    assert reader.rows("db-1", resolve=False) == []
 
 
 def test_rows_first_two_keys_are_page_level(reader):
-    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
-    rows = reader.rows("db-1")
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False)
     assert list(rows[0])[:2] == ["notion_id", "last_edited_time"]
 
 
@@ -390,14 +398,22 @@ def test_rows_page_fields_win_over_same_named_property(reader):
         "has_more": False,
         "next_cursor": None,
     }
-    reader.s.request.side_effect = [_make_response(DB), _make_response(clash)]
-    rows = reader.rows("db-1")
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(clash),
+    ]
+    rows = reader.rows("db-1", resolve=False)
     assert rows[0]["notion_id"] == "real-page-id"
 
 
 def test_rows_preserves_property_names_verbatim(reader):
-    reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
-    rows = reader.rows("db-1")
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False)
     for name in ("Name", "Email", "Tags", "Due", "Related", "Author"):
         assert name in rows[0]
 
@@ -413,7 +429,7 @@ def test_to_json_structure(reader):
         _make_response(DS),
         _make_response(PAGES),
     ]
-    doc = json.loads(reader.to_json("db-1"))
+    doc = json.loads(reader.to_json("db-1", resolve=False))
     assert doc["database_id"] == "db-1"
     assert doc["columns"]["Name"] == "title"
     assert len(doc["rows"]) == 1
@@ -427,5 +443,121 @@ def test_to_json_writes_file(reader, tmp_path):
         _make_response(PAGES),
     ]
     out = tmp_path / "out.json"
-    reader.to_json("db-1", str(out))
+    reader.to_json("db-1", str(out), resolve=False)
     assert json.loads(out.read_text(encoding="utf-8"))["database_id"] == "db-1"
+
+
+# ---------------------------------------------------------------------------
+# name resolution
+# ---------------------------------------------------------------------------
+
+ORG_PAGES = {
+    "results": [
+        {
+            "id": "related-page-id-111",
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}
+            },
+        }
+    ],
+    "has_more": False,
+    "next_cursor": None,
+}
+
+
+def test_rows_resolve_replaces_ids_with_titles(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+        _make_response(ORG_PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=True)
+    assert rows[0]["Related"] == ["Deepmind"]
+
+
+def test_rows_resolve_leaves_id_when_target_unshared(reader, capsys):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+        _make_response({}, 404),
+    ]
+    rows = reader.rows("db-1", resolve=True)
+    assert rows[0]["Related"] == ["related-page-id-111"]
+    assert "not shared" in capsys.readouterr().out
+
+
+def test_rows_resolve_leaves_id_when_target_missing_from_map(reader):
+    empty_target = {"results": [], "has_more": False, "next_cursor": None}
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+        _make_response(empty_target),
+    ]
+    rows = reader.rows("db-1", resolve=True)
+    assert rows[0]["Related"] == ["related-page-id-111"]
+
+
+def test_title_map_is_cached(reader):
+    reader.s.request.side_effect = [_make_response(ORG_PAGES)]
+    reader.title_map("ds-x")
+    reader.title_map("ds-x")
+    assert reader.s.request.call_count == 1
+
+
+def test_drop_by_property_name(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False, drop={"Notes", "Related"})
+    assert "Notes" not in rows[0]
+    assert "Related" not in rows[0]
+    assert "Name" in rows[0]
+
+
+def test_drop_by_property_type(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False, drop={"created_by", "last_edited_by"})
+    assert "Author" not in rows[0]
+    assert "LastEditor" not in rows[0]
+
+
+def test_drop_does_not_remove_page_level_keys(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(DS),
+        _make_response(PAGES),
+    ]
+    rows = reader.rows("db-1", resolve=False, drop={"notion_id", "last_edited_time"})
+    assert rows[0]["notion_id"] == "page-abc-1234"
+
+
+def test_page_title_found_by_type_not_name(reader):
+    unnamed = {
+        "results": [
+            {
+                "id": "p-1",
+                "properties": {
+                    "": {"type": "title", "title": [{"plain_text": "No Name Prop"}]}
+                },
+            }
+        ],
+        "has_more": False,
+    }
+    reader.s.request.side_effect = [_make_response(unnamed)]
+    assert reader.title_map("ds-y") == {"p-1": "No Name Prop"}
+
+
+def test_schema_exposes_relation_target(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS)]
+    schema = reader.schema("db-1")
+    assert schema["Related"]["target"] == "other-ds-0000"
+    assert schema["Name"]["target"] is None
