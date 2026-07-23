@@ -457,14 +457,59 @@ def test_schema_mutations_feature_removal(
     schema.delete(permanent=True)
 
 
-def test_schema_add_remove_optional_features(mini_immuno_schema_flexible: ln.Schema):
+def test_schema_add_remove_optional_features_api(
+    mini_immuno_schema_flexible: ln.Schema,
+):
     schema = mini_immuno_schema_flexible
     initial_hash = schema.hash
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
-    schema.add_optional_features([feature_project])
+    feature_program = ln.Feature(name="program", dtype=ln.Project).save()
+    feature_batch = ln.Feature(name="batch", dtype=str).save()
+    schema.add(feature_project)
     assert schema.hash != initial_hash
-    schema.remove_optional_features([feature_project])
+    with pytest.raises(NotImplementedError) as error:
+        schema.add(feature_program, optional=False)
+    assert "optional=False" in error.exconly()
+    schema.add([feature_program])
+    schema.remove([feature_project, feature_program])
     assert schema.hash == initial_hash
+
+    with pytest.warns(DeprecationWarning):
+        schema.add_optional_features([feature_batch])
+    with pytest.warns(DeprecationWarning):
+        schema.remove_optional_features([feature_batch])
+    assert schema.hash == initial_hash
+
+    feature_project.delete(permanent=True)
+    feature_program.delete(permanent=True)
+    feature_batch.delete(permanent=True)
+
+
+def test_schema_add_remove_optional_features_minimal_set_false(
+    mini_immuno_schema_flexible: ln.Schema,
+):
+    schema = ln.Schema(
+        name="mini_immuno_minimal_set_false",
+        features=list(mini_immuno_schema_flexible.features.all()),
+        minimal_set=False,
+    ).save()
+    initial_hash = schema.hash
+    feature_project = ln.Feature(
+        name="project_minimal_set_false", dtype=ln.Project
+    ).save()
+
+    schema.add(feature_project)
+    assert feature_project in schema.features.all()
+    assert schema.optionals.get_uids() == []
+    assert schema.hash != initial_hash
+
+    schema.remove(feature_project)
+    assert feature_project not in schema.features.all()
+    assert schema.optionals.get_uids() == []
+    assert schema.hash == initial_hash
+
+    feature_project.delete(permanent=True)
+    schema.delete(permanent=True)
 
 
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
