@@ -351,14 +351,14 @@ def _standardize(
 
 def _add_or_remove_synonyms(
     synonym: str | ListLike,
-    record: CanCurate,
+    record: HasSynonyms,
     action: Literal["add", "remove"],
     force: bool = False,
     save: bool | None = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: set[str], record: CanCurate):
+    def check_synonyms_in_all_records(synonyms: set[str], record: HasSynonyms):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -429,9 +429,13 @@ def _add_or_remove_synonyms(
         record.save()  # type: ignore
 
 
-def _check_synonyms_field_exist(record: CanCurate):
+def _check_synonyms_field_exist(record: SQLRecord | HasSynonyms):
     """Check if synonyms field exists."""
-    if not hasattr(record, "synonyms"):
+    if not isinstance(record, SQLRecord):
+        raise TypeError("record must be a SQLRecord instance")
+    try:
+        record._meta.get_field("synonyms")
+    except FieldDoesNotExist:
         raise NotImplementedError(
             f"No synonyms field found in table {record.__class__.__name__}!"
         ) from None
@@ -676,9 +680,9 @@ class CanCurate:
             standardized names as values.
 
         See Also:
-            :meth:`~lamindb.models.CanCurate.add_synonym`
+            :meth:`~lamindb.models.HasSynonyms.add_synonym`
                 Add synonyms.
-            :meth:`~lamindb.models.CanCurate.remove_synonym`
+            :meth:`~lamindb.models.HasSynonyms.remove_synonym`
                 Remove synonyms.
 
         Example::
@@ -709,6 +713,10 @@ class CanCurate:
             source=source,
         )
 
+
+class HasSynonyms:
+    """Mixin for registries that define a `synonyms` field."""
+
     def add_synonym(
         self,
         synonym: str | ListLike,
@@ -723,7 +731,7 @@ class CanCurate:
             save: Whether to save the record to the database.
 
         See Also:
-            :meth:`~lamindb.models.CanCurate.remove_synonym`
+            :meth:`~lamindb.models.HasSynonyms.remove_synonym`
                 Remove synonyms.
 
         Example::
@@ -752,7 +760,7 @@ class CanCurate:
             synonym: The synonym values to remove.
 
         See Also:
-            :meth:`~lamindb.models.CanCurate.add_synonym`
+            :meth:`~lamindb.models.HasSynonyms.add_synonym`
                 Add synonyms
 
         Example::
@@ -772,6 +780,10 @@ class CanCurate:
         _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
+
+class HasAbbr:
+    """Mixin for registries that define an `abbr` field."""
+
     def set_abbr(self, value: str):
         """Set value for abbr field and add to synonyms.
 
@@ -779,7 +791,7 @@ class CanCurate:
             value: A value for an abbreviation.
 
         See Also:
-            :meth:`~lamindb.models.CanCurate.add_synonym`
+            :meth:`~lamindb.models.HasSynonyms.add_synonym`
 
         Example::
 
@@ -800,7 +812,7 @@ class CanCurate:
 
         if hasattr(self, "name") and value == self.name:
             pass
-        else:
+        elif isinstance(self, HasSynonyms):
             try:
                 self.add_synonym(value, save=False)
             except Exception as e:  # pragma: no cover

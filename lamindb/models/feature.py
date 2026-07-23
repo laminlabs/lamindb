@@ -36,7 +36,7 @@ from lamindb.errors import (
 
 from ..base.uids import base62_12
 from ._relations import dict_module_name_to_model_name
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasSynonyms
 from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import (
@@ -741,7 +741,7 @@ END;
 """
 
 
-class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
     """Measurable properties such as columns of a sheet.
 
     Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
