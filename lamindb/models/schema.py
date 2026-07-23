@@ -1453,20 +1453,52 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """
         return SchemaOptionals(self)
 
-    def add_optional_features(self, features: list[Feature]) -> None:
-        """Add optional features to the schema."""
-        self.features.add(*features)
-        self.optionals.add(features)
+    @staticmethod
+    def _normalize_feature_input(features: Feature | list[Feature]) -> list[Feature]:
+        if not isinstance(features, list):
+            features = [features]
+        if not all(isinstance(feature, Feature) for feature in features):
+            raise TypeError("features must be a Feature or list of Feature records!")
+        return features
+
+    def add(self, features: Feature | list[Feature], optional: bool = True) -> None:
+        """Add one or multiple features to the schema.
+
+        Args:
+            features: The feature or list of features to add.
+            optional: Whether the feature to be added is optional.
+        """
+        if not optional:
+            raise NotImplementedError(
+                "Passing optional=False is currently not supported for `Schema.add()`: "
+                "this could invalidate many artifacts and records, especially if a feature is not nullable."
+            )
+        normalized_features = self._normalize_feature_input(features)
+        self.features.add(*normalized_features)
+        if self.minimal_set is not False:
+            self.optionals.add(normalized_features)
         self.save(print_hash_mutation_warning=False)
 
+    def remove(self, features: Feature | list[Feature]) -> None:
+        """Remove one or multiple features from the schema."""
+        normalized_features = self._normalize_feature_input(features)
+        if self.maximal_set is True:
+            raise NotImplementedError(
+                "Removing features from a schema with `maximal_set=True` is currently not supported: "
+                "this could invalidate many artifacts."
+            )
+        self.features.remove(*normalized_features)
+        self.save(print_hash_mutation_warning=False)
+
+    @deprecated("add")
+    def add_optional_features(self, features: list[Feature]) -> None:
+        """Add optional features to the schema."""
+        self.add(features, optional=True)
+
+    @deprecated("remove")
     def remove_optional_features(self, features: list[Feature]) -> None:
         """Remove optional features from the schema."""
-        optional_features = self.optionals.get()
-        for feature in features:
-            assert feature in optional_features, f"Feature {feature} is not optional"
-        self.features.remove(*features)
-        self.optionals.remove(features)
-        self.save(print_hash_mutation_warning=False)
+        self.remove(features)
 
     @class_and_instance_method
     def describe(
