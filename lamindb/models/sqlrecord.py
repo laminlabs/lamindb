@@ -286,8 +286,6 @@ class SQLRecordSettings:
                 experiments_registry.settings.single_space = False
                 experiments_registry.save()
 
-        .. versionadded:: 2.6.0
-            Before, one could by default add objects from different spaces to the same dynamic registry.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"

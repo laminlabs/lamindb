@@ -357,6 +357,7 @@ def _add_or_remove_synonyms(
     save: bool | None = None,
 ):
     """Add or remove synonyms."""
+    assert isinstance(record, SQLRecord), "record must be a SQLRecord instance"
 
     def check_synonyms_in_all_records(synonyms: set[str], record: HasSynonyms):
         """Errors if input synonym is associated with other records in the DB."""
@@ -429,18 +430,6 @@ def _add_or_remove_synonyms(
         record.save()  # type: ignore
 
 
-def _check_synonyms_field_exist(record: SQLRecord | HasSynonyms):
-    """Check if synonyms field exists."""
-    if not isinstance(record, SQLRecord):
-        raise TypeError("record must be a SQLRecord instance")
-    try:
-        record._meta.get_field("synonyms")
-    except FieldDoesNotExist:
-        raise NotImplementedError(
-            f"No synonyms field found in table {record.__class__.__name__}!"
-        ) from None
-
-
 def _filter_queryset_with_organism(
     queryset: QuerySet,
     organism: SQLRecord | None = None,
@@ -499,18 +488,20 @@ class CanCurate:
         See Also:
             :meth:`~lamindb.models.CanCurate.validate`
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Inspect gene symbols::
 
-            # save some gene records
-            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+                import bionty as bt
 
-            # inspect gene symbols
-            gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            result = bt.Gene.inspect(gene_symbols, field=bt.Gene.symbol, organism="human")
-            assert result.validated == ["A1CF", "A1BG"]
-            assert result.non_validated == ["FANCD1", "FANCD20"]
+                # populate the gene registry
+                bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+                # inspect gene symbols
+                symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+                result = bt.Gene.inspect(symbols, field=bt.Gene.symbol, organism="human")
+                assert result.validated == ["A1CF", "A1BG"]
+                assert result.non_validated == ["FANCD1", "FANCD20"]
         """
         return _inspect(
             cls=cls,
@@ -557,15 +548,19 @@ class CanCurate:
         See Also:
             :meth:`~lamindb.models.CanCurate.inspect`
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Validate gene symbols::
 
-            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+                import bionty as bt
 
-            gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            bt.Gene.validate(gene_symbols, field=bt.Gene.symbol, organism="human")
-            #> array([ True,  True, False, False])
+                # populate the gene registry
+                bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+                # validate gene symbols
+                symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+                bt.Gene.validate(symbols, field=bt.Gene.symbol, organism="human")
+                #> array([ True,  True, False, False])
         """
         return _validate(
             cls=cls,
@@ -585,8 +580,6 @@ class CanCurate:
         create: bool = False,
         organism: Union[SQLRecord, str, None] = None,
         source: SQLRecord | None = None,
-        standardize: bool = True,
-        from_source: bool = True,
         mute: bool = False,
     ) -> SQLRecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
@@ -597,8 +590,6 @@ class CanCurate:
             create: Whether to create records if they don't exist.
             organism: A `bionty.Organism` name or record.
             source: A `bionty.Source` record to validate against to create records for.
-            standardize: Whether to standardize synonyms in the values.
-            from_source: Whether to create records from public source.
             mute: Whether to mute logging.
 
         Returns:
@@ -607,20 +598,21 @@ class CanCurate:
         Notes:
             For more info, see tutorial: :doc:`docs:manage-ontologies`.
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Bulk create labels::
 
-            # Bulk create from non-validated values will log warnings & returns empty list
-            ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"])
-            assert len(ulabels) == 0
+                # from invalid values logs warnings & returns an empty list
+                ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"])
+                assert len(ulabels) == 0
 
-            # Bulk create records from validated values returns the corresponding existing records
-            ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], create=True).save()
-            assert len(ulabels) == 3
+                # from valid values or via `create=True` returns label objects
+                ulabels = ln.ULabel.from_values(["benchmark", "prediction", "test"], create=True).save()
+                assert len(ulabels) == 3
 
-            # Bulk create records from public reference
-            bt.CellType.from_values(["T cell", "B cell"]).save()
+                # bulk create cell type labels from a public ontology
+                import bionty as bt
+                bt.CellType.from_values(["T cell", "B cell"]).save()
         """
         return _from_values(
             iterable=values,
@@ -685,17 +677,19 @@ class CanCurate:
             :meth:`~lamindb.models.HasSynonyms.remove_synonym`
                 Remove synonyms.
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Standardize gene identifiers::
 
-            # save some gene records
-            bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+                import bionty as bt
 
-            # standardize gene synonyms
-            gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-            bt.Gene.standardize(gene_synonyms)
-            #> ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
+                # save some gene records
+                bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
+
+                # standardize gene synonyms
+                gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+                bt.Gene.standardize(gene_synonyms)
+                #> ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
         """
         return _standardize(
             cls=cls,
@@ -734,21 +728,22 @@ class HasSynonyms:
             :meth:`~lamindb.models.HasSynonyms.remove_synonym`
                 Remove synonyms.
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Add a synonym for a cell type::
 
-            # save "T cell" record
-            record = bt.CellType.from_source(name="T cell").save()
-            record.synonyms
-            #> "T-cell|T lymphocyte|T-lymphocyte"
+                import bionty as bt
 
-            # add a synonym
-            record.add_synonym("T cells")
-            record.synonyms
-            #> "T cells|T-cell|T-lymphocyte|T lymphocyte"
+                # save "T cell" record
+                record = bt.CellType.from_source(name="T cell").save()
+                record.synonyms
+                #> "T-cell|T lymphocyte|T-lymphocyte"
+
+                # add a synonym
+                record.add_synonym("T cells")
+                record.synonyms
+                #> "T cells|T-cell|T-lymphocyte|T lymphocyte"
         """
-        _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(
             synonym=synonym, record=self, force=force, action="add", save=save
         )
@@ -777,7 +772,6 @@ class HasSynonyms:
             record.synonyms
             #> "T lymphocyte|T-lymphocyte"
         """
-        _check_synonyms_field_exist(self)
         _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
 
@@ -785,7 +779,7 @@ class HasAbbr:
     """Mixin for registries that define an `abbr` field."""
 
     def set_abbr(self, value: str):
-        """Set value for abbr field and add to synonyms.
+        """Set value for `abbr` field and add to `synonyms`.
 
         Args:
             value: A value for an abbreviation.
@@ -793,32 +787,28 @@ class HasAbbr:
         See Also:
             :meth:`~lamindb.models.HasSynonyms.add_synonym`
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Add an abbreiation for an experimental factor::
 
-            # save an experimental factor record
-            scrna = bt.ExperimentalFactor.from_source(name="single-cell RNA sequencing").save()
-            assert scrna.abbr is None
-            assert scrna.synonyms == "single-cell RNA-seq|single-cell transcriptome sequencing|scRNA-seq|single cell RNA sequencing"
+                import bionty as bt
 
-            # set abbreviation
-            scrna.set_abbr("scRNA")
-            assert scrna.abbr == "scRNA"
-            # synonyms are updated
-            assert scrna.synonyms == "scRNA|single-cell RNA-seq|single cell RNA sequencing|single-cell transcriptome sequencing|scRNA-seq"
+                # save an experimental factor record
+                scrna = bt.ExperimentalFactor.from_source(name="single-cell RNA sequencing").save()
+                assert scrna.abbr is None
+                assert scrna.synonyms == "single-cell RNA-seq|single-cell transcriptome sequencing|scRNA-seq|single cell RNA sequencing"
+
+                # set abbreviation
+                scrna.set_abbr("scRNA")
+                assert scrna.abbr == "scRNA"
+                # synonyms are updated
+                assert scrna.synonyms == "scRNA|single-cell RNA-seq|single cell RNA sequencing|single-cell transcriptome sequencing|scRNA-seq"
         """
         self.abbr = value
 
         if hasattr(self, "name") and value == self.name:
             pass
         elif isinstance(self, HasSynonyms):
-            try:
-                self.add_synonym(value, save=False)
-            except Exception as e:  # pragma: no cover
-                logger.debug(
-                    f"Encountered an Exception while attempting to add synonyms.\n{e}"
-                )
-
+            self.add_synonym(value, save=False)
         if not self._state.adding:  # type: ignore
             self.save()  # type: ignore
