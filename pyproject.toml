@@ -20,6 +20,7 @@ dependencies = [
     "lamin_cli==1.19.1",  # no dependencies
     "lamindb_setup[aws]==1.25.5",  # dependencies like Django & fsspec
     "psycopg2-binary",
+    "requests",
 ]
 
 [project.urls]

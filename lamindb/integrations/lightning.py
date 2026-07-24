@@ -954,7 +954,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         """
         run_uid = self._active_run_uid()
         if self._original_dirpath is not None:
-            prefix = str(self._original_dirpath).rstrip("/")
+            prefix = str(self._original_dirpath).strip("/")
             return f"{prefix}/{run_uid}" if run_uid else prefix
         if len(trainer.loggers) > 0:
             return self._logger_prefix(trainer, run_uid)

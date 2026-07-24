@@ -8,6 +8,11 @@ Modules
 
    lightning
 
+Classes
+-------
+
+.. autoclass:: Reader
+
 Functions
 ---------
 
@@ -22,6 +27,7 @@ from ._vitessce import save_vitessce_config
 
 __all__ = [
     "lightning",
+    "Reader",
     "save_tiledbsoma_experiment",
     "curate_from_croissant",
     "save_vitessce_config",
@@ -34,4 +40,10 @@ def __getattr__(name: str):
         from lamindb.core.storage import save_tiledbsoma_experiment
 
         return save_tiledbsoma_experiment
+
+    if name == "Reader":
+        from .notion import Reader
+
+        return Reader
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
