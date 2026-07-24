@@ -683,7 +683,7 @@ class CanCurate:
 
                 import bionty as bt
 
-                # save some gene records
+                # save some gene objects
                 bt.Gene.from_values(["A1CF", "A1BG", "BRCA2"], field="symbol", organism="human").save()
 
                 # standardize gene synonyms
@@ -734,14 +734,14 @@ class HasSynonyms:
 
                 import bionty as bt
 
-                # save "T cell" record
-                record = bt.CellType.from_source(name="T cell").save()
-                record.synonyms
+                # create a "T cell" object
+                t_cell = bt.CellType.from_source(name="T cell").save()
+                t_cell.synonyms
                 #> "T-cell|T lymphocyte|T-lymphocyte"
 
                 # add a synonym
-                record.add_synonym("T cells")
-                record.synonyms
+                t_cell.add_synonym("T cells")
+                t_cell.synonyms
                 #> "T cells|T-cell|T-lymphocyte|T lymphocyte"
         """
         _add_or_remove_synonyms(
@@ -758,19 +758,21 @@ class HasSynonyms:
             :meth:`~lamindb.models.HasSynonyms.add_synonym`
                 Add synonyms
 
-        Example::
+        Example:
 
-            import bionty as bt
+            Remove a synonym for a cell type::
 
-            # save "T cell" record
-            record = bt.CellType.from_source(name="T cell").save()
-            record.synonyms
-            #> "T-cell|T lymphocyte|T-lymphocyte"
+                import bionty as bt
 
-            # remove a synonym
-            record.remove_synonym("T-cell")
-            record.synonyms
-            #> "T lymphocyte|T-lymphocyte"
+                # save "T cell" record
+                record = bt.CellType.from_source(name="T cell").save()
+                record.synonyms
+                #> "T-cell|T lymphocyte|T-lymphocyte"
+
+                # remove a synonym
+                record.remove_synonym("T-cell")
+                record.synonyms
+                #> "T lymphocyte|T-lymphocyte"
         """
         _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
