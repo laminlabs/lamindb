@@ -1132,6 +1132,9 @@ def check_key(key: str) -> None:
     if "\\" in key:
         raise ValueError(f"Backslashes are not allowed in key {key!r}.")
 
+    if key.startswith("/"):
+        raise ValueError(f"Key {key!r} should not start with a leading `/`.")
+
     for segment in key.split("/"):
         if not segment:
             raise ValueError(f"Empty segment detected in key {key!r}.")

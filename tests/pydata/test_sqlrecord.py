@@ -60,6 +60,8 @@ def test_invalid_key_on_init():
         ln.Transform(key="a/../b")
     with pytest.raises(ValueError):
         ln.Transform(key="")
+    with pytest.raises(ValueError):
+        ln.Transform(key="/a")
 
 
 def test_feature_describe():
