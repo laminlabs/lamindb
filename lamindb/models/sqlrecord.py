@@ -1125,20 +1125,13 @@ class Registry(ModelBase):
 def check_key(key: str) -> None:
     r"""Validate a storage/semantic key.
 
-    A valid key is a non-empty, `/`-separated relative path with no empty
-    segments (no leading/trailing `/`, no `//`), no `\\`, and no `.` or `..`
-    segments (rejects `./`, `/./`, `../`, `/../`, etc.).
+    Rejects backslashes and `.` / `..` path segments (`./`, `/./`, `../`,
+    `/../`, etc.).
     """
     if "\\" in key:
         raise ValueError(f"Backslashes are not allowed in key {key!r}.")
 
-    if key.startswith("/"):
-        raise ValueError(f"Key {key!r} should not start with a leading `/`.")
-
     for segment in key.split("/"):
-        if not segment:
-            raise ValueError(f"Empty segment detected in key {key!r}.")
-
         if segment in {".", ".."}:
             raise ValueError(
                 f"Relative path segment {segment!r} detected in key {key!r}."
