@@ -21,7 +21,7 @@ from lamindb.base.users import current_user_id
 
 from ..base.uids import base62_12
 from .artifact import Artifact
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasAbbr
 from .collection import Collection
 from .feature import Feature
 from .has_parents import _query_relatives
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 
 class Reference(
-    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
 ):
     """References such as internal studies, papers, documents, or URLs.
 
@@ -248,7 +248,9 @@ class Reference(
         return _query_relatives([self], "references")  # type: ignore
 
 
-class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
+):
     """Projects to label artifacts, transforms, records, and runs.
 
     Args:

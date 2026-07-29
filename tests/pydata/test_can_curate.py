@@ -88,7 +88,7 @@ def test_add_remove_synonym():
 
     # a registry that doesn't have a synonyms column
     user = ln.User.get(handle=ln.setup.settings.user.handle)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(AttributeError):
         user.add_synonym("syn")
 
     cell_types = bt.CellType.from_values(["T cell", "B cell"], "name")

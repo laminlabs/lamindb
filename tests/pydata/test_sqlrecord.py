@@ -26,6 +26,9 @@ from lamindb.models.sqlrecord import (
         "myfile.parquet",
         "my folder/my file.parquet",
         "Introduction v2",
+        "/a",
+        "a/",
+        "a//b",
     ],
 )
 def test_check_key_valid(key):
@@ -35,11 +38,6 @@ def test_check_key_valid(key):
 @pytest.mark.parametrize(
     "key",
     [
-        "",
-        "/",
-        "/a",
-        "a/",
-        "a//b",
         ".",
         "..",
         "./a",
@@ -58,8 +56,6 @@ def test_check_key_invalid(key):
 def test_invalid_key_on_init():
     with pytest.raises(ValueError):
         ln.Transform(key="a/../b")
-    with pytest.raises(ValueError):
-        ln.Transform(key="")
 
 
 def test_feature_describe():

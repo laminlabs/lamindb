@@ -17,6 +17,8 @@ Mixins for registries
 .. autoclass:: HasType
 .. autoclass:: HasParents
 .. autoclass:: CanCurate
+.. autoclass:: HasSynonyms
+.. autoclass:: HasAbbr
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
@@ -143,7 +145,7 @@ Utils
 
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasAbbr, HasSynonyms
 from .sqlrecord import (
     BaseSQLRecord,
     SQLRecord,

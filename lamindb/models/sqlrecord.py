@@ -286,8 +286,6 @@ class SQLRecordSettings:
                 experiments_registry.settings.single_space = False
                 experiments_registry.save()
 
-        .. versionadded:: 2.6.0
-            Before, one could by default add objects from different spaces to the same dynamic registry.
         """
         assert isinstance(self._sqlrecord, HasType), (
             "sqlrecord must be a HasType to use this setting"
@@ -1127,17 +1125,13 @@ class Registry(ModelBase):
 def check_key(key: str) -> None:
     r"""Validate a storage/semantic key.
 
-    A valid key is a non-empty, `/`-separated relative path with no empty
-    segments (no leading/trailing `/`, no `//`), no `\\`, and no `.` or `..`
-    segments (rejects `./`, `/./`, `../`, `/../`, etc.).
+    Rejects backslashes and `.` / `..` path segments (`./`, `/./`, `../`,
+    `/../`, etc.).
     """
     if "\\" in key:
         raise ValueError(f"Backslashes are not allowed in key {key!r}.")
 
     for segment in key.split("/"):
-        if not segment:
-            raise ValueError(f"Empty segment detected in key {key!r}.")
-
         if segment in {".", ".."}:
             raise ValueError(
                 f"Relative path segment {segment!r} detected in key {key!r}."

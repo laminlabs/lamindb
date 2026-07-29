@@ -558,10 +558,13 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     )
     members_count_display = f" ({n_members}{index_info})" if n_members else ""
     if n_members or (record.dtype and record.itype is not None):
+        feature_section_title = (
+            "Features" if record.itype in {None, "", "Feature"} else record.itype
+        )
         features = tree.add(
             Text.assemble(
                 (
-                    "Features" if record.itype == "Feature" else record.itype,
+                    feature_section_title,
                     "bold bright_magenta",
                 ),
                 (members_count_display, "dim"),
