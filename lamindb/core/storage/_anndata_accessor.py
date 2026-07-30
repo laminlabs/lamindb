@@ -30,7 +30,6 @@ from upath import UPath
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from anndata.typing import Index
     from fsspec.core import OpenFile
     from lamindb_setup.types import AnyPathStr
 
@@ -43,6 +42,7 @@ if anndata_version_parse < version.parse("0.11.0"):
     from anndata.compat import Index
 else:
     from anndata._core.sparse_dataset import _CSRDataset as CSRDataset
+    from anndata.typing import Index  # noqa
 
 from anndata._core.sparse_dataset import BaseCompressedSparseDataset as SparseDataset
 from anndata._core.sparse_dataset import sparse_dataset
