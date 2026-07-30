@@ -37,45 +37,22 @@ if TYPE_CHECKING:
 
 anndata_version_parse = version.parse(get_version("anndata"))
 
-if anndata_version_parse < version.parse("0.9.0"):
-    from anndata._core.index import Index
-else:
+if anndata_version_parse < version.parse("0.11.0"):
+    from anndata._core.sparse_dataset import CSRDataset
     from anndata.compat import Index
-
-if anndata_version_parse < version.parse("0.10.0"):
-    if anndata_version_parse < version.parse("0.9.1"):
-        logger.warning(
-            "Full backed capabilities are not available for this version of anndata,"
-            " please install anndata>=0.9.1."
-        )
-
-    from anndata._core.sparse_dataset import SparseDataset
-
-    # try csr for groups with no encoding_type
-    class CSRDataset(SparseDataset):
-        @property
-        def format_str(self) -> str:
-            return "csr"
-
-    def sparse_dataset(group):
-        return SparseDataset(group)
-
 else:
-    if anndata_version_parse >= version.parse("0.11.0"):
-        from anndata._core.sparse_dataset import (  # type: ignore
-            _CSRDataset as CSRDataset,
-        )
-    else:
-        from anndata._core.sparse_dataset import CSRDataset  # type: ignore
-    from anndata._core.sparse_dataset import (
-        BaseCompressedSparseDataset as SparseDataset,
-    )
-    from anndata._core.sparse_dataset import sparse_dataset  # type: ignore
+    from anndata._core.sparse_dataset import _CSRDataset as CSRDataset
+    from anndata.typing import Index  # noqa
 
-    def _check_group_format(*args):
-        pass
+from anndata._core.sparse_dataset import BaseCompressedSparseDataset as SparseDataset
+from anndata._core.sparse_dataset import sparse_dataset
 
-    CSRDataset._check_group_format = _check_group_format
+
+def _check_group_format(*args):
+    pass
+
+
+CSRDataset._check_group_format = _check_group_format
 
 
 # zarr and CSRDataset have problems with full selection
@@ -407,7 +384,7 @@ if ZARR_INSTALLED:
             if attr not in attrs_keys:
                 attrs_keys[attr] = []
 
-            if key in (".zattrs", ".zgroup", ".zarray"):
+            if key in (".zattrs", ".zgroup", ".zarray", "zarr.json"):
                 continue
             attr_keys = attrs_keys[attr]
             if key not in attr_keys:
