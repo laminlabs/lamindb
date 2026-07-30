@@ -3428,10 +3428,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             kwargs["transfer"] = transfer
         state_was_adding = self._state.adding
-        print_progress = kwargs.pop("print_progress", True)
         store_kwargs = kwargs.pop(
             "store_kwargs", {}
         )  # kwargs for .upload_from in the end
+        # prefer top-level print_progress; fall back to store_kwargs (popped to avoid double-pass).
+        print_progress = kwargs.pop(
+            "print_progress", store_kwargs.pop("print_progress", True)
+        )
         local_path = None
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
