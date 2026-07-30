@@ -20,9 +20,12 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
-# SpatialData.write() regression with ome-zarr>=0.14:
+# SpatialData.write() had a regression with ome-zarr>=0.14:
 # https://github.com/scverse/spatialdata/issues/1090
-SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
+# seems to be solved, unpinning for now
+SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr"
+# compatibility with anndata>=0.13.0
+SPATIALDATA_CONSTRAINT = "spatialdata==0.8.0"
 
 
 GROUPS = {}
@@ -106,7 +109,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "unit-storage":
         extras += "gcp"
@@ -125,7 +128,7 @@ def install_ci(session, group):
         # so do not force the zarr_v2 compatibility extra in this group.
         run(
             session,
-            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "tiledbsoma":
         # this group also exercises spatialdata through docs notebooks
@@ -133,7 +136,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system anndata==0.13.2")
         run(
             session,
-            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
+            f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
         )
     elif group == "biology":
         extras += "fcs"
@@ -157,7 +160,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
@@ -168,7 +171,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
+            f"uv pip install --system mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
         )
         run(
             session,
