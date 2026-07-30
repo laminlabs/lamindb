@@ -384,7 +384,7 @@ if ZARR_INSTALLED:
             if attr not in attrs_keys:
                 attrs_keys[attr] = []
 
-            if key in (".zattrs", ".zgroup", ".zarray"):
+            if key in (".zattrs", ".zgroup", ".zarray", "zarr.json"):
                 continue
             attr_keys = attrs_keys[attr]
             if key not in attr_keys:
