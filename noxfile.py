@@ -133,7 +133,7 @@ def install_ci(session, group):
     elif group == "tiledbsoma":
         # this group also exercises spatialdata through docs notebooks
         # and should resolve against zarr>=3.
-        run(session, "uv pip install --system anndata==0.13.2")
+        run(session, "uv pip install --system anndata==0.12.19")
         run(
             session,
             f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
