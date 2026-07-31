@@ -22,6 +22,9 @@ Examples:
 
   # After SQL succeeds, record Django migration as applied:
   python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --fake-django
+
+  # Faster/slower CREATE INDEX progress logs (default every 10s; 0=off):
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --progress-interval 5
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
 from dataclasses import dataclass
 
@@ -340,6 +344,84 @@ def print_stats(conn, tables: list[LinkTable]) -> None:
     )
 
 
+def _format_create_index_progress(row: tuple) -> str:
+    """Pretty-print one pg_stat_progress_create_index row."""
+    (
+        phase,
+        lockers_total,
+        lockers_done,
+        blocks_total,
+        blocks_done,
+        tuples_total,
+        tuples_done,
+    ) = row
+    parts = [f"phase={phase}"]
+    if blocks_total:
+        pct = 100.0 * blocks_done / blocks_total
+        parts.append(f"blocks={blocks_done}/{blocks_total} ({pct:.1f}%)")
+    if tuples_total:
+        pct = 100.0 * tuples_done / tuples_total
+        parts.append(f"tuples={tuples_done}/{tuples_total} ({pct:.1f}%)")
+    if lockers_total:
+        parts.append(f"lockers={lockers_done}/{lockers_total}")
+    return ", ".join(parts)
+
+
+def poll_create_index_progress(
+    dsn: str,
+    *,
+    table: str,
+    index_name: str,
+    stop: threading.Event,
+    interval: float,
+) -> None:
+    """Background: log pg_stat_progress_create_index until stop is set."""
+    try:
+        monitor = psycopg2.connect(dsn)
+    except Exception as exc:  # noqa: BLE001 - best-effort progress only
+        log(f"  progress monitor unavailable: {exc}")
+        return
+    try:
+        monitor.autocommit = True
+        started = time.perf_counter()
+        while not stop.wait(interval):
+            with monitor.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        p.phase,
+                        p.lockers_total,
+                        p.lockers_done,
+                        p.blocks_total,
+                        p.blocks_done,
+                        p.tuples_total,
+                        p.tuples_done
+                    FROM pg_stat_progress_create_index p
+                    JOIN pg_class t ON t.oid = p.relid
+                    WHERE t.relname = %s
+                    ORDER BY p.pid
+                    LIMIT 1
+                    """,
+                    (table,),
+                )
+                row = cur.fetchone()
+            elapsed = time.perf_counter() - started
+            if row:
+                log(
+                    f"  … {index_name} [{elapsed:.0f}s] "
+                    f"{_format_create_index_progress(row)}"
+                )
+            else:
+                log(
+                    f"  … {index_name} [{elapsed:.0f}s] "
+                    f"waiting (no pg_stat_progress_create_index row yet)"
+                )
+    except Exception as exc:  # noqa: BLE001
+        log(f"  progress monitor stopped: {exc}")
+    finally:
+        monitor.close()
+
+
 def create_unique_index_concurrently(
     conn,
     *,
@@ -348,6 +430,8 @@ def create_unique_index_concurrently(
     columns: tuple[str, ...],
     where_sql: str,
     dry_run: bool,
+    dsn: str | None = None,
+    progress_interval: float = 10.0,
 ) -> None:
     old = conn.autocommit
     conn.autocommit = True
@@ -375,15 +459,48 @@ def create_unique_index_concurrently(
                 sql.SQL(where_sql),
             )
             log(f"  CREATE UNIQUE INDEX CONCURRENTLY {name}")
-            if not dry_run:
+            if dry_run:
+                return
+
+            stop = threading.Event()
+            monitor: threading.Thread | None = None
+            if dsn and progress_interval > 0:
+                monitor = threading.Thread(
+                    target=poll_create_index_progress,
+                    kwargs={
+                        "dsn": dsn,
+                        "table": table,
+                        "index_name": name,
+                        "stop": stop,
+                        "interval": progress_interval,
+                    },
+                    daemon=True,
+                )
+                monitor.start()
+            try:
+                started = time.perf_counter()
                 cur.execute(stmt)
+                log(f"  created {name} in {time.perf_counter() - started:.1f}s")
+            finally:
+                stop.set()
+                if monitor is not None:
+                    monitor.join(timeout=progress_interval + 2)
     finally:
         conn.autocommit = old
 
 
-def migrate_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
+def migrate_table(
+    conn,
+    spec: LinkTable,
+    *,
+    dry_run: bool,
+    dsn: str | None = None,
+    progress_interval: float = 10.0,
+    table_label: str = "",
+) -> None:
     started = time.perf_counter()
-    log(f"\n=== {spec.table} ===")
+    prefix = f"{table_label} " if table_label else ""
+    log(f"\n=== {prefix}{spec.table} ===")
 
     # Steps that need a normal transaction: drop constraint + dedupe.
     conn.autocommit = False
@@ -412,6 +529,8 @@ def migrate_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
         columns=spec.triple,
         where_sql='"feature_id" IS NOT NULL',
         dry_run=dry_run,
+        dsn=dsn,
+        progress_interval=progress_interval,
     )
     create_unique_index_concurrently(
         conn,
@@ -420,6 +539,8 @@ def migrate_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
         columns=spec.pair,
         where_sql='"feature_id" IS NULL',
         dry_run=dry_run,
+        dsn=dsn,
+        progress_interval=progress_interval,
     )
 
     elapsed = time.perf_counter() - started
@@ -448,13 +569,21 @@ def legacy_constraint_name(spec: LinkTable) -> str:
     )
 
 
-def repair_legacy_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
+def repair_legacy_table(
+    conn,
+    spec: LinkTable,
+    *,
+    dry_run: bool,
+    table_label: str = "",
+    **_kwargs,
+) -> None:
     """Add back UNIQUE(triple) only when new indexes are missing or INVALID.
 
     If both new indexes are valid, the table is considered migrated and is skipped.
     Also drops INVALID leftovers of the new index names.
     """
-    log(f"\n=== repair legacy {spec.table} ===")
+    prefix = f"{table_label} " if table_label else ""
+    log(f"\n=== {prefix}repair legacy {spec.table} ===")
     conn.autocommit = False
     try:
         with conn.cursor() as cur:
@@ -612,6 +741,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="5s",
         help="Postgres lock_timeout for DROP CONSTRAINT / DELETE (default: 5s).",
     )
+    p.add_argument(
+        "--progress-interval",
+        type=float,
+        default=10.0,
+        help=(
+            "Seconds between CREATE INDEX CONCURRENTLY progress logs "
+            "(default: 10; 0 disables)."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -654,13 +792,22 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
         action = repair_legacy_table if args.repair_legacy else migrate_table
-        for spec in selected:
+        total = len(selected)
+        for i, spec in enumerate(selected, 1):
+            label = f"[{i}/{total}]"
             # Retry DROP/DELETE a few times if lock_timeout fires under load.
             attempts = 0
             while True:
                 attempts += 1
                 try:
-                    action(conn, spec, dry_run=args.dry_run)
+                    action(
+                        conn,
+                        spec,
+                        dry_run=args.dry_run,
+                        dsn=args.dsn,
+                        progress_interval=args.progress_interval,
+                        table_label=label,
+                    )
                     break
                 except psycopg2.errors.LockNotAvailable:
                     conn.rollback()
