@@ -181,8 +181,11 @@ def drop_legacy_uniques(cur, table: str, *, dry_run: bool) -> list[str]:
 
 def dedupe_null_feature(cur, spec: LinkTable, *, dry_run: bool) -> int:
     """Delete extra NULL-feature rows; keep MIN(id) per pair (same as 0193)."""
+    n_dupes = count_null_feature_dupes(cur, spec)
+    if n_dupes == 0:
+        return 0
     if dry_run:
-        return count_null_feature_dupes(cur, spec)
+        return n_dupes
 
     a, b = spec.pair
     # Equivalent to: DELETE … WHERE id NOT IN (SELECT MIN(id) … GROUP BY pair).
