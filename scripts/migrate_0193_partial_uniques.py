@@ -173,7 +173,13 @@ def drop_legacy_uniques(cur, table: str, *, dry_run: bool) -> list[str]:
 
 
 def dedupe_null_feature(cur, spec: LinkTable, *, dry_run: bool) -> int:
+    """Delete extra NULL-feature rows; keep MIN(id) per pair (same as 0193)."""
+    if dry_run:
+        return count_null_feature_dupes(cur, spec)
+
     a, b = spec.pair
+    # Equivalent to: DELETE … WHERE id NOT IN (SELECT MIN(id) … GROUP BY pair).
+    # Postgres deletes each target row at most once even if several dup rows match.
     stmt = sql.SQL(
         """
         DELETE FROM {table} AS keep
@@ -189,26 +195,6 @@ def dedupe_null_feature(cur, spec: LinkTable, *, dry_run: bool) -> int:
         a=quote_ident(a),
         b=quote_ident(b),
     )
-    if dry_run:
-        # Count only for dry-run visibility.
-        count_stmt = sql.SQL(
-            """
-            SELECT COUNT(*) FROM {table} AS keep
-            JOIN {table} AS dup
-              ON keep.feature_id IS NULL
-             AND dup.feature_id IS NULL
-             AND keep.{a} = dup.{a}
-             AND keep.{b} = dup.{b}
-             AND keep.id > dup.id
-            """
-        ).format(
-            table=quote_ident(spec.table),
-            a=quote_ident(a),
-            b=quote_ident(b),
-        )
-        cur.execute(count_stmt)
-        return int(cur.fetchone()[0])
-
     cur.execute(stmt)
     return cur.rowcount
 
@@ -257,16 +243,18 @@ def legacy_unique_constraints(cur, table: str) -> list[str]:
 
 
 def count_null_feature_dupes(cur, spec: LinkTable) -> int:
+    """Rows that dedupe would delete: all but MIN(id) per NULL-feature pair."""
     a, b = spec.pair
     stmt = sql.SQL(
         """
-        SELECT COUNT(*) FROM {table} AS keep
-        JOIN {table} AS dup
-          ON keep.feature_id IS NULL
-         AND dup.feature_id IS NULL
-         AND keep.{a} = dup.{a}
-         AND keep.{b} = dup.{b}
-         AND keep.id > dup.id
+        SELECT COALESCE(SUM(cnt - 1), 0)::bigint
+        FROM (
+            SELECT COUNT(*) AS cnt
+            FROM {table}
+            WHERE feature_id IS NULL
+            GROUP BY {a}, {b}
+            HAVING COUNT(*) > 1
+        ) grouped
         """
     ).format(
         table=quote_ident(spec.table),
