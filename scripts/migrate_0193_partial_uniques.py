@@ -17,6 +17,9 @@ Examples:
   # Status only (no changes):
   python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --stat
 
+  # Restore legacy UNIQUE if new indexes are missing or INVALID:
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --repair-legacy
+
   # After SQL succeeds, record Django migration as applied:
   python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --fake-django
 """
@@ -423,6 +426,117 @@ def migrate_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
     log(f"  done in {elapsed:.1f}s")
 
 
+def legacy_constraint_name(spec: LinkTable) -> str:
+    """Same name Django would generate for unique_together on ``triple``."""
+    from django.db.backends.utils import names_digest
+
+    table_name = spec.table
+    column_names = list(spec.triple)
+    suffix = "_uniq"
+    hash_suffix_part = f"{names_digest(table_name, *column_names, length=8)}{suffix}"
+    max_length = 63  # Postgres
+    index_name = "{}_{}_{}".format(table_name, "_".join(column_names), hash_suffix_part)
+    if len(index_name) <= max_length:
+        return index_name
+    if len(hash_suffix_part) > max_length / 3:
+        hash_suffix_part = hash_suffix_part[: max_length // 3]
+    other_length = (max_length - len(hash_suffix_part)) // 2 - 1
+    return "{}_{}_{}".format(
+        table_name[:other_length],
+        "_".join(column_names)[:other_length],
+        hash_suffix_part,
+    )
+
+
+def repair_legacy_table(conn, spec: LinkTable, *, dry_run: bool) -> None:
+    """Add back UNIQUE(triple) only when new indexes are missing or INVALID.
+
+    If both new indexes are valid, the table is considered migrated and is skipped.
+    Also drops INVALID leftovers of the new index names.
+    """
+    log(f"\n=== repair legacy {spec.table} ===")
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            st_feat = index_status(cur, spec.name)
+            st_null = index_status(cur, spec.name_null)
+            legacy = legacy_unique_constraints(cur, spec.table)
+
+            if st_feat == "valid" and st_null == "valid":
+                log("  new indexes ok; skip")
+                conn.rollback()
+                return
+
+            # Only act when something is wrong with the new indexes.
+            if st_feat not in {"missing", "invalid"} and st_null not in {
+                "missing",
+                "invalid",
+            }:
+                log(f"  unexpected index state feat={st_feat} null={st_null}; skip")
+                conn.rollback()
+                return
+
+            log(f"  new indexes: {spec.name}={st_feat}, {spec.name_null}={st_null}")
+            invalid_names = [
+                name
+                for name, st in ((spec.name, st_feat), (spec.name_null, st_null))
+                if st == "invalid"
+            ]
+            needs_add = not legacy
+        conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
+
+    # DROP INDEX CONCURRENTLY must be outside a transaction.
+    if invalid_names:
+        old = conn.autocommit
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                for name in invalid_names:
+                    log(f"  DROP INDEX CONCURRENTLY IF EXISTS {name} (invalid)")
+                    if not dry_run:
+                        cur.execute(
+                            sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}").format(
+                                quote_ident(name)
+                            )
+                        )
+        finally:
+            conn.autocommit = old
+
+    if not needs_add:
+        log(f"  legacy unique already present: {legacy}")
+        return
+
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            # Re-check; another unique may still exist under a Django hashed name.
+            legacy = legacy_unique_constraints(cur, spec.table)
+            if legacy:
+                log(f"  legacy unique already present: {legacy}")
+                conn.rollback()
+                return
+
+            conname = legacy_constraint_name(spec)
+            cols = sql.SQL(", ").join(quote_ident(c) for c in spec.triple)
+            stmt = sql.SQL("ALTER TABLE {} ADD CONSTRAINT {} UNIQUE ({})").format(
+                quote_ident(spec.table),
+                quote_ident(conname),
+                cols,
+            )
+            log(f"  ADD CONSTRAINT {conname} UNIQUE ({', '.join(spec.triple)})")
+            if not dry_run:
+                cur.execute(stmt)
+                conn.commit()
+            else:
+                conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def fake_django_migration(conn, *, dry_run: bool) -> None:
     log(f"\n=== fake Django migration {MIGRATION_APP}.{MIGRATION_NAME} ===")
     conn.autocommit = False
@@ -481,6 +595,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Print per-table status (indexes/legacy/dupes) and exit without changes.",
     )
     p.add_argument(
+        "--repair-legacy",
+        action="store_true",
+        help=(
+            "If new indexes are missing or INVALID: drop INVALID leftovers and "
+            "re-add legacy UNIQUE(triple) when absent. No-op when both new indexes are valid."
+        ),
+    )
+    p.add_argument(
         "--fake-django",
         action="store_true",
         help=f"Record {MIGRATION_APP}.{MIGRATION_NAME} in django_migrations after SQL.",
@@ -527,13 +649,18 @@ def main(argv: list[str] | None = None) -> int:
             print_stats(conn, selected)
             return 0
 
+        if args.repair_legacy and args.fake_django:
+            log("error: refuse --repair-legacy together with --fake-django")
+            return 2
+
+        action = repair_legacy_table if args.repair_legacy else migrate_table
         for spec in selected:
             # Retry DROP/DELETE a few times if lock_timeout fires under load.
             attempts = 0
             while True:
                 attempts += 1
                 try:
-                    migrate_table(conn, spec, dry_run=args.dry_run)
+                    action(conn, spec, dry_run=args.dry_run)
                     break
                 except psycopg2.errors.LockNotAvailable:
                     conn.rollback()
