@@ -1253,6 +1253,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             version_comment = ""
                             existing_record = exact_match
                         if existing_record is not None:
+                            if self.__class__.__name__ == "Project":
+                                raise ValueError(
+                                    f"Project with name '{kwargs[name_field]}' already exists "
+                                    f"(uid='{existing_record.uid}', "
+                                    f"space='{existing_record.space.name}', "
+                                    f"is_type={existing_record.is_type}). "
+                                    f"Load it with ln.Project.get(name='{kwargs[name_field]}') "
+                                    "or choose a different name."
+                                )
                             logger.important(
                                 f"returning {self.__class__.__name__.lower()} with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"

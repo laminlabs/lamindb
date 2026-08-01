@@ -278,6 +278,19 @@ def test_search_and_get(get_search_test_filepaths):
     artifact5.delete(permanent=True, storage=True)
 
 
+def test_project_duplicate_name_raises():
+    project = ln.Project(name="test-duplicate-project-name").save()
+
+    with pytest.raises(ValueError, match="already exists"):
+        ln.Project(name="test-duplicate-project-name").save()
+
+    # explicit load still works
+    loaded = ln.Project.get(name="test-duplicate-project-name")
+    assert loaded.uid == project.uid
+
+    project.delete(permanent=True)
+
+
 def test_suggest_similar_names():
     record1 = ln.Record(name="Test experiment 1").save()
     record2 = ln.Record(name="Test experiment 2").save()
