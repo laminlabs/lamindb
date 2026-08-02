@@ -182,11 +182,12 @@ def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> N
     else:
         run, transform_key = None, None
     text_uid = Text.assemble(("uid: ", "dim"), f"{record.uid}")
-    text_run = Text.assemble(
-        ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
-    )
     two_column_items.append(text_uid)
-    two_column_items.append(text_run)
+    if run is not None:
+        text_run = Text.assemble(
+            ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
+        )
+        two_column_items.append(text_run)
 
 
 def append_branch_space_created_at_created_by(
@@ -535,20 +536,44 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         guide_style="dim",
     )
     two_column_items = []  # type: ignore
+    schema_defaults = {
+        "otype": None,
+        "suffix": None,
+        "ordered_set": False,
+        "maximal_set": False,
+        "minimal_set": True,
+        "branch": "main",
+        "space": "all",
+    }
     append_uid_run(record, two_column_items)
-    two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
-    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
-    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
+    if record.itype not in (None, "Feature"):
+        two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
+    if record.otype != schema_defaults["otype"]:
+        two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
+    if record.suffix != schema_defaults["suffix"]:
+        two_column_items.append(Text.assemble(("suffix: ", "dim"), f"{record.suffix}"))
+    if record.ordered_set != schema_defaults["ordered_set"]:
+        two_column_items.append(
+            Text.assemble(("ordered_set: ", "dim"), f"{record.ordered_set}")
+        )
+    if record.maximal_set != schema_defaults["maximal_set"]:
+        two_column_items.append(
+            Text.assemble(("maximal_set: ", "dim"), f"{record.maximal_set}")
+        )
+    if record.minimal_set != schema_defaults["minimal_set"]:
+        two_column_items.append(
+            Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
+        )
+    if record.branch.name != schema_defaults["branch"]:
+        two_column_items.append(Text.assemble(("branch: ", "dim"), record.branch.name))
+    if record.space.name != schema_defaults["space"]:
+        two_column_items.append(Text.assemble(("space: ", "dim"), record.space.name))
     two_column_items.append(
-        Text.assemble(("ordered_set: ", "dim"), f"{record.ordered_set}")
+        Text.assemble(("created_at: ", "dim"), format_field_value(record.created_at))
     )
     two_column_items.append(
-        Text.assemble(("maximal_set: ", "dim"), f"{record.maximal_set}")
+        Text.assemble(("created_by: ", "dim"), record.created_by.handle)
     )
-    two_column_items.append(
-        Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
-    )
-    append_branch_space_created_at_created_by(record, two_column_items)
     add_two_column_items_to_tree(tree, two_column_items)
 
     # Add features section
