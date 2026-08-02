@@ -22,7 +22,7 @@ lamin init --storage ./test-track
 
 The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
 
-When the agent finishes a session with `lamin track finish`, usage metrics are recorded in `run.extra_data`:
+When the agent finishes a session with `lamin finish`, usage metrics are recorded in `run.extra_data`:
 
 - `n_tokens`: total tokens for the session
 - `n_steps`: number of LLM completions/turns
