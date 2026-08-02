@@ -22,6 +22,16 @@ lamin init --storage ./test-track
 
 The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
 
+When you close a session with `lamin track finish`, LaminDB also records lightweight usage metrics on `run.extra_data`:
+
+- `n_tokens`: total tokens for the session
+- `n_steps`: number of LLM completions/turns
+- `n_tool_calls`: number of tool invocations
+
+For **Claude Code**, `n_tokens` is the full billed total (input + output + cache-read + cache-write tokens), matching how Anthropic and tools like `ccusage` compute session cost.
+
+For **GitHub Copilot**, `lamin track finish` runs while the CLI session is still active — before Copilot has written its full per-model token accounting to disk. Only output tokens are available at that point, so `n_tokens` for Copilot sessions is an output-tokens-only lower bound, not a full billed total. Don't compare `n_tokens` across the two agents directly.
+
 ### Plans
 
 <!-- #region -->
