@@ -583,6 +583,7 @@ class Context:
             In VS Code, make sure **"Copilot"** is selected — not **"Local"** — in the mode picker below the chat input box. `lamin track copilot` can only see sessions that go through the "Copilot"; sessions run via "Local" aren't visible to it.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/f7Nw4RNYkvlw966d0000.png
+                :width: 800px
 
         To sync code with a git repo, see: :ref:`sync-code-with-git`.
 
