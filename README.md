@@ -79,7 +79,7 @@ pip install lamindb-core
 
 </details>
 
-Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Docs: [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Pure markdown docs ship with the package in `docs/` and are available from the web via [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & datasets
 
@@ -301,7 +301,7 @@ If you want to include more information into the resulting dataframe, pass `incl
 ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
 ```
 
-Note: The query syntax for `DB` objects and for your default database is the same.
+The query syntax for `DB` objects and for your default database is the same.
 
 Here is an overview that illustrates how artifacts can be labeled by other entities:
 
