@@ -492,7 +492,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 
 Watch a mini video: [youtu.be/3vpWjHj3Kw8](https://youtu.be/3vpWjHj3Kw8)
 
-### Notes
+### Manage notes
 
 When in your development directory, you can save markdown files as records:
 
