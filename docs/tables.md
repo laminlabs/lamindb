@@ -7,6 +7,8 @@ execute_via: python
 This guide walks through querying tabular datasets stored in parquet and related file formats.
 Queries stream directly from disk or cloud storage with PyArrow, Polars or DuckDB.
 
+For an in-depth example and a complex dataset, read this blog post: [blog.lamin.ai/1000genomes](https://blog.lamin.ai/1000genomes).
+
 ```python
 import lamindb as ln
 
