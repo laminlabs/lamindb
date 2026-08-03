@@ -578,6 +578,12 @@ class Context:
             lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
             lamin save /path/to/.claude/plans/curate-dataset-x.md
 
+        .. dropdown:: `lamin track copilot` says it can't find the active session?
+
+            In VS Code, make sure **"Copilot"** is selected — not **"Local"** — in the mode picker below the chat input box. `lamin track copilot` can only see sessions that go through the "Copilot"; sessions run via "Local" aren't visible to it.
+
+            .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/f7Nw4RNYkvlw966d0000.png
+
         To sync code with a git repo, see: :ref:`sync-code-with-git`.
 
         To track parameters and features, see: :ref:`track-run-parameters`.
