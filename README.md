@@ -361,7 +361,7 @@ experiments_registry.to_dataframe()
 
 <details>
 <summary>You can edit records like Excel sheets on LaminHub.</summary>
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0003.png">
 </details>
 
 ### Lakehouse
