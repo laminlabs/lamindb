@@ -81,7 +81,7 @@ pip install lamindb-core
 
 Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Docs: [llms.txt](https://docs.lamin.ai/llms.txt).
 
-### Query databases & load artifacts
+### Query databases & datasets
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
@@ -114,7 +114,7 @@ accessor = artifact.open()     # return a streaming accessor
 
 For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
 
-### Configure your database
+### Save files & folders
 
 You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
 To connect to an existing instance, run:
@@ -135,8 +135,6 @@ lamin init --storage ./quickstart-data --modules bionty
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
 For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
-
-### Save files & folders as artifacts
 
 To save a file or folder via the API:
 
@@ -162,13 +160,11 @@ lamin load --key sample.fasta
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-### Lineage: agents
+### Trace data, code & agents
 
 The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
 
-### Lineage: scripts & notebooks
-
-To create a dataset while tracking source code, inputs, outputs, logs, and environment:
+To create a dataset in a script or notebook while tracking source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
@@ -239,10 +235,7 @@ ln.Project(name="My project").save()  # create a project in Python
 
 </details>
 
-
-### Lineage: functions & workflows
-
-You can achieve the same traceability for functions & workflows:
+You can track **workflows** by decorating functions:
 
 <!-- #skip_laminr -->
 
@@ -277,7 +270,7 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 </details>
 
-### Labeling & queries by fields
+### Label data
 
 You can label an artifact by running:
 
@@ -310,17 +303,15 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 
 Note: The query syntax for `DB` objects and for your default database is the same.
 
-### The core data model
+Here is an overview that illustrates how artifacts can be labeled by other entities:
 
-Here is an overview that illustrates how `Artifact` links to all other registries:
-
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
+<img width="700px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
 
-### Queries by features
+### Manage features
 
-You can annotate datasets and samples with features. Let's define some:
+Let's define some features:
 
 ```python
 from datetime import date
@@ -330,7 +321,7 @@ experiment_note = ln.Feature(name="experiment_note", dtype=str).save()
 experiment_date = ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
-During annotation, feature names and data types are validated against these definitions.
+The most basic thing you can do with features is annotating artifacts, records, or runs with them:
 
 ```python
 artifact.features.set_values({
@@ -338,21 +329,10 @@ artifact.features.set_values({
     experiment_note: "Looks great",
     experiment_date: "2025-10-24",
 })
+
+# query
+ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
 ```
-
-Query for it:
-
-```python
-ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
-```
-
-If you want to include the feature values into the dataframe, pass `include`.
-
-```python
-ln.Artifact.to_dataframe(include="features")  # include the feature annotations
-```
-
-### Lake ♾️ LIMS ♾️ Sheets
 
 You can create records for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
@@ -360,7 +340,7 @@ You can create records for entities underlying your experiments (samples, pertur
 ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can dynamically create registries and relationships of entities:
+You can dynamically create registries and relationships of entities via record types:
 
 ```python
 # create an experiments registry by defining a record type
@@ -374,11 +354,8 @@ experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
 # create a sample record that links the sample to `Experiment 1` via the `experiment` feature
 ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: "Experiment 1"}).save()
-```
 
-You can export a dynamic registry as a dataframe:
-
-```python
+# export a registry to a dataframe
 experiments_registry.to_dataframe()
 ```
 
@@ -439,7 +416,7 @@ artifact.save()
 
 This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/transfer](https://docs.lamin.ai/transfer).
 
-### Lakehouse ♾️ feature store
+### Lakehouse
 
 Here is how you ingest a `DataFrame`:
 
@@ -470,8 +447,6 @@ artifact.describe()
 Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
 You can filter for datasets by schema and then launch distributed queries and batch loading.
-
-### Lakehouse beyond tables
 
 To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_features_in_obs`, call:
 
@@ -517,7 +492,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 
 Watch a mini video: [youtu.be/3vpWjHj3Kw8](https://youtu.be/3vpWjHj3Kw8)
 
-### Save unstructured notes
+### Notes
 
 When in your development directory, you can save markdown files as records:
 
