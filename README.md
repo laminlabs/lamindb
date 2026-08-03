@@ -270,7 +270,7 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 </details>
 
-### Label data
+### Label artifacts
 
 You can label an artifact by running:
 
@@ -418,7 +418,7 @@ artifact.describe()
 
 To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
-### Versioning and branching
+### Branching & versioning
 
 LaminDB co-versions code and datasets for you.
 If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
