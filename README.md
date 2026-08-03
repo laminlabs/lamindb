@@ -458,6 +458,8 @@ lamin merge my_branch  # merge contribution branch into main
 
 Read more: [docs.lamin.ai/manage-changes](https://docs.lamin.ai/manage-changes).
 
+Watch a mini video: [youtu.be/rzRwcMj6-fc](https://youtu.be/rzRwcMj6-fc)
+
 ### Data sharing
 
 To share data in a lineage-aware way, transfer objects from a source database to your default database:
