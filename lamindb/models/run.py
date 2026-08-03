@@ -588,7 +588,6 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
         # spawn background subprocess to delete orphaned report/env artifacts
         cmd: list[str] = [
             sys.executable,
-            "-u",  # unbuffered so CI can read the log before process exit
             "-m",
             "lamindb.models._run_cleanup",
             "--instance",
@@ -598,17 +597,14 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
             "--run-uid",
             first_run_uid,
         ]
+        proc = subprocess.Popen(
+            cmd,
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=os.environ,
+        )
         log_path = setup_settings.cache_dir / f"run_cleanup_logs_{first_run_uid}.txt"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        # Capture child stdout/stderr in the log file (DEVNULL hid CI failures).
-        with open(log_path, "a", encoding="utf-8") as log_f:
-            proc = subprocess.Popen(
-                cmd,
-                start_new_session=True,
-                stdout=log_f,
-                stderr=subprocess.STDOUT,
-                env=os.environ,
-            )
         logger.important(
             f"spawned run cleanup subprocess (pid={proc.pid}): {log_path}\n  {' '.join(cmd)}"
         )
