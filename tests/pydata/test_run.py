@@ -1,7 +1,17 @@
 import time
+from pathlib import Path
 
 import lamindb as ln
 import pytest
+
+
+def _print_run_cleanup_log(run_uid: str) -> Path:
+    log_path = ln.setup.settings.cache_dir / f"run_cleanup_logs_{run_uid}.txt"
+    if log_path.exists():
+        print(f"=== run cleanup log ({log_path}) ===\n{log_path.read_text()}")
+    else:
+        print(f"=== run cleanup log missing: {log_path} ===")
+    return log_path
 
 
 def test_run():
@@ -59,6 +69,7 @@ def test_run():
 
     # wait for background cleanup subprocess to delete artifacts
     time.sleep(4)
+    _print_run_cleanup_log(run2.uid)
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
     assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
@@ -83,6 +94,6 @@ def test_bulk_permanent_run_delete(tmp_path):
 
     # wait for background cleanup subprocess to delete artifacts
     time.sleep(4)
+    clean_up_logs = _print_run_cleanup_log(runs[0].uid)
     assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 0
-    clean_up_logs = ln.setup.settings.cache_dir / f"run_cleanup_logs_{runs[0].uid}.txt"
     assert f"deleted artifact {report_artifacts[0].id}" in clean_up_logs.read_text()
