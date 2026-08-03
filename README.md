@@ -309,7 +309,7 @@ Here is an overview that illustrates how artifacts can be labeled by other entit
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
 
-### Manage features
+### Manage features & records
 
 Let's define some features:
 
@@ -364,6 +364,60 @@ experiments_registry.to_dataframe()
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png">
 </details>
 
+### Lakehouse
+
+Here is how you ingest a `DataFrame`:
+
+```python
+import pandas as pd
+
+df = pd.DataFrame({
+    "sequence_str": ["ACGT", "TGCA"],
+    "gc_content": [0.55, 0.54],
+    "experiment_note": ["Looks great", "Ok"],
+    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
+})
+ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
+```
+
+To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
+
+```python
+ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
+artifact = ln.Artifact.from_dataframe(
+    df,
+    key="my_datasets/sequences.parquet",
+    schema="valid_features"  # validate columns against features
+).save()
+artifact.describe()
+```
+
+Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
+
+You can filter for datasets by schema and then launch distributed queries or batch load distributed datasets. For tables, see: [docs.lamin.ai/tables](https://docs.lamin.ai/tables). For arrays, see: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
+
+To validate an `AnnData`, call:
+
+```python
+import anndata as ad
+import numpy as np
+import pandas as pd
+
+adata = ad.AnnData(
+    X=np.ones((21, 10)),
+    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
+    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
+)
+artifact = ln.Artifact.from_anndata(
+    adata,
+    key="my_datasets/scrna.h5ad",
+    schema="ensembl_gene_ids_and_valid_features_in_obs"
+).save()
+artifact.describe()
+```
+
+To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+
 ### Versioning and branching
 
 LaminDB co-versions code and datasets for you.
@@ -415,60 +469,6 @@ artifact.save()
 ```
 
 This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/transfer](https://docs.lamin.ai/transfer).
-
-### Lakehouse
-
-Here is how you ingest a `DataFrame`:
-
-```python
-import pandas as pd
-
-df = pd.DataFrame({
-    "sequence_str": ["ACGT", "TGCA"],
-    "gc_content": [0.55, 0.54],
-    "experiment_note": ["Looks great", "Ok"],
-    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
-})
-ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
-```
-
-To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
-
-```python
-ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
-artifact = ln.Artifact.from_dataframe(
-    df,
-    key="my_datasets/sequences.parquet",
-    schema="valid_features"  # validate columns against features
-).save()
-artifact.describe()
-```
-
-Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
-
-You can filter for datasets by schema and then launch distributed queries and batch loading.
-
-To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_features_in_obs`, call:
-
-```python
-import anndata as ad
-import numpy as np
-import pandas as pd
-
-adata = ad.AnnData(
-    X=np.ones((21, 10)),
-    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
-    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
-)
-artifact = ln.Artifact.from_anndata(
-    adata,
-    key="my_datasets/scrna.h5ad",
-    schema="ensembl_gene_ids_and_valid_features_in_obs"
-).save()
-artifact.describe()
-```
-
-To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
