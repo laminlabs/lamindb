@@ -18,10 +18,10 @@ LaminDB is an open-source data management tool that makes it easy to query, trac
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
-- **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
+- **lakehouse** → query across many datasets, manage tables & arrays schema-based and [ACID](https://docs.lamin.ai/acid)
+- **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
-- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code together
+- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code
 
 Architecture?
 
