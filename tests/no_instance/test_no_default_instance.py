@@ -40,3 +40,11 @@ def test_get_artifact_lamindata():
         key="example_datasets/small_dataset1.parquet"
     )
     assert isinstance(artifact.load(), pd.DataFrame)
+
+
+def test_schema_slots():
+    db = ln.DB("laminlabs/lamindata")
+    collection = db.Collection.get(key="collection-with-schema")
+    # should not raise an error that instance is not configured
+    collection.schema.slots  # noqa: B018
+    collection.schema.describe()
