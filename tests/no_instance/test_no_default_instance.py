@@ -42,7 +42,7 @@ def test_get_artifact_lamindata():
     assert isinstance(artifact.load(), pd.DataFrame)
 
 
-def test_schema_slots():
+def test_schema_slots_lamindata():
     db = ln.DB("laminlabs/lamindata")
     collection = db.Collection.get(key="collection-with-schema")
     # should not raise an error that instance is not configured
