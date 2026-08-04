@@ -3847,6 +3847,11 @@ def track_run_input(
                     f"not tracking {record} as input to run {run} because re-created in same run"
                 )
                 is_valid = False
+            elif record.recreating_runs.filter(id=run.id).exists():
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because linked as re-created by same run"
+                )
+                is_valid = False
             return is_valid
 
         input_records = [record for record in record_iter if is_valid_input(record)]

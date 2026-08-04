@@ -358,6 +358,11 @@ def test_track_input_record(create_record, kind):
     record = create_record(kind)
     assert ln.context.run in record.recreating_runs.all()
     assert record._subsequent_run_id == ln.context.run.id
+    # Reload to ensure cycle prevention does not rely on transient attributes.
+    if kind == "artifact":
+        record = ln.Artifact.get(id=record.id)
+    else:
+        record = ln.Collection.get(id=record.id)
     record.cache()
     assert (
         record not in getattr(ln.context.run, f"input_{kind}s").all()
