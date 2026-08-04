@@ -44,7 +44,7 @@ def test_get_artifact_lamindata():
 
 def test_schema_slots_lamindata():
     db = ln.DB("laminlabs/lamindata")
-    collection = db.Collection.get(key="collection-with-schema")
+    schema = db.Schema.filter().first()
     # should not raise an error that instance is not configured
-    collection.schema.slots  # noqa: B018
-    collection.schema.describe()
+    schema.slots  # noqa: B018
+    schema.describe()
