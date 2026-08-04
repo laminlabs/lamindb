@@ -1411,7 +1411,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return self._slots
         self._slots = {
             link.slot: link.component
-            for link in self.components.through.filter(composite_id=self.id)
+            for link in self.components.through.objects.using(self._state.db).filter(
+                composite_id=self.id
+            )
         }
         return self._slots
 
