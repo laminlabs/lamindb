@@ -3341,7 +3341,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
             # self.storage is already the target; restore the source for path resolution
             self.storage_id = old_storage_id
-            _move_artifact_to_storage(self, new_storage, access_token=access_token)
+            if not _move_artifact_to_storage(
+                self, new_storage, access_token=access_token, ask_to_confirm=True
+            ):
+                # Keep the user's storage assignment if they cancel the move.
+                self.storage_id = new_storage.id
+                return None
             # _move_artifact_to_storage sets storage_id to the target; sync so
             # repeated saves don't re-enter this branch.
             self._original_values["storage_id"] = self.storage_id
@@ -3677,23 +3682,44 @@ def _safe_move(fs: AbstractFileSystem, source: str, target: str):
 
 
 def _move_artifact_to_storage(
-    artifact: Artifact, storage: Storage, access_token: str | None = None
-):
+    artifact: Artifact,
+    storage: Storage,
+    access_token: str | None = None,
+    ask_to_confirm: bool = False,
+) -> bool:
+    """Move an artifact's data to another storage location.
+
+    Resolves the source path from ``artifact`` (so ``artifact.storage`` must still
+    be the source) and the target path under ``storage``, then copies and removes
+    the source. On success, sets ``artifact.storage_id`` to the target.
+
+    Args:
+        artifact: Artifact whose data to move; its current storage is the source.
+        storage: Target storage location.
+        access_token: Optional token for cloud access during the move.
+        ask_to_confirm: If ``True``, prompt before moving; cancel returns ``False``.
+
+    Returns:
+        ``True`` if the move completed, ``False`` if the user cancelled.
+    """
     storage_key = _s().auto_storage_key_from_artifact(artifact)
 
     source_path = artifact.path
     target_path = storage.path / storage_key
-    if source_path == target_path:
+
+    source_path_str = source_path.as_posix()
+    target_path_str = target_path.as_posix()
+    if source_path_str == target_path_str:
         raise ValueError("Cannot move to the same path.")
 
+    if ask_to_confirm and not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+
     fs = fs_for_moving(source_path, target_path, access_token=access_token)
-
-    source_path_str = str(source_path)
-    target_path_str = str(target_path)
-
     _safe_move(fs, source_path_str, target_path_str)
 
     artifact.storage_id = storage.id
+    return True
 
 
 # can't really just call .cache in .load because of double tracking

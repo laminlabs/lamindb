@@ -2018,7 +2018,8 @@ def test_artifact_storage_change_same_space(tsv_file, tmp_path):
     assert new_storage.space_id == artifact.space_id
 
     artifact.storage = new_storage
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
 
     assert artifact.storage_id == new_storage.id
     assert artifact.storage_id != old_storage_id
@@ -2078,11 +2079,11 @@ def test_artifact_storage_and_space_change_consistent(tsv_file, tmp_path):
 
     artifact.space = space
     artifact.storage = new_storage
-    with patch(
-        "builtins.input",
-        side_effect=AssertionError("space-change flow should be skipped"),
-    ):
+    # Confirm move only — space-change storage picker must not run.
+    with patch("builtins.input", return_value="y") as input_mock:
         artifact.save()
+    assert input_mock.call_count == 1
+    assert "Continue? (y/n)" in input_mock.call_args.args[0]
 
     assert artifact.space_id == space.id
     assert artifact.storage_id == new_storage.id
