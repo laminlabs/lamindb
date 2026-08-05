@@ -2026,7 +2026,7 @@ def test_artifact_storage_change_same_space(tsv_file, tmp_path):
     assert artifact.path.exists()
     assert artifact.path.as_posix().startswith(artifact.storage.root)
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
     new_storage.delete()
 
 
@@ -2090,7 +2090,7 @@ def test_artifact_storage_and_space_change_consistent(tsv_file, tmp_path):
     assert artifact.path.exists()
     assert artifact.path.as_posix().startswith(artifact.storage.root)
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
     new_storage.delete()
     space.delete(permanent=True)
 
@@ -2159,12 +2159,12 @@ def test_change_storage_for_artifact_in_foreign_managed_storage_raises_value_err
         artifact.save()
 
     # Failed save leaves the rejected storage on the in-memory object; restore
-    # source storage so delete(storage=True) removes the file from the right root.
+    # source storage so delete removes the file from the right root.
     ln.Storage.filter(id=source_storage.id).update(
         instance_uid=lamindb_setup.settings.instance.uid
     )
     artifact.storage = source_storage
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
     target_storage.delete()
     source_storage.delete()
 
