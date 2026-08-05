@@ -1410,7 +1410,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id", "is_latest", "suffix", "key")
+    _TRACK_FIELDS = ("space_id", "storage_id", "is_latest", "suffix", "key")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -3314,13 +3314,96 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         access_token = kwargs.pop("access_token", None)
-
         current_instance_uid = setup_settings.instance.uid
+        # Handle storage/space moves before key/suffix so path-based renames run
+        # against the final storage location (self.storage/path already reflect a
+        # newly assigned storage before save).
+        # Check storage change before space change. If both change and are consistent,
+        # move here and sync tracked values so the space-change flow below is skipped.
+        if self._field_changed("storage_id"):
+            old_storage_id = self._original_values["storage_id"]
+            new_storage = self.storage
+            if new_storage.space_id != self.space_id:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " to a storage location that is not in the same space."
+                )
+            old_storage = Storage.connect(self._state.db).get(id=old_storage_id)
+            if old_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            if new_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " to a storage location that is not managed by the current instance."
+                )
+            # self.storage is already the target; restore the source for path resolution
+            self.storage_id = old_storage_id
+            _move_artifact_to_storage(self, new_storage, access_token=access_token)
+            # _move_artifact_to_storage sets storage_id to the target; sync so
+            # repeated saves don't re-enter this branch.
+            self._original_values["storage_id"] = self.storage_id
+            # If space changed too and matched the new storage, mark it handled
+            # so the space-change flow below does not run (no storage picker).
+            if self._field_changed("space_id"):
+                self._original_values["space_id"] = self.space_id
 
+        # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
+        # Source storage: storage_id is unchanged here (storage+space was handled above).
         artifact_storage = self.storage
-        artifact_storage_instance_uid = artifact_storage.instance_uid
+        # here we check for storages managed by any instance
+        # not necessarily with managed credentials
+        # we check if the artifact storage is managed by the current instance further
+        if (
+            self._field_changed("space_id")
+            and artifact_storage.instance_uid is not None
+        ):
+            if artifact_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the space of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            space = self.space
+            storage_type = artifact_storage.type
+            storages = Storage.connect(self._state.db).filter(
+                space=space, instance_uid=current_instance_uid, type=storage_type
+            )
+            n_storages = storages.count()
+            if n_storages == 0:
+                raise ValueError(
+                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
+                )
+            elif n_storages > 1:
+                storages = storages.order_by("id")
+                roots_str = "\n".join(
+                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
+                )
+                choice = input(
+                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
+                    f" \n{roots_str}\n"
+                    "Enter the number or 'x' to cancel: "
+                )
+                if choice == "x":
+                    logger.warning("saving was cancelled")
+                    return None
+                storage = storages[int(choice)]
+            else:
+                storage = storages.one()
+            if artifact_storage != storage:
+                # try to transfer if both storages are writable / managed by an instance
+                # replaces artifact.storage with the new storage if successful
+                _move_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                logger.important("artifact is already in the target storage location")
+            # Keep tracked values in sync after handling a space update so
+            # repeated saves don't keep re-running this branch.
+            self._original_values["space_id"] = self.space_id
+            self._original_values["storage_id"] = self.storage_id
+
         is_not_artifact_storage_managed_by_current_instance = (
-            artifact_storage_instance_uid != current_instance_uid
+            self.storage.instance_uid != current_instance_uid
         )
 
         if self._field_changed("key", check_is_saved=False):
@@ -3371,55 +3454,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
             if not _handle_suffix_change_on_save(self):
                 return None
-
-        # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
-        if (
-            self._field_changed("space_id")
-            # here we check for storages managed by any instance
-            # not necessarily with managed credentials
-            # we check if the artifact storage is managed by the current instance further
-            and artifact_storage_instance_uid is not None
-        ):
-            if is_not_artifact_storage_managed_by_current_instance:
-                raise ValueError(
-                    "Cannot change the space of an artifact"
-                    " in a storage location that is not managed by the current instance."
-                )
-            space = self.space
-            storage_type = artifact_storage.type
-            storages = Storage.connect(self._state.db).filter(
-                space=space, instance_uid=current_instance_uid, type=storage_type
-            )
-            n_storages = storages.count()
-            if n_storages == 0:
-                raise ValueError(
-                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
-                )
-            elif n_storages > 1:
-                storages = storages.order_by("id")
-                roots_str = "\n".join(
-                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
-                )
-                choice = input(
-                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
-                    f" \n{roots_str}\n"
-                    "Enter the number or 'x' to cancel: "
-                )
-                if choice == "x":
-                    logger.warning("saving was cancelled")
-                    return None
-                storage = storages[int(choice)]
-            else:
-                storage = storages.one()
-            if artifact_storage != storage:
-                # try to transfer if both storages are writable / managed by an instance
-                # replaces artifact.storage with the new storage if successful
-                _move_artifact_to_storage(self, storage, access_token=access_token)
-            else:
-                logger.important("artifact is already in the target storage location")
-            # Keep tracked values in sync after handling a space update so
-            # repeated saves don't keep re-running this branch.
-            self._original_values["space_id"] = self.space_id
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
