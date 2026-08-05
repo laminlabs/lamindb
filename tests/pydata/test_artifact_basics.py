@@ -2169,6 +2169,46 @@ def test_change_storage_for_artifact_in_foreign_managed_storage_raises_value_err
     source_storage.delete()
 
 
+def test_change_storage_to_foreign_managed_storage_raises_value_error(
+    tsv_file, tmp_path
+):
+    source_root = tmp_path / "storage-change-to-foreign-source"
+    target_root = tmp_path / "storage-change-to-foreign-target"
+    source_root.mkdir()
+    target_root.mkdir()
+    source_storage = ln.Storage(
+        root=source_root.resolve().as_posix(), type="local"
+    ).save()
+    target_storage = ln.Storage(
+        root=target_root.resolve().as_posix(), type="local"
+    ).save()
+    artifact = ln.Artifact(
+        tsv_file,
+        key="storage-change-to-foreign-storage.tsv",
+        storage=source_storage,
+    ).save()
+
+    ln.Storage.filter(id=target_storage.id).update(instance_uid="_not_exists_")
+    target_storage = ln.Storage.get(id=target_storage.id)
+    artifact.storage = target_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not managed by the current instance."
+        ),
+    ):
+        artifact.save()
+
+    artifact.storage = source_storage
+    artifact.delete(permanent=True)
+    ln.Storage.filter(id=target_storage.id).update(
+        instance_uid=lamindb_setup.settings.instance.uid
+    )
+    target_storage.delete()
+    source_storage.delete()
+
+
 def test_passing_foreign_keys_ids(tsv_file):
     suffix = uuid4().hex[:8]
     transform = ln.Transform(key="test passings foreign keys ids").save()
