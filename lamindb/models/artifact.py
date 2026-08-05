@@ -3353,9 +3353,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         # Source storage: storage_id is unchanged here (storage+space was handled above).
         artifact_storage = self.storage
-        # here we check for storages managed by any instance
-        # not necessarily with managed credentials
-        # we check if the artifact storage is managed by the current instance further
+        # Only run the storage move/picker when the source storage is managed by some
+        # instance. If unmanaged (instance_uid is None), skip this block and allow a
+        # metadata-only space update — no storage transfer is needed.
+        # (instance_uid set means managed by some instance, not necessarily with
+        # writable credentials; we still require current-instance management below.)
         if (
             self._field_changed("space_id")
             and artifact_storage.instance_uid is not None
