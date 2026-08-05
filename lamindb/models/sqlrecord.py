@@ -2546,6 +2546,11 @@ def transfer_to_default_db(
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
     for fk in fk_fields:
         update_fk_to_default_db(record, fk, using_key, transfer_logs=transfer_logs)
+    # FK ids were remapped to the default DB; drop tracked *_id originals so save
+    # logic does not treat remapping as a user-requested field change.
+    if (original_values := getattr(record, "_original_values", None)) is not None:
+        for key in [key for key in original_values if key.endswith("_id")]:
+            del original_values[key]
     record.id = None
     record._state.db = "default"
     if save:
