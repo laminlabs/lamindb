@@ -2158,9 +2158,12 @@ def test_change_storage_for_artifact_in_foreign_managed_storage_raises_value_err
     ):
         artifact.save()
 
+    # Failed save leaves the rejected storage on the in-memory object; restore
+    # source storage so delete(storage=True) removes the file from the right root.
     ln.Storage.filter(id=source_storage.id).update(
         instance_uid=lamindb_setup.settings.instance.uid
     )
+    artifact.storage = source_storage
     artifact.delete(permanent=True, storage=True)
     target_storage.delete()
     source_storage.delete()
