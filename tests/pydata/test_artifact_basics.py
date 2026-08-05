@@ -2031,6 +2031,31 @@ def test_artifact_storage_change_same_space(tsv_file, tmp_path):
     new_storage.delete()
 
 
+def test_artifact_storage_change_cancel_keeps_assignment(tsv_file, tmp_path):
+    artifact = ln.Artifact(tsv_file, key="test_storage_change_cancel.tsv").save()
+    old_path = artifact.path
+    old_storage_id = artifact.storage_id
+    storage_root = tmp_path / "storage-change-cancel"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+
+    artifact.storage = new_storage
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+
+    # Cancel restores the in-memory target assignment and does not move data.
+    assert artifact.storage_id == new_storage.id
+    assert old_path.exists()
+    artifact_db = ln.Artifact.get(id=artifact.id)
+    assert artifact_db.storage_id == old_storage_id
+
+    artifact.storage = artifact_db.storage
+    artifact.delete(permanent=True)
+    new_storage.delete()
+
+
 def test_artifact_storage_change_different_space_raises(tsv_file, tmp_path):
     artifact = ln.Artifact(
         tsv_file, key="test_storage_change_different_space.tsv"
