@@ -257,8 +257,9 @@ class SQLRecordSettings:
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
-        This only affects updates to objects that will start to throw an error upon `INSERT` or `UPDATE`
-        if their space does not match the enforced space. Existing objects are not affected.
+        This affects creates and updates: new objects without an explicit `space` default to the
+        enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
+        objects are not rewritten when the setting changes.
 
         The enforced space can be configured in 2 ways:
 
@@ -339,6 +340,28 @@ class SQLRecordSettings:
             del aux["ss"]
             if not aux:
                 self._sqlrecord._aux = None
+
+
+def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None:
+    """Return the write space enforced by a type's `_aux["ss"]`, if any.
+
+    Mirrors the frontend single-space policy used for default write-space selection:
+
+    - `_aux.ss = 1` or `"1"` → the type's own owning space
+    - `_aux.ss = "<space uid>"` → that exact space
+    - missing / unset → ``None`` (caller keeps context / settings / ``all`` fallback)
+    """
+    aux = getattr(type_record, "_aux", None)
+    if not aux:
+        return None
+    ss = aux.get("ss")
+    if ss is None:
+        return None
+    if ss == 1 or ss == "1":
+        return getattr(type_record, "space", None)
+    if isinstance(ss, str) and ss:
+        return Space.get(ss)
+    return None
 
 
 def deferred_attribute__repr__(self):
@@ -1185,7 +1208,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     from lamindb import context as run_context
 
                     # Precedence is uniform across SQLRecord children:
-                    # explicit `<fk>_id` or `<fk>` (mutually exclusive) > context/settings fallback.
+                    # explicit `<fk>_id` or `<fk>` (mutually exclusive)
+                    # > type `_aux.ss` single-space policy
+                    # > context/settings fallback.
                     has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space
@@ -1195,7 +1220,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         current_space = None
 
                     if not has_explicit_space:
-                        if current_space is not None:
+                        policy_space = None
+                        type_record = kwargs.get("type")
+                        if isinstance(type_record, HasType):
+                            policy_space = resolve_space_from_single_space_policy(
+                                type_record
+                            )
+                        if policy_space is not None:
+                            kwargs["space"] = policy_space
+                        elif current_space is not None:
                             kwargs["space"] = current_space
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
