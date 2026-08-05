@@ -2006,6 +2006,235 @@ def test_artifact_space_change(tsv_file):
     space.delete(permanent=True)
 
 
+def test_artifact_storage_change_same_space(tsv_file, tmp_path):
+    artifact = ln.Artifact(tsv_file, key="test_storage_change_same_space.tsv").save()
+    old_path = artifact.path
+    old_storage_id = artifact.storage_id
+    storage_root = tmp_path / "storage-change-same-space"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    assert new_storage.space_id == artifact.space_id
+
+    artifact.storage = new_storage
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+
+    assert artifact.storage_id == new_storage.id
+    assert artifact.storage_id != old_storage_id
+    assert not old_path.exists()
+    assert artifact.path.exists()
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+
+    artifact.delete(permanent=True)
+    new_storage.delete()
+
+
+def test_artifact_storage_change_cancel_keeps_assignment(tsv_file, tmp_path):
+    artifact = ln.Artifact(tsv_file, key="test_storage_change_cancel.tsv").save()
+    old_path = artifact.path
+    old_storage_id = artifact.storage_id
+    storage_root = tmp_path / "storage-change-cancel"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+
+    artifact.storage = new_storage
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+
+    # Cancel restores the in-memory target assignment and does not move data.
+    assert artifact.storage_id == new_storage.id
+    assert old_path.exists()
+    artifact_db = ln.Artifact.get(id=artifact.id)
+    assert artifact_db.storage_id == old_storage_id
+
+    artifact.storage = artifact_db.storage
+    artifact.delete(permanent=True)
+    new_storage.delete()
+
+
+def test_artifact_storage_change_different_space_raises(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_change_different_space.tsv"
+    ).save()
+    space = ln.Space(
+        name="test storage change different space", uid="storchgsp1"
+    ).save()
+    storage_root = tmp_path / "storage-change-different-space"
+    storage_root.mkdir()
+    other_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    ln.Storage.filter(id=other_storage.id).update(space_id=space.id)
+    other_storage = ln.Storage.get(id=other_storage.id)
+
+    artifact.storage = other_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not in the same space."
+        ),
+    ):
+        artifact.save()
+
+    artifact.delete(permanent=True)
+    other_storage.delete()
+    space.delete(permanent=True)
+
+
+def test_artifact_storage_and_space_change_consistent(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_and_space_change_consistent.tsv"
+    ).save()
+    old_path = artifact.path
+    space = ln.Space(
+        name="test storage and space change consistent", uid="storchgsp2"
+    ).save()
+    storage_root = tmp_path / "storage-and-space-change-consistent"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    ln.Storage.filter(id=new_storage.id).update(space_id=space.id)
+    new_storage = ln.Storage.get(id=new_storage.id)
+
+    artifact.space = space
+    artifact.storage = new_storage
+    # Confirm move only — space-change storage picker must not run.
+    with patch("builtins.input", return_value="y") as input_mock:
+        artifact.save()
+    assert input_mock.call_count == 1
+    assert "Continue? (y/n)" in input_mock.call_args.args[0]
+
+    assert artifact.space_id == space.id
+    assert artifact.storage_id == new_storage.id
+    assert not old_path.exists()
+    assert artifact.path.exists()
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+
+    artifact.delete(permanent=True)
+    new_storage.delete()
+    space.delete(permanent=True)
+
+
+def test_artifact_storage_and_space_change_inconsistent_raises(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_and_space_change_inconsistent.tsv"
+    ).save()
+    space_a = ln.Space(
+        name="test storage and space change inconsistent a", uid="storchgsp3"
+    ).save()
+    space_b = ln.Space(
+        name="test storage and space change inconsistent b", uid="storchgsp4"
+    ).save()
+    storage_root = tmp_path / "storage-and-space-change-inconsistent"
+    storage_root.mkdir()
+    storage_b = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+    ln.Storage.filter(id=storage_b.id).update(space_id=space_b.id)
+    storage_b = ln.Storage.get(id=storage_b.id)
+
+    artifact.space = space_a
+    artifact.storage = storage_b
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not in the same space."
+        ),
+    ):
+        artifact.save()
+
+    artifact.delete(permanent=True)
+    storage_b.delete()
+    space_a.delete(permanent=True)
+    space_b.delete(permanent=True)
+
+
+def test_change_storage_for_artifact_in_foreign_managed_storage_raises_value_error(
+    tsv_file, tmp_path
+):
+    source_root = tmp_path / "storage-change-foreign-source"
+    target_root = tmp_path / "storage-change-foreign-target"
+    source_root.mkdir()
+    target_root.mkdir()
+    source_storage = ln.Storage(
+        root=source_root.resolve().as_posix(), type="local"
+    ).save()
+    target_storage = ln.Storage(
+        root=target_root.resolve().as_posix(), type="local"
+    ).save()
+    artifact = ln.Artifact(
+        tsv_file,
+        key="storage-change-foreign-storage.tsv",
+        storage=source_storage,
+    ).save()
+
+    ln.Storage.filter(id=source_storage.id).update(instance_uid="_not_exists_")
+    artifact.storage = target_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " in a storage location that is not managed by the current instance."
+        ),
+    ):
+        artifact.save()
+
+    # Failed save leaves the rejected storage on the in-memory object; restore
+    # source storage so delete removes the file from the right root.
+    ln.Storage.filter(id=source_storage.id).update(
+        instance_uid=lamindb_setup.settings.instance.uid
+    )
+    artifact.storage = source_storage
+    artifact.delete(permanent=True)
+    target_storage.delete()
+    source_storage.delete()
+
+
+def test_change_storage_to_foreign_managed_storage_raises_value_error(
+    tsv_file, tmp_path
+):
+    source_root = tmp_path / "storage-change-to-foreign-source"
+    target_root = tmp_path / "storage-change-to-foreign-target"
+    source_root.mkdir()
+    target_root.mkdir()
+    source_storage = ln.Storage(
+        root=source_root.resolve().as_posix(), type="local"
+    ).save()
+    target_storage = ln.Storage(
+        root=target_root.resolve().as_posix(), type="local"
+    ).save()
+    artifact = ln.Artifact(
+        tsv_file,
+        key="storage-change-to-foreign-storage.tsv",
+        storage=source_storage,
+    ).save()
+
+    ln.Storage.filter(id=target_storage.id).update(instance_uid="_not_exists_")
+    target_storage = ln.Storage.get(id=target_storage.id)
+    artifact.storage = target_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not managed by the current instance."
+        ),
+    ):
+        artifact.save()
+
+    artifact.storage = source_storage
+    artifact.delete(permanent=True)
+    ln.Storage.filter(id=target_storage.id).update(
+        instance_uid=lamindb_setup.settings.instance.uid
+    )
+    target_storage.delete()
+    source_storage.delete()
+
+
 def test_passing_foreign_keys_ids(tsv_file):
     suffix = uuid4().hex[:8]
     transform = ln.Transform(key="test passings foreign keys ids").save()
