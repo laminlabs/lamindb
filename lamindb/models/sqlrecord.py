@@ -621,7 +621,11 @@ def suggest_records_with_similar_names(
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
         if kwargs.get("type", None) is None:
-            subset = record.__class__.filter(type__isnull=True)
+            # Do not restrict to type__isnull=True: a record can have is_type=True
+            # and still have a non-null parent type (type_id IS NOT NULL). Filtering
+            # by type__isnull=True would silently miss those records and create a
+            # duplicate instead of returning the existing one.
+            subset = record.__class__
         else:
             subset = record.__class__.filter(type=kwargs["type"])
     else:

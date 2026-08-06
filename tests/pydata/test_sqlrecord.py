@@ -318,6 +318,39 @@ def test_suggest_similar_names():
     record4.delete(permanent=True)
 
 
+def test_dedup_project_with_parent_type():
+    """Dedup must find a project that has is_type=True AND a non-null parent type.
+
+    Before the fix, suggest_records_with_similar_names used filter(type__isnull=True)
+    when no type= kwarg was passed. This excluded any project whose type_id is not
+    null, so a duplicate was silently created instead of returning the existing record.
+    """
+    parent = ln.Project(name="__test_dedup_parent__", is_type=True).save()
+    original = ln.Project(
+        name="__test_dedup_subtype__", is_type=True, type=parent
+    ).save()
+    assert original.type_id is not None  # confirm this is the case the old filter missed
+
+    # caller knows it's a type but does not pass type=
+    returned1 = ln.Project(name="__test_dedup_subtype__", is_type=True).save()
+    assert returned1.uid == original.uid, (
+        f"Dedup should have returned uid={original.uid}, got uid={returned1.uid} (duplicate)"
+    )
+
+    # caller has no idea it's a type at all — Shoh's exact scenario
+    returned2 = ln.Project(name="__test_dedup_subtype__").save()
+    assert returned2.uid == original.uid, (
+        f"Dedup should have returned uid={original.uid}, got uid={returned2.uid} (duplicate)"
+    )
+
+    assert ln.Project.filter(name="__test_dedup_subtype__").count() == 1, (
+        "A duplicate project was created — dedup missed the original."
+    )
+
+    original.delete(permanent=True)
+    parent.delete(permanent=True)
+
+
 def test_pass_version():
     # creating a new transform on key retrieves the same transform
     # for as long as no source_code was saved
