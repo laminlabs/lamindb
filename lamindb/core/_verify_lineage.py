@@ -88,7 +88,7 @@ class ScriptLineageVerification:
     has_external_inputs: bool
     has_external_outputs: bool
     is_fully_tracked: bool
-    missing: tuple[str, ...]
+    missing_lineage: tuple[str, ...]
     lineage_calls: tuple[str, ...]
     lamindb_input_calls: tuple[str, ...]
     lamindb_output_calls: tuple[str, ...]
@@ -266,18 +266,18 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
     has_external_inputs = len(external_input_calls) > 0
     has_external_outputs = len(external_output_calls) > 0
 
-    missing: list[str] = []
+    missing_lineage: list[str] = []
     if not has_lineage_tracking:
-        missing.append("lineage tracking call (`ln.track()` or `ln.finish()`)")
+        missing_lineage.append("lineage tracking call (`ln.track()` or `ln.finish()`)")
     if has_external_inputs:
-        missing.append(
+        missing_lineage.append(
             _summarize_calls(
                 "unexpected non-LaminDB input reads detected",
                 external_input_calls,
             )
         )
     if has_external_outputs:
-        missing.append(
+        missing_lineage.append(
             _summarize_calls(
                 "unexpected non-LaminDB output writes detected",
                 external_output_calls,
@@ -288,8 +288,8 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
         has_lineage_tracking=has_lineage_tracking,
         has_external_inputs=has_external_inputs,
         has_external_outputs=has_external_outputs,
-        is_fully_tracked=len(missing) == 0,
-        missing=tuple(missing),
+        is_fully_tracked=len(missing_lineage) == 0,
+        missing_lineage=tuple(missing_lineage),
         lineage_calls=tuple(lineage_calls),
         lamindb_input_calls=tuple(lamindb_input_calls),
         lamindb_output_calls=tuple(lamindb_output_calls),
