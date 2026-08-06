@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import ast
+import pathlib
 from dataclasses import dataclass
-from pathlib import Path
 
 
 LAMINDB_MODEL_NAMES = {
@@ -50,21 +50,50 @@ EXTERNAL_INPUT_PREFIXES = (
     "pl.read_",
 )
 
+EXTERNAL_OUTPUT_CALL_NAMES = {
+    "numpy.save",
+    "np.save",
+    "numpy.savetxt",
+    "np.savetxt",
+    "pickle.dump",
+    "json.dump",
+    "yaml.dump",
+    "toml.dump",
+    "matplotlib.pyplot.savefig",
+    "plt.savefig",
+}
+
+EXTERNAL_OUTPUT_METHOD_NAMES = {
+    "to_csv",
+    "to_parquet",
+    "to_json",
+    "to_excel",
+    "to_pickle",
+    "to_feather",
+    "to_sql",
+    "to_hdf",
+    "savefig",
+    "write_text",
+    "write_bytes",
+    "write",
+    "writelines",
+}
+
 
 @dataclass(frozen=True)
 class ScriptLineageVerification:
     """Result of static lineage checks for a Python script."""
 
     has_lineage_tracking: bool
-    has_lamindb_inputs: bool
-    has_lamindb_outputs: bool
     has_external_inputs: bool
+    has_external_outputs: bool
     is_fully_tracked: bool
     missing: tuple[str, ...]
     lineage_calls: tuple[str, ...]
     lamindb_input_calls: tuple[str, ...]
     lamindb_output_calls: tuple[str, ...]
     external_input_calls: tuple[str, ...]
+    external_output_calls: tuple[str, ...]
 
 
 def _dotted_name(node: ast.AST) -> str | None:
@@ -94,7 +123,26 @@ def _format_call(call_name: str, lineno: int) -> str:
     return f"{call_name} (line {lineno})"
 
 
-def verify_lineage(path: str | Path) -> ScriptLineageVerification:
+def _is_open_output_mode(node: ast.Call) -> bool:
+    mode_value: str | None = None
+    if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
+        if isinstance(node.args[1].value, str):
+            mode_value = node.args[1].value
+    for keyword in node.keywords:
+        if keyword.arg == "mode" and isinstance(keyword.value, ast.Constant):
+            if isinstance(keyword.value.value, str):
+                mode_value = keyword.value.value
+                break
+    if mode_value is None:
+        mode_value = "r"
+    return any(flag in mode_value for flag in ("w", "a", "x", "+"))
+
+
+def _summarize_calls(prefix: str, calls: list[str]) -> str:
+    return f"{prefix}: {', '.join(calls)}"
+
+
+def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
     """Statically verify lineage tracking conventions in a Python script.
 
     Checks for:
@@ -102,13 +150,15 @@ def verify_lineage(path: str | Path) -> ScriptLineageVerification:
     - laminDB input retrieval calls (for example `ln.Artifact.get(...)`)
     - laminDB output persistence calls (for example `.save()` on laminDB records)
     - common non-laminDB input reads (for example `pd.read_csv(...)`)
+    - common non-laminDB output writes (for example `open(..., "w")`)
 
     Notes:
     - This is a static AST check and cannot prove runtime behavior.
-    - "All inputs come from LaminDB" is interpreted conservatively:
-      if known external read patterns are present, the check fails.
+    - Zero-input and zero-output scripts are valid and can pass.
+    - "All I/O comes from LaminDB" is interpreted conservatively:
+      if known non-LaminDB read/write patterns are present, the check fails.
     """
-    script_path = Path(path)
+    script_path = pathlib.Path(path)
     source = script_path.read_text(encoding="utf-8")
     tree = ast.parse(source)
 
@@ -144,6 +194,7 @@ def verify_lineage(path: str | Path) -> ScriptLineageVerification:
     lamindb_input_calls: list[str] = []
     lamindb_output_calls: list[str] = []
     external_input_calls: list[str] = []
+    external_output_calls: list[str] = []
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -186,7 +237,15 @@ def verify_lineage(path: str | Path) -> ScriptLineageVerification:
                 # Handles `ln.Artifact(...).save()` and related calls.
                 lamindb_output_calls.append(_format_call(call_name, node.lineno))
 
-        # External inputs
+        # External inputs and outputs
+        if call_name in {"open", "fsspec.open"}:
+            formatted = _format_call(call_name, node.lineno)
+            if _is_open_output_mode(node):
+                external_output_calls.append(formatted)
+            else:
+                external_input_calls.append(formatted)
+            continue
+
         if call_name in EXTERNAL_INPUT_CALL_NAMES:
             external_input_calls.append(_format_call(call_name, node.lineno))
             continue
@@ -195,31 +254,45 @@ def verify_lineage(path: str | Path) -> ScriptLineageVerification:
             continue
         if call_name.startswith(EXTERNAL_INPUT_PREFIXES):
             external_input_calls.append(_format_call(call_name, node.lineno))
+            continue
+
+        if call_name in EXTERNAL_OUTPUT_CALL_NAMES:
+            external_output_calls.append(_format_call(call_name, node.lineno))
+            continue
+        if method_name in EXTERNAL_OUTPUT_METHOD_NAMES:
+            external_output_calls.append(_format_call(call_name, node.lineno))
 
     has_lineage_tracking = len(lineage_calls) > 0
-    has_lamindb_inputs = len(lamindb_input_calls) > 0
-    has_lamindb_outputs = len(lamindb_output_calls) > 0
     has_external_inputs = len(external_input_calls) > 0
+    has_external_outputs = len(external_output_calls) > 0
 
     missing: list[str] = []
     if not has_lineage_tracking:
         missing.append("lineage tracking call (`ln.track()` or `ln.finish()`)")
-    if not has_lamindb_inputs:
-        missing.append("LaminDB input retrieval")
-    if not has_lamindb_outputs:
-        missing.append("LaminDB output persistence")
     if has_external_inputs:
-        missing.append("unexpected non-LaminDB input reads")
+        missing.append(
+            _summarize_calls(
+                "unexpected non-LaminDB input reads detected",
+                external_input_calls,
+            )
+        )
+    if has_external_outputs:
+        missing.append(
+            _summarize_calls(
+                "unexpected non-LaminDB output writes detected",
+                external_output_calls,
+            )
+        )
 
     return ScriptLineageVerification(
         has_lineage_tracking=has_lineage_tracking,
-        has_lamindb_inputs=has_lamindb_inputs,
-        has_lamindb_outputs=has_lamindb_outputs,
         has_external_inputs=has_external_inputs,
+        has_external_outputs=has_external_outputs,
         is_fully_tracked=len(missing) == 0,
         missing=tuple(missing),
         lineage_calls=tuple(lineage_calls),
         lamindb_input_calls=tuple(lamindb_input_calls),
         lamindb_output_calls=tuple(lamindb_output_calls),
         external_input_calls=tuple(external_input_calls),
+        external_output_calls=tuple(external_output_calls),
     )
