@@ -621,16 +621,24 @@ def suggest_records_with_similar_names(
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
         if kwargs.get("type", None) is None:
-            # Do not restrict to type__isnull=True: a record can have is_type=True
-            # and still have a non-null parent type (type_id IS NOT NULL). Filtering
-            # by type__isnull=True would silently miss those records and create a
-            # duplicate instead of returning the existing one.
-            subset = record.__class__
+            subset = record.__class__.filter(type__isnull=True)
         else:
             subset = record.__class__.filter(type=kwargs["type"])
     else:
         subset = record.__class__
     exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
+    # Fallback: if no match was found and no type= was passed, also search for
+    # is_type=True records that have a non-null parent type. Such records (e.g. a
+    # Project subtype) are missed by the filter(type__isnull=True) above and would
+    # otherwise produce a silent duplicate on .save().
+    if (
+        exact_match is None
+        and isinstance(record, HasType)
+        and kwargs.get("type", None) is None
+    ):
+        exact_match = record.__class__.filter(
+            is_type=True, **{name_field: kwargs[name_field]}
+        ).first()
     if exact_match is not None:
         return exact_match
     queryset = _search(
