@@ -1,14 +1,24 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from lamindb.core import _verify_lineage as verify_lineage_module
 from lamindb.core import verify_lineage
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 def _write_script(tmp_path: Path, name: str, source: str) -> Path:
     script_path = tmp_path / name
     script_path.write_text(source, encoding="utf-8")
     return script_path
+
+
+def test_lamindb_output_methods_are_discovered_programmatically():
+    output_methods = verify_lineage_module._get_lamindb_output_methods()
+    assert "save" in output_methods
+    assert any(method.startswith("from_") for method in output_methods)
 
 
 def test_verify_lineage_positive_lamindb_alias(tmp_path: Path):
@@ -31,11 +41,34 @@ ln.finish()
     assert result.has_lineage_tracking is True
     assert result.has_external_inputs is False
     assert result.has_external_outputs is False
-    assert result.missing == ()
+    assert result.missing_lineage == ()
     assert any("track" in call for call in result.lineage_calls)
     assert any("finish" in call for call in result.lineage_calls)
     assert any("Artifact.get" in call for call in result.lamindb_input_calls)
     assert any("save" in call for call in result.lamindb_output_calls)
+
+
+def test_verify_lineage_positive_output_from_dataframe(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "tracked_script_from_dataframe.py",
+        """
+import lamindb as ln
+
+ln.track()
+ln.Artifact.from_dataframe(df, key="out.parquet")
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.has_lineage_tracking is True
+    assert result.has_external_inputs is False
+    assert result.has_external_outputs is False
+    assert result.missing_lineage == ()
+    assert any("from_dataframe" in call for call in result.lamindb_output_calls)
 
 
 def test_verify_lineage_positive_imported_symbols(tmp_path: Path):
@@ -58,7 +91,7 @@ finish()
     assert result.has_lineage_tracking is True
     assert result.has_external_inputs is False
     assert result.has_external_outputs is False
-    assert result.missing == ()
+    assert result.missing_lineage == ()
 
 
 def test_verify_lineage_positive_zero_io_script(tmp_path: Path):
@@ -82,13 +115,13 @@ ln.finish()
     assert result.has_lineage_tracking is True
     assert result.has_external_inputs is False
     assert result.has_external_outputs is False
-    assert result.missing == ()
+    assert result.missing_lineage == ()
 
 
-def test_verify_lineage_negative_missing_lineage_tracking(tmp_path: Path):
+def test_verify_lineage_negative_missing_lineage_lineage_tracking(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
-        "missing_lineage.py",
+        "missing_lineage_lineage.py",
         """
 import lamindb as ln
 
@@ -103,7 +136,7 @@ ln.Artifact("./out.csv").save()
     assert result.has_lineage_tracking is False
     assert result.has_external_inputs is False
     assert result.has_external_outputs is False
-    assert any("lineage tracking call" in item for item in result.missing)
+    assert any("lineage tracking call" in item for item in result.missing_lineage)
 
 
 def test_verify_lineage_negative_external_input_read(tmp_path: Path):
@@ -130,7 +163,7 @@ ln.finish()
     assert result.has_external_outputs is False
     assert any("pd.read_csv" in call for call in result.external_input_calls)
     assert any(
-        "unexpected non-LaminDB input reads detected" in item for item in result.missing
+        "unexpected non-LaminDB input reads detected" in item for item in result.missing_lineage
     )
 
 
@@ -156,5 +189,86 @@ ln.finish()
     assert result.has_external_outputs is True
     assert any("open" in call for call in result.external_output_calls)
     assert any(
-        "unexpected non-LaminDB output writes detected" in item for item in result.missing
+        "unexpected non-LaminDB output writes detected" in item for item in result.missing_lineage
+    )
+
+
+def test_verify_lineage_positive_local_write_then_lamindb_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "local_materialization_then_save.py",
+        """
+from pathlib import Path
+import json
+import lamindb as ln
+
+ln.track()
+result = {"ok": True}
+output_path = Path("./result.json")
+output_path.write_text(json.dumps(result, indent=2) + "\\n", encoding="utf-8")
+ln.Artifact(output_path).save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.has_lineage_tracking is True
+    assert result.has_external_inputs is False
+    assert result.has_external_outputs is False
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_np_save_then_lamindb_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "np_save_then_lamindb_save.py",
+        """
+from pathlib import Path
+import lamindb as ln
+import numpy as np
+
+ln.track()
+output_path = Path("./array.npy")
+np.save(output_path, np.array([1, 2, 3]))
+ln.Artifact(output_path).save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.has_lineage_tracking is True
+    assert result.has_external_inputs is False
+    assert result.has_external_outputs is False
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_negative_np_save_without_lamindb_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "np_save_without_lamindb_save.py",
+        """
+from pathlib import Path
+import lamindb as ln
+import numpy as np
+
+ln.track()
+output_path = Path("./array.npy")
+np.save(output_path, np.array([1, 2, 3]))
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is False
+    assert result.has_lineage_tracking is True
+    assert result.has_external_outputs is True
+    assert any("np.save" in call for call in result.external_output_calls)
+    assert any(
+        "unexpected non-LaminDB output writes detected" in item
+        for item in result.missing_lineage
     )
