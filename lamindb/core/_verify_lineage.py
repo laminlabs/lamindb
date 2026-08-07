@@ -63,6 +63,24 @@ EXTERNAL_OUTPUT_CALL_NAMES = {
     "plt.savefig",
 }
 
+EXTERNAL_OUTPUT_PATH_ARG_POSITIONS = {
+    "numpy.save": 0,
+    "np.save": 0,
+    "numpy.savetxt": 0,
+    "np.savetxt": 0,
+    "matplotlib.pyplot.savefig": 0,
+    "plt.savefig": 0,
+}
+
+EXTERNAL_OUTPUT_PATH_ARG_KEYWORDS = {
+    "numpy.save": {"file"},
+    "np.save": {"file"},
+    "numpy.savetxt": {"fname"},
+    "np.savetxt": {"fname"},
+    "matplotlib.pyplot.savefig": {"fname"},
+    "plt.savefig": {"fname"},
+}
+
 EXTERNAL_OUTPUT_METHOD_NAMES = {
     "to_csv",
     "to_parquet",
@@ -142,6 +160,80 @@ def _summarize_calls(prefix: str, calls: list[str]) -> str:
     return f"{prefix}: {', '.join(calls)}"
 
 
+def _saved_artifact_arg_lines(
+    tree: ast.AST, lamindb_module_aliases: set[str], lamindb_model_aliases: set[str]
+) -> dict[str, list[int]]:
+    saved_arg_lines: dict[str, list[int]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr not in LAMINDB_OUTPUT_METHODS:
+            continue
+
+        artifact_constructor_call = node.func.value
+        if not isinstance(artifact_constructor_call, ast.Call):
+            continue
+        constructor_call_name = _dotted_name(artifact_constructor_call.func)
+        if constructor_call_name is None:
+            continue
+
+        root = _root_name(artifact_constructor_call.func)
+        is_lamindb_artifact_constructor = False
+        if root in lamindb_model_aliases and constructor_call_name.split(".")[-1] == "Artifact":
+            is_lamindb_artifact_constructor = True
+        elif root in lamindb_module_aliases:
+            call_parts = constructor_call_name.split(".")
+            if len(call_parts) > 1 and call_parts[1] == "Artifact":
+                is_lamindb_artifact_constructor = True
+        if not is_lamindb_artifact_constructor or len(artifact_constructor_call.args) == 0:
+            continue
+
+        first_arg = artifact_constructor_call.args[0]
+        if isinstance(first_arg, ast.Name):
+            saved_arg_lines.setdefault(first_arg.id, []).append(node.lineno)
+    return saved_arg_lines
+
+
+def _is_later_saved_path_write(node: ast.Call, saved_artifact_arg_lines: dict[str, list[int]]) -> bool:
+    if not isinstance(node.func, ast.Attribute):
+        return False
+    if node.func.attr not in {"write_text", "write_bytes"}:
+        return False
+    if not isinstance(node.func.value, ast.Name):
+        return False
+
+    candidate_saved_lines = saved_artifact_arg_lines.get(node.func.value.id, [])
+    return any(save_line > node.lineno for save_line in candidate_saved_lines)
+
+
+def _saved_name_argument(
+    node: ast.Call, *, arg_position: int, keyword_names: set[str]
+) -> str | None:
+    if len(node.args) > arg_position and isinstance(node.args[arg_position], ast.Name):
+        return node.args[arg_position].id
+    for keyword in node.keywords:
+        if keyword.arg in keyword_names and isinstance(keyword.value, ast.Name):
+            return keyword.value.id
+    return None
+
+
+def _is_later_saved_external_output_call(
+    node: ast.Call, call_name: str, saved_artifact_arg_lines: dict[str, list[int]]
+) -> bool:
+    arg_position = EXTERNAL_OUTPUT_PATH_ARG_POSITIONS.get(call_name)
+    if arg_position is None:
+        return False
+    path_name = _saved_name_argument(
+        node,
+        arg_position=arg_position,
+        keyword_names=EXTERNAL_OUTPUT_PATH_ARG_KEYWORDS.get(call_name, set()),
+    )
+    if path_name is None:
+        return False
+    candidate_saved_lines = saved_artifact_arg_lines.get(path_name, [])
+    return any(save_line > node.lineno for save_line in candidate_saved_lines)
+
+
 def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
     """Statically verify lineage tracking conventions in a Python script.
 
@@ -189,6 +281,12 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
                 for alias in node.names:
                     if alias.name in LAMINDB_MODEL_NAMES:
                         lamindb_model_aliases.add(alias.asname or alias.name)
+
+    saved_artifact_arg_lines = _saved_artifact_arg_lines(
+        tree=tree,
+        lamindb_module_aliases=lamindb_module_aliases,
+        lamindb_model_aliases=lamindb_model_aliases,
+    )
 
     lineage_calls: list[str] = []
     lamindb_input_calls: list[str] = []
@@ -257,9 +355,15 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
             continue
 
         if call_name in EXTERNAL_OUTPUT_CALL_NAMES:
+            if _is_later_saved_external_output_call(
+                node, call_name, saved_artifact_arg_lines
+            ):
+                continue
             external_output_calls.append(_format_call(call_name, node.lineno))
             continue
         if method_name in EXTERNAL_OUTPUT_METHOD_NAMES:
+            if _is_later_saved_path_write(node, saved_artifact_arg_lines):
+                continue
             external_output_calls.append(_format_call(call_name, node.lineno))
 
     has_lineage_tracking = len(lineage_calls) > 0
