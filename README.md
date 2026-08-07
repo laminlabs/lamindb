@@ -1,6 +1,6 @@
 [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-# LaminDB - Data management for multimodal AI
+# LaminDB - Data management for traceable, multimodal AI
 
 LaminDB is an open-source data management tool that makes it easy to query, trace & govern datasets across diverse storage formats and locations. It gives you context through annotations, memory through lineage, and governance through branching and versioning. It uses a scalable lakehouse architecture that integrates files, tables, arrays, ontologies, and notes. It supports biological data through modules for bio-formats and registries by the creators of Scanpy.
 
@@ -10,6 +10,8 @@ LaminDB is an open-source data management tool that makes it easy to query, trac
 1. Untraceable results cannot be trusted, especially in the age of agents.
 2. Without effective access to multimodal data, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
 3. We want to govern changes to data like we govern changes to code with git.
+
+Especially in life sciences, teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
 
 </details>
 
