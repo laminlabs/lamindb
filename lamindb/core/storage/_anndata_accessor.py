@@ -861,8 +861,12 @@ def _anndata_n_observations(object: AnyPathStr | AnnData) -> int | None:
             if isinstance(elem, ArrayTypes):  # type: ignore
                 n_observations = elem.shape[0]
             else:
-                # assume standard obs group
-                n_observations = elem["codes"].shape[0]
+                # assume group
+                if "codes" in elem:
+                    n_observations = elem["codes"].shape[0]
+                else:
+                    # assumes pandas nullable types
+                    n_observations = elem["values"].shape[0]
         else:
             n_observations = obs.shape[0]
     except Exception as e:
