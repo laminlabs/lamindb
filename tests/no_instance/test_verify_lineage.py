@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from lamindb.core import _verify_lineage as verify_lineage_module
 from lamindb.core import verify_lineage
 
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -139,7 +138,7 @@ ln.Artifact("./out.csv").save()
     assert any("lineage tracking call" in item for item in result.missing_lineage)
 
 
-def test_verify_lineage_negative_external_input_read(tmp_path: Path):
+def test_verify_lineage_positive_external_input_when_script_has_lamindb_io(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
         "external_input.py",
@@ -157,14 +156,12 @@ ln.finish()
 
     result = verify_lineage(script_path)
 
-    assert result.is_fully_tracked is False
+    assert result.is_fully_tracked is True
     assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is True
+    assert result.has_external_inputs is False
     assert result.has_external_outputs is False
-    assert any("pd.read_csv" in call for call in result.external_input_calls)
-    assert any(
-        "unexpected non-LaminDB input reads detected" in item for item in result.missing_lineage
-    )
+    assert result.external_input_calls == ()
+    assert result.missing_lineage == ()
 
 
 def test_verify_lineage_negative_external_output_write(tmp_path: Path):
@@ -272,3 +269,53 @@ ln.finish()
         "unexpected non-LaminDB output writes detected" in item
         for item in result.missing_lineage
     )
+
+
+def test_verify_lineage_positive_open_write_literal_then_lamindb_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "open_write_literal_then_save.py",
+        """
+import lamindb as ln
+
+ln.track()
+with open("out.txt", "w") as f:
+    f.write("external output test\\n")
+ln.Artifact("out.txt", key="tests/external-output/out.txt").save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.has_lineage_tracking is True
+    assert result.has_external_inputs is False
+    assert result.has_external_outputs is False
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_artifact_variable_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "artifact_variable_save.py",
+        """
+from pathlib import Path
+import lamindb as ln
+
+ln.track()
+out_path = Path("out.txt")
+out_path.write_text("external output test\\n")
+artifact = ln.Artifact(out_path, key="tests/external-output/out.txt")
+artifact.save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.has_lineage_tracking is True
+    assert result.has_external_inputs is False
+    assert result.has_external_outputs is False
+    assert result.missing_lineage == ()
