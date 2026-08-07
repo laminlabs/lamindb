@@ -75,8 +75,16 @@ class Reader:
         self._schema: dict[str, dict] = {}
         self._titles: dict[str, dict[str, str]] = {}
 
-    def _call(self, method: str, path: str, body: dict | None = None) -> dict:
-        r = self.s.request(method, f"{BASE}{path}", json=body, timeout=30)
+    def _call(
+        self,
+        method: str,
+        path: str,
+        body: dict | None = None,
+        params: dict | None = None,
+    ) -> dict:
+        r = self.s.request(
+            method, f"{BASE}{path}", json=body, params=params, timeout=30
+        )
         if r.status_code == 401:
             raise PermissionError("Invalid or expired Notion token.")
         if r.status_code == 404:
@@ -133,13 +141,16 @@ class Reader:
         """Return {property_name: notion_type}."""
         return {k: v["type"] for k, v in self.schema(database_id).items()}
 
-    def _query(self, ds: str) -> list[dict]:
-        """Every page in a data source, raw. Paginates until exhausted."""
-        body: dict[str, Any] = {"page_size": 100}
+    def _query(self, ds: str, limit: int | None = None) -> list[dict]:
+        """Pages in a data source, raw. Paginates until exhausted or `limit` reached."""
+        page_size = 100 if limit is None else min(100, max(1, limit))
+        body: dict[str, Any] = {"page_size": page_size}
         pages: list[dict] = []
         while True:
             payload = self._call("POST", f"/data_sources/{ds}/query", body)
             pages.extend(payload.get("results", []))
+            if limit is not None and len(pages) >= limit:
+                return pages[:limit]
             if not payload.get("has_more"):
                 return pages
             body["start_cursor"] = payload["next_cursor"]
@@ -163,6 +174,7 @@ class Reader:
         self,
         database_id: str,
         drop: set[str] | None = None,
+        limit: int | None = None,
     ) -> list[dict]:
         """Every page flattened to a dict.
 
@@ -174,12 +186,14 @@ class Reader:
             database_id: the Notion database ID.
             drop: property names or property types to omit, e.g.
                 {"messages", "created_by"}.
+            limit: stop after this many rows. Useful for sampling a large
+                database without paginating through all of it.
         """
         drop = drop or set()
         ds = self._resolve(database_id)
 
         rows: list[dict] = []
-        for page in self._query(ds):
+        for page in self._query(ds, limit=limit):
             row: dict[str, Any] = {"notion_id": None, "last_edited_time": None}
             for name, prop in page.get("properties", {}).items():
                 if name in drop or prop.get("type") in drop:
@@ -233,6 +247,32 @@ class Reader:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
         return text
+
+    def page_text(self, page_id: str) -> str:
+        """Page body (meeting notes) as plain text. Top-level blocks only.
+
+        Content is separate from properties; this reads block children and joins
+        their rich_text. Nested/toggle children are not descended into.
+        """
+        lines: list[str] = []
+        cursor: str | None = None
+        while True:
+            params: dict[str, Any] = {"page_size": 100}
+            if cursor:
+                params["start_cursor"] = cursor
+            payload = self._call("GET", f"/blocks/{page_id}/children", params=params)
+            for block in payload.get("results", []):
+                t = block.get("type")
+                data = block.get(t)
+                rich = data.get("rich_text") if isinstance(data, dict) else None
+                if rich:
+                    text = "".join(s.get("plain_text", "") for s in rich)
+                    if text:
+                        lines.append(text)
+            if not payload.get("has_more"):
+                break
+            cursor = payload.get("next_cursor")
+        return "\n".join(lines)
 
 
 __all__ = ["Reader"]

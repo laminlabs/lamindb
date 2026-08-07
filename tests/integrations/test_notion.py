@@ -561,3 +561,52 @@ def test_to_json_writes_file(reader, tmp_path):
     out = tmp_path / "out.json"
     reader.to_json("db-1", str(out))
     assert json.loads(out.read_text(encoding="utf-8"))["database_id"] == "db-1"
+
+
+def test_rows_limit_caps_page_size(reader):
+    reader.s.request.side_effect = [
+        _make_response(DB),
+        _make_response(
+            {"results": [{"id": "p1", "properties": {}}], "has_more": False}
+        ),
+    ]
+    reader.rows("db-1", limit=5)
+    assert reader.s.request.call_args_list[1][1]["json"]["page_size"] == 5
+
+
+def test_rows_limit_stops_paginating(reader):
+    big = _make_response(
+        {
+            "results": [{"id": f"p{i}", "properties": {}} for i in range(100)],
+            "has_more": True,
+            "next_cursor": "c",
+        }
+    )
+    reader.s.request.side_effect = [_make_response(DB), big]
+    rows = reader.rows("db-1", limit=100)
+    assert len(rows) == 100
+    assert reader.s.request.call_count == 2  # did not follow the cursor
+
+
+def test_rows_limit_truncates_overshoot(reader):
+    over = _make_response(
+        {
+            "results": [{"id": f"p{i}", "properties": {}} for i in range(3)],
+            "has_more": False,
+        }
+    )
+    reader.s.request.side_effect = [_make_response(DB), over]
+    assert len(reader.rows("db-1", limit=2)) == 2
+
+
+def test_rows_no_limit_paginates_fully(reader):
+    p1 = _make_response(
+        {
+            "results": [{"id": "a", "properties": {}}],
+            "has_more": True,
+            "next_cursor": "c",
+        }
+    )
+    p2 = _make_response({"results": [{"id": "b", "properties": {}}], "has_more": False})
+    reader.s.request.side_effect = [_make_response(DB), p1, p2]
+    assert len(reader.rows("db-1")) == 2
