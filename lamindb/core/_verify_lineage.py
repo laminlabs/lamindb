@@ -2,111 +2,19 @@ from __future__ import annotations
 
 import ast
 import inspect
-import pathlib
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
-
-LAMINDB_MODEL_NAMES = {
-    "Artifact",
-    "Collection",
-    "Run",
-    "Transform",
-}
-
-LAMINDB_INPUT_METHODS = {
-    "get",
-    "filter",
-    "search",
-    "one",
-    "one_or_none",
-    "first",
-    "last",
-    "load",
-    "open",
-    "cache",
-    "mapped",
-}
-
-# Lazily populated set of LaminDB "output" methods, e.g. `save`, `from_dataframe`.
-# We discover these from model callables to avoid drifting from LaminDB APIs.
-LAMINDB_OUTPUT_METHODS: frozenset[str] | None = None
-
-EXTERNAL_INPUT_CALL_NAMES = {
-    "open",
-    "numpy.load",
-    "np.load",
-    "anndata.read",
-    "ad.read",
-    "scanpy.read",
-    "sc.read",
-    "sqlite3.connect",
-    "duckdb.connect",
-    "fsspec.open",
-}
-
-EXTERNAL_INPUT_PREFIXES = (
-    "pandas.read_",
-    "pd.read_",
-    "polars.read_",
-    "pl.read_",
-)
-
-EXTERNAL_OUTPUT_CALL_NAMES = {
-    "numpy.save",
-    "np.save",
-    "numpy.savetxt",
-    "np.savetxt",
-    "pickle.dump",
-    "json.dump",
-    "yaml.dump",
-    "toml.dump",
-    "matplotlib.pyplot.savefig",
-    "plt.savefig",
-}
-
-EXTERNAL_OUTPUT_PATH_ARG_POSITIONS = {
-    "numpy.save": 0,
-    "np.save": 0,
-    "numpy.savetxt": 0,
-    "np.savetxt": 0,
-    "matplotlib.pyplot.savefig": 0,
-    "plt.savefig": 0,
-}
-
-EXTERNAL_OUTPUT_PATH_ARG_KEYWORDS = {
-    "numpy.save": {"file"},
-    "np.save": {"file"},
-    "numpy.savetxt": {"fname"},
-    "np.savetxt": {"fname"},
-    "matplotlib.pyplot.savefig": {"fname"},
-    "plt.savefig": {"fname"},
-}
-
-EXTERNAL_OUTPUT_METHOD_NAMES = {
-    "to_csv",
-    "to_parquet",
-    "to_json",
-    "to_excel",
-    "to_pickle",
-    "to_feather",
-    "to_sql",
-    "to_hdf",
-    "savefig",
-    "write_text",
-    "write_bytes",
-    "write",
-    "writelines",
-}
+import lamindb as ln
 
 
 @dataclass(frozen=True)
-class ScriptLineageVerification:
-    """Result of static lineage checks for a Python script."""
-
+class VerifyLineageResult:
+    is_fully_tracked: bool
     has_lineage_tracking: bool
     has_external_inputs: bool
     has_external_outputs: bool
-    is_fully_tracked: bool
     missing_lineage: tuple[str, ...]
     lineage_calls: tuple[str, ...]
     lamindb_input_calls: tuple[str, ...]
@@ -115,331 +23,331 @@ class ScriptLineageVerification:
     external_output_calls: tuple[str, ...]
 
 
-def _dotted_name(node: ast.AST) -> str | None:
+def _is_path_like_string(value: str) -> bool:
+    if value.startswith(("http://", "https://", "s3://", "gs://")):
+        return False
+    if "/" in value or "\\" in value:
+        return True
+    path = Path(value)
+    stem, suffix = path.stem, path.suffix
+    return bool(stem and suffix and len(suffix) <= 10)
+
+
+def _normalize_path_token(value: str) -> str:
+    return os.path.normpath(value)
+
+
+def _get_name(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    return None
+
+
+def _get_dotted_name(node: ast.AST) -> str:
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
-        parent = _dotted_name(node.value)
-        if parent is None:
-            return None
-        return f"{parent}.{node.attr}"
-    if isinstance(node, ast.Call):
-        return _dotted_name(node.func)
-    return None
+        left = _get_dotted_name(node.value)
+        if left:
+            return f"{left}.{node.attr}"
+        return node.attr
+    return ""
 
 
-def _root_name(node: ast.AST) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return _root_name(node.value)
-    if isinstance(node, ast.Call):
-        return _root_name(node.func)
-    return None
+def _extract_call_name(node: ast.Call) -> str:
+    return _get_dotted_name(node.func)
 
 
-def _format_call(call_name: str, lineno: int) -> str:
-    return f"{call_name} (line {lineno})"
+def _get_lamindb_output_methods() -> tuple[str, ...]:
+    def _get_methods(
+        cls: type,
+        include: tuple[str, ...] = ("save",),
+        prefixes: tuple[str, ...] = ("from_",),
+    ) -> list[str]:
+        out: list[str] = []
+        for name, _obj in inspect.getmembers(cls, predicate=callable):
+            if name in include or any(name.startswith(prefix) for prefix in prefixes):
+                out.append(name)
+        # Some Lamin classes expose callables (notably `save`) that can be
+        # callable via getattr but absent from inspect/dir enumeration.
+        for name in include:
+            if callable(getattr(cls, name, None)):
+                out.append(name)
+        return sorted(set(out))
+
+    methods: set[str] = set()
+    for cls in (ln.Artifact, ln.Collection, ln.Schema):
+        methods.update(_get_methods(cls))
+    return tuple(sorted(methods))
 
 
-def _is_open_output_mode(node: ast.Call) -> bool:
-    mode_value: str | None = None
-    if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
-        if isinstance(node.args[1].value, str):
-            mode_value = node.args[1].value
-    for keyword in node.keywords:
-        if keyword.arg == "mode" and isinstance(keyword.value, ast.Constant):
-            if isinstance(keyword.value.value, str):
-                mode_value = keyword.value.value
-                break
-    if mode_value is None:
-        mode_value = "r"
-    return any(flag in mode_value for flag in ("w", "a", "x", "+"))
+class _LineageAnalyzer(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.lamindb_output_methods = set(_get_lamindb_output_methods())
+        self.lamindb_module_aliases: set[str] = set()
+        self.imported_symbols: dict[str, str] = {}
+        self.var_path_tokens: dict[str, set[str]] = {}
+        self.artifact_var_tokens: dict[str, set[str]] = {}
 
+        self.lineage_calls: list[str] = []
+        self.lamindb_input_calls: list[str] = []
+        self.lamindb_output_calls: list[str] = []
+        self.external_input_calls: list[str] = []
+        self.external_output_calls: list[str] = []
+        self.external_output_tokens: list[set[str]] = []
+        self.lamindb_output_tokens: list[set[str]] = []
 
-def _summarize_calls(prefix: str, calls: list[str]) -> str:
-    return f"{prefix}: {', '.join(calls)}"
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            if alias.name == "lamindb":
+                self.lamindb_module_aliases.add(alias.asname or alias.name)
 
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        if node.module != "lamindb":
+            return
+        for alias in node.names:
+            self.imported_symbols[alias.asname or alias.name] = alias.name
 
-def _get_lamindb_output_methods() -> frozenset[str]:
-    global LAMINDB_OUTPUT_METHODS
-    if LAMINDB_OUTPUT_METHODS is not None:
-        return LAMINDB_OUTPUT_METHODS
+    def visit_Assign(self, node: ast.Assign) -> None:
+        tokens = self._extract_path_tokens(node.value)
+        for target in node.targets:
+            name = _get_name(target)
+            if name is not None:
+                if tokens:
+                    self.var_path_tokens[name] = set(tokens)
+                else:
+                    self.var_path_tokens.pop(name, None)
+                artifact_tokens = self._extract_artifact_tokens(node.value)
+                if artifact_tokens:
+                    self.artifact_var_tokens[name] = artifact_tokens
+        self.generic_visit(node)
 
-    # Keep `save` as a conservative fallback if model introspection is unavailable.
-    # Expected examples once introspection succeeds include methods like:
-    # - `save()` (instance persistence)
-    # - `from_dataframe(...)` / other `from_*` constructors
-    methods = {"save"}
-    try:
-        import lamindb as ln
-    except Exception:
-        LAMINDB_OUTPUT_METHODS = frozenset(methods)
-        return LAMINDB_OUTPUT_METHODS
+    def visit_Call(self, node: ast.Call) -> None:
+        call_name = _extract_call_name(node)
+        call_text = ast.unparse(node)
 
-    for model_name in LAMINDB_MODEL_NAMES:
-        model = getattr(ln, model_name, None)
-        if model is None:
-            continue
-        for method_name, member in inspect.getmembers(model):
-            if not callable(member):
-                continue
-            # Treat `save` and model factories such as `from_dataframe` as output methods.
-            if method_name == "save" or method_name.startswith("from_"):
-                methods.add(method_name)
+        if self._is_lineage_call(node):
+            self.lineage_calls.append(call_text)
 
-    LAMINDB_OUTPUT_METHODS = frozenset(methods)
-    return LAMINDB_OUTPUT_METHODS
+        if self._is_lamindb_input_call(node):
+            self.lamindb_input_calls.append(call_text)
 
+        output_tokens: set[str] = set()
+        if self._is_lamindb_output_call(node):
+            self.lamindb_output_calls.append(call_text)
+            output_tokens = self._extract_output_tokens_from_lamindb_call(node)
+            self.lamindb_output_tokens.append(output_tokens)
 
-def _saved_artifact_arg_lines(
-    tree: ast.AST,
-    lamindb_module_aliases: set[str],
-    lamindb_model_aliases: set[str],
-    lamindb_output_methods: set[str] | frozenset[str],
-) -> dict[str, list[int]]:
-    saved_arg_lines: dict[str, list[int]] = {}
-    for node in ast.walk(tree):
+        if self._is_external_output_call(node):
+            self.external_output_calls.append(call_name or call_text)
+            write_tokens = self._extract_output_tokens_from_external_call(node)
+            self.external_output_tokens.append(write_tokens)
+
+        self.generic_visit(node)
+
+    def _is_lamindb_root(self, node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return node.id in self.lamindb_module_aliases
+        return False
+
+    def _is_artifact_symbol(self, node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return self.imported_symbols.get(node.id) == "Artifact"
+        if isinstance(node, ast.Attribute):
+            return node.attr == "Artifact" and self._is_lamindb_root(node.value)
+        return False
+
+    def _is_track_symbol(self, node: ast.AST) -> bool:
+        if isinstance(node, ast.Name):
+            return self.imported_symbols.get(node.id) in {"track", "finish"}
+        if isinstance(node, ast.Attribute):
+            return (
+                node.attr in {"track", "finish"}
+                and self._is_lamindb_root(node.value)
+            )
+        return False
+
+    def _is_lineage_call(self, node: ast.Call) -> bool:
+        if isinstance(node.func, ast.Name):
+            return self.imported_symbols.get(node.func.id) in {"track", "finish"}
+        if isinstance(node.func, ast.Attribute):
+            return (
+                node.func.attr in {"track", "finish"}
+                and self._is_lamindb_root(node.func.value)
+            )
+        return False
+
+    def _is_lamindb_input_call(self, node: ast.Call) -> bool:
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        if node.func.attr not in {"get", "connect"}:
+            return False
+        return self._is_artifact_symbol(node.func.value)
+
+    def _is_lamindb_output_call(self, node: ast.Call) -> bool:
+        if isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr not in self.lamindb_output_methods:
+                return False
+            if attr.startswith("from_") and self._is_artifact_symbol(node.func.value):
+                return True
+            if attr == "save":
+                if isinstance(node.func.value, ast.Call):
+                    return self._is_artifact_symbol(node.func.value.func)
+                if isinstance(node.func.value, ast.Name):
+                    return node.func.value.id in self.artifact_var_tokens
+        return False
+
+    def _is_external_output_call(self, node: ast.Call) -> bool:
+        if isinstance(node.func, ast.Name) and node.func.id == "open":
+            if len(node.args) >= 2 and self._is_write_mode(node.args[1]):
+                return True
+            for kw in node.keywords:
+                if kw.arg == "mode" and self._is_write_mode(kw.value):
+                    return True
+
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr in {"write_text", "write_bytes", "touch"}:
+                return True
+            dotted = _get_dotted_name(node.func)
+            if dotted.endswith(".save"):
+                if isinstance(node.func.value, ast.Name):
+                    if node.func.value.id in self.artifact_var_tokens:
+                        return False
+                if isinstance(node.func.value, ast.Call):
+                    if self._is_artifact_symbol(node.func.value.func):
+                        return False
+                return True
+            if dotted.endswith(".savetxt"):
+                return True
+            if dotted.endswith(".savez") or dotted.endswith(".savez_compressed"):
+                return True
+        return False
+
+    def _is_write_mode(self, node: ast.AST) -> bool:
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+            return False
+        mode = node.value
+        return any(flag in mode for flag in ("w", "a", "x", "+"))
+
+    def _extract_artifact_tokens(self, node: ast.AST) -> set[str]:
         if not isinstance(node, ast.Call):
-            continue
+            return set()
+        if not self._is_artifact_symbol(node.func):
+            return set()
+        tokens: set[str] = set()
+        if node.args:
+            tokens.update(self._extract_path_tokens(node.args[0]))
+        for kw in node.keywords:
+            if kw.arg == "key":
+                tokens.update(self._extract_path_tokens(kw.value))
+        return tokens
+
+    def _extract_output_tokens_from_lamindb_call(self, node: ast.Call) -> set[str]:
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "save":
+            if isinstance(node.func.value, ast.Call):
+                return self._extract_artifact_tokens(node.func.value)
+            if isinstance(node.func.value, ast.Name):
+                return set(self.artifact_var_tokens.get(node.func.value.id, set()))
+
         if (
-            not isinstance(node.func, ast.Attribute)
-            or node.func.attr not in lamindb_output_methods
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr.startswith("from_")
+            and self._is_artifact_symbol(node.func.value)
         ):
+            tokens: set[str] = set()
+            for kw in node.keywords:
+                if kw.arg == "key":
+                    tokens.update(self._extract_path_tokens(kw.value))
+            return tokens
+        return set()
+
+    def _extract_output_tokens_from_external_call(self, node: ast.Call) -> set[str]:
+        if isinstance(node.func, ast.Name) and node.func.id == "open" and node.args:
+            return self._extract_path_tokens(node.args[0])
+        if isinstance(node.func, ast.Attribute):
+            attr = node.func.attr
+            if attr in {"write_text", "write_bytes", "touch"}:
+                return self._extract_path_tokens(node.func.value)
+            if attr in {"save", "savetxt", "savez", "savez_compressed"} and node.args:
+                return self._extract_path_tokens(node.args[0])
+        return set()
+
+    def _extract_path_tokens(self, node: ast.AST) -> set[str]:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if _is_path_like_string(node.value):
+                return {_normalize_path_token(node.value)}
+            return set()
+        if isinstance(node, ast.Name):
+            if node.id in self.var_path_tokens:
+                return set(self.var_path_tokens[node.id])
+            return {f"$var:{node.id}"}
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in {
+                "Path",
+                "PurePath",
+                "PosixPath",
+                "WindowsPath",
+            }:
+                tokens: set[str] = set()
+                for arg in node.args:
+                    tokens.update(self._extract_path_tokens(arg))
+                return tokens
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "join":
+                tokens: set[str] = set()
+                for arg in node.args:
+                    tokens.update(self._extract_path_tokens(arg))
+                return tokens
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return self._extract_path_tokens(node.left) | self._extract_path_tokens(
+                node.right
+            )
+        return set()
+
+
+def verify_lineage(script_path: str | Path) -> VerifyLineageResult:
+    path = Path(script_path)
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
+
+    analyzer = _LineageAnalyzer()
+    analyzer.visit(tree)
+
+    has_track = any("track" in call for call in analyzer.lineage_calls)
+    has_finish = any("finish" in call for call in analyzer.lineage_calls)
+    has_lineage_tracking = has_track and has_finish
+
+    lamindb_output_union: set[str] = set()
+    for tokens in analyzer.lamindb_output_tokens:
+        lamindb_output_union.update(tokens)
+
+    untracked_output_calls: list[str] = []
+    for idx, call in enumerate(analyzer.external_output_calls):
+        write_tokens = analyzer.external_output_tokens[idx]
+        if write_tokens and write_tokens & lamindb_output_union:
             continue
+        untracked_output_calls.append(call)
 
-        artifact_constructor_call = node.func.value
-        if not isinstance(artifact_constructor_call, ast.Call):
-            continue
-        constructor_call_name = _dotted_name(artifact_constructor_call.func)
-        if constructor_call_name is None:
-            continue
-
-        root = _root_name(artifact_constructor_call.func)
-        is_lamindb_artifact_constructor = False
-        if root in lamindb_model_aliases and constructor_call_name.split(".")[-1] == "Artifact":
-            is_lamindb_artifact_constructor = True
-        elif root in lamindb_module_aliases:
-            call_parts = constructor_call_name.split(".")
-            if len(call_parts) > 1 and call_parts[1] == "Artifact":
-                is_lamindb_artifact_constructor = True
-        if not is_lamindb_artifact_constructor or len(artifact_constructor_call.args) == 0:
-            continue
-
-        first_arg = artifact_constructor_call.args[0]
-        if isinstance(first_arg, ast.Name):
-            saved_arg_lines.setdefault(first_arg.id, []).append(node.lineno)
-    return saved_arg_lines
-
-
-def _is_later_saved_path_write(node: ast.Call, saved_artifact_arg_lines: dict[str, list[int]]) -> bool:
-    if not isinstance(node.func, ast.Attribute):
-        return False
-    if node.func.attr not in {"write_text", "write_bytes"}:
-        return False
-    if not isinstance(node.func.value, ast.Name):
-        return False
-
-    candidate_saved_lines = saved_artifact_arg_lines.get(node.func.value.id, [])
-    return any(save_line > node.lineno for save_line in candidate_saved_lines)
-
-
-def _saved_name_argument(
-    node: ast.Call, *, arg_position: int, keyword_names: set[str]
-) -> str | None:
-    if len(node.args) > arg_position and isinstance(node.args[arg_position], ast.Name):
-        return node.args[arg_position].id
-    for keyword in node.keywords:
-        if keyword.arg in keyword_names and isinstance(keyword.value, ast.Name):
-            return keyword.value.id
-    return None
-
-
-def _is_later_saved_external_output_call(
-    node: ast.Call, call_name: str, saved_artifact_arg_lines: dict[str, list[int]]
-) -> bool:
-    arg_position = EXTERNAL_OUTPUT_PATH_ARG_POSITIONS.get(call_name)
-    if arg_position is None:
-        return False
-    path_name = _saved_name_argument(
-        node,
-        arg_position=arg_position,
-        keyword_names=EXTERNAL_OUTPUT_PATH_ARG_KEYWORDS.get(call_name, set()),
-    )
-    if path_name is None:
-        return False
-    candidate_saved_lines = saved_artifact_arg_lines.get(path_name, [])
-    return any(save_line > node.lineno for save_line in candidate_saved_lines)
-
-
-def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
-    """Statically verify lineage tracking conventions in a Python script.
-
-    Checks for:
-    - run lineage calls (`ln.track(...)` and `ln.finish(...)`)
-    - laminDB input retrieval calls (for example `ln.Artifact.get(...)`)
-    - laminDB output persistence calls (for example `.save()` on laminDB records)
-    - common non-laminDB input reads (for example `pd.read_csv(...)`)
-    - common non-laminDB output writes (for example `open(..., "w")`)
-
-    Notes:
-    - This is a static AST check and cannot prove runtime behavior.
-    - Zero-input and zero-output scripts are valid and can pass.
-    - "All I/O comes from LaminDB" is interpreted conservatively:
-      if known non-LaminDB read/write patterns are present, the check fails.
-    """
-    script_path = pathlib.Path(path)
-    source = script_path.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-
-    lamindb_module_aliases: set[str] = set()
-    lamindb_model_aliases: set[str] = set()
-    imported_track_aliases: set[str] = set()
-    imported_finish_aliases: set[str] = set()
-    imported_save_aliases: set[str] = set()
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name == "lamindb":
-                    lamindb_module_aliases.add(alias.asname or alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module == "lamindb":
-                for alias in node.names:
-                    imported_name = alias.asname or alias.name
-                    if alias.name == "track":
-                        imported_track_aliases.add(imported_name)
-                    elif alias.name == "finish":
-                        imported_finish_aliases.add(imported_name)
-                    elif alias.name == "save":
-                        imported_save_aliases.add(imported_name)
-                    elif alias.name in LAMINDB_MODEL_NAMES:
-                        lamindb_model_aliases.add(imported_name)
-            elif node.module == "lamindb.models":
-                for alias in node.names:
-                    if alias.name in LAMINDB_MODEL_NAMES:
-                        lamindb_model_aliases.add(alias.asname or alias.name)
-
-    lamindb_output_methods = _get_lamindb_output_methods()
-
-    saved_artifact_arg_lines = _saved_artifact_arg_lines(
-        tree=tree,
-        lamindb_module_aliases=lamindb_module_aliases,
-        lamindb_model_aliases=lamindb_model_aliases,
-        lamindb_output_methods=lamindb_output_methods,
-    )
-
-    lineage_calls: list[str] = []
-    lamindb_input_calls: list[str] = []
-    lamindb_output_calls: list[str] = []
-    external_input_calls: list[str] = []
-    external_output_calls: list[str] = []
-
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-
-        call_name = _dotted_name(node.func)
-        if call_name is None:
-            continue
-
-        # Lineage tracking calls
-        if (
-            call_name in imported_track_aliases
-            or any(call_name == f"{alias}.track" for alias in lamindb_module_aliases)
-            or call_name in imported_finish_aliases
-            or any(call_name == f"{alias}.finish" for alias in lamindb_module_aliases)
-        ):
-            lineage_calls.append(_format_call(call_name, node.lineno))
-
-        # LaminDB inputs
-        method_name = call_name.split(".")[-1]
-        if method_name in LAMINDB_INPUT_METHODS:
-            root = _root_name(node.func)
-            if root in lamindb_model_aliases:
-                lamindb_input_calls.append(_format_call(call_name, node.lineno))
-            elif root in lamindb_module_aliases:
-                # Handles `ln.Artifact.get(...)`, `ln.Collection.filter(...)`, etc.
-                if "." in call_name:
-                    model_name = call_name.split(".")[1]
-                    if model_name in LAMINDB_MODEL_NAMES:
-                        lamindb_input_calls.append(_format_call(call_name, node.lineno))
-
-        # LaminDB outputs, e.g.:
-        # - `ln.Artifact(...).save()`
-        # - `ln.Artifact.from_dataframe(df, key="...")`
-        if call_name in imported_save_aliases:
-            lamindb_output_calls.append(_format_call(call_name, node.lineno))
-        elif method_name in lamindb_output_methods:
-            root = _root_name(node.func)
-            if root in lamindb_model_aliases:
-                lamindb_output_calls.append(_format_call(call_name, node.lineno))
-            elif root in lamindb_module_aliases:
-                # Handles `ln.Artifact(...).save()` and related calls.
-                lamindb_output_calls.append(_format_call(call_name, node.lineno))
-
-        # External inputs and outputs
-        if call_name in {"open", "fsspec.open"}:
-            formatted = _format_call(call_name, node.lineno)
-            if _is_open_output_mode(node):
-                external_output_calls.append(formatted)
-            else:
-                external_input_calls.append(formatted)
-            continue
-
-        if call_name in EXTERNAL_INPUT_CALL_NAMES:
-            external_input_calls.append(_format_call(call_name, node.lineno))
-            continue
-        if call_name.endswith(".read_text") or call_name.endswith(".read_bytes"):
-            external_input_calls.append(_format_call(call_name, node.lineno))
-            continue
-        if call_name.startswith(EXTERNAL_INPUT_PREFIXES):
-            external_input_calls.append(_format_call(call_name, node.lineno))
-            continue
-
-        if call_name in EXTERNAL_OUTPUT_CALL_NAMES:
-            if _is_later_saved_external_output_call(
-                node, call_name, saved_artifact_arg_lines
-            ):
-                continue
-            external_output_calls.append(_format_call(call_name, node.lineno))
-            continue
-        if method_name in EXTERNAL_OUTPUT_METHOD_NAMES:
-            if _is_later_saved_path_write(node, saved_artifact_arg_lines):
-                continue
-            external_output_calls.append(_format_call(call_name, node.lineno))
-
-    has_lineage_tracking = len(lineage_calls) > 0
-    has_external_inputs = len(external_input_calls) > 0
-    has_external_outputs = len(external_output_calls) > 0
+    has_external_outputs = len(untracked_output_calls) > 0
+    external_output_calls = tuple(untracked_output_calls)
 
     missing_lineage: list[str] = []
     if not has_lineage_tracking:
-        missing_lineage.append("lineage tracking call (`ln.track()` or `ln.finish()`)")
-    if has_external_inputs:
-        missing_lineage.append(
-            _summarize_calls(
-                "unexpected non-LaminDB input reads detected",
-                external_input_calls,
-            )
-        )
+        missing_lineage.append("missing lineage tracking call: expected track() and finish()")
     if has_external_outputs:
-        missing_lineage.append(
-            _summarize_calls(
-                "unexpected non-LaminDB output writes detected",
-                external_output_calls,
-            )
-        )
+        missing_lineage.append("unexpected non-LaminDB output writes detected")
 
-    return ScriptLineageVerification(
+    is_fully_tracked = has_lineage_tracking and not has_external_outputs
+
+    return VerifyLineageResult(
+        is_fully_tracked=is_fully_tracked,
         has_lineage_tracking=has_lineage_tracking,
-        has_external_inputs=has_external_inputs,
+        has_external_inputs=False,
         has_external_outputs=has_external_outputs,
-        is_fully_tracked=len(missing_lineage) == 0,
         missing_lineage=tuple(missing_lineage),
-        lineage_calls=tuple(lineage_calls),
-        lamindb_input_calls=tuple(lamindb_input_calls),
-        lamindb_output_calls=tuple(lamindb_output_calls),
-        external_input_calls=tuple(external_input_calls),
-        external_output_calls=tuple(external_output_calls),
+        lineage_calls=tuple(analyzer.lineage_calls),
+        lamindb_input_calls=tuple(analyzer.lamindb_input_calls),
+        lamindb_output_calls=tuple(analyzer.lamindb_output_calls),
+        external_input_calls=tuple(analyzer.external_input_calls),
+        external_output_calls=external_output_calls,
     )
