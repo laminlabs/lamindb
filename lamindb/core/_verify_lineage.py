@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import pathlib
 from dataclasses import dataclass
 
@@ -26,9 +27,9 @@ LAMINDB_INPUT_METHODS = {
     "mapped",
 }
 
-LAMINDB_OUTPUT_METHODS = {
-    "save",
-}
+# Lazily populated set of LaminDB "output" methods, e.g. `save`, `from_dataframe`.
+# We discover these from model callables to avoid drifting from LaminDB APIs.
+LAMINDB_OUTPUT_METHODS: frozenset[str] | None = None
 
 EXTERNAL_INPUT_CALL_NAMES = {
     "open",
@@ -160,14 +161,51 @@ def _summarize_calls(prefix: str, calls: list[str]) -> str:
     return f"{prefix}: {', '.join(calls)}"
 
 
+def _get_lamindb_output_methods() -> frozenset[str]:
+    global LAMINDB_OUTPUT_METHODS
+    if LAMINDB_OUTPUT_METHODS is not None:
+        return LAMINDB_OUTPUT_METHODS
+
+    # Keep `save` as a conservative fallback if model introspection is unavailable.
+    # Expected examples once introspection succeeds include methods like:
+    # - `save()` (instance persistence)
+    # - `from_dataframe(...)` / other `from_*` constructors
+    methods = {"save"}
+    try:
+        import lamindb as ln
+    except Exception:
+        LAMINDB_OUTPUT_METHODS = frozenset(methods)
+        return LAMINDB_OUTPUT_METHODS
+
+    for model_name in LAMINDB_MODEL_NAMES:
+        model = getattr(ln, model_name, None)
+        if model is None:
+            continue
+        for method_name, member in inspect.getmembers(model):
+            if not callable(member):
+                continue
+            # Treat `save` and model factories such as `from_dataframe` as output methods.
+            if method_name == "save" or method_name.startswith("from_"):
+                methods.add(method_name)
+
+    LAMINDB_OUTPUT_METHODS = frozenset(methods)
+    return LAMINDB_OUTPUT_METHODS
+
+
 def _saved_artifact_arg_lines(
-    tree: ast.AST, lamindb_module_aliases: set[str], lamindb_model_aliases: set[str]
+    tree: ast.AST,
+    lamindb_module_aliases: set[str],
+    lamindb_model_aliases: set[str],
+    lamindb_output_methods: set[str] | frozenset[str],
 ) -> dict[str, list[int]]:
     saved_arg_lines: dict[str, list[int]] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        if not isinstance(node.func, ast.Attribute) or node.func.attr not in LAMINDB_OUTPUT_METHODS:
+        if (
+            not isinstance(node.func, ast.Attribute)
+            or node.func.attr not in lamindb_output_methods
+        ):
             continue
 
         artifact_constructor_call = node.func.value
@@ -282,10 +320,13 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
                     if alias.name in LAMINDB_MODEL_NAMES:
                         lamindb_model_aliases.add(alias.asname or alias.name)
 
+    lamindb_output_methods = _get_lamindb_output_methods()
+
     saved_artifact_arg_lines = _saved_artifact_arg_lines(
         tree=tree,
         lamindb_module_aliases=lamindb_module_aliases,
         lamindb_model_aliases=lamindb_model_aliases,
+        lamindb_output_methods=lamindb_output_methods,
     )
 
     lineage_calls: list[str] = []
@@ -324,10 +365,12 @@ def verify_lineage(path: str | pathlib.Path) -> ScriptLineageVerification:
                     if model_name in LAMINDB_MODEL_NAMES:
                         lamindb_input_calls.append(_format_call(call_name, node.lineno))
 
-        # LaminDB outputs
+        # LaminDB outputs, e.g.:
+        # - `ln.Artifact(...).save()`
+        # - `ln.Artifact.from_dataframe(df, key="...")`
         if call_name in imported_save_aliases:
             lamindb_output_calls.append(_format_call(call_name, node.lineno))
-        elif method_name in LAMINDB_OUTPUT_METHODS:
+        elif method_name in lamindb_output_methods:
             root = _root_name(node.func)
             if root in lamindb_model_aliases:
                 lamindb_output_calls.append(_format_call(call_name, node.lineno))
