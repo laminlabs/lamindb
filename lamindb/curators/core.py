@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_str_index
+from lamindb.base.dtypes import check_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -807,18 +807,7 @@ class ComponentCurator(Curator):
                     if schema.index._dtype_str.startswith("cat")
                     else schema.index._dtype_str
                 )
-                if index_dtype == "str":
-                    # Same as pandera.Index("str"), but allow empty default RangeIndex
-                    index = pandera.Index(
-                        dtype=None,
-                        checks=pandera.Check(
-                            check_str_index,
-                            element_wise=False,
-                            error="expected series 'None' to have type str",
-                        ),
-                    )
-                else:
-                    index = pandera.Index(index_dtype)
+                index = pandera.Index(index_dtype)
             else:
                 index = None
             if schema.maximal_set:
