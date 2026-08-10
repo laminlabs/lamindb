@@ -81,14 +81,16 @@ class LaminLineageChecker(ast.NodeVisitor):
         # Distinguish LaminDB API calls from ordinary Python calls.
         # Any path referenced inside LaminDB calls is considered lineage-tracked.
         is_lamin_call = self._is_lamindb_call(node, func_name)
+        is_path_constructor_call = self._is_path_constructor_call(node, func_name)
 
         paths = self._extract_paths_from_node(node)
+        is_directory_setup_call = self._is_directory_setup_call(node, func_name)
 
         if is_lamin_call:
             for path in paths:
                 self.tracked_paths.setdefault(path, []).append(lineno)
 
-        else:
+        elif not (is_path_constructor_call or is_directory_setup_call):
             for path in paths:
                 self.untracked_paths.setdefault(path, []).append(lineno)
 
@@ -121,6 +123,19 @@ class LaminLineageChecker(ast.NodeVisitor):
             return True
         return self._is_lamindb_artifact_save_call(node)
 
+    def _is_directory_setup_call(self, node: ast.Call, func_name: str) -> bool:
+        if func_name in {"os.makedirs", "makedirs"}:
+            return True
+        return isinstance(node.func, ast.Attribute) and node.func.attr == "mkdir"
+
+    def _is_path_constructor_call(self, node: ast.Call, func_name: str) -> bool:
+        if func_name in {"Path", "PurePath", "PosixPath", "WindowsPath"}:
+            return True
+        return (
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr in {"Path", "PurePath", "PosixPath", "WindowsPath"}
+        )
+
     def _extract_paths_from_node(self, node: ast.AST) -> set[str]:
         """Extracts paths from string constants, variables, and nested function arguments."""
         paths = set()
@@ -139,11 +154,27 @@ class LaminLineageChecker(ast.NodeVisitor):
             for kw in node.keywords:
                 paths.update(self._extract_paths_from_node(kw.value))
 
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Div)):
+            left_paths = self._extract_paths_from_node(node.left)
+            right_paths = self._extract_paths_from_node(node.right)
+            for left_path in left_paths:
+                for right_path in right_paths:
+                    combined = self._join_paths(left_path, right_path)
+                    if self._is_path_like(combined):
+                        paths.add(combined)
+
         return paths
 
     def _is_path_like(self, s: str) -> bool:
         s = s.strip()
         return bool(s and PATH_PATTERN.match(s))
+
+    def _join_paths(self, left: str, right: str) -> str:
+        left = left.strip()
+        right = right.strip()
+        if left.endswith(("/", "\\")) or right.startswith(("/", "\\")):
+            return f"{left}{right}"
+        return f"{left}/{right}"
 
     def _trace_user_function_call(self, node: ast.Call):
         if not isinstance(node.func, ast.Name):
@@ -226,9 +257,11 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
 
     # Keep only paths that are seen in non-LaminDB calls and never seen in LaminDB calls.
     # These are candidates for missing lineage registration.
+    tracked_path_keys = set(checker.tracked_paths)
     truly_untracked_paths = {
-        p: lines for p, lines in checker.untracked_paths.items()
-        if p not in checker.tracked_paths
+        path: lines
+        for path, lines in checker.untracked_paths.items()
+        if path not in tracked_path_keys
     }
 
     missing_lineage: list[str] = []

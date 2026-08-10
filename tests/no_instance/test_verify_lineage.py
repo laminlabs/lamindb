@@ -336,6 +336,59 @@ def main() -> None:
     assert result.missing_lineage == ()
 
 
+def test_verify_lineage_positive_concatenated_output_path_then_artifact_save(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "concatenated_output_path.py",
+        """
+from pathlib import Path
+import lamindb as ln
+
+ln.track()
+output_dir = Path("outputs/proteomics")
+output_dir.mkdir(parents=True, exist_ok=True)
+output_path = output_dir / "uniprot_human_reviewed.tsv"
+ln.Artifact(
+    output_path,
+    key="datasets/proteomics/uniprot_human_reviewed.tsv",
+    description="UniProt reviewed human proteomics dataset with disulfide annotations",
+).save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_negative_non_mkdir_directory_usage_is_still_untracked(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "non_mkdir_directory_use.py",
+        """
+from pathlib import Path
+import lamindb as ln
+
+def get_path(path: str):
+    print(path)
+
+ln.track()
+output_dir = Path("outputs/proteomics")
+get_path("outputs/proteomics")
+output_path = output_dir / "uniprot_human_reviewed.tsv"
+ln.Artifact(output_path, key="datasets/proteomics/uniprot_human_reviewed.tsv").save()
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is False
+    assert any("outputs/proteomics" in item for item in result.missing_lineage)
+
+
 def test_verify_lineage_missing_file():
     result = verify_lineage("does-not-exist.py")
     assert result.is_fully_tracked is False
