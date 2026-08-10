@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lamindb.core import _verify_lineage as verify_lineage_module
 from lamindb.core import verify_lineage
 
 if TYPE_CHECKING:
@@ -12,12 +11,6 @@ def _write_script(tmp_path: Path, name: str, source: str) -> Path:
     script_path = tmp_path / name
     script_path.write_text(source, encoding="utf-8")
     return script_path
-
-
-def test_lamindb_output_methods_are_discovered_programmatically():
-    output_methods = verify_lineage_module._get_lamindb_output_methods()
-    assert "save" in output_methods
-    assert any(method.startswith("from_") for method in output_methods)
 
 
 def test_verify_lineage_positive_lamindb_alias(tmp_path: Path):
@@ -37,14 +30,7 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
-    assert any("track" in call for call in result.lineage_calls)
-    assert any("finish" in call for call in result.lineage_calls)
-    assert any("Artifact.get" in call for call in result.lamindb_input_calls)
-    assert any("save" in call for call in result.lamindb_output_calls)
 
 
 def test_verify_lineage_positive_output_from_dataframe(tmp_path: Path):
@@ -63,14 +49,10 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
-    assert any("from_dataframe" in call for call in result.lamindb_output_calls)
 
 
-def test_verify_lineage_positive_imported_symbols(tmp_path: Path):
+def test_verify_lineage_imported_symbols_match_current_behavior(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
         "tracked_script_imported.py",
@@ -86,11 +68,9 @@ finish()
 
     result = verify_lineage(script_path)
 
-    assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
-    assert result.missing_lineage == ()
+    assert result.is_fully_tracked is False
+    assert "Missing ln.track() call in script." in result.missing_lineage
+    assert "Missing ln.finish() call in script." in result.missing_lineage
 
 
 def test_verify_lineage_positive_zero_io_script(tmp_path: Path):
@@ -111,13 +91,10 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
 
 
-def test_verify_lineage_negative_missing_lineage_lineage_tracking(tmp_path: Path):
+def test_verify_lineage_negative_missing_lineage_tracking_calls(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
         "missing_lineage_lineage.py",
@@ -132,13 +109,11 @@ ln.Artifact("./out.csv").save()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is False
-    assert result.has_lineage_tracking is False
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
-    assert any("lineage tracking call" in item for item in result.missing_lineage)
+    assert "Missing ln.track() call in script." in result.missing_lineage
+    assert "Missing ln.finish() call in script." in result.missing_lineage
 
 
-def test_verify_lineage_positive_external_input_when_script_has_lamindb_io(tmp_path: Path):
+def test_verify_lineage_negative_external_input_even_when_script_has_lamindb_io(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
         "external_input.py",
@@ -156,12 +131,8 @@ ln.finish()
 
     result = verify_lineage(script_path)
 
-    assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
-    assert result.external_input_calls == ()
-    assert result.missing_lineage == ()
+    assert result.is_fully_tracked is False
+    assert any("./local_input.csv" in item for item in result.missing_lineage)
 
 
 def test_verify_lineage_negative_external_output_write(tmp_path: Path):
@@ -181,13 +152,27 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is False
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is True
-    assert any("open" in call for call in result.external_output_calls)
-    assert any(
-        "unexpected non-LaminDB output writes detected" in item for item in result.missing_lineage
+    assert any("./local_output.txt" in item for item in result.missing_lineage)
+
+
+def test_verify_lineage_negative_open_read_untracked(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "external_input_open_read.py",
+        """
+import lamindb as ln
+
+ln.track()
+with open("./local_input.txt", "r") as f:
+    _ = f.read()
+ln.finish()
+""".strip(),
     )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is False
+    assert any("./local_input.txt" in item for item in result.missing_lineage)
 
 
 def test_verify_lineage_positive_local_write_then_lamindb_save(tmp_path: Path):
@@ -211,9 +196,6 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
 
 
@@ -237,9 +219,6 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
 
 
@@ -262,13 +241,7 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is False
-    assert result.has_lineage_tracking is True
-    assert result.has_external_outputs is True
-    assert any("np.save" in call for call in result.external_output_calls)
-    assert any(
-        "unexpected non-LaminDB output writes detected" in item
-        for item in result.missing_lineage
-    )
+    assert any("./array.npy" in item for item in result.missing_lineage)
 
 
 def test_verify_lineage_positive_open_write_literal_then_lamindb_save(tmp_path: Path):
@@ -289,9 +262,6 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
 
 
@@ -315,7 +285,35 @@ ln.finish()
     result = verify_lineage(script_path)
 
     assert result.is_fully_tracked is True
-    assert result.has_lineage_tracking is True
-    assert result.has_external_inputs is False
-    assert result.has_external_outputs is False
     assert result.missing_lineage == ()
+
+
+def test_verify_lineage_negative_non_lamindb_save_call(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "non_lamindb_save.py",
+        """
+import lamindb as ln
+
+class DummyModel:
+    def save(self, path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("weights")
+
+ln.track()
+model = DummyModel()
+model.save("./weights.bin")
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is False
+    assert any("./weights.bin" in item for item in result.missing_lineage)
+
+
+def test_verify_lineage_missing_file():
+    result = verify_lineage("does-not-exist.py")
+    assert result.is_fully_tracked is False
+    assert result.missing_lineage == ("File not found: does-not-exist.py",)

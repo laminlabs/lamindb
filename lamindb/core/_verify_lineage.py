@@ -1,353 +1,190 @@
-from __future__ import annotations
-
 import ast
-import inspect
-import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import lamindb as ln
+# Path matching regex for URIs, absolute/relative paths, and extensions
+PATH_PATTERN = re.compile(
+    r"^(?:"
+    r"[a-zA-Z0-9]+://"                     # URIs (s3://, gs://, https://)
+    r"|[a-zA-Z]:[\\/]"                     # Windows drive prefix (C:\, D:/)
+    r"|~?[/\\]|\.[\./][/\\]"               # Path prefixes (/, ./, ../, ~/)
+    r")[\w\-\.\s/]+$"                      # Path body
+    r"|^[\w\-\.\s]+[/\\][\w\-\.\s/]*$"     # Directory relative paths with slashes
+    r"|^[\w\-\.\s]+\.[a-zA-Z0-9]{1,10}$"   # Filenames with extensions
+)
 
 
 @dataclass(frozen=True)
 class VerifyLineageResult:
     is_fully_tracked: bool
-    has_lineage_tracking: bool
-    has_external_inputs: bool
-    has_external_outputs: bool
     missing_lineage: tuple[str, ...]
-    lineage_calls: tuple[str, ...]
-    lamindb_input_calls: tuple[str, ...]
-    lamindb_output_calls: tuple[str, ...]
-    external_input_calls: tuple[str, ...]
-    external_output_calls: tuple[str, ...]
 
 
-def _is_path_like_string(value: str) -> bool:
-    if value.startswith(("http://", "https://", "s3://", "gs://")):
-        return False
-    if "/" in value or "\\" in value:
-        return True
-    path = Path(value)
-    stem, suffix = path.stem, path.suffix
-    return bool(stem and suffix and len(suffix) <= 10)
+class LaminLineageChecker(ast.NodeVisitor):
+    def __init__(self):
+        self.tracked_paths: dict[str, list[int]] = {}
+        self.untracked_paths: dict[str, list[int]] = {}
+        self.var_map: dict[str, set[str]] = {}  # var_name -> set of path strings
+        self.artifact_vars: set[str] = set()  # vars assigned from ln.Artifact(...)
+        self.has_track_call: bool = False
+        self.has_finish_call: bool = False
 
+    def visit_Assign(self, node: ast.Assign):
+        """Trace variables assigned to path strings and LaminDB Artifact instances."""
+        paths = self._extract_paths_from_node(node.value)
+        is_artifact_ctor = (
+            isinstance(node.value, ast.Call)
+            and self._is_lamindb_artifact_constructor_call(node.value)
+        )
 
-def _normalize_path_token(value: str) -> str:
-    return os.path.normpath(value)
-
-
-def _get_name(node: ast.AST | None) -> str | None:
-    if isinstance(node, ast.Name):
-        return node.id
-    return None
-
-
-def _get_dotted_name(node: ast.AST) -> str:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        left = _get_dotted_name(node.value)
-        if left:
-            return f"{left}.{node.attr}"
-        return node.attr
-    return ""
-
-
-def _extract_call_name(node: ast.Call) -> str:
-    return _get_dotted_name(node.func)
-
-
-def _get_lamindb_output_methods() -> tuple[str, ...]:
-    def _get_methods(
-        cls: type,
-        include: tuple[str, ...] = ("save",),
-        prefixes: tuple[str, ...] = ("from_",),
-    ) -> list[str]:
-        out: list[str] = []
-        for name, _obj in inspect.getmembers(cls, predicate=callable):
-            if name in include or any(name.startswith(prefix) for prefix in prefixes):
-                out.append(name)
-        # Some Lamin classes expose callables (notably `save`) that can be
-        # callable via getattr but absent from inspect/dir enumeration.
-        for name in include:
-            if callable(getattr(cls, name, None)):
-                out.append(name)
-        return sorted(set(out))
-
-    methods: set[str] = set()
-    for cls in (ln.Artifact, ln.Collection, ln.Schema):
-        methods.update(_get_methods(cls))
-    return tuple(sorted(methods))
-
-
-class _LineageAnalyzer(ast.NodeVisitor):
-    def __init__(self) -> None:
-        self.lamindb_output_methods = set(_get_lamindb_output_methods())
-        self.lamindb_module_aliases: set[str] = set()
-        self.imported_symbols: dict[str, str] = {}
-        self.var_path_tokens: dict[str, set[str]] = {}
-        self.artifact_var_tokens: dict[str, set[str]] = {}
-
-        self.lineage_calls: list[str] = []
-        self.lamindb_input_calls: list[str] = []
-        self.lamindb_output_calls: list[str] = []
-        self.external_input_calls: list[str] = []
-        self.external_output_calls: list[str] = []
-        self.external_output_tokens: list[set[str]] = []
-        self.lamindb_output_tokens: list[set[str]] = []
-
-    def visit_Import(self, node: ast.Import) -> None:
-        for alias in node.names:
-            if alias.name == "lamindb":
-                self.lamindb_module_aliases.add(alias.asname or alias.name)
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module != "lamindb":
-            return
-        for alias in node.names:
-            self.imported_symbols[alias.asname or alias.name] = alias.name
-
-    def visit_Assign(self, node: ast.Assign) -> None:
-        tokens = self._extract_path_tokens(node.value)
         for target in node.targets:
-            name = _get_name(target)
-            if name is not None:
-                if tokens:
-                    self.var_path_tokens[name] = set(tokens)
+            if isinstance(target, ast.Name):
+                if paths:
+                    self.var_map[target.id] = paths
                 else:
-                    self.var_path_tokens.pop(name, None)
-                artifact_tokens = self._extract_artifact_tokens(node.value)
-                if artifact_tokens:
-                    self.artifact_var_tokens[name] = artifact_tokens
-        self.generic_visit(node)
-
-    def visit_Call(self, node: ast.Call) -> None:
-        call_name = _extract_call_name(node)
-        call_text = ast.unparse(node)
-
-        if self._is_lineage_call(node):
-            self.lineage_calls.append(call_text)
-
-        if self._is_lamindb_input_call(node):
-            self.lamindb_input_calls.append(call_text)
-
-        output_tokens: set[str] = set()
-        if self._is_lamindb_output_call(node):
-            self.lamindb_output_calls.append(call_text)
-            output_tokens = self._extract_output_tokens_from_lamindb_call(node)
-            self.lamindb_output_tokens.append(output_tokens)
-
-        if self._is_external_output_call(node):
-            self.external_output_calls.append(call_name or call_text)
-            write_tokens = self._extract_output_tokens_from_external_call(node)
-            self.external_output_tokens.append(write_tokens)
+                    self.var_map.pop(target.id, None)
+                if is_artifact_ctor:
+                    self.artifact_vars.add(target.id)
+                else:
+                    self.artifact_vars.discard(target.id)
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                for elt in target.elts:
+                    if isinstance(elt, ast.Name):
+                        if paths:
+                            self.var_map[elt.id] = paths
+                        else:
+                            self.var_map.pop(elt.id, None)
+                        if is_artifact_ctor:
+                            self.artifact_vars.add(elt.id)
+                        else:
+                            self.artifact_vars.discard(elt.id)
 
         self.generic_visit(node)
 
-    def _is_lamindb_root(self, node: ast.AST) -> bool:
+    def visit_Call(self, node: ast.Call):
+        func_name = self._get_func_name(node.func)
+        lineno = getattr(node, "lineno", 0)
+
+        # 1. Flag global track initialization
+        if func_name in ("ln.track", "lamindb.track"):
+            self.has_track_call = True
+        if func_name in ("ln.finish", "lamindb.finish"):
+            self.has_finish_call = True
+
+        # 2. Identify LaminDB API operations
+        is_lamin_call = self._is_lamindb_call(node, func_name)
+
+        paths = self._extract_paths_from_node(node)
+
+        if is_lamin_call:
+            for path in paths:
+                self.tracked_paths.setdefault(path, []).append(lineno)
+
+        else:
+            for path in paths:
+                self.untracked_paths.setdefault(path, []).append(lineno)
+
+        self.generic_visit(node)
+
+    def _get_func_name(self, node: ast.AST) -> str:
+        """Recursively resolves AST attribute names (e.g. ln.Artifact.get)."""
         if isinstance(node, ast.Name):
-            return node.id in self.lamindb_module_aliases
-        return False
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            return f"{self._get_func_name(node.value)}.{node.attr}"
+        return ""
 
-    def _is_artifact_symbol(self, node: ast.AST) -> bool:
-        if isinstance(node, ast.Name):
-            return self.imported_symbols.get(node.id) == "Artifact"
-        if isinstance(node, ast.Attribute):
-            return node.attr == "Artifact" and self._is_lamindb_root(node.value)
-        return False
+    def _is_lamindb_artifact_constructor_call(self, node: ast.Call) -> bool:
+        func_name = self._get_func_name(node.func)
+        return func_name in ("ln.Artifact", "lamindb.Artifact")
 
-    def _is_track_symbol(self, node: ast.AST) -> bool:
-        if isinstance(node, ast.Name):
-            return self.imported_symbols.get(node.id) in {"track", "finish"}
-        if isinstance(node, ast.Attribute):
-            return (
-                node.attr in {"track", "finish"}
-                and self._is_lamindb_root(node.value)
-            )
-        return False
-
-    def _is_lineage_call(self, node: ast.Call) -> bool:
-        if isinstance(node.func, ast.Name):
-            return self.imported_symbols.get(node.func.id) in {"track", "finish"}
-        if isinstance(node.func, ast.Attribute):
-            return (
-                node.func.attr in {"track", "finish"}
-                and self._is_lamindb_root(node.func.value)
-            )
-        return False
-
-    def _is_lamindb_input_call(self, node: ast.Call) -> bool:
-        if not isinstance(node.func, ast.Attribute):
+    def _is_lamindb_artifact_save_call(self, node: ast.Call) -> bool:
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "save"):
             return False
-        if node.func.attr not in {"get", "connect"}:
-            return False
-        return self._is_artifact_symbol(node.func.value)
-
-    def _is_lamindb_output_call(self, node: ast.Call) -> bool:
-        if isinstance(node.func, ast.Attribute):
-            attr = node.func.attr
-            if attr not in self.lamindb_output_methods:
-                return False
-            if attr.startswith("from_") and self._is_artifact_symbol(node.func.value):
-                return True
-            if attr == "save":
-                if isinstance(node.func.value, ast.Call):
-                    return self._is_artifact_symbol(node.func.value.func)
-                if isinstance(node.func.value, ast.Name):
-                    return node.func.value.id in self.artifact_var_tokens
+        if isinstance(node.func.value, ast.Call):
+            return self._is_lamindb_artifact_constructor_call(node.func.value)
+        if isinstance(node.func.value, ast.Name):
+            return node.func.value.id in self.artifact_vars
         return False
 
-    def _is_external_output_call(self, node: ast.Call) -> bool:
-        if isinstance(node.func, ast.Name) and node.func.id == "open":
-            if len(node.args) >= 2 and self._is_write_mode(node.args[1]):
-                return True
-            for kw in node.keywords:
-                if kw.arg == "mode" and self._is_write_mode(kw.value):
-                    return True
+    def _is_lamindb_call(self, node: ast.Call, func_name: str) -> bool:
+        if func_name.startswith(("ln.", "lamindb.")):
+            return True
+        return self._is_lamindb_artifact_save_call(node)
 
-        if isinstance(node.func, ast.Attribute):
-            if node.func.attr in {"write_text", "write_bytes", "touch"}:
-                return True
-            dotted = _get_dotted_name(node.func)
-            if dotted.endswith(".save"):
-                if isinstance(node.func.value, ast.Name):
-                    if node.func.value.id in self.artifact_var_tokens:
-                        return False
-                if isinstance(node.func.value, ast.Call):
-                    if self._is_artifact_symbol(node.func.value.func):
-                        return False
-                return True
-            if dotted.endswith(".savetxt"):
-                return True
-            if dotted.endswith(".savez") or dotted.endswith(".savez_compressed"):
-                return True
-        return False
+    def _extract_paths_from_node(self, node: ast.AST) -> set[str]:
+        """Extracts paths from string constants, variables, and nested function arguments."""
+        paths = set()
 
-    def _is_write_mode(self, node: ast.AST) -> bool:
-        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
-            return False
-        mode = node.value
-        return any(flag in mode for flag in ("w", "a", "x", "+"))
-
-    def _extract_artifact_tokens(self, node: ast.AST) -> set[str]:
-        if not isinstance(node, ast.Call):
-            return set()
-        if not self._is_artifact_symbol(node.func):
-            return set()
-        tokens: set[str] = set()
-        if node.args:
-            tokens.update(self._extract_path_tokens(node.args[0]))
-        for kw in node.keywords:
-            if kw.arg == "key":
-                tokens.update(self._extract_path_tokens(kw.value))
-        return tokens
-
-    def _extract_output_tokens_from_lamindb_call(self, node: ast.Call) -> set[str]:
-        if isinstance(node.func, ast.Attribute) and node.func.attr == "save":
-            if isinstance(node.func.value, ast.Call):
-                return self._extract_artifact_tokens(node.func.value)
-            if isinstance(node.func.value, ast.Name):
-                return set(self.artifact_var_tokens.get(node.func.value.id, set()))
-
-        if (
-            isinstance(node.func, ast.Attribute)
-            and node.func.attr.startswith("from_")
-            and self._is_artifact_symbol(node.func.value)
-        ):
-            tokens: set[str] = set()
-            for kw in node.keywords:
-                if kw.arg == "key":
-                    tokens.update(self._extract_path_tokens(kw.value))
-            return tokens
-        return set()
-
-    def _extract_output_tokens_from_external_call(self, node: ast.Call) -> set[str]:
-        if isinstance(node.func, ast.Name) and node.func.id == "open" and node.args:
-            return self._extract_path_tokens(node.args[0])
-        if isinstance(node.func, ast.Attribute):
-            attr = node.func.attr
-            if attr in {"write_text", "write_bytes", "touch"}:
-                return self._extract_path_tokens(node.func.value)
-            if attr in {"save", "savetxt", "savez", "savez_compressed"} and node.args:
-                return self._extract_path_tokens(node.args[0])
-        return set()
-
-    def _extract_path_tokens(self, node: ast.AST) -> set[str]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if _is_path_like_string(node.value):
-                return {_normalize_path_token(node.value)}
-            return set()
-        if isinstance(node, ast.Name):
-            if node.id in self.var_path_tokens:
-                return set(self.var_path_tokens[node.id])
-            return {f"$var:{node.id}"}
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name) and node.func.id in {
-                "Path",
-                "PurePath",
-                "PosixPath",
-                "WindowsPath",
-            }:
-                tokens: set[str] = set()
-                for arg in node.args:
-                    tokens.update(self._extract_path_tokens(arg))
-                return tokens
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "join":
-                tokens: set[str] = set()
-                for arg in node.args:
-                    tokens.update(self._extract_path_tokens(arg))
-                return tokens
-        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-            return self._extract_path_tokens(node.left) | self._extract_path_tokens(
-                node.right
-            )
-        return set()
+            if self._is_path_like(node.value):
+                paths.add(node.value)
+
+        elif isinstance(node, ast.Name):
+            if node.id in self.var_map:
+                paths.update(self.var_map[node.id])
+
+        elif isinstance(node, ast.Call):
+            for arg in node.args:
+                paths.update(self._extract_paths_from_node(arg))
+            for kw in node.keywords:
+                paths.update(self._extract_paths_from_node(kw.value))
+
+        return paths
+
+    def _is_path_like(self, s: str) -> bool:
+        s = s.strip()
+        return bool(s and PATH_PATTERN.match(s))
 
 
-def verify_lineage(script_path: str | Path) -> VerifyLineageResult:
+def verify_lineage(script_path: str) -> VerifyLineageResult:
     path = Path(script_path)
-    source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=str(path))
+    if not path.is_file():
+        return VerifyLineageResult(
+            is_fully_tracked=False,
+            missing_lineage=(f"File not found: {script_path}",),
+        )
 
-    analyzer = _LineageAnalyzer()
-    analyzer.visit(tree)
+    with open(path, encoding="utf-8") as f:
+        source_code = f.read()
 
-    has_track = any("track" in call for call in analyzer.lineage_calls)
-    has_finish = any("finish" in call for call in analyzer.lineage_calls)
-    has_lineage_tracking = has_track and has_finish
+    try:
+        tree = ast.parse(source_code, filename=script_path)
+    except SyntaxError as e:
+        return VerifyLineageResult(
+            is_fully_tracked=False,
+            missing_lineage=(f"Syntax error while parsing {script_path}: {e}",),
+        )
 
-    lamindb_output_union: set[str] = set()
-    for tokens in analyzer.lamindb_output_tokens:
-        lamindb_output_union.update(tokens)
+    checker = LaminLineageChecker()
+    checker.visit(tree)
 
-    untracked_output_calls: list[str] = []
-    for idx, call in enumerate(analyzer.external_output_calls):
-        write_tokens = analyzer.external_output_tokens[idx]
-        if write_tokens and write_tokens & lamindb_output_union:
-            continue
-        untracked_output_calls.append(call)
-
-    has_external_outputs = len(untracked_output_calls) > 0
-    external_output_calls = tuple(untracked_output_calls)
+    # Reconciliation Logic:
+    # Untracked operations: path operations never tracked/registered with LaminDB
+    truly_untracked_paths = {
+        p: lines for p, lines in checker.untracked_paths.items()
+        if p not in checker.tracked_paths
+    }
 
     missing_lineage: list[str] = []
-    if not has_lineage_tracking:
-        missing_lineage.append("missing lineage tracking call: expected track() and finish()")
-    if has_external_outputs:
-        missing_lineage.append("unexpected non-LaminDB output writes detected")
 
-    is_fully_tracked = has_lineage_tracking and not has_external_outputs
+    # 1. Global tracking call check
+    if not checker.has_track_call:
+        missing_lineage.append("Missing ln.track() call in script.")
 
+    if not checker.has_finish_call:
+        missing_lineage.append("Missing ln.finish() call in script.")
+
+    if truly_untracked_paths:
+        for fname, lines in sorted(truly_untracked_paths.items()):
+            lines_str = ", ".join(f"line {l}" for l in lines)
+            missing_lineage.append(f"File not tracked in lamindb: {fname} ({lines_str})")
+
+
+    is_fully_tracked = not missing_lineage
     return VerifyLineageResult(
         is_fully_tracked=is_fully_tracked,
-        has_lineage_tracking=has_lineage_tracking,
-        has_external_inputs=False,
-        has_external_outputs=has_external_outputs,
         missing_lineage=tuple(missing_lineage),
-        lineage_calls=tuple(analyzer.lineage_calls),
-        lamindb_input_calls=tuple(analyzer.lamindb_input_calls),
-        lamindb_output_calls=tuple(analyzer.lamindb_output_calls),
-        external_input_calls=tuple(analyzer.external_input_calls),
-        external_output_calls=external_output_calls,
     )
+
