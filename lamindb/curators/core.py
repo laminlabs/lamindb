@@ -799,17 +799,25 @@ class ComponentCurator(Curator):
                         or feature.uid != schema._index_feature_uid
                     ):
                         categoricals.append(feature)
-            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-            # so, we're typing it as `str` here
+            # For str indexes, avoid pandera.Index("str") (maps to string[pyarrow]) and use the
+            # same flexible str check as columns. Categorical index features are checked as str.
             if schema.index is not None:
                 index_dtype = (
                     "str"
                     if schema.index._dtype_str.startswith("cat")
                     else schema.index._dtype_str
                 )
-                # pandera maps "str" to string[pyarrow]; coerce so empty RangeIndex /
-                # object indexes from exports still validate on pandas 3+
-                index = pandera.Index(index_dtype, coerce=index_dtype == "str")
+                if index_dtype == "str":
+                    index = pandera.Index(
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_dtype("str", nullable=True),
+                            element_wise=False,
+                            error="Index failed dtype check for 'str'",
+                        ),
+                    )
+                else:
+                    index = pandera.Index(index_dtype)
             else:
                 index = None
             if schema.maximal_set:
