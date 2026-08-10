@@ -17,6 +17,28 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
     return False
 
 
+def _check_pandera_str(series) -> bool:
+    """Pandera ``str`` check (dtype + values). Rejects mixed object columns/indexes."""
+    from pandera.engines import pandas_engine
+
+    result = pandas_engine.Engine.dtype("str").check(series.dtype, series)
+    if isinstance(result, bool):
+        return result
+    return bool(all(result))
+
+
+def check_str_index(series) -> bool:
+    """Same as ``pandera.Index("str")``, but empty indexes are allowed.
+
+    Empty DataFrame exports keep a default ``RangeIndex`` (``int64``). Non-empty
+    indexes use pandera's ``str`` engine check (dtype + values), so mixed object
+    indexes still fail.
+    """
+    if len(series) == 0:
+        return True
+    return _check_pandera_str(series)
+
+
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
@@ -44,15 +66,15 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             return True
         elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
             return True
-        elif expected_type == "str" and (
-            pd.api.types.is_string_dtype(series.dtype)
-            # pandas 2 / AnnData often store str obs as string-valued categoricals
-            or (
-                isinstance(series.dtype, pd.CategoricalDtype)
-                and pd.api.types.is_string_dtype(series.dtype.categories.dtype)
-            )
-        ):
-            return True
+        elif expected_type == "str":
+            # pandera maps "str" → string[pyarrow]; use its value-aware check so
+            # object columns of strings pass but mixed object columns fail.
+            # AnnData often stores str obs as string-valued categoricals.
+            if isinstance(
+                series.dtype, pd.CategoricalDtype
+            ) and pd.api.types.is_string_dtype(series.dtype.categories.dtype):
+                return True
+            return _check_pandera_str(series)
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
         elif expected_type == "url" and pd.api.types.is_string_dtype(series.dtype):
