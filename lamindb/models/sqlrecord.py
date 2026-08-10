@@ -610,7 +610,7 @@ def get_branch_id_for_create(
 
 
 def suggest_records_with_similar_names(
-    record: SQLRecord, name_field: str, kwargs
+    record: SQLRecord, name_field: str, kwargs, type_explicitly_passed: bool = True
 ) -> SQLRecord | None:
     """Returns a record if found exact match, otherwise None.
 
@@ -624,16 +624,21 @@ def suggest_records_with_similar_names(
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
-        if "type" not in kwargs:
-            # primary: search root-level (preserves existing behavior)
+        if not type_explicitly_passed:
+            # no type= passed by user: primary search root-level (preserves existing behavior)
             subset = record.__class__.filter(type__isnull=True)
             exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
             if exact_match is not None:
                 return exact_match
-            # fallback: search across all type contexts to catch typed records
+            # fallback exact match: search across all type contexts to catch typed records
             # with the same name and avoid silent duplicate creation
-            subset = record.__class__
-        elif kwargs["type"] is None:
+            # subset stays root-level for the fuzzy similarity search below (avoid noise)
+            fallback_match = record.__class__.filter(
+                **{name_field: kwargs[name_field]}
+            ).first()
+            if fallback_match is not None:
+                return fallback_match
+        elif kwargs.get("type") is None:
             # explicit type=None → always create new at root, skip dedup
             if not kwargs.get("is_type", False):
                 logger.warning(
@@ -1236,6 +1241,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from .collection import Collection
                 from .transform import Transform
 
+                # capture user intent before validate_fields may add type=None
+                type_explicitly_passed = isinstance(self, HasType) and (
+                    "type" in kwargs or "type_id" in kwargs
+                )
                 validate_fields(self, kwargs)
 
                 # do not search for names if an id is passed; this is important
@@ -1255,7 +1264,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     name_field = getattr(self, "_name_field", "name")
                     exact_match = suggest_records_with_similar_names(
-                        self, name_field, kwargs
+                        self, name_field, kwargs, type_explicitly_passed
                     )
                     if exact_match is not None:
                         if "version_tag" in kwargs:
