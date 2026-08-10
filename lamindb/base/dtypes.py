@@ -17,26 +17,46 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
     return False
 
 
-def _check_pandera_str(series) -> bool:
-    """Pandera ``str`` check (dtype + values). Rejects mixed object columns/indexes."""
+def check_pandera_str(series) -> bool:
+    """Validate a series/index as lamin ``str``, matching pandas 2 pandera results.
+
+    Pandera maps ``Column("str")`` differently by pandas version:
+
+    - pandas 2: ``NpString`` — default strings are ``object``
+    - pandas 3: ``STRING`` / ``string[pyarrow]`` — default strings are ``str``
+
+    Target results (pandas 2 ``Column("str")``):
+
+    - ``object`` all-str → accept
+    - ``object`` mixed → reject (elementwise)
+    - ``object`` empty → accept
+    - ``string`` / ``string[pyarrow]`` → accept
+    - string ``category`` → accept
+    - ``int64`` / other → reject
+
+    On pandas 3, bare ``Engine.dtype("str").check`` already matches all-str /
+    mixed ``object`` and string dtypes, but rejects empty ``object`` and
+    ``category``. Those two cases are handled explicitly below.
+    """
+    import pandas as pd
     from pandera.engines import pandas_engine
 
+    # any empty series: pandas 2 NpString accepts vacuously (incl. empty int64);
+    # pandas 3 STRING rejects empty object/int. also covers empty export RangeIndex
+    if len(series) == 0:
+        return True
+    # string category: accept on pandas 2 (elementwise), reject on pandas 3 STRING.
+    # AnnData often stores str obs as categorical
+    if isinstance(series.dtype, pd.CategoricalDtype):
+        return all(isinstance(x, str) for x in series.dtype.categories)
+
+    # pandas 2 and 3 agree here: string dtypes accept; object is checked
+    # elementwise (all-str accept, mixed reject)
     result = pandas_engine.Engine.dtype("str").check(series.dtype, series)
+    # object dtype → iterable of bools; string dtypes → scalar bool
     if isinstance(result, bool):
         return result
     return bool(all(result))
-
-
-def check_str_index(series) -> bool:
-    """Same as ``pandera.Index("str")``, but empty indexes are allowed.
-
-    Empty DataFrame exports keep a default ``RangeIndex`` (``int64``). Non-empty
-    indexes use pandera's ``str`` engine check (dtype + values), so mixed object
-    indexes still fail.
-    """
-    if len(series) == 0:
-        return True
-    return _check_pandera_str(series)
 
 
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
@@ -67,13 +87,7 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
         elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
             return True
         elif expected_type == "str":
-            # pandera maps "str" → string[pyarrow]; use its value-aware check so
-            # object columns of strings pass but mixed object columns fail.
-            # AnnData often stores str obs as categoricals; pandera rejects
-            # category dtype, so validate the categories as object instead.
-            if isinstance(series.dtype, pd.CategoricalDtype):
-                return _check_pandera_str(series.dtype.categories)
-            return _check_pandera_str(series)
+            return check_pandera_str(series)
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
         elif expected_type == "url" and pd.api.types.is_string_dtype(series.dtype):

@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_str_index
+from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -729,9 +729,8 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
-                # "str" uses check_dtype instead of pandera.Column("str"): on pandas 3,
-                # pandera maps "str" to string[pyarrow], but object / string[python] /
-                # string-valued categoricals (AnnData obs) also need to validate
+                # "str" via check_dtype/check_pandera_str: keep pandas 2
+                # Column("str") results on pandas 3 (see check_pandera_str)
                 elif dtype_str in {
                     "int",
                     "float",
@@ -808,11 +807,11 @@ class ComponentCurator(Curator):
                     else schema.index._dtype_str
                 )
                 if index_dtype == "str":
-                    # Same as pandera.Index("str"), but allow empty default RangeIndex
+                    # same str rules as columns (incl. empty default RangeIndex)
                     index = pandera.Index(
                         dtype=None,
                         checks=pandera.Check(
-                            check_str_index,
+                            check_pandera_str,
                             element_wise=False,
                             error="expected series 'None' to have type str",
                         ),
