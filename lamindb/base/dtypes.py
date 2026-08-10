@@ -69,11 +69,10 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
         elif expected_type == "str":
             # pandera maps "str" → string[pyarrow]; use its value-aware check so
             # object columns of strings pass but mixed object columns fail.
-            # AnnData often stores str obs as string-valued categoricals.
-            if isinstance(
-                series.dtype, pd.CategoricalDtype
-            ) and pd.api.types.is_string_dtype(series.dtype.categories.dtype):
-                return True
+            # AnnData often stores str obs as categoricals; pandera rejects
+            # category dtype, so validate the categories as object instead.
+            if isinstance(series.dtype, pd.CategoricalDtype):
+                return _check_pandera_str(series.dtype.categories)
             return _check_pandera_str(series)
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
