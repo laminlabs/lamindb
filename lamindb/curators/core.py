@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype
+from lamindb.base.dtypes import check_dtype, check_str_index
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -799,8 +799,8 @@ class ComponentCurator(Curator):
                         or feature.uid != schema._index_feature_uid
                     ):
                         categoricals.append(feature)
-            # For str indexes, avoid pandera.Index("str") (maps to string[pyarrow]) and use the
-            # same flexible str check as columns. Categorical index features are checked as str.
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
             if schema.index is not None:
                 index_dtype = (
                     "str"
@@ -808,10 +808,14 @@ class ComponentCurator(Curator):
                     else schema.index._dtype_str
                 )
                 if index_dtype == "str":
+                    # Custom check instead of pandera.Index("str"): empty DataFrame exports
+                    # keep a default int64 RangeIndex, which fails pandera's strict
+                    # string[pyarrow] typing. check_str_index allows empty indexes and
+                    # applies the same str dtype rule when non-empty.
                     index = pandera.Index(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype("str", nullable=True),
+                            check_str_index,
                             element_wise=False,
                             error="Index failed dtype check for 'str'",
                         ),
