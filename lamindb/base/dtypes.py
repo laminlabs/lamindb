@@ -18,25 +18,25 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
 
 
 def check_pandera_str(series) -> bool:
-    """Validate a series/index as lamin ``str``, matching pandas 2 pandera results.
+    """Validate a series/index as lamin `str`, matching pandas 2 pandera results.
 
-    Pandera maps ``Column("str")`` differently by pandas version:
+    Pandera maps `Column("str")` differently by pandas version:
 
-    - pandas 2: ``NpString`` — default strings are ``object``
-    - pandas 3: ``STRING`` / ``string[pyarrow]`` — default strings are ``str``
+    - pandas 2: `NpString` — default strings are `object`
+    - pandas 3: `STRING` / `string[pyarrow]` — default strings are `str`
 
-    Target results (pandas 2 ``Column("str")``):
+    Target results (pandas 2 `Column("str")`):
 
-    - ``object`` all-str → accept
-    - ``object`` mixed → reject (elementwise)
-    - ``object`` empty → accept
-    - ``string`` / ``string[pyarrow]`` → accept
-    - string ``category`` → accept
-    - ``int64`` / other → reject
+    - `object` all-str → accept
+    - `object` mixed → reject (elementwise)
+    - `object` empty → accept
+    - `string` / `string[pyarrow]` → accept
+    - string `category` → accept
+    - `int64` / other → reject
 
-    On pandas 3, bare ``Engine.dtype("str").check`` already matches all-str /
-    mixed ``object`` and string dtypes, but rejects empty ``object`` and
-    ``category``. Those two cases are handled explicitly below.
+    On pandas 3, bare `Engine.dtype("str").check` already matches all-str /
+    mixed `object` and string dtypes, but rejects empty `object` and
+    `category`. Those two cases are handled explicitly below.
     """
     import pandas as pd
     from pandera.engines import pandas_engine
