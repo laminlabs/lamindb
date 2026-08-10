@@ -772,6 +772,8 @@ class ComponentCurator(Curator):
                     )
                 else:
                     if dtype_str == "datetime64[ns, UTC]":
+                        # pandas 3 defaults tz-aware datetimes to datetime64[us, UTC];
+                        # pandera's DateTime still expects datetime64[ns, UTC]
                         pandera_dtype = pandas_engine.DateTime(
                             time_zone_agnostic=True,
                             tz="UTC" if feature.coerce else None,
