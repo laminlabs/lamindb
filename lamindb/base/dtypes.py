@@ -44,7 +44,14 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             return True
         elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
             return True
-        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
+        elif expected_type == "str" and (
+            pd.api.types.is_string_dtype(series.dtype)
+            # pandas 2 / AnnData often store str obs as string-valued categoricals
+            or (
+                isinstance(series.dtype, pd.CategoricalDtype)
+                and pd.api.types.is_string_dtype(series.dtype.categories.dtype)
+            )
+        ):
             return True
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True

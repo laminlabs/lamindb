@@ -729,9 +729,9 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
-                # "str" uses check_dtype instead of pandera.Column("str"): on pandas 3,
-                # pandera maps "str" to string[pyarrow], but empty/export frames often
-                # still have object columns
+                # "str" uses check_dtype instead of pandera.Column("str") so we can
+                # accept both plain string/object columns (pandas 3 / exports) and
+                # string-valued categoricals (pandas 2 / AnnData obs)
                 elif dtype_str in {
                     "int",
                     "float",
