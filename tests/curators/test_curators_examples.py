@@ -304,7 +304,7 @@ def test_dataframe_curator_index():
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert "Index failed dtype check for 'str'" in error.exconly()
+    assert "expected series 'None' to have type str" in error.exconly()
 
     schema.delete(permanent=True)
     feature.delete(permanent=True)

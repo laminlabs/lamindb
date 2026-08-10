@@ -18,10 +18,10 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
 
 
 def check_str_index(series) -> bool:
-    """Validate a DataFrame index as pandera ``str``, allowing empty indexes.
+    """Same as ``pandera.Index("str")``, but empty indexes are allowed.
 
-    Empty exports keep a default ``RangeIndex`` (``int64``); non-empty indexes must
-    match pandera's ``str`` dtype (e.g. ``string[pyarrow]`` on pandas 3).
+    Empty DataFrame exports keep a default ``RangeIndex`` (``int64``). Non-empty
+    indexes use pandera's ``str`` engine check (the pre-existing Index("str") rule).
     """
     from pandera.engines import pandas_engine
 

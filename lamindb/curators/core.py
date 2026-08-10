@@ -808,16 +808,13 @@ class ComponentCurator(Curator):
                     else schema.index._dtype_str
                 )
                 if index_dtype == "str":
-                    # Custom check instead of pandera.Index("str"): empty DataFrame exports
-                    # keep a default int64 RangeIndex, which fails pandera's strict
-                    # string[pyarrow] typing. check_str_index allows empty indexes and
-                    # applies the same str dtype rule when non-empty.
+                    # Same as pandera.Index("str"), but allow empty default RangeIndex
                     index = pandera.Index(
                         dtype=None,
                         checks=pandera.Check(
                             check_str_index,
                             element_wise=False,
-                            error="Index failed dtype check for 'str'",
+                            error="expected series 'None' to have type str",
                         ),
                     )
                 else:
