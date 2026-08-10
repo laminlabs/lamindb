@@ -803,16 +803,13 @@ class ComponentCurator(Curator):
             # so, we're typing it as `str` here
             if schema.index is not None:
                 index_dtype = (
-                    str
+                    "str"
                     if schema.index._dtype_str.startswith("cat")
                     else schema.index._dtype_str
                 )
                 # pandera maps "str" to string[pyarrow]; coerce so empty RangeIndex /
                 # object indexes from exports still validate on pandas 3+
-                index = pandera.Index(
-                    index_dtype,
-                    coerce=index_dtype == "str" or index_dtype is str,
-                )
+                index = pandera.Index(index_dtype, coerce=index_dtype == "str")
             else:
                 index = None
             if schema.maximal_set:
