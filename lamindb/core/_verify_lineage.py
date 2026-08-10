@@ -29,6 +29,12 @@ class LaminLineageChecker(ast.NodeVisitor):
         self.artifact_vars: set[str] = set()  # vars assigned from ln.Artifact(...)
         self.has_track_call: bool = False
         self.has_finish_call: bool = False
+        self.function_defs: dict[str, ast.FunctionDef] = {}
+        self._active_function_calls: set[str] = set()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        self.function_defs[node.name] = node
+        self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign):
         """Trace variables assigned to path strings and LaminDB Artifact instances."""
@@ -86,6 +92,7 @@ class LaminLineageChecker(ast.NodeVisitor):
             for path in paths:
                 self.untracked_paths.setdefault(path, []).append(lineno)
 
+        self._trace_user_function_call(node)
         self.generic_visit(node)
 
     def _get_func_name(self, node: ast.AST) -> str:
@@ -137,6 +144,62 @@ class LaminLineageChecker(ast.NodeVisitor):
     def _is_path_like(self, s: str) -> bool:
         s = s.strip()
         return bool(s and PATH_PATTERN.match(s))
+
+    def _trace_user_function_call(self, node: ast.Call):
+        if not isinstance(node.func, ast.Name):
+            return
+
+        function_name = node.func.id
+        function_def = self.function_defs.get(function_name)
+        if function_def is None or function_name in self._active_function_calls:
+            return
+
+        bindings = self._get_param_path_bindings(node, function_def)
+        if not bindings:
+            return
+
+        self._active_function_calls.add(function_name)
+        original_var_map = self.var_map.copy()
+        original_artifact_vars = self.artifact_vars.copy()
+        try:
+            self.var_map.update(bindings)
+            for stmt in function_def.body:
+                self.visit(stmt)
+        finally:
+            self.var_map = original_var_map
+            self.artifact_vars = original_artifact_vars
+            self._active_function_calls.remove(function_name)
+
+    def _get_param_path_bindings(
+        self, call: ast.Call, function_def: ast.FunctionDef
+    ) -> dict[str, set[str]]:
+        bindings: dict[str, set[str]] = {}
+
+        positional_params = function_def.args.posonlyargs + function_def.args.args
+        for param, arg in zip(positional_params, call.args):
+            paths = self._extract_paths_from_node(arg)
+            if paths:
+                bindings[param.arg] = paths
+
+        keyword_args = {
+            kw.arg: self._extract_paths_from_node(kw.value)
+            for kw in call.keywords
+            if kw.arg is not None
+        }
+
+        for param in positional_params:
+            if param.arg in bindings:
+                continue
+            paths = keyword_args.get(param.arg, set())
+            if paths:
+                bindings[param.arg] = paths
+
+        for param in function_def.args.kwonlyargs:
+            paths = keyword_args.get(param.arg, set())
+            if paths:
+                bindings[param.arg] = paths
+
+        return bindings
 
 
 def verify_lineage(script_path: str) -> VerifyLineageResult:

@@ -313,6 +313,29 @@ ln.finish()
     assert any("./weights.bin" in item for item in result.missing_lineage)
 
 
+def test_verify_lineage_positive_for_file_passed_as_param_to_helper_function(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "helper_function_any_param.py",
+        """
+import lamindb as ln
+
+def load_dataset(dataset_ref: str):
+    return ln.Artifact.get(key=dataset_ref)
+
+def main() -> None:
+    ln.track()
+    _ = load_dataset("datasets/rnaseq/synthetic_rnaseq_from_age_disease.csv")
+    ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
 def test_verify_lineage_missing_file():
     result = verify_lineage("does-not-exist.py")
     assert result.is_fully_tracked is False
