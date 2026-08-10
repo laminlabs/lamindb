@@ -66,13 +66,14 @@ class LaminLineageChecker(ast.NodeVisitor):
         func_name = self._get_func_name(node.func)
         lineno = getattr(node, "lineno", 0)
 
-        # 1. Flag global track initialization
+        # Record explicit session lifecycle calls used to open/close lineage tracking.
         if func_name in ("ln.track", "lamindb.track"):
             self.has_track_call = True
         if func_name in ("ln.finish", "lamindb.finish"):
             self.has_finish_call = True
 
-        # 2. Identify LaminDB API operations
+        # Distinguish LaminDB API calls from ordinary Python calls.
+        # Any path referenced inside LaminDB calls is considered lineage-tracked.
         is_lamin_call = self._is_lamindb_call(node, func_name)
 
         paths = self._extract_paths_from_node(node)
@@ -160,8 +161,8 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
     checker = LaminLineageChecker()
     checker.visit(tree)
 
-    # Reconciliation Logic:
-    # Untracked operations: path operations never tracked/registered with LaminDB
+    # Keep only paths that are seen in non-LaminDB calls and never seen in LaminDB calls.
+    # These are candidates for missing lineage registration.
     truly_untracked_paths = {
         p: lines for p, lines in checker.untracked_paths.items()
         if p not in checker.tracked_paths
@@ -169,7 +170,7 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
 
     missing_lineage: list[str] = []
 
-    # 1. Global tracking call check
+    # A script is fully tracked only if it explicitly opens and closes tracking.
     if not checker.has_track_call:
         missing_lineage.append("Missing ln.track() call in script.")
 
