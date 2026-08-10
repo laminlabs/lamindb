@@ -625,7 +625,13 @@ def suggest_records_with_similar_names(
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
         if "type" not in kwargs:
-            # no type passed → search across all type contexts
+            # primary: search root-level (preserves existing behavior)
+            subset = record.__class__.filter(type__isnull=True)
+            exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
+            if exact_match is not None:
+                return exact_match
+            # fallback: search across all type contexts to catch typed records
+            # with the same name and avoid silent duplicate creation
             subset = record.__class__
         elif kwargs["type"] is None:
             # explicit type=None → always create new at root, skip dedup
