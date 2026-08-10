@@ -631,6 +631,15 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                             f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
                         )
                     df[feature.name] = pd.Categorical(df[feature.name])
+        # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
+        elif (
+            feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
+        ):
+            series = pd.to_datetime(df[feature.name], utc=True)
+            # older pandas is already ns and may not expose dtype.unit
+            if getattr(series.dtype, "unit", "ns") != "ns":
+                series = series.astype("datetime64[ns, UTC]")
+            df[feature.name] = series
     return df
 
 
@@ -725,6 +734,7 @@ class ComponentCurator(Curator):
                     "float",
                     "bool",
                     "num",
+                    "str",
                     "path",
                     "url",
                 } or dtype_str.startswith("list"):
@@ -787,10 +797,16 @@ class ComponentCurator(Curator):
             # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
             # so, we're typing it as `str` here
             if schema.index is not None:
+                index_dtype = (
+                    str
+                    if schema.index._dtype_str.startswith("cat")
+                    else schema.index._dtype_str
+                )
+                # pandera maps "str" to string[pyarrow]; coerce so empty RangeIndex /
+                # object indexes from exports still validate on pandas 3+
                 index = pandera.Index(
-                    schema.index._dtype_str
-                    if not schema.index._dtype_str.startswith("cat")
-                    else str
+                    index_dtype,
+                    coerce=index_dtype == "str" or index_dtype is str,
                 )
             else:
                 index = None

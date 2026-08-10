@@ -944,9 +944,14 @@ def reshape_annotate_result(
                 ).dt.tz_localize(None)
             if dtype_str == "datetime64[ns, UTC]":
                 # store timezone-aware datetimes normalized to UTC
-                result_encoded[feature.name] = pd.to_datetime(
+                # pandas 3 defaults to [us]; cast to [ns] only when needed
+                series = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 )
+                # older pandas is already ns and may not expose dtype.unit
+                if getattr(series.dtype, "unit", "ns") != "ns":
+                    series = series.astype("datetime64[ns, UTC]")
+                result_encoded[feature.name] = series
             if dtype_str == "date":
                 # see comments for datetime
                 result_encoded[feature.name] = (
