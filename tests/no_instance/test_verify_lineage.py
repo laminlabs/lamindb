@@ -389,6 +389,97 @@ ln.finish()
     assert any("outputs/proteomics" in item for item in result.missing_lineage)
 
 
+def test_verify_lineage_positive_sys_path_insert_nested_calls_ignored(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "sys_path_insert_nested_calls.py",
+        """
+import sys
+from pathlib import Path
+import lamindb as ln
+
+ln.track()
+plugins = Path("./plugins")
+scanpy_plugin = plugins / "scanpy"
+sys.path.insert(0, str(scanpy_plugin))
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_os_path_helpers_ignored(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "os_path_helpers.py",
+        """
+import os
+import lamindb as ln
+
+ln.track()
+base = os.path.abspath("./data")
+out = os.path.join(base, "output.txt")
+parent = os.path.dirname(out)
+name = os.path.basename(out)
+_ = os.path.splitext(name)
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_env_var_path_setup_ignored(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "env_var_path_setup.py",
+        """
+import os
+from pathlib import Path
+import lamindb as ln
+
+ln.track()
+plugins = Path("./plugins")
+os.environ["PYTHONPATH"] = str(plugins)
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_importlib_setup_ignored(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "importlib_setup.py",
+        """
+import importlib.util
+from pathlib import Path
+import lamindb as ln
+
+ln.track()
+plugin_path = Path("./plugins") / "scanpy_plugin.py"
+_ = importlib.util.spec_from_file_location("scanpy_plugin", str(plugin_path))
+ln.finish()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
 def test_verify_lineage_missing_file():
     result = verify_lineage("does-not-exist.py")
     assert result.is_fully_tracked is False

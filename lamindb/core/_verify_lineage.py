@@ -14,6 +14,40 @@ PATH_PATTERN = re.compile(
     r"|^[\w\-\.\s]+\.[a-zA-Z0-9]{1,10}$"   # Filenames with extensions
 )
 
+# Calls in these categories can carry path strings but are considered
+# environment/path setup (not data lineage I/O), so they are ignored.
+NON_LINEAGE_EXACT_CALLS = frozenset(
+    {
+        "Path",
+        "PurePath",
+        "PosixPath",
+        "WindowsPath",
+        "makedirs",
+        "os.makedirs",
+    }
+)
+NON_LINEAGE_CALL_PREFIXES = (
+    "sys.path.",
+    "os.path.",
+    "importlib.",
+)
+NON_LINEAGE_ATTR_CALLS = frozenset(
+    {
+        "Path",
+        "PurePath",
+        "PosixPath",
+        "WindowsPath",
+        "mkdir",
+        "exists",
+        "is_file",
+        "is_dir",
+        "resolve",
+        "expanduser",
+        "glob",
+        "rglob",
+    }
+)
+
 
 @dataclass(frozen=True)
 class VerifyLineageResult:
@@ -47,6 +81,11 @@ class LaminLineageChecker(ast.NodeVisitor):
 
     def visit_Assign(self, node: ast.Assign):
         """Trace variables assigned to path strings and LaminDB Artifact instances."""
+        if self._is_env_var_setup_assignment(node):
+            # Environment variable assignment is runtime setup and not lineage I/O.
+            # Skip traversing nested helper calls (e.g. str(path)) in this subtree.
+            return
+
         paths = self._extract_paths_from_node(node.value)
         is_artifact_ctor = (
             isinstance(node.value, ast.Call)
@@ -77,6 +116,14 @@ class LaminLineageChecker(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    def _is_env_var_setup_assignment(self, node: ast.Assign) -> bool:
+        for target in node.targets:
+            if not isinstance(target, ast.Subscript):
+                continue
+            if self._get_func_name(target.value) == "os.environ":
+                return True
+        return False
+
     def visit_Call(self, node: ast.Call):
         func_name = self._get_func_name(node.func)
         lineno = getattr(node, "lineno", 0)
@@ -90,16 +137,19 @@ class LaminLineageChecker(ast.NodeVisitor):
         # Distinguish LaminDB API calls from ordinary Python calls.
         # Any path referenced inside LaminDB calls is considered lineage-tracked.
         is_lamin_call = self._is_lamindb_call(node, func_name)
-        is_path_constructor_call = self._is_path_constructor_call(node, func_name)
+        is_non_lineage_setup_call = self._is_non_lineage_setup_call(node, func_name)
+        if is_non_lineage_setup_call:
+            # Ignore full setup-call subtrees (e.g. `sys.path.insert(..., str(path))`)
+            # so nested helper calls are not misclassified as lineage-relevant I/O.
+            return
 
         paths = self._extract_paths_from_node(node)
-        is_directory_setup_call = self._is_directory_setup_call(node, func_name)
 
         if is_lamin_call:
             for path in paths:
                 self.tracked_paths.setdefault(path, []).append(lineno)
 
-        elif not (is_path_constructor_call or is_directory_setup_call):
+        elif not is_non_lineage_setup_call:
             for path in paths:
                 self.untracked_paths.setdefault(path, []).append(lineno)
 
@@ -136,18 +186,14 @@ class LaminLineageChecker(ast.NodeVisitor):
             return True
         return self._is_lamindb_artifact_save_call(node)
 
-    def _is_directory_setup_call(self, node: ast.Call, func_name: str) -> bool:
-        if func_name in {"os.makedirs", "makedirs"}:
+    def _is_non_lineage_setup_call(self, node: ast.Call, func_name: str) -> bool:
+        # Centralized allowlist for path/setup helpers that should not be
+        # interpreted as lineage-relevant file I/O.
+        if func_name in NON_LINEAGE_EXACT_CALLS:
             return True
-        return isinstance(node.func, ast.Attribute) and node.func.attr == "mkdir"
-
-    def _is_path_constructor_call(self, node: ast.Call, func_name: str) -> bool:
-        if func_name in {"Path", "PurePath", "PosixPath", "WindowsPath"}:
+        if func_name.startswith(NON_LINEAGE_CALL_PREFIXES):
             return True
-        return (
-            isinstance(node.func, ast.Attribute)
-            and node.func.attr in {"Path", "PurePath", "PosixPath", "WindowsPath"}
-        )
+        return isinstance(node.func, ast.Attribute) and node.func.attr in NON_LINEAGE_ATTR_CALLS
 
     def _extract_paths_from_node(self, node: ast.AST) -> set[str]:
         """Extracts paths from string constants, variables, and nested function arguments."""
@@ -269,12 +315,15 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
       functions to catch indirect path usage.
 
     Important exclusions:
-    - Path constructors such as `Path(...)`, `PurePath(...)`, etc. are
-      treated as path construction only and are not themselves counted as
-      lineage-tracking operations.
-    - Directory setup calls such as `os.makedirs(...)`, `makedirs(...)`,
-      and `.mkdir(...)` are treated as filesystem preparation and are not
-      considered lineage tracking.
+    - Path construction/inspection/setup helpers are allowlisted and ignored
+      for lineage (for example: `Path(...)`, `os.path.*`, `.mkdir()`,
+      `.exists()`, `.is_file()`, `.resolve()`, and glob helpers).
+    - `importlib.*` calls are treated as import/module setup and ignored for
+      lineage purposes.
+    - `os.environ[...] = ...` assignments are treated as environment setup and
+      ignored for lineage purposes.
+    - `sys.path.*` calls (for example `sys.path.insert(...)`) are treated
+      as import-path setup and ignored for lineage purposes.
     """
     path = Path(script_path)
     if not path.is_file():
