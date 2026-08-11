@@ -858,7 +858,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs = {
             "name": name,
             "description": description,
-            "type": type,
+            "type": None if type == _UNSET else type,
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
