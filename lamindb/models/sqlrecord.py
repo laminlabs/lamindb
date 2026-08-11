@@ -1163,10 +1163,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         # strip sentinel before validate_fields and Django's Model.__init__ see it
-        # use type() guard so objects with custom __eq__ (e.g. FeaturePredicate) don't
-        # trigger __bool__ when compared against the string sentinel
-        _type_val = kwargs.get("type", _UNSET)
-        if isinstance(self, HasType) and type(_type_val) is str and _type_val == _UNSET:
+        if isinstance(self, HasType) and kwargs.get("type") == _UNSET:
             kwargs.pop("type")
         if not args:
 
