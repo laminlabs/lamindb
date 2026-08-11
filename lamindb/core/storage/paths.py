@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 import fsspec
 from lamindb_setup.core import StorageSettings
@@ -43,6 +44,56 @@ def auto_storage_key_from_artifact_uid(
         uid_storage = uid
     storage_key = f"{AUTO_KEY_PREFIX}{uid_storage}{suffix}"
     return storage_key
+
+
+def join_uri_path(root: str, path: str) -> str:
+    normalized_root = root.rstrip("/")
+    normalized_path = path.lstrip("/")
+    return (
+        f"{normalized_root}/{normalized_path}" if normalized_path else normalized_root
+    )
+
+
+def _serialize_name_param(name: str | None) -> str:
+    if name is None:
+        return ""
+    return f"?{urlencode({'name': name})}"
+
+
+def create_download_link(
+    artifact: Artifact,
+    *,
+    name: str | None = None,
+    public_uid: str | None = None,
+    origin: str | None = None,
+    using_key: str | None = None,
+) -> str:
+    storage_key = auto_storage_key_from_artifact(artifact)
+    filepath, storage_settings = filepath_from_artifact(artifact, using_key=using_key)
+    storage_root = storage_settings.root_as_str if storage_settings is not None else ""
+
+    if storage_root.startswith("https://"):
+        return join_uri_path(storage_root, storage_key)
+
+    if storage_root.startswith("gs://"):
+        gcs_root = (
+            f"https://storage.googleapis.com/{storage_root.removeprefix('gs://')}"
+        )
+        return join_uri_path(gcs_root, storage_key)
+
+    if storage_root.startswith("s3://"):
+        search_params = _serialize_name_param(name)
+        common = (
+            storage_root.removeprefix("s3://").rstrip("/")
+            + f"%2F/{storage_key}"
+            + search_params
+        )
+        if public_uid is not None:
+            return f"{origin or ''}/storage/public/{public_uid}/{common}"
+        if origin is not None:
+            return f"{origin}/storage/s3/{common}"
+
+    return str(filepath)
 
 
 def check_path_is_child_of_root(path: AnyPathStr, root: AnyPathStr) -> bool:

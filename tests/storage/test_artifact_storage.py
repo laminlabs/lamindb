@@ -3,6 +3,7 @@ import shutil
 import anndata as ad
 import lamindb as ln
 import pytest
+from lamindb.core.storage.paths import create_download_link
 from lamindb.errors import (
     IntegrityError,
 )
@@ -206,3 +207,45 @@ def test_single_file_directory_preserved(tmp_path):
     assert [file.name for file in artifact.path.iterdir()] == ["only.txt"]
 
     artifact.delete(permanent=True)
+
+
+def test_create_download_link_s3_routes():
+    artifact = ln.Artifact("s3://lamindb-ci/test-data/test.parquet").save()
+    root = str(artifact.storage.root).removeprefix("s3://").rstrip("/")
+    expected_common = f"{root}%2F/{artifact.key}?name=my+table.parquet"
+
+    public_link = create_download_link(
+        artifact,
+        name="my table.parquet",
+        public_uid="pub123",
+        origin="https://api.example.com",
+    )
+    proxy_link = create_download_link(
+        artifact,
+        name="my table.parquet",
+        origin="https://api.example.com",
+    )
+    native_link = create_download_link(artifact)
+
+    assert public_link == f"https://api.example.com/storage/public/pub123/{expected_common}"
+    assert proxy_link == f"https://api.example.com/storage/s3/{expected_common}"
+    assert native_link == artifact.path.as_posix()
+
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_create_download_link_gcs_root():
+    artifact = ln.Artifact(
+        "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",
+        description="Test GCP file for download link",
+    ).save()
+    root = str(artifact.storage.root).removeprefix("gs://").rstrip("/")
+
+    link = create_download_link(artifact)
+
+    assert (
+        link
+        == f"https://storage.googleapis.com/{root}/{artifact.key.lstrip('/')}"
+    )
+
+    artifact.delete(permanent=True, storage=False)
