@@ -17,22 +17,31 @@ PATH_PATTERN = re.compile(
 
 @dataclass(frozen=True)
 class VerifyLineageResult:
+    """Public result object returned by `verify_lineage()`."""
     is_fully_tracked: bool
     missing_lineage: tuple[str, ...]
 
 
 class LaminLineageChecker(ast.NodeVisitor):
     def __init__(self):
+        # Paths observed in LaminDB API calls, keyed by path string -> line numbers.
         self.tracked_paths: dict[str, list[int]] = {}
+        # Paths observed in non-LaminDB calls, keyed by path string -> line numbers.
         self.untracked_paths: dict[str, list[int]] = {}
+        # Best-effort binding of variable names to path-like strings as code is traversed.
         self.var_map: dict[str, set[str]] = {}  # var_name -> set of path strings
+        # Variable names that currently refer to an ln.Artifact(...) instance.
         self.artifact_vars: set[str] = set()  # vars assigned from ln.Artifact(...)
+        # Session-level lifecycle flags required for a "fully tracked" script.
         self.has_track_call: bool = False
         self.has_finish_call: bool = False
+        # Function definitions are cached so later calls can be re-visited with bound args.
         self.function_defs: dict[str, ast.FunctionDef] = {}
+        # Prevent recursive re-entry while tracing user-defined function calls.
         self._active_function_calls: set[str] = set()
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        # Save function bodies for later path-flow tracing at call sites.
         self.function_defs[node.name] = node
         self.generic_visit(node)
 
@@ -110,6 +119,8 @@ class LaminLineageChecker(ast.NodeVisitor):
         return func_name in ("ln.Artifact", "lamindb.Artifact")
 
     def _is_lamindb_artifact_save_call(self, node: ast.Call) -> bool:
+        # Treat both `ln.Artifact(...).save()` and `artifact.save()` (where artifact
+        # was created from ln.Artifact(...)) as LaminDB lineage-tracked operations.
         if not (isinstance(node.func, ast.Attribute) and node.func.attr == "save"):
             return False
         if isinstance(node.func.value, ast.Call):
@@ -119,6 +130,8 @@ class LaminLineageChecker(ast.NodeVisitor):
         return False
 
     def _is_lamindb_call(self, node: ast.Call, func_name: str) -> bool:
+        # All ln./lamindb.* calls are considered lineage-aware.
+        # We also include artifact save calls recognized above.
         if func_name.startswith(("ln.", "lamindb.")):
             return True
         return self._is_lamindb_artifact_save_call(node)
@@ -155,6 +168,7 @@ class LaminLineageChecker(ast.NodeVisitor):
                 paths.update(self._extract_paths_from_node(kw.value))
 
         elif isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Div)):
+            # Handle both string concatenation and pathlib-style joins.
             left_paths = self._extract_paths_from_node(node.left)
             right_paths = self._extract_paths_from_node(node.right)
             for left_path in left_paths:
@@ -177,6 +191,11 @@ class LaminLineageChecker(ast.NodeVisitor):
         return f"{left}/{right}"
 
     def _trace_user_function_call(self, node: ast.Call):
+        """Propagate path bindings into user-defined functions at call sites.
+
+        This gives the checker a lightweight inter-procedural view, so path usage
+        hidden behind helper functions can still be classified as tracked/untracked.
+        """
         if not isinstance(node.func, ast.Name):
             return
 
@@ -190,6 +209,8 @@ class LaminLineageChecker(ast.NodeVisitor):
             return
 
         self._active_function_calls.add(function_name)
+        # Temporarily augment variable scope with call argument bindings, then
+        # restore state after visiting the function body.
         original_var_map = self.var_map.copy()
         original_artifact_vars = self.artifact_vars.copy()
         try:
@@ -234,6 +255,27 @@ class LaminLineageChecker(ast.NodeVisitor):
 
 
 def verify_lineage(script_path: str) -> VerifyLineageResult:
+    """Statically analyze one script and report missing LaminDB lineage hooks.
+
+    Coverage (static AST checks):
+    - Confirms the script contains explicit session lifecycle calls:
+      `ln.track()` and `ln.finish()`.
+    - Extracts path-like strings from literals, variables, call arguments,
+      and simple path joins (string `+` or path `/` operations).
+    - Classifies path usage as tracked when it appears in LaminDB calls
+      (`ln.*`, `lamindb.*`, including `ln.Artifact(...).save()` patterns),
+      and flags paths that only appear in non-LaminDB calls.
+    - Propagates path-like argument bindings into user-defined helper
+      functions to catch indirect path usage.
+
+    Important exclusions:
+    - Path constructors such as `Path(...)`, `PurePath(...)`, etc. are
+      treated as path construction only and are not themselves counted as
+      lineage-tracking operations.
+    - Directory setup calls such as `os.makedirs(...)`, `makedirs(...)`,
+      and `.mkdir(...)` are treated as filesystem preparation and are not
+      considered lineage tracking.
+    """
     path = Path(script_path)
     if not path.is_file():
         return VerifyLineageResult(
@@ -274,6 +316,7 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
         missing_lineage.append("Missing ln.finish() call in script.")
 
     if truly_untracked_paths:
+        # Point to concrete source lines where paths are used.
         for fname, lines in sorted(truly_untracked_paths.items()):
             lines_str = ", ".join(f"line {l}" for l in lines)
             missing_lineage.append(f"File not tracked in lamindb: {fname} ({lines_str})")
