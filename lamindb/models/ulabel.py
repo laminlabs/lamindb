@@ -25,6 +25,7 @@ from .sqlrecord import (
     HasType,
     IsLink,
     SQLRecord,
+    _UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -249,7 +250,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", None)
+        type: str | None = kwargs.pop("type", _UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
