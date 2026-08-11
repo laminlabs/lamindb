@@ -39,7 +39,7 @@ full = [
     # Data & validation dependencies (heavier)
     "pyarrow",
     "pandera>=0.24.0",
-    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
+    "pandas>=2.0.0",  # for .infer_objects(copy=False) in lamin-utils
     # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
     # scipy 1.17.0 is incompatible with anndata<0.12.7
     "anndata>=0.10.0,<=0.13.2",

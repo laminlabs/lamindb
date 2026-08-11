@@ -47,6 +47,50 @@ else:
 from anndata._core.sparse_dataset import BaseCompressedSparseDataset as SparseDataset
 from anndata._core.sparse_dataset import sparse_dataset
 
+# anndata >=0.13 registers read for nullable types but not read_partial
+if anndata_version_parse >= version.parse("0.13.0"):
+    from anndata._io.specs.registry import _REGISTRY, IOSpec
+    from anndata.compat import H5Group, ZarrGroup
+
+    def _read_partial_nullable(elem, *, array_type, items=None, indices=(slice(None),)):
+        return array_type(
+            read_elem_partial(elem["values"], indices=indices),
+            mask=read_elem_partial(elem["mask"], indices=indices),
+        )
+
+    @_REGISTRY.register_read_partial(H5Group, IOSpec("nullable-integer", "0.1.0"))
+    @_REGISTRY.register_read_partial(ZarrGroup, IOSpec("nullable-integer", "0.1.0"))
+    def _read_partial_nullable_integer(elem, *, items=None, indices=(slice(None),)):
+        return _read_partial_nullable(
+            elem, array_type=pd.arrays.IntegerArray, items=items, indices=indices
+        )
+
+    @_REGISTRY.register_read_partial(H5Group, IOSpec("nullable-boolean", "0.1.0"))
+    @_REGISTRY.register_read_partial(ZarrGroup, IOSpec("nullable-boolean", "0.1.0"))
+    def _read_partial_nullable_boolean(elem, *, items=None, indices=(slice(None),)):
+        return _read_partial_nullable(
+            elem, array_type=pd.arrays.BooleanArray, items=items, indices=indices
+        )
+
+    @_REGISTRY.register_read_partial(H5Group, IOSpec("nullable-string-array", "0.1.0"))
+    @_REGISTRY.register_read_partial(
+        ZarrGroup, IOSpec("nullable-string-array", "0.1.0")
+    )
+    def _read_partial_nullable_string(elem, *, items=None, indices=(slice(None),)):
+        values = read_elem_partial(elem["values"], indices=indices)
+        mask = read_elem_partial(elem["mask"], indices=indices)
+        dtype = pd.StringDtype(
+            na_value=np.nan
+            if _read_attr(elem.attrs, "na-value", default="NA") == "NaN"
+            else pd.NA
+        )
+        arr = pd.array(
+            values.astype(np.dtypes.StringDType(na_object=dtype.na_value)),
+            dtype=dtype,
+        )
+        arr[mask] = pd.NA
+        return arr
+
 
 def _check_group_format(*args):
     pass
@@ -861,8 +905,12 @@ def _anndata_n_observations(object: AnyPathStr | AnnData) -> int | None:
             if isinstance(elem, ArrayTypes):  # type: ignore
                 n_observations = elem.shape[0]
             else:
-                # assume standard obs group
-                n_observations = elem["codes"].shape[0]
+                # assume group
+                if "codes" in elem:
+                    n_observations = elem["codes"].shape[0]
+                else:
+                    # assumes pandas nullable types
+                    n_observations = elem["values"].shape[0]
         else:
             n_observations = obs.shape[0]
     except Exception as e:

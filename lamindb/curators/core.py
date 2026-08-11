@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype
+from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -631,6 +631,15 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                             f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
                         )
                     df[feature.name] = pd.Categorical(df[feature.name])
+        # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
+        elif (
+            feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
+        ):
+            series = pd.to_datetime(df[feature.name], utc=True)
+            # older pandas is already ns and may not expose dtype.unit
+            if getattr(series.dtype, "unit", "ns") != "ns":
+                series = series.astype("datetime64[ns, UTC]")
+            df[feature.name] = series
     return df
 
 
@@ -720,11 +729,14 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
+                # "str" via check_dtype/check_pandera_str: keep pandas 2
+                # Column("str") results on pandas 3 (see check_pandera_str)
                 elif dtype_str in {
                     "int",
                     "float",
                     "bool",
                     "num",
+                    "str",
                     "path",
                     "url",
                 } or dtype_str.startswith("list"):
@@ -762,6 +774,8 @@ class ComponentCurator(Curator):
                     )
                 else:
                     if dtype_str == "datetime64[ns, UTC]":
+                        # pandas 3 defaults tz-aware datetimes to datetime64[us, UTC];
+                        # pandera's DateTime still expects datetime64[ns, UTC]
                         pandera_dtype = pandas_engine.DateTime(
                             time_zone_agnostic=True,
                             tz="UTC" if feature.coerce else None,
@@ -787,11 +801,23 @@ class ComponentCurator(Curator):
             # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
             # so, we're typing it as `str` here
             if schema.index is not None:
-                index = pandera.Index(
-                    schema.index._dtype_str
-                    if not schema.index._dtype_str.startswith("cat")
-                    else str
+                index_dtype = (
+                    "str"
+                    if schema.index._dtype_str.startswith("cat")
+                    else schema.index._dtype_str
                 )
+                if index_dtype == "str":
+                    # same str rules as columns (incl. empty default RangeIndex)
+                    index = pandera.Index(
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_pandera_str,
+                            element_wise=False,
+                            error="expected series 'None' to have type str",
+                        ),
+                    )
+                else:
+                    index = pandera.Index(index_dtype)
             else:
                 index = None
             if schema.maximal_set:
