@@ -94,6 +94,7 @@ def _lazy_load_storage_module():
         auto_storage_key_from_artifact,
         auto_storage_key_from_artifact_uid,
         check_path_is_child_of_root,
+        create_download_link,
         filepath_cache_key_from_artifact,
         filepath_from_artifact,
     )
@@ -106,6 +107,7 @@ def _lazy_load_storage_module():
         auto_storage_key_from_artifact=auto_storage_key_from_artifact,
         auto_storage_key_from_artifact_uid=auto_storage_key_from_artifact_uid,
         check_path_is_child_of_root=check_path_is_child_of_root,
+        create_download_link=create_download_link,
         filepath_cache_key_from_artifact=filepath_cache_key_from_artifact,
         filepath_from_artifact=filepath_from_artifact,
     )
