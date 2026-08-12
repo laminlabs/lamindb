@@ -38,7 +38,7 @@ from .sqlrecord import (
     IsLink,
     Space,
     SQLRecord,
-    _UNSET,
+    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -901,7 +901,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", _UNSET)
+        type: str | None = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)
