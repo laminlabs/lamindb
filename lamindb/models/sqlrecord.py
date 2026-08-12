@@ -1335,11 +1335,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def save(self: T, *args, **kwargs) -> T:
         """Save.
 
-        Always saves to the default database.
+        Args:
+            using: Optional database slug for a target database that differs from the default database.
         """
-        using_key = None
+        using = None
         if "using" in kwargs:
-            using_key = kwargs["using"]
+            using = kwargs["using"]
         transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
@@ -1348,7 +1349,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             and transfer_config is None
             and db is not None
             and db != "default"
-            and using_key is None
+            and using is None
         ):
             transfer_config = "annotations"
         artifacts: list = []
@@ -1362,14 +1363,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "transferred": [],
             "run": None,
         }
-        if db is not None and db != "default" and using_key is None:
+        if db is not None and db != "default" and using is None:
             if isinstance(self, IsVersioned):
                 if not self.is_latest:
                     raise NotImplementedError(
                         "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                     )
             pre_existing_record = transfer_to_default_db(
-                self, using_key, transfer_logs=transfer_logs
+                self, using, transfer_logs=transfer_logs
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -1543,7 +1544,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             track_current_name_value(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
-        if db is not None and db != "default" and using_key is None:
+        if db is not None and db != "default" and using is None:
             if self.__class__.__name__ == "Collection":
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
@@ -1554,7 +1555,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
-                    self, db, pk_on_db, using_key, transfer_logs=transfer_logs
+                    self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy

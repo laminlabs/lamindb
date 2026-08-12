@@ -50,7 +50,7 @@ def save(
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
-        using: Optional database slug for the target database.
+        using: Optional database slug for a target database that differs from the default database.
 
     Examples
     --------
