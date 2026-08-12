@@ -34,9 +34,8 @@ def save(
 ) -> None:
     """Bulk save objects.
 
-    Note:
-
-        This is a much faster than saving objects using `object.save()`.
+    This is a much faster than saving a list of objects
+    and repeatedly calling `object.save()`.
 
     Warning:
 
