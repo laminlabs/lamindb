@@ -859,6 +859,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "name": name,
             "description": description,
             "type": None if type is UNSET else type,
+            "_type_explicitly_passed": type is not UNSET,
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,

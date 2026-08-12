@@ -1242,8 +1242,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from .transform import Transform
 
                 # capture user intent before validate_fields may add type=None
-                type_explicitly_passed = isinstance(self, HasType) and (
-                    "type" in kwargs or "type_id" in kwargs
+                # Schema passes _type_explicitly_passed explicitly because it converts
+                # UNSET→None in validated_kwargs before reaching here
+                type_explicitly_passed = kwargs.pop(
+                    "_type_explicitly_passed",
+                    isinstance(self, HasType) and (
+                        "type" in kwargs or "type_id" in kwargs
+                    ),
                 )
                 validate_fields(self, kwargs)
 
