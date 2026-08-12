@@ -49,7 +49,7 @@ def test_store_artifacts_acid(get_mini_csv):
         artifact.save()
 
     with pytest.raises(RuntimeError) as error:
-        store_artifacts([artifact], using_key=None)
+        store_artifacts([artifact], using=None)
     assert str(error.exconly()).startswith(
         "RuntimeError: The following entries have been successfully uploaded"
     )

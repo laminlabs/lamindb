@@ -30,6 +30,7 @@ def save(
     records: Iterable[SQLRecord],
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
+    using: str | None = None,
 ) -> None:
     """Bulk save objects.
 
@@ -49,6 +50,7 @@ def save(
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
+        using: Optional database slug for the target database.
 
     Examples
     --------
@@ -117,8 +119,7 @@ def save(
                 ):
                     record._storage_ongoing = True
                 record._save_skip_storage()
-        using_key = settings._using_key
-        store_artifacts(artifacts, using_key=using_key)
+        store_artifacts(artifacts, using=using)
 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
@@ -410,9 +411,7 @@ def check_and_attempt_clearing(
     return None
 
 
-def store_artifacts(
-    artifacts: Iterable[Artifact], using_key: str | None = None
-) -> None:
+def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
@@ -427,7 +426,7 @@ def store_artifacts(
     for artifact in artifacts:
         # failure here sets ._clear_storagekey
         # for cleanup below
-        exception = check_and_attempt_upload(artifact, using_key)
+        exception = check_and_attempt_upload(artifact, using)
         if exception is not None:
             break
 
@@ -445,7 +444,7 @@ def store_artifacts(
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
-            artifact, raise_file_not_found_error=True, using_key=using_key
+            artifact, raise_file_not_found_error=True, using_key=using
         )
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
@@ -459,7 +458,7 @@ def store_artifacts(
                     artifact._delete_skip_storage()
                     # clean up storage after failure in check_and_attempt_upload
                     exception_clear = check_and_attempt_clearing(
-                        artifact, raise_file_not_found_error=False, using_key=using_key
+                        artifact, raise_file_not_found_error=False, using_key=using
                     )
                     if exception_clear is not None:
                         logger.warning(
