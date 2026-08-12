@@ -738,6 +738,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             coerce=coerce_dtype,
             n_features=n_features,
         )
+        # pop before update_attributes/super so it never reaches Django fields or getattr
+        type_explicitly_passed = validated_kwargs.pop("_type_explicitly_passed")
         if not features and not slots and not is_type and not itype:
             raise InvalidArgument(
                 "Please pass features or slots or itype or set is_type=True"
@@ -775,7 +777,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             validated_kwargs["uid"] = base62_16()
 
         validated_kwargs.update(space_branch_kwargs)
-        super().__init__(**validated_kwargs)
+        super().__init__(**validated_kwargs, _type_explicitly_passed=type_explicitly_passed)
 
     def query_schemas(self) -> QuerySet:
         """Query schemas of sub types.
