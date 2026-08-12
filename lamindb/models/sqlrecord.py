@@ -638,7 +638,7 @@ def suggest_records_with_similar_names(
             ).first()
             if fallback_match is not None:
                 return fallback_match
-        elif kwargs.get("type") is None:
+        elif "type" in kwargs and kwargs["type"] is None:
             # explicit type=None → always create new at root, skip dedup
             if not kwargs.get("is_type", False):
                 logger.warning(

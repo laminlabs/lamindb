@@ -690,14 +690,17 @@ def test_feature_manager_raise_not_validated_values():
 def test_name_lookup():
     my_type = ln.Record(name="MyType", is_type=True).save()
     label1 = ln.Record(name="label 1", type=my_type).save()
+    # same type → returns existing typed record
     label2 = ln.Record(name="label 1", type=my_type)
     assert label2 == label1
+    # no type passed, only typed record exists → fallback returns the typed one
     label2 = ln.Record(name="label 1")
-    assert label2 != label1
-    label2.save()
-    label3 = ln.Record(name="label 1")
-    assert label3 == label2
-    label2.delete(permanent=True)
+    assert label2 == label1
+    # root-level record exists → no-type search finds root first before typed
+    root_label = ln.Record(name="root label 1").save()
+    label3 = ln.Record(name="root label 1")
+    assert label3 == root_label
+    root_label.delete(permanent=True)
     label1.delete(permanent=True)
     my_type.delete(permanent=True)
 
@@ -1194,7 +1197,7 @@ def test_record_features_add_remove_values():
 
     # test passing ISO-format date string for date
 
-    test_record2 = ln.Record(name="test_record").save()
+    test_record2 = ln.Record(name="test_record", type=None).save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
     feature_date = ln.Feature.get(name="feature_date")
