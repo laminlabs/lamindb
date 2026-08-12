@@ -1,11 +1,17 @@
 # ruff: noqa: F811
 
 import lamindb as ln
+import lamindb.models.save as save_module
 import pytest
 from _dataset_fixtures import (  # noqa
     get_mini_csv,
 )
-from lamindb.models.save import prepare_error_message, store_artifacts
+from lamindb.models.save import (
+    bulk_create,
+    bulk_update,
+    prepare_error_message,
+    store_artifacts,
+)
 
 
 def test_bulk_save_and_update():
@@ -158,6 +164,73 @@ def test_bulk_save_lazy_record_features_requires_schema():
 
     ln.Record.filter(name="lazy-no-schema-1").delete(permanent=True)
     ln.Record.filter(name="lazy-no-schema-type").delete(permanent=True)
+
+
+def test_bulk_save_passes_using_to_bulk_operations(monkeypatch):
+    captured: dict[str, str | None] = {"create": None, "update": None}
+
+    def _bulk_create(*args, **kwargs):
+        captured["create"] = kwargs.get("using")
+
+    def _bulk_update(*args, **kwargs):
+        captured["update"] = kwargs.get("using")
+
+    monkeypatch.setattr(save_module, "bulk_create", _bulk_create)
+    monkeypatch.setattr(save_module, "bulk_update", _bulk_update)
+
+    existing = ln.Record(name="bulk-using-existing").save()
+    existing.name = "bulk-using-existing-updated"
+    new = ln.Record(name="bulk-using-new")
+
+    ln.save([new, existing], using="default")
+
+    assert captured["create"] == "default"
+    assert captured["update"] == "default"
+    existing.delete(permanent=True)
+
+
+def test_bulk_helpers_use_manager_using():
+    class DummyManager:
+        def __init__(self):
+            self.current_alias = None
+            self.bulk_create_alias = None
+            self.bulk_update_alias = None
+
+        def using(self, alias):
+            self.current_alias = alias
+            return self
+
+        def bulk_create(self, _batch, ignore_conflicts=False):
+            self.bulk_create_alias = self.current_alias
+
+        def bulk_update(self, _batch, _field_names):
+            self.bulk_update_alias = self.current_alias
+
+    class DummyField:
+        def __init__(self, name):
+            self.name = name
+
+    class DummyRecord:
+        objects = DummyManager()
+        _meta = type(
+            "Meta",
+            (),
+            {
+                "fields": [
+                    DummyField("id"),
+                    DummyField("created_at"),
+                    DummyField("name"),
+                ]
+            },
+        )()
+
+    records = [DummyRecord(), DummyRecord()]
+
+    bulk_create(records, using="analytics")
+    bulk_update(records, using="analytics")
+
+    assert DummyRecord.objects.bulk_create_alias == "analytics"
+    assert DummyRecord.objects.bulk_update_alias == "analytics"
 
 
 def test_bulk_resave_trashed_records():
