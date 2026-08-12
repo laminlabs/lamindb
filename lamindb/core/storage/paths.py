@@ -12,6 +12,7 @@ from lamindb_setup.core.upath import (
 )
 
 from lamindb.core._settings import settings
+import lamindb_setup as ln_setup
 
 if TYPE_CHECKING:
     from lamindb_setup.types import AnyPath, AnyPathStr
@@ -65,23 +66,24 @@ def create_download_link(
     *,
     name: str | None = None,
     public_uid: str | None = None,
-    origin: str | None = None,
     using_key: str | None = None,
+    origin: str | None = None,
 ) -> str:
     storage_key = auto_storage_key_from_artifact(artifact)
     filepath, storage_settings = filepath_from_artifact(artifact, using_key=using_key)
     storage_root = storage_settings.root_as_str if storage_settings is not None else ""
 
     if storage_root.startswith("https://"):
-        return join_uri_path(storage_root, storage_key)
+        filepath = join_uri_path(storage_root, storage_key)
 
-    if storage_root.startswith("gs://"):
+    elif storage_root.startswith("gs://"):
         gcs_root = (
             f"https://storage.googleapis.com/{storage_root.removeprefix('gs://')}"
         )
-        return join_uri_path(gcs_root, storage_key)
+        filepath = join_uri_path(gcs_root, storage_key)
 
-    if storage_root.startswith("s3://"):
+    elif storage_root.startswith("s3://") and ln_setup.settings.instance.is_on_hub:
+        origin = origin or ln_setup.settings.instance.ui_url
         search_params = _serialize_name_param(name)
         common = (
             storage_root.removeprefix("s3://").rstrip("/")
@@ -89,10 +91,11 @@ def create_download_link(
             + search_params
         )
         if public_uid is not None:
-            return f"{origin or ''}/storage/public/{public_uid}/{common}"
+            filepath = f"{origin or ''}/storage/public/{public_uid}/{common}"
         if origin is not None:
-            return f"{origin}/storage/s3/{common}"
-
+            filepath = f"{origin}/storage/s3/{common}"
+    else:
+        filepath = artifact.path
     return str(filepath)
 
 

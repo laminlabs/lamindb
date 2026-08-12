@@ -2115,6 +2115,28 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         filepath, _ = _s().filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
+    def create_download_link(
+        self,
+        *,
+        name: str | None = None,
+        public_uid: str | None = None,
+        origin: str | None = None,
+    ) -> str:
+        """Create a download link with optional routing parameters.
+
+        Args:
+            name: Optional display name query parameter in the download URL.
+            public_uid: Optional public UID for `/storage/public/...` routes.
+            origin: Optional origin for `/storage/s3/...` routes.
+        """
+        return _s().create_download_link(
+            self,
+            name=name,
+            public_uid=public_uid,
+            origin=origin,
+            using_key=settings._using_key,
+        )
+
     @property
     def _cache_path(self) -> UPath:
         filepath, cache_key = _s().filepath_cache_key_from_artifact(
