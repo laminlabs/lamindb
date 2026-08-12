@@ -3,7 +3,6 @@ import shutil
 import anndata as ad
 import lamindb as ln
 import pytest
-from lamindb.core.storage.paths import create_download_link
 from lamindb.errors import (
     IntegrityError,
 )
@@ -214,22 +213,24 @@ def test_create_download_link_s3_routes():
     root = str(artifact.storage.root).removeprefix("s3://").rstrip("/")
     expected_common = f"{root}%2F/{artifact.key}?name=my+table.parquet"
 
-    public_link = create_download_link(
-        artifact,
+    public_link = artifact.create_download_link(
         name="my table.parquet",
         public_uid="pub123",
-        origin="https://api.example.com",
     )
-    proxy_link = create_download_link(
-        artifact,
-        name="my table.parquet",
-        origin="https://api.example.com",
-    )
-    native_link = create_download_link(artifact)
+    proxy_link = artifact.create_download_link(name="my table.parquet")
+    native_link = artifact.path.as_posix()
 
-    assert public_link == f"https://api.example.com/storage/public/pub123/{expected_common}"
-    assert proxy_link == f"https://api.example.com/storage/s3/{expected_common}"
-    assert native_link == artifact.path.as_posix()
+    if ln.setup.settings.instance.is_on_hub:
+        origin = ln.setup.settings.instance.ui_url
+        if origin is None:
+            assert public_link == f"/storage/public/pub123/{expected_common}"
+            assert proxy_link == native_link
+        else:
+            assert public_link == f"{origin}/storage/s3/{expected_common}"
+            assert proxy_link == f"{origin}/storage/s3/{expected_common}"
+    else:
+        assert public_link == native_link
+        assert proxy_link == native_link
 
     artifact.delete(permanent=True, storage=False)
 
@@ -241,11 +242,26 @@ def test_create_download_link_gcs_root():
     ).save()
     root = str(artifact.storage.root).removeprefix("gs://").rstrip("/")
 
-    link = create_download_link(artifact)
+    link = artifact.create_download_link()
 
     assert (
         link
         == f"https://storage.googleapis.com/{root}/{artifact.key.lstrip('/')}"
     )
+
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_create_download_link_https_root_real_artifact():
+    storage = ln.Storage("https://example.com").save()
+    artifact = ln.Artifact(
+        "https://example.com/files/document.txt",
+        storage=storage,
+        skip_check_exists=True,
+    ).save()
+
+    assert artifact.storage.root == "https://example.com"
+    assert artifact.key == "files/document.txt"
+    assert artifact.create_download_link() == "https://example.com/files/document.txt"
 
     artifact.delete(permanent=True, storage=False)
