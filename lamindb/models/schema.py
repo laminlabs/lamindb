@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import warnings
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Type, overload
@@ -858,7 +859,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs = {
             "name": name,
             "description": description,
-            "type": None if type == _UNSET else type,
+            "type": None if (builtins.type(type) is str and type == _UNSET) else type,
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
