@@ -50,7 +50,6 @@ from .sqlrecord import (
     Registry,
     Space,
     SQLRecord,
-    _UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -664,6 +663,9 @@ def resolve_relation_filters(
     return resolved
 
 
+_FEATURE_TYPE_UNSET = object()
+
+
 def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
@@ -671,7 +673,7 @@ def process_init_feature_param(args, kwargs):
     name: str = kwargs.pop("name", None)
     dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
-    type_: Feature | str | None = kwargs.pop("type", _UNSET)
+    type_: Feature | str | None = kwargs.pop("type", _FEATURE_TYPE_UNSET)
     description: str | None = kwargs.pop("description", None)
     space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
@@ -679,7 +681,10 @@ def process_init_feature_param(args, kwargs):
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
         raise FieldValidationError(f"Only {valid_keywords} are valid keyword arguments")
     kwargs["name"] = name
-    kwargs["type"] = type_
+    # use `is` (identity) so FeaturePredicate objects with custom __eq__ never
+    # trigger __bool__ — omit type from kwargs entirely when not passed by user
+    if type_ is not _FEATURE_TYPE_UNSET:
+        kwargs["type"] = type_
     kwargs["is_type"] = is_type
     kwargs.update(space_branch_kwargs)
     kwargs["_skip_validation"] = _skip_validation
