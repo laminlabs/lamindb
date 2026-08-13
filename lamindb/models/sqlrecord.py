@@ -1341,6 +1341,17 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         using = None
         if "using" in kwargs:
             using = kwargs["using"]
+            if using != "default" and using not in connections:
+                self.__class__.connect(using)
+            # cross-instance writes can inherit a run from the active local context;
+            # that run id does not exist in the target instance.
+            if (
+                using != "default"
+                and (self._state.adding or self.pk is None)
+                and hasattr(self, "run_id")
+            ):
+                self.run = None
+                self.run_id = None
         transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk

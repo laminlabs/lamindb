@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connections, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
@@ -24,6 +24,20 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from .artifact import Artifact
+
+
+def _ensure_using_connection(registry: type[SQLRecord], using: str | None) -> None:
+    if using is None or using == "default" or using in connections:
+        return
+    registry.connect(using)
+
+
+def _prepare_cross_instance_create(record: SQLRecord, using: str | None) -> None:
+    if using is None or using == "default":
+        return
+    if (record._state.adding or record.pk is None) and hasattr(record, "run_id"):
+        record.run = None
+        record.run_id = None
 
 
 def save(
@@ -82,6 +96,8 @@ def save(
     # for artifacts, we want to bulk-upload rather than upload one-by-one
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
     if non_artifacts:
+        for record in non_artifacts:
+            _prepare_cross_instance_create(record, using)
         non_artifacts_old, non_artifacts_new = partition(
             lambda r: r._state.adding or r.pk is None, non_artifacts
         )
@@ -113,6 +129,9 @@ def save(
             bulk_set_features_in_records(records_with_lazy_features)
 
     if artifacts:
+        for record in artifacts:
+            _prepare_cross_instance_create(record, using)
+        _ensure_using_connection(Artifact, using)
         with transaction.atomic():
             for record in artifacts:
                 # will switch to True after the successful upload / saving
@@ -148,6 +167,7 @@ def bulk_create(
         records_by_orm[record.__class__].append(record)
 
     for registry, records_list in records_by_orm.items():
+        _ensure_using_connection(registry, using)
         total_records = len(records_list)
         model_name = registry.__name__
         manager = (
@@ -258,6 +278,7 @@ def bulk_update(
         records_by_orm[record.__class__].append(record)
 
     for registry, records_list in records_by_orm.items():
+        _ensure_using_connection(registry, using)
         total_records = len(records_list)
         model_name = registry.__name__
         manager = (

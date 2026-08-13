@@ -211,6 +211,7 @@ def test_bulk_helpers_use_manager_using():
             self.name = name
 
     class DummyRecord:
+        connect_alias = None
         objects = DummyManager()
         _meta = type(
             "Meta",
@@ -224,11 +225,16 @@ def test_bulk_helpers_use_manager_using():
             },
         )()
 
+        @classmethod
+        def connect(cls, using):
+            cls.connect_alias = using
+
     records = [DummyRecord(), DummyRecord()]
 
     bulk_create(records, using="analytics")
     bulk_update(records, using="analytics")
 
+    assert DummyRecord.connect_alias == "analytics"
     assert DummyRecord.objects.bulk_create_alias == "analytics"
     assert DummyRecord.objects.bulk_update_alias == "analytics"
 
