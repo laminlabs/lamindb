@@ -64,3 +64,45 @@ def test_save_record_with_relation_to_another_db_via_model_save():
     finally:
         for qs in (db2.Record.filter(name=rec_name), db2.Record.filter(name=type_name)):
             qs.delete(permanent=True)
+
+def test_save_record_with_multivalued_relation_to_another_db_via_model_save():
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    type_name = "mv-intervention-type"
+    gene_type_name = "mv-gene-type"
+    gene_feat_name = "mv-genes"
+    gene_names = [f"mv-gene-{i}" for i in range(5)]
+    rec_name = "mv-child"
+
+    def _clean():
+        for qs in (
+            db2.Record.filter(name=rec_name),
+            db2.Record.filter(name__in=gene_names),
+            db2.Record.filter(name=type_name),
+            db2.Record.filter(name=gene_type_name),
+            db2.Feature.filter(name=gene_feat_name),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        intervention_t = ln.Record(name=type_name, is_type=True).save(using=using)
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
+        gene_pool = [ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names]
+
+        child = ln.Record(
+            name=rec_name,
+            type=intervention_t,
+            features={gene_feat: gene_pool[:3]},
+        ).save(using=using)
+
+        assert child._state.db == using
+        assert db2.Record.get(name=rec_name)
+        assert ln.Record.filter(name=rec_name).count() == 0
+    finally:
+        _clean()
