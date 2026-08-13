@@ -106,3 +106,70 @@ def test_save_record_with_multivalued_relation_to_another_db_via_model_save():
         assert ln.Record.filter(name=rec_name).count() == 0
     finally:
         _clean()
+
+
+def test_save_schema_with_features_to_another_db_via_model_save():
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    feat_names = [f"save-using-schema-feat-{i}" for i in range(3)]
+    schema_name = "save-using-schema"
+
+    def _clean():
+        for qs in (
+            db2.Schema.filter(name=schema_name),
+            db2.Feature.filter(name__in=feat_names),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        features = [
+            ln.Feature(name=name, dtype=str).save(using=using) for name in feat_names
+        ]
+        schema = ln.Schema(name=schema_name, features=features).save(using=using)
+
+        assert schema._state.db == using
+        remote_schema = db2.Schema.get(name=schema_name)
+        assert set(remote_schema.members.to_list("name")) == set(feat_names)
+        assert ln.Schema.filter(name=schema_name).count() == 0
+        assert ln.Feature.filter(name__in=feat_names).count() == 0
+    finally:
+        _clean()
+
+
+def test_save_schema_with_remote_features_infers_instance_via_bare_save():
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    feat_names = [f"save-using-schema-infer-feat-{i}" for i in range(3)]
+    schema_name = "save-using-schema-infer"
+
+    def _clean():
+        for qs in (
+            db2.Schema.filter(name=schema_name),
+            db2.Feature.filter(name__in=feat_names),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        features = [
+            ln.Feature(name=name, dtype=str).save(using=using) for name in feat_names
+        ]
+        # bare save: instance is inferred from the (remote) member features
+        schema = ln.Schema(name=schema_name, features=features).save()
+
+        assert schema._state.db == using
+        remote_schema = db2.Schema.get(name=schema_name)
+        assert set(remote_schema.members.to_list("name")) == set(feat_names)
+        assert ln.Schema.filter(name=schema_name).count() == 0
+        assert ln.Feature.filter(name__in=feat_names).count() == 0
+    finally:
+        _clean()
