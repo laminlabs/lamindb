@@ -610,7 +610,7 @@ def get_branch_id_for_create(
 
 
 def suggest_records_with_similar_names(
-    record: SQLRecord, name_field: str, kwargs, type_explicitly_passed: bool = True
+    record: SQLRecord, name_field: str, kwargs, type_val=UNSET
 ) -> SQLRecord | None:
     """Returns a record if found exact match, otherwise None.
 
@@ -624,21 +624,7 @@ def suggest_records_with_similar_names(
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
-        if not type_explicitly_passed:
-            # no type= passed by user: primary search root-level (preserves existing behavior)
-            subset = record.__class__.filter(type__isnull=True)
-            exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
-            if exact_match is not None:
-                return exact_match
-            # fallback exact match: search across all type contexts to catch typed records
-            # with the same name and avoid silent duplicate creation
-            # subset stays root-level for the fuzzy similarity search below (avoid noise)
-            fallback_match = record.__class__.filter(
-                **{name_field: kwargs[name_field]}
-            ).first()
-            if fallback_match is not None:
-                return fallback_match
-        elif "type" in kwargs and kwargs["type"] is None:
+        if type_val is None:
             # explicit type=None → always create new at root, skip dedup
             if not kwargs.get("is_type", False):
                 logger.warning(
@@ -646,8 +632,9 @@ def suggest_records_with_similar_names(
                     " a type. In most cases, objects should be created under a type."
                 )
             return None
-        else:
-            subset = record.__class__.filter(type=kwargs["type"])
+        # UNSET: search all type contexts (catches typed records with same name, fixes silent dup bug)
+        # <object>: search within that type context only
+        subset = record.__class__ if type_val is UNSET else record.__class__.filter(type=type_val)
     else:
         subset = record.__class__
     exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
@@ -1182,10 +1169,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
-        # strip sentinel before validate_fields and Django's Model.__init__ see it
+        # capture user intent before stripping: UNSET=not passed, None=explicit None, obj=typed
+        # Schema pre-computes this (converts UNSET→None for hashing) and passes it via _type_val
         # `is` never calls __eq__, so FeaturePredicate objects are safe
-        if isinstance(self, HasType) and kwargs.get("type", UNSET) is UNSET:
-            kwargs.pop("type", None)
+        if isinstance(self, HasType):
+            type_val = kwargs.pop("_type_val", kwargs.get("type", UNSET))
+            if type_val is UNSET:
+                kwargs.pop("type", None)
+        else:
+            type_val = UNSET
         if not args:
 
             def resolve_fk_or_id(field_name: str) -> bool:
@@ -1241,15 +1233,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from .collection import Collection
                 from .transform import Transform
 
-                # capture user intent before validate_fields may add type=None
-                # Schema passes _type_explicitly_passed explicitly because it converts
-                # UNSET→None in validated_kwargs before reaching here
-                type_explicitly_passed = kwargs.pop(
-                    "_type_explicitly_passed",
-                    isinstance(self, HasType) and (
-                        "type" in kwargs or "type_id" in kwargs
-                    ),
-                )
                 validate_fields(self, kwargs)
 
                 # do not search for names if an id is passed; this is important
@@ -1269,7 +1252,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     name_field = getattr(self, "_name_field", "name")
                     exact_match = suggest_records_with_similar_names(
-                        self, name_field, kwargs, type_explicitly_passed
+                        self, name_field, kwargs, type_val
                     )
                     if exact_match is not None:
                         if "version_tag" in kwargs:
