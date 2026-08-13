@@ -2388,6 +2388,27 @@ def get_name_field(
     return field
 
 
+class LaminDBRouter:
+    def allow_relation(self, obj1, obj2, **hints) -> bool | None:
+        if isinstance(obj1, SQLRecord) and isinstance(obj2, SQLRecord):
+            return True
+        return None
+
+
+def _ensure_lamindb_router() -> None:
+    from django.conf import settings as django_settings
+    from django.db import router as django_router
+
+    router_path = "lamindb.models.sqlrecord.LaminDBRouter"
+    existing = list(getattr(django_settings, "DATABASE_ROUTERS", []))
+    if router_path in existing or any(
+        isinstance(r, LaminDBRouter) for r in existing
+    ):
+        return
+    django_settings.DATABASE_ROUTERS = [*existing, router_path]
+    django_router.__dict__.pop("routers", None)
+
+
 def add_db_connection(db: str, using: str):
     db_config = dj_database_url.config(
         default=db, conn_max_age=600, conn_health_checks=True
@@ -2396,6 +2417,7 @@ def add_db_connection(db: str, using: str):
     db_config["OPTIONS"] = {}
     db_config["AUTOCOMMIT"] = True
     connections.settings[using] = db_config
+    _ensure_lamindb_router()
 
 
 REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}

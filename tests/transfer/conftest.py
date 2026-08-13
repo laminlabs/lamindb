@@ -4,10 +4,17 @@ import lamindb as ln
 import pytest
 
 
+def _close_all_connections():
+    from django.db import connections
+
+    connections.close_all()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_testdb1():
     ln.setup.init(storage="./testdb1")
     yield
+    _close_all_connections()
     shutil.rmtree("./testdb1")
     ln.setup.delete("testdb1", force=True)
 
@@ -16,6 +23,7 @@ def setup_testdb1():
 def setup_testdb2():
     ln.setup.init(storage="./testdb2")
     yield
+    _close_all_connections()
     shutil.rmtree("./testdb2")
     ln.setup.delete("testdb2", force=True)
 
