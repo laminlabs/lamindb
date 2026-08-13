@@ -1700,7 +1700,10 @@ class FeatureManager:
             )
             schema = Schema(feature_objects)
         ExperimentalDictCurator(
-            dictionary, schema, require_saved_schema=False
+            dictionary,
+            schema,
+            require_saved_schema=False,
+            instance=self._host._state.db,
         ).validate()
         if host_is_record and schema.index is not None:
             from .record import strip_index_for_record_persistence
@@ -1730,6 +1733,7 @@ class FeatureManager:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
 
+        host_db = self._host._state.db
         host_is_record = self._host.__class__.__name__ == "Record"
         if host_is_record:
             feature_json_values: list[SQLRecord] = []
@@ -1746,12 +1750,12 @@ class FeatureManager:
             )
             self._raise_not_validated_values(record_not_validated_values)
             if feature_json_values:
-                save(feature_json_values)
+                save(feature_json_values, using=host_db)
             for links in links_by_model.values():
                 try:
-                    save(links, ignore_conflicts=False)
+                    save(links, ignore_conflicts=False, using=host_db)
                 except Exception:
-                    save(links, ignore_conflicts=True)
+                    save(links, ignore_conflicts=True, using=host_db)
             from .record import get_type_schema_index, persist_record_name
 
             if (
@@ -1918,7 +1922,9 @@ class FeatureManager:
         if host_is_artifact:
             schema = self._get_external_schema()
         if schema is not None:
-            ExperimentalDictCurator(dictionary, schema).validate()
+            ExperimentalDictCurator(
+                dictionary, schema, instance=self._host._state.db
+            ).validate()
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name

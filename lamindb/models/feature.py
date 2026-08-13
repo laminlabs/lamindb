@@ -171,8 +171,13 @@ def transfer_feature_dtypes(
 def get_record_type_from_uid(
     registry: Registry,
     type_uid: str,
+    using: str | None = None,
 ) -> SQLRecord:
-    type_record: SQLRecord = registry.get(type_uid)
+    type_record: SQLRecord = (
+        registry.get(type_uid)
+        if using is None
+        else registry.connect(using).get(type_uid)
+    )
 
     if type_record.branch_id == -1:
         warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{type_uid}') from trash"

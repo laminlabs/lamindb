@@ -57,6 +57,7 @@ def _from_values(
     standardize: bool = True,
     from_source: bool = True,
     mute: bool = False,
+    using: str | None = None,
     **filter_kwargs,
 ) -> SQLRecordList:
     """Get or create records from iterables."""
@@ -84,6 +85,7 @@ def _from_values(
         field=field,
         organism=organism_record,
         mute=mute,
+        using=using,
         **filter_kwargs,
     )
 
@@ -135,6 +137,7 @@ def get_existing_records(
     organism: SQLRecord | None = None,
     standardize: bool = True,
     mute: bool = False,
+    using: str | None = None,
     **filter_kwargs,
 ) -> tuple[list, Index, str]:
     """Get existing records from the database."""
@@ -144,7 +147,7 @@ def get_existing_records(
 
     # NOTE: existing records matching is agnostic to the source
     registry = field.field.model  # type: ignore
-    queryset = registry.filter(**filter_kwargs)
+    queryset = registry.filter(_using_key=using, **filter_kwargs)
 
     if standardize:
         # log synonyms mapped terms
