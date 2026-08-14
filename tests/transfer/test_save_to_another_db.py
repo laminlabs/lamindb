@@ -2,12 +2,30 @@ import subprocess
 import sys
 
 import lamindb as ln
+import pytest
+
+
+def test_cross_instance_m2m_add_still_blocked():
+    # the cross-instance relation router must NOT let `.add()` link two
+    # already-saved records that live on different instances; that guardrail
+    # (a friendly ValueError) must still fire. Mirrors the network-dependent
+    # tests/pydata test_unsaved_model_different_instance, but runs locally.
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+    af = db2.Artifact.get(key="README.md")  # lives on testdb1 (see conftest)
+    assert af._state.db == using
+
+    new_label = ln.Record(name="guardrail-testlabel").save()  # on default testdb2
+    try:
+        with pytest.raises(ValueError) as excinfo:
+            af.records.add(new_label)
+        assert "Cannot label a record from instance" in str(excinfo.value)
+        assert using in str(excinfo.value)
+    finally:
+        new_label.delete(permanent=True)
 
 
 def test_lamindb_router_registered_on_fresh_import():
-    # Bug A: the cross-instance relation router must be active on a plain
-    # `import lamindb`, before any cross-instance save/connect in the process.
-    # A subprocess guarantees a cold router state regardless of test ordering.
     code = (
         "import lamindb as ln\n"
         "from django.conf import settings\n"
@@ -20,8 +38,6 @@ def test_lamindb_router_registered_on_fresh_import():
 
 
 def test_construct_relation_to_remote_type_before_any_save():
-    # Bug A (functional): assigning an FK to a record living on another instance
-    # must not raise the router error at construction time.
     using = f"{ln.setup.settings.user.handle}/testdb1"
     db2 = ln.DB(using)
     type_name = "router-remote-type"
@@ -214,8 +230,6 @@ def test_save_schema_with_remote_features_infers_instance_via_bare_save():
 
 
 def test_save_record_with_single_valued_feature_to_another_db_via_model_save():
-    # Bug B: single-valued categorical feature whose dtype-type lives on testdb1.
-    # The type lookup must resolve on the target instance, not the default.
     assert ln.setup.settings.instance.name == "testdb2"
 
     using = f"{ln.setup.settings.user.handle}/testdb1"
@@ -253,10 +267,6 @@ def test_save_record_with_single_valued_feature_to_another_db_via_model_save():
 
 
 def test_bulk_save_records_with_multivalued_features_to_another_db():
-    # Bug C: `ln.save([...], using=)` funnels multi-valued features through
-    # `bulk_set_features_in_records`; a scalar categorical column cannot hold
-    # list values (pandas `unhashable type: 'list'`), and the writes must land
-    # on the target instance.
     assert ln.setup.settings.instance.name == "testdb2"
 
     using = f"{ln.setup.settings.user.handle}/testdb1"

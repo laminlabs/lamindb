@@ -2249,9 +2249,6 @@ def bulk_set_features_in_records(
     if len(records_with_features) == 0:
         return None
 
-    # for a cross-instance bulk save, validate and write on the target instance
-    # (records were bulk-created there, so their `_state.db` is the alias). Same
-    # convention as the per-record `add_values` path; None keeps the default.
     instance = using if using not in (None, "default") else None
 
     batch_schema: Schema | None = None
@@ -2330,13 +2327,6 @@ def bulk_set_features_in_records(
             for v in (row.get(column, pd.NA) for row in prepared_rows)
         ]
         target_dtype = feature_dtype_by_name.get(column)
-        # multi-valued features carry a list of values per record; a scalar
-        # categorical column cannot hold (unhashable) lists, so keep such columns
-        # as object dtype and flag them as `list_of_categories` (same as the
-        # per-record `convert_dict_to_dataframe_for_validation` path) so the
-        # curator validates list cells and `_collect_record_feature_writes` fans
-        # them out to per-value link rows. Single-valued columns keep the fast,
-        # declared-dtype Series path.
         is_multivalued = any(
             isinstance(v, (list, tuple, set, np.ndarray)) for v in values
         )

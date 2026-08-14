@@ -2390,19 +2390,26 @@ def get_name_field(
 
 class LaminDBRouter:
     def allow_relation(self, obj1, obj2, **hints) -> bool | None:
+        # Permit assigning a relation when one side is not yet saved, e.g.
+        # `ln.Record(type=remote_type)` while building a record for a
+        # cross-instance `using=` save: the new record's `_state.db` may have
+        # been pinned to "default" by its default branch/space FKs before the
+        # cross-instance type FK is assigned, which Django's default
+        # (same-database) check would otherwise reject at construction time.
+        #
+        # For two *already-saved* records we defer to Django's default check
+        # (return None) so that genuinely cross-instance links, such as
+        # `artifact.records.add(label)` across two different instances, remain
+        # blocked with the usual friendly error.
         if isinstance(obj1, SQLRecord) and isinstance(obj2, SQLRecord):
-            return True
+            if obj1._state.adding or obj2._state.adding:
+                return True
         return None
 
 
 def _ensure_lamindb_router() -> None:
     from django.conf import settings as django_settings
 
-    # Django enforces `allow_relation` at FK assignment (object construction),
-    # which can happen before any cross-instance save. Registering the router only
-    # in `add_db_connection` would be too late, so this is also called at import
-    # time (see `lamindb/models/__init__.py`). It is a no-op until Django settings
-    # are configured (i.e. once an instance is connected).
     if not django_settings.configured:
         return
     from django.db import router as django_router
