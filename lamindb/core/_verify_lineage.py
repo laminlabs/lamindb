@@ -85,6 +85,16 @@ class LaminLineageChecker(ast.NodeVisitor):
             self.imported_lamindb_symbols[local_name] = imported.name
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        for decorator in node.decorator_list:
+            decorator_name = (
+                self._get_func_name(decorator.func)
+                if isinstance(decorator, ast.Call)
+                else self._get_func_name(decorator)
+            )
+            if self._is_lamindb_flow_name(decorator_name):
+                # `@ln.flow` provides run lifecycle management.
+                self.has_track_call = True
+                self.has_finish_call = True
         # Save function bodies for later path-flow tracing at call sites.
         self.function_defs[node.name] = node
         self.generic_visit(node)
@@ -147,6 +157,9 @@ class LaminLineageChecker(ast.NodeVisitor):
             func_name, "finish"
         ):
             self.has_finish_call = True
+        if self._is_lamindb_flow_name(func_name):
+            self.has_track_call = True
+            self.has_finish_call = True
 
         # Distinguish LaminDB API calls from ordinary Python calls.
         # Any path referenced inside LaminDB calls is considered lineage-tracked.
@@ -187,6 +200,11 @@ class LaminLineageChecker(ast.NodeVisitor):
     def _is_imported_lamindb_symbol(self, func_name: str, symbol_name: str) -> bool:
         root_name = func_name.split(".", 1)[0]
         return self.imported_lamindb_symbols.get(root_name) == symbol_name
+
+    def _is_lamindb_flow_name(self, func_name: str) -> bool:
+        return func_name in ("ln.flow", "lamindb.flow") or self._is_imported_lamindb_symbol(
+            func_name, "flow"
+        )
 
     def _is_lamindb_artifact_save_call(self, node: ast.Call) -> bool:
         # Treat both `ln.Artifact(...).save()` and `artifact.save()` (where artifact

@@ -72,6 +72,76 @@ finish()
     assert result.missing_lineage == ()
 
 
+def test_verify_lineage_positive_flow_decorator(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "tracked_script_flow.py",
+        """
+import lamindb as ln
+
+@ln.flow()
+def main():
+    ln.Artifact.get(uid="abcDEF1234567890")
+    ln.Artifact("./out.csv").save()
+
+main()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_positive_imported_flow_step_decorators(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "tracked_script_imported_flow_step.py",
+        """
+from lamindb import Artifact, flow, step
+
+@step()
+def build_output():
+    Artifact("./out.csv").save()
+
+@flow()
+def main():
+    Artifact.get(uid="abcDEF1234567890")
+    build_output()
+
+main()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
+
+
+def test_verify_lineage_negative_step_decorator_without_flow_or_track(tmp_path: Path):
+    script_path = _write_script(
+        tmp_path,
+        "tracked_script_step_only.py",
+        """
+import lamindb as ln
+
+@ln.step()
+def build_output():
+    ln.Artifact("./out.csv").save()
+
+build_output()
+""".strip(),
+    )
+
+    result = verify_lineage(script_path)
+
+    assert result.is_fully_tracked is False
+    assert "Missing ln.track() call in script." in result.missing_lineage
+    assert "Missing ln.finish() call in script." in result.missing_lineage
+
+
 def test_verify_lineage_positive_zero_io_script(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
