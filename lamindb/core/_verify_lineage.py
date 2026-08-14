@@ -69,6 +69,8 @@ class LaminLineageChecker(ast.NodeVisitor):
         # Session-level lifecycle flags required for a "fully tracked" script.
         self.has_track_call: bool = False
         self.has_finish_call: bool = False
+        # Module aliases bound to `lamindb` via `import lamindb as <alias>`.
+        self.lamindb_module_aliases: set[str] = {"lamindb"}
         # Local symbols imported from `lamindb`, keyed by local alias -> imported name.
         self.imported_lamindb_symbols: dict[str, str] = {}
         # Function definitions are cached so later calls can be re-visited with bound args.
@@ -83,6 +85,12 @@ class LaminLineageChecker(ast.NodeVisitor):
         for imported in node.names:
             local_name = imported.asname or imported.name
             self.imported_lamindb_symbols[local_name] = imported.name
+
+    def visit_Import(self, node: ast.Import):
+        for imported in node.names:
+            if imported.name == "lamindb":
+                local_name = imported.asname or imported.name
+                self.lamindb_module_aliases.add(local_name)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         for decorator in node.decorator_list:
@@ -149,11 +157,11 @@ class LaminLineageChecker(ast.NodeVisitor):
         lineno = getattr(node, "lineno", 0)
 
         # Record explicit session lifecycle calls used to open/close lineage tracking.
-        if func_name in ("ln.track", "lamindb.track") or self._is_imported_lamindb_symbol(
+        if self._is_lamindb_module_call(func_name, "track") or self._is_imported_lamindb_symbol(
             func_name, "track"
         ):
             self.has_track_call = True
-        if func_name in ("ln.finish", "lamindb.finish") or self._is_imported_lamindb_symbol(
+        if self._is_lamindb_module_call(func_name, "finish") or self._is_imported_lamindb_symbol(
             func_name, "finish"
         ):
             self.has_finish_call = True
@@ -193,16 +201,20 @@ class LaminLineageChecker(ast.NodeVisitor):
 
     def _is_lamindb_artifact_constructor_call(self, node: ast.Call) -> bool:
         func_name = self._get_func_name(node.func)
-        return func_name in ("ln.Artifact", "lamindb.Artifact") or self._is_imported_lamindb_symbol(
+        return self._is_lamindb_module_call(func_name, "Artifact") or self._is_imported_lamindb_symbol(
             func_name, "Artifact"
         )
+
+    def _is_lamindb_module_call(self, func_name: str, call_name: str) -> bool:
+        root_name, _, remainder = func_name.partition(".")
+        return root_name in self.lamindb_module_aliases and remainder == call_name
 
     def _is_imported_lamindb_symbol(self, func_name: str, symbol_name: str) -> bool:
         root_name = func_name.split(".", 1)[0]
         return self.imported_lamindb_symbols.get(root_name) == symbol_name
 
     def _is_lamindb_flow_name(self, func_name: str) -> bool:
-        return func_name in ("ln.flow", "lamindb.flow") or self._is_imported_lamindb_symbol(
+        return self._is_lamindb_module_call(func_name, "flow") or self._is_imported_lamindb_symbol(
             func_name, "flow"
         )
 
@@ -220,9 +232,9 @@ class LaminLineageChecker(ast.NodeVisitor):
     def _is_lamindb_call(self, node: ast.Call, func_name: str) -> bool:
         # All ln./lamindb.* calls are considered lineage-aware.
         # We also include artifact save calls recognized above.
-        if func_name.startswith(("ln.", "lamindb.")):
-            return True
         root_name = func_name.split(".", 1)[0]
+        if root_name in self.lamindb_module_aliases:
+            return True
         if root_name in self.imported_lamindb_symbols:
             return True
         return self._is_lamindb_artifact_save_call(node)
