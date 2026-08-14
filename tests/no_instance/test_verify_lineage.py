@@ -52,7 +52,7 @@ ln.finish()
     assert result.missing_lineage == ()
 
 
-def test_verify_lineage_imported_symbols_match_current_behavior(tmp_path: Path):
+def test_verify_lineage_positive_imported_symbols(tmp_path: Path):
     script_path = _write_script(
         tmp_path,
         "tracked_script_imported.py",
@@ -68,9 +68,8 @@ finish()
 
     result = verify_lineage(script_path)
 
-    assert result.is_fully_tracked is False
-    assert "Missing ln.track() call in script." in result.missing_lineage
-    assert "Missing ln.finish() call in script." in result.missing_lineage
+    assert result.is_fully_tracked is True
+    assert result.missing_lineage == ()
 
 
 def test_verify_lineage_positive_zero_io_script(tmp_path: Path):
