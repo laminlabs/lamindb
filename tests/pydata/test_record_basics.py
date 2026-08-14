@@ -1197,7 +1197,7 @@ def test_record_features_add_remove_values():
 
     # test passing ISO-format date string for date
 
-    test_record2 = ln.Record(name="test_record", type=None).save()
+    test_record2 = ln.Record(name="test_record_2").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
     feature_date = ln.Feature.get(name="feature_date")

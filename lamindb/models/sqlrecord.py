@@ -451,7 +451,7 @@ def init_self_from_db(
 
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
-        if getattr(record, key) != value and value is not None:
+        if getattr(record, key) != value and value is not None and value is not UNSET:
             if key not in {"uid", "_dtype_str", "otype", "hash"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
@@ -610,7 +610,7 @@ def get_branch_id_for_create(
 
 
 def suggest_records_with_similar_names(
-    record: SQLRecord, name_field: str, kwargs, type_val=UNSET
+    record: SQLRecord, name_field: str, kwargs
 ) -> SQLRecord | None:
     """Returns a record if found exact match, otherwise None.
 
@@ -624,17 +624,18 @@ def suggest_records_with_similar_names(
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
-        if type_val is None:
-            # explicit type=None → always create new at root, skip dedup
-            if not kwargs.get("is_type", False):
-                logger.warning(
-                    f"Creating a root-level {record.__class__.__name__.lower()} without"
-                    " a type. In most cases, objects should be created under a type."
-                )
-            return None
-        # UNSET: search all type contexts (catches typed records with same name, fixes silent dup bug)
-        # <object>: search within that type context only
-        subset = record.__class__ if type_val is UNSET else record.__class__.filter(type=type_val)
+        # "type" is always present in kwargs at this point (Solution A contract)
+        type = kwargs["type"]
+        if type is UNSET:
+            # user passed nothing → search all type contexts
+            # catches typed records with same name, fixes silent dup bug
+            subset = record.__class__.filter()
+        elif type is None:
+            # explicit type=None → search root-level (type IS NULL)
+            subset = record.__class__.filter(type__isnull=True)
+        else:
+            # specific type → search within that type context only
+            subset = record.__class__.filter(type=type)
     else:
         subset = record.__class__
     exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
@@ -1169,15 +1170,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
-        # capture user intent before stripping: UNSET=not passed, None=explicit None, obj=typed
-        # Schema pre-computes this (converts UNSET→None for hashing) and passes it via _type_val
-        # `is` never calls __eq__, so FeaturePredicate objects are safe
-        if isinstance(self, HasType):
-            type_val = kwargs.pop("_type_val", kwargs.get("type", UNSET))
-            if type_val is UNSET:
-                kwargs.pop("type", None)
-        else:
-            type_val = UNSET
         if not args:
 
             def resolve_fk_or_id(field_name: str) -> bool:
@@ -1226,12 +1218,20 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the current one), so the record is created on that branch.
                     kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
+                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
+                if isinstance(self, HasType) and kwargs.get("type", UNSET) is UNSET:
+                    kwargs.pop("type", None)
                 super().__init__(**kwargs)
             else:
                 from ..core._settings import settings
                 from .can_curate import CanCurate
                 from .collection import Collection
                 from .transform import Transform
+
+                # ensure "type" is always present in kwargs for HasType models so that
+                # suggest_records_with_similar_names can use kwargs["type"] unconditionally
+                if isinstance(self, HasType) and "type" not in kwargs:
+                    kwargs["type"] = UNSET
 
                 validate_fields(self, kwargs)
 
@@ -1252,7 +1252,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     name_field = getattr(self, "_name_field", "name")
                     exact_match = suggest_records_with_similar_names(
-                        self, name_field, kwargs, type_val
+                        self, name_field, kwargs
                     )
                     if exact_match is not None:
                         if "version_tag" in kwargs:
@@ -1282,6 +1282,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             # track original values after replacing with the existing record
                             self._populate_tracked_fields()
                             return None
+                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
+                if isinstance(self, HasType) and kwargs.get("type", UNSET) is UNSET:
+                    kwargs.pop("type", None)
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators

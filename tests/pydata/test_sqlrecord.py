@@ -288,10 +288,10 @@ def test_suggest_similar_names():
     assert ln.Record(name="Test experiment 1").uid == record1.uid
 
     assert suggest_records_with_similar_names(
-        record1, "name", {"name": "Test experiment 1"}, type_val=UNSET
+        record1, "name", {"name": "Test experiment 1", "type": UNSET}
     )
     assert not suggest_records_with_similar_names(
-        record2, "name", {"name": "Test experiment 123"}, type_val=UNSET
+        record2, "name", {"name": "Test experiment 123", "type": UNSET}
     )
 
     queryset = _search(
