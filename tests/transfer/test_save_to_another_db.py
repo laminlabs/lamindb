@@ -1,4 +1,42 @@
+import subprocess
+import sys
+
 import lamindb as ln
+
+
+def test_lamindb_router_registered_on_fresh_import():
+    # Bug A: the cross-instance relation router must be active on a plain
+    # `import lamindb`, before any cross-instance save/connect in the process.
+    # A subprocess guarantees a cold router state regardless of test ordering.
+    code = (
+        "import lamindb as ln\n"
+        "from django.conf import settings\n"
+        "print('LaminDBRouter' in str(settings.DATABASE_ROUTERS))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert "True" in result.stdout, result.stdout + result.stderr
+
+
+def test_construct_relation_to_remote_type_before_any_save():
+    # Bug A (functional): assigning an FK to a record living on another instance
+    # must not raise the router error at construction time.
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+    type_name = "router-remote-type"
+
+    if db2.Record.filter(name=type_name).exists():
+        db2.Record.filter(name=type_name).delete(permanent=True)
+    try:
+        remote_type = ln.Record(name=type_name, is_type=True).save(using=using)
+        # read it back so the FK target is a record whose _state.db is the alias
+        remote_type = db2.Record.get(name=type_name)
+        # construction with a cross-instance FK must not raise
+        child = ln.Record(name="router-remote-child", type=remote_type)
+        assert child.type.uid == remote_type.uid
+    finally:
+        db2.Record.filter(name=type_name).delete(permanent=True)
 
 
 def test_save_ulabel_to_another_db_via_model_save():
@@ -171,5 +209,151 @@ def test_save_schema_with_remote_features_infers_instance_via_bare_save():
         assert set(remote_schema.members.to_list("name")) == set(feat_names)
         assert ln.Schema.filter(name=schema_name).count() == 0
         assert ln.Feature.filter(name__in=feat_names).count() == 0
+    finally:
+        _clean()
+
+
+def test_save_record_with_single_valued_feature_to_another_db_via_model_save():
+    # Bug B: single-valued categorical feature whose dtype-type lives on testdb1.
+    # The type lookup must resolve on the target instance, not the default.
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    gene_type_name = "sv-gene-type"
+    gene_feat_name = "sv-gene"
+    gene_name = "sv-gene-value"
+    rec_name = "sv-child"
+
+    def _clean():
+        for qs in (
+            db2.Record.filter(name=rec_name),
+            db2.Record.filter(name=gene_name),
+            db2.Record.filter(name=gene_type_name),
+            db2.Feature.filter(name=gene_feat_name),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
+        gene = ln.Record(name=gene_name, type=gene_t).save(using=using)
+
+        child = ln.Record(name=rec_name, features={gene_feat: gene}).save(using=using)
+
+        assert child._state.db == using
+        remote_child = db2.Record.get(name=rec_name)
+        assert remote_child.features.get_values()[gene_feat_name] == gene_name
+        assert ln.Record.filter(name=rec_name).count() == 0
+    finally:
+        _clean()
+
+
+def test_bulk_save_records_with_multivalued_features_to_another_db():
+    # Bug C: `ln.save([...], using=)` funnels multi-valued features through
+    # `bulk_set_features_in_records`; a scalar categorical column cannot hold
+    # list values (pandas `unhashable type: 'list'`), and the writes must land
+    # on the target instance.
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    gene_type_name = "bulk-mv-gene-type"
+    int_type_name = "bulk-mv-int-type"
+    gene_feat_name = "bulk-mv-genes"
+    schema_name = "bulk-mv-schema"
+    gene_names = [f"bulk-mv-gene-{i}" for i in range(5)]
+    rec_names = [f"bulk-mv-child-{i}" for i in range(3)]
+
+    def _clean():
+        for qs in (
+            db2.Record.filter(name__in=rec_names),
+            db2.Record.filter(name__in=gene_names),
+            db2.Record.filter(name=int_type_name),
+            db2.Schema.filter(name=schema_name),
+            db2.Feature.filter(name=gene_feat_name),
+            db2.Record.filter(name=gene_type_name),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
+        schema = ln.Schema(name=schema_name, features=[gene_feat]).save(using=using)
+        int_t = ln.Record(
+            name=int_type_name, is_type=True, schema=schema
+        ).save(using=using)
+        gene_pool = [
+            ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names
+        ]
+
+        records = [
+            ln.Record(name=rn, type=int_t, features={gene_feat: gene_pool[:3]})
+            for rn in rec_names
+        ]
+        ln.save(records, using=using)
+
+        for rn in rec_names:
+            remote = db2.Record.get(name=rn)
+            assert set(remote.features.get_values()[gene_feat_name]) == set(
+                gene_names[:3]
+            )
+        assert ln.Record.filter(name__in=rec_names).count() == 0
+    finally:
+        _clean()
+
+
+def test_read_features_from_another_db_via_to_dataframe():
+    # read-path gap: `.to_dataframe(include="features")` on a remote queryset must
+    # resolve the record type on the queryset's instance, not the default.
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    gene_type_name = "rd-gene-type"
+    int_type_name = "rd-int-type"
+    gene_feat_name = "rd-genes"
+    schema_name = "rd-schema"
+    gene_names = [f"rd-gene-{i}" for i in range(4)]
+    rec_name = "rd-child"
+
+    def _clean():
+        for qs in (
+            db2.Record.filter(name=rec_name),
+            db2.Record.filter(name__in=gene_names),
+            db2.Record.filter(name=int_type_name),
+            db2.Schema.filter(name=schema_name),
+            db2.Feature.filter(name=gene_feat_name),
+            db2.Record.filter(name=gene_type_name),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
+        schema = ln.Schema(name=schema_name, features=[gene_feat]).save(using=using)
+        int_t = ln.Record(
+            name=int_type_name, is_type=True, schema=schema
+        ).save(using=using)
+        gene_pool = [
+            ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names
+        ]
+        ln.Record(
+            name=rec_name, type=int_t, features={gene_feat: gene_pool[:3]}
+        ).save(using=using)
+
+        # cross-instance read with feature reassembly must not raise
+        df = db2.Record.filter(name=rec_name).to_dataframe(include="features")
+        assert len(df) == 1
+        assert gene_feat_name in df.columns
     finally:
         _clean()

@@ -640,13 +640,17 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
 
 
 def resolve_relation_filters(
-    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+    parsed_filters: dict[str, tuple[str, str | None, str]],
+    registry: SQLRecord,
+    using: str | None = None,
 ) -> dict[str, str | SQLRecord]:
     """Resolve relation filters actual model objects.
 
     Args:
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
+        using: Target instance to resolve related objects on (per-instance PKs);
+            ``None`` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -661,7 +665,11 @@ def resolve_relation_filters(
                     and relation_field.field.is_relation
                 ):
                     related_model = relation_field.field.related_model
-                    related_obj = related_model.get(**{field_name: value})
+                    related_obj = (
+                        related_model.get(**{field_name: value})
+                        if using is None
+                        else related_model.connect(using).get(**{field_name: value})
+                    )
                     resolved[relation_name] = related_obj
         else:
             resolved[filter_key] = value

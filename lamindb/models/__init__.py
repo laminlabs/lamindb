@@ -239,3 +239,10 @@ from .block import (
 )
 
 FeatureValue = JsonValue  # backward compatibility
+
+# register the cross-instance relation router as early as possible, so that
+# `allow_relation` is active before any relational FK assignment (which Django
+# checks at object construction, i.e. before a first cross-instance save)
+from .sqlrecord import _ensure_lamindb_router
+
+_ensure_lamindb_router()

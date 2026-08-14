@@ -1584,7 +1584,9 @@ class CatVector:
         if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
-                    parse_filter_string(filter_str), self._registry
+                    parse_filter_string(filter_str),
+                    self._registry,
+                    using=self._instance,
                 )  # type: ignore
             )
         if self._registry.__base__.__name__ == "BioRecord":
@@ -1765,7 +1767,9 @@ class CatVector:
                 if filter_str:
                     parsed_filters = parse_filter_string(filter_str)
                     filter_kwargs.update(
-                        resolve_relation_filters(parsed_filters, registry)
+                        resolve_relation_filters(
+                            parsed_filters, registry, using=self._instance
+                        )
                     )
                 if registry.__base__.__name__ == "BioRecord":
                     organism_record = get_organism_record_from_field(
@@ -1958,7 +1962,11 @@ class CatVector:
             filter_str = result.get("filter_str", "")
             if filter_str:
                 parsed_filters = parse_filter_string(filter_str)
-                filter_kwargs.update(resolve_relation_filters(parsed_filters, registry))
+                filter_kwargs.update(
+                    resolve_relation_filters(
+                        parsed_filters, registry, using=self._instance
+                    )
+                )
             registry_or_queryset = registry
             if self._subtype_query_set is not None and registry == self._registry:
                 registry_or_queryset = self._subtype_query_set

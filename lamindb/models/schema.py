@@ -96,13 +96,6 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
 def _resolve_pks_on_instance(
     registry: type[SQLRecord], uids: list[str], using: str | None
 ) -> list[int]:
-    """Resolve primary keys on a target instance from stable `uid`s (order-preserving).
-
-    Primary keys are per-instance, whereas `uid` is stable across instances. When
-    writing link-table rows to a different instance via `using=`, the in-memory
-    `.id` of a related record is not guaranteed to match that instance's row, so we
-    look up the ids by `uid` on the target connection.
-    """
     uid_to_pk = dict(
         registry.objects.using(using).filter(uid__in=uids).values_list("uid", "id")
     )
@@ -1110,14 +1103,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def _infer_members_instance(self) -> str | None:
-        """Return the non-default instance the pending members live on, if any.
-
-        Pending schema members (``_features``) and slot components (``_slots``)
-        carry ``_state.db``. When they were created on another instance via
-        ``using=``, a bare ``.save()`` should follow them there. Returns ``None``
-        when members are local (the same-instance fast path) and raises when they
-        span more than one instance.
-        """
         candidates: set[str] = set()
         if hasattr(self, "_features"):
             for record in self._features[1]:
@@ -1164,11 +1149,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         index_name_conflict = kwargs.pop("index_name_conflict", None)
         using = kwargs.get("using") or self._state.db
 
-        # a schema must live on the same instance as its members. When they were
-        # created on another instance via `using=` and the schema is saved without
-        # an explicit target, follow the members there (bare `.save()` should not
-        # split the schema from its features). Same-instance members are local, so
-        # this is a no-op for the normal path.
         members_instance = self._infer_members_instance()
         if members_instance is not None:
             if using is None or using == "default":
@@ -1251,9 +1231,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     index_name_conflict=index_name_conflict,
                 )
         super().save(*args, **kwargs)
-        # link-table rows reference per-instance primary keys; when writing to a
-        # different instance via `using=`, resolve both endpoints by their stable
-        # `uid` on the target connection. Same-instance saves keep the fast path.
         cross_instance = using is not None and using != "default"
         schema_id = (
             _resolve_pks_on_instance(type(self), [self.uid], using)[0]

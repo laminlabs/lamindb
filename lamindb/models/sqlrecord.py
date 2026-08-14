@@ -2397,6 +2397,14 @@ class LaminDBRouter:
 
 def _ensure_lamindb_router() -> None:
     from django.conf import settings as django_settings
+
+    # Django enforces `allow_relation` at FK assignment (object construction),
+    # which can happen before any cross-instance save. Registering the router only
+    # in `add_db_connection` would be too late, so this is also called at import
+    # time (see `lamindb/models/__init__.py`). It is a no-op until Django settings
+    # are configured (i.e. once an instance is connected).
+    if not django_settings.configured:
+        return
     from django.db import router as django_router
 
     router_path = "lamindb.models.sqlrecord.LaminDBRouter"

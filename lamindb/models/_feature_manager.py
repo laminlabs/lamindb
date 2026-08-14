@@ -2227,7 +2227,9 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
 
-def bulk_set_features_in_records(records: Iterable[Record]) -> None:
+def bulk_set_features_in_records(
+    records: Iterable[Record], using: str | None = None
+) -> None:
     import numpy as np
 
     """Bulk-set lazy feature dictionaries for records.
@@ -2246,6 +2248,11 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     ]
     if len(records_with_features) == 0:
         return None
+
+    # for a cross-instance bulk save, validate and write on the target instance
+    # (records were bulk-created there, so their `_state.db` is the alias). Same
+    # convention as the per-record `add_values` path; None keeps the default.
+    instance = using if using not in (None, "default") else None
 
     batch_schema: Schema | None = None
     batch_schema_index: Feature | None = None
@@ -2314,6 +2321,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     )
 
     data: dict[str, pd.Series] = {}
+    multivalued_columns: list[str] = []
     for column in ordered_columns:
         # None from entirely-null columns is not a valid sentinel for extension
         # dtypes (StringDtype, BooleanDtype, Int64Dtype) — convert to pd.NA
@@ -2322,22 +2330,37 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             for v in (row.get(column, pd.NA) for row in prepared_rows)
         ]
         target_dtype = feature_dtype_by_name.get(column)
-        if target_dtype is not None:
+        # multi-valued features carry a list of values per record; a scalar
+        # categorical column cannot hold (unhashable) lists, so keep such columns
+        # as object dtype and flag them as `list_of_categories` (same as the
+        # per-record `convert_dict_to_dataframe_for_validation` path) so the
+        # curator validates list cells and `_collect_record_feature_writes` fans
+        # them out to per-value link rows. Single-valued columns keep the fast,
+        # declared-dtype Series path.
+        is_multivalued = any(
+            isinstance(v, (list, tuple, set, np.ndarray)) for v in values
+        )
+        if target_dtype is not None and not is_multivalued:
             data[column] = pd.Series(values, dtype=target_dtype)
         else:
-            data[column] = pd.Series(values)
+            data[column] = pd.Series(values, dtype="object")
+        if is_multivalued:
+            multivalued_columns.append(column)
     if data:
         dataframe = pd.DataFrame(data)
     else:
         dataframe = pd.DataFrame(index=range(len(prepared_rows)))
 
     dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
+    # set after the index move, which does not preserve `.attrs`
+    for column in multivalued_columns:
+        dataframe.attrs[column] = "list_of_categories"
     # Single-pass dataframe curation:
     # validate schema and resolve categoricals once for the entire batch.
     #
     # The resolved label records are then reused below when creating per-record
     # link rows, avoiding repeated registry calls for each row.
-    curator = DataFrameCurator(dataframe, batch_schema)
+    curator = DataFrameCurator(dataframe, batch_schema, instance=instance)
     curator.validate()
 
     members_by_name: dict[str, list[Feature]] = defaultdict(list)
@@ -2418,18 +2441,18 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
-        save(feature_json_values)
+        save(feature_json_values, using=instance)
     for links in links_by_model.values():
         try:
-            save(links, ignore_conflicts=False)
+            save(links, ignore_conflicts=False, using=instance)
         except Exception:
-            save(links, ignore_conflicts=True)
+            save(links, ignore_conflicts=True, using=instance)
     from .save import bulk_update
 
     if batch_schema_index is not None:
         # only `name` was modified (via strip_index_for_record_persistence)
         # updating all fields generates a massive CASE WHEN SQL for large batches
-        bulk_update(records_with_features, update_fields=["name"])
+        bulk_update(records_with_features, update_fields=["name"], using=instance)
     for record in records_with_features:
         del record._features
     return None
