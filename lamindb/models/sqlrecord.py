@@ -626,15 +626,15 @@ def suggest_records_with_similar_names(
     if isinstance(record, HasType):
         # "type" is always present in kwargs at this point (Solution A contract)
         type = kwargs["type"]
-        if type is None:
-            # explicit type=None → user wants a new root-level record, skip dedup
-            return None
-        elif type is UNSET:
+        if type is UNSET:
             # user passed nothing → search all type contexts
             # catches typed records with same name, fixes silent dup bug
             subset = record.__class__.filter()
+        elif type is None:
+            # explicit type=None → root-level dedup (type IS NULL)
+            subset = record.__class__.filter(type__isnull=True)
         else:
-            # specific type object → search within that type context only
+            # specific type object → scoped dedup within that type
             subset = record.__class__.filter(type=type)
     else:
         subset = record.__class__

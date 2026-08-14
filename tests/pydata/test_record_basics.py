@@ -696,16 +696,15 @@ def test_name_lookup():
     # no type passed, only typed record exists → fallback returns the typed one
     label2 = ln.Record(name="label 1")
     assert label2 == label1
-    # explicit type=None → always skip dedup, always a new root-level record
+    # explicit type=None → root-level dedup: label1 is typed so not found → new record
     label_new = ln.Record(name="label 1", type=None)
     assert label_new != label1
     assert label_new._state.adding  # not yet saved, truly a new record
-    # explicit type=None, even if a root-level record exists → still skips dedup
+    # explicit type=None, root-level record exists → root-level dedup finds it → returns it
     root_label = ln.Record(name="root label 1").save()
     label3 = ln.Record(name="root label 1", type=None)
-    assert label3 != root_label
-    assert label3._state.adding
-    # no type passed, root-level record exists → UNSET → search all → finds root_label
+    assert label3 == root_label
+    # no type passed (UNSET) → search all → finds the existing root-level record
     label4 = ln.Record(name="root label 1")
     assert label4 == root_label
     root_label.delete(permanent=True)
