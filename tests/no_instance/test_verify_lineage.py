@@ -46,6 +46,24 @@ class PositiveCases:
         ln.finish()
     """
 
+    lamindb_custom_alias = """
+        import lamindb as ldb
+
+        ldb.track()
+        ldb.Artifact.get(uid="abcDEF1234567890")
+        ldb.Artifact("./out.csv").save()
+        ldb.finish()
+    """
+
+    lamindb_without_alias = """
+        import lamindb
+
+        lamindb.track()
+        lamindb.Artifact.get(uid="abcDEF1234567890")
+        lamindb.Artifact("./out.csv").save()
+        lamindb.finish()
+    """
+
     artifact_from_dataframe = """
         import lamindb as ln
 
@@ -63,10 +81,21 @@ class PositiveCases:
         finish()
     """
 
-    flow_decorator = """
+    flow_decorator_with_alias = """
         import lamindb as ln
 
         @ln.flow()
+        def main():
+            ln.Artifact.get(uid="abcDEF1234567890")
+            ln.Artifact("./out.csv").save()
+
+        main()
+    """
+
+    flow_decorator_no_alias = """
+        import lamindb as ln
+
+        @lamindb.flow()
         def main():
             ln.Artifact.get(uid="abcDEF1234567890")
             ln.Artifact("./out.csv").save()
@@ -240,6 +269,20 @@ class MissingLifecycleCases:
         ln.Artifact("./out.csv").save()
     """
 
+    missing_track_only = """
+        import lamindb as ln
+
+        ln.Artifact("./out.csv").save()
+        ln.finish()
+    """
+
+    missing_finish_only = """
+        import lamindb as ln
+
+        ln.track()
+        ln.Artifact("./out.csv").save()
+    """
+
 
 class UntrackedPathCases:
     external_input_read_csv = {
@@ -311,7 +354,7 @@ class UntrackedPathCases:
         """,
     }
 
-    non_mkdir_directory_use = {
+    untracked_directory = {
         "untracked_path": "outputs/proteomics",
         "source_code": """
         from pathlib import Path
@@ -325,6 +368,32 @@ class UntrackedPathCases:
         get_path("outputs/proteomics")
         output_path = output_dir / "uniprot_human_reviewed.tsv"
         ln.Artifact(output_path, key="datasets/proteomics/uniprot_human_reviewed.tsv").save()
+        ln.finish()
+        """,
+    }
+
+    untracked_matplotlib_savefig = {
+        "untracked_path": "./my_plot.png",
+        "source_code": """
+        import lamindb as ln
+        import matplotlib.pyplot as plt
+
+        ln.track()
+        plt.plot([1, 2])
+        plt.savefig("./my_plot.png")
+        ln.finish()
+        """,
+    }
+
+    untracked_pandas_to_parquet = {
+        "untracked_path": "./data.parquet",
+        "source_code": """
+        import lamindb as ln
+        import pandas as pd
+
+        ln.track()
+        df = pd.DataFrame({"a": [1, 2]})
+        df.to_parquet("./data.parquet")
         ln.finish()
         """,
     }
@@ -343,8 +412,10 @@ def test_verify_lineage_negative_missing_lifecycle(tmp_path: Path, source_code: 
     script_path = _write_script(tmp_path, "script.py", source_code)
     result = verify_lineage(script_path)
     assert result.is_fully_tracked is False
-    assert "Missing ln.track() call in script." in result.missing_lineage
-    assert "Missing ln.finish() call in script." in result.missing_lineage
+    assert (
+        "Missing ln.track() call in script." in result.missing_lineage
+        or "Missing ln.finish() call in script." in result.missing_lineage
+    )
 
 
 @pytest.mark.parametrize(
