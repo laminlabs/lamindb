@@ -4,7 +4,6 @@ import textwrap
 from typing import TYPE_CHECKING
 
 import pytest
-
 from lamindb.core import verify_lineage
 
 if TYPE_CHECKING:
