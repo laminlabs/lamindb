@@ -64,8 +64,8 @@ class LaminLineageChecker(ast.NodeVisitor):
         self.untracked_paths: dict[str, list[int]] = {}
         # Best-effort binding of variable names to path-like strings as code is traversed.
         self.var_map: dict[str, set[str]] = {}  # var_name -> set of path strings
-        # Variable names that currently refer to an ln.Artifact(...) instance.
-        self.artifact_vars: set[str] = set()  # vars assigned from ln.Artifact(...)
+        # Variable names that currently refer to a lamindb Artifact(...) instance.
+        self.artifact_vars: set[str] = set()  # vars assigned from lamindb.Artifact(...)
         # Session-level lifecycle flags required for a "fully tracked" script.
         self.has_track_call: bool = False
         self.has_finish_call: bool = False
@@ -100,7 +100,7 @@ class LaminLineageChecker(ast.NodeVisitor):
                 else self._get_func_name(decorator)
             )
             if self._is_lamindb_flow_name(decorator_name):
-                # `@ln.flow` provides run lifecycle management.
+                # `@lamindb.flow` provides run lifecycle management.
                 self.has_track_call = True
                 self.has_finish_call = True
         # Save function bodies for later path-flow tracing at call sites.
@@ -192,7 +192,7 @@ class LaminLineageChecker(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _get_func_name(self, node: ast.AST) -> str:
-        """Recursively resolves AST attribute names (e.g. ln.Artifact.get)."""
+        """Recursively resolves AST attribute names (e.g. lamindb.Artifact.get)."""
         if isinstance(node, ast.Name):
             return node.id
         elif isinstance(node, ast.Attribute):
@@ -219,8 +219,9 @@ class LaminLineageChecker(ast.NodeVisitor):
         )
 
     def _is_lamindb_artifact_save_call(self, node: ast.Call) -> bool:
-        # Treat both `ln.Artifact(...).save()` and `artifact.save()` (where artifact
-        # was created from ln.Artifact(...)) as LaminDB lineage-tracked operations.
+        # Treat both `lamindb.Artifact(...).save()` and `artifact.save()`
+        # (where artifact was created from `lamindb.Artifact(...)`)
+        # as LaminDB lineage-tracked operations.
         if not (isinstance(node.func, ast.Attribute) and node.func.attr == "save"):
             return False
         if isinstance(node.func.value, ast.Call):
@@ -230,7 +231,7 @@ class LaminLineageChecker(ast.NodeVisitor):
         return False
 
     def _is_lamindb_call(self, node: ast.Call, func_name: str) -> bool:
-        # All ln./lamindb.* calls are considered lineage-aware.
+        # All calls rooted at `lamindb` (or any imported alias like `ln`) are lineage-aware.
         # We also include artifact save calls recognized above.
         root_name = func_name.split(".", 1)[0]
         if root_name in self.lamindb_module_aliases:
@@ -357,12 +358,14 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
     """Statically analyze one script and report missing LaminDB lineage hooks.
 
     Coverage (static AST checks):
-    - Confirms the script contains explicit session lifecycle calls:
-      `ln.track()` and `ln.finish()`.
+    - Confirms the script contains explicit session lifecycle calls from LaminDB:
+      `track()` and `finish()` (or `flow()`).
     - Extracts path-like strings from literals, variables, call arguments,
       and simple path joins (string `+` or path `/` operations).
     - Classifies path usage as tracked when it appears in LaminDB calls
-      (`ln.*`, `lamindb.*`, including `ln.Artifact(...).save()` patterns),
+      (`ln.*`, `lamindb.*`, or any alias like `import lamindb as alias`,
+      including `x=lamindb.Artifact(...)->x.save()` patterns and
+      `from lamindb import Artifact`),
       and flags paths that only appear in non-LaminDB calls.
     - Propagates path-like argument bindings into user-defined helper
       functions to catch indirect path usage.
@@ -410,7 +413,8 @@ def verify_lineage(script_path: str) -> VerifyLineageResult:
 
     missing_lineage: list[str] = []
 
-    # A script is fully tracked only if it explicitly opens and closes tracking.
+    # A script is fully tracked only if it opens and closes tracking
+    # (or uses `flow()` lifecycle management).
     if not checker.has_track_call:
         missing_lineage.append("Missing ln.track() call in script.")
 
