@@ -48,6 +48,7 @@ from .sqlrecord import (
     Registry,
     Space,
     SQLRecord,
+    UNSET,
     _get_record_kwargs,
     init_self_from_db,
     pop_space_branch_kwargs,
@@ -681,7 +682,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         itype: str | SQLRecord | DeferredAttribute | None = kwargs.pop("itype", None)
         flexible: bool | None = kwargs.pop("flexible", None)
-        type: Feature | None = kwargs.pop("type", None)
+        type: Feature | None = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
         suffix: str | None = kwargs.pop("suffix", None)
@@ -866,7 +867,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs = {
             "name": name,
             "description": description,
-            "type": type,
+            "type": None if type is UNSET else type,
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,

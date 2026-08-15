@@ -107,6 +107,10 @@ if TYPE_CHECKING:
 
 
 T = TypeVar("T", bound="SQLRecord")
+
+# Sentinel to distinguish "user didn't pass type=" from "user explicitly passed type=None".
+# Uses object() so identity checks (is) never call __eq__ on model instances.
+UNSET = object()
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 UNIQUE_FIELD_NAMES = {
     "root",
@@ -1158,6 +1162,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
+        # strip sentinel before validate_fields and Django's Model.__init__ see it
+        # `is` never calls __eq__, so FeaturePredicate objects are safe
+        if isinstance(self, HasType) and kwargs.get("type", UNSET) is UNSET:
+            kwargs.pop("type", None)
         if not args:
 
             def resolve_fk_or_id(field_name: str) -> bool:
