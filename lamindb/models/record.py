@@ -873,7 +873,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str | None = None,
-        type: Record | None = None,
+        type: Record | None = UNSET,
         is_type: bool = False,
         features: dict[str | Feature, Any] | None = None,
         description: str | None = None,

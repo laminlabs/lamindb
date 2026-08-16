@@ -224,7 +224,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str,
-        type: ULabel | None = None,
+        type: ULabel | None = UNSET,
         is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,

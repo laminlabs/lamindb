@@ -28,7 +28,7 @@ from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
+from .sqlrecord import UNSET, BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -217,7 +217,7 @@ class Reference(
     def __init__(
         self,
         name: str,
-        type: Reference | None = None,
+        type: Reference | None = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
@@ -449,7 +449,7 @@ class Project(
     def __init__(
         self,
         name: str,
-        type: Project | None = None,
+        type: Project | None = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,

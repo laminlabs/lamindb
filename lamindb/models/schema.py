@@ -631,7 +631,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         name: str | None = None,
         description: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        type: Schema | None = None,
+        type: Schema | None = UNSET,
         is_type: bool = False,
         index: Feature | None = None,
         flexible: bool | None = None,

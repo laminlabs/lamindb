@@ -1221,7 +1221,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         | Registry
         | list[Registry]
         | FieldAttr,
-        type: Feature | None = None,
+        type: Feature | None = UNSET,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
