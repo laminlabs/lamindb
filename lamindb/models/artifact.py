@@ -214,11 +214,6 @@ OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
 )
 
 
-def _is_cloud_access_denied(error: OSError) -> bool:
-    # s3fs raises PermissionError; gcsfs raises OSError("Forbidden: ...")
-    return isinstance(error, PermissionError) or "forbidden" in str(error).lower()
-
-
 def process_pathlike(
     filepath: UPath,
     storage: Storage,
@@ -231,7 +226,7 @@ def process_pathlike(
             exists = filepath.exists()
         except OSError as e:
             # PermissionError is an OSError; s3fs raises it, gcsfs uses OSError("Forbidden: ...")
-            if not _is_cloud_access_denied(e):
+            if not isinstance(e, PermissionError) and "forbidden" not in str(e).lower():
                 raise
             logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
         else:
