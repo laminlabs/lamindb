@@ -28,7 +28,18 @@ from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import UNSET, BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
+from lamindb.errors import FieldValidationError
+
+from .sqlrecord import (
+    UNSET,
+    BaseSQLRecord,
+    HasType,
+    IsLink,
+    SQLRecord,
+    ValidateFields,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -237,7 +248,44 @@ class Reference(
     ): ...
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        if len(args) > 0:
+            raise ValueError("Only one non-keyword arg allowed")
+        name: str = kwargs.pop("name", None)
+        type: Reference | None = kwargs.pop("type", UNSET)
+        is_type: bool = kwargs.pop("is_type", False)
+        abbr: str | None = kwargs.pop("abbr", None)
+        url: str | None = kwargs.pop("url", None)
+        pubmed_id: int | None = kwargs.pop("pubmed_id", None)
+        doi: str | None = kwargs.pop("doi", None)
+        description: str | None = kwargs.pop("description", None)
+        text: str | None = kwargs.pop("text", None)
+        date: DateType | None = kwargs.pop("date", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
+        _skip_validation = kwargs.pop("_skip_validation", False)
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Reference)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            type=type,
+            is_type=is_type,
+            abbr=abbr,
+            url=url,
+            pubmed_id=pubmed_id,
+            doi=doi,
+            description=description,
+            text=text,
+            date=date,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+            **space_branch_kwargs,
+        )
 
     def query_references(self) -> QuerySet:
         """Query references of sub types.
@@ -466,7 +514,38 @@ class Project(
     ): ...
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        if len(args) > 0:
+            raise ValueError("Only one non-keyword arg allowed")
+        name: str = kwargs.pop("name", None)
+        type: Project | None = kwargs.pop("type", UNSET)
+        is_type: bool = kwargs.pop("is_type", False)
+        abbr: str | None = kwargs.pop("abbr", None)
+        url: str | None = kwargs.pop("url", None)
+        start_date: DateType | None = kwargs.pop("start_date", None)
+        end_date: DateType | None = kwargs.pop("end_date", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
+        _skip_validation = kwargs.pop("_skip_validation", False)
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Project)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            type=type,
+            is_type=is_type,
+            abbr=abbr,
+            url=url,
+            start_date=start_date,
+            end_date=end_date,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+            **space_branch_kwargs,
+        )
 
     def query_projects(self) -> QuerySet:
         """Query projects of sub types.

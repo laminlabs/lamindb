@@ -1217,15 +1217,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # `kwargs["branch"]` is now always a non-None Branch (explicit or
                     # the current one), so the record is created on that branch.
                     kwargs["created_on"] = kwargs["branch"]
-            # HasType models like Record, ULabel, Feature, Schema each explicitly
-            # pop and re-inject "type" (defaulting to UNSET) in their own __init__,
-            # so "type" is already in kwargs for them.
-            # Project and Reference pass kwargs straight through without touching "type",
-            # so we inject UNSET here to uphold the contract that kwargs["type"] is
-            # always readable — and so the strip below can use kwargs["type"] directly.
-            if isinstance(self, HasType) and "type" not in kwargs:
-                kwargs["type"] = UNSET
-
             if skip_validation:
                 # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
                 if isinstance(self, HasType) and kwargs["type"] is UNSET:
