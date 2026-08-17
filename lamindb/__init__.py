@@ -231,6 +231,8 @@ __all__ = [
     "examples",
     "errors",
     "setup",
+    # sentinels
+    "Unset",
     # low-level functionality
     "base",
     "core",
