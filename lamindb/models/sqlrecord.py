@@ -114,6 +114,8 @@ class Unset:
     Use ``is`` checks to compare against the singleton :data:`UNSET`.
     """
 
+    __module__ = "lamindb"
+
     _instance: Unset | None = None
 
     def __new__(cls) -> Unset:
