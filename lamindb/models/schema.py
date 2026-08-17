@@ -49,6 +49,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     UNSET,
+    Unset,
     _get_record_kwargs,
     init_self_from_db,
     pop_space_branch_kwargs,
@@ -631,7 +632,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         name: str | None = None,
         description: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        type: Schema | None = UNSET,
+        type: Schema | None | Unset = UNSET,
         is_type: bool = False,
         index: Feature | None = None,
         flexible: bool | None = None,
@@ -673,7 +674,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         itype: str | SQLRecord | DeferredAttribute | None = kwargs.pop("itype", None)
         flexible: bool | None = kwargs.pop("flexible", None)
-        type: Feature | None = kwargs.pop("type", UNSET)
+        type: Feature | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
         suffix: str | None = kwargs.pop("suffix", None)

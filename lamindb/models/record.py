@@ -39,6 +39,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     UNSET,
+    Unset,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -873,7 +874,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str | None = None,
-        type: Record | None = UNSET,
+        type: Record | None | Unset = UNSET,
         is_type: bool = False,
         features: dict[str | Feature, Any] | None = None,
         description: str | None = None,
@@ -901,7 +902,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", UNSET)
+        type: Record | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)

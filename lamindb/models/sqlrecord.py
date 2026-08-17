@@ -108,9 +108,24 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="SQLRecord")
 
-# Sentinel to distinguish "user didn't pass type=" from "user explicitly passed type=None".
-# Uses object() so identity checks (is) never call __eq__ on model instances.
-UNSET = object()
+class Unset:
+    """Sentinel type to distinguish 'not passed' from explicit ``None``.
+
+    Use ``is`` checks to compare against the singleton :data:`UNSET`.
+    """
+
+    _instance: Unset | None = None
+
+    def __new__(cls) -> Unset:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET: Unset = Unset()
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 UNIQUE_FIELD_NAMES = {
     "root",

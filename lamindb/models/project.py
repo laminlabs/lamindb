@@ -32,6 +32,7 @@ from lamindb.errors import FieldValidationError
 
 from .sqlrecord import (
     UNSET,
+    Unset,
     BaseSQLRecord,
     HasType,
     IsLink,
@@ -228,7 +229,7 @@ class Reference(
     def __init__(
         self,
         name: str,
-        type: Reference | None = UNSET,
+        type: Reference | None | Unset = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
@@ -254,7 +255,7 @@ class Reference(
         if len(args) > 0:
             raise ValueError("Only keyword args allowed")
         name: str = kwargs.pop("name", None)
-        type: Reference | None = kwargs.pop("type", UNSET)
+        type: Reference | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         abbr: str | None = kwargs.pop("abbr", None)
         url: str | None = kwargs.pop("url", None)
@@ -497,7 +498,7 @@ class Project(
     def __init__(
         self,
         name: str,
-        type: Project | None = UNSET,
+        type: Project | None | Unset = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
@@ -520,7 +521,7 @@ class Project(
         if len(args) > 0:
             raise ValueError("Only keyword args allowed")
         name: str = kwargs.pop("name", None)
-        type: Project | None = kwargs.pop("type", UNSET)
+        type: Project | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         abbr: str | None = kwargs.pop("abbr", None)
         url: str | None = kwargs.pop("url", None)

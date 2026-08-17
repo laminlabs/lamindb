@@ -182,7 +182,7 @@ from .models import (
     DB,
 )
 from .models.save import save
-from .models.sqlrecord import UNSET
+from .models.sqlrecord import UNSET, Unset
 from . import core
 from . import integrations
 from . import curators

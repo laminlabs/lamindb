@@ -51,6 +51,7 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     UNSET,
+    Unset,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -671,7 +672,7 @@ def process_init_feature_param(args, kwargs):
     name: str = kwargs.pop("name", None)
     dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
-    type_: Feature | str | None = kwargs.pop("type", UNSET)
+    type_: Feature | str | None | Unset = kwargs.pop("type", UNSET)
     description: str | None = kwargs.pop("description", None)
     space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
@@ -1221,7 +1222,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         | Registry
         | list[Registry]
         | FieldAttr,
-        type: Feature | None = UNSET,
+        type: Feature | None | Unset = UNSET,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
