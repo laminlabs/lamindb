@@ -81,6 +81,33 @@ def test_create_from_remote_path_stat_failure_warns(ccaplog):
     artifact.delete(permanent=True, storage=False)
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        PermissionError("Access Denied"),
+        OSError("Forbidden: Request is prohibited by organization's policy."),
+    ],
+)
+def test_create_from_remote_path_exists_access_denied_warns(ccaplog, error):
+    filepath_str = "s3://lamindb-ci/test-data/test.csv"
+    path_cls = type(create_path(filepath_str))
+    with patch.object(path_cls, "exists", side_effect=error):
+        artifact = ln.Artifact(filepath_str, description="test exists access denied")
+    assert artifact.path.as_posix() == filepath_str
+    assert "failed to check existence" in ccaplog.text
+    assert str(error) in ccaplog.text
+    artifact.save()
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_create_from_remote_path_exists_other_oserror_raises():
+    filepath_str = "s3://lamindb-ci/test-data/test.csv"
+    path_cls = type(create_path(filepath_str))
+    with patch.object(path_cls, "exists", side_effect=OSError("network error")):
+        with pytest.raises(OSError, match="network error"):
+            ln.Artifact(filepath_str, description="test exists other oserror")
+
+
 def test_versioning_arifact_from_existing_path(ccaplog):
     artifact1 = ln.Artifact("s3://lamindb-ci/test-data/test.parquet").save()
     artifact2 = ln.Artifact(

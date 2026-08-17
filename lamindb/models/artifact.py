@@ -214,6 +214,11 @@ OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
 )
 
 
+def _is_cloud_access_denied(error: OSError) -> bool:
+    # s3fs raises PermissionError; gcsfs raises OSError("Forbidden: ...")
+    return isinstance(error, PermissionError) or "forbidden" in str(error).lower()
+
+
 def process_pathlike(
     filepath: UPath,
     storage: Storage,
@@ -223,10 +228,15 @@ def process_pathlike(
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
-            if not filepath.exists():
+            exists = filepath.exists()
+        except OSError as e:
+            # PermissionError is an OSError; s3fs raises it, gcsfs uses OSError("Forbidden: ...")
+            if not _is_cloud_access_denied(e):
+                raise
+            logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
+        else:
+            if not exists:
                 raise FileNotFoundError(filepath)
-        except PermissionError:
-            pass
     if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
