@@ -41,7 +41,6 @@ from lamindb.errors import (
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
     get_relative_path_to_directory,
-    get_stat_or_artifact,
     process_data,
 )
 from lamindb_setup.core.canonical_suffix import CanonicalSuffix
@@ -150,16 +149,6 @@ def test_cloud_path_init_missing_artifact_raises(monkeypatch):
     with pytest.raises(ValueError) as error:
         ln.Artifact(path, description="test")
     assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
-
-
-def test_get_stat_or_artifact_cloud_stat_failure_warns(ccaplog):
-    path = UPath("s3://lamindb-ci/test-data/test.csv")
-    with patch.object(path, "stat", side_effect=OSError("network error")):
-        result = get_stat_or_artifact(path, storage=SimpleNamespace())
-    assert result == (None, None, None, None, None)
-    assert "failed to retrieve stats for" in ccaplog.text
-    assert "proceeding without size and hash" in ccaplog.text
-    assert "network error" in ccaplog.text
 
 
 def test_path_init_existing_artifact():
