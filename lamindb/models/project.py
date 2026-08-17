@@ -252,7 +252,7 @@ class Reference(
             super().__init__(*args, **kwargs)
             return None
         if len(args) > 0:
-            raise ValueError("Only one non-keyword arg allowed")
+            raise ValueError("Only keyword args allowed")
         name: str = kwargs.pop("name", None)
         type: Reference | None = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
@@ -518,7 +518,7 @@ class Project(
             super().__init__(*args, **kwargs)
             return None
         if len(args) > 0:
-            raise ValueError("Only one non-keyword arg allowed")
+            raise ValueError("Only keyword args allowed")
         name: str = kwargs.pop("name", None)
         type: Project | None = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
