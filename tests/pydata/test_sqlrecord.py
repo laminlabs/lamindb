@@ -402,7 +402,7 @@ def test_get_record_kwargs():
             "dtype",
             "SimpleDtype | SimpleDtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr",
         ),
-        ("type", "Feature | None"),
+        ("type", "Feature | None | Unset"),
         ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
