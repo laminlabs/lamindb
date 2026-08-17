@@ -223,10 +223,15 @@ def process_pathlike(
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
-            if not filepath.exists():
+            exists = filepath.exists()
+        except OSError as e:
+            # PermissionError is an OSError; s3fs raises it, gcsfs uses OSError("Forbidden: ...")
+            if not isinstance(e, PermissionError) and "forbidden" not in str(e).lower():
+                raise
+            logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
+        else:
+            if not exists:
                 raise FileNotFoundError(filepath)
-        except PermissionError:
-            pass
     if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
@@ -396,18 +401,24 @@ def get_stat_or_artifact(
     n_files = None
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
-    stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
-        if stat is not None:
-            # convert UPathStatResult to fsspec info dict
-            stat = stat.as_info()
-            if (store_type := stat["type"]) == "file":
-                size, hash, hash_type = get_stat_file_cloud(
-                    stat, protocol=path.protocol
-                )
-            elif store_type == "directory":
-                size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        try:
+            stat = path.stat()  # one network request
+            if stat is not None:
+                # convert UPathStatResult to fsspec info dict
+                stat = stat.as_info()
+                if (store_type := stat["type"]) == "file":
+                    size, hash, hash_type = get_stat_file_cloud(
+                        stat, protocol=path.protocol
+                    )
+                elif store_type == "directory":
+                    size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        except Exception as e:
+            logger.warning(
+                f"failed to retrieve stats for {path}, proceeding without size and hash: {e}"
+            )
+            return None, None, None, None, None
         if hash is None:
             logger.warning(f"did not add hash for {path}")
             return size, hash, hash_type, n_files, None
