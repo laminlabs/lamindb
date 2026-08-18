@@ -1703,7 +1703,7 @@ class FeatureManager:
             dictionary,
             schema,
             require_saved_schema=False,
-            instance=self._host._state.db,
+            using=self._host._state.db,
         ).validate()
         if host_is_record and schema.index is not None:
             from .record import strip_index_for_record_persistence
@@ -1923,7 +1923,7 @@ class FeatureManager:
             schema = self._get_external_schema()
         if schema is not None:
             ExperimentalDictCurator(
-                dictionary, schema, instance=self._host._state.db
+                dictionary, schema, using=self._host._state.db
             ).validate()
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
@@ -2350,7 +2350,7 @@ def bulk_set_features_in_records(
     #
     # The resolved label records are then reused below when creating per-record
     # link rows, avoiding repeated registry calls for each row.
-    curator = DataFrameCurator(dataframe, batch_schema, instance=instance)
+    curator = DataFrameCurator(dataframe, batch_schema, using=instance)
     curator.validate()
 
     members_by_name: dict[str, list[Feature]] = defaultdict(list)
