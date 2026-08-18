@@ -413,7 +413,8 @@ def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet
     else:
         qs = None
 
-    if qs:  # an empty query set evaluates to False
+    # `if qs` evaluates the entire queryset; exists() is a cheap LIMIT 1
+    if qs is not None and qs.exists():
         return qs
 
     qs = (
