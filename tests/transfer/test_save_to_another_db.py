@@ -367,3 +367,176 @@ def test_read_features_from_another_db_via_to_dataframe():
         assert gene_feat_name in df.columns
     finally:
         _clean()
+
+
+def test_from_dataframe_bulk_save_to_another_db():
+    # RecordBatch.save(using=X) must land records, scalar features, AND
+    # multi-valued (relational) link rows on the target instance.
+    #
+    # REQUIRED: validate on Postgres before merging. SQLite aligns per-instance
+    # id sequences, so a cross-instance FK bug (a link row referencing a
+    # default-instance pk) is masked here and only reproduces on a Postgres
+    # testdb pair. A green run here proves routing/placement ONLY, not
+    # FK-divergence safety — do not treat the SQLite pass as sufficient.
+    import pandas as pd
+
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+
+    gene_type_name = "fdf-gene-type"
+    sheet_name = "fdf-sheet"
+    gene_feat_name = "fdf-genes"
+    score_feat_name = "fdf-score"
+    schema_name = "fdf-schema"
+    gene_names = [f"fdf-gene-{i}" for i in range(5)]
+    rec_names = [f"fdf-child-{i}" for i in range(3)]
+    # keep every list multi-element: a single-element multi-valued cell
+    # round-trips as a scalar via get_values(), which is orthogonal to `using=`
+    gene_lists = [gene_names[:3], gene_names[1:3], gene_names[2:4]]
+
+    def _clean():
+        for qs in (
+            db2.Record.filter(name__in=rec_names),
+            db2.Record.filter(name__in=gene_names),
+            db2.Record.filter(name=sheet_name),
+            db2.Schema.filter(name=schema_name),
+            db2.Feature.filter(name__in=[gene_feat_name, score_feat_name]),
+            db2.Record.filter(name=gene_type_name),
+        ):
+            if qs.exists():
+                qs.delete(permanent=True)
+
+    _clean()
+    try:
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
+        score_feat = ln.Feature(name=score_feat_name, dtype=float).save(using=using)
+        schema = ln.Schema(
+            name=schema_name, features=[gene_feat, score_feat]
+        ).save(using=using)
+        sheet = ln.Record(
+            name=sheet_name, is_type=True, schema=schema
+        ).save(using=using)
+        [ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names]
+
+        df = pd.DataFrame(
+            {
+                "__lamindb_record_name__": rec_names,
+                score_feat_name: [1.0, 2.0, 3.0],
+                gene_feat_name: gene_lists,
+            }
+        )
+
+        batch = ln.Record.from_dataframe(df, type=sheet)
+        result = batch.save(using=using)
+
+        # (a) records land on the target instance, nothing local
+        assert all(r._state.db == using for r in result)
+        assert db2.Record.filter(name__in=rec_names).count() == len(rec_names)
+        assert ln.Record.filter(name__in=rec_names).count() == 0
+
+        # (b) scalar feature values are correct on the target
+        for rn, score in zip(rec_names, [1.0, 2.0, 3.0]):
+            remote = db2.Record.get(name=rn)
+            assert remote.features.get_values()[score_feat_name] == score
+
+        # (c) multi-valued link rows attach on the target
+        for rn, genes in zip(rec_names, gene_lists):
+            remote = db2.Record.get(name=rn)
+            assert set(remote.features.get_values()[gene_feat_name]) == set(genes)
+    finally:
+        _clean()
+
+
+def test_from_dataframe_bulk_save_same_instance_unchanged():
+    # (d) using=None must behave exactly like today on the default instance,
+    # including the multi-valued path.
+    import pandas as pd
+
+    gene_type_name = "fdf-local-gene-type"
+    sheet_name = "fdf-local-sheet"
+    gene_feat_name = "fdf-local-genes"
+    score_feat_name = "fdf-local-score"
+    schema_name = "fdf-local-schema"
+    gene_names = [f"fdf-local-gene-{i}" for i in range(4)]
+    rec_names = [f"fdf-local-child-{i}" for i in range(2)]
+    gene_lists = [gene_names[:2], gene_names[1:3]]
+
+    def _clean():
+        ln.Record.filter(name__in=rec_names).delete(permanent=True)
+        ln.Record.filter(name__in=gene_names).delete(permanent=True)
+        ln.Record.filter(name=sheet_name).delete(permanent=True)
+        ln.Schema.filter(name=schema_name).delete(permanent=True)
+        ln.Feature.filter(name__in=[gene_feat_name, score_feat_name]).delete(
+            permanent=True
+        )
+        ln.Record.filter(name=gene_type_name).delete(permanent=True)
+
+    _clean()
+    try:
+        gene_t = ln.Record(name=gene_type_name, is_type=True).save()
+        gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save()
+        score_feat = ln.Feature(name=score_feat_name, dtype=float).save()
+        schema = ln.Schema(name=schema_name, features=[gene_feat, score_feat]).save()
+        sheet = ln.Record(name=sheet_name, is_type=True, schema=schema).save()
+        [ln.Record(name=g, type=gene_t).save() for g in gene_names]
+
+        df = pd.DataFrame(
+            {
+                "__lamindb_record_name__": rec_names,
+                score_feat_name: [1.0, 2.0],
+                gene_feat_name: gene_lists,
+            }
+        )
+        result = ln.Record.from_dataframe(df, type=sheet).save()
+        assert len(result) == len(rec_names)
+        for rn, score, genes in zip(rec_names, [1.0, 2.0], gene_lists):
+            got = ln.Record.get(name=rn).features.get_values()
+            assert got[score_feat_name] == score
+            assert set(got[gene_feat_name]) == set(genes)
+    finally:
+        _clean()
+
+
+def test_from_dataframe_bulk_save_using_type_not_on_target_raises():
+    # guard: the batch's record type must already exist on the target instance;
+    # a type resolved on the default instance must raise, not write a dangling FK.
+    import pandas as pd
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+
+    score_feat_name = "fdf-guard-score"
+    schema_name = "fdf-guard-schema"
+    sheet_name = "fdf-guard-sheet"
+    rec_names = ["fdf-guard-a", "fdf-guard-b"]
+
+    def _clean():
+        ln.Record.filter(name__in=rec_names).delete(permanent=True)
+        ln.Record.filter(name=sheet_name).delete(permanent=True)
+        ln.Schema.filter(name=schema_name).delete(permanent=True)
+        ln.Feature.filter(name=score_feat_name).delete(permanent=True)
+
+    _clean()
+    try:
+        # type + schema created on the DEFAULT instance (testdb2)
+        score_feat = ln.Feature(name=score_feat_name, dtype=float).save()
+        schema = ln.Schema(name=schema_name, features=[score_feat]).save()
+        sheet = ln.Record(name=sheet_name, is_type=True, schema=schema).save()
+
+        df = pd.DataFrame(
+            {
+                "__lamindb_record_name__": rec_names,
+                score_feat_name: [1.0, 2.0],
+            }
+        )
+        batch = ln.Record.from_dataframe(df, type=sheet)
+        with pytest.raises(ln.errors.InvalidArgument) as excinfo:
+            batch.save(using=using)
+        assert "record type" in str(excinfo.value)
+        assert using in str(excinfo.value)
+        # nothing should have been written to the target
+        assert ln.DB(using).Record.filter(name__in=rec_names).count() == 0
+    finally:
+        _clean()
