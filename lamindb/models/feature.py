@@ -44,13 +44,13 @@ from .run import (
     TracksUpdates,
 )
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
     Registry,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -1386,9 +1386,28 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
 
+    def _should_build_model_predicate(self, other: models.Model) -> bool:
+        """Return whether a model value should be treated as a feature predicate value."""
+        dtype_str = self._dtype_str
+        if dtype_str is None:
+            return False
+        parsed_dtype = parse_dtype(dtype_str)
+        for component in parsed_dtype:
+            registry = component.get("registry")
+            if isinstance(registry, type) and isinstance(other, registry):
+                return True
+        return False
+
     def __eq__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return super().__eq__(other)
+        # Django internals may compare model instances while collecting related
+        # objects for delete cascades/protect checks. Returning FeaturePredicate
+        # for unrelated models breaks those paths because they expect bool.
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "", other))
             return super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__eq__ -> bool.
@@ -1397,6 +1416,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def __ne__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return not super().__eq__(other)
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "__ne", other))
             return not super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__ne__ -> bool.

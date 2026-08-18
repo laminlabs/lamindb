@@ -513,6 +513,9 @@ def test_feature_predicate_queries_safe_hybrid():
     # same feature name can be disambiguated by passing the Feature object
     assert ln.Artifact.filter(feature_a == "hello").one() == artifact_a
     assert ln.Artifact.filter(feature_b == "hello").one() == artifact_b
+    # comparing to unrelated model classes must preserve model bool semantics
+    assert (feature_a == artifact_a) is False
+    assert (feature_a != artifact_a) is True
     # Feature compared to another model should still generate a predicate
     assert ln.Artifact.filter(cell_type_feature == hek293).one() == artifact_a
 
