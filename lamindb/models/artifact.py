@@ -6,7 +6,16 @@ import types
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    Literal,
+    Protocol,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -1255,6 +1264,44 @@ def _sqlrecord_or_id(
         return model.objects.get(id=sqlrecord_id)
 
 
+def _automanaged_folder_parent(path_str: str) -> str | None:
+    """If `path_str` is nested under `.lamindb/<child>/...`, return that child path.
+
+    Example: `s3://bucket/.lamindb/{uid}/nested/file.txt` → `s3://bucket/.lamindb/{uid}`.
+    """
+    prefix = _s().AUTO_KEY_PREFIX
+    idx = path_str.find(prefix)
+    if idx == -1:
+        return None
+    len_prefix = len(prefix)
+    rest = path_str[idx + len_prefix :]
+    slash = rest.find("/")
+    if slash == -1:
+        return None
+    return path_str[: idx + len_prefix + slash]
+
+
+class _ArtifactGetByPath(Protocol):
+    def get(self, *, path: str) -> Artifact: ...
+
+
+def _get_artifact_by_automanaged_path(
+    registry_or_queryset: _ArtifactGetByPath, path_str: str
+) -> Artifact:
+    """Look up an artifact by an automanaged `.lamindb/` path.
+
+    `registry_or_queryset` is `Artifact` or `Artifact.connect(slug)`. If the exact path
+    is missing, retries with the `.lamindb/<child>` folder parent (a file inside a folder artifact).
+    """
+    try:
+        return registry_or_queryset.get(path=path_str)
+    except Artifact.DoesNotExist:
+        folder_path = _automanaged_folder_parent(path_str)
+        if folder_path is None:
+            raise
+        return registry_or_queryset.get(path=folder_path)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1814,7 +1861,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     # the query further will still search in the instance managing the storage of the artifact
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact, path_str
+                        )
                         logger.important(
                             f"initializing from existing artifact with uid={existing_artifact.uid}"
                         )
@@ -1835,7 +1884,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         )
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.connect(slug).get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact.connect(slug), path_str
+                        )
                     except Artifact.DoesNotExist as e:
                         raise ValueError(
                             f"Artifact for path '{path_str}' not found."
