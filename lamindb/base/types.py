@@ -25,6 +25,11 @@ Basic types
 .. autoclass:: StrField
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
+
+Sentinel types
+--------------
+
+.. autoclass:: Unset
 """
 
 from __future__ import annotations
@@ -147,6 +152,37 @@ SimpleDtypeStr = Literal[
 DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat
+
+class Unset:
+    """Sentinel type to distinguish 'not passed' from explicit ``None``.
+
+    The singleton :data:`~lamindb.base.types.UNSET` is the only instance.
+    Use ``is`` checks to compare against it::
+
+        if value is UNSET:
+            ...  # user did not pass the argument
+        elif value is None:
+            ...  # user explicitly passed None
+        else:
+            ...  # user passed a real value
+    """
+
+    _instance: Unset | None = None
+
+    def __new__(cls) -> Unset:
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET: Unset = Unset()
+"""Sentinel value to distinguish 'argument not passed' from explicit ``None``.
+
+See :class:`~lamindb.base.types.Unset`.
+"""
 
 RegistryId = Literal[
     "__lamindb_artifact__",

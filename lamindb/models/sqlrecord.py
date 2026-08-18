@@ -108,24 +108,8 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="SQLRecord")
 
-class Unset:
-    """Sentinel type to distinguish 'not passed' from explicit ``None``.
+from lamindb.base.types import UNSET, Unset  # noqa: E402
 
-    Use ``is`` checks to compare against the singleton :data:`UNSET`.
-    """
-
-    _instance: Unset | None = None
-
-    def __new__(cls) -> Unset:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self) -> str:
-        return "UNSET"
-
-
-UNSET: Unset = Unset()
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 UNIQUE_FIELD_NAMES = {
     "root",

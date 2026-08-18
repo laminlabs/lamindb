@@ -182,7 +182,7 @@ from .models import (
     DB,
 )
 from .models.save import save
-from .models.sqlrecord import UNSET, Unset
+from .base.types import UNSET, Unset
 from . import core
 from . import integrations
 from . import curators
@@ -231,8 +231,6 @@ __all__ = [
     "examples",
     "errors",
     "setup",
-    # sentinels
-    "Unset",
     # low-level functionality
     "base",
     "core",
