@@ -97,23 +97,22 @@ def one_helper(
     not_exists: bool | None = None,
     raise_multipleresultsfound: bool = True,
 ):
+    # LIMIT 2 distinguishes 0, 1, and many without fetching the whole queryset
+    records = self[:2]
     if not_exists is None:
-        if isinstance(self, SQLRecordList):
-            not_exists = len(self) == 0
-        else:
-            not_exists = not self.exists()  # type: ignore
+        not_exists = len(records) == 0
     if not_exists:
         if raise_doesnotexist:
             raise DoesNotExist(does_not_exist_msg)
         else:
             return None
-    elif len(self) > 1:
+    elif len(records) > 1:
         if raise_multipleresultsfound:
             raise MultipleResultsFound(self)
         else:
-            return self[0]
+            return records[0]
     else:
-        return self[0]
+        return records[0]
 
 
 def map_query_kwargs(queryset, expressions):
