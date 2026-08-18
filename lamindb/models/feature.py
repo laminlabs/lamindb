@@ -44,13 +44,13 @@ from .run import (
     TracksUpdates,
 )
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
     Registry,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -1019,10 +1019,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
           - string serialization
         * - `bt.Disease`
           - `{"source": source}`
-          - `"cat[bionty.Disease]"`
+          - `"cat[bionty.Disease[source__uid='<uid_of_source>']]"`
         * - `ln.Artifact`
           - `{"schema": schema}`
-          - `"cat[Artifact]"`
+          - `"cat[Artifact[schema__uid='<uid_of_schema>']]"`
 
     **List data types.**
 
@@ -1047,6 +1047,19 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
           - string serialization
         * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
           - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+
+    **Usage in function signatures.**
+
+    In function signatures, you can use the string serialization of the dtype to represent the dtype, see :doc:`docs:launch`::
+
+        @ln.flow()
+        def my_func(
+            x: "bionty.Organism[source__uid='4eeXrDKBKo']",
+            y: "cat[Record[YSS8VU4eeXrDKBKo, is_type=true, schema__uid='6pjoBrrz4f1EzQMO']]",
+            z: "list[bionty.Disease]",
+        ) -> str:
+            ...
+
 
     """
 
