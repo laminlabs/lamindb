@@ -2424,9 +2424,7 @@ def _ensure_lamindb_router() -> None:
 
     router_path = "lamindb.models.sqlrecord.LaminDBRouter"
     existing = list(getattr(django_settings, "DATABASE_ROUTERS", []))
-    if router_path in existing or any(
-        isinstance(r, LaminDBRouter) for r in existing
-    ):
+    if router_path in existing or any(isinstance(r, LaminDBRouter) for r in existing):
         return
     django_settings.DATABASE_ROUTERS = [*existing, router_path]
     django_router.__dict__.pop("routers", None)
@@ -2440,6 +2438,9 @@ def add_db_connection(db: str, using: str):
     db_config["OPTIONS"] = {}
     db_config["AUTOCOMMIT"] = True
     connections.settings[using] = db_config
+    # Ensure router registration when dynamic DB aliases are added.
+    # Covers init orders where the import-time call happened before
+    # Django settings were configured and therefore returned early.
     _ensure_lamindb_router()
 
 
