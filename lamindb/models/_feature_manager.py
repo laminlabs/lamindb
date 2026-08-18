@@ -2249,7 +2249,7 @@ def bulk_set_features_in_records(
     if len(records_with_features) == 0:
         return None
 
-    instance = using if using not in (None, "default") else None
+    using = using if using not in (None, "default") else None
 
     batch_schema: Schema | None = None
     batch_schema_index: Feature | None = None
@@ -2350,7 +2350,7 @@ def bulk_set_features_in_records(
     #
     # The resolved label records are then reused below when creating per-record
     # link rows, avoiding repeated registry calls for each row.
-    curator = DataFrameCurator(dataframe, batch_schema, using=instance)
+    curator = DataFrameCurator(dataframe, batch_schema, using=using)
     curator.validate()
 
     members_by_name: dict[str, list[Feature]] = defaultdict(list)
@@ -2431,18 +2431,18 @@ def bulk_set_features_in_records(
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
-        save(feature_json_values, using=instance)
+        save(feature_json_values, using=using)
     for links in links_by_model.values():
         try:
-            save(links, ignore_conflicts=False, using=instance)
+            save(links, ignore_conflicts=False, using=using)
         except Exception:
-            save(links, ignore_conflicts=True, using=instance)
+            save(links, ignore_conflicts=True, using=using)
     from .save import bulk_update
 
     if batch_schema_index is not None:
         # only `name` was modified (via strip_index_for_record_persistence)
         # updating all fields generates a massive CASE WHEN SQL for large batches
-        bulk_update(records_with_features, update_fields=["name"], using=instance)
+        bulk_update(records_with_features, update_fields=["name"], using=using)
     for record in records_with_features:
         del record._features
     return None
