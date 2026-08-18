@@ -41,6 +41,7 @@ from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
@@ -48,7 +49,6 @@ from .sqlrecord import (
     Registry,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     init_self_from_db,
     pop_space_branch_kwargs,
@@ -125,7 +125,7 @@ def transfer_schema_members(
     schema: Schema,
     source_db: str,
     source_pk: int | None,
-    using_key: str | None,
+    using: str | None,
     *,
     transfer_logs: dict,
 ) -> None:
@@ -153,11 +153,9 @@ def transfer_schema_members(
         )
         if source_index_feature is not None:
             index_feature = copy(source_index_feature)
-            transfer_feature_dtypes(
-                index_feature, using_key, transfer_logs=transfer_logs
-            )
+            transfer_feature_dtypes(index_feature, using, transfer_logs=transfer_logs)
             transferred_index_feature = transfer_to_default_db(
-                index_feature, using_key, transfer_logs=transfer_logs, save=True
+                index_feature, using, transfer_logs=transfer_logs, save=True
             )
             transferred_index_uid = (
                 transferred_index_feature.uid
@@ -178,9 +176,9 @@ def transfer_schema_members(
     for source_member in members:
         member = copy(source_member)
         if isinstance(member, Feature):
-            transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+            transfer_feature_dtypes(member, using, transfer_logs=transfer_logs)
         transferred_member = transfer_to_default_db(
-            member, using_key, transfer_logs=transfer_logs, save=True
+            member, using, transfer_logs=transfer_logs, save=True
         )
         if transferred_member is not None:
             transferred_members.append(transferred_member)
@@ -215,7 +213,7 @@ def transfer_schema_members(
 
 
 def transfer_schema_with_members(
-    schema: Schema, using_key: str | None, *, transfer_logs: dict
+    schema: Schema, using: str | None, *, transfer_logs: dict
 ) -> Schema:
     from copy import copy
 
@@ -226,7 +224,7 @@ def transfer_schema_with_members(
     schema_copy = copy(schema)
     with transaction.atomic():
         record_on_default = transfer_to_default_db(
-            schema_copy, using_key, transfer_logs=transfer_logs, save=True
+            schema_copy, using, transfer_logs=transfer_logs, save=True
         )
         schema_default = (
             record_on_default if record_on_default is not None else schema_copy
@@ -235,7 +233,7 @@ def transfer_schema_with_members(
             schema_default,
             source_db,
             source_pk,
-            using_key,
+            using,
             transfer_logs=transfer_logs,
         )
     return schema_default

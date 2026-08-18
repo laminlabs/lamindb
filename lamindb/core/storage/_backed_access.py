@@ -73,7 +73,7 @@ def backed_access(
     artifact_or_filepath: Artifact | UPath,
     mode: str = "r",
     engine: Literal["pyarrow", "polars"] = "pyarrow",
-    using_key: str | None = None,
+    using: str | None = None,
     **kwargs,
 ) -> (
     AnnDataAccessor
@@ -91,7 +91,7 @@ def backed_access(
 
     if isinstance(artifact_or_filepath, Artifact):
         artifact = artifact_or_filepath
-        objectpath, _ = filepath_from_artifact(artifact, using_key=using_key)
+        objectpath, _ = filepath_from_artifact(artifact, using=using)
     else:
         artifact = None
         objectpath = artifact_or_filepath

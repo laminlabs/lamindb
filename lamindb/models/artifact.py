@@ -227,7 +227,7 @@ OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
 def process_pathlike(
     filepath: UPath,
     storage: Storage,
-    using_key: str | None,
+    using: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
@@ -255,7 +255,7 @@ def process_pathlike(
         # already-registered storage locations
         result = None
         # within the hub, we don't want to perform check_path_in_existing_storage
-        if using_key is None:
+        if using is None:
             result = check_path_in_existing_storage(
                 filepath, check_hub_register_storage=setup_settings.instance.is_on_hub
             )
@@ -346,7 +346,7 @@ def process_data(
     format: str | None,
     key: str | None,
     storage: Storage,
-    using_key: str | None,
+    using: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
     to_disk_kwargs: dict[str, Any] | None = None,
@@ -387,7 +387,7 @@ def process_data(
         storage, use_existing_storage_key = process_pathlike(
             path,
             storage=storage,
-            using_key=using_key,
+            using=using,
             skip_existence_check=skip_existence_check,
         )
         suffix, raw_suffix = CanonicalSuffix.extract_from_path(path)
@@ -560,9 +560,9 @@ def get_stat_or_artifact(
 def check_path_in_existing_storage(
     path: Path | UPath,
     check_hub_register_storage: bool = False,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> Storage | None:
-    for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
+    for storage in Storage.objects.using(using).order_by(Length("root").desc()):
         # if path is part of storage, return it
         if _s().check_path_is_child_of_root(path, root=storage.root):
             return storage
@@ -601,7 +601,7 @@ def get_artifact_kwargs_from_data(
     provisional_uid: str,
     version_tag: str | None,
     storage: Storage,
-    using_key: str | None = None,
+    using: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
@@ -617,7 +617,7 @@ def get_artifact_kwargs_from_data(
         format,
         key,
         storage,
-        using_key,
+        using,
         skip_check_exists,
         is_replace=is_replace,
         to_disk_kwargs=to_disk_kwargs,
@@ -648,7 +648,7 @@ def get_artifact_kwargs_from_data(
         path=path,
         storage=storage,
         key=key,
-        instance=using_key,
+        instance=using,
         is_replace=is_replace,
         skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
@@ -1125,10 +1125,10 @@ def add_labels(
             )
 
 
-def delete_permanently(artifact: Artifact, storage: bool | None, using_key: str):
+def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
     # need to grab file path before deletion
     try:
-        path, _ = _s().filepath_from_artifact(artifact, using_key)
+        path, _ = _s().filepath_from_artifact(artifact, using)
     except OSError:
         # we can still delete the record
         logger.warning("Could not get path")
@@ -1817,7 +1817,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         refresh_revises_if_stale = revises is None
@@ -2028,7 +2028,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             provisional_uid=provisional_uid,
             version_tag=version_tag,
             storage=storage,
-            using_key=using_key,
+            using=using,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
@@ -3311,7 +3311,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self,
         permanent: bool | None = None,
         storage: bool | None = None,
-        using_key: str | None = None,
+        using: str | None = None,
     ) -> None:
         """Trash or permanently delete.
 
@@ -3345,7 +3345,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get(key="folder.zarr". is_latest=True)
                 artifact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
-        super().delete(permanent=permanent, storage=storage, using_key=using_key)
+        super().delete(permanent=permanent, storage=storage, using=using)
 
     # TODO: consider renaming the transfer argument to sync
     def save(
@@ -3587,12 +3587,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         self._save_skip_storage(**kwargs)
 
-        using_key = None
+        using = None
         if "using" in kwargs:
-            using_key = kwargs["using"]
+            using = kwargs["using"]
         exception_upload = check_and_attempt_upload(
             self,
-            using_key,
+            using,
             access_token=access_token,
             print_progress=print_progress,
             **store_kwargs,
@@ -3610,7 +3610,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         exception_clear = check_and_attempt_clearing(
             self,
             raise_file_not_found_error=raise_file_not_found_error,
-            using_key=using_key,
+            using=using,
         )
         if exception_upload is not None:
             raise exception_upload

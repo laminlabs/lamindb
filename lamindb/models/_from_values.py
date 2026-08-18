@@ -147,7 +147,7 @@ def get_existing_records(
 
     # NOTE: existing records matching is agnostic to the source
     registry = field.field.model  # type: ignore
-    queryset = registry.filter(_using_key=using, **filter_kwargs)
+    queryset = registry.connect(using).filter(**filter_kwargs)
 
     if standardize:
         # log synonyms mapped terms
@@ -394,7 +394,7 @@ def get_organism_record_from_field(  # type: ignore
     field: FieldAttr,
     organism: str | SQLRecord | None = None,
     values: ListLike = None,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> SQLRecord | None:
     """Get organism record based on which field is used in from_values.
 
@@ -402,7 +402,7 @@ def get_organism_record_from_field(  # type: ignore
         field: the field of the registry for from_values
         organism: the organism to get the organism record for
         values: the values passed to from_values
-        using_key: the db to get the organism record from
+        using: the db to get the organism record from
 
     Returns:
         The organism record if both conditions are met:
@@ -450,7 +450,7 @@ def get_organism_record_from_field(  # type: ignore
             (v for v in values if isinstance(v, str) and v.startswith("ENS")), ""
         )
         if first_ensembl:
-            return infer_organism_from_ensembl_id(first_ensembl, using_key)
+            return infer_organism_from_ensembl_id(first_ensembl, using)
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field

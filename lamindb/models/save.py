@@ -311,7 +311,7 @@ def bulk_update(
 # This is also used within Artifact.save()
 def check_and_attempt_upload(
     artifact: Artifact,
-    using_key: str | None = None,
+    using: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
     **kwargs,
@@ -323,7 +323,7 @@ def check_and_attempt_upload(
         try:
             storage_path, cache_path = upload_artifact(
                 artifact,
-                using_key,
+                using,
                 access_token=access_token,
                 print_progress=print_progress,
                 **kwargs,
@@ -420,7 +420,7 @@ def copy_or_move_to_cache(
 def check_and_attempt_clearing(
     artifact: Artifact,
     raise_file_not_found_error: bool = True,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> Exception | None:
     # this is a clean-up operation after replace() was called
     # or if there was an exception during upload
@@ -430,11 +430,11 @@ def check_and_attempt_clearing(
                 # avoid root-level import of core.storage module
                 from ..core.storage import paths
 
-                delete_msg = paths.delete_storage_using_key(
+                delete_msg = paths.delete_storage_using(
                     artifact,
                     artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
-                    using_key=using_key,
+                    using=using,
                 )
                 if delete_msg != "did-not-delete":
                     logger.success(
@@ -480,7 +480,7 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
-            artifact, raise_file_not_found_error=True, using_key=using
+            artifact, raise_file_not_found_error=True, using=using
         )
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
@@ -494,7 +494,7 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
                     artifact._delete_skip_storage(using=using)
                     # clean up storage after failure in check_and_attempt_upload
                     exception_clear = check_and_attempt_clearing(
-                        artifact, raise_file_not_found_error=False, using_key=using
+                        artifact, raise_file_not_found_error=False, using=using
                     )
                     if exception_clear is not None:
                         logger.warning(
@@ -529,7 +529,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 def upload_artifact(
     artifact,
-    using_key: str | None = None,
+    using: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
     **kwargs,
@@ -542,7 +542,7 @@ def upload_artifact(
 
     storage_key = paths.auto_storage_key_from_artifact(artifact)
     storage_path, storage_settings = paths.attempt_accessing_path(
-        artifact, storage_key, using_key=using_key, access_token=access_token
+        artifact, storage_key, using=using, access_token=access_token
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")

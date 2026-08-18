@@ -44,13 +44,13 @@ from .run import (
     TracksUpdates,
 )
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
     Registry,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -130,7 +130,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def transfer_feature_dtypes(
-    feature: Feature, using_key: str | None, transfer_logs: dict
+    feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
@@ -152,7 +152,7 @@ def transfer_feature_dtypes(
         source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
         source_type_id = source_type.id
         transferred_type = transfer_to_default_db(
-            source_type, using_key, transfer_logs=transfer_logs, save=True
+            source_type, using, transfer_logs=transfer_logs, save=True
         )
         if getattr(source_type, "is_type", False):
             source_typed_children = source_type.__class__.objects.using(
@@ -160,7 +160,7 @@ def transfer_feature_dtypes(
             ).filter(type_id=source_type_id)
             for source_record in source_typed_children:
                 transfer_to_default_db(
-                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                    source_record, using, transfer_logs=transfer_logs, save=True
                 )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "

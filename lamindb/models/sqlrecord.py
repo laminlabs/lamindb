@@ -828,11 +828,11 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
-        _using_key = None
-        if "_using_key" in expressions:
-            _using_key = expressions.pop("_using_key")
+        using = None
+        if "using" in expressions:
+            using = expressions.pop("using")
 
-        return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
+        return QuerySet(model=cls, using=using).filter(*queries, **expressions)
 
     def get(
         cls: type[T],
@@ -2284,7 +2284,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 from .artifact import delete_permanently
 
                 delete_permanently(
-                    self, storage=kwargs["storage"], using_key=kwargs["using_key"]
+                    self, storage=kwargs["storage"], using=kwargs["using"]
                 )
                 return None
             return super().delete()
@@ -2483,7 +2483,7 @@ REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 def update_fk_to_default_db(
     records: SQLRecord | list[SQLRecord] | DjangoQuerySet,
     fk: str,
-    using_key: str | None,
+    using: str | None,
     transfer_logs: dict,
 ):
     # here in case it is an iterable, we are checking only a single record
@@ -2514,11 +2514,11 @@ def update_fk_to_default_db(
                 from .schema import transfer_schema_with_members
 
                 fk_record_default = transfer_schema_with_members(
-                    fk_record_default, using_key, transfer_logs=transfer_logs
+                    fk_record_default, using, transfer_logs=transfer_logs
                 )
             elif pre_existing_fk_record_default is None:
                 transfer_to_default_db(
-                    fk_record_default, using_key, save=True, transfer_logs=transfer_logs
+                    fk_record_default, using, save=True, transfer_logs=transfer_logs
                 )
             else:
                 fk_record_default = pre_existing_fk_record_default
@@ -2540,10 +2540,10 @@ FKBULK = [
 
 
 def transfer_fk_to_default_db_bulk(
-    records: list | DjangoQuerySet, using_key: str | None, transfer_logs: dict
+    records: list | DjangoQuerySet, using: str | None, transfer_logs: dict
 ):
     for fk in FKBULK:
-        update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
+        update_fk_to_default_db(records, fk, using, transfer_logs=transfer_logs)
 
 
 def get_transfer_run(record) -> Run:
@@ -2593,7 +2593,7 @@ def get_transfer_run(record) -> Run:
 
 def transfer_to_default_db(
     record: SQLRecord,
-    using_key: str | None,
+    using: str | None,
     *,
     transfer_logs: dict,
     save: bool = False,
@@ -2636,7 +2636,7 @@ def transfer_to_default_db(
         # don't transfer fk fields that are already bulk transferred
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
     for fk in fk_fields:
-        update_fk_to_default_db(record, fk, using_key, transfer_logs=transfer_logs)
+        update_fk_to_default_db(record, fk, using, transfer_logs=transfer_logs)
     # FK ids were remapped to the default DB; drop tracked *_id originals so save
     # logic does not treat remapping as a user-requested field change.
     if (original_values := getattr(record, "_original_values", None)) is not None:
