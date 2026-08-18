@@ -1537,6 +1537,48 @@ def test_serialize_paths():
     Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
 
 
+def _raise_storage_api_error(*args, **kwargs):
+    from postgrest.exceptions import APIError
+
+    raise APIError(
+        {
+            "message": 'new row violates row-level security policy "a storage can be created if the storage root is not an existing" for table "storage"',
+            "code": "42501",
+        }
+    )
+
+
+def test_cloud_storage_apierror_recommends_deeper_root(monkeypatch):
+    nested = ln.Storage(root="s3://lamindb-ci/test-nested-existing-storage").save()
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    try:
+        with pytest.raises(
+            ln.errors.UnknownStorageLocation,
+            match=(
+                r"s3://lamindb-ci is a parent of an existing storage location; "
+                r"register a more specific one instead: "
+                r"ln\.Storage\(root='s3://lamindb-ci/test-sibling-unknown-storage'\)\.save\(\)"
+            ),
+        ):
+            ln.Artifact(
+                "s3://lamindb-ci/test-sibling-unknown-storage/file.csv",
+                skip_check_exists=True,
+            )
+    finally:
+        nested.delete()
+
+
+def test_cloud_storage_apierror_reraise_without_children(monkeypatch):
+    from postgrest.exceptions import APIError
+
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    with pytest.raises(APIError):
+        ln.Artifact(
+            "s3://lamindb-ci-no-child-storages/file.csv",
+            skip_check_exists=True,
+        )
+
+
 # -------------------------------------------------------------------------------------
 # Data structures in storage
 # -------------------------------------------------------------------------------------
