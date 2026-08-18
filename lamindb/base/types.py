@@ -156,7 +156,7 @@ DtypeObject = SimpleDvalue  # backward compat
 class Unset:
     """Sentinel type to distinguish 'not passed' from explicit ``None``.
 
-    The singleton :data:`~lamindb.base.types.UNSET` is the only instance.
+    The singleton ``UNSET`` is the only instance.
     Use ``is`` checks to compare against it::
 
         if value is UNSET:
