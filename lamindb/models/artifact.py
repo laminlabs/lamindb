@@ -28,6 +28,7 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+from postgrest.exceptions import APIError
 
 from lamindb.base.types import CanonicalSuffix
 
@@ -224,9 +225,14 @@ def process_pathlike(
     if not skip_existence_check:
         try:  # check if file exists
             exists = filepath.exists()
-        except OSError as e:
-            # PermissionError is an OSError; s3fs raises it, gcsfs uses OSError("Forbidden: ...")
-            if not isinstance(e, PermissionError) and "forbidden" not in str(e).lower():
+        except Exception as e:
+            # s3fs: PermissionError; gcsfs 403: OSError("Forbidden: ...")
+            if not (
+                isinstance(e, PermissionError)
+                or (isinstance(e, OSError) and "forbidden" in str(e).lower())
+                # gcsfs.HttpError for anonymous/no credentials; .code is int 401
+                or getattr(e, "code", None) == 401
+            ):
                 raise
             logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
         else:
@@ -251,7 +257,7 @@ def process_pathlike(
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
-                # for a cloud path, new_root is always the bucket name
+                # for a cloud path, new_root defaults to the bucket (or hf repo)
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     if hasattr(hf_path, "root"):
@@ -275,7 +281,33 @@ def process_pathlike(
                 # would just silently fail.
                 # Edge case: A user legitimately creates a storage location and another user runs this here at the exact same time.
                 # There is no way to decide then which is the legitimate creation.
-                storage_record = Storage(root=new_root).save()
+                try:
+                    storage_record = Storage(root=new_root).save()
+                except APIError:
+                    # Hub RLS rejects a storage root that is a parent of an
+                    # already-registered location (e.g. the bucket vs. bucket/folder).
+                    # The raw APIError is not actionable, so if children exist under
+                    # the bucket, recommend a more specific prefix of this path.
+                    # If there are no children, the failure is unrelated — re-raise.
+                    child_roots = Storage.filter(
+                        root__startswith=f"{new_root}/"
+                    ).values_list("root", flat=True)
+                    if not child_roots.exists():
+                        raise
+                    recommended_root = new_root
+                    # Walk from the bucket toward the file; pick the first prefix
+                    # that is not a parent of any existing child storage.
+                    for parent in reversed(filepath.parents):
+                        parent_root = parent.as_posix().rstrip("/")
+                        if not any(
+                            root.startswith(f"{parent_root}/") for root in child_roots
+                        ):
+                            recommended_root = parent_root
+                            break
+                    raise UnknownStorageLocation(
+                        f"{new_root} is a parent of an existing storage location; "
+                        f"register a more specific one instead: ln.Storage(root='{recommended_root}').save()"
+                    ) from None
                 if storage_record.instance_uid == setup_settings.instance.uid:
                     # we don't want to inadvertently create managed storage locations
                     # hence, we revert the creation and throw an error
