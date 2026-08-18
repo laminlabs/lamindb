@@ -284,12 +284,19 @@ def process_pathlike(
                 try:
                     storage_record = Storage(root=new_root).save()
                 except APIError:
+                    # Hub RLS rejects a storage root that is a parent of an
+                    # already-registered location (e.g. the bucket vs. bucket/folder).
+                    # The raw APIError is not actionable, so if children exist under
+                    # the bucket, recommend a more specific prefix of this path.
+                    # If there are no children, the failure is unrelated — re-raise.
                     child_roots = Storage.filter(
                         root__startswith=f"{new_root}/"
                     ).values_list("root", flat=True)
                     if not child_roots.exists():
                         raise
                     recommended_root = new_root
+                    # Walk from the bucket toward the file; pick the first prefix
+                    # that is not a parent of any existing child storage.
                     for parent in reversed(filepath.parents):
                         parent_root = parent.as_posix().rstrip("/")
                         if not any(
