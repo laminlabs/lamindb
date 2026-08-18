@@ -2110,14 +2110,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        filepath, _ = _s().filepath_from_artifact(self, using_key=settings._using_key)
+        filepath, _ = _s().filepath_from_artifact(self)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=settings._using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
         if isinstance(filepath, LocalPathClasses):
             return filepath
         return setup_settings.paths.cloud_to_local_no_update(
@@ -2725,8 +2723,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         folderpath: UPath = create_path(path)  # returns Path for local
         storage = settings.storage.record
-        using_key = settings._using_key
-        storage, use_existing_storage = process_pathlike(folderpath, storage, using_key)
+        storage, use_existing_storage = process_pathlike(folderpath, storage, None)
         folder_key_path: PurePath | Path
         if key is None:
             if not use_existing_storage:
@@ -3029,10 +3026,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
-        using_key = settings._using_key
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
 
         is_tiledbsoma_w = (
             filepath.name == "soma" or suffix == ".tiledbsoma"
@@ -3062,11 +3056,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             open_cache = not isinstance(
                 filepath, LocalPathClasses
             ) and not filepath.synchronize_to(localpath, just_check=True)
+        using = self._state.db if self._state.db not in (None, "default") else None
         if open_cache:
             try:
-                access = backed_access(
-                    localpath, mode, engine, using_key=using_key, **kwargs
-                )
+                access = backed_access(localpath, mode, engine, using, **kwargs)
             except Exception as e:
                 # also ignore ValueError here because
                 # such errors most probably just imply an incorrect argument
@@ -3077,9 +3070,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
-                access = backed_access(
-                    filepath, mode, engine, using_key=using_key, **kwargs
-                )
+                access = backed_access(filepath, mode, engine, using, **kwargs)
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
                 if localpath.is_dir():
@@ -3087,7 +3078,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(self, mode, engine, using_key=using_key, **kwargs)
+            access = backed_access(self, mode, engine, using, **kwargs)
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -3156,9 +3147,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if access_memory.__class__.__name__ == "SpatialData":
                 access_memory.path = self._cache_path
         else:
-            filepath, cache_key = _s().filepath_cache_key_from_artifact(
-                self, using_key=settings._using_key
-            )
+            filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
             cache_path = _synchronize_cleanup_on_error(
                 filepath, cache_key=cache_key, print_progress=not mute
             )
@@ -3214,9 +3203,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=settings._using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
         if mute:
             kwargs["print_progress"] = False
         cache_path = _synchronize_cleanup_on_error(

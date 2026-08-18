@@ -2148,7 +2148,6 @@ class FeatureManager:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         from lamindb import settings
 
-        using_key = settings._using_key
         for slot, schema in data.features.slots.items():  # type: ignore
             try:
                 members = schema.members
@@ -2184,7 +2183,7 @@ class FeatureManager:
                 if n_new_members > 0:
                     # transfer foreign keys needs to be run before transfer to default db
                     transfer_fk_to_default_db_bulk(
-                        new_members, using_key, transfer_logs=transfer_logs
+                        new_members, None, transfer_logs=transfer_logs
                     )
                     for feature in new_members:
                         # not calling save=True here as in labels, because want to
@@ -2193,7 +2192,7 @@ class FeatureManager:
                         # in the previous step transfer_fk_to_default_db_bulk
                         transfer_to_default_db(
                             feature,
-                            using_key,
+                            None,
                             transfer_fk=False,
                             transfer_logs=transfer_logs,
                         )
