@@ -1399,13 +1399,13 @@ class BasicQuerySet(models.QuerySet):
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
+        If the query set is unordered, results are ordered by primary key.
+
         Examples::
 
             queryset.first()
         """
-        if len(self) == 0:
-            return None
-        return self[0]
+        return super().first()
 
     def one(self) -> SQLRecord:
         """Exactly one result. Raises error if there are more or none."""
