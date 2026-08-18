@@ -1256,16 +1256,20 @@ def _sqlrecord_or_id(
 
 
 def _automanaged_folder_parent(path_str: str) -> str | None:
-    """If `path_str` is nested under `.lamindb/<child>/...`, return that child path."""
+    """If `path_str` is nested under `.lamindb/<child>/...`, return that child path.
+
+    Example: `s3://bucket/.lamindb/{uid}/nested/file.txt` → `s3://bucket/.lamindb/{uid}`.
+    """
     prefix = _s().AUTO_KEY_PREFIX
     idx = path_str.find(prefix)
     if idx == -1:
         return None
-    rest = path_str[idx + len(prefix) :]
+    len_prefix = len(prefix)
+    rest = path_str[idx + len_prefix :]
     slash = rest.find("/")
     if slash == -1:
         return None
-    return path_str[: idx + len(prefix) + slash]
+    return path_str[: idx + len_prefix + slash]
 
 
 def _get_artifact_by_automanaged_path(get_fn, path_str: str) -> Artifact:
