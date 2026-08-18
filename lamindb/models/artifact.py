@@ -6,7 +6,16 @@ import types
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    Literal,
+    Protocol,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -28,6 +37,7 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+from postgrest.exceptions import APIError
 
 from lamindb.base.types import CanonicalSuffix
 
@@ -223,10 +233,20 @@ def process_pathlike(
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
-            if not filepath.exists():
+            exists = filepath.exists()
+        except Exception as e:
+            # s3fs: PermissionError; gcsfs 403: OSError("Forbidden: ...")
+            if not (
+                isinstance(e, PermissionError)
+                or (isinstance(e, OSError) and "forbidden" in str(e).lower())
+                # gcsfs.HttpError for anonymous/no credentials; .code is int 401
+                or getattr(e, "code", None) == 401
+            ):
+                raise
+            logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
+        else:
+            if not exists:
                 raise FileNotFoundError(filepath)
-        except PermissionError:
-            pass
     if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
@@ -246,7 +266,7 @@ def process_pathlike(
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
-                # for a cloud path, new_root is always the bucket name
+                # for a cloud path, new_root defaults to the bucket (or hf repo)
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     if hasattr(hf_path, "root"):
@@ -270,7 +290,33 @@ def process_pathlike(
                 # would just silently fail.
                 # Edge case: A user legitimately creates a storage location and another user runs this here at the exact same time.
                 # There is no way to decide then which is the legitimate creation.
-                storage_record = Storage(root=new_root).save()
+                try:
+                    storage_record = Storage(root=new_root).save()
+                except APIError:
+                    # Hub RLS rejects a storage root that is a parent of an
+                    # already-registered location (e.g. the bucket vs. bucket/folder).
+                    # The raw APIError is not actionable, so if children exist under
+                    # the bucket, recommend a more specific prefix of this path.
+                    # If there are no children, the failure is unrelated — re-raise.
+                    child_roots = Storage.filter(
+                        root__startswith=f"{new_root}/"
+                    ).values_list("root", flat=True)
+                    if not child_roots.exists():
+                        raise
+                    recommended_root = new_root
+                    # Walk from the bucket toward the file; pick the first prefix
+                    # that is not a parent of any existing child storage.
+                    for parent in reversed(filepath.parents):
+                        parent_root = parent.as_posix().rstrip("/")
+                        if not any(
+                            root.startswith(f"{parent_root}/") for root in child_roots
+                        ):
+                            recommended_root = parent_root
+                            break
+                    raise UnknownStorageLocation(
+                        f"{new_root} is a parent of an existing storage location; "
+                        f"register a more specific one instead: ln.Storage(root='{recommended_root}').save()"
+                    ) from None
                 if storage_record.instance_uid == setup_settings.instance.uid:
                     # we don't want to inadvertently create managed storage locations
                     # hence, we revert the creation and throw an error
@@ -396,18 +442,24 @@ def get_stat_or_artifact(
     n_files = None
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
-    stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
-        if stat is not None:
-            # convert UPathStatResult to fsspec info dict
-            stat = stat.as_info()
-            if (store_type := stat["type"]) == "file":
-                size, hash, hash_type = get_stat_file_cloud(
-                    stat, protocol=path.protocol
-                )
-            elif store_type == "directory":
-                size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        try:
+            stat = path.stat()  # one network request
+            if stat is not None:
+                # convert UPathStatResult to fsspec info dict
+                stat = stat.as_info()
+                if (store_type := stat["type"]) == "file":
+                    size, hash, hash_type = get_stat_file_cloud(
+                        stat, protocol=path.protocol
+                    )
+                elif store_type == "directory":
+                    size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        except Exception as e:
+            logger.warning(
+                f"failed to retrieve stats for {path}, proceeding without size and hash: {e}"
+            )
+            return None, None, None, None, None
         if hash is None:
             logger.warning(f"did not add hash for {path}")
             return size, hash, hash_type, n_files, None
@@ -1212,6 +1264,44 @@ def _sqlrecord_or_id(
         return model.objects.get(id=sqlrecord_id)
 
 
+def _automanaged_folder_parent(path_str: str) -> str | None:
+    """If `path_str` is nested under `.lamindb/<child>/...`, return that child path.
+
+    Example: `s3://bucket/.lamindb/{uid}/nested/file.txt` → `s3://bucket/.lamindb/{uid}`.
+    """
+    prefix = _s().AUTO_KEY_PREFIX
+    idx = path_str.find(prefix)
+    if idx == -1:
+        return None
+    len_prefix = len(prefix)
+    rest = path_str[idx + len_prefix :]
+    slash = rest.find("/")
+    if slash == -1:
+        return None
+    return path_str[: idx + len_prefix + slash]
+
+
+class _ArtifactGetByPath(Protocol):
+    def get(self, *, path: str) -> Artifact: ...
+
+
+def _get_artifact_by_automanaged_path(
+    registry_or_queryset: _ArtifactGetByPath, path_str: str
+) -> Artifact:
+    """Look up an artifact by an automanaged `.lamindb/` path.
+
+    `registry_or_queryset` is `Artifact` or `Artifact.connect(slug)`. If the exact path
+    is missing, retries with the `.lamindb/<child>` folder parent (a file inside a folder artifact).
+    """
+    try:
+        return registry_or_queryset.get(path=path_str)
+    except Artifact.DoesNotExist:
+        folder_path = _automanaged_folder_parent(path_str)
+        if folder_path is None:
+            raise
+        return registry_or_queryset.get(path=folder_path)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1771,7 +1861,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     # the query further will still search in the instance managing the storage of the artifact
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact, path_str
+                        )
                         logger.important(
                             f"initializing from existing artifact with uid={existing_artifact.uid}"
                         )
@@ -1792,7 +1884,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         )
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.connect(slug).get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact.connect(slug), path_str
+                        )
                     except Artifact.DoesNotExist as e:
                         raise ValueError(
                             f"Artifact for path '{path_str}' not found."

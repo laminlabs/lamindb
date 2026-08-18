@@ -1,4 +1,5 @@
 import shutil
+from unittest.mock import patch
 
 import anndata as ad
 import lamindb as ln
@@ -6,6 +7,7 @@ import pytest
 from lamindb.errors import (
     IntegrityError,
 )
+from lamindb_setup.core.upath import create_path
 
 
 def test_create_from_anndata_in_existing_cloud_storage():
@@ -57,6 +59,63 @@ def test_create_small_file_from_remote_path(
     ]
     artifact.delete(permanent=True, storage=False)
     ln.settings.creation.artifact_skip_size_hash = False
+
+
+def test_create_from_remote_path_stat_failure_warns(ccaplog):
+    filepath_str = "s3://lamindb-ci/test-data/test.csv"
+    path_cls = type(create_path(filepath_str))
+    with patch.object(path_cls, "stat", side_effect=OSError("network error")):
+        artifact = ln.Artifact(filepath_str, description="test stat failure")
+    assert artifact.hash is None
+    assert artifact.size is None
+    assert artifact._hash_type is None
+    assert artifact.n_files is None
+    assert artifact.path.as_posix() == filepath_str
+    assert "failed to retrieve stats" in ccaplog.text
+    assert "proceeding without size and hash" in ccaplog.text
+    assert "network error" in ccaplog.text
+    artifact.save()
+    loaded = ln.Artifact.get(artifact.uid)
+    assert loaded.hash is None
+    assert loaded.size is None
+    artifact.delete(permanent=True, storage=False)
+
+
+class _GcsHttpError(Exception):
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        PermissionError("Access Denied"),
+        OSError("Forbidden: Request is prohibited by organization's policy."),
+        _GcsHttpError(
+            "Anonymous caller does not have storage.objects.get access, 401",
+            code=401,
+        ),
+    ],
+)
+def test_create_from_remote_path_exists_access_denied_warns(ccaplog, error):
+    filepath_str = "s3://lamindb-ci/test-data/test.csv"
+    path_cls = type(create_path(filepath_str))
+    with patch.object(path_cls, "exists", side_effect=error):
+        artifact = ln.Artifact(filepath_str, description="test exists access denied")
+    assert artifact.path.as_posix() == filepath_str
+    assert "failed to check existence" in ccaplog.text
+    assert str(error) in ccaplog.text
+    artifact.save()
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_create_from_remote_path_exists_other_oserror_raises():
+    filepath_str = "s3://lamindb-ci/test-data/test.csv"
+    path_cls = type(create_path(filepath_str))
+    with patch.object(path_cls, "exists", side_effect=OSError("network error")):
+        with pytest.raises(OSError, match="network error"):
+            ln.Artifact(filepath_str, description="test exists other oserror")
 
 
 def test_versioning_arifact_from_existing_path(ccaplog):
