@@ -82,13 +82,13 @@ def test_backed_access(adata_format):
         del store
 
     with pytest.raises(ValueError):
-        access = backed_access(fp.with_suffix(".invalid_suffix"), using_key=None)
+        access = backed_access(fp.with_suffix(".invalid_suffix"), using=None)
 
     # can't open anndata in write mode
     with pytest.raises(ValueError):
-        access = backed_access(fp, mode="a", using_key=None)
+        access = backed_access(fp, mode="a", using=None)
 
-    access = backed_access(fp, using_key=None)
+    access = backed_access(fp, using=None)
     assert not access.closed
 
     assert isinstance(access.obs_names, pd.Index)
@@ -142,14 +142,14 @@ def test_backed_access(adata_format):
     assert access.closed
     del access
 
-    with backed_access(fp, using_key=None) as access:
+    with backed_access(fp, using=None) as access:
         assert not access.closed
         sub = access[:10]
         assert sub[:5].shape == (5, 200)
         assert sub.layers["test"].shape == sub.shape
     assert access.closed
 
-    with backed_access(fp, using_key=None) as access:
+    with backed_access(fp, using=None) as access:
         idx = np.array([3, 1, 2])
         assert access[:, idx].to_memory().shape == (30, 3)
         assert access[idx].to_memory().shape == (3, 200)
@@ -231,7 +231,7 @@ def test_write_to_disk():
 
 
 def test_backed_bad_format(bad_adata_path):
-    access = backed_access(bad_adata_path, using_key=None)
+    access = backed_access(bad_adata_path, using=None)
 
     assert access.obsp["test"].to_memory().sum() == 30
 
