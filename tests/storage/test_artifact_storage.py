@@ -81,11 +81,21 @@ def test_create_from_remote_path_stat_failure_warns(ccaplog):
     artifact.delete(permanent=True, storage=False)
 
 
+class _GcsHttpError(Exception):
+    def __init__(self, message, code):
+        super().__init__(message)
+        self.code = code
+
+
 @pytest.mark.parametrize(
     "error",
     [
         PermissionError("Access Denied"),
         OSError("Forbidden: Request is prohibited by organization's policy."),
+        _GcsHttpError(
+            "Anonymous caller does not have storage.objects.get access, 401",
+            code=401,
+        ),
     ],
 )
 def test_create_from_remote_path_exists_access_denied_warns(ccaplog, error):

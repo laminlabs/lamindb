@@ -224,9 +224,14 @@ def process_pathlike(
     if not skip_existence_check:
         try:  # check if file exists
             exists = filepath.exists()
-        except OSError as e:
-            # PermissionError is an OSError; s3fs raises it, gcsfs uses OSError("Forbidden: ...")
-            if not isinstance(e, PermissionError) and "forbidden" not in str(e).lower():
+        except Exception as e:
+            # s3fs: PermissionError; gcsfs 403: OSError("Forbidden: ...")
+            if not (
+                isinstance(e, PermissionError)
+                or (isinstance(e, OSError) and "forbidden" in str(e).lower())
+                # gcsfs.HttpError for anonymous/no credentials; .code is int 401
+                or getattr(e, "code", None) == 401
+            ):
                 raise
             logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
         else:
