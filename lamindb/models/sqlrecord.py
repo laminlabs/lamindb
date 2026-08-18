@@ -108,7 +108,7 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="SQLRecord")
 
-from lamindb.base.types import UNSET, Unset  # noqa: E402
+from lamindb.base.types import UNSET  # noqa: E402
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 UNIQUE_FIELD_NAMES = {
@@ -623,11 +623,11 @@ def suggest_records_with_similar_names(
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
-        # "type" is always present in kwargs at this point (Solution A contract)
         type = kwargs["type"]
         if type is UNSET:
             # user passed nothing → search all type contexts
             # catches typed records with same name, fixes silent dup bug
+            logger.warning(f"tip: pass `type` to map {record.__class__.__name__.lower()} into a type hierarchy")
             subset = record.__class__.filter()
         elif type is None:
             # explicit type=None → root-level dedup (type IS NULL)

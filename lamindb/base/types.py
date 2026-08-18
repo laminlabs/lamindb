@@ -26,8 +26,8 @@ Basic types
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
 
-Sentinel types
---------------
+Auxiliary types
+---------------
 
 .. autoclass:: Unset
 """
@@ -154,10 +154,10 @@ Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat
 
 class Unset:
-    """Sentinel type to distinguish 'not passed' from explicit ``None``.
+    """Sentinel type to distinguish 'not passed' from explicit `None`.
 
-    The singleton ``UNSET`` is the only instance.
-    Use ``is`` checks to compare against it::
+    The `UNSET` constant is the only instance.
+    Use `is` checks to compare against it::
 
         if value is UNSET:
             ...  # user did not pass the argument
@@ -167,21 +167,13 @@ class Unset:
             ...  # user passed a real value
     """
 
-    _instance: Unset | None = None
-
-    def __new__(cls) -> Unset:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self) -> str:
-        return "UNSET"
+    pass
 
 
 UNSET: Unset = Unset()
-"""Sentinel value to distinguish 'argument not passed' from explicit ``None``.
+"""Sentinel value to distinguish 'argument not passed' from explicit `None`.
 
-See :class:`~lamindb.base.types.Unset`.
+See `Unset`.
 """
 
 RegistryId = Literal[

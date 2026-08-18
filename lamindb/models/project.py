@@ -252,8 +252,7 @@ class Reference(
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        if len(args) > 0:
-            raise ValueError("Only keyword args allowed")
+        assert not args, "Only keyword args allowed."
         name: str = kwargs.pop("name", None)
         type: Reference | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
@@ -518,8 +517,7 @@ class Project(
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
-        if len(args) > 0:
-            raise ValueError("Only keyword args allowed")
+        assert not args, "Only keyword args allowed."
         name: str = kwargs.pop("name", None)
         type: Project | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
