@@ -13,6 +13,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
+from lamindb.base.types import Unset
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_8
@@ -26,7 +27,6 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     UNSET,
-    Unset,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )

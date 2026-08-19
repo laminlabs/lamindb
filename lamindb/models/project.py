@@ -30,9 +30,10 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
 from lamindb.errors import FieldValidationError
 
+from lamindb.base.types import Unset
+
 from .sqlrecord import (
     UNSET,
-    Unset,
     BaseSQLRecord,
     HasType,
     IsLink,

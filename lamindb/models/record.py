@@ -31,6 +31,8 @@ from .query_set import (
     get_default_branch_ids,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
+from lamindb.base.types import Unset
+
 from .sqlrecord import (
     BaseSQLRecord,
     Branch,
@@ -39,7 +41,6 @@ from .sqlrecord import (
     Space,
     SQLRecord,
     UNSET,
-    Unset,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
