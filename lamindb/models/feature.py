@@ -43,6 +43,8 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
+from lamindb.base.types import Unset
+
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
