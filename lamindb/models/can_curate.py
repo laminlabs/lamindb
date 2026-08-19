@@ -26,13 +26,13 @@ if TYPE_CHECKING:
     from .query_set import SQLRecordList
 
 
-def _check_if_record_in_db(record: str | SQLRecord | None, using_key: str | None):
-    """Check if the record is from the using_key DB."""
+def _check_if_record_in_db(record: str | SQLRecord | None, using: str | None):
+    """Check if the record is from the target DB."""
     if isinstance(record, SQLRecord):
-        if using_key is not None and using_key != "default":
-            if record._state.db != using_key:
+        if using is not None and using != "default":
+            if record._state.db != using:
                 raise ValueError(
-                    f"record must be a {record.__class__.__get_name_with_module__()} record from instance '{using_key}'!"
+                    f"record must be a {record.__class__.__get_name_with_module__()} record from instance '{using}'!"
                 )
 
 

@@ -69,7 +69,7 @@ def check_path_is_child_of_root(path: AnyPathStr, root: AnyPathStr) -> bool:
 def attempt_accessing_path(
     artifact: Artifact,
     storage_key: str,
-    using_key: str | None = None,
+    using: str | None = None,
     access_token: str | None = None,
 ) -> tuple[UPath, StorageSettings]:
     # check whether the file is in the default db and whether storage
@@ -78,19 +78,19 @@ def attempt_accessing_path(
 
     if (
         artifact._state.db in ("default", None)
-        and artifact.storage_id == settings._storage_settings._id
+        and artifact.storage_id == settings.storage._id
     ):
         if access_token is None:
-            storage_settings = settings._storage_settings
+            storage_settings = settings.storage
         else:
             storage_settings = StorageSettings(
                 settings.storage.root, access_token=access_token
             )
     else:
-        if artifact._state.db not in ("default", None) and using_key is None:
+        if artifact._state.db not in ("default", None) and using is None:
             storage = Storage.connect(artifact._state.db).get(id=artifact.storage_id)
         else:
-            storage = Storage.objects.using(using_key).get(id=artifact.storage_id)
+            storage = Storage.objects.using(using).get(id=artifact.storage_id)
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root, access_token=access_token)
     path = storage_settings.key_to_filepath(storage_key)
@@ -98,14 +98,12 @@ def attempt_accessing_path(
 
 
 def filepath_from_artifact(
-    artifact: Artifact, using_key: str | None = None
+    artifact: Artifact, using: str | None = None
 ) -> tuple[UPath, StorageSettings | None]:
     if (local_filepath := getattr(artifact, "_local_filepath", None)) is not None:
         return local_filepath.resolve(), None
     storage_key = auto_storage_key_from_artifact(artifact)
-    path, storage_settings = attempt_accessing_path(
-        artifact, storage_key, using_key=using_key
-    )
+    path, storage_settings = attempt_accessing_path(artifact, storage_key, using=using)
     return path, storage_settings
 
 
@@ -132,9 +130,9 @@ def _cache_key_from_artifact_storage(
 
 # return filepath and cache_key if needed
 def filepath_cache_key_from_artifact(
-    artifact: Artifact, using_key: str | None = None
+    artifact: Artifact, using: str | None = None
 ) -> tuple[UPath, str | None]:
-    filepath, storage_settings = filepath_from_artifact(artifact, using_key)
+    filepath, storage_settings = filepath_from_artifact(artifact, using)
     if isinstance(filepath, LocalPathClasses):
         return filepath, None
     cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
@@ -180,13 +178,13 @@ def store_file_or_folder(
             shutil.copytree(local_path, storage_path)
 
 
-def delete_storage_using_key(
+def delete_storage_using(
     artifact: Artifact,
     storage_key: str,
     raise_file_not_found_error: bool = True,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> None | str:
-    filepath, _ = attempt_accessing_path(artifact, storage_key, using_key=using_key)
+    filepath, _ = attempt_accessing_path(artifact, storage_key, using=using)
     return delete_storage(
         filepath, raise_file_not_found_error=raise_file_not_found_error
     )

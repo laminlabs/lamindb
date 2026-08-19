@@ -130,7 +130,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def transfer_feature_dtypes(
-    feature: Feature, using_key: str | None, transfer_logs: dict
+    feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
@@ -152,7 +152,7 @@ def transfer_feature_dtypes(
         source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
         source_type_id = source_type.id
         transferred_type = transfer_to_default_db(
-            source_type, using_key, transfer_logs=transfer_logs, save=True
+            source_type, using, transfer_logs=transfer_logs, save=True
         )
         if getattr(source_type, "is_type", False):
             source_typed_children = source_type.__class__.objects.using(
@@ -160,7 +160,7 @@ def transfer_feature_dtypes(
             ).filter(type_id=source_type_id)
             for source_record in source_typed_children:
                 transfer_to_default_db(
-                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                    source_record, using, transfer_logs=transfer_logs, save=True
                 )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "
@@ -172,8 +172,13 @@ def transfer_feature_dtypes(
 def get_record_type_from_uid(
     registry: Registry,
     type_uid: str,
+    using: str | None = None,
 ) -> SQLRecord:
-    type_record: SQLRecord = registry.get(type_uid)
+    type_record: SQLRecord = (
+        registry.get(type_uid)
+        if using is None
+        else registry.connect(using).get(type_uid)
+    )
 
     if type_record.branch_id == -1:
         warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{type_uid}') from trash"
@@ -636,13 +641,17 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
 
 
 def resolve_relation_filters(
-    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+    parsed_filters: dict[str, tuple[str, str | None, str]],
+    registry: SQLRecord,
+    using: str | None = None,
 ) -> dict[str, str | SQLRecord]:
     """Resolve relation filters actual model objects.
 
     Args:
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
+        using: Target instance to resolve related objects on (per-instance PKs);
+            ``None`` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -657,7 +666,11 @@ def resolve_relation_filters(
                     and relation_field.field.is_relation
                 ):
                     related_model = relation_field.field.related_model
-                    related_obj = related_model.get(**{field_name: value})
+                    related_obj = (
+                        related_model.get(**{field_name: value})
+                        if using is None
+                        else related_model.connect(using).get(**{field_name: value})
+                    )
                     resolved[relation_name] = related_obj
         else:
             resolved[filter_key] = value

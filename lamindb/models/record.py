@@ -17,7 +17,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.utils import class_and_instance_method, strict_classmethod
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, InvalidArgument
 
 from ..base.uids import base62_16
 from .artifact import Artifact
@@ -520,14 +520,41 @@ class RecordBatch:
             records.append(self._cls(name=name, **record_kwargs))
         return records
 
-    def save(self) -> SQLRecordList[Record]:
-        """Persist all records and their feature values."""
+    def save(self, using: str | None = None) -> SQLRecordList[Record]:
+        """Persist all records and their feature values.
+
+        Args:
+            using: Optional slug of a target instance to write the whole batch
+                (records, scalar features, and multi-valued link rows) to, with
+                the same semantics as ``ln.save(..., using=...)``. The batch's
+                record type must already exist on that instance.
+        """
         from .query_set import SQLRecordList
         from .save import save as ln_save
 
+        # primary keys are per-instance; a cross-instance write reuses the
+        # resolved type's in-memory pk as `type_id`, so the type must already
+        # live on the target instance (`from_dataframe(type="...")` creates it on
+        # the default instance). Refuse rather than write a dangling FK.
+        if using is not None and using != "default":
+            type_db = self._resolved_type._state.db
+            if type_db != using:
+                type_location = (
+                    "the default instance"
+                    if type_db in (None, "default")
+                    else f"instance '{type_db}'"
+                )
+                raise InvalidArgument(
+                    f"Cannot save this batch to instance '{using}' because its "
+                    f"record type '{self._resolved_type.name}' lives on "
+                    f"{type_location}. Pass a type that exists on '{using}' — "
+                    f"e.g. `type=ln.DB('{using}').Record.get(name=...)` — or "
+                    f"create the type on '{using}' first."
+                )
+
         if self._records is None:
             self._records = self._build_records()
-        ln_save(self._records)
+        ln_save(self._records, using=using)
         return SQLRecordList(self._records)
 
 

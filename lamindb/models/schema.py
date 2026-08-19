@@ -41,6 +41,7 @@ from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
@@ -48,7 +49,6 @@ from .sqlrecord import (
     Registry,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     init_self_from_db,
     pop_space_branch_kwargs,
@@ -94,6 +94,15 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
+def _resolve_pks_on_instance(
+    registry: type[SQLRecord], uids: list[str], using: str | None
+) -> list[int]:
+    uid_to_pk = dict(
+        registry.objects.using(using).filter(uid__in=uids).values_list("uid", "id")
+    )
+    return [uid_to_pk[uid] for uid in uids]
+
+
 def get_features_config(
     features: list[SQLRecord] | tuple[SQLRecord, dict],
 ) -> tuple[list[SQLRecord], list[tuple[SQLRecord, dict]]]:
@@ -116,7 +125,7 @@ def transfer_schema_members(
     schema: Schema,
     source_db: str,
     source_pk: int | None,
-    using_key: str | None,
+    using: str | None,
     *,
     transfer_logs: dict,
 ) -> None:
@@ -144,11 +153,9 @@ def transfer_schema_members(
         )
         if source_index_feature is not None:
             index_feature = copy(source_index_feature)
-            transfer_feature_dtypes(
-                index_feature, using_key, transfer_logs=transfer_logs
-            )
+            transfer_feature_dtypes(index_feature, using, transfer_logs=transfer_logs)
             transferred_index_feature = transfer_to_default_db(
-                index_feature, using_key, transfer_logs=transfer_logs, save=True
+                index_feature, using, transfer_logs=transfer_logs, save=True
             )
             transferred_index_uid = (
                 transferred_index_feature.uid
@@ -169,9 +176,9 @@ def transfer_schema_members(
     for source_member in members:
         member = copy(source_member)
         if isinstance(member, Feature):
-            transfer_feature_dtypes(member, using_key, transfer_logs=transfer_logs)
+            transfer_feature_dtypes(member, using, transfer_logs=transfer_logs)
         transferred_member = transfer_to_default_db(
-            member, using_key, transfer_logs=transfer_logs, save=True
+            member, using, transfer_logs=transfer_logs, save=True
         )
         if transferred_member is not None:
             transferred_members.append(transferred_member)
@@ -206,7 +213,7 @@ def transfer_schema_members(
 
 
 def transfer_schema_with_members(
-    schema: Schema, using_key: str | None, *, transfer_logs: dict
+    schema: Schema, using: str | None, *, transfer_logs: dict
 ) -> Schema:
     from copy import copy
 
@@ -217,7 +224,7 @@ def transfer_schema_with_members(
     schema_copy = copy(schema)
     with transaction.atomic():
         record_on_default = transfer_to_default_db(
-            schema_copy, using_key, transfer_logs=transfer_logs, save=True
+            schema_copy, using, transfer_logs=transfer_logs, save=True
         )
         schema_default = (
             record_on_default if record_on_default is not None else schema_copy
@@ -226,7 +233,7 @@ def transfer_schema_with_members(
             schema_default,
             source_db,
             source_pk,
-            using_key,
+            using,
             transfer_logs=transfer_logs,
         )
     return schema_default
@@ -1094,6 +1101,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ) -> Schema | None:
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
+    def _infer_members_instance(self) -> str | None:
+        candidates: set[str] = set()
+        if hasattr(self, "_features"):
+            for record in self._features[1]:
+                db = record._state.db
+                if db is not None and db != "default":
+                    candidates.add(db)
+        if hasattr(self, "_slots"):
+            for component in self._slots.values():
+                db = component._state.db
+                if db is not None and db != "default":
+                    candidates.add(db)
+        if len(candidates) > 1:
+            raise InvalidArgument(
+                f"schema members live on multiple instances ({sorted(candidates)}); "
+                "a schema must be saved to a single instance."
+            )
+        return next(iter(candidates)) if candidates else None
+
     def save(self, *args, **kwargs) -> Schema:
         """Save schema.
 
@@ -1121,6 +1147,18 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
         index_name_conflict = kwargs.pop("index_name_conflict", None)
         using = kwargs.get("using") or self._state.db
+
+        members_instance = self._infer_members_instance()
+        if members_instance is not None:
+            if using is None or using == "default":
+                using = members_instance
+                kwargs["using"] = members_instance
+            elif using != members_instance:
+                raise InvalidArgument(
+                    f"schema is being saved to '{using}' but its members live on "
+                    f"'{members_instance}'; save the schema to the same instance as "
+                    "its members."
+                )
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -1192,14 +1230,27 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     index_name_conflict=index_name_conflict,
                 )
         super().save(*args, **kwargs)
+        cross_instance = using is not None and using != "default"
+        schema_id = (
+            _resolve_pks_on_instance(type(self), [self.uid], using)[0]
+            if cross_instance
+            else self.id
+        )
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
             # which is called to save feature sets in artifact.save()
+            slots = list(self._slots.items())
+            if cross_instance:
+                component_ids = _resolve_pks_on_instance(
+                    Schema, [component.uid for _, component in slots], using
+                )
+            else:
+                component_ids = [component.id for _, component in slots]
             links = []
-            for slot, component in self._slots.items():
+            for (slot, _), component_id in zip(slots, component_ids):
                 kwargs = {
-                    "composite_id": self.id,
-                    "component_id": component.id,
+                    "composite_id": schema_id,
+                    "component_id": component_id,
                     "slot": slot,
                 }
                 links.append(Schema.components.through(**kwargs))
@@ -1224,18 +1275,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 related_field = related_model_split[1].lower()
             related_field_id = f"{related_field}_id"
-            new_member_ids = [record.id for record in records]
+            if cross_instance:
+                new_member_ids = _resolve_pks_on_instance(
+                    records[0].__class__, [record.uid for record in records], using
+                )
+            else:
+                new_member_ids = [record.id for record in records]
             existing_member_ids = list(
                 through_model.objects.using(using)
-                .filter(schema_id=self.id)
+                .filter(schema_id=schema_id)
                 .order_by("id")
                 .values_list(related_field_id, flat=True)
             )
             if new_member_ids != existing_member_ids:
-                through_model.objects.using(using).filter(schema_id=self.id).delete()
+                through_model.objects.using(using).filter(schema_id=schema_id).delete()
                 links = [
-                    through_model(**{"schema_id": self.id, related_field_id: record.id})
-                    for record in records
+                    through_model(
+                        **{"schema_id": schema_id, related_field_id: member_id}
+                    )
+                    for member_id in new_member_ids
                 ]
                 through_model.objects.using(using).bulk_create(links)
             delattr(self, "_features")
