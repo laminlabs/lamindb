@@ -68,7 +68,7 @@ class Settings:
         verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
         verbosity_str = verbosity_color(self.verbosity)
 
-        storage_root = self._storage_settings.root_as_str
+        storage_root = self.storage.root_as_str
         storage_str = colors.italic(storage_root)
 
         instance_str = colors.italic(self.instance_uid)
@@ -123,26 +123,6 @@ class Settings:
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
-    __using_key: str | None = None
-    _using_storage: str | None = None
-
-    @property
-    def _using_key(self) -> str | None:
-        """Key for Django database settings."""
-        return self.__using_key
-
-    @_using_key.setter
-    def _using_key(self, value: str | None):
-        ln_setup.settings._using_key = value
-        self.__using_key = value
-
-    @property
-    def _storage_settings(self) -> ln_setup.core.StorageSettings:
-        if self._using_storage is None:
-            storage_settings = ln_setup.settings.storage
-        else:
-            storage_settings = ln_setup.core.StorageSettings(root=self._using_storage)
-        return storage_settings
 
     @property
     def sync_git_repo(self) -> str | None:
@@ -205,7 +185,7 @@ class Settings:
             )
             ln.settings.storage = "s3://some-bucket", kwargs
         """
-        return self._storage_settings
+        return ln_setup.settings.storage
 
     @storage.setter
     def storage(self, path_kwargs: AnyPathStr | tuple[AnyPathStr, Mapping]):

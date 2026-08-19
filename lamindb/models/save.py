@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connections, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
@@ -26,16 +26,30 @@ if TYPE_CHECKING:
     from .artifact import Artifact
 
 
+def _ensure_using_connection(registry: type[SQLRecord], using: str | None) -> None:
+    if using is None or using == "default" or using in connections:
+        return
+    registry.connect(using)
+
+
+def _prepare_cross_instance_create(record: SQLRecord, using: str | None) -> None:
+    if using is None or using == "default":
+        return
+    if (record._state.adding or record.pk is None) and hasattr(record, "run_id"):
+        record.run = None
+        record.run_id = None
+
+
 def save(
     records: Iterable[SQLRecord],
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
+    using: str | None = None,
 ) -> None:
     """Bulk save objects.
 
-    Note:
-
-        This is a much faster than saving objects using `object.save()`.
+    This is a much faster than saving a list of objects
+    and repeatedly calling `object.save()`.
 
     Warning:
 
@@ -49,6 +63,7 @@ def save(
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
+        using: Optional database slug for a target database that differs from the default database.
 
     Examples
     --------
@@ -81,14 +96,19 @@ def save(
     # for artifacts, we want to bulk-upload rather than upload one-by-one
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
     if non_artifacts:
+        for record in non_artifacts:
+            _prepare_cross_instance_create(record, using)
         non_artifacts_old, non_artifacts_new = partition(
             lambda r: r._state.adding or r.pk is None, non_artifacts
         )
         bulk_create(
-            non_artifacts_new, ignore_conflicts=ignore_conflicts, batch_size=batch_size
+            non_artifacts_new,
+            ignore_conflicts=ignore_conflicts,
+            batch_size=batch_size,
+            using=using,
         )
         if non_artifacts_old:
-            bulk_update(non_artifacts_old, batch_size=batch_size)
+            bulk_update(non_artifacts_old, batch_size=batch_size, using=using)
         non_artifacts_with_parents = [
             r for r in non_artifacts_new if hasattr(r, "_parents")
         ]
@@ -106,9 +126,12 @@ def save(
         if records_with_lazy_features:
             from ._feature_manager import bulk_set_features_in_records
 
-            bulk_set_features_in_records(records_with_lazy_features)
+            bulk_set_features_in_records(records_with_lazy_features, using=using)
 
     if artifacts:
+        for record in artifacts:
+            _prepare_cross_instance_create(record, using)
+        _ensure_using_connection(Artifact, using)
         with transaction.atomic():
             for record in artifacts:
                 # will switch to True after the successful upload / saving
@@ -116,9 +139,8 @@ def save(
                     record, "_to_store", False
                 ):
                     record._storage_ongoing = True
-                record._save_skip_storage()
-        using_key = settings._using_key
-        store_artifacts(artifacts, using_key=using_key)
+                record._save_skip_storage(using=using)
+        store_artifacts(artifacts, using=using)
 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
@@ -130,6 +152,7 @@ def bulk_create(
     records: Iterable[SQLRecord],
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
+    using: str | None = None,
 ):
     """Create records in batches for safety and performance.
 
@@ -137,14 +160,19 @@ def bulk_create(
         records: Iterable of SQLRecord objects to create
         ignore_conflicts: Whether to ignore conflicts during creation
         batch_size: Number of records to process in each batch.
+        using: Optional database alias used for bulk operations.
     """
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
 
     for registry, records_list in records_by_orm.items():
+        _ensure_using_connection(registry, using)
         total_records = len(records_list)
         model_name = registry.__name__
+        manager = (
+            registry.objects.using(using) if using is not None else registry.objects
+        )
         if total_records > batch_size:
             logger.important(
                 f"starting creation of {total_records} {model_name} records in batches of {batch_size}"
@@ -161,7 +189,7 @@ def bulk_create(
                     f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             try:
-                registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
+                manager.bulk_create(batch, ignore_conflicts=ignore_conflicts)
             # handle unique constraint violations due to non-default branches
             except IntegrityError as e:
                 error_msg = str(e)
@@ -189,7 +217,7 @@ def bulk_create(
                         q_objects |= Q(**field_kwargs)
 
                     # Query against non-default branches
-                    pre_existing_records_not_main_branch = registry.objects.filter(
+                    pre_existing_records_not_main_branch = manager.filter(
                         q_objects
                     ).exclude(branch_id=1)
 
@@ -206,7 +234,7 @@ def bulk_create(
                         if tuple(getattr(r, field) for field in unique_fields)
                         not in pre_existing_value_tuples
                     ]
-                    save(records_main_branch)
+                    save(records_main_branch, using=using)
 
                     # Now move the pre-existing records to the main branch
                     if pre_existing_value_tuples:
@@ -221,7 +249,10 @@ def bulk_create(
                             in pre_existing_value_tuples
                         ]
                         for record in pre_existing_records_to_move:
-                            record.save()
+                            if using is None:
+                                record.save()
+                            else:
+                                record.save(using=using)
                 else:
                     raise e
 
@@ -231,6 +262,7 @@ def bulk_update(
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
     update_fields: list[str] | None = None,
+    using: str | None = None,
 ):
     """Update records in batches for safety and performance.
 
@@ -239,14 +271,19 @@ def bulk_update(
         ignore_conflicts: Whether to ignore conflicts during update (currently unused but kept for consistency)
         batch_size: Number of records to process in each batch. If None, processes all at once.
         update_fields: Specific fields to update. If None, updates all fields except created_at and id.
+        using: Optional database alias used for bulk operations.
     """
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
 
     for registry, records_list in records_by_orm.items():
+        _ensure_using_connection(registry, using)
         total_records = len(records_list)
         model_name = registry.__name__
+        manager = (
+            registry.objects.using(using) if using is not None else registry.objects
+        )
         if total_records > batch_size:
             logger.warning(
                 f"starting update for {total_records} {model_name} records in batches of {batch_size}"
@@ -268,13 +305,13 @@ def bulk_update(
                 logger.info(
                     f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
-            registry.objects.bulk_update(batch, field_names)
+            manager.bulk_update(batch, field_names)
 
 
 # This is also used within Artifact.save()
 def check_and_attempt_upload(
     artifact: Artifact,
-    using_key: str | None = None,
+    using: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
     **kwargs,
@@ -286,7 +323,7 @@ def check_and_attempt_upload(
         try:
             storage_path, cache_path = upload_artifact(
                 artifact,
-                using_key,
+                using,
                 access_token=access_token,
                 print_progress=print_progress,
                 **kwargs,
@@ -383,7 +420,7 @@ def copy_or_move_to_cache(
 def check_and_attempt_clearing(
     artifact: Artifact,
     raise_file_not_found_error: bool = True,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> Exception | None:
     # this is a clean-up operation after replace() was called
     # or if there was an exception during upload
@@ -393,11 +430,11 @@ def check_and_attempt_clearing(
                 # avoid root-level import of core.storage module
                 from ..core.storage import paths
 
-                delete_msg = paths.delete_storage_using_key(
+                delete_msg = paths.delete_storage_using(
                     artifact,
                     artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
-                    using_key=using_key,
+                    using=using,
                 )
                 if delete_msg != "did-not-delete":
                     logger.success(
@@ -410,9 +447,7 @@ def check_and_attempt_clearing(
     return None
 
 
-def store_artifacts(
-    artifacts: Iterable[Artifact], using_key: str | None = None
-) -> None:
+def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
@@ -427,7 +462,7 @@ def store_artifacts(
     for artifact in artifacts:
         # failure here sets ._clear_storagekey
         # for cleanup below
-        exception = check_and_attempt_upload(artifact, using_key)
+        exception = check_and_attempt_upload(artifact, using)
         if exception is not None:
             break
 
@@ -441,11 +476,11 @@ def store_artifacts(
         if artifact._storage_ongoing:
             artifact._storage_ongoing = False
             # each .save() is a separate transaction below
-            super(Artifact, artifact).save()
+            super(Artifact, artifact).save(using=using)
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
-            artifact, raise_file_not_found_error=True, using_key=using_key
+            artifact, raise_file_not_found_error=True, using=using
         )
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
@@ -456,10 +491,10 @@ def store_artifacts(
         with transaction.atomic():
             for artifact in artifacts:
                 if artifact not in stored_artifacts:
-                    artifact._delete_skip_storage()
+                    artifact._delete_skip_storage(using=using)
                     # clean up storage after failure in check_and_attempt_upload
                     exception_clear = check_and_attempt_clearing(
-                        artifact, raise_file_not_found_error=False, using_key=using_key
+                        artifact, raise_file_not_found_error=False, using=using
                     )
                     if exception_clear is not None:
                         logger.warning(
@@ -494,7 +529,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 def upload_artifact(
     artifact,
-    using_key: str | None = None,
+    using: str | None = None,
     access_token: str | None = None,
     print_progress: bool = True,
     **kwargs,
@@ -507,7 +542,7 @@ def upload_artifact(
 
     storage_key = paths.auto_storage_key_from_artifact(artifact)
     storage_path, storage_settings = paths.attempt_accessing_path(
-        artifact, storage_key, using_key=using_key, access_token=access_token
+        artifact, storage_key, using=using, access_token=access_token
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")

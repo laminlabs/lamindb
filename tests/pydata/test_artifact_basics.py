@@ -1,7 +1,4 @@
-"""Artifact tests.
-
-Also see `test_artifact_folders.py` for tests of folder-like artifacts.
-"""
+"""Artifact tests."""
 
 # ruff: noqa: F811
 
@@ -149,6 +146,119 @@ def test_cloud_path_init_missing_artifact_raises(monkeypatch):
     with pytest.raises(ValueError) as error:
         ln.Artifact(path, description="test")
     assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
+
+
+_FOLDER_ARTIFACT_PATHS = [
+    (
+        "s3://my-storage/.lamindb/abcdefghijklmnop/subdir/file.txt",
+        "s3://my-storage/.lamindb/abcdefghijklmnop",
+    ),
+    (
+        "s3://my-storage/.lamindb/abcdefghijklmnop.zarr/group/arr",
+        "s3://my-storage/.lamindb/abcdefghijklmnop.zarr",
+    ),
+]
+
+
+@pytest.mark.parametrize("nested_path,folder_path", _FOLDER_ARTIFACT_PATHS)
+def test_cloud_path_init_file_in_folder_artifact_current_instance(
+    monkeypatch, nested_path, folder_path
+):
+    dummy = SimpleNamespace(uid="abcdefghijklmnop0000")
+    looked_up = []
+
+    def fake_get(cls, idlike=None, **kwargs):
+        path = kwargs.get("path")
+        looked_up.append(path)
+        if path == folder_path:
+            return dummy
+        raise ln.Artifact.DoesNotExist
+
+    inits = []
+
+    monkeypatch.setattr(ln.Artifact, "get", classmethod(fake_get))
+    monkeypatch.setattr(
+        "lamindb.models.sqlrecord.init_self_from_db",
+        lambda self, existing, db="default": inits.append(existing),
+    )
+
+    ln.Artifact(nested_path)
+    assert looked_up == [nested_path, folder_path]
+    assert inits == [dummy]
+
+
+@pytest.mark.parametrize("nested_path,folder_path", _FOLDER_ARTIFACT_PATHS)
+def test_cloud_path_init_file_in_folder_artifact_associated_instance(
+    monkeypatch, nested_path, folder_path
+):
+    dummy = SimpleNamespace(
+        uid="abcdefghijklmnop0000", _state=SimpleNamespace(db="owner/instance")
+    )
+
+    def fake_current_get(cls, idlike=None, **kwargs):
+        raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(ln.Artifact, "get", classmethod(fake_current_get))
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    looked_up = []
+
+    class DummyConnection:
+        def get(self, **kwargs):
+            path = kwargs.get("path")
+            looked_up.append(path)
+            if path == folder_path:
+                return dummy
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    inits = []
+    monkeypatch.setattr(
+        "lamindb.models.sqlrecord.init_self_from_db",
+        lambda self, existing, db="default": inits.append((existing, db)),
+    )
+
+    ln.Artifact(nested_path)
+    assert looked_up == [nested_path, folder_path]
+    assert inits == [(dummy, "owner/instance")]
+
+
+def test_cloud_path_init_file_in_folder_artifact_missing_raises(monkeypatch):
+    nested_path = "s3://my-storage/.lamindb/abcdefghijklmnop/subdir/file.txt"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    class DummyConnection:
+        def get(self, **_kwargs):
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(nested_path, description="test")
+    assert (
+        error.exconly() == f"ValueError: Artifact for path '{nested_path}' not found."
+    )
 
 
 def test_path_init_existing_artifact():
@@ -1535,6 +1645,48 @@ def test_serialize_paths():
     assert isinstance(filepath, CloudPath)
     storage.delete()
     Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
+
+
+def _raise_storage_api_error(*args, **kwargs):
+    from postgrest.exceptions import APIError
+
+    raise APIError(
+        {
+            "message": 'new row violates row-level security policy "a storage can be created if the storage root is not an existing" for table "storage"',
+            "code": "42501",
+        }
+    )
+
+
+def test_cloud_storage_apierror_recommends_deeper_root(monkeypatch):
+    nested = ln.Storage(root="s3://lamindb-ci/test-nested-existing-storage").save()
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    try:
+        with pytest.raises(
+            ln.errors.UnknownStorageLocation,
+            match=(
+                r"s3://lamindb-ci is a parent of an existing storage location; "
+                r"register a more specific one instead: "
+                r"ln\.Storage\(root='s3://lamindb-ci/test-sibling-unknown-storage'\)\.save\(\)"
+            ),
+        ):
+            ln.Artifact(
+                "s3://lamindb-ci/test-sibling-unknown-storage/file.csv",
+                skip_check_exists=True,
+            )
+    finally:
+        nested.delete()
+
+
+def test_cloud_storage_apierror_reraise_without_children(monkeypatch):
+    from postgrest.exceptions import APIError
+
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    with pytest.raises(APIError):
+        ln.Artifact(
+            "s3://lamindb-ci-no-child-storages/file.csv",
+            skip_check_exists=True,
+        )
 
 
 # -------------------------------------------------------------------------------------

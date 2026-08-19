@@ -260,8 +260,9 @@ class SQLRecordSettings:
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
-        This only affects updates to objects that will start to throw an error upon `INSERT` or `UPDATE`
-        if their space does not match the enforced space. Existing objects are not affected.
+        This affects creates and updates: new objects without an explicit `space` default to the
+        enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
+        objects are not rewritten when the setting changes.
 
         The enforced space can be configured in 2 ways:
 
@@ -342,6 +343,28 @@ class SQLRecordSettings:
             del aux["ss"]
             if not aux:
                 self._sqlrecord._aux = None
+
+
+def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None:
+    """Return the write space enforced by a type's `_aux["ss"]`, if any.
+
+    Mirrors the frontend single-space policy used for default write-space selection:
+
+    - `_aux.ss = 1` or `"1"` → the type's own owning space
+    - `_aux.ss = "<space uid>"` → that exact space
+    - missing / unset → ``None`` (caller keeps context / settings / ``all`` fallback)
+    """
+    aux = getattr(type_record, "_aux", None)
+    if not aux:
+        return None
+    ss = aux.get("ss")
+    if ss is None:
+        return None
+    if ss == 1 or ss == "1":
+        return getattr(type_record, "space", None)
+    if isinstance(ss, str) and ss:
+        return Space.get(ss)
+    return None
 
 
 def deferred_attribute__repr__(self):
@@ -812,11 +835,11 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
-        _using_key = None
-        if "_using_key" in expressions:
-            _using_key = expressions.pop("_using_key")
+        using = None
+        if "using" in expressions:
+            using = expressions.pop("using")
 
-        return QuerySet(model=cls, using=_using_key).filter(*queries, **expressions)
+        return QuerySet(model=cls, using=using).filter(*queries, **expressions)
 
     def get(
         cls: type[T],
@@ -1196,7 +1219,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     from lamindb import context as run_context
 
                     # Precedence is uniform across SQLRecord children:
-                    # explicit `<fk>_id` or `<fk>` (mutually exclusive) > context/settings fallback.
+                    # explicit `<fk>_id` or `<fk>` (mutually exclusive)
+                    # > type `_aux.ss` single-space policy
+                    # > context/settings fallback.
                     has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space
@@ -1206,7 +1231,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         current_space = None
 
                     if not has_explicit_space:
-                        if current_space is not None:
+                        policy_space = None
+                        type_record = kwargs.get("type")
+                        if isinstance(type_record, HasType):
+                            policy_space = resolve_space_from_single_space_policy(
+                                type_record
+                            )
+                        if policy_space is not None:
+                            kwargs["space"] = policy_space
+                        elif current_space is not None:
                             kwargs["space"] = current_space
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
@@ -1352,11 +1385,23 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def save(self: T, *args, **kwargs) -> T:
         """Save.
 
-        Always saves to the default database.
+        Args:
+            using: Optional database slug for a target database that differs from the default database.
         """
-        using_key = None
+        using = None
         if "using" in kwargs:
-            using_key = kwargs["using"]
+            using = kwargs["using"]
+            if using != "default" and using not in connections:
+                self.__class__.connect(using)
+            # cross-instance writes can inherit a run from the active local context;
+            # that run id does not exist in the target instance.
+            if (
+                using != "default"
+                and (self._state.adding or self.pk is None)
+                and hasattr(self, "run_id")
+            ):
+                self.run = None
+                self.run_id = None
         transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
@@ -1365,7 +1410,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             and transfer_config is None
             and db is not None
             and db != "default"
-            and using_key is None
+            and using is None
         ):
             transfer_config = "annotations"
         artifacts: list = []
@@ -1379,14 +1424,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "transferred": [],
             "run": None,
         }
-        if db is not None and db != "default" and using_key is None:
+        if db is not None and db != "default" and using is None:
             if isinstance(self, IsVersioned):
                 if not self.is_latest:
                     raise NotImplementedError(
                         "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                     )
             pre_existing_record = transfer_to_default_db(
-                self, using_key, transfer_logs=transfer_logs
+                self, using, transfer_logs=transfer_logs
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -1560,7 +1605,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             track_current_name_value(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
-        if db is not None and db != "default" and using_key is None:
+        if db is not None and db != "default" and using is None:
             if self.__class__.__name__ == "Collection":
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
@@ -1571,7 +1616,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
-                    self, db, pk_on_db, using_key, transfer_logs=transfer_logs
+                    self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
@@ -2248,7 +2293,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 from .artifact import delete_permanently
 
                 delete_permanently(
-                    self, storage=kwargs["storage"], using_key=kwargs["using_key"]
+                    self, storage=kwargs["storage"], using=kwargs["using"]
                 )
                 return None
             return super().delete()
@@ -2393,6 +2438,40 @@ def get_name_field(
     return field
 
 
+class LaminDBRouter:
+    def allow_relation(self, obj1, obj2, **hints) -> bool | None:
+        # Permit assigning a relation when one side is not yet saved, e.g.
+        # `ln.Record(type=remote_type)` while building a record for a
+        # cross-instance `using=` save: the new record's `_state.db` may have
+        # been pinned to "default" by its default branch/space FKs before the
+        # cross-instance type FK is assigned, which Django's default
+        # (same-database) check would otherwise reject at construction time.
+        #
+        # For two *already-saved* records we defer to Django's default check
+        # (return None) so that genuinely cross-instance links, such as
+        # `artifact.records.add(label)` across two different instances, remain
+        # blocked with the usual friendly error.
+        if isinstance(obj1, SQLRecord) and isinstance(obj2, SQLRecord):
+            if obj1._state.adding or obj2._state.adding:
+                return True
+        return None
+
+
+def _ensure_lamindb_router() -> None:
+    from django.conf import settings as django_settings
+
+    if not django_settings.configured:
+        return
+    from django.db import router as django_router
+
+    router_path = "lamindb.models.sqlrecord.LaminDBRouter"
+    existing = list(getattr(django_settings, "DATABASE_ROUTERS", []))
+    if router_path in existing or any(isinstance(r, LaminDBRouter) for r in existing):
+        return
+    django_settings.DATABASE_ROUTERS = [*existing, router_path]
+    django_router.__dict__.pop("routers", None)
+
+
 def add_db_connection(db: str, using: str):
     db_config = dj_database_url.config(
         default=db, conn_max_age=600, conn_health_checks=True
@@ -2401,6 +2480,10 @@ def add_db_connection(db: str, using: str):
     db_config["OPTIONS"] = {}
     db_config["AUTOCOMMIT"] = True
     connections.settings[using] = db_config
+    # Ensure router registration when dynamic DB aliases are added.
+    # Covers init orders where the import-time call happened before
+    # Django settings were configured and therefore returned early.
+    _ensure_lamindb_router()
 
 
 REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
@@ -2409,7 +2492,7 @@ REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 def update_fk_to_default_db(
     records: SQLRecord | list[SQLRecord] | DjangoQuerySet,
     fk: str,
-    using_key: str | None,
+    using: str | None,
     transfer_logs: dict,
 ):
     # here in case it is an iterable, we are checking only a single record
@@ -2440,11 +2523,11 @@ def update_fk_to_default_db(
                 from .schema import transfer_schema_with_members
 
                 fk_record_default = transfer_schema_with_members(
-                    fk_record_default, using_key, transfer_logs=transfer_logs
+                    fk_record_default, using, transfer_logs=transfer_logs
                 )
             elif pre_existing_fk_record_default is None:
                 transfer_to_default_db(
-                    fk_record_default, using_key, save=True, transfer_logs=transfer_logs
+                    fk_record_default, using, save=True, transfer_logs=transfer_logs
                 )
             else:
                 fk_record_default = pre_existing_fk_record_default
@@ -2466,10 +2549,10 @@ FKBULK = [
 
 
 def transfer_fk_to_default_db_bulk(
-    records: list | DjangoQuerySet, using_key: str | None, transfer_logs: dict
+    records: list | DjangoQuerySet, using: str | None, transfer_logs: dict
 ):
     for fk in FKBULK:
-        update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
+        update_fk_to_default_db(records, fk, using, transfer_logs=transfer_logs)
 
 
 def get_transfer_run(record) -> Run:
@@ -2519,7 +2602,7 @@ def get_transfer_run(record) -> Run:
 
 def transfer_to_default_db(
     record: SQLRecord,
-    using_key: str | None,
+    using: str | None,
     *,
     transfer_logs: dict,
     save: bool = False,
@@ -2562,7 +2645,7 @@ def transfer_to_default_db(
         # don't transfer fk fields that are already bulk transferred
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
     for fk in fk_fields:
-        update_fk_to_default_db(record, fk, using_key, transfer_logs=transfer_logs)
+        update_fk_to_default_db(record, fk, using, transfer_logs=transfer_logs)
     # FK ids were remapped to the default DB; drop tracked *_id originals so save
     # logic does not treat remapping as a user-requested field change.
     if (original_values := getattr(record, "_original_values", None)) is not None:

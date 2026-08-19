@@ -225,7 +225,13 @@ class RecordSet(Iterable):
                 )
 
             # `type_id` points to record types (`is_type=True`) by model design.
-            record_type = Record.get(id=type_ids[0])
+            # `type_ids` were read from `qs.db`; resolve the type on the same
+            # instance so cross-instance reads don't hit the default connection.
+            record_type = (
+                Record.get(id=type_ids[0])
+                if qs.db in (None, "default")
+                else Record.connect(qs.db).get(id=type_ids[0])
+            )
         qs._record_export_type = record_type
 
         logger.important(f"exporting {qs.count()} records of '{record_type.name}'")
@@ -413,7 +419,8 @@ def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet
     else:
         qs = None
 
-    if qs:  # an empty query set evaluates to False
+    # `if qs` evaluates the entire queryset; exists() is a cheap LIMIT 1
+    if qs is not None and qs.exists():
         return qs
 
     qs = (
