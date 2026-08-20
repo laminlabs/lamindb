@@ -266,7 +266,7 @@ ln.Run.filter(
 
 ### Validate parameters with type annotations
 
-If a function is type-annotated, parameters will be validated:
+If a function is type-annotated, parameters will be validated. You can use standard Python types for simple data and valid LaminDB dtype serializations to reference objects in registries. See {mod}`~lamindb.base.dtypes` for more background.
 
 <!-- #region -->
 
