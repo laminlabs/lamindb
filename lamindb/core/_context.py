@@ -392,19 +392,19 @@ class LogStreamTracker:
 
 
 def _annotation_accepts_value(annotation: Any, value: Any) -> tuple[bool, str | None]:
-    dtype_str, normalized_value, reason = _annotation_to_feature_dtype(
+    dtype_arg, normalized_value, reason = _annotation_to_feature_dtype_arg(
         annotation, value
     )
     if reason is not None:
         return False, reason
-    if dtype_str is None:
+    if dtype_arg is None:
         return True, None
-    return _validate_with_virtual_schema(dtype_str, normalized_value)
+    return _validate_with_virtual_schema(dtype_arg, normalized_value)
 
 
-def _annotation_to_feature_dtype(
+def _annotation_to_feature_dtype_arg(
     annotation: Any, value: Any
-) -> tuple[str | None, Any, str | None]:
+) -> tuple[Any | None, Any, str | None]:
     if annotation is Any:
         return None, value, None
 
@@ -412,19 +412,7 @@ def _annotation_to_feature_dtype(
         return (None, value, None) if value is None else (None, value, "expected None")
 
     if isinstance(annotation, str):
-        simple = annotation.strip().lower()
-        simple_map = {
-            "int": int,
-            "float": float,
-            "bool": bool,
-            "str": str,
-            "dict": dict,
-            "list": list,
-        }
-        if simple in simple_map:
-            annotation = simple_map[simple]
-        else:
-            return None, value, f"unsupported string annotation {annotation!r}"
+        return annotation, value, None
 
     origin = get_origin(annotation)
     args = get_args(annotation)
@@ -432,7 +420,7 @@ def _annotation_to_feature_dtype(
     # PEP 604 unions (X | Y) and typing.Union
     if origin in {Union, UnionType}:
         for option in args:
-            dtype_str, normalized_value, reason = _annotation_to_feature_dtype(
+            dtype_str, normalized_value, reason = _annotation_to_feature_dtype_arg(
                 option, value
             )
             if reason is None:
@@ -444,53 +432,49 @@ def _annotation_to_feature_dtype(
             return None, value, "expected iterable"
         if origin is list and not isinstance(value, list):
             return None, value, "expected list"
-        item_type = args[0] if args else Any
-        item_dtype_str, _, item_reason = _annotation_to_feature_dtype(item_type, None)
-        if item_reason is not None:
-            return None, value, f"unsupported iterable item annotation ({item_reason})"
-        if item_dtype_str is None:
+        item_annotation = args[0] if args else Any
+        if item_annotation is Any:
             return None, value, None
-        return f"list[{item_dtype_str}]", list(value), None
+        if isinstance(item_annotation, str):
+            return f"list[{item_annotation}]", list(value), None
+        if isinstance(item_annotation, type):
+            if issubclass(item_annotation, SQLRecord):
+                return [item_annotation], list(value), None
+            if item_annotation in {int, float, bool, str, dict, list}:
+                return f"list[{item_annotation.__name__}]", list(value), None
+        return None, value, f"unsupported iterable item annotation {item_annotation!r}"
 
     if origin is dict:
         if not isinstance(value, dict):
             return None, value, "expected dict"
-        return "dict", value, None
+        return dict, value, None
 
     if origin is tuple:
         if not isinstance(value, tuple):
             return None, value, "expected tuple"
-        return "list", list(value), None
+        return list, list(value), None
 
     if origin is not None:
         return None, value, f"unsupported annotation origin {origin!r}"
 
     if isinstance(annotation, type):
         if issubclass(annotation, SQLRecord):
-            return f"cat[{annotation.__name__}]", value, None
-        primitive_to_dtype = {
-            bool: "bool",
-            int: "int",
-            float: "float",
-            str: "str",
-            dict: "dict",
-            list: "list",
-        }
-        if annotation in primitive_to_dtype:
-            return primitive_to_dtype[annotation], value, None
+            return annotation, value, None
+        if annotation in {bool, int, float, str, dict, list}:
+            return annotation, value, None
         return None, value, f"unsupported annotation type {annotation!r}"
     return None, value, f"unsupported annotation {annotation!r}"
 
 
 def _validate_with_virtual_schema(
-    dtype_str: str, value: Any
+    dtype_arg: Any, value: Any
 ) -> tuple[bool, str | None]:
     from ..curators.core import ExperimentalDictCurator
     from ..errors import ValidationError
     from ..models import Feature, Schema
 
     key = "param"
-    feature = Feature(name=key, dtype=dtype_str)
+    feature = Feature(name=key, dtype=dtype_arg)
     # allow constructing an in-memory schema from a virtual, unsaved feature
     feature._state.adding = False
     schema = Schema([feature])
