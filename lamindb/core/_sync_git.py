@@ -64,11 +64,17 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
     fetch_command = ["git", "fetch", "origin", "+refs/heads/*:refs/remotes/origin/*"]
     subprocess.run(fetch_command, cwd=repo_dir, check=True)
 
-    # Find the commit containing the blob hash in all branches
+    # Find the commit containing the blob hash in all branches.
+    # -m (--diff-merges=on) is required: without it git uses a combined diff for
+    # merge commits, which only surfaces files that differ from *all* parents at
+    # once.  A blob brought in through a clean (conflict-free) merge produces an
+    # empty combined diff, so --find-object silently misses it even though the
+    # blob is present in the merge commit's tree.
     command = [
         "git",
         "log",
         "--all",
+        "-m",
         f"--find-object={blob_hash}",
         "--pretty=format:%H",
     ]
