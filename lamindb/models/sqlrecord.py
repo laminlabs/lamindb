@@ -650,7 +650,9 @@ def suggest_records_with_similar_names(
         if type is UNSET:
             # user passed nothing → search all type contexts
             # catches typed records with same name, fixes silent dup bug
-            logger.warning(f"tip: pass `type` to map {record.__class__.__name__.lower()} into a type hierarchy")
+            logger.warning(
+                f"tip: pass `type` to map {record.__class__.__name__.lower()} into a type hierarchy"
+            )
             subset = record.__class__.filter()
         elif type is None:
             # explicit type=None → root-level dedup (type IS NULL)
@@ -1575,16 +1577,32 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     and "new row violates row-level security policy" in error_msg
                     and (
                         (is_locked := getattr(self, "is_locked", False))
-                        or hasattr(self, "space")
+                        or hasattr(self, "space_id")
                     )
                 ):
                     if is_locked:
                         no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') records."
                     else:
-                        no_write_msg = (
-                            f"You're not allowed to write to the space '{self.space.name}'.\n"
-                            "Please contact administrators of the space if you need write access."
-                        )
+                        # Use a cached Space only. `self.space` follows the FK
+                        # descriptor and SELECTs. Versioned save() demotes the
+                        # previous head via demote_target.save() inside
+                        # transaction.atomic(), so an RLS failure on that inner
+                        # save is handled while the outer atomic block is still
+                        # open and the connection needs rollback. A SELECT here
+                        # would then raise TransactionManagementError and mask
+                        # NoWriteAccess.
+                        space = self.__dict__.get("space")
+                        space_name = getattr(space, "name", None)
+                        if space_name:
+                            no_write_msg = (
+                                f"You're not allowed to write to the space '{space_name}'.\n"
+                                "Please contact administrators of the space if you need write access."
+                            )
+                        else:
+                            no_write_msg = (
+                                "You're not allowed to write to this space.\n"
+                                "Please contact administrators of the space if you need write access."
+                            )
                     raise NoWriteAccess(no_write_msg) from None
                 elif (
                     isinstance(e, ProgrammingError)
