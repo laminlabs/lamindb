@@ -16,8 +16,7 @@ If instead you're interested in
 - flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
 ```bash
-# pip install lamindb
-mkdir test-ontologies && cd test-ontologies && lamin init --modules bionty
+mkdir ontologies && cd ontologies && lamin init --modules bionty
 ```
 
 ## Import records from public ontologies
