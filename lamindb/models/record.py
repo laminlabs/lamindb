@@ -31,6 +31,8 @@ from .query_set import (
     get_default_branch_ids,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
+from lamindb.base.types import Unset
+
 from .sqlrecord import (
     BaseSQLRecord,
     Branch,
@@ -900,7 +902,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str | None = None,
-        type: Record | None = None,
+        type: Record | None | Unset = UNSET,
         is_type: bool = False,
         features: dict[str | Feature, Any] | None = None,
         description: str | None = None,
@@ -928,7 +930,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", UNSET)
+        type: Record | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)

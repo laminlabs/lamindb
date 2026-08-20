@@ -108,9 +108,8 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="SQLRecord")
 
-# Sentinel to distinguish "user didn't pass type=" from "user explicitly passed type=None".
-# Uses object() so identity checks (is) never call __eq__ on model instances.
-UNSET = object()
+from lamindb.base.types import UNSET  # noqa: E402
+
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 UNIQUE_FIELD_NAMES = {
     "root",
@@ -474,7 +473,7 @@ def init_self_from_db(
 
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
-        if getattr(record, key) != value and value is not None:
+        if value is not None and value is not UNSET and getattr(record, key) != value:
             if key not in {"uid", "_dtype_str", "otype", "hash"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
@@ -647,10 +646,18 @@ def suggest_records_with_similar_names(
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
     if isinstance(record, HasType):
-        if kwargs.get("type", None) is None:
+        type = kwargs["type"]
+        if type is UNSET:
+            # user passed nothing → search all type contexts
+            # catches typed records with same name, fixes silent dup bug
+            logger.warning(f"tip: pass `type` to map {record.__class__.__name__.lower()} into a type hierarchy")
+            subset = record.__class__.filter()
+        elif type is None:
+            # explicit type=None → root-level dedup (type IS NULL)
             subset = record.__class__.filter(type__isnull=True)
         else:
-            subset = record.__class__.filter(type=kwargs["type"])
+            # specific type object → scoped dedup within that type
+            subset = record.__class__.filter(type=type)
     else:
         subset = record.__class__
     exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
@@ -1185,10 +1192,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
-        # strip sentinel before validate_fields and Django's Model.__init__ see it
-        # `is` never calls __eq__, so FeaturePredicate objects are safe
-        if isinstance(self, HasType) and kwargs.get("type", UNSET) is UNSET:
-            kwargs.pop("type", None)
         if not args:
 
             def resolve_fk_or_id(field_name: str) -> bool:
@@ -1247,6 +1250,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the current one), so the record is created on that branch.
                     kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
+                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
+                if isinstance(self, HasType) and kwargs["type"] is UNSET:
+                    kwargs.pop("type")
                 super().__init__(**kwargs)
             else:
                 from ..core._settings import settings
@@ -1303,6 +1309,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             # track original values after replacing with the existing record
                             self._populate_tracked_fields()
                             return None
+                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
+                if isinstance(self, HasType) and kwargs["type"] is UNSET:
+                    kwargs.pop("type")
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators
