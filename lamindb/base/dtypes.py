@@ -1,4 +1,7 @@
-"""Data types (dtypes).
+"""Data types.
+
+Most data types in LaminDB are string-serializable representations of standard Python types, commonly used for validating data in libraries such as pydantic.
+Categorical data types are absent from built-in Python types and are needed to anchor the validation of a categorical variable in a LaminDB registry.
 
 Simple
 ------
