@@ -7,9 +7,11 @@ import signal
 import sys
 import threading
 import traceback
+from collections.abc import Iterable as IterableABC
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, TextIO
+from types import UnionType
+from typing import TYPE_CHECKING, Any, Callable, TextIO, Union, get_args, get_origin
 
 import lamindb_setup as ln_setup
 from django.db.models import Q
@@ -389,13 +391,131 @@ class LogStreamTracker:
             self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
+def _annotation_accepts_value(annotation: Any, value: Any) -> tuple[bool, str | None]:
+    if annotation is Any:
+        return True, None
+
+    if annotation in {None, type(None)}:
+        return value is None, "expected None"
+
+    if isinstance(annotation, str):
+        simple = annotation.strip().lower()
+        simple_map = {
+            "int": int,
+            "float": float,
+            "bool": bool,
+            "str": str,
+            "dict": dict,
+            "list": list,
+        }
+        if simple in simple_map:
+            annotation = simple_map[simple]
+        else:
+            return False, f"unsupported string annotation {annotation!r}"
+
+    origin = get_origin(annotation)
+    args = get_args(annotation)
+
+    if origin is None:
+        if isinstance(annotation, type):
+            if issubclass(annotation, SQLRecord):
+                return isinstance(value, annotation), (
+                    f"expected {annotation.__name__}"
+                    if not isinstance(value, annotation)
+                    else None
+                )
+            if annotation is bool:
+                return isinstance(value, bool), "expected bool"
+            if annotation is int:
+                return isinstance(value, int) and not isinstance(
+                    value, bool
+                ), "expected int"
+            if annotation is float:
+                return isinstance(value, float), "expected float"
+            if annotation is str:
+                return isinstance(value, str), "expected str"
+            if annotation is dict:
+                return isinstance(value, dict), "expected dict"
+            if annotation is list:
+                return isinstance(value, list), "expected list"
+            return False, f"unsupported annotation type {annotation!r}"
+        return False, f"unsupported annotation {annotation!r}"
+
+    if origin in {list, set, frozenset, IterableABC}:
+        if not isinstance(value, IterableABC) or isinstance(value, (str, bytes, dict)):
+            return False, "expected iterable"
+        if origin is list and not isinstance(value, list):
+            return False, "expected list"
+        item_type = args[0] if args else Any
+        for item in value:
+            valid, reason = _annotation_accepts_value(item_type, item)
+            if not valid:
+                return False, f"iterable item mismatch ({reason})"
+        return True, None
+
+    if origin is dict:
+        if not isinstance(value, dict):
+            return False, "expected dict"
+        key_type = args[0] if len(args) >= 1 else Any
+        value_type = args[1] if len(args) >= 2 else Any
+        for key, item_value in value.items():
+            key_valid, key_reason = _annotation_accepts_value(key_type, key)
+            if not key_valid:
+                return False, f"dict key mismatch ({key_reason})"
+            value_valid, value_reason = _annotation_accepts_value(
+                value_type, item_value
+            )
+            if not value_valid:
+                return False, f"dict value mismatch ({value_reason})"
+        return True, None
+
+    if origin is tuple:
+        if not isinstance(value, tuple):
+            return False, "expected tuple"
+        if len(args) == 2 and args[1] is Ellipsis:
+            for item in value:
+                valid, reason = _annotation_accepts_value(args[0], item)
+                if not valid:
+                    return False, f"tuple item mismatch ({reason})"
+            return True, None
+        if len(args) != len(value):
+            return False, "tuple length mismatch"
+        for item, expected_item_type in zip(value, args, strict=False):
+            valid, reason = _annotation_accepts_value(expected_item_type, item)
+            if not valid:
+                return False, f"tuple item mismatch ({reason})"
+        return True, None
+
+    # PEP 604 unions (X | Y) and typing.Union
+    if origin in {Union, UnionType}:
+        for option in args:
+            valid, _ = _annotation_accepts_value(option, value)
+            if valid:
+                return True, None
+        return False, "no union option matched"
+
+    return False, f"unsupported annotation origin {origin!r}"
+
+
 # see test_tracked.py for tests
-def serialize_params_to_json(params: dict) -> dict:
+def serialize_params_to_json(
+    params: dict, expected_param_types: dict[str, Any] | None = None
+) -> dict:
     serialized_params = {}
     for key, value in params.items():
         # None and empty list are missing/empty values, skip them consistent with elsewhere in the code
         if value is None or (isinstance(value, list) and len(value) == 0):
             continue
+        expected_type = (
+            expected_param_types.get(key) if expected_param_types is not None else None
+        )
+        if expected_type is not None:
+            valid, reason = _annotation_accepts_value(expected_type, value)
+            if not valid:
+                logger.warning(
+                    f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
+                )
+                continue
         dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
         # converted_value is not JSON if dtype is a SQLRecord or a list of SQLRecords
         # because we just the above function for features where we'd like to keep SQLRecords as they are
@@ -513,6 +633,7 @@ class Context:
         plan: str | Artifact | None = None,
         features: dict | None = None,
         params: dict | None = None,
+        expected_param_types: dict[str, Any] | None = None,
         new_run: bool | None = None,
         pypackages: bool | None = None,
         key: str | None = None,
@@ -797,7 +918,7 @@ class Context:
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
         if params is not None:
-            run.params = serialize_params_to_json(params)
+            run.params = serialize_params_to_json(params, expected_param_types)
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value!r}" for key, value in run.params.items()
             )

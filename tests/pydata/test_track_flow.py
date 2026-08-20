@@ -149,3 +149,39 @@ def test_flow_exception_uploads_run_report():
             report.delete(permanent=True)
         if transform is not None:
             transform.delete(permanent=True)
+
+
+def test_flow_annotation_mismatch_skips_param():
+    run = None
+    try:
+
+        @ln.flow(global_run="clear")
+        def typed_flow(count: int, label: str) -> str:
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run_uid = typed_flow("not-an-int", "ok")
+        run = ln.Run.get(uid=run_uid)
+        assert run.params == {"label": "ok"}
+    finally:
+        ln.context._run = None
+        if run is not None:
+            run.delete(permanent=True)
+
+
+def test_flow_annotation_match_keeps_param():
+    run = None
+    try:
+
+        @ln.flow(global_run="clear")
+        def typed_flow(count: int, label: str) -> str:
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run_uid = typed_flow(3, "ok")
+        run = ln.Run.get(uid=run_uid)
+        assert run.params == {"count": 3, "label": "ok"}
+    finally:
+        ln.context._run = None
+        if run is not None:
+            run.delete(permanent=True)
