@@ -4,7 +4,7 @@ execute_via: python
 
 <!-- this guide is replicated in `tests/pydata/test_transfer.py` via `test_transfer_tutorial_artifact_annotations` -->
 
-# Transfer & sync data across databases
+# Transfer & sync across databases
 
 This guide shows how to sync objects from a source database to your default database.
 
@@ -87,7 +87,7 @@ Every `SQLRecord` object has an attribute `._state.db` which can take the follow
 assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
 assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
 assert artifact.transform.uid == "4XIuR0tvaiXM0000"
-assert artifact.run.initiated_by_run.transform.description.startswith("Transfer & sync data")
+assert artifact.run.initiated_by_run.transform.description.startswith("Transfer & sync")
 ```
 
 ```bash tags=["hide-cell"]
