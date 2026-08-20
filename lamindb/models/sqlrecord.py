@@ -1592,7 +1592,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         if space is None and not conn.in_atomic_block:
                             space = getattr(self, "space", None)
                         space_name = getattr(space, "name", None)
-                        if space_name:
+                        if space_name is not None:
                             no_write_msg = (
                                 f"You're not allowed to write to the space '{space_name}'.\n"
                                 "Please contact administrators of the space if you need write access."
