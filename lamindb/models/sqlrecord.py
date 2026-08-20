@@ -1583,15 +1583,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     if is_locked:
                         no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') records."
                     else:
-                        # Use a cached Space only. `self.space` follows the FK
-                        # descriptor and SELECTs. Versioned save() demotes the
-                        # previous head via demote_target.save() inside
-                        # transaction.atomic(), so an RLS failure on that inner
-                        # save is handled while the outer atomic block is still
-                        # open and the connection needs rollback. A SELECT here
-                        # would then raise TransactionManagementError and mask
-                        # NoWriteAccess.
+                        # `self.space` SELECTs via the FK. Skip that inside
+                        # atomic(): versioned save() demotes via a nested
+                        # save() in transaction.atomic(), so an RLS failure is
+                        # handled while the connection still needs rollback.
                         space = self.__dict__.get("space")
+                        conn = transaction.get_connection(self._state.db)
+                        if space is None and not conn.in_atomic_block:
+                            space = getattr(self, "space", None)
                         space_name = getattr(space, "name", None)
                         if space_name:
                             no_write_msg = (
