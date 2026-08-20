@@ -107,7 +107,7 @@ schema = ln.Schema(
 If you're not connected to a database, create one:
 
 ```bash
-lamin init --storage ./test-curate --modules bionty
+mkdir test-curate && cd test-curate && lamin init --modules bionty
 ```
 
 Let's import `lamindb` and optionally track this run:

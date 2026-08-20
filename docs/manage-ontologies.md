@@ -17,7 +17,7 @@ If instead you're interested in
 
 ```bash
 # pip install lamindb
-lamin init --storage ./test-ontologies --modules bionty
+mkdir test-ontologies && cd test-ontologies && lamin init --modules bionty
 ```
 
 ## Import records from public ontologies

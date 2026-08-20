@@ -16,7 +16,7 @@ You can easily create your new local instance:
 :::{tab-item} Shell
 
 ```bash
-lamin init --storage ./mydir
+mkdir mydir && cd mydir && lamin init
 ```
 
 :::

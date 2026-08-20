@@ -339,7 +339,10 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
-        run(session, "lamin init --storage ./test-readme --modules bionty")
+        run(
+            session,
+            "mkdir test-readme && cd test-readme && lamin init --modules bionty",
+        )
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
@@ -495,7 +498,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,pertdb",
+        "mkdir docsbuild && cd docsbuild && lamin init --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact()

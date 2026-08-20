@@ -20,7 +20,7 @@ By default, {meth}`~lamindb.models.CanCurate.from_values` considers a match in a
 
 ```bash
 # pip install 'lamindb[zarr]'
-lamin init --storage ./test-curate-any --modules bionty
+mkdir test-curate-any && cd test-curate-any && lamin init --modules bionty
 ```
 
 Define a test dataset.

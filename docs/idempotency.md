@@ -25,7 +25,7 @@ You can override this via `skip_hash_lookup=False` (or force skipping via `skip_
 
 ```bash
 # pip install lamindb
-lamin init --storage ./test-idempotency
+mkdir test-idempotency && cd test-idempotency && lamin init
 ```
 
 ```python

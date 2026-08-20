@@ -11,7 +11,7 @@ This guide shows how to sync objects from a source database to your default data
 If you don't have a database, create one:
 
 ```bash
-lamin init --storage ./test-transfer --modules bionty
+mkdir test-transfer && cd test-transfer && lamin init --modules bionty
 ```
 
 Import `lamindb` and optionally run `ln.track()`:

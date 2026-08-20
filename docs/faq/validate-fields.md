@@ -8,7 +8,7 @@ execute_via: python
 
 ```bash
 # pip install lamindb
-lamin init --storage ./test-django-validation
+mkdir test-django-validation && cd test-django-validation && lamin init
 ```
 
 ```python

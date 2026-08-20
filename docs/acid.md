@@ -44,7 +44,7 @@ This architecture guarantees:
 Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted.
 
 ```bash
-lamin init --storage ./test-acid
+mkdir test-acid && cd test-acid && lamin init
 ```
 
 ```python

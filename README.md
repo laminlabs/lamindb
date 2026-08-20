@@ -130,7 +130,7 @@ lamin connect account/name  # tip: add flag `--here` to scope to current directo
 <summary>Or init a new instance instead (no login required).</summary>
 
 ```shell
-lamin init --storage ./quickstart-data --modules bionty
+mkdir quickstart-data && cd quickstart-data && lamin init --modules bionty
 ```
 
 </details>
