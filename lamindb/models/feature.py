@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr
+from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr, Unset
 from lamindb.errors import (
     FieldValidationError,
     InvalidArgument,
@@ -43,8 +43,6 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
@@ -606,6 +604,96 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
     return lamin_dtype
 
 
+def _split_filter_parts(filter_str: str) -> list[str]:
+    """Split comma-separated filter expressions while honoring quoted substrings."""
+    if filter_str == "":
+        return [""]
+
+    parts: list[str] = []
+    current: list[str] = []
+    quote_char: str | None = None
+    escaped = False
+
+    for char in filter_str:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            continue
+
+        if quote_char is not None:
+            current.append(char)
+            if char == quote_char:
+                quote_char = None
+            continue
+
+        if char in ("'", '"'):
+            quote_char = char
+            current.append(char)
+            continue
+
+        if char == ",":
+            parts.append("".join(current).strip())
+            current = []
+            continue
+
+        current.append(char)
+
+    if quote_char is not None:
+        raise ValueError(
+            f"Invalid filter expression: '{filter_str}' (unterminated quoted value)"
+        )
+
+    parts.append("".join(current).strip())
+    return parts
+
+
+def _strip_matching_quotes(value: str) -> str:
+    """Trim value and remove matching quote wrappers."""
+    trimmed = value.strip()
+    if trimmed == "":
+        return trimmed
+
+    quote_char = trimmed[0]
+    if quote_char in ("'", '"'):
+        if len(trimmed) < 2 or not trimmed.endswith(quote_char):
+            raise ValueError(
+                f"Invalid filter expression value: '{value}' (mismatched quotes)"
+            )
+        return trimmed[1:-1]
+
+    if trimmed.endswith("'") or trimmed.endswith('"'):
+        raise ValueError(
+            f"Invalid filter expression value: '{value}' (mismatched quotes)"
+        )
+
+    return trimmed
+
+
+def _format_cat_filter_value(value: Any) -> str:
+    """Serialize cat_filter values, quoting only comma-containing strings."""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+
+    value_str = str(value)
+    if "," not in value_str:
+        return value_str
+
+    if '"' not in value_str:
+        return f'"{value_str}"'
+    if "'" not in value_str:
+        return f"'{value_str}'"
+
+    raise ValidationError(
+        f"Cannot serialize categorical filter value containing comma and both quote types: {value_str!r}"
+    )
+
+
 def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
     """Parse comma-separated Django filter expressions into structured components.
 
@@ -619,14 +707,14 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
     """
     filters = {}
 
-    filter_parts = [part.strip() for part in filter_str.split(",")]
+    filter_parts = _split_filter_parts(filter_str)
     for part in filter_parts:
         if "=" not in part:
             raise ValueError(f"Invalid filter expression: '{part}' (missing '=' sign)")
 
         key, value = part.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("'\"")
+        value = _strip_matching_quotes(value)
 
         if not key:
             raise ValueError(f"Invalid filter expression: '{part}' (empty key)")
@@ -653,7 +741,7 @@ def resolve_relation_filters(
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
         using: Target instance to resolve related objects on (per-instance PKs);
-            ``None`` resolves against the default connection unchanged.
+            `None` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -835,8 +923,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     Annotate an artifact with features (works identically for records and runs)::
 
-        artifact.features.set_values({
-            "temperature_in_celsius": 37.5,
+        artifact.features.set_values({"temperature_in_celsius": 37.5,
             "sample_note": "Control sample",
         })
 
@@ -948,120 +1035,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     .. _dtypes-note:
 
-    Data types (dtypes)
-    -------------------
-
-    **Simple data types.** In  the table below, the first column shows the object that
-    can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
-    that's used in the database.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-          - pandas
-        * - `int`
-          - `"int"`
-          - `int64 | int32 | int16 | int8 | uint | ...`
-        * - `float`
-          - `"float"`
-          - `float64 | float32 | float16 | float8 | ...`
-        * - `str`
-          - `"str"`
-          - `object`
-        * - `bool`
-          - `"bool"`
-          - `boolean | bool`
-        * - `datetime`
-          - `"datetime"`
-          - `datetime`
-        * - `"datetime64[ns, UTC]"`
-          - `"datetime64[ns, UTC]"`
-          - `datetime64[ns, UTC]`
-        * - `date`
-          - `"date"`
-          - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-        * - `dict`
-          - `"dict"`
-          - `object`
-        * - `"num"`
-          - `"num"`
-          - `int | float` ("num" is a convenience type for `int | float`)
-        * - `"path"`
-          - `"path"`
-          - `str` (pandas does not have a dedicated path type, validated as `str`)
-        * - `"url"`
-          - `"url"`
-          - `str` (pandas does not have a dedicated url type, validated as `str`)
-
-    **Categorical and relational data types.** For any categorical, you can restrict permissible
-    values to the values defined in a registry. This establishes a relationship.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `ln.ULabel`
-          - `"cat[ULabel]"`
-        * - `bt.CellType`
-          - `"cat[bionty.CellType]"`
-        * - `bt.Disease`
-          - `"cat[bionty.Disease]"`
-        * - `ln.Artifact`
-          - `"cat[Artifact]"`
-
-    You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `ulabel_type` (a `ULabel` with `is_type=True`)
-          - `"cat[ULabel[<uid_of_ulabel_type>]]"`
-        * - `record_type` (a `Record` with `is_type=True`)
-          - `"cat[Record[<uid_of_record_type>]]"`
-
-    You can restrict permissible values by filtering the categorical on fields of its registry.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - cat_filters
-          - string serialization
-        * - `bt.Disease`
-          - `{"source": source}`
-          - `"cat[bionty.Disease]"`
-        * - `ln.Artifact`
-          - `{"schema": schema}`
-          - `"cat[Artifact]"`
-
-    **List data types.**
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `list[bt.CellType]`
-          - `"list[cat[bionty.CellType]]"`
-        * - `list[float]`
-          - `"list[float]"`
-
-    **Union data types.**
-
-    Unions are currently only supported for static registries.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
-          - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+    See :mod:`~lamindb.base.dtypes`.
 
     """
 
@@ -1377,13 +1351,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             ):
                 shorthand_type_uid = str(cat_filters.pop("type__uid"))
 
-            # TODO(major release): Revisit quoting semantics for serialized
-            # cat_filters expressions (e.g., bools currently serialize as
-            # "is_type='True'"). Changing this requires a broader refactor of
-            # expression format/parsing and a design pass for compatible
-            # filter expression semantics with a data migration.
             fill_in = ", ".join(
-                f"{key}='{value}'" for (key, value) in cat_filters.items()
+                f"{key}={_format_cat_filter_value(value)}"
+                for (key, value) in cat_filters.items()
             )
             if shorthand_type_uid is not None:
                 bracket_payload = (

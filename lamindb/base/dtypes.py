@@ -1,6 +1,135 @@
-"""Dtype utils.
+"""Data types.
 
-.. autofunction:: check_dtype
+Most data types in LaminDB are string-serializable representations of standard Python types, commonly used for validating data in libraries such as pydantic.
+Categorical data types are absent from built-in Python types and are needed to anchor the validation of a categorical variable in a LaminDB registry.
+
+Simple
+------
+
+In the table below, the first column shows the object that
+can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
+that's used in the database.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+      - pandas
+    * - `int`
+      - `"int"`
+      - `int64 | int32 | int16 | int8 | uint | ...`
+    * - `float`
+      - `"float"`
+      - `float64 | float32 | float16 | float8 | ...`
+    * - `str`
+      - `"str"`
+      - `object`
+    * - `bool`
+      - `"bool"`
+      - `boolean | bool`
+    * - `datetime`
+      - `"datetime"`
+      - `datetime`
+    * - `"datetime64[ns, UTC]"`
+      - `"datetime64[ns, UTC]"`
+      - `datetime64[ns, UTC]`
+    * - `date`
+      - `"date"`
+      - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+    * - `dict`
+      - `"dict"`
+      - `object`
+    * - `"num"`
+      - `"num"`
+      - `int | float` ("num" is a convenience type for `int | float`)
+    * - `"path"`
+      - `"path"`
+      - `str` (pandas does not have a dedicated path type, validated as `str`)
+    * - `"url"`
+      - `"url"`
+      - `str` (pandas does not have a dedicated url type, validated as `str`)
+
+Categorical/ relational
+-----------------------
+
+For any categorical, you can restrict permissible
+values to the values defined in a registry. This establishes a relationship.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `ln.ULabel`
+      - `"cat[ULabel]"`
+    * - `bt.CellType`
+      - `"cat[bionty.CellType]"`
+    * - `bt.Disease`
+      - `"cat[bionty.Disease]"`
+    * - `ln.Artifact`
+      - `"cat[Artifact]"`
+
+You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `ulabel_type` (a `ULabel` with `is_type=True`)
+      - `"cat[ULabel[<uid_of_ulabel_type>]]"`
+    * - `record_type` (a `Record` with `is_type=True`)
+      - `"cat[Record[<uid_of_record_type>]]"`
+
+You can restrict permissible values by filtering the categorical on fields of its registry.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - cat_filters
+      - string serialization
+    * - `bt.Disease`
+      - `{"source": source}`
+      - `"cat[bionty.Disease[source__uid='<uid_of_source>']]"`
+    * - `ln.Artifact`
+      - `{"schema": schema}`
+      - `"cat[Artifact[schema__uid='<uid_of_schema>']]"`
+
+Lists
+-----
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `list[bt.CellType]`
+      - `"list[cat[bionty.CellType]]"`
+    * - `list[float]`
+      - `"list[float]"`
+
+Unions
+------
+
+Unions are currently only supported for static registries.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
+      - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+
+Usage
+-----
+
+In features, you can pass dtypes to the `dtype` argument. See :class:`~lamindb.Feature` for more details.
+
+In function signatures, you can use dtypes to type annotate and validate arguments.
+See :doc:`docs:track` or :func:`~lamindb.flow` for examples.
 
 """
 

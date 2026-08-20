@@ -1,6 +1,7 @@
 __MACOSX/
 
 # LaminDB
+.lamin
 docs/pertdb.*.rst
 docs/bionty.*.rst
 README_stripped.md
