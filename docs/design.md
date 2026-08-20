@@ -10,13 +10,19 @@ idempotency
 
 LaminDB is a distributed data management system like git that can be run or hosted anywhere. It just needs a SQLite or Postgres database and at least one storage location (file system, S3, GCP, HuggingFace, ...).
 
-You can easily create your new local instance:
+Before you create a local database, create a development directory and `cd` into it:
+
+```bash
+mkdir mydata && cd mydata
+```
+
+Then call:
 
 ::::{tab-set}
 :::{tab-item} Shell
 
 ```bash
-mkdir mydir && cd mydir && lamin init
+lamin init
 ```
 
 :::
@@ -25,7 +31,7 @@ mkdir mydir && cd mydir && lamin init
 
 ```python
 import lamindb as ln
-ln.setup.init(storage="./mydir")
+ln.setup.init()
 ```
 
 :::
@@ -34,7 +40,7 @@ ln.setup.init(storage="./mydir")
 
 ```R
 library(laminr)
-lamin_init(storage="./mydir")
+lamin_init()
 ```
 
 :::
