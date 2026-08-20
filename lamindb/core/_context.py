@@ -392,11 +392,24 @@ class LogStreamTracker:
 
 
 def _annotation_accepts_value(annotation: Any, value: Any) -> tuple[bool, str | None]:
-    if annotation is Any:
+    dtype_str, normalized_value, reason = _annotation_to_feature_dtype(
+        annotation, value
+    )
+    if reason is not None:
+        return False, reason
+    if dtype_str is None:
         return True, None
+    return _validate_with_virtual_schema(dtype_str, normalized_value)
+
+
+def _annotation_to_feature_dtype(
+    annotation: Any, value: Any
+) -> tuple[str | None, Any, str | None]:
+    if annotation is Any:
+        return None, value, None
 
     if annotation in {None, type(None)}:
-        return value is None, "expected None"
+        return (None, value, None) if value is None else (None, value, "expected None")
 
     if isinstance(annotation, str):
         simple = annotation.strip().lower()
@@ -411,90 +424,85 @@ def _annotation_accepts_value(annotation: Any, value: Any) -> tuple[bool, str | 
         if simple in simple_map:
             annotation = simple_map[simple]
         else:
-            return False, f"unsupported string annotation {annotation!r}"
+            return None, value, f"unsupported string annotation {annotation!r}"
 
     origin = get_origin(annotation)
     args = get_args(annotation)
 
-    if origin is None:
-        if isinstance(annotation, type):
-            if issubclass(annotation, SQLRecord):
-                return isinstance(value, annotation), (
-                    f"expected {annotation.__name__}"
-                    if not isinstance(value, annotation)
-                    else None
-                )
-            if annotation is bool:
-                return isinstance(value, bool), "expected bool"
-            if annotation is int:
-                return isinstance(value, int) and not isinstance(
-                    value, bool
-                ), "expected int"
-            if annotation is float:
-                return isinstance(value, float), "expected float"
-            if annotation is str:
-                return isinstance(value, str), "expected str"
-            if annotation is dict:
-                return isinstance(value, dict), "expected dict"
-            if annotation is list:
-                return isinstance(value, list), "expected list"
-            return False, f"unsupported annotation type {annotation!r}"
-        return False, f"unsupported annotation {annotation!r}"
-
-    if origin in {list, set, frozenset, IterableABC}:
-        if not isinstance(value, IterableABC) or isinstance(value, (str, bytes, dict)):
-            return False, "expected iterable"
-        if origin is list and not isinstance(value, list):
-            return False, "expected list"
-        item_type = args[0] if args else Any
-        for item in value:
-            valid, reason = _annotation_accepts_value(item_type, item)
-            if not valid:
-                return False, f"iterable item mismatch ({reason})"
-        return True, None
-
-    if origin is dict:
-        if not isinstance(value, dict):
-            return False, "expected dict"
-        key_type = args[0] if len(args) >= 1 else Any
-        value_type = args[1] if len(args) >= 2 else Any
-        for key, item_value in value.items():
-            key_valid, key_reason = _annotation_accepts_value(key_type, key)
-            if not key_valid:
-                return False, f"dict key mismatch ({key_reason})"
-            value_valid, value_reason = _annotation_accepts_value(
-                value_type, item_value
-            )
-            if not value_valid:
-                return False, f"dict value mismatch ({value_reason})"
-        return True, None
-
-    if origin is tuple:
-        if not isinstance(value, tuple):
-            return False, "expected tuple"
-        if len(args) == 2 and args[1] is Ellipsis:
-            for item in value:
-                valid, reason = _annotation_accepts_value(args[0], item)
-                if not valid:
-                    return False, f"tuple item mismatch ({reason})"
-            return True, None
-        if len(args) != len(value):
-            return False, "tuple length mismatch"
-        for item, expected_item_type in zip(value, args, strict=False):
-            valid, reason = _annotation_accepts_value(expected_item_type, item)
-            if not valid:
-                return False, f"tuple item mismatch ({reason})"
-        return True, None
-
     # PEP 604 unions (X | Y) and typing.Union
     if origin in {Union, UnionType}:
         for option in args:
-            valid, _ = _annotation_accepts_value(option, value)
-            if valid:
-                return True, None
-        return False, "no union option matched"
+            dtype_str, normalized_value, reason = _annotation_to_feature_dtype(
+                option, value
+            )
+            if reason is None:
+                return dtype_str, normalized_value, None
+        return None, value, "no union option matched"
 
-    return False, f"unsupported annotation origin {origin!r}"
+    if origin in {list, set, frozenset, IterableABC}:
+        if not isinstance(value, IterableABC) or isinstance(value, (str, bytes, dict)):
+            return None, value, "expected iterable"
+        if origin is list and not isinstance(value, list):
+            return None, value, "expected list"
+        item_type = args[0] if args else Any
+        item_dtype_str, _, item_reason = _annotation_to_feature_dtype(item_type, None)
+        if item_reason is not None:
+            return None, value, f"unsupported iterable item annotation ({item_reason})"
+        if item_dtype_str is None:
+            return None, value, None
+        return f"list[{item_dtype_str}]", list(value), None
+
+    if origin is dict:
+        if not isinstance(value, dict):
+            return None, value, "expected dict"
+        return "dict", value, None
+
+    if origin is tuple:
+        if not isinstance(value, tuple):
+            return None, value, "expected tuple"
+        return "list", list(value), None
+
+    if origin is not None:
+        return None, value, f"unsupported annotation origin {origin!r}"
+
+    if isinstance(annotation, type):
+        if issubclass(annotation, SQLRecord):
+            return f"cat[{annotation.__name__}]", value, None
+        primitive_to_dtype = {
+            bool: "bool",
+            int: "int",
+            float: "float",
+            str: "str",
+            dict: "dict",
+            list: "list",
+        }
+        if annotation in primitive_to_dtype:
+            return primitive_to_dtype[annotation], value, None
+        return None, value, f"unsupported annotation type {annotation!r}"
+    return None, value, f"unsupported annotation {annotation!r}"
+
+
+def _validate_with_virtual_schema(
+    dtype_str: str, value: Any
+) -> tuple[bool, str | None]:
+    from ..curators.core import ExperimentalDictCurator
+    from ..errors import ValidationError
+    from ..models import Feature, Schema
+
+    key = "param"
+    feature = Feature(name=key, dtype=dtype_str)
+    # allow constructing an in-memory schema from a virtual, unsaved feature
+    feature._state.adding = False
+    schema = Schema([feature])
+    try:
+        ExperimentalDictCurator(
+            {key: value},
+            schema,
+            require_saved_schema=False,
+        ).validate()
+    except ValidationError as error:
+        return False, str(error)
+    return True, None
 
 
 # see test_tracked.py for tests
