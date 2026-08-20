@@ -846,7 +846,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
-    r"""Measurable properties such as columns of a sheet.
+    """Measurable properties such as columns of a sheet.
 
     Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
 
@@ -923,8 +923,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     Annotate an artifact with features (works identically for records and runs)::
 
-        artifact.features.set_values({
-            "temperature_in_celsius": 37.5,
+        artifact.features.set_values({"temperature_in_celsius": 37.5,
             "sample_note": "Control sample",
         })
 
@@ -1036,7 +1035,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     .. _dtypes-note:
 
-
+    See :mod:`~lamindb.base.dtypes`.
 
     """
 
