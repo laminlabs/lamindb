@@ -13,6 +13,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
+from lamindb.base.types import Unset
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_8
@@ -224,7 +225,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str,
-        type: ULabel | None = None,
+        type: ULabel | None | Unset = UNSET,
         is_type: bool = False,
         description: str | None = None,
         reference: str | None = None,
@@ -250,7 +251,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", UNSET)
+        type: ULabel | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)

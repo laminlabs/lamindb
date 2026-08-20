@@ -43,6 +43,8 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
+from lamindb.base.types import Unset
+
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
@@ -130,7 +132,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def transfer_feature_dtypes(
-    feature: Feature, using_key: str | None, transfer_logs: dict
+    feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
@@ -152,7 +154,7 @@ def transfer_feature_dtypes(
         source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
         source_type_id = source_type.id
         transferred_type = transfer_to_default_db(
-            source_type, using_key, transfer_logs=transfer_logs, save=True
+            source_type, using, transfer_logs=transfer_logs, save=True
         )
         if getattr(source_type, "is_type", False):
             source_typed_children = source_type.__class__.objects.using(
@@ -160,7 +162,7 @@ def transfer_feature_dtypes(
             ).filter(type_id=source_type_id)
             for source_record in source_typed_children:
                 transfer_to_default_db(
-                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                    source_record, using, transfer_logs=transfer_logs, save=True
                 )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "
@@ -172,8 +174,13 @@ def transfer_feature_dtypes(
 def get_record_type_from_uid(
     registry: Registry,
     type_uid: str,
+    using: str | None = None,
 ) -> SQLRecord:
-    type_record: SQLRecord = registry.get(type_uid)
+    type_record: SQLRecord = (
+        registry.get(type_uid)
+        if using is None
+        else registry.connect(using).get(type_uid)
+    )
 
     if type_record.branch_id == -1:
         warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{type_uid}') from trash"
@@ -636,13 +643,17 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
 
 
 def resolve_relation_filters(
-    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+    parsed_filters: dict[str, tuple[str, str | None, str]],
+    registry: SQLRecord,
+    using: str | None = None,
 ) -> dict[str, str | SQLRecord]:
     """Resolve relation filters actual model objects.
 
     Args:
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
+        using: Target instance to resolve related objects on (per-instance PKs);
+            ``None`` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -657,7 +668,11 @@ def resolve_relation_filters(
                     and relation_field.field.is_relation
                 ):
                     related_model = relation_field.field.related_model
-                    related_obj = related_model.get(**{field_name: value})
+                    related_obj = (
+                        related_model.get(**{field_name: value})
+                        if using is None
+                        else related_model.connect(using).get(**{field_name: value})
+                    )
                     resolved[relation_name] = related_obj
         else:
             resolved[filter_key] = value
@@ -671,7 +686,7 @@ def process_init_feature_param(args, kwargs):
     name: str = kwargs.pop("name", None)
     dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
-    type_: Feature | str | None = kwargs.pop("type", UNSET)
+    type_: Feature | str | None | Unset = kwargs.pop("type", UNSET)
     description: str | None = kwargs.pop("description", None)
     space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
@@ -1234,7 +1249,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         | Registry
         | list[Registry]
         | FieldAttr,
-        type: Feature | None = None,
+        type: Feature | None | Unset = UNSET,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
@@ -1399,9 +1414,28 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
 
+    def _should_build_model_predicate(self, other: models.Model) -> bool:
+        """Return whether a model value should be treated as a feature predicate value."""
+        dtype_str = self._dtype_str
+        if dtype_str is None:
+            return False
+        parsed_dtype = parse_dtype(dtype_str)
+        for component in parsed_dtype:
+            registry = component.get("registry")
+            if isinstance(registry, type) and isinstance(other, registry):
+                return True
+        return False
+
     def __eq__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return super().__eq__(other)
+        # Django internals may compare model instances while collecting related
+        # objects for delete cascades/protect checks. Returning FeaturePredicate
+        # for unrelated models breaks those paths because they expect bool.
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "", other))
             return super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__eq__ -> bool.
@@ -1410,6 +1444,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def __ne__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return not super().__eq__(other)
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "__ne", other))
             return not super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__ne__ -> bool.

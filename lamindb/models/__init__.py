@@ -239,3 +239,10 @@ from .block import (
 )
 
 FeatureValue = JsonValue  # backward compatibility
+
+from .sqlrecord import _ensure_lamindb_router
+
+# Best-effort early registration of LaminDBRouter.
+# This may no-op if Django settings are not configured yet, so we also call
+# _ensure_lamindb_router() in add_db_connection() as a late safety net.
+_ensure_lamindb_router()

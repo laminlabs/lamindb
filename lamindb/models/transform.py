@@ -303,7 +303,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         reference_type: str | None = kwargs.pop("reference_type", None)
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         # below is internal use that we'll hopefully be able to eliminate
         uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
         source_code: str | None = (
@@ -328,14 +328,14 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             # need to check uid before checking key
             if uid is not None:
                 revises = (
-                    Transform.objects.using(using_key)
+                    Transform.objects.using(using)
                     .filter(uid__startswith=uid[:-4], is_latest=True)
                     .order_by("-created_at")
                     .first()
                 )
             elif key is not None:
                 candidates_for_revises = (
-                    Transform.objects.using(using_key)
+                    Transform.objects.using(using)
                     .filter(~Q(branch_id=-1), key=key, is_latest=True)
                     .order_by("-created_at")
                 )

@@ -12,6 +12,7 @@ import pytest
 from lamindb.errors import FieldValidationError
 from lamindb.models import sqlrecord as sqlrecord_module
 from lamindb.models.sqlrecord import (
+    UNSET,
     _get_record_kwargs,
     _search,
     check_key,
@@ -287,10 +288,10 @@ def test_suggest_similar_names():
     assert ln.Record(name="Test experiment 1").uid == record1.uid
 
     assert suggest_records_with_similar_names(
-        record1, "name", {"name": "Test experiment 1"}
+        record1, "name", {"name": "Test experiment 1", "type": UNSET}
     )
     assert not suggest_records_with_similar_names(
-        record2, "name", {"name": "Test experiment 123"}
+        record2, "name", {"name": "Test experiment 123", "type": UNSET}
     )
 
     queryset = _search(
@@ -401,7 +402,7 @@ def test_get_record_kwargs():
             "dtype",
             "SimpleDtype | SimpleDtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr",
         ),
-        ("type", "Feature | None"),
+        ("type", "Feature | None | Unset"),
         ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
