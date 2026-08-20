@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr
+from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr, Unset
 from lamindb.errors import (
     FieldValidationError,
     InvalidArgument,
@@ -43,8 +43,6 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
@@ -606,6 +604,96 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
     return lamin_dtype
 
 
+def _split_filter_parts(filter_str: str) -> list[str]:
+    """Split comma-separated filter expressions while honoring quoted substrings."""
+    if filter_str == "":
+        return [""]
+
+    parts: list[str] = []
+    current: list[str] = []
+    quote_char: str | None = None
+    escaped = False
+
+    for char in filter_str:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            continue
+
+        if quote_char is not None:
+            current.append(char)
+            if char == quote_char:
+                quote_char = None
+            continue
+
+        if char in ("'", '"'):
+            quote_char = char
+            current.append(char)
+            continue
+
+        if char == ",":
+            parts.append("".join(current).strip())
+            current = []
+            continue
+
+        current.append(char)
+
+    if quote_char is not None:
+        raise ValueError(
+            f"Invalid filter expression: '{filter_str}' (unterminated quoted value)"
+        )
+
+    parts.append("".join(current).strip())
+    return parts
+
+
+def _strip_matching_quotes(value: str) -> str:
+    """Trim value and remove matching quote wrappers."""
+    trimmed = value.strip()
+    if trimmed == "":
+        return trimmed
+
+    quote_char = trimmed[0]
+    if quote_char in ("'", '"'):
+        if len(trimmed) < 2 or not trimmed.endswith(quote_char):
+            raise ValueError(
+                f"Invalid filter expression value: '{value}' (mismatched quotes)"
+            )
+        return trimmed[1:-1]
+
+    if trimmed.endswith("'") or trimmed.endswith('"'):
+        raise ValueError(
+            f"Invalid filter expression value: '{value}' (mismatched quotes)"
+        )
+
+    return trimmed
+
+
+def _format_cat_filter_value(value: Any) -> str:
+    """Serialize cat_filter values, quoting only comma-containing strings."""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+
+    value_str = str(value)
+    if "," not in value_str:
+        return value_str
+
+    if '"' not in value_str:
+        return f'"{value_str}"'
+    if "'" not in value_str:
+        return f"'{value_str}'"
+
+    raise ValidationError(
+        f"Cannot serialize categorical filter value containing comma and both quote types: {value_str!r}"
+    )
+
+
 def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
     """Parse comma-separated Django filter expressions into structured components.
 
@@ -619,14 +707,14 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
     """
     filters = {}
 
-    filter_parts = [part.strip() for part in filter_str.split(",")]
+    filter_parts = _split_filter_parts(filter_str)
     for part in filter_parts:
         if "=" not in part:
             raise ValueError(f"Invalid filter expression: '{part}' (missing '=' sign)")
 
         key, value = part.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("'\"")
+        value = _strip_matching_quotes(value)
 
         if not key:
             raise ValueError(f"Invalid filter expression: '{part}' (empty key)")
@@ -1390,13 +1478,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             ):
                 shorthand_type_uid = str(cat_filters.pop("type__uid"))
 
-            # TODO(major release): Revisit quoting semantics for serialized
-            # cat_filters expressions (e.g., bools currently serialize as
-            # "is_type='True'"). Changing this requires a broader refactor of
-            # expression format/parsing and a design pass for compatible
-            # filter expression semantics with a data migration.
             fill_in = ", ".join(
-                f"{key}='{value}'" for (key, value) in cat_filters.items()
+                f"{key}={_format_cat_filter_value(value)}"
+                for (key, value) in cat_filters.items()
             )
             if shorthand_type_uid is not None:
                 bracket_payload = (
