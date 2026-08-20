@@ -391,17 +391,6 @@ class LogStreamTracker:
             self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
-def _annotation_accepts_value(annotation: Any, value: Any) -> tuple[bool, str | None]:
-    dtype_arg, normalized_value, reason = _annotation_to_feature_dtype_arg(
-        annotation, value
-    )
-    if reason is not None:
-        return False, reason
-    if dtype_arg is None:
-        return True, None
-    return _validate_with_virtual_schema(dtype_arg, normalized_value)
-
-
 def _annotation_to_feature_dtype_arg(
     annotation: Any, value: Any
 ) -> tuple[Any | None, Any, str | None]:
@@ -432,16 +421,34 @@ def _annotation_to_feature_dtype_arg(
             return None, value, "expected iterable"
         if origin is list and not isinstance(value, list):
             return None, value, "expected list"
+        items = list(value)
         item_annotation = args[0] if args else Any
         if item_annotation is Any:
             return None, value, None
         if isinstance(item_annotation, str):
-            return f"list[{item_annotation}]", list(value), None
+            return f"list[{item_annotation}]", items, None
         if isinstance(item_annotation, type):
             if issubclass(item_annotation, SQLRecord):
-                return [item_annotation], list(value), None
+                if any(not isinstance(item, item_annotation) for item in items):
+                    return (
+                        None,
+                        value,
+                        f"iterable item mismatch (expected {item_annotation.__name__})",
+                    )
+                return [item_annotation], items, None
             if item_annotation in {int, float, bool, str, dict, list}:
-                return f"list[{item_annotation.__name__}]", list(value), None
+                if item_annotation is int:
+                    return list[int], items, None
+                if item_annotation is float:
+                    return list[float], items, None
+                if item_annotation is bool:
+                    return list[bool], items, None
+                if item_annotation is str:
+                    return list[str], items, None
+                if item_annotation is dict:
+                    return list[dict], items, None
+                if item_annotation is list:
+                    return list[list], items, None
         return None, value, f"unsupported iterable item annotation {item_annotation!r}"
 
     if origin is dict:
@@ -459,6 +466,8 @@ def _annotation_to_feature_dtype_arg(
 
     if isinstance(annotation, type):
         if issubclass(annotation, SQLRecord):
+            if not isinstance(value, annotation):
+                return None, value, f"expected {annotation.__name__}"
             return annotation, value, None
         if annotation in {bool, int, float, str, dict, list}:
             return annotation, value, None
@@ -467,51 +476,60 @@ def _annotation_to_feature_dtype_arg(
 
 
 def _validate_with_virtual_schema(
-    dtype_arg: Any, value: Any
-) -> tuple[bool, str | None]:
+    values_by_key: dict[str, Any], dtype_args_by_key: dict[str, Any]
+) -> tuple[set[str], dict[str, str]]:
     from ..curators.core import ExperimentalDictCurator
-    from ..errors import ValidationError
     from ..models import Feature, Schema
 
-    key = "param"
-    feature = Feature(name=key, dtype=dtype_arg)
-    # allow constructing an in-memory schema from a virtual, unsaved feature
-    feature._state.adding = False
-    schema = Schema([feature])
+    if not values_by_key:
+        return set(), {}
+
+    features = []
+    for key, dtype_arg in dtype_args_by_key.items():
+        feature = Feature(name=key, dtype=dtype_arg)
+        # allow constructing an in-memory schema from virtual, unsaved features
+        feature._state.adding = False
+        features.append(feature)
+
+    schema = Schema(features)
     try:
         ExperimentalDictCurator(
-            {key: value},
+            values_by_key,
             schema,
             require_saved_schema=False,
         ).validate()
-    except ValidationError as error:
-        return False, str(error)
-    return True, None
+    except Exception as error:
+        error_text = str(error)
+        failed_keys = {
+            key
+            for key in values_by_key
+            if key in error_text or f"'{key}'" in error_text or f'"{key}"' in error_text
+        }
+        if not failed_keys:
+            failed_keys = set(values_by_key.keys())
+        return (
+            set(values_by_key.keys()) - failed_keys,
+            {key: error_text for key in failed_keys},
+        )
+    return set(values_by_key.keys()), {}
 
 
 # see test_tracked.py for tests
 def serialize_params_to_json(
     params: dict, expected_param_types: dict[str, Any] | None = None
 ) -> dict:
-    serialized_params = {}
+    serialized_params: dict[str, Any] = {}
+    serializable_raw_values: dict[str, Any] = {}
+    params_for_validation: dict[str, Any] = {}
+    dtype_args_by_key: dict[str, Any] = {}
+    expected_type_by_key: dict[str, Any] = {}
+
     for key, value in params.items():
         # None and empty list are missing/empty values, skip them consistent with elsewhere in the code
         if value is None or (isinstance(value, list) and len(value) == 0):
             continue
-        expected_type = (
-            expected_param_types.get(key) if expected_param_types is not None else None
-        )
-        if expected_type is not None:
-            valid, reason = _annotation_accepts_value(expected_type, value)
-            if not valid:
-                logger.warning(
-                    f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
-                )
-                continue
+        # First, keep only params that are serializable.
         dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
-        # converted_value is not JSON if dtype is a SQLRecord or a list of SQLRecords
-        # because we just the above function for features where we'd like to keep SQLRecords as they are
-        # so, need to handle this here
         if (
             dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
         ) and dtype not in {"cat ? str", "list[cat ? str]"}:
@@ -533,10 +551,49 @@ def serialize_params_to_json(
                 f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
             )
             continue
+        serializable_raw_values[key] = value
+
+    # Then, validate only the serializable params.
+    for key, value in serializable_raw_values.items():
+        expected_type = (
+            expected_param_types.get(key) if expected_param_types is not None else None
+        )
+        if expected_type is None:
+            continue
+        dtype_arg, normalized_value, reason = _annotation_to_feature_dtype_arg(
+            expected_type, value
+        )
+        if reason is not None:
+            serialized_params.pop(key, None)
+            logger.warning(
+                f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
+            )
+            continue
+        if dtype_arg is None:
+            continue
+        params_for_validation[key] = normalized_value
+        dtype_args_by_key[key] = dtype_arg
+        expected_type_by_key[key] = expected_type
+
+    valid_keys, invalid_reasons = _validate_with_virtual_schema(
+        params_for_validation, dtype_args_by_key
+    )
+    for key in params_for_validation:
+        if key not in valid_keys:
+            value = serializable_raw_values[key]
+            serialized_params.pop(key, None)
+            expected_type = expected_type_by_key[key]
+            reason = invalid_reasons.get(key, "virtual schema validation failed")
+            logger.warning(
+                f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
+            )
+
+    for key in list(serialized_params.keys()):
         if is_sensitive_param_key(key) or is_sensitive_param_value(
             serialized_params[key]
         ):
             serialized_params[key] = REDACTED_SECRET_VALUE
+
     return serialized_params
 
 
