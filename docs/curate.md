@@ -104,23 +104,17 @@ schema = ln.Schema(
 
 ## DataFrame
 
-If you're not connected to a database, create one:
+Let's create a test database:
 
 ```bash
-mkdir test-curate && cd test-curate && lamin init --modules bionty
-```
-
-Let's import `lamindb` and optionally track this run:
-
-```python
-import lamindb as ln
-
-ln.track()
+mkdir curate && cd curate && lamin init --modules bionty
 ```
 
 We'll be working with the mini immuno dataset:
 
 ```python
+import lamindb as ln
+
 df = ln.examples.datasets.mini_immuno.get_dataset1(
     with_cell_type_synonym=True, with_cell_type_typo=True
 )
@@ -588,9 +582,3 @@ python scripts/curate_soma_experiment.py
 ## Other data structures
 
 If you have other data structures, read: {doc}`/faq/curate-any`.
-
-```bash
-rm -rf ./test-curate
-rm -rf ./small_dataset.tiledbsoma
-lamin delete --force test-curate
-```
