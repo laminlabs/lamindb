@@ -358,6 +358,87 @@ def test_nested_cat_with_filter():
     customer_type.delete(permanent=True)
 
 
+def test_function_signature_dtype_examples_parse_as_expected():
+    organism = parse_dtype("cat[bionty.Organism[source__uid=4eeXrDKBKo]]")
+    assert organism == [
+        {
+            "registry_str": "bionty.Organism",
+            "filter_str": "source__uid=4eeXrDKBKo",
+            "field_str": "name",
+            "registry": bt.Organism,
+            "field": bt.Organism.name,
+        }
+    ]
+
+    typed_record = parse_dtype(
+        "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]"
+    )
+    assert typed_record == [
+        {
+            "registry_str": "Record",
+            "filter_str": "is_type=True, schema__uid=6pjoBrrz4f1EzQMO",
+            "field_str": "name",
+            "registry": Record,
+            "field": Record.name,
+            "type_uid": "YSS8VU4eeXrDKBKo",
+        }
+    ]
+
+    comma_source = parse_dtype(
+        'cat[Record[type__uid=YSS8VU4eeXrDKBKo, source__name="Lamin, Inc.", is_type=False]]'
+    )
+    assert comma_source == [
+        {
+            "registry_str": "Record",
+            "filter_str": 'type__uid=YSS8VU4eeXrDKBKo, source__name="Lamin, Inc.", is_type=False',
+            "field_str": "name",
+            "registry": Record,
+            "field": Record.name,
+        }
+    ]
+
+    disease_list = parse_dtype("list[cat[bionty.Disease[source__uid=4a3ejKuf]]]")
+    assert disease_list == [
+        {
+            "registry_str": "bionty.Disease",
+            "filter_str": "source__uid=4a3ejKuf",
+            "field_str": "name",
+            "registry": bt.Disease,
+            "field": bt.Disease.name,
+            "list": True,
+        }
+    ]
+
+    gene_id = parse_dtype("cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]")
+    assert gene_id == [
+        {
+            "registry_str": "bionty.Gene",
+            "filter_str": "source__uid=6w75X9zM",
+            "field_str": "ensembl_gene_id",
+            "registry": bt.Gene,
+            "field": bt.Gene.ensembl_gene_id,
+        }
+    ]
+
+    union = parse_dtype("cat[bionty.CellType.ontology_id|bionty.Tissue.ontology_id]")
+    assert union == [
+        {
+            "registry_str": "bionty.CellType",
+            "filter_str": "",
+            "field_str": "ontology_id",
+            "registry": bt.CellType,
+            "field": bt.CellType.ontology_id,
+        },
+        {
+            "registry_str": "bionty.Tissue",
+            "filter_str": "",
+            "field_str": "ontology_id",
+            "registry": bt.Tissue,
+            "field": bt.Tissue.ontology_id,
+        },
+    ]
+
+
 # -----------------------------------------------------------------------------
 # parsing django filter expressions
 # -----------------------------------------------------------------------------

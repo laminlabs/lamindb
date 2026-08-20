@@ -741,7 +741,7 @@ def resolve_relation_filters(
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
         using: Target instance to resolve related objects on (per-instance PKs);
-            ``None`` resolves against the default connection unchanged.
+            `None` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -846,7 +846,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
-    """Measurable properties such as columns of a sheet.
+    r"""Measurable properties such as columns of a sheet.
 
     Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
 
@@ -1157,9 +1157,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         @ln.flow()
         def my_func(
-            x: "bionty.Organism[source__uid='4eeXrDKBKo']",
-            y: "cat[Record[YSS8VU4eeXrDKBKo, is_type=true, schema__uid='6pjoBrrz4f1EzQMO']]",
-            z: "list[bionty.Disease]",
+            organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
+            typed_record: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
+            record_from_comma_source: "cat[Record[type__uid=YSS8VU4eeXrDKBKo, source__name=\"Lamin, Inc.\", is_type=False]]",
+            diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
+            gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
+            cell_or_tissue: "cat[bionty.CellType.ontology_id|bionty.Tissue.ontology_id]",
         ) -> str:
             ...
 
