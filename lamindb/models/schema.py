@@ -19,7 +19,7 @@ from lamindb.base.fields import (
     IntegerField,
     TextField,
 )
-from lamindb.base.types import CanonicalSuffix, FieldAttr, ListLike
+from lamindb.base.types import CanonicalSuffix, FieldAttr, ListLike, Unset
 from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
