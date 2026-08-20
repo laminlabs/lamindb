@@ -1,4 +1,4 @@
-"""Base types.
+"""Python types.
 
 Classes
 -------
@@ -152,6 +152,7 @@ SimpleDtypeStr = Literal[
 DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat
+
 
 class Unset:
     """Sentinel type to distinguish 'not passed' from explicit `None`.
