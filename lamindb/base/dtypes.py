@@ -1,6 +1,9 @@
 """Data types (dtypes).
 
-**Simple data types.** In  the table below, the first column shows the object that
+Simple data types
+-----------------
+
+In the table below, the first column shows the object that
 can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
 that's used in the database.
 
@@ -44,7 +47,10 @@ that's used in the database.
         - `"url"`
         - `str` (pandas does not have a dedicated url type, validated as `str`)
 
-**Categorical and relational data types.** For any categorical, you can restrict permissible
+Categorical and relational data types
+-------------------------------------
+
+For any categorical, you can restrict permissible
 values to the values defined in a registry. This establishes a relationship.
 
 .. list-table::
@@ -88,7 +94,8 @@ You can restrict permissible values by filtering the categorical on fields of it
         - `{"schema": schema}`
         - `"cat[Artifact[schema__uid='<uid_of_schema>']]"`
 
-**List data types.**
+List data types
+---------------
 
 .. list-table::
     :header-rows: 1
@@ -100,7 +107,8 @@ You can restrict permissible values by filtering the categorical on fields of it
     * - `list[float]`
         - `"list[float]"`
 
-**Union data types.**
+Union data types
+----------------
 
 Unions are currently only supported for static registries.
 
@@ -112,7 +120,8 @@ Unions are currently only supported for static registries.
     * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
         - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
 
-**Usage in function signatures.**
+Usage in function signatures
+----------------------------
 
 In function signatures, you can use the string serialization of the dtype to represent the dtype, see :doc:`docs:launch`::
 
