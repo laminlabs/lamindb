@@ -638,7 +638,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         name: str | None = None,
         description: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        type: Schema | None = None,
+        type: Schema | None | Unset = UNSET,
         is_type: bool = False,
         index: Feature | None = None,
         flexible: bool | None = None,
@@ -680,7 +680,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         itype: str | SQLRecord | DeferredAttribute | None = kwargs.pop("itype", None)
         flexible: bool | None = kwargs.pop("flexible", None)
-        type: Feature | None = kwargs.pop("type", UNSET)
+        type: Feature | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
         suffix: str | None = kwargs.pop("suffix", None)
@@ -745,6 +745,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             coerce=coerce_dtype,
             n_features=n_features,
         )
+        # pop before update_attributes/super so it never reaches Django fields or getattr
         if not features and not slots and not is_type and not itype:
             raise InvalidArgument(
                 "Please pass features or slots or itype or set is_type=True"
@@ -865,7 +866,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs = {
             "name": name,
             "description": description,
-            "type": None if type is UNSET else type,
+            "type": type,
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
