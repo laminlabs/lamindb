@@ -268,9 +268,14 @@ ln.Run.filter(
 
 If a function is type-annotated, parameters will be validated:
 
+<!-- #region -->
+
 ```python
 @ln.flow()
 def my_func(
+    learning_rate: float,
+    run_name: str,
+    started_at: datetime,
     organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
     sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
     diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
@@ -278,6 +283,17 @@ def my_func(
 ) -> str:
     ...
 ```
+
+:::{dropdown} You can launch type-annotated functions through the UI.
+
+<p align="center">
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/1uJhxA5HshqEV8iw0000.png" alt="Lamin dtype selectors and primitive arguments" width="340" />
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6GOCZBZTZwGNRClD0000.png" alt="List, artifact, and path arguments" width="340" />
+</p>
+
+:::
+
+<!-- #endregion -->
 
 ### A multi-step workflow
 
