@@ -149,6 +149,8 @@ def flow(
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
+    Parameters will be validated against their type annotations, if they are type annotated.
+
     The decorator creates a :class:`~lamindb.Transform` with kind `"script"` that maps onto the file in
     which the function is defined.
     The function maps onto an entrypoint of the `transform`.

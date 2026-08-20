@@ -123,16 +123,8 @@ Unions are currently only supported for static registries.
 Usage in function signatures
 ----------------------------
 
-In function signatures, you can use the string serialization of the dtype to represent the dtype, see :doc:`docs:launch`::
-
-    @ln.flow()
-    def my_func(
-        organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
-        sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
-        diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
-        gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
-    ) -> str:
-        ...
+In function signatures, you can use the string serialization of dtypes to validate arguments.
+See :doc:`docs:track` or :func:`~lamindb.flow` for examples.
 
 """
 

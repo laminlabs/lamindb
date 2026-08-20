@@ -264,7 +264,20 @@ ln.Run.filter(
 ).to_dataframe()
 ```
 
-You can also pass complex parameters and features, see: {ref}`track-run-parameters`.
+### Validate parameters with type annotations
+
+If a function is type-annotated, parameters will be validated:
+
+```python
+@ln.flow()
+def my_func(
+    organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
+    sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
+    diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
+    gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
+) -> str:
+    ...
+```
 
 ### A multi-step workflow
 
