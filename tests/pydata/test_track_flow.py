@@ -185,3 +185,90 @@ def test_flow_annotation_match_keeps_param():
         ln.context._run = None
         if run is not None:
             run.delete(permanent=True)
+
+
+# see test_record_features_add_remove_values in test_record_basics.py
+# for a similar broad dtype matrix on Record features
+def test_flow_annotation_runtime_validation_type_matrix():
+    run_valid = None
+    run_invalid = None
+    record = None
+    record2 = None
+    try:
+        unique = time.time_ns()
+        record = ln.Record(name=f"track-param-record-{unique}").save()
+        record2 = ln.Record(name=f"track-param-record2-{unique}").save()
+
+        @ln.flow(global_run="clear")
+        def typed_flow(
+            bool_value: bool,
+            str_value: str,
+            list_str_value: list[str],
+            int_value: int,
+            list_int_value: list[int],
+            float_value: float,
+            list_float_value: list[float],
+            dict_value: dict,
+            record_value: ln.Record,
+            records_value: list[ln.Record],
+        ) -> str:
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run_uid = typed_flow(
+            True,
+            "alpha",
+            ["a", "b"],
+            42,
+            [1, 2, 3],
+            3.14,
+            [2.71, 3.14],
+            {"key": "value"},
+            record,
+            [record, record2],
+        )
+        run_valid = ln.Run.get(uid=run_uid)
+        assert run_valid.params == {
+            "bool_value": True,
+            "str_value": "alpha",
+            "list_str_value": ["a", "b"],
+            "int_value": 42,
+            "list_int_value": [1, 2, 3],
+            "float_value": 3.14,
+            "list_float_value": [2.71, 3.14],
+            "dict_value": {"key": "value"},
+            "record_value": f"Record[{record.uid}]",
+            "records_value": [f"Record[{record.uid}]", f"Record[{record2.uid}]"],
+        }
+
+        run_uid = typed_flow(
+            "not-a-bool",
+            "alpha",
+            ["a", "b"],
+            "not-an-int",
+            [1, 2, 3],
+            3.14,
+            [2.71, 3.14],
+            {"key": "value"},
+            "not-a-record",
+            ["not-a-record"],
+        )
+        run_invalid = ln.Run.get(uid=run_uid)
+        assert run_invalid.params == {
+            "str_value": "alpha",
+            "list_str_value": ["a", "b"],
+            "list_int_value": [1, 2, 3],
+            "float_value": 3.14,
+            "list_float_value": [2.71, 3.14],
+            "dict_value": {"key": "value"},
+        }
+    finally:
+        ln.context._run = None
+        if run_valid is not None:
+            run_valid.delete(permanent=True)
+        if run_invalid is not None:
+            run_invalid.delete(permanent=True)
+        if record is not None:
+            record.delete(permanent=True)
+        if record2 is not None:
+            record2.delete(permanent=True)

@@ -1158,11 +1158,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         @ln.flow()
         def my_func(
             organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
-            typed_record: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
-            record_from_comma_source: "cat[Record[type__uid=YSS8VU4eeXrDKBKo, source__name=\"Lamin, Inc.\", is_type=False]]",
+            sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
             diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
             gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
-            cell_or_tissue: "cat[bionty.CellType.ontology_id|bionty.Tissue.ontology_id]",
         ) -> str:
             ...
 
