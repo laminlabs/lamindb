@@ -1,16 +1,12 @@
 """Base library.
 
-Is available also when no instance is setup.
-
-Modules
--------
-
 .. autosummary::
    :toctree: .
 
-   uids
+   dtypes
    types
    fields
+   uids
    utils
 
 """

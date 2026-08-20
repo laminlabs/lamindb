@@ -264,7 +264,36 @@ ln.Run.filter(
 ).to_dataframe()
 ```
 
-You can also pass complex parameters and features, see: {ref}`track-run-parameters`.
+### Validate parameters with type annotations
+
+If a function is type-annotated, parameters will be validated. You can use standard Python types for simple data and valid LaminDB dtype serializations to reference objects in registries. See {mod}`~lamindb.base.dtypes` for more background.
+
+<!-- #region -->
+
+```python
+@ln.flow()
+def my_func(
+    learning_rate: float,
+    run_name: str,
+    started_at: datetime,
+    organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
+    sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
+    diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
+    gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
+) -> str:
+    ...
+```
+
+:::{dropdown} You can launch type-annotated functions through the UI.
+
+<p align="center">
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/1uJhxA5HshqEV8iw0000.png" alt="Lamin dtype selectors and primitive arguments" width="340" />
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6GOCZBZTZwGNRClD0000.png" alt="List, artifact, and path arguments" width="340" />
+</p>
+
+:::
+
+<!-- #endregion -->
 
 ### A multi-step workflow
 
