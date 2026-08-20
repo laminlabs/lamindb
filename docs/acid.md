@@ -43,9 +43,13 @@ This architecture guarantees:
 
 Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted.
 
+Let's create a test database:
+
 ```bash
-mkdir test-acid && cd test-acid && lamin init
+mkdir acid && cd acid && lamin init
 ```
+
+We're starting by writing a simple `sample.fasta` file:
 
 ```python
 import pytest
@@ -97,10 +101,10 @@ assert len(ln.Artifact.filter()) == 0  # nothing got saved
 
 ### Simulating an externally aborted upload
 
-Let's restore a proper storage location:
+Let's restore the storage location in the `./storage` folder:
 
 ```python
-ln.settings.storage._root = UPath("./test-acid").absolute()
+ln.settings.storage._root = UPath("./acid/storage").absolute()
 ```
 
 The save operation works:
@@ -127,9 +131,4 @@ artifact = ln.Artifact("sample.fasta", key="sample.fasta").save()
 ```python
 assert not artifact._storage_ongoing
 assert artifact._aux is None
-```
-
-```bash tags=["hide-cell"]
-rm -r ./test-acid
-lamin delete --force test-acid
 ```
