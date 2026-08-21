@@ -367,7 +367,7 @@ python scripts/my_workflow_with_click.py --key my_analysis/dataset2.parquet
 CLI arguments are tracked and accessible via `run.cli_args`:
 
 ```python
-run = ln.Run.filter(transform__key="my_workflow_with_click.py").first()
+run = ln.Run.filter(transform__key__endswith="my_workflow_with_click.py").first()
 run.describe()
 ```
 
