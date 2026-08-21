@@ -78,6 +78,10 @@ ln.settings.storage._root = UPath("s3://nf-core-awsmegatests")
 This raises an exception, and because the transaction is atomic, nothing gets saved to the database:
 
 ```python
+artifact.save()
+```
+
+```python
 with pytest.raises(PermissionError) as error:
     artifact.save()
 print(error.exconly())
