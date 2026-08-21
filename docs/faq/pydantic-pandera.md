@@ -2,15 +2,15 @@
 execute_via: python
 ---
 
-# Pydantic & Pandera vs. LaminDB
+# Pydantic, Pandera, and LaminDB
 
 This doc explains conceptual differences between data validation with `pydantic`, `pandera`, and `LaminDB`.
 
 ```bash
-lamin init --storage test-pydantic-pandera --modules bionty
+lamin init --storage test-validation-libs --modules bionty
 ```
 
-Let us work with a test dataframe.
+Let us work with an exemplary pandas dataframe.
 
 ```python
 import pandas as pd

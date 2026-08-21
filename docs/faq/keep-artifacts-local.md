@@ -4,22 +4,13 @@ execute_via: python
 
 # Keep artifacts local in a cloud instance
 
-If you want to default to keeping artifacts local in a cloud instance, enable {attr}`~lamindb.setup.core.InstanceSettings.keep_artifacts_local`.
+If you want to default to keeping artifacts local in a cloud LaminDB instance, enable {attr}`~lamindb.setup.core.InstanceSettings.keep_artifacts_local`.
 
-Let us first create a cloud instance that woul store artifacts exclusively on S3.
+Let us first create a cloud instance where we store artifacts exclusively on S3:
 
 ```bash
 lamin login testuser1
 lamin init --storage s3://lamindb-ci/keep-artifacts-local
-```
-
-Let's import lamindb and track the current notebook run.
-
-```python
-# pip install lamindb
-import lamindb as ln
-
-ln.track("l9lFf83aPwRc")
 ```
 
 ## Toggling setting "keep artifacts local"
@@ -31,6 +22,8 @@ You can checkmark the "Keep artifacts local" box on the instance settings tab.
 Or toggle it through the following instance setting.
 
 ```python
+import lamindb as ln
+
 ln.setup.settings.instance.keep_artifacts_local = True
 ```
 

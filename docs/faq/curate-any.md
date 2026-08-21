@@ -19,7 +19,7 @@ By default, {meth}`~lamindb.models.CanCurate.from_values` considers a match in a
 :::
 
 ```bash
-mkdir test-curate-any && cd test-curate-any && lamin init --modules bionty
+lamin init --storage test-curate-any --modules bionty
 ```
 
 Define a test dataset.
