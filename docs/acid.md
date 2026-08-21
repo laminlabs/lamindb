@@ -101,7 +101,7 @@ assert len(ln.Artifact.filter()) == 0  # nothing got saved
 Let's restore the storage location in the `./storage` folder:
 
 ```python
-ln.settings.storage._root = UPath("./acid/storage").absolute()
+ln.settings.storage._root = ln.UPath("./acid/storage").absolute()
 ```
 
 The save operation works:
