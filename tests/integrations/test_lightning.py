@@ -790,7 +790,7 @@ def test_key_layout_matrix(
 
     # Determine expected base prefix
     if use_dirpath:
-        expected_base = f"{dirpath.rstrip('/')}/{run_uid}"
+        expected_base = f"{dirpath.strip('/')}/{run_uid}"
     elif use_logger:
         expected_base = f"{tmp_path.name}/{logger_name}/{run_uid}"
     else:

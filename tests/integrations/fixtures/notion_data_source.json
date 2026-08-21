@@ -1,0 +1,63 @@
+{
+  "object": "data_source",
+  "id": "ds-1111-2222",
+  "properties": {
+    "Name": { "id": "title", "name": "Name", "type": "title", "title": {} },
+    "Notes": {
+      "id": "notes_id",
+      "name": "Notes",
+      "type": "rich_text",
+      "rich_text": {}
+    },
+    "Email": {
+      "id": "email_id",
+      "name": "Email",
+      "type": "email",
+      "email": {}
+    },
+    "Score": {
+      "id": "score_id",
+      "name": "Score",
+      "type": "number",
+      "number": { "format": "number" }
+    },
+    "Priority": {
+      "id": "priority_id",
+      "name": "Priority",
+      "type": "select",
+      "select": { "options": [{ "id": "1", "name": "High", "color": "red" }] }
+    },
+    "Tags": {
+      "id": "tags_id",
+      "name": "Tags",
+      "type": "multi_select",
+      "multi_select": {
+        "options": [{ "id": "x", "name": "python", "color": "blue" }]
+      }
+    },
+    "Due": { "id": "due_id", "name": "Due", "type": "date", "date": {} },
+    "Related": {
+      "id": "related_id",
+      "name": "Related",
+      "type": "relation",
+      "relation": {
+        "data_source_id": "other-ds-0000",
+        "type": "dual_property",
+        "dual_property": {
+          "synced_property_name": "people",
+          "synced_property_id": "abc%3D"
+        }
+      }
+    },
+    "Rollup": {
+      "id": "rollup_id",
+      "name": "Rollup",
+      "type": "rollup",
+      "rollup": {
+        "rollup_property_name": "Score",
+        "relation_property_name": "Related",
+        "function": "sum"
+      }
+    }
+  }
+}
