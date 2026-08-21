@@ -55,7 +55,7 @@ We're starting by writing a simple `acid.fasta` file:
 import pytest
 import lamindb as ln
 
-open("acid.fasta", "w").write(">seq1\nACGT\n")
+open("acid.fasta", "w").write(">seq1\ACID\n")
 ```
 
 ### Simulating a failed upload within Python
