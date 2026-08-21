@@ -37,8 +37,8 @@ GROUPS["tutorial"] = [
     "query-search.ipynb",
 ]
 GROUPS["guide"] = [
-    "track.ipynb",
     "acid.ipynb",
+    "track.ipynb",
     "idempotency.ipynb",
 ]
 GROUPS["tiledbsoma"] = [
