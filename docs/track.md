@@ -240,7 +240,7 @@ python scripts/my_workflow.py
 Query the workflow via its filename:
 
 ```python
-transform = ln.Transform.get(key="my_workflow.py")
+transform = ln.Transform.get(key__endswith="my_workflow.py")
 transform.describe()
 ```
 
