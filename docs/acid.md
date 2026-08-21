@@ -49,16 +49,13 @@ Let's create a test database:
 lamin init
 ```
 
-We're starting by writing a simple `sample.fasta` file:
+We're starting by writing a simple `acid.fasta` file:
 
 ```python
 import pytest
 import lamindb as ln
-from upath import UPath
 
-ln.settings.verbosity = "debug"
-
-open("sample.fasta", "w").write(">seq1\nACGT\n")
+open("acid.fasta", "w").write(">seq1\nACGT\n")
 ```
 
 ### Simulating a failed upload within Python
@@ -66,20 +63,16 @@ open("sample.fasta", "w").write(">seq1\nACGT\n")
 Let's try to save an artifact to a storage location without permission.
 
 ```python
-artifact = ln.Artifact("sample.fasta", key="sample.fasta")
+artifact = ln.Artifact("acid.fasta", key="acid.fasta")
 ```
 
 To simulate an unauthorized storage location, we temporarily override the default storage root:
 
 ```python
-ln.settings.storage._root = UPath("s3://nf-core-awsmegatests")
+ln.settings.storage._root = ln.UPath("s3://nf-core-awsmegatests")
 ```
 
 This raises an exception, and because the transaction is atomic, nothing gets saved to the database:
-
-```python
-artifact.save()
-```
 
 ```python
 with pytest.raises(PermissionError) as error:
@@ -129,7 +122,7 @@ assert artifact._aux == {"so": 1}  # storage/upload is ongoing
 Because the system knows the upload is incomplete, we can safely re-run the save operation to recover:
 
 ```python
-artifact = ln.Artifact("sample.fasta", key="sample.fasta").save()
+artifact = ln.Artifact("acid.fasta", key="acid.fasta").save()
 ```
 
 ```python
