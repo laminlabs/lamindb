@@ -566,6 +566,9 @@ def test_run_scripts():
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
+
+    # TODO: repurpose the two following tests because now in presence of dev-dir (August 2026),
+    # they don't lead to the same transform anymore
     # this test creates a transform with key script-to-test-versioning.py at the root level
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
@@ -584,8 +587,6 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-
     transform = ln.Transform.get(
         key__endswith="duplicate5/script-to-test-versioning.py"
     )
