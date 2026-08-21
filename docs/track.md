@@ -13,7 +13,7 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 To run examples, if you don't have a `lamindb` instance, create one:
 
 ```bash
-mkdir track && cd track && lamin init
+lamin init
 ```
 
 ## Track agentic workflows

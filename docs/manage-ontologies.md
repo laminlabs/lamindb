@@ -15,8 +15,10 @@ If instead you're interested in
 - accessing public ontologies, see {doc}`docs:public-ontologies`
 - flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
+Let's create a database in the current directory:
+
 ```bash
-mkdir ontologies && cd ontologies && lamin init --modules bionty
+lamin init --modules bionty
 ```
 
 ## Import records from public ontologies

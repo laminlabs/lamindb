@@ -26,7 +26,7 @@ You can override this via `skip_hash_lookup=False` (or force skipping via `skip_
 Let's create a test database:
 
 ```bash
-mkdir idempotency && cd idempotency && lamin init
+lamin init
 ```
 
 Let's track this run:

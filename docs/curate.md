@@ -107,7 +107,7 @@ schema = ln.Schema(
 Let's create a test database:
 
 ```bash
-mkdir curate && cd curate && lamin init --modules bionty
+lamin init --modules bionty
 ```
 
 We'll be working with the mini immuno dataset:

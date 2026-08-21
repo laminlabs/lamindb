@@ -46,7 +46,7 @@ Here, we walk through different errors that can occur while saving artifacts & m
 Let's create a test database:
 
 ```bash
-mkdir acid && cd acid && lamin init
+lamin init
 ```
 
 We're starting by writing a simple `sample.fasta` file:

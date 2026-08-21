@@ -33,7 +33,7 @@ GROUPS["tutorial"] = [
     "README.ipynb",
     "transfer.ipynb",
     "tables.ipynb",
-    "arrays.ipynb",
+    "manage-ontologies.ipynb",
     "query-search.ipynb",
 ]
 GROUPS["guide"] = [
@@ -45,7 +45,7 @@ GROUPS["tiledbsoma"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
-    "manage-ontologies.ipynb",
+    "arrays.ipynb",
 ]
 
 
@@ -341,7 +341,7 @@ def test(session, group):
         run(session, "lamin logout")
         run(
             session,
-            "lamin init --storage test-readme --modules bionty",
+            "lamin init --modules bionty",
         )
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
