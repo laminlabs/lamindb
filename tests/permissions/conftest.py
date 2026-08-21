@@ -1,3 +1,4 @@
+import os
 import shutil
 from subprocess import DEVNULL, run
 from time import perf_counter
@@ -26,6 +27,8 @@ def pytest_sessionstart():
 
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
+    ln_setup.settings.dev_dir = None
+    os.system("lamin connect lamindb-test-permissions")
 
 
 def pytest_sessionfinish(session: pytest.Session):
