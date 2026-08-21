@@ -523,7 +523,7 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert "renaming transform" in result.stdout.decode()
-    transform = ln.Transform.get(key="script-to-test-filename-change.py")
+    transform = ln.Transform.get(key__endswith="script-to-test-filename-change.py")
     assert transform.latest_run.cli_args is None
 
     # version already taken
@@ -566,6 +566,9 @@ def test_run_scripts():
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
+
+    # TODO: repurpose the two following tests because now in presence of dev-dir (August 2026),
+    # they don't lead to the same transform anymore
     # this test creates a transform with key script-to-test-versioning.py at the root level
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
@@ -573,9 +576,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "ignoring transform" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate4/script-to-test-versioning.py"
+    )
 
     # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
@@ -584,10 +587,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate5/script-to-test-versioning.py"
+    )
     assert transform.latest_run.finished_at is not None
 
 
@@ -603,7 +605,7 @@ def test_run_external_script():
     assert result.returncode == 0
     assert "created Transform" in result.stdout.decode()
     assert "started new Run" in result.stdout.decode()
-    transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
+    transform = ln.Transform.get(key__endswith="run-track-and-finish-sync-git.py")
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ0000"

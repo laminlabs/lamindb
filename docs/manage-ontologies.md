@@ -15,9 +15,10 @@ If instead you're interested in
 - accessing public ontologies, see {doc}`docs:public-ontologies`
 - flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
+Let's create a database in the current directory:
+
 ```bash
-# pip install lamindb
-lamin init --storage ./test-ontologies --modules bionty
+lamin init --modules bionty
 ```
 
 ## Import records from public ontologies
@@ -74,7 +75,7 @@ hsc_record
 Filter by fields and relationships:
 
 ```python
-gdt_cell = bt.CellType.get(ontology_id="CL:0000798", created_by__handle="testuser1")
+gdt_cell = bt.CellType.get(ontology_id="CL:0000798")
 gdt_cell
 ```
 

@@ -13,7 +13,7 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 To run examples, if you don't have a `lamindb` instance, create one:
 
 ```bash
-lamin init --storage ./test-track
+lamin init
 ```
 
 ## Track agentic workflows
@@ -240,7 +240,7 @@ python scripts/my_workflow.py
 Query the workflow via its filename:
 
 ```python
-transform = ln.Transform.get(key="my_workflow.py")
+transform = ln.Transform.get(key__endswith="my_workflow.py")
 transform.describe()
 ```
 
@@ -367,7 +367,7 @@ python scripts/my_workflow_with_click.py --key my_analysis/dataset2.parquet
 CLI arguments are tracked and accessible via `run.cli_args`:
 
 ```python
-run = ln.Run.filter(transform__key="my_workflow_with_click.py").first()
+run = ln.Run.filter(transform__key__endswith="my_workflow_with_click.py").first()
 run.describe()
 ```
 

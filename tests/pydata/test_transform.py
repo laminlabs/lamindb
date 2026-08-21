@@ -21,10 +21,10 @@ def test_transform_from_path_infers_kind_and_key(tmp_path):
     notebook_transform = ln.Transform.from_path(notebook_path)
 
     assert script_transform.kind == "script"
-    assert script_transform.key == script_path.name
+    assert script_transform.key.endswith(script_path.name)
     assert script_transform.source_code == script_body
     assert notebook_transform.kind == "notebook"
-    assert notebook_transform.key == notebook_path.name
+    assert notebook_transform.key.endswith(notebook_path.name)
 
 
 def test_transform_from_path_uses_dev_dir_relative_key(tmp_path):

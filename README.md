@@ -118,8 +118,8 @@ For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.l
 
 ### Save files & folders
 
-You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
-To connect to an existing instance, run:
+You can create a database at [lamin.ai](https://lamin.ai) and invite collaborators.
+To connect to an existing database, run:
 
 ```shell
 lamin login
@@ -127,16 +127,19 @@ lamin connect account/name  # tip: add flag `--here` to scope to current directo
 ```
 
 <details>
-<summary>Or init a new instance instead (no login required).</summary>
+<summary>Or init a new database instead (no login required).</summary>
+
+Navigate into a development direcotry, just like you'd do for `git init`, and run:
 
 ```shell
-lamin init --storage ./quickstart-data --modules bionty
+lamin init --modules bionty
 ```
+
+For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
 </details>
 
-On the terminal and in a Python session, LaminDB will now auto-connect.
-For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
+On the terminal and in a Python session, `lamindb` will now auto-connect.
 
 To save a file or folder via the API:
 

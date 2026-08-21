@@ -101,7 +101,7 @@ def load_zarr(storepath, **kwargs):  # type: ignore
     try:
         from ..core.storage._zarr import load_zarr as _load_zarr
     except ImportError:
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
+        raise ImportError("Please install zarr: pip install zarr") from None
     return _load_zarr(storepath, **kwargs)
 
 

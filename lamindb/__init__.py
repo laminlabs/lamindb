@@ -18,7 +18,7 @@ To *write* data, connect to a writable instance::
 You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
 If you prefer to work with a local database (no login required), run::
 
-    lamin init --storage ./quickstart-data --modules bionty
+    mkdir quickstart-data && cd quickstart-data && lamin init --modules bionty
 
 LaminDB will then auto-connect upon import and you can then create & save objects like this::
 

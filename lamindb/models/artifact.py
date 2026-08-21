@@ -146,7 +146,7 @@ def _identify_zarr_type(storepath, *, check: bool = True):
 
         return identify_zarr_type(storepath, check=check)
     except ImportError:
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
+        raise ImportError("Please install zarr: pip install zarr") from None
 
 
 if TYPE_CHECKING:
