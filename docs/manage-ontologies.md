@@ -75,7 +75,7 @@ hsc_record
 Filter by fields and relationships:
 
 ```python
-gdt_cell = bt.CellType.get(ontology_id="CL:0000798", created_by__handle="testuser1")
+gdt_cell = bt.CellType.get(ontology_id="CL:0000798")
 gdt_cell
 ```
 

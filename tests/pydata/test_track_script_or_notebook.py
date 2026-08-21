@@ -573,9 +573,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "ignoring transform" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate4/script-to-test-versioning.py"
+    )
 
     # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
@@ -585,9 +585,10 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" in result.stdout.decode()
 
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate5/script-to-test-versioning.py"
+    )
     assert transform.latest_run.finished_at is not None
 
 

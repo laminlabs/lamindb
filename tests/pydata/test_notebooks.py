@@ -45,7 +45,7 @@ def test_run_after_rename_no_uid():
     print(result.stderr.decode())
     assert result.returncode == 0
 
-    assert ln.Transform.get(key="no-uid-renamed.ipynb").uid == uid
+    assert ln.Transform.get(key__endswith="no-uid-renamed.ipynb").uid == uid
 
     # new_path.unlink()
 

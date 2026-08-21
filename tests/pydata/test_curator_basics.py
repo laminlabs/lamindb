@@ -5,7 +5,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.core.exceptions import ValidationError
+from lamindb.errors import ValidationError
 
 
 def _strip_ansi(text: str) -> str:
