@@ -475,7 +475,7 @@ def test_tracking_error():
     artifact = ln.Artifact.get(description="test locking")
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         track_run_input(artifact, run)
-    assert "It is not allowed to modify locked records" in str(e)
+    assert "It is not allowed to modify locked sqlrecords" in str(e)
 
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
