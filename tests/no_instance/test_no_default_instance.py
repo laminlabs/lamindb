@@ -5,7 +5,7 @@ from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
 def test_no_track_run_input_warning_without_global_instance(ccaplog):
-    from lamindb.models._track_run_inputs import WARNING_NO_INPUT, track_run_inputs
+    from lamindb.models._lineage import WARNING_NO_INPUT, track_run_inputs
 
     assert ln.setup.settings.instance.slug == "none/none"
 

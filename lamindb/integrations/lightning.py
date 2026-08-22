@@ -37,7 +37,7 @@ from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
 
 import lamindb as ln
-from lamindb.models._track_run_inputs import track_run_inputs
+from lamindb.models._lineage import track_run_inputs
 
 if TYPE_CHECKING:
     from datetime import timedelta

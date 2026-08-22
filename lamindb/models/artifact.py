@@ -68,12 +68,21 @@ from ._is_versioned import (
     IsVersioned,
     create_uid,
 )
+from ._lineage import (
+    WARNING_NO_INPUT as _WARNING_NO_INPUT,
+)
+from ._lineage import (
+    WARNING_RUN_TRANSFORM as _WARNING_RUN_TRANSFORM,
+)
+from ._lineage import (
+    get_run,
+    populate_recreating_run,
+    track_run_inputs,
+)
 from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
-from ._track_run_inputs import WARNING_NO_INPUT as _WARNING_NO_INPUT
-from ._track_run_inputs import track_run_inputs
 from .feature import Feature, JsonValue
 from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
@@ -135,7 +144,7 @@ def _s():
     return _storage_cache
 
 
-WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
+WARNING_RUN_TRANSFORM = _WARNING_RUN_TRANSFORM
 WARNING_NO_INPUT = _WARNING_NO_INPUT
 
 
@@ -884,44 +893,6 @@ def check_otype_artifact(
     elif not is_pathlike:
         raise TypeError("data has to be a string, Path, UPath")
     return otype
-
-
-def populate_recreating_run(sqlrecord: Artifact | Collection, run: Run | None) -> None:
-    if run is None:
-        return
-    if sqlrecord.run is None:
-        sqlrecord.run = run
-    elif sqlrecord.run != run:
-        # if this current run tracks this sqlrecord already as
-        # an input, then we don't track it as a recreating run to avoid a cycle
-        # unfortunately we have to retrieve this information from the database
-        # and can't cache it in sqlrecord._input_of_run_id like we do for sqlrecord._recreating_run_id
-        # since recreating_runs is called in the object constructor
-        # TODO: in the future we could rewrite the two network requests as a single using
-        # plain SQL to optimize performance
-        if sqlrecord.input_of_runs.filter(id=run.id).exists():
-            return
-        sqlrecord.recreating_runs.add(run)
-        sqlrecord._recreating_run_id = run.id
-
-
-# also see current_run() in core._data
-def get_run(run: Run | None) -> Run | None:
-    from ..core._context import context
-    from ..core._functions import get_current_tracked_run
-
-    if run is None:
-        run = get_current_tracked_run()
-        if run is None:
-            run = context.run
-        if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            isettings = setup_settings.instance
-            if not (isettings._is_clone or isettings.is_read_only_connection):
-                logger.warning(WARNING_RUN_TRANSFORM)
-    # suppress run by passing False
-    elif not run:
-        run = None
-    return run
 
 
 def save_staged_schemas(self: Artifact) -> None:
@@ -3935,8 +3906,8 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         ]
 
 
+# backwards compatibility
 track_run_input = track_run_inputs
-
 
 # privates currently dealt with separately
 # mypy: ignore-errors

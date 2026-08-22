@@ -11,7 +11,7 @@ from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
-from lamindb.models._track_run_inputs import track_run_inputs
+from lamindb.models._lineage import track_run_inputs
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
 

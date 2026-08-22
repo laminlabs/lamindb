@@ -19,11 +19,9 @@ from ..base.uids import base62_20
 from ..errors import FieldValidationError, ValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
-from ._track_run_inputs import track_run_inputs
+from ._lineage import get_run, populate_recreating_run, track_run_inputs
 from .artifact import (
     Artifact,
-    get_run,
-    populate_recreating_run,
     save_schema_links,
 )
 from .has_parents import view_lineage

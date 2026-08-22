@@ -9,7 +9,7 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from upath import UPath
 
-from ._track_run_inputs import track_run_inputs
+from ._lineage import track_run_inputs
 from .artifact import Artifact
 from .collection import Collection, _load_concat_artifacts
 from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT

@@ -1513,7 +1513,7 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from ._track_run_inputs import track_run_inputs
+            from ._lineage import track_run_inputs
             from .artifact import Artifact
             from .collection import Collection
 
