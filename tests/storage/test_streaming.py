@@ -19,6 +19,7 @@ from lamindb.core.storage._polars_lazy_df import _open_polars_lazy_df, _polars_o
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
+from packaging import version
 
 
 @pytest.fixture
@@ -81,13 +82,13 @@ def test_backed_access(adata_format):
         del store
 
     with pytest.raises(ValueError):
-        access = backed_access(fp.with_suffix(".invalid_suffix"), using_key=None)
+        access = backed_access(fp.with_suffix(".invalid_suffix"), using=None)
 
     # can't open anndata in write mode
     with pytest.raises(ValueError):
-        access = backed_access(fp, mode="a", using_key=None)
+        access = backed_access(fp, mode="a", using=None)
 
-    access = backed_access(fp, using_key=None)
+    access = backed_access(fp, using=None)
     assert not access.closed
 
     assert isinstance(access.obs_names, pd.Index)
@@ -141,14 +142,14 @@ def test_backed_access(adata_format):
     assert access.closed
     del access
 
-    with backed_access(fp, using_key=None) as access:
+    with backed_access(fp, using=None) as access:
         assert not access.closed
         sub = access[:10]
         assert sub[:5].shape == (5, 200)
         assert sub.layers["test"].shape == sub.shape
     assert access.closed
 
-    with backed_access(fp, using_key=None) as access:
+    with backed_access(fp, using=None) as access:
         idx = np.array([3, 1, 2])
         assert access[:, idx].to_memory().shape == (30, 3)
         assert access[idx].to_memory().shape == (3, 200)
@@ -197,9 +198,14 @@ def test_to_index():
     elem_float = elem_int.astype(float)
     elem_str = elem_int.astype(str)
 
-    assert _to_index(elem_int).dtype == "object"
-    assert _to_index(elem_float).dtype == "object"
-    assert _to_index(elem_str).dtype == "object"
+    # pandas 3+ uses StringDtype for string indexes; earlier versions use object
+    # StringDtype(...) == "str" gives True
+    expected_dtype = (
+        "str" if version.parse(pd.__version__) >= version.parse("3.0.0") else "object"
+    )
+    assert _to_index(elem_int).dtype == expected_dtype
+    assert _to_index(elem_float).dtype == expected_dtype
+    assert _to_index(elem_str).dtype == expected_dtype
 
 
 def test_infer_suffix():
@@ -225,7 +231,7 @@ def test_write_to_disk():
 
 
 def test_backed_bad_format(bad_adata_path):
-    access = backed_access(bad_adata_path, using_key=None)
+    access = backed_access(bad_adata_path, using=None)
 
     assert access.obsp["test"].to_memory().sum() == 30
 

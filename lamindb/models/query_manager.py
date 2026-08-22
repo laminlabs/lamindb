@@ -176,7 +176,7 @@ def _lookup(
     cls,
     field: StrField | None = None,
     return_field: StrField | None = None,
-    using_key: str | None = None,
+    using: str | None = None,
     keep: Literal["first", "last", False] = "first",
 ) -> NamedTuple:
     """Return an auto-complete object for a field.

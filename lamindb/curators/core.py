@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype
+from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -631,6 +631,15 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                             f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
                         )
                     df[feature.name] = pd.Categorical(df[feature.name])
+        # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
+        elif (
+            feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
+        ):
+            series = pd.to_datetime(df[feature.name], utc=True)
+            # older pandas is already ns and may not expose dtype.unit
+            if getattr(series.dtype, "unit", "ns") != "ns":
+                series = series.astype("datetime64[ns, UTC]")
+            df[feature.name] = series
     return df
 
 
@@ -655,17 +664,21 @@ class ComponentCurator(Curator):
         schema: Schema,
         slot: str | None = None,
         require_saved_schema: bool = True,
+        using: str | None = None,
     ) -> None:
         super().__init__(
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
+        self._using = using
 
         categoricals = []
         features = []
         feature_ids: set[int] = set()
 
         if schema.flexible:
-            features += Feature.filter(name__in=self._dataset.keys()).to_list()
+            features += (
+                Feature.connect(using).filter(name__in=self._dataset.keys()).to_list()
+            )
             feature_ids = {feature.id for feature in features}
 
         if schema.n_members and schema.n_members > 0:
@@ -720,11 +733,14 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
+                # "str" via check_dtype/check_pandera_str: keep pandas 2
+                # Column("str") results on pandas 3 (see check_pandera_str)
                 elif dtype_str in {
                     "int",
                     "float",
                     "bool",
                     "num",
+                    "str",
                     "path",
                     "url",
                 } or dtype_str.startswith("list"):
@@ -762,6 +778,8 @@ class ComponentCurator(Curator):
                     )
                 else:
                     if dtype_str == "datetime64[ns, UTC]":
+                        # pandas 3 defaults tz-aware datetimes to datetime64[us, UTC];
+                        # pandera's DateTime still expects datetime64[ns, UTC]
                         pandera_dtype = pandas_engine.DateTime(
                             time_zone_agnostic=True,
                             tz="UTC" if feature.coerce else None,
@@ -787,11 +805,23 @@ class ComponentCurator(Curator):
             # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
             # so, we're typing it as `str` here
             if schema.index is not None:
-                index = pandera.Index(
-                    schema.index._dtype_str
-                    if not schema.index._dtype_str.startswith("cat")
-                    else str
+                index_dtype = (
+                    "str"
+                    if schema.index._dtype_str.startswith("cat")
+                    else schema.index._dtype_str
                 )
+                if index_dtype == "str":
+                    # same str rules as columns (incl. empty default RangeIndex)
+                    index = pandera.Index(
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_pandera_str,
+                            element_wise=False,
+                            error="expected series 'None' to have type str",
+                        ),
+                    )
+                else:
+                    index = pandera.Index(index_dtype)
             else:
                 index = None
             if schema.maximal_set:
@@ -821,6 +851,7 @@ class ComponentCurator(Curator):
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
+            using=using,
             maximal_set=schema.maximal_set,
             schema=schema,
         )
@@ -952,6 +983,7 @@ class DataFrameCurator(SlotsCurator):
         slot: str | None = None,
         features: dict[str, Any] | None = None,
         require_saved_schema: bool = True,
+        using: str | None = None,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
         super().__init__(
@@ -960,12 +992,14 @@ class DataFrameCurator(SlotsCurator):
             features=features,
             require_saved_schema=require_saved_schema,
         )
+        self._using = using
         # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
             dataset=self._dataset,
             schema=schema,
             slot=slot,
             require_saved_schema=require_saved_schema,
+            using=using,
         )
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -987,6 +1021,7 @@ class DataFrameCurator(SlotsCurator):
                             slot_schema,
                             slot=slot_name,
                             require_saved_schema=require_saved_schema,
+                            using=using,
                         )
                 elif slot_name != "__external__":
                     raise ValueError(
@@ -1040,6 +1075,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         schema: Schema,
         slot: str | None = None,
         require_saved_schema: bool = False,
+        using: str | None = None,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -1050,7 +1086,11 @@ class ExperimentalDictCurator(DataFrameCurator):
             d = dataset
         df = convert_dict_to_dataframe_for_validation(d, schema)  # type: ignore
         super().__init__(
-            df, schema, slot=slot, require_saved_schema=require_saved_schema
+            df,
+            schema,
+            slot=slot,
+            require_saved_schema=require_saved_schema,
+            using=using,
         )
 
 
@@ -1519,6 +1559,7 @@ class CatVector:
         type_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
         schema: Schema = None,
+        using: str | None = None,  # target instance for cross-instance curation
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -1535,6 +1576,7 @@ class CatVector:
         self.records = None
         self._maximal_set = maximal_set
         self._type_record = None
+        self._using = using
         self._registry = self._field.field.model
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
@@ -1542,7 +1584,9 @@ class CatVector:
         if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
-                    parse_filter_string(filter_str), self._registry
+                    parse_filter_string(filter_str),
+                    self._registry,
+                    using=self._using,
                 )  # type: ignore
             )
         if self._registry.__base__.__name__ == "BioRecord":
@@ -1564,6 +1608,7 @@ class CatVector:
             self._type_record = get_record_type_from_uid(
                 self._registry,
                 self._type_uid,
+                using=self._using,
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1722,7 +1767,9 @@ class CatVector:
                 if filter_str:
                     parsed_filters = parse_filter_string(filter_str)
                     filter_kwargs.update(
-                        resolve_relation_filters(parsed_filters, registry)
+                        resolve_relation_filters(
+                            parsed_filters, registry, using=self._using
+                        )
                     )
                 if registry.__base__.__name__ == "BioRecord":
                     organism_record = get_organism_record_from_field(
@@ -1748,7 +1795,7 @@ class CatVector:
                     # When we have a Schema with typed members,
                     # scope the query to the types present in the schema's members (plus untyped features)
                     # to avoid ambiguous matches across different feature types.
-                    qs = registry.filter()
+                    qs = registry.connect(self._using).filter()
                     if self._schema and self._schema.n_members:
                         type_ids = {
                             m.type_id
@@ -1756,7 +1803,7 @@ class CatVector:
                             if m.type_id is not None
                         }
                         if type_ids:
-                            qs = registry.filter(
+                            qs = registry.connect(self._using).filter(
                                 Q(type_id__in=type_ids) | Q(type_id__isnull=True)
                             )
                     self._subtype_query_set = qs
@@ -1811,6 +1858,7 @@ class CatVector:
                     remaining_values,
                     field=field,
                     mute=True,
+                    using=self._using,
                     **filter_kwargs,  # type: ignore
                 )
                 existing_and_public_values = [
@@ -1913,12 +1961,20 @@ class CatVector:
             filter_str = result.get("filter_str", "")
             if filter_str:
                 parsed_filters = parse_filter_string(filter_str)
-                filter_kwargs.update(resolve_relation_filters(parsed_filters, registry))
+                filter_kwargs.update(
+                    resolve_relation_filters(
+                        parsed_filters, registry, using=self._using
+                    )
+                )
             registry_or_queryset = registry
             if self._subtype_query_set is not None and registry == self._registry:
                 registry_or_queryset = self._subtype_query_set
             # first inspect against the registry
-            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
+            if registry_or_queryset is registry:
+                queryset = registry.connect(self._using).filter(**filter_kwargs)
+            else:
+                queryset = registry_or_queryset.filter(**filter_kwargs)
+            inspect_result = queryset.inspect(
                 non_validated,
                 field=field,
                 mute=True,
@@ -2048,10 +2104,12 @@ class DataFrameCatManager:
         slot: str | None = None,
         maximal_set: bool = False,
         schema: Schema | None = None,
+        using: str | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
         self._schema = schema
+        self._using = using
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = df  # pass the dataset as an AnyPathStr or data object
         if isinstance(self._dataset, Artifact):
@@ -2089,6 +2147,7 @@ class DataFrameCatManager:
             if schema.id is None
             else f"schemas__id={schema.id}",
             schema=schema,
+            using=using,
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]
@@ -2109,6 +2168,7 @@ class DataFrameCatManager:
                     cat_manager=self,
                     filter_str=result["filter_str"],
                     type_uid=result.get("type_uid"),
+                    using=using,
                 )
         if index is not None and index._dtype_str.startswith("cat"):
             result = parse_dtype(index._dtype_str)[0]
@@ -2124,6 +2184,7 @@ class DataFrameCatManager:
                 cat_manager=self,
                 filter_str=result["filter_str"],
                 type_uid=result.get("type_uid"),
+                using=using,
             )
 
     @property

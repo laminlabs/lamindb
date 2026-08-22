@@ -12,58 +12,14 @@ import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
 from lamindb._secret_redaction import redact_secrets_in_source_code
 from lamindb.core._context import (
-    REDACTED_SECRET_VALUE,
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
-    serialize_params_to_json,
 )
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
-from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
-
-
-def test_serialize_params_to_json():
-    a_path = Path("/some/local/folder")
-    a_upath = UPath("s3://bucket/key")
-    params = {
-        "path_key": a_path,
-        "none_key": None,
-        "empty_list_key": [],
-        "list_str_key": ["string"],
-        "upath_key": a_upath,
-        "str_key": "plain",
-        "api_key": "test-api-key-value",
-        "openAIApiKey": "another-secret",
-        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
-    }
-    result = serialize_params_to_json(params)
-    # None is omitted
-    assert "none_key" not in result
-    # Empty list is omitted (same as None)
-    assert "empty_list_key" not in result
-    # Path is serialized to posix string
-    assert result["path_key"] == "/some/local/folder"
-    # UPath is serialized to posix string
-    assert result["upath_key"] == "s3://bucket/key"
-    # List of strings is JSON-serialized as-is (list[cat ? str])
-    assert result["list_str_key"] == ["string"]
-    # Other values unchanged
-    assert result["str_key"] == "plain"
-    assert result["api_key"] == REDACTED_SECRET_VALUE
-    assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
-    assert result["database_url"] == REDACTED_SECRET_VALUE
-    assert set(result.keys()) == {
-        "path_key",
-        "upath_key",
-        "str_key",
-        "list_str_key",
-        "api_key",
-        "openAIApiKey",
-        "database_url",
-    }
 
 
 def test_redact_secrets_in_source_code():
@@ -115,22 +71,6 @@ run_agent(
     assert redaction_count == 0
     assert "def run(api_key: str) -> None:" in redacted
     assert "api_key=api_key," in redacted
-
-
-def test_serialize_params_to_json_redacts_provider_api_key_names():
-    params = {
-        "LAMIN_API_KEY": "lamin-super-secret",
-        "OPENAI_API_KEY": "openai-super-secret",
-        "ANTHROPIC_API_KEY": "anthropic-super-secret",
-        "GEMINI_API_KEY": "gemini-super-secret",
-        "provider_name": "safe-value",
-    }
-    result = serialize_params_to_json(params)
-    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["provider_name"] == "safe-value"
 
 
 def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
@@ -588,7 +528,7 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert "renaming transform" in result.stdout.decode()
-    transform = ln.Transform.get(key="script-to-test-filename-change.py")
+    transform = ln.Transform.get(key__endswith="script-to-test-filename-change.py")
     assert transform.latest_run.cli_args is None
 
     # version already taken
@@ -631,6 +571,9 @@ def test_run_scripts():
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
+
+    # TODO: repurpose the two following tests because now in presence of dev-dir (August 2026),
+    # they don't lead to the same transform anymore
     # this test creates a transform with key script-to-test-versioning.py at the root level
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
@@ -638,9 +581,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "ignoring transform" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate4/script-to-test-versioning.py"
+    )
 
     # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
@@ -649,10 +592,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate5/script-to-test-versioning.py"
+    )
     assert transform.latest_run.finished_at is not None
 
 
@@ -668,7 +610,7 @@ def test_run_external_script():
     assert result.returncode == 0
     assert "created Transform" in result.stdout.decode()
     assert "started new Run" in result.stdout.decode()
-    transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
+    transform = ln.Transform.get(key__endswith="run-track-and-finish-sync-git.py")
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ0000"

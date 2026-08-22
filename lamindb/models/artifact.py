@@ -6,7 +6,16 @@ import types
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    Literal,
+    Protocol,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -28,6 +37,7 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
+from postgrest.exceptions import APIError
 
 from lamindb.base.types import CanonicalSuffix
 
@@ -136,7 +146,7 @@ def _identify_zarr_type(storepath, *, check: bool = True):
 
         return identify_zarr_type(storepath, check=check)
     except ImportError:
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
+        raise ImportError("Please install zarr: pip install zarr") from None
 
 
 if TYPE_CHECKING:
@@ -217,16 +227,26 @@ OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
 def process_pathlike(
     filepath: UPath,
     storage: Storage,
-    using_key: str | None,
+    using: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
         try:  # check if file exists
-            if not filepath.exists():
+            exists = filepath.exists()
+        except Exception as e:
+            # s3fs: PermissionError; gcsfs 403: OSError("Forbidden: ...")
+            if not (
+                isinstance(e, PermissionError)
+                or (isinstance(e, OSError) and "forbidden" in str(e).lower())
+                # gcsfs.HttpError for anonymous/no credentials; .code is int 401
+                or getattr(e, "code", None) == 401
+            ):
+                raise
+            logger.warning(f"failed to check existence of {filepath}, proceeding: {e}")
+        else:
+            if not exists:
                 raise FileNotFoundError(filepath)
-        except PermissionError:
-            pass
     if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
@@ -235,7 +255,7 @@ def process_pathlike(
         # already-registered storage locations
         result = None
         # within the hub, we don't want to perform check_path_in_existing_storage
-        if using_key is None:
+        if using is None:
             result = check_path_in_existing_storage(
                 filepath, check_hub_register_storage=setup_settings.instance.is_on_hub
             )
@@ -246,7 +266,7 @@ def process_pathlike(
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
-                # for a cloud path, new_root is always the bucket name
+                # for a cloud path, new_root defaults to the bucket (or hf repo)
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
                     if hasattr(hf_path, "root"):
@@ -270,7 +290,33 @@ def process_pathlike(
                 # would just silently fail.
                 # Edge case: A user legitimately creates a storage location and another user runs this here at the exact same time.
                 # There is no way to decide then which is the legitimate creation.
-                storage_record = Storage(root=new_root).save()
+                try:
+                    storage_record = Storage(root=new_root).save()
+                except APIError:
+                    # Hub RLS rejects a storage root that is a parent of an
+                    # already-registered location (e.g. the bucket vs. bucket/folder).
+                    # The raw APIError is not actionable, so if children exist under
+                    # the bucket, recommend a more specific prefix of this path.
+                    # If there are no children, the failure is unrelated — re-raise.
+                    child_roots = Storage.filter(
+                        root__startswith=f"{new_root}/"
+                    ).values_list("root", flat=True)
+                    if not child_roots.exists():
+                        raise
+                    recommended_root = new_root
+                    # Walk from the bucket toward the file; pick the first prefix
+                    # that is not a parent of any existing child storage.
+                    for parent in reversed(filepath.parents):
+                        parent_root = parent.as_posix().rstrip("/")
+                        if not any(
+                            root.startswith(f"{parent_root}/") for root in child_roots
+                        ):
+                            recommended_root = parent_root
+                            break
+                    raise UnknownStorageLocation(
+                        f"{new_root} is a parent of an existing storage location; "
+                        f"register a more specific one instead: ln.Storage(root='{recommended_root}').save()"
+                    ) from None
                 if storage_record.instance_uid == setup_settings.instance.uid:
                     # we don't want to inadvertently create managed storage locations
                     # hence, we revert the creation and throw an error
@@ -300,7 +346,7 @@ def process_data(
     format: str | None,
     key: str | None,
     storage: Storage,
-    using_key: str | None,
+    using: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
     to_disk_kwargs: dict[str, Any] | None = None,
@@ -341,7 +387,7 @@ def process_data(
         storage, use_existing_storage_key = process_pathlike(
             path,
             storage=storage,
-            using_key=using_key,
+            using=using,
             skip_existence_check=skip_existence_check,
         )
         suffix, raw_suffix = CanonicalSuffix.extract_from_path(path)
@@ -396,18 +442,24 @@ def get_stat_or_artifact(
     n_files = None
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
-    stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
-        if stat is not None:
-            # convert UPathStatResult to fsspec info dict
-            stat = stat.as_info()
-            if (store_type := stat["type"]) == "file":
-                size, hash, hash_type = get_stat_file_cloud(
-                    stat, protocol=path.protocol
-                )
-            elif store_type == "directory":
-                size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        try:
+            stat = path.stat()  # one network request
+            if stat is not None:
+                # convert UPathStatResult to fsspec info dict
+                stat = stat.as_info()
+                if (store_type := stat["type"]) == "file":
+                    size, hash, hash_type = get_stat_file_cloud(
+                        stat, protocol=path.protocol
+                    )
+                elif store_type == "directory":
+                    size, hash, hash_type, n_files = get_stat_dir_cloud(path)
+        except Exception as e:
+            logger.warning(
+                f"failed to retrieve stats for {path}, proceeding without size and hash: {e}"
+            )
+            return None, None, None, None, None
         if hash is None:
             logger.warning(f"did not add hash for {path}")
             return size, hash, hash_type, n_files, None
@@ -508,9 +560,9 @@ def get_stat_or_artifact(
 def check_path_in_existing_storage(
     path: Path | UPath,
     check_hub_register_storage: bool = False,
-    using_key: str | None = None,
+    using: str | None = None,
 ) -> Storage | None:
-    for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
+    for storage in Storage.objects.using(using).order_by(Length("root").desc()):
         # if path is part of storage, return it
         if _s().check_path_is_child_of_root(path, root=storage.root):
             return storage
@@ -549,7 +601,7 @@ def get_artifact_kwargs_from_data(
     provisional_uid: str,
     version_tag: str | None,
     storage: Storage,
-    using_key: str | None = None,
+    using: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
@@ -565,7 +617,7 @@ def get_artifact_kwargs_from_data(
         format,
         key,
         storage,
-        using_key,
+        using,
         skip_check_exists,
         is_replace=is_replace,
         to_disk_kwargs=to_disk_kwargs,
@@ -596,7 +648,7 @@ def get_artifact_kwargs_from_data(
         path=path,
         storage=storage,
         key=key,
-        instance=using_key,
+        instance=using,
         is_replace=is_replace,
         skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
@@ -1073,10 +1125,10 @@ def add_labels(
             )
 
 
-def delete_permanently(artifact: Artifact, storage: bool | None, using_key: str):
+def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
     # need to grab file path before deletion
     try:
-        path, _ = _s().filepath_from_artifact(artifact, using_key)
+        path, _ = _s().filepath_from_artifact(artifact, using)
     except OSError:
         # we can still delete the record
         logger.warning("Could not get path")
@@ -1210,6 +1262,44 @@ def _sqlrecord_or_id(
         return sqlrecord
     elif sqlrecord_id is not None:
         return model.objects.get(id=sqlrecord_id)
+
+
+def _automanaged_folder_parent(path_str: str) -> str | None:
+    """If `path_str` is nested under `.lamindb/<child>/...`, return that child path.
+
+    Example: `s3://bucket/.lamindb/{uid}/nested/file.txt` → `s3://bucket/.lamindb/{uid}`.
+    """
+    prefix = _s().AUTO_KEY_PREFIX
+    idx = path_str.find(prefix)
+    if idx == -1:
+        return None
+    len_prefix = len(prefix)
+    rest = path_str[idx + len_prefix :]
+    slash = rest.find("/")
+    if slash == -1:
+        return None
+    return path_str[: idx + len_prefix + slash]
+
+
+class _ArtifactGetByPath(Protocol):
+    def get(self, *, path: str) -> Artifact: ...
+
+
+def _get_artifact_by_automanaged_path(
+    registry_or_queryset: _ArtifactGetByPath, path_str: str
+) -> Artifact:
+    """Look up an artifact by an automanaged `.lamindb/` path.
+
+    `registry_or_queryset` is `Artifact` or `Artifact.connect(slug)`. If the exact path
+    is missing, retries with the `.lamindb/<child>` folder parent (a file inside a folder artifact).
+    """
+    try:
+        return registry_or_queryset.get(path=path_str)
+    except Artifact.DoesNotExist:
+        folder_path = _automanaged_folder_parent(path_str)
+        if folder_path is None:
+            raise
+        return registry_or_queryset.get(path=folder_path)
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
@@ -1410,7 +1500,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id", "is_latest", "suffix", "key")
+    _TRACK_FIELDS = ("space_id", "storage_id", "is_latest", "suffix", "key")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1727,7 +1817,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         refresh_revises_if_stale = revises is None
@@ -1771,7 +1861,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     # the query further will still search in the instance managing the storage of the artifact
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact, path_str
+                        )
                         logger.important(
                             f"initializing from existing artifact with uid={existing_artifact.uid}"
                         )
@@ -1792,7 +1884,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         )
                     try:
                         # exclude trash?
-                        existing_artifact = Artifact.connect(slug).get(path=path_str)
+                        existing_artifact = _get_artifact_by_automanaged_path(
+                            Artifact.connect(slug), path_str
+                        )
                     except Artifact.DoesNotExist as e:
                         raise ValueError(
                             f"Artifact for path '{path_str}' not found."
@@ -1934,7 +2028,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             provisional_uid=provisional_uid,
             version_tag=version_tag,
             storage=storage,
-            using_key=using_key,
+            using=using,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
@@ -2110,14 +2204,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        filepath, _ = _s().filepath_from_artifact(self, using_key=settings._using_key)
+        filepath, _ = _s().filepath_from_artifact(self)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=settings._using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
         if isinstance(filepath, LocalPathClasses):
             return filepath
         return setup_settings.paths.cloud_to_local_no_update(
@@ -2725,8 +2817,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         folderpath: UPath = create_path(path)  # returns Path for local
         storage = settings.storage.record
-        using_key = settings._using_key
-        storage, use_existing_storage = process_pathlike(folderpath, storage, using_key)
+        storage, use_existing_storage = process_pathlike(folderpath, storage, None)
         folder_key_path: PurePath | Path
         if key is None:
             if not use_existing_storage:
@@ -3029,10 +3120,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
-        using_key = settings._using_key
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
 
         is_tiledbsoma_w = (
             filepath.name == "soma" or suffix == ".tiledbsoma"
@@ -3062,11 +3150,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             open_cache = not isinstance(
                 filepath, LocalPathClasses
             ) and not filepath.synchronize_to(localpath, just_check=True)
+        using = self._state.db if self._state.db not in (None, "default") else None
         if open_cache:
             try:
-                access = backed_access(
-                    localpath, mode, engine, using_key=using_key, **kwargs
-                )
+                access = backed_access(localpath, mode, engine, using, **kwargs)
             except Exception as e:
                 # also ignore ValueError here because
                 # such errors most probably just imply an incorrect argument
@@ -3077,9 +3164,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     f"The cache might be corrupted: {e}. Trying to open directly."
                 )
-                access = backed_access(
-                    filepath, mode, engine, using_key=using_key, **kwargs
-                )
+                access = backed_access(filepath, mode, engine, using, **kwargs)
                 # happens only if backed_access has been successful
                 # delete the corrupted cache
                 if localpath.is_dir():
@@ -3087,7 +3172,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(self, mode, engine, using_key=using_key, **kwargs)
+            access = backed_access(self, mode, engine, using, **kwargs)
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -3156,9 +3241,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if access_memory.__class__.__name__ == "SpatialData":
                 access_memory.path = self._cache_path
         else:
-            filepath, cache_key = _s().filepath_cache_key_from_artifact(
-                self, using_key=settings._using_key
-            )
+            filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
             cache_path = _synchronize_cleanup_on_error(
                 filepath, cache_key=cache_key, print_progress=not mute
             )
@@ -3214,9 +3297,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
-        filepath, cache_key = _s().filepath_cache_key_from_artifact(
-            self, using_key=settings._using_key
-        )
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(self)
         if mute:
             kwargs["print_progress"] = False
         cache_path = _synchronize_cleanup_on_error(
@@ -3230,7 +3311,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self,
         permanent: bool | None = None,
         storage: bool | None = None,
-        using_key: str | None = None,
+        using: str | None = None,
     ) -> None:
         """Trash or permanently delete.
 
@@ -3264,7 +3345,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get(key="folder.zarr". is_latest=True)
                 artifact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
-        super().delete(permanent=permanent, storage=storage, using_key=using_key)
+        super().delete(permanent=permanent, storage=storage, using=using)
 
     # TODO: consider renaming the transfer argument to sync
     def save(
@@ -3314,13 +3395,103 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         access_token = kwargs.pop("access_token", None)
-
         current_instance_uid = setup_settings.instance.uid
+        # Handle storage/space moves before key/suffix so path-based renames run
+        # against the final storage location (self.storage/path already reflect a
+        # newly assigned storage before save).
+        # Check storage change before space change. If both change and are consistent,
+        # move here and sync tracked values so the space-change flow below is skipped.
+        if self._field_changed("storage_id"):
+            old_storage_id = self._original_values["storage_id"]
+            new_storage = self.storage
+            if new_storage.space_id != self.space_id:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " to a storage location that is not in the same space."
+                )
+            old_storage = Storage.connect(self._state.db).get(id=old_storage_id)
+            if old_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            if new_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the storage of an artifact"
+                    " to a storage location that is not managed by the current instance."
+                )
+            # self.storage is already the target; restore the source for path resolution
+            self.storage_id = old_storage_id
+            if not _move_artifact_to_storage(
+                self, new_storage, access_token=access_token, ask_to_confirm=True
+            ):
+                # Keep the user's storage assignment if they cancel the move.
+                self.storage_id = new_storage.id
+                return None
+            # _move_artifact_to_storage sets storage_id to the target; sync so
+            # repeated saves don't re-enter this branch.
+            self._original_values["storage_id"] = self.storage_id
+            # If space changed too and matched the new storage, mark it handled
+            # so the space-change flow below does not run (no storage picker).
+            if self._field_changed("space_id"):
+                self._original_values["space_id"] = self.space_id
 
+        # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
+        # Source storage: storage_id is unchanged here (storage+space was handled above).
         artifact_storage = self.storage
-        artifact_storage_instance_uid = artifact_storage.instance_uid
+        # Only run the storage move/picker when the source storage is managed by some
+        # instance. If unmanaged (instance_uid is None), skip this block and allow a
+        # metadata-only space update — no storage transfer is needed.
+        # (instance_uid set means managed by some instance, not necessarily with
+        # writable credentials; we still require current-instance management below.)
+        if (
+            self._field_changed("space_id")
+            and artifact_storage.instance_uid is not None
+        ):
+            if artifact_storage.instance_uid != current_instance_uid:
+                raise ValueError(
+                    "Cannot change the space of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            space = self.space
+            storage_type = artifact_storage.type
+            storages = Storage.connect(self._state.db).filter(
+                space=space, instance_uid=current_instance_uid, type=storage_type
+            )
+            n_storages = storages.count()
+            if n_storages == 0:
+                raise ValueError(
+                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
+                )
+            elif n_storages > 1:
+                storages = storages.order_by("id")
+                roots_str = "\n".join(
+                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
+                )
+                choice = input(
+                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
+                    f" \n{roots_str}\n"
+                    "Enter the number or 'x' to cancel: "
+                )
+                if choice == "x":
+                    logger.warning("saving was cancelled")
+                    return None
+                storage = storages[int(choice)]
+            else:
+                storage = storages.one()
+            if artifact_storage != storage:
+                # try to transfer if both storages are writable / managed by an instance
+                # replaces artifact.storage with the new storage if successful
+                _move_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                logger.important("artifact is already in the target storage location")
+            # Keep tracked values in sync after handling a space update so
+            # repeated saves don't keep re-running this branch.
+            self._original_values["space_id"] = self.space_id
+            self._original_values["storage_id"] = self.storage_id
+
         is_not_artifact_storage_managed_by_current_instance = (
-            artifact_storage_instance_uid != current_instance_uid
+            self.storage.instance_uid != current_instance_uid
         )
 
         if self._field_changed("key", check_is_saved=False):
@@ -3372,55 +3543,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not _handle_suffix_change_on_save(self):
                 return None
 
-        # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
-        if (
-            self._field_changed("space_id")
-            # here we check for storages managed by any instance
-            # not necessarily with managed credentials
-            # we check if the artifact storage is managed by the current instance further
-            and artifact_storage_instance_uid is not None
-        ):
-            if is_not_artifact_storage_managed_by_current_instance:
-                raise ValueError(
-                    "Cannot change the space of an artifact"
-                    " in a storage location that is not managed by the current instance."
-                )
-            space = self.space
-            storage_type = artifact_storage.type
-            storages = Storage.connect(self._state.db).filter(
-                space=space, instance_uid=current_instance_uid, type=storage_type
-            )
-            n_storages = storages.count()
-            if n_storages == 0:
-                raise ValueError(
-                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
-                )
-            elif n_storages > 1:
-                storages = storages.order_by("id")
-                roots_str = "\n".join(
-                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
-                )
-                choice = input(
-                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
-                    f" \n{roots_str}\n"
-                    "Enter the number or 'x' to cancel: "
-                )
-                if choice == "x":
-                    logger.warning("saving was cancelled")
-                    return None
-                storage = storages[int(choice)]
-            else:
-                storage = storages.one()
-            if artifact_storage != storage:
-                # try to transfer if both storages are writable / managed by an instance
-                # replaces artifact.storage with the new storage if successful
-                _move_artifact_to_storage(self, storage, access_token=access_token)
-            else:
-                logger.important("artifact is already in the target storage location")
-            # Keep tracked values in sync after handling a space update so
-            # repeated saves don't keep re-running this branch.
-            self._original_values["space_id"] = self.space_id
-
         if transfer not in {"record", "annotations"}:
             raise ValueError(
                 f"transfer should be either 'record' or 'annotations', not {transfer}"
@@ -3465,12 +3587,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         self._save_skip_storage(**kwargs)
 
-        using_key = None
+        using = None
         if "using" in kwargs:
-            using_key = kwargs["using"]
+            using = kwargs["using"]
         exception_upload = check_and_attempt_upload(
             self,
-            using_key,
+            using,
             access_token=access_token,
             print_progress=print_progress,
             **store_kwargs,
@@ -3488,7 +3610,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         exception_clear = check_and_attempt_clearing(
             self,
             raise_file_not_found_error=raise_file_not_found_error,
-            using_key=using_key,
+            using=using,
         )
         if exception_upload is not None:
             raise exception_upload
@@ -3641,23 +3763,44 @@ def _safe_move(fs: AbstractFileSystem, source: str, target: str):
 
 
 def _move_artifact_to_storage(
-    artifact: Artifact, storage: Storage, access_token: str | None = None
-):
+    artifact: Artifact,
+    storage: Storage,
+    access_token: str | None = None,
+    ask_to_confirm: bool = False,
+) -> bool:
+    """Move an artifact's data to another storage location.
+
+    Resolves the source path from ``artifact`` (so ``artifact.storage`` must still
+    be the source) and the target path under ``storage``, then copies and removes
+    the source. On success, sets ``artifact.storage_id`` to the target.
+
+    Args:
+        artifact: Artifact whose data to move; its current storage is the source.
+        storage: Target storage location.
+        access_token: Optional token for cloud access during the move.
+        ask_to_confirm: If ``True``, prompt before moving; cancel returns ``False``.
+
+    Returns:
+        ``True`` if the move completed, ``False`` if the user cancelled.
+    """
     storage_key = _s().auto_storage_key_from_artifact(artifact)
 
     source_path = artifact.path
     target_path = storage.path / storage_key
-    if source_path == target_path:
+
+    source_path_str = source_path.as_posix()
+    target_path_str = target_path.as_posix()
+    if source_path_str == target_path_str:
         raise ValueError("Cannot move to the same path.")
 
+    if ask_to_confirm and not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+
     fs = fs_for_moving(source_path, target_path, access_token=access_token)
-
-    source_path_str = str(source_path)
-    target_path_str = str(target_path)
-
     _safe_move(fs, source_path_str, target_path_str)
 
     artifact.storage_id = storage.id
+    return True
 
 
 # can't really just call .cache in .load because of double tracking

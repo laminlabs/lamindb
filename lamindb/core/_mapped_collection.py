@@ -52,6 +52,23 @@ class _Connect:
 _decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
 
 
+def _read_nullable_values(elem):
+    """Read a pandas nullable array from anndata storage, applying the NA mask."""
+    assert "values" in elem and "mask" in elem  # noqa: S101
+    values = elem["values"][...]
+    mask = elem["mask"][...]
+    # h5 string-array values are often bytes; decode before inserting NA
+    if len(values) > 0 and isinstance(values[0], bytes):
+        values = _decode(values)
+    if not np.any(mask):
+        return values
+    # only float dtypes can hold NA natively (StringDType would stringify np.nan)
+    if values.dtype.kind != "f":
+        values = values.astype(object)
+    values[mask] = np.nan
+    return values
+
+
 class MappedCollection:
     """Map-style collection for use in data loaders.
 
@@ -505,10 +522,15 @@ class MappedCollection:
             labels = obs[label_key]
             if isinstance(labels, ArrayTypes):  # type: ignore
                 label = labels[idx]
-            else:
+            elif "codes" in labels:
                 label = labels["codes"][idx]
                 if label == -1:
                     return np.nan
+            else:
+                assert "values" in labels and "mask" in labels  # noqa: S101
+                if labels["mask"][idx]:
+                    return np.nan
+                label = labels["values"][idx]
         if categories is not None:
             cats = categories
         else:
@@ -636,8 +658,10 @@ class MappedCollection:
             label = obs[label_key]
             if isinstance(label, ArrayTypes):  # type: ignore
                 return label[...]
-            else:
+            elif "codes" in label:
                 return label["codes"][...]
+            else:
+                return _read_nullable_values(label)
 
     def _get_labels(
         self, storage: StorageType, label_key: str, storage_idx: int | None = None

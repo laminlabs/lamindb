@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr
+from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr, Unset
 from lamindb.errors import (
     FieldValidationError,
     InvalidArgument,
@@ -44,6 +44,7 @@ from .run import (
     TracksUpdates,
 )
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
@@ -129,7 +130,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def transfer_feature_dtypes(
-    feature: Feature, using_key: str | None, transfer_logs: dict
+    feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
     from .sqlrecord import transfer_to_default_db
 
@@ -151,7 +152,7 @@ def transfer_feature_dtypes(
         source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
         source_type_id = source_type.id
         transferred_type = transfer_to_default_db(
-            source_type, using_key, transfer_logs=transfer_logs, save=True
+            source_type, using, transfer_logs=transfer_logs, save=True
         )
         if getattr(source_type, "is_type", False):
             source_typed_children = source_type.__class__.objects.using(
@@ -159,7 +160,7 @@ def transfer_feature_dtypes(
             ).filter(type_id=source_type_id)
             for source_record in source_typed_children:
                 transfer_to_default_db(
-                    source_record, using_key, transfer_logs=transfer_logs, save=True
+                    source_record, using, transfer_logs=transfer_logs, save=True
                 )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "
@@ -171,8 +172,13 @@ def transfer_feature_dtypes(
 def get_record_type_from_uid(
     registry: Registry,
     type_uid: str,
+    using: str | None = None,
 ) -> SQLRecord:
-    type_record: SQLRecord = registry.get(type_uid)
+    type_record: SQLRecord = (
+        registry.get(type_uid)
+        if using is None
+        else registry.connect(using).get(type_uid)
+    )
 
     if type_record.branch_id == -1:
         warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{type_uid}') from trash"
@@ -598,6 +604,96 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
     return lamin_dtype
 
 
+def _split_filter_parts(filter_str: str) -> list[str]:
+    """Split comma-separated filter expressions while honoring quoted substrings."""
+    if filter_str == "":
+        return [""]
+
+    parts: list[str] = []
+    current: list[str] = []
+    quote_char: str | None = None
+    escaped = False
+
+    for char in filter_str:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            continue
+
+        if quote_char is not None:
+            current.append(char)
+            if char == quote_char:
+                quote_char = None
+            continue
+
+        if char in ("'", '"'):
+            quote_char = char
+            current.append(char)
+            continue
+
+        if char == ",":
+            parts.append("".join(current).strip())
+            current = []
+            continue
+
+        current.append(char)
+
+    if quote_char is not None:
+        raise ValueError(
+            f"Invalid filter expression: '{filter_str}' (unterminated quoted value)"
+        )
+
+    parts.append("".join(current).strip())
+    return parts
+
+
+def _strip_matching_quotes(value: str) -> str:
+    """Trim value and remove matching quote wrappers."""
+    trimmed = value.strip()
+    if trimmed == "":
+        return trimmed
+
+    quote_char = trimmed[0]
+    if quote_char in ("'", '"'):
+        if len(trimmed) < 2 or not trimmed.endswith(quote_char):
+            raise ValueError(
+                f"Invalid filter expression value: '{value}' (mismatched quotes)"
+            )
+        return trimmed[1:-1]
+
+    if trimmed.endswith("'") or trimmed.endswith('"'):
+        raise ValueError(
+            f"Invalid filter expression value: '{value}' (mismatched quotes)"
+        )
+
+    return trimmed
+
+
+def _format_cat_filter_value(value: Any) -> str:
+    """Serialize cat_filter values, quoting only comma-containing strings."""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+
+    value_str = str(value)
+    if "," not in value_str:
+        return value_str
+
+    if '"' not in value_str:
+        return f'"{value_str}"'
+    if "'" not in value_str:
+        return f"'{value_str}'"
+
+    raise ValidationError(
+        f"Cannot serialize categorical filter value containing comma and both quote types: {value_str!r}"
+    )
+
+
 def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
     """Parse comma-separated Django filter expressions into structured components.
 
@@ -611,14 +707,14 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
     """
     filters = {}
 
-    filter_parts = [part.strip() for part in filter_str.split(",")]
+    filter_parts = _split_filter_parts(filter_str)
     for part in filter_parts:
         if "=" not in part:
             raise ValueError(f"Invalid filter expression: '{part}' (missing '=' sign)")
 
         key, value = part.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("'\"")
+        value = _strip_matching_quotes(value)
 
         if not key:
             raise ValueError(f"Invalid filter expression: '{part}' (empty key)")
@@ -635,13 +731,17 @@ def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str
 
 
 def resolve_relation_filters(
-    parsed_filters: dict[str, tuple[str, str | None, str]], registry: SQLRecord
+    parsed_filters: dict[str, tuple[str, str | None, str]],
+    registry: SQLRecord,
+    using: str | None = None,
 ) -> dict[str, str | SQLRecord]:
     """Resolve relation filters actual model objects.
 
     Args:
         parsed_filters: Django filters like output from :func:`lamindb.models.feature.parse_filter_string`
         registry: Model class to resolve relationships against
+        using: Target instance to resolve related objects on (per-instance PKs);
+            `None` resolves against the default connection unchanged.
 
     Returns:
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
@@ -656,7 +756,11 @@ def resolve_relation_filters(
                     and relation_field.field.is_relation
                 ):
                     related_model = relation_field.field.related_model
-                    related_obj = related_model.get(**{field_name: value})
+                    related_obj = (
+                        related_model.get(**{field_name: value})
+                        if using is None
+                        else related_model.connect(using).get(**{field_name: value})
+                    )
                     resolved[relation_name] = related_obj
         else:
             resolved[filter_key] = value
@@ -670,7 +774,7 @@ def process_init_feature_param(args, kwargs):
     name: str = kwargs.pop("name", None)
     dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
-    type_: Feature | str | None = kwargs.pop("type", None)
+    type_: Feature | str | None | Unset = kwargs.pop("type", UNSET)
     description: str | None = kwargs.pop("description", None)
     space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
@@ -819,8 +923,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     Annotate an artifact with features (works identically for records and runs)::
 
-        artifact.features.set_values({
-            "temperature_in_celsius": 37.5,
+        artifact.features.set_values({"temperature_in_celsius": 37.5,
             "sample_note": "Control sample",
         })
 
@@ -932,120 +1035,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     .. _dtypes-note:
 
-    Data types (dtypes)
-    -------------------
-
-    **Simple data types.** In  the table below, the first column shows the object that
-    can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
-    that's used in the database.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-          - pandas
-        * - `int`
-          - `"int"`
-          - `int64 | int32 | int16 | int8 | uint | ...`
-        * - `float`
-          - `"float"`
-          - `float64 | float32 | float16 | float8 | ...`
-        * - `str`
-          - `"str"`
-          - `object`
-        * - `bool`
-          - `"bool"`
-          - `boolean | bool`
-        * - `datetime`
-          - `"datetime"`
-          - `datetime`
-        * - `"datetime64[ns, UTC]"`
-          - `"datetime64[ns, UTC]"`
-          - `datetime64[ns, UTC]`
-        * - `date`
-          - `"date"`
-          - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-        * - `dict`
-          - `"dict"`
-          - `object`
-        * - `"num"`
-          - `"num"`
-          - `int | float` ("num" is a convenience type for `int | float`)
-        * - `"path"`
-          - `"path"`
-          - `str` (pandas does not have a dedicated path type, validated as `str`)
-        * - `"url"`
-          - `"url"`
-          - `str` (pandas does not have a dedicated url type, validated as `str`)
-
-    **Categorical and relational data types.** For any categorical, you can restrict permissible
-    values to the values defined in a registry. This establishes a relationship.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `ln.ULabel`
-          - `"cat[ULabel]"`
-        * - `bt.CellType`
-          - `"cat[bionty.CellType]"`
-        * - `bt.Disease`
-          - `"cat[bionty.Disease]"`
-        * - `ln.Artifact`
-          - `"cat[Artifact]"`
-
-    You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `ulabel_type` (a `ULabel` with `is_type=True`)
-          - `"cat[ULabel[<uid_of_ulabel_type>]]"`
-        * - `record_type` (a `Record` with `is_type=True`)
-          - `"cat[Record[<uid_of_record_type>]]"`
-
-    You can restrict permissible values by filtering the categorical on fields of its registry.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - cat_filters
-          - string serialization
-        * - `bt.Disease`
-          - `{"source": source}`
-          - `"cat[bionty.Disease]"`
-        * - `ln.Artifact`
-          - `{"schema": schema}`
-          - `"cat[Artifact]"`
-
-    **List data types.**
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `list[bt.CellType]`
-          - `"list[cat[bionty.CellType]]"`
-        * - `list[float]`
-          - `"list[float]"`
-
-    **Union data types.**
-
-    Unions are currently only supported for static registries.
-
-    .. list-table::
-        :header-rows: 1
-
-        * - dtype
-          - string serialization
-        * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
-          - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+    See :mod:`~lamindb.base.dtypes`.
 
     """
 
@@ -1220,7 +1210,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         | Registry
         | list[Registry]
         | FieldAttr,
-        type: Feature | None = None,
+        type: Feature | None | Unset = UNSET,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
@@ -1361,13 +1351,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             ):
                 shorthand_type_uid = str(cat_filters.pop("type__uid"))
 
-            # TODO(major release): Revisit quoting semantics for serialized
-            # cat_filters expressions (e.g., bools currently serialize as
-            # "is_type='True'"). Changing this requires a broader refactor of
-            # expression format/parsing and a design pass for compatible
-            # filter expression semantics with a data migration.
             fill_in = ", ".join(
-                f"{key}='{value}'" for (key, value) in cat_filters.items()
+                f"{key}={_format_cat_filter_value(value)}"
+                for (key, value) in cat_filters.items()
             )
             if shorthand_type_uid is not None:
                 bracket_payload = (
@@ -1385,9 +1371,28 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
 
+    def _should_build_model_predicate(self, other: models.Model) -> bool:
+        """Return whether a model value should be treated as a feature predicate value."""
+        dtype_str = self._dtype_str
+        if dtype_str is None:
+            return False
+        parsed_dtype = parse_dtype(dtype_str)
+        for component in parsed_dtype:
+            registry = component.get("registry")
+            if isinstance(registry, type) and isinstance(other, registry):
+                return True
+        return False
+
     def __eq__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return super().__eq__(other)
+        # Django internals may compare model instances while collecting related
+        # objects for delete cascades/protect checks. Returning FeaturePredicate
+        # for unrelated models breaks those paths because they expect bool.
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "", other))
             return super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__eq__ -> bool.
@@ -1396,6 +1401,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def __ne__(self, other: object) -> bool:
         # Preserve model identity semantics only for Feature-to-Feature comparisons.
         if isinstance(other, Feature):
+            return not super().__eq__(other)
+        if isinstance(other, models.Model):
+            if self._should_build_model_predicate(other):
+                return cast(bool, FeaturePredicate(self, "__ne", other))
             return not super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__ne__ -> bool.

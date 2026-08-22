@@ -1,7 +1,4 @@
-"""Artifact tests.
-
-Also see `test_artifact_folders.py` for tests of folder-like artifacts.
-"""
+"""Artifact tests."""
 
 # ruff: noqa: F811
 
@@ -149,6 +146,119 @@ def test_cloud_path_init_missing_artifact_raises(monkeypatch):
     with pytest.raises(ValueError) as error:
         ln.Artifact(path, description="test")
     assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
+
+
+_FOLDER_ARTIFACT_PATHS = [
+    (
+        "s3://my-storage/.lamindb/abcdefghijklmnop/subdir/file.txt",
+        "s3://my-storage/.lamindb/abcdefghijklmnop",
+    ),
+    (
+        "s3://my-storage/.lamindb/abcdefghijklmnop.zarr/group/arr",
+        "s3://my-storage/.lamindb/abcdefghijklmnop.zarr",
+    ),
+]
+
+
+@pytest.mark.parametrize("nested_path,folder_path", _FOLDER_ARTIFACT_PATHS)
+def test_cloud_path_init_file_in_folder_artifact_current_instance(
+    monkeypatch, nested_path, folder_path
+):
+    dummy = SimpleNamespace(uid="abcdefghijklmnop0000")
+    looked_up = []
+
+    def fake_get(cls, idlike=None, **kwargs):
+        path = kwargs.get("path")
+        looked_up.append(path)
+        if path == folder_path:
+            return dummy
+        raise ln.Artifact.DoesNotExist
+
+    inits = []
+
+    monkeypatch.setattr(ln.Artifact, "get", classmethod(fake_get))
+    monkeypatch.setattr(
+        "lamindb.models.sqlrecord.init_self_from_db",
+        lambda self, existing, db="default": inits.append(existing),
+    )
+
+    ln.Artifact(nested_path)
+    assert looked_up == [nested_path, folder_path]
+    assert inits == [dummy]
+
+
+@pytest.mark.parametrize("nested_path,folder_path", _FOLDER_ARTIFACT_PATHS)
+def test_cloud_path_init_file_in_folder_artifact_associated_instance(
+    monkeypatch, nested_path, folder_path
+):
+    dummy = SimpleNamespace(
+        uid="abcdefghijklmnop0000", _state=SimpleNamespace(db="owner/instance")
+    )
+
+    def fake_current_get(cls, idlike=None, **kwargs):
+        raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(ln.Artifact, "get", classmethod(fake_current_get))
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    looked_up = []
+
+    class DummyConnection:
+        def get(self, **kwargs):
+            path = kwargs.get("path")
+            looked_up.append(path)
+            if path == folder_path:
+                return dummy
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    inits = []
+    monkeypatch.setattr(
+        "lamindb.models.sqlrecord.init_self_from_db",
+        lambda self, existing, db="default": inits.append((existing, db)),
+    )
+
+    ln.Artifact(nested_path)
+    assert looked_up == [nested_path, folder_path]
+    assert inits == [(dummy, "owner/instance")]
+
+
+def test_cloud_path_init_file_in_folder_artifact_missing_raises(monkeypatch):
+    nested_path = "s3://my-storage/.lamindb/abcdefghijklmnop/subdir/file.txt"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    class DummyConnection:
+        def get(self, **_kwargs):
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(nested_path, description="test")
+    assert (
+        error.exconly() == f"ValueError: Artifact for path '{nested_path}' not found."
+    )
 
 
 def test_path_init_existing_artifact():
@@ -1537,6 +1647,48 @@ def test_serialize_paths():
     Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
 
 
+def _raise_storage_api_error(*args, **kwargs):
+    from postgrest.exceptions import APIError
+
+    raise APIError(
+        {
+            "message": 'new row violates row-level security policy "a storage can be created if the storage root is not an existing" for table "storage"',
+            "code": "42501",
+        }
+    )
+
+
+def test_cloud_storage_apierror_recommends_deeper_root(monkeypatch):
+    nested = ln.Storage(root="s3://lamindb-ci/test-nested-existing-storage").save()
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    try:
+        with pytest.raises(
+            ln.errors.UnknownStorageLocation,
+            match=(
+                r"s3://lamindb-ci is a parent of an existing storage location; "
+                r"register a more specific one instead: "
+                r"ln\.Storage\(root='s3://lamindb-ci/test-sibling-unknown-storage'\)\.save\(\)"
+            ),
+        ):
+            ln.Artifact(
+                "s3://lamindb-ci/test-sibling-unknown-storage/file.csv",
+                skip_check_exists=True,
+            )
+    finally:
+        nested.delete()
+
+
+def test_cloud_storage_apierror_reraise_without_children(monkeypatch):
+    from postgrest.exceptions import APIError
+
+    monkeypatch.setattr("lamindb.models.storage.init_storage", _raise_storage_api_error)
+    with pytest.raises(APIError):
+        ln.Artifact(
+            "s3://lamindb-ci-no-child-storages/file.csv",
+            skip_check_exists=True,
+        )
+
+
 # -------------------------------------------------------------------------------------
 # Data structures in storage
 # -------------------------------------------------------------------------------------
@@ -2004,6 +2156,235 @@ def test_artifact_space_change(tsv_file):
 
     artifact.delete(permanent=True)
     space.delete(permanent=True)
+
+
+def test_artifact_storage_change_same_space(tsv_file, tmp_path):
+    artifact = ln.Artifact(tsv_file, key="test_storage_change_same_space.tsv").save()
+    old_path = artifact.path
+    old_storage_id = artifact.storage_id
+    storage_root = tmp_path / "storage-change-same-space"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    assert new_storage.space_id == artifact.space_id
+
+    artifact.storage = new_storage
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+
+    assert artifact.storage_id == new_storage.id
+    assert artifact.storage_id != old_storage_id
+    assert not old_path.exists()
+    assert artifact.path.exists()
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+
+    artifact.delete(permanent=True)
+    new_storage.delete()
+
+
+def test_artifact_storage_change_cancel_keeps_assignment(tsv_file, tmp_path):
+    artifact = ln.Artifact(tsv_file, key="test_storage_change_cancel.tsv").save()
+    old_path = artifact.path
+    old_storage_id = artifact.storage_id
+    storage_root = tmp_path / "storage-change-cancel"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+
+    artifact.storage = new_storage
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+
+    # Cancel restores the in-memory target assignment and does not move data.
+    assert artifact.storage_id == new_storage.id
+    assert old_path.exists()
+    artifact_db = ln.Artifact.get(id=artifact.id)
+    assert artifact_db.storage_id == old_storage_id
+
+    artifact.storage = artifact_db.storage
+    artifact.delete(permanent=True)
+    new_storage.delete()
+
+
+def test_artifact_storage_change_different_space_raises(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_change_different_space.tsv"
+    ).save()
+    space = ln.Space(
+        name="test storage change different space", uid="storchgsp1"
+    ).save()
+    storage_root = tmp_path / "storage-change-different-space"
+    storage_root.mkdir()
+    other_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    ln.Storage.filter(id=other_storage.id).update(space_id=space.id)
+    other_storage = ln.Storage.get(id=other_storage.id)
+
+    artifact.storage = other_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not in the same space."
+        ),
+    ):
+        artifact.save()
+
+    artifact.delete(permanent=True)
+    other_storage.delete()
+    space.delete(permanent=True)
+
+
+def test_artifact_storage_and_space_change_consistent(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_and_space_change_consistent.tsv"
+    ).save()
+    old_path = artifact.path
+    space = ln.Space(
+        name="test storage and space change consistent", uid="storchgsp2"
+    ).save()
+    storage_root = tmp_path / "storage-and-space-change-consistent"
+    storage_root.mkdir()
+    new_storage = ln.Storage(
+        root=storage_root.resolve().as_posix(), type="local"
+    ).save()
+    ln.Storage.filter(id=new_storage.id).update(space_id=space.id)
+    new_storage = ln.Storage.get(id=new_storage.id)
+
+    artifact.space = space
+    artifact.storage = new_storage
+    # Confirm move only — space-change storage picker must not run.
+    with patch("builtins.input", return_value="y") as input_mock:
+        artifact.save()
+    assert input_mock.call_count == 1
+    assert "Continue? (y/n)" in input_mock.call_args.args[0]
+
+    assert artifact.space_id == space.id
+    assert artifact.storage_id == new_storage.id
+    assert not old_path.exists()
+    assert artifact.path.exists()
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+
+    artifact.delete(permanent=True)
+    new_storage.delete()
+    space.delete(permanent=True)
+
+
+def test_artifact_storage_and_space_change_inconsistent_raises(tsv_file, tmp_path):
+    artifact = ln.Artifact(
+        tsv_file, key="test_storage_and_space_change_inconsistent.tsv"
+    ).save()
+    space_a = ln.Space(
+        name="test storage and space change inconsistent a", uid="storchgsp3"
+    ).save()
+    space_b = ln.Space(
+        name="test storage and space change inconsistent b", uid="storchgsp4"
+    ).save()
+    storage_root = tmp_path / "storage-and-space-change-inconsistent"
+    storage_root.mkdir()
+    storage_b = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+    ln.Storage.filter(id=storage_b.id).update(space_id=space_b.id)
+    storage_b = ln.Storage.get(id=storage_b.id)
+
+    artifact.space = space_a
+    artifact.storage = storage_b
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not in the same space."
+        ),
+    ):
+        artifact.save()
+
+    artifact.delete(permanent=True)
+    storage_b.delete()
+    space_a.delete(permanent=True)
+    space_b.delete(permanent=True)
+
+
+def test_change_storage_for_artifact_in_foreign_managed_storage_raises_value_error(
+    tsv_file, tmp_path
+):
+    source_root = tmp_path / "storage-change-foreign-source"
+    target_root = tmp_path / "storage-change-foreign-target"
+    source_root.mkdir()
+    target_root.mkdir()
+    source_storage = ln.Storage(
+        root=source_root.resolve().as_posix(), type="local"
+    ).save()
+    target_storage = ln.Storage(
+        root=target_root.resolve().as_posix(), type="local"
+    ).save()
+    artifact = ln.Artifact(
+        tsv_file,
+        key="storage-change-foreign-storage.tsv",
+        storage=source_storage,
+    ).save()
+
+    ln.Storage.filter(id=source_storage.id).update(instance_uid="_not_exists_")
+    artifact.storage = target_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " in a storage location that is not managed by the current instance."
+        ),
+    ):
+        artifact.save()
+
+    # Failed save leaves the rejected storage on the in-memory object; restore
+    # source storage so delete removes the file from the right root.
+    ln.Storage.filter(id=source_storage.id).update(
+        instance_uid=lamindb_setup.settings.instance.uid
+    )
+    artifact.storage = source_storage
+    artifact.delete(permanent=True)
+    target_storage.delete()
+    source_storage.delete()
+
+
+def test_change_storage_to_foreign_managed_storage_raises_value_error(
+    tsv_file, tmp_path
+):
+    source_root = tmp_path / "storage-change-to-foreign-source"
+    target_root = tmp_path / "storage-change-to-foreign-target"
+    source_root.mkdir()
+    target_root.mkdir()
+    source_storage = ln.Storage(
+        root=source_root.resolve().as_posix(), type="local"
+    ).save()
+    target_storage = ln.Storage(
+        root=target_root.resolve().as_posix(), type="local"
+    ).save()
+    artifact = ln.Artifact(
+        tsv_file,
+        key="storage-change-to-foreign-storage.tsv",
+        storage=source_storage,
+    ).save()
+
+    ln.Storage.filter(id=target_storage.id).update(instance_uid="_not_exists_")
+    target_storage = ln.Storage.get(id=target_storage.id)
+    artifact.storage = target_storage
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Cannot change the storage of an artifact"
+            " to a storage location that is not managed by the current instance."
+        ),
+    ):
+        artifact.save()
+
+    artifact.storage = source_storage
+    artifact.delete(permanent=True)
+    ln.Storage.filter(id=target_storage.id).update(
+        instance_uid=lamindb_setup.settings.instance.uid
+    )
+    target_storage.delete()
+    source_storage.delete()
 
 
 def test_passing_foreign_keys_ids(tsv_file):

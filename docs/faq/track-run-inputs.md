@@ -7,7 +7,6 @@ execute_via: python
 Yes, if you switch {attr}`~lamindb.core.Settings.track_run_inputs` to `False`.
 
 ```bash
-# pip install lamindb
 lamin init --storage test-run-inputs
 ```
 
@@ -107,9 +106,4 @@ artifact.view_lineage()
 
 ```python
 assert len(ln.Run.get(id=ln.context.run.id).input_artifacts.all()) == 2
-```
-
-```bash
-rm -r test-run-inputs
-lamin delete --force test-run-inputs
 ```

@@ -177,7 +177,7 @@ def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> N
             SimpleNamespace(**fk_data["run"]),
             fk_data["run"]["transform_key"],
         )
-    elif record.run is not None:
+    elif record.run_id is not None:
         run, transform_key = record.run, record.run.transform.key
     else:
         run, transform_key = None, None

@@ -9,9 +9,12 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from django.db import ProgrammingError
+from django.db.models import Model
 from lamindb.errors import FieldValidationError
 from lamindb.models import sqlrecord as sqlrecord_module
 from lamindb.models.sqlrecord import (
+    UNSET,
     _get_record_kwargs,
     _search,
     check_key,
@@ -287,10 +290,10 @@ def test_suggest_similar_names():
     assert ln.Record(name="Test experiment 1").uid == record1.uid
 
     assert suggest_records_with_similar_names(
-        record1, "name", {"name": "Test experiment 1"}
+        record1, "name", {"name": "Test experiment 1", "type": UNSET}
     )
     assert not suggest_records_with_similar_names(
-        record2, "name", {"name": "Test experiment 123"}
+        record2, "name", {"name": "Test experiment 123", "type": UNSET}
     )
 
     queryset = _search(
@@ -401,7 +404,7 @@ def test_get_record_kwargs():
             "dtype",
             "SimpleDtype | SimpleDtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr",
         ),
-        ("type", "Feature | None"),
+        ("type", "Feature | None | Unset"),
         ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
@@ -689,3 +692,27 @@ def test_explicit_default_ids_override_context():
     explicit_main.delete(permanent=True)
     space.delete(permanent=True)
     branch.delete(permanent=True)
+
+
+def test_versioned_save_rls_inside_atomic_raises_no_write_access():
+    # versioned save() demotes the previous head via a nested save() inside
+    # transaction.atomic(); an RLS failure on that inner save must become
+    # NoWriteAccess instead of TransactionManagementError from querying space.
+    transform_v1 = ln.Transform(
+        key="rls-atomic-versioned-save", source_code="print(1)"
+    ).save()
+    transform_v2 = ln.Transform(
+        key="rls-atomic-versioned-save",
+        source_code="print(2)",
+        revises=transform_v1,
+    )
+    rls_error = ProgrammingError(
+        'new row violates row-level security policy for table "lamindb_transform"'
+    )
+    try:
+        with patch.object(Model, "save", side_effect=rls_error):
+            with pytest.raises(ln.errors.NoWriteAccess) as error:
+                transform_v2.save()
+        assert "not allowed to write to this space" in str(error.value)
+    finally:
+        transform_v1.delete(permanent=True)
