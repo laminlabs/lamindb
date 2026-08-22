@@ -282,11 +282,9 @@ def create_recreatable():
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
-def test_track_inputs(create_recreatable, registry_str):
-    # First run
+def test_track_run_input(create_recreatable, registry_str):
+    # First run - create the artifact/collection
     ln.track()
-    # store the current global run, we will need it later
-    previous_run = ln.context.run
     # create an object
     sqlrecord = create_recreatable(registry_str)
     # .cache() triggers input tracking
@@ -294,25 +292,33 @@ def test_track_inputs(create_recreatable, registry_str):
     # here tracking this object as in input of the current is skipped
     # because it was just created and we would get a cycle between the input and the output
     assert sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()
+    # store the current global run, we will need it later
+    first_run = ln.context.run
+    first_sqlrecord = sqlrecord
 
-    # Second run
+    # Second run -- recreate the artifact/collection
     ln.track()
-    #
-    assert ln.context.run != previous_run
+    # the new global run is not the same as the previous one
+    assert ln.context.run != first_run
+    # create a new artifact or collection, which will trigger a hash look up
+    # and return the same sqlrecord as before
     sqlrecord = create_recreatable(registry_str)
+    assert sqlrecord == first_sqlrecord
+    # because that run created the same sqlrecord, it is tracked as a recreating run
     assert ln.context.run in sqlrecord.recreating_runs.all()
+    # we also track it in the private attribute to avoid database queries
     assert sqlrecord._recreating_run_id == ln.context.run.id
-    # trigger input tracking by calling .cache()
-    # should fail here as the sqlsqlrecord was just created
-    # and we would get a cycle between the input and the output
+    # when we now trigger input tracking it's actually skipped
+    # because we would create a cycle between the input and the fact that this artifact/collection
+    # was recreated in this run
     sqlrecord.cache()
-    assert (
-        sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()
-    )  # avoid cycle with re-created artifact
+    # assert that there is indeed no cycle
+    assert sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()
 
-    # Third run
+    # Third run - retrieve the artifact/collection
     ln.track()
-    assert ln.context.run != previous_run
+    assert ln.context.run != first_run
+    # now we're querying in
     if registry_str == "artifact":
         sqlrecord = ln.Artifact.get(key="README.md")
     else:
@@ -320,9 +326,16 @@ def test_track_inputs(create_recreatable, registry_str):
     # trigger input tracking by calling .cache()
     sqlrecord.cache()
     # now it's tracked that this sqlrecord is an input of the current run
-    assert sqlrecord._input_of_run_id == ln.context.run.id
     assert sqlrecord in getattr(ln.context.run, f"input_{registry_str}s").all()
     # this run does not re-create this sqlrecord
+    assert ln.context.run not in sqlrecord.recreating_runs.all()
+    assert not hasattr(sqlrecord, "_recreating_run_id")
+    # attempt to re-create the sqlrecord after it was retrieved in the same run
+    sqlrecord = create_recreatable(registry_str)
+    assert sqlrecord == first_sqlrecord
+    # because that run already registered this sqlrecord as an input
+    # it is still not tracked as a recreating run because
+    # we'd otherwise create a cycle
     assert ln.context.run not in sqlrecord.recreating_runs.all()
     assert not hasattr(sqlrecord, "_recreating_run_id")
 

@@ -894,7 +894,10 @@ def populate_subsequent_run(sqlrecord: Artifact | Collection, run: Run | None) -
     elif sqlrecord.run != run:
         # if this current run tracks this sqlrecord already as
         # an input, then we don't track it as a recreating run to avoid a cycle
-        if run.id == getattr(sqlrecord, "_input_of_run_id", None):
+        # unfortunately we have to retrieve this information from the database
+        # and can't cache it in sqlrecord._input_of_run_id like we do for sqlrecord._recreating_run_id
+        # since recreating_runs is called in the object constructor
+        if run in sqlrecord.input_of_runs.all():
             return
         sqlrecord.recreating_runs.add(run)
         sqlrecord._recreating_run_id = run.id
@@ -4037,8 +4040,6 @@ def track_run_input(
         ]
     try:
         IsLink.objects.bulk_create(links, ignore_conflicts=True)
-        for record in input_records:
-            record._input_of_run_id = run.id
     except ProgrammingError as e:
         if "new row violates row-level security policy" in str(e):
             instance = setup_settings.instance
