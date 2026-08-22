@@ -93,8 +93,8 @@ def is_valid_input(dataset: Artifact | Collection, run: Run) -> bool:
 
 def track_run_inputs(
     dataset_or_datasets: (
-        Artifact | Iterable[Artifact]
-    ),  # can also be Collection | Iterable[Collection]
+        Artifact | Iterable[Artifact] | Collection | Iterable[Collection]
+    ),
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ) -> None:
