@@ -78,7 +78,7 @@ This raises an exception, and because the transaction is atomic, nothing gets sa
 with pytest.raises(PermissionError) as error:
     artifact.save()
 print(error.exconly())
-assert len(ln.Artifact.filter()) == 0
+assert not ln.Artifact.filter(key="acid.fasta").exists()
 ```
 
 ### Atomicity during bulk creation
@@ -93,7 +93,7 @@ artifacts = [artifact, "this is not a record"]
 with pytest.raises(Exception) as error:
     ln.save(artifacts)
 print(error.exconly())
-assert len(ln.Artifact.filter()) == 0  # nothing got saved
+assert not ln.Artifact.filter(key="acid.fasta").exists()
 ```
 
 ### Simulating an externally aborted upload
@@ -125,7 +125,10 @@ Because the system knows the upload is incomplete, we can safely re-run the save
 artifact = ln.Artifact("acid.fasta", key="acid.fasta").save()
 ```
 
+A few checks:
+
 ```python
+assert ln.Artifact.filter(key="acid.fasta").exists()
 assert not artifact._storage_ongoing
 assert artifact._aux is None
 ```
