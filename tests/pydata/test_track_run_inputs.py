@@ -33,6 +33,7 @@ def create_dataset():
                 ln.Run.get(id=run_id).delete(permanent=True)
             except ProtectedError:
                 pass
+    ln.context._run = None
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
