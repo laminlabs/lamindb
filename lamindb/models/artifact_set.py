@@ -315,10 +315,17 @@ class RecordSet(Iterable):
         )
         run_for_input_linking = record_type._export_run
         if run_for_input_linking is not None:
-            run_for_input_linking.input_records.add(record_type)
+            # avoid cycles: a record cannot be both input and output of the same run
+            if record_type.run_id != run_for_input_linking.id:
+                run_for_input_linking.input_records.add(record_type)
             if link_individual_inputs:
-                input_record_ids = qs.values_list("id", flat=True)
-                run_for_input_linking.input_records.add(*input_record_ids)
+                input_record_ids = list(
+                    qs.exclude(run_id=run_for_input_linking.id).values_list(
+                        "id", flat=True
+                    )
+                )
+                if input_record_ids:
+                    run_for_input_linking.input_records.add(*input_record_ids)
         if use_export_run and run_for_input_linking is not None:
             from datetime import datetime, timezone
 
