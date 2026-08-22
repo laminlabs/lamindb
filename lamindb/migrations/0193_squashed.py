@@ -6630,21 +6630,6 @@ class Migration(migrations.Migration):
             name="ulabelproject",
             unique_together={("ulabel", "project")},
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="ulabel",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_ulabel_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        -- Enforce that ulabels typed by a single-space type stay in the same space\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_ulabel u\n                            WHERE u.id = NEW.type_id\n                              AND (\n                                (\n                                  u._aux->>'ss' = '1'\n                                  AND u.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  u._aux ? 'ss'\n                                  AND u._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM u._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: ulabel space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_ulabel\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_ulabel r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="13b2acbebf74a7e04a66723a353d1ab7a2c4c1ad",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_ulabel_type_cycle_863ae",
-                    table="lamindb_ulabel",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="transformulabel",
             unique_together={("transform", "ulabel")},
@@ -6696,21 +6681,6 @@ class Migration(migrations.Migration):
             name="schemacomponent",
             unique_together={("composite", "slot"), ("composite", "slot", "component")},
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="schema",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_schema_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_schema s\n                            WHERE s.id = NEW.type_id\n                              AND (\n                                (\n                                  s._aux->>'ss' = '1'\n                                  AND s.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  s._aux ? 'ss'\n                                  AND s._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM s._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: schema space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: schema cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_schema\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT s.type_id, tc.depth + 1\n                                FROM lamindb_schema s\n                                INNER JOIN type_chain tc ON s.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="7f860952cef18f2151e46d0120b5aafdebdbd2be",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_schema_type_cycle_b403c",
-                    table="lamindb_schema",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="runulabel",
             unique_together={("run", "ulabel")},
@@ -6755,39 +6725,9 @@ class Migration(migrations.Migration):
                 name="unique_referencerecord_null_feature",
             ),
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="reference",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_reference_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_reference r\n                            WHERE r.id = NEW.type_id\n                              AND (\n                                (\n                                  r._aux->>'ss' = '1'\n                                  AND r.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  r._aux ? 'ss'\n                                  AND r._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM r._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: reference space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: reference cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_reference\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_reference r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="94bc5e7968664022914905d7390a6935b66b3402",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_reference_type_cycle_3d37c",
-                    table="lamindb_reference",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="recorduser",
             unique_together={("record", "feature", "value")},
-        ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="record",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_record_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        -- Enforce that records typed by a single-space type stay in the same space\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_record r\n                            WHERE r.id = NEW.type_id\n                              AND (\n                                (\n                                  r._aux->>'ss' = '1'\n                                  AND r.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  r._aux ? 'ss'\n                                  AND r._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM r._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: record space must match locked type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: record cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_record\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_record r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="4f692c1cc71b0554090ffd4642811a52c6b9941e",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_record_type_cycle_56c18",
-                    table="lamindb_record",
-                    when="BEFORE",
-                ),
-            ),
         ),
         migrations.AlterUniqueTogether(
             name="projectuser",
@@ -6809,21 +6749,6 @@ class Migration(migrations.Migration):
                 name="unique_projectrecord_null_feature",
             ),
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="project",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_project_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_project p\n                            WHERE p.id = NEW.type_id\n                              AND (\n                                (\n                                  p._aux->>'ss' = '1'\n                                  AND p.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  p._aux ? 'ss'\n                                  AND p._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM p._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: project space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: project cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_project\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT p.type_id, tc.depth + 1\n                                FROM lamindb_project p\n                                INNER JOIN type_chain tc ON p.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="b5b62fdec9b222bc152c2b9937a2676fb653696f",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_project_type_cycle_e2567",
-                    table="lamindb_project",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="jsonvalue",
             unique_together={("feature", "hash")},
@@ -6839,36 +6764,6 @@ class Migration(migrations.Migration):
                     ("is_type", True), ("_dtype_str__isnull", False), _connector="OR"
                 ),
                 name="feature_dtype_str_not_null_when_is_type_false",
-            ),
-        ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="feature",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_feature_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_feature f\n                            WHERE f.id = NEW.type_id\n                              AND (\n                                (\n                                  f._aux->>'ss' = '1'\n                                  AND f.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  f._aux ? 'ss'\n                                  AND f._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM f._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: feature cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_feature\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT f.type_id, tc.depth + 1\n                                FROM lamindb_feature f\n                                INNER JOIN type_chain tc ON f.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="be9a630e2ee899846cfe5fcabd64234be4e301db",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_feature_type_cycle_04c90",
-                    table="lamindb_feature",
-                    when="BEFORE",
-                ),
-            ),
-        ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="feature",
-            trigger=pgtrigger.compiler.Trigger(
-                name="update_feature_on_name_change",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (OLD.name IS DISTINCT FROM NEW.name)",
-                    func="DECLARE\n    old_renamed JSONB;\n    new_renamed JSONB;\n    ts TEXT;\nBEGIN\n    -- Only proceed if name actually changed\n    IF OLD.name IS DISTINCT FROM NEW.name THEN\n        -- Update synonyms\n        IF NEW.synonyms IS NULL OR NEW.synonyms = '' THEN\n            NEW.synonyms := OLD.name;\n        ELSIF position(OLD.name in NEW.synonyms) = 0 THEN\n            NEW.synonyms := NEW.synonyms || '|' || OLD.name;\n        END IF;\n\n        -- Update _aux with rename history\n        ts := TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"');\n\n        -- Get existing renamed history or initialize empty object\n        old_renamed := COALESCE((OLD._aux->>'renamed')::JSONB, '{}'::JSONB);\n\n        -- Add old name with timestamp\n        new_renamed := old_renamed || jsonb_build_object(ts, OLD.name);\n\n        -- Update _aux with new renamed history\n        IF NEW._aux IS NULL THEN\n            NEW._aux := jsonb_build_object('renamed', new_renamed);\n        ELSE\n            NEW._aux := NEW._aux || jsonb_build_object('renamed', new_renamed);\n        END IF;\n    END IF;\n\n    RETURN NEW;\nEND;\n",
-                    hash="5f2e7a65e42c34b0455f0840def52f078726e401",
-                    operation="UPDATE",
-                    pgid="pgtrigger_update_feature_on_name_change_6c32d",
-                    table="lamindb_feature",
-                    when="BEFORE",
-                ),
             ),
         ),
         migrations.AlterUniqueTogether(
@@ -7067,21 +6962,6 @@ class Migration(migrations.Migration):
 if connection.vendor == "postgresql":
     Migration.operations += [
         pgtrigger.migrations.AddTrigger(
-            model_name="feature",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_feature_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_feature f\n                            WHERE f.id = NEW.type_id\n                              AND (\n                                (\n                                  f._aux->>'ss' = '1'\n                                  AND f.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  f._aux ? 'ss'\n                                  AND f._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM f._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: feature cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_feature\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT f.type_id, tc.depth + 1\n                                FROM lamindb_feature f\n                                INNER JOIN type_chain tc ON f.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="be9a630e2ee899846cfe5fcabd64234be4e301db",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_feature_type_cycle_04c90",
-                    table="lamindb_feature",
-                    when="BEFORE",
-                ),
-            ),
-        ),
-        pgtrigger.migrations.AddTrigger(
             model_name="project",
             trigger=pgtrigger.compiler.Trigger(
                 name="prevent_project_type_cycle",
@@ -7152,6 +7032,21 @@ if connection.vendor == "postgresql":
                     operation="UPDATE OR INSERT",
                     pgid="pgtrigger_prevent_ulabel_type_cycle_863ae",
                     table="lamindb_ulabel",
+                    when="BEFORE",
+                ),
+            ),
+        ),
+        pgtrigger.migrations.AddTrigger(
+            model_name="feature",
+            trigger=pgtrigger.compiler.Trigger(
+                name="prevent_feature_type_cycle",
+                sql=pgtrigger.compiler.UpsertTriggerSql(
+                    condition="WHEN (NEW.type_id IS NOT NULL)",
+                    func="\n                        IF EXISTS (\n                            SELECT 1\n                            FROM lamindb_feature f\n                            WHERE f.id = NEW.type_id\n                              AND (\n                                (\n                                  f._aux->>'ss' = '1'\n                                  AND f.space_id IS DISTINCT FROM NEW.space_id\n                                )\n                                OR (\n                                  f._aux ? 'ss'\n                                  AND f._aux->>'ss' <> '1'\n                                  AND (\n                                      SELECT sp.uid\n                                      FROM lamindb_space sp\n                                      WHERE sp.id = NEW.space_id\n                                  ) IS DISTINCT FROM f._aux->>'ss'\n                                )\n                              )\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';\n                        END IF;\n\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: feature cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_feature\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT f.type_id, tc.depth + 1\n                                FROM lamindb_feature f\n                                INNER JOIN type_chain tc ON f.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
+                    hash="be9a630e2ee899846cfe5fcabd64234be4e301db",
+                    operation="UPDATE OR INSERT",
+                    pgid="pgtrigger_prevent_feature_type_cycle_04c90",
+                    table="lamindb_feature",
                     when="BEFORE",
                 ),
             ),
