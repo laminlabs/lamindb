@@ -886,7 +886,7 @@ def check_otype_artifact(
     return otype
 
 
-def populate_subsequent_run(sqlrecord: Artifact | Collection, run: Run | None) -> None:
+def populate_recreating_run(sqlrecord: Artifact | Collection, run: Run | None) -> None:
     if run is None:
         return
     if sqlrecord.run is None:
@@ -2091,7 +2091,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # an existing artifact might have an imcomplete upload and hence we should
             # re-populate _local_filepath because this is what triggers the upload
             set_private_attributes()
-            populate_subsequent_run(self, run)
+            populate_recreating_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact

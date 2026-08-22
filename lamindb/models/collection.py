@@ -22,7 +22,7 @@ from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
     get_run,
-    populate_subsequent_run,
+    populate_recreating_run,
     save_schema_links,
     track_run_input,
 )
@@ -340,7 +340,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self,
                 {"description": description, "key": key},
             )
-            populate_subsequent_run(self, run)
+            populate_recreating_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
             super().__init__(  # type: ignore

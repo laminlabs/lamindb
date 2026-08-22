@@ -318,7 +318,7 @@ def test_track_run_input(create_recreatable, registry_str):
     # Third run - retrieve the artifact/collection
     ln.track()
     assert ln.context.run != first_run
-    # now we're querying in
+    # now we're querying the object
     if registry_str == "artifact":
         sqlrecord = ln.Artifact.get(key="README.md")
     else:
