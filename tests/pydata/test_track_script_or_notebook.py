@@ -311,6 +311,7 @@ def test_track_run_input(create_recreatable, registry_str):
     # when we now trigger input tracking it's actually skipped
     # because we would create a cycle between the input and the fact that this artifact/collection
     # was recreated in this run
+    # the skipping mechanism is cheap because it works through the cached _recreating_run_id attribute
     sqlrecord.cache()
     # assert that there is indeed no cycle
     assert sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()

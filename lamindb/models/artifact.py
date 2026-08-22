@@ -897,7 +897,9 @@ def populate_recreating_run(sqlrecord: Artifact | Collection, run: Run | None) -
         # unfortunately we have to retrieve this information from the database
         # and can't cache it in sqlrecord._input_of_run_id like we do for sqlrecord._recreating_run_id
         # since recreating_runs is called in the object constructor
-        if run in sqlrecord.input_of_runs.all():
+        # TODO: in the future we could rewrite the two network requests as a single using
+        # plain SQL to optimize performance
+        if sqlrecord.input_of_runs.filter(id=run.id).exists():
             return
         sqlrecord.recreating_runs.add(run)
         sqlrecord._recreating_run_id = run.id
