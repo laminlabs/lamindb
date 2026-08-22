@@ -224,7 +224,3 @@ def track_run_inputs(
             ) from None
         else:
             raise e
-
-
-# backward compatibility aliases
-track_run_input = track_run_inputs
