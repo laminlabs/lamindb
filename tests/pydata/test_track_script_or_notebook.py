@@ -282,10 +282,12 @@ def create_recreatable():
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
-def test_track_input_record(create_recreatable, registry_str):
+def test_track_inputs(create_recreatable, registry_str):
     # First run
     ln.track()
+    # store the current global run, we will need it later
     previous_run = ln.context.run
+    # create an object
     record = create_recreatable(registry_str)
     # .cache() triggers input tracking
     record.cache()
@@ -294,7 +296,8 @@ def test_track_input_record(create_recreatable, registry_str):
     assert record not in getattr(ln.context.run, f"input_{registry_str}s").all()
 
     # Second run
-    ln.track(new_run=True)
+    ln.track()
+    #
     assert ln.context.run != previous_run
     record = create_recreatable(registry_str)
     assert ln.context.run in record.recreating_runs.all()
@@ -308,7 +311,7 @@ def test_track_input_record(create_recreatable, registry_str):
     )  # avoid cycle with re-created artifact
 
     # Third run
-    ln.track(new_run=True)
+    ln.track()
     assert ln.context.run != previous_run
     if registry_str == "artifact":
         record = ln.Artifact.get(key="README.md")
