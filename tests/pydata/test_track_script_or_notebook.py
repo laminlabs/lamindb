@@ -259,8 +259,8 @@ def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
 
 
 @pytest.fixture
-def create_record():
-    """Factory fixture that returns a function to create records."""
+def create_recreatable():
+    """Factory fixture that returns a function to create artifacts and collections."""
     created_records = []
 
     def create(kind: str) -> ln.models.SQLRecord:
@@ -282,11 +282,11 @@ def create_record():
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
-def test_track_input_record(create_record, registry_str):
+def test_track_input_record(create_recreatable, registry_str):
     # First run
     ln.track()
     previous_run = ln.context.run
-    record = create_record(registry_str)
+    record = create_recreatable(registry_str)
     record.cache()
     assert (
         record not in getattr(ln.context.run, f"input_{registry_str}s").all()
@@ -295,7 +295,7 @@ def test_track_input_record(create_record, registry_str):
     # Second run
     ln.track(new_run=True)
     assert ln.context.run != previous_run
-    record = create_record(registry_str)
+    record = create_recreatable(registry_str)
     assert ln.context.run in record.recreating_runs.all()
     assert record._recreating_run_id == ln.context.run.id
     # trigger input tracking by calling .cache()
@@ -317,9 +317,7 @@ def test_track_input_record(create_record, registry_str):
     record.cache()
     # now it's tracked that this record is an input of the current run
     assert record._input_of_run_id == ln.context.run.id
-    assert (
-        record in getattr(ln.context.run, f"input_{registry_str}s").all()
-    )  # regular input
+    assert record in getattr(ln.context.run, f"input_{registry_str}s").all()
     # this run does not re-create this record
     assert ln.context.run not in record.recreating_runs.all()
     assert not hasattr(record, "_recreating_run_id")
