@@ -3,7 +3,7 @@ import pytest
 
 
 @pytest.fixture
-def create_recreatable():
+def create_dataset():
     """Factory fixture that returns a function to create artifacts and collections."""
     created_sqlrecords = []
 
@@ -26,11 +26,11 @@ def create_recreatable():
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
-def test_track_run_input(create_recreatable, registry_str):
+def test_track_run_input(create_dataset, registry_str):
     # First run - create the artifact/collection
     ln.track()
     # create an object
-    sqlrecord = create_recreatable(registry_str)
+    sqlrecord = create_dataset(registry_str)
     # .cache() triggers input tracking
     sqlrecord.cache()
     # here tracking this object as in input of the current is skipped
@@ -46,7 +46,7 @@ def test_track_run_input(create_recreatable, registry_str):
     assert ln.context.run != first_run
     # create a new artifact or collection, which will trigger a hash look up
     # and return the same sqlrecord as before
-    sqlrecord = create_recreatable(registry_str)
+    sqlrecord = create_dataset(registry_str)
     assert sqlrecord == first_sqlrecord
     # because that run created the same sqlrecord, it is tracked as a recreating run
     assert ln.context.run in sqlrecord.recreating_runs.all()
@@ -76,7 +76,7 @@ def test_track_run_input(create_recreatable, registry_str):
     assert ln.context.run not in sqlrecord.recreating_runs.all()
     assert not hasattr(sqlrecord, "_recreating_run_id")
     # attempt to re-create the sqlrecord after it was retrieved in the same run
-    sqlrecord = create_recreatable(registry_str)
+    sqlrecord = create_dataset(registry_str)
     assert sqlrecord == first_sqlrecord
     # because that run already registered this sqlrecord as an input
     # it is still not tracked as a recreating run because
