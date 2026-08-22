@@ -261,24 +261,24 @@ def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
 @pytest.fixture
 def create_recreatable():
     """Factory fixture that returns a function to create artifacts and collections."""
-    created_records = []
+    created_sqlrecords = []
 
     def create(kind: str) -> ln.models.SQLRecord:
         if kind == "artifact":
-            record = ln.Artifact("README.md", key="README.md").save()
+            sqlrecord = ln.Artifact("README.md", key="README.md").save()
         elif kind == "collection":
             a1 = ln.Artifact("README.md", key="README.md").save()
-            created_records.append(a1)
+            created_sqlrecords.append(a1)
             a2 = ln.Artifact("pyproject.toml", key="pyproject.toml").save()
-            created_records.append(a2)
-            record = ln.Collection([a1, a2], key="test-collection").save()
-        created_records.append(record)
-        return record
+            created_sqlrecords.append(a2)
+            sqlrecord = ln.Collection([a1, a2], key="test-collection").save()
+        created_sqlrecords.append(sqlrecord)
+        return sqlrecord
 
     yield create
 
-    for record in created_records[::-1]:
-        record.delete(permanent=True)
+    for sqlrecord in created_sqlrecords[::-1]:
+        sqlrecord.delete(permanent=True)
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
@@ -288,43 +288,43 @@ def test_track_inputs(create_recreatable, registry_str):
     # store the current global run, we will need it later
     previous_run = ln.context.run
     # create an object
-    record = create_recreatable(registry_str)
+    sqlrecord = create_recreatable(registry_str)
     # .cache() triggers input tracking
-    record.cache()
+    sqlrecord.cache()
     # here tracking this object as in input of the current is skipped
     # because it was just created and we would get a cycle between the input and the output
-    assert record not in getattr(ln.context.run, f"input_{registry_str}s").all()
+    assert sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()
 
     # Second run
     ln.track()
     #
     assert ln.context.run != previous_run
-    record = create_recreatable(registry_str)
-    assert ln.context.run in record.recreating_runs.all()
-    assert record._recreating_run_id == ln.context.run.id
+    sqlrecord = create_recreatable(registry_str)
+    assert ln.context.run in sqlrecord.recreating_runs.all()
+    assert sqlrecord._recreating_run_id == ln.context.run.id
     # trigger input tracking by calling .cache()
-    # should fail here as the sqlrecord was just created
+    # should fail here as the sqlsqlrecord was just created
     # and we would get a cycle between the input and the output
-    record.cache()
+    sqlrecord.cache()
     assert (
-        record not in getattr(ln.context.run, f"input_{registry_str}s").all()
+        sqlrecord not in getattr(ln.context.run, f"input_{registry_str}s").all()
     )  # avoid cycle with re-created artifact
 
     # Third run
     ln.track()
     assert ln.context.run != previous_run
     if registry_str == "artifact":
-        record = ln.Artifact.get(key="README.md")
+        sqlrecord = ln.Artifact.get(key="README.md")
     else:
-        record = ln.Collection.get(key="test-collection")
+        sqlrecord = ln.Collection.get(key="test-collection")
     # trigger input tracking by calling .cache()
-    record.cache()
-    # now it's tracked that this record is an input of the current run
-    assert record._input_of_run_id == ln.context.run.id
-    assert record in getattr(ln.context.run, f"input_{registry_str}s").all()
-    # this run does not re-create this record
-    assert ln.context.run not in record.recreating_runs.all()
-    assert not hasattr(record, "_recreating_run_id")
+    sqlrecord.cache()
+    # now it's tracked that this sqlrecord is an input of the current run
+    assert sqlrecord._input_of_run_id == ln.context.run.id
+    assert sqlrecord in getattr(ln.context.run, f"input_{registry_str}s").all()
+    # this run does not re-create this sqlrecord
+    assert ln.context.run not in sqlrecord.recreating_runs.all()
+    assert not hasattr(sqlrecord, "_recreating_run_id")
 
 
 def test_track_notebook_colab():
