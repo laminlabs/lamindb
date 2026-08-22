@@ -38,7 +38,7 @@ def create_dataset():
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
-def test_track_run_input(create_dataset, registry_str):
+def test_track_datasets_as_run_inputs(create_dataset, registry_str):
     # First run - create the dataset
     ln.track()
     # create an object
