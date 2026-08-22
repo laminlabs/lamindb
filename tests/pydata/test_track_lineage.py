@@ -130,3 +130,31 @@ def test_track_record_lineage():
     first_run.delete(permanent=True)
     second_run.delete(permanent=True)
     ln.context._run = None
+
+
+def test_track_record_lineage_limits_input_links_to_annotation_max_records():
+    n_max_records = ln.settings.annotation.n_max_records
+    ln.track()
+    first_run = ln.context.run
+    record_type = ln.Record(name="test-record-type-limit", is_type=True).save()
+    for i in range(n_max_records + 5):
+        ln.Record(name=f"test-record-limit-{i}", type=record_type).save()
+
+    ln.track()
+    second_run = ln.context.run
+    record_type = ln.Record.get(name="test-record-type-limit")
+    record_type.to_dataframe()
+
+    linked_records = second_run.input_records.all()
+    linked_record_ids = set(
+        linked_records.exclude(id=record_type.id).values_list("id", flat=True)
+    )
+    assert record_type in linked_records
+    assert len(linked_record_ids) == n_max_records
+    assert linked_records.count() == n_max_records + 1
+
+    ln.Record.filter(type=record_type).delete(permanent=True)
+    record_type.delete(permanent=True)
+    first_run.delete(permanent=True)
+    second_run.delete(permanent=True)
+    ln.context._run = None

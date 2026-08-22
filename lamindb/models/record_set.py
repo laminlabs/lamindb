@@ -197,15 +197,23 @@ class RecordSet(Iterable):
         )
         run_for_input_linking = record_type._export_run
         if run_for_input_linking is not None:
+            from lamindb import settings
+
             # avoid cycles: a record cannot be both input and output of the same run
             if record_type.run_id != run_for_input_linking.id:
                 run_for_input_linking.input_records.add(record_type)
             if link_individual_inputs:
+                n_max_records = settings.annotation.n_max_records
                 input_record_ids = list(
                     qs.exclude(run_id=run_for_input_linking.id).values_list(
                         "id", flat=True
-                    )
+                    )[: n_max_records + 1]
                 )
+                if len(input_record_ids) > n_max_records:
+                    logger.warning(
+                        f"linking only first {n_max_records} records as run inputs as it exceeds ln.settings.annotation.n_max_records"
+                    )
+                    input_record_ids = input_record_ids[:n_max_records]
                 if input_record_ids:
                     run_for_input_linking.input_records.add(*input_record_ids)
         if use_export_run and run_for_input_linking is not None:
