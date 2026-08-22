@@ -1,0 +1,160 @@
+import lamindb as ln
+import pytest
+from django.db.models import ProtectedError
+
+
+@pytest.fixture
+def create_dataset():
+    """Factory fixture that returns a function to create artifacts and collections."""
+    created_datasets = []
+
+    def create(kind: str) -> ln.models.SQLRecord:
+        if kind == "artifact":
+            dataset = ln.Artifact("README.md", key="README.md").save()
+        elif kind == "collection":
+            a1 = ln.Artifact("README.md", key="README.md").save()
+            created_datasets.append(a1)
+            a2 = ln.Artifact("pyproject.toml", key="pyproject.toml").save()
+            created_datasets.append(a2)
+            dataset = ln.Collection([a1, a2], key="test-collection").save()
+        created_datasets.append(dataset)
+        return dataset
+
+    yield create
+
+    for dataset in created_datasets[::-1]:
+        run_id = dataset.run_id
+        recreating_runs = dataset.recreating_runs.all()
+        for recreating_run in recreating_runs:
+            recreating_run.delete(permanent=True)
+        dataset.delete(permanent=True)
+        if ln.Run.filter(id=run_id).exists():
+            try:
+                ln.Run.get(id=run_id).delete(permanent=True)
+            except ProtectedError:
+                pass
+    # clean up global state
+    ln.context._run = None
+
+
+@pytest.mark.parametrize("registry_str", ["artifact", "collection"])
+def test_track_datasets_as_run_inputs(create_dataset, registry_str):
+    # First run - create the dataset
+    ln.track()
+    # create an object
+    dataset = create_dataset(registry_str)
+    # .cache() triggers input tracking
+    dataset.cache()
+    # here tracking this object as in input of the current is skipped
+    # because it was just created and we would get a cycle between the input and the output
+    assert dataset not in getattr(ln.context.run, f"input_{registry_str}s").all()
+    # store the current global run, we will need it later
+    first_run = ln.context.run
+    first_dataset = dataset
+
+    # Second run -- recreate the dataset
+    ln.track()
+    # the new global run is not the same as the previous one
+    assert ln.context.run != first_run
+    # create a new artifact or collection, which will trigger a hash look up
+    # and return the same dataset as before
+    dataset = create_dataset(registry_str)
+    assert dataset == first_dataset
+    # because that run created the same dataset, it is tracked as a recreating run
+    assert ln.context.run in dataset.recreating_runs.all()
+    # we also track it in the private attribute to avoid database queries
+    assert dataset._recreating_run_id == ln.context.run.id
+    # when we now trigger input tracking it's actually skipped
+    # because we would create a cycle between the input and the fact that this artifact/collection
+    # was recreated in this run
+    # the skipping mechanism is cheap because it works through the cached _recreating_run_id attribute
+    dataset.cache()
+    # assert that there is indeed no cycle
+    assert dataset not in getattr(ln.context.run, f"input_{registry_str}s").all()
+
+    # Third run - retrieve the dataset
+    ln.track()
+    assert ln.context.run != first_run
+    # now we're querying the object
+    if registry_str == "artifact":
+        dataset = ln.Artifact.get(key="README.md")
+    else:
+        dataset = ln.Collection.get(key="test-collection")
+    # trigger input tracking by calling .cache()
+    dataset.cache()
+    # now it's tracked that this dataset is an input of the current run
+    assert dataset in getattr(ln.context.run, f"input_{registry_str}s").all()
+    # this run does not re-create this dataset
+    assert ln.context.run not in dataset.recreating_runs.all()
+    assert not hasattr(dataset, "_recreating_run_id")
+    # attempt to re-create the dataset after it was retrieved in the same run
+    dataset = create_dataset(registry_str)
+    assert dataset == first_dataset
+    # because that run already registered this dataset as an input
+    # it is still not tracked as a recreating run because
+    # we'd otherwise create a cycle
+    assert ln.context.run not in dataset.recreating_runs.all()
+    assert not hasattr(dataset, "_recreating_run_id")
+
+
+def test_track_record_lineage():
+    # First run - create the records
+    ln.track()
+    first_run = ln.context.run
+    record_type = ln.Record(name="test-record-type", is_type=True).save()
+    record = ln.Record(name="test-record", type=record_type).save()
+
+    # records are outputs of the creating run
+    assert record_type in first_run.output_records.all()
+    assert record in first_run.output_records.all()
+
+    # exporting in the same run should not back-link outputs as inputs
+    # to avoid cycles in data lineage
+    record_type.to_dataframe()
+    assert record_type not in first_run.input_records.all()
+    assert record not in first_run.input_records.all()
+
+    # Second run - retrieve the records
+    ln.track()
+    second_run = ln.context.run
+    record_type = ln.Record.get(name="test-record-type")
+    assert record_type not in second_run.output_records.all()
+    # trigger input tracking by calling .to_dataframe()
+    record_type.to_dataframe()
+    assert record_type in second_run.input_records.all()
+    assert ln.Record.get(name="test-record") in second_run.input_records.all()
+
+    # clean up the test records
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
+    first_run.delete(permanent=True)
+    second_run.delete(permanent=True)
+    ln.context._run = None
+
+
+def test_track_record_lineage_limits_input_links_to_annotation_max_records():
+    n_max_records = ln.settings.annotation.n_max_records
+    ln.track()
+    first_run = ln.context.run
+    record_type = ln.Record(name="test-record-type-limit", is_type=True).save()
+    for i in range(n_max_records + 5):
+        ln.Record(name=f"test-record-limit-{i}", type=record_type).save()
+
+    ln.track()
+    second_run = ln.context.run
+    record_type = ln.Record.get(name="test-record-type-limit")
+    record_type.to_dataframe()
+
+    linked_records = second_run.input_records.all()
+    linked_record_ids = set(
+        linked_records.exclude(id=record_type.id).values_list("id", flat=True)
+    )
+    assert record_type in linked_records
+    assert len(linked_record_ids) == n_max_records
+    assert linked_records.count() == n_max_records + 1
+
+    ln.Record.filter(type=record_type).delete(permanent=True)
+    record_type.delete(permanent=True)
+    first_run.delete(permanent=True)
+    second_run.delete(permanent=True)
+    ln.context._run = None

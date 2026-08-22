@@ -175,7 +175,8 @@ from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager
 from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .db import DB
-from .artifact_set import ArtifactSet, RecordSet
+from .artifact_set import ArtifactSet
+from .record_set import RecordSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 

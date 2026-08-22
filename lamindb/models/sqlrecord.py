@@ -2576,7 +2576,7 @@ def get_transfer_run(record) -> Run:
     from lamindb import settings
     from lamindb.core._context import context
     from lamindb.models import Run, Transform
-    from lamindb.models.artifact import WARNING_RUN_TRANSFORM
+    from lamindb.models._lineage import WARNING_RUN_TRANSFORM
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)

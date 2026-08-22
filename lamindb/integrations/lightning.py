@@ -37,7 +37,7 @@ from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
 
 import lamindb as ln
-from lamindb.models.artifact import track_run_input
+from lamindb.models._lineage import track_run_inputs
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -174,7 +174,7 @@ class LaminArtifactPublisher:
         artifact = ln.Artifact(local_path, **artifact_kwargs)
         artifact.save()
         if add_as_input_to_run:
-            track_run_input(artifact, is_run_input=True)
+            track_run_inputs(artifact, is_run_input=True)
         return artifact
 
     def storage_uri(self, artifact: ln.Artifact) -> str:
