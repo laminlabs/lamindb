@@ -297,12 +297,7 @@ def test_track_input_record(create_record, kind):
     assert ln.context.run != previous_run
     record = create_record(kind)
     assert ln.context.run in record.recreating_runs.all()
-    assert record._subsequent_run_id == ln.context.run.id
-    # Reload to ensure cycle prevention does not rely on transient attributes.
-    if kind == "artifact":
-        record = ln.Artifact.get(id=record.id)
-    else:
-        record = ln.Collection.get(id=record.id)
+    assert record._recreating_run_id == ln.context.run.id
     record.cache()
     assert (
         record not in getattr(ln.context.run, f"input_{kind}s").all()
@@ -316,9 +311,15 @@ def test_track_input_record(create_record, kind):
     else:
         record = ln.Collection.get(key="test-collection")
     record.cache()
+    assert record._input_of_run_id == ln.context.run.id
     assert ln.context.run not in record.recreating_runs.all()
-    assert not hasattr(record, "_subsequent_run_id")
+    assert not hasattr(record, "_recreating_run_id")
     assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
+
+    # Saving after input tracking should still avoid a recreating run cycle.
+    record.save()
+    assert ln.context.run not in record.recreating_runs.all()
+    assert not hasattr(record, "_recreating_run_id")
 
 
 def test_track_notebook_colab():

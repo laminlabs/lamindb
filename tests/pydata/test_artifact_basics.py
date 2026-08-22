@@ -2415,7 +2415,7 @@ def test_passing_foreign_keys_ids(tsv_file):
 
     artifact = ln.Artifact(tsv_file, run_id=second_run.id)  # same hash
     assert artifact.id == artifact_id
-    assert artifact._subsequent_run_id == second_run.id
+    assert artifact._recreating_run_id == second_run.id
     assert second_run in artifact.recreating_runs.all()
 
     # Run-side: output_artifacts vs recreated_artifacts

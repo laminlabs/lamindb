@@ -886,14 +886,18 @@ def check_otype_artifact(
     return otype
 
 
-def populate_subsequent_run(record: Artifact | Collection, run: Run | None) -> None:
+def populate_subsequent_run(sqlrecord: Artifact | Collection, run: Run | None) -> None:
     if run is None:
         return
-    if record.run is None:
-        record.run = run
-    elif record.run != run:
-        record.recreating_runs.add(run)
-        record._subsequent_run_id = run.id
+    if sqlrecord.run is None:
+        sqlrecord.run = run
+    elif sqlrecord.run != run:
+        # if this current run tracks this sqlrecord already as
+        # an input, then we don't track it as a recreating run to avoid a cycle
+        if run.id == getattr(sqlrecord, "_input_of_run_id", None):
+            return
+        sqlrecord.recreating_runs.add(run)
+        sqlrecord._recreating_run_id = run.id
 
 
 # also see current_run() in core._data
@@ -3958,7 +3962,7 @@ def track_run_input(
     )
     input_records = []
     if run is not None:
-        assert not run._state.adding, "Save the run before tracking its inputs."  # noqa: S101
+        assert not run._state.adding, "Save the run before tracking its inputs."
 
         def is_valid_input(record: Artifact | Collection):
             is_valid = False
@@ -3985,14 +3989,9 @@ def track_run_input(
                     f"not tracking {record} as input to run {run} because created by same run"
                 )
                 is_valid = False
-            if run.id == getattr(record, "_subsequent_run_id", None):
+            if run.id == getattr(record, "_recreating_run_id", None):
                 logger.debug(
                     f"not tracking {record} as input to run {run} because re-created in same run"
-                )
-                is_valid = False
-            elif record.recreating_runs.filter(id=run.id).exists():
-                logger.debug(
-                    f"not tracking {record} as input to run {run} because linked as re-created by same run"
                 )
                 is_valid = False
             return is_valid
@@ -4023,8 +4022,7 @@ def track_run_input(
         track = is_run_input
     if not track or not input_records:
         return None
-    if run is None:
-        raise ValueError("No run context set. Call `ln.track()`.")
+    assert run is not None, "No run context set. Call `ln.track()`."
     if record_class_name == "artifact":
         IsLink = run.input_artifacts.through
         links = [
@@ -4039,6 +4037,8 @@ def track_run_input(
         ]
     try:
         IsLink.objects.bulk_create(links, ignore_conflicts=True)
+        for record in input_records:
+            record._input_of_run_id = run.id
     except ProgrammingError as e:
         if "new row violates row-level security policy" in str(e):
             instance = setup_settings.instance
