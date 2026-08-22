@@ -3936,16 +3936,16 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
 
 
 def track_run_input(
-    record: (
+    sqlrecord: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ) -> None:
-    """Links a record as an input to a run.
+    """Links a sqlrecord as an input to a run.
 
     This function contains all validation logic to make decisions on whether a
-    record qualifies as an input or not.
+    sqlrecord qualifies as an input or not.
     """
     if is_run_input is False:
         return None
@@ -3961,50 +3961,52 @@ def track_run_input(
         run = get_current_tracked_run()
         if run is None:
             run = context.run
-    # consider that record is an iterable of Data
-    record_iter: Iterable[Artifact] | Iterable[Collection] = (
-        [record] if isinstance(record, (Artifact, Collection)) else record
+    # consider that sqlrecord is an iterable of Data
+    sqlrecord_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [sqlrecord] if isinstance(sqlrecord, (Artifact, Collection)) else sqlrecord
     )
-    input_records = []
+    input_sqlrecords = []
     if run is not None:
         assert not run._state.adding, "Save the run before tracking its inputs."
 
-        def is_valid_input(record: Artifact | Collection):
+        def is_valid_input(sqlrecord: Artifact | Collection):
             is_valid = False
-            # if a record is not yet saved it has record._state.db = None
+            # if a sqlrecord is not yet saved it has sqlrecord._state.db = None
             # then it can't be an input
             # we silently ignore because what will happen is that
-            # the record either gets saved and then is tracked as an output
+            # the sqlrecord either gets saved and then is tracked as an output
             # or it won't get saved at all
-            if record._state.db == "default":
-                # things are OK if the record is on the default db
+            if sqlrecord._state.db == "default":
+                # things are OK if the sqlrecord is on the default db
                 is_valid = True
             else:
-                # record is on another db
-                # we have to save the record into the current db with
+                # sqlrecord is on another db
+                # we have to save the sqlrecord into the current db with
                 # the run being attached to a transfer transform
                 logger.info(
-                    f"completing transfer to track {record.__class__.__name__}('{record.uid}') as input"
+                    f"completing transfer to track {sqlrecord.__class__.__name__}('{sqlrecord.uid}') as input"
                 )
-                record.save()
+                sqlrecord.save()
                 is_valid = True
-            # avoid cycles: record can't be both input and output
-            if record.run_id == run.id:
+            # avoid cycles: sqlrecord can't be both input and output
+            if sqlrecord.run_id == run.id:
                 logger.debug(
-                    f"not tracking {record} as input to run {run} because created by same run"
+                    f"not tracking {sqlrecord} as input to run {run} because created by same run"
                 )
                 is_valid = False
-            if run.id == getattr(record, "_recreating_run_id", None):
+            if run.id == getattr(sqlrecord, "_recreating_run_id", None):
                 logger.debug(
-                    f"not tracking {record} as input to run {run} because re-created in same run"
+                    f"not tracking {sqlrecord} as input to run {run} because re-created in same run"
                 )
                 is_valid = False
             return is_valid
 
-        input_records = [record for record in record_iter if is_valid_input(record)]
-        input_records_ids = [record.id for record in input_records]
-    if input_records:
-        record_class_name = input_records[0].__class__.__name__.lower()
+        input_sqlrecords = [
+            sqlrecord for sqlrecord in sqlrecord_iter if is_valid_input(sqlrecord)
+        ]
+        input_sqlrecords_ids = [sqlrecord.id for sqlrecord in input_sqlrecords]
+    if input_sqlrecords:
+        registry_str = input_sqlrecords[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
@@ -4018,27 +4020,27 @@ def track_run_input(
                 isettings = setup_settings.instance
                 if not (isettings._is_clone or isettings.is_read_only_connection):
                     logger.warning(WARNING_NO_INPUT)
-        elif input_records:
+        elif input_sqlrecords:
             logger.debug(
-                f"adding {record_class_name} ids {input_records_ids} as inputs for run {run.id}"
+                f"adding {registry_str} ids {input_sqlrecords_ids} as inputs for run {run.id}"
             )
             track = True
     else:
         track = is_run_input
-    if not track or not input_records:
+    if not track or not input_sqlrecords:
         return None
     assert run is not None, "No run context set. Call `ln.track()`."
-    if record_class_name == "artifact":
+    if registry_str == "artifact":
         IsLink = run.input_artifacts.through
         links = [
-            IsLink(run_id=run.id, artifact_id=record_id)
-            for record_id in input_records_ids
+            IsLink(run_id=run.id, artifact_id=sqlrecord_id)
+            for sqlrecord_id in input_sqlrecords_ids
         ]
     else:
         IsLink = run.input_collections.through
         links = [
-            IsLink(run_id=run.id, collection_id=record_id)
-            for record_id in input_records_ids
+            IsLink(run_id=run.id, collection_id=sqlrecord_id)
+            for sqlrecord_id in input_sqlrecords_ids
         ]
     try:
         IsLink.objects.bulk_create(links, ignore_conflicts=True)
@@ -4053,29 +4055,30 @@ def track_run_input(
                 ) from None
             write_access_spaces = available_spaces["admin"] + available_spaces["write"]
             no_write_access_spaces = {
-                record_space
-                for record in input_records
-                if (record_space := record.space) not in write_access_spaces
+                sqlrecord_space
+                for sqlrecord in input_sqlrecords
+                if (sqlrecord_space := sqlrecord.space) not in write_access_spaces
             }
             if (run_space := run.space) not in write_access_spaces:
                 no_write_access_spaces.add(run_space)
 
             if not no_write_access_spaces:
                 # if there are no unavailable spaces, then this should be due to locking
-                locked_records = [
-                    record
-                    for record in input_records
-                    if getattr(record, "is_locked", False)
+                locked_sqlrecords = [
+                    sqlrecord
+                    for sqlrecord in input_sqlrecords
+                    if getattr(sqlrecord, "is_locked", False)
                 ]
                 if run.is_locked:
-                    locked_records.append(run)
-                # if no unavailable spaces and no locked records, just raise the original error
-                if not locked_records:
+                    locked_sqlrecords.append(run)
+                # if no unavailable spaces and no locked sqlrecords, just raise the original error
+                if not locked_sqlrecords:
                     raise e
                 no_write_msg = (
-                    "It is not allowed to modify locked records: "
+                    "It is not allowed to modify locked sqlrecords: "
                     + ", ".join(
-                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_records
+                        r.__class__.__name__ + f"(uid={r.uid})"
+                        for r in locked_sqlrecords
                     )
                     + "."
                 )
