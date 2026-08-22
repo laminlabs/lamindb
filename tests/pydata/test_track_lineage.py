@@ -37,21 +37,6 @@ def create_dataset():
     ln.context._run = None
 
 
-@pytest.fixture
-def create_record_case():
-    ln.track()
-    first_run = ln.context.run
-    record_type = ln.Record(name="test-record-type", is_type=True).save()
-    record = ln.Record(name="test-record", type=record_type).save()
-    yield first_run, record_type, record
-
-    ln.context._run = None
-    if ln.Record.filter(name="test-record").exists():
-        ln.Record.get(name="test-record").delete(permanent=True)
-    if ln.Record.filter(name="test-record-type").exists():
-        ln.Record.get(name="test-record-type").delete(permanent=True)
-
-
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
 def test_track_datasets_as_run_inputs(create_dataset, registry_str):
     # First run - create the dataset
@@ -112,23 +97,36 @@ def test_track_datasets_as_run_inputs(create_dataset, registry_str):
     assert not hasattr(dataset, "_recreating_run_id")
 
 
-def test_track_records_as_run_inputs(create_record_case):
-    first_run, record_type, record = create_record_case
+def test_track_record_lineage():
+    # First run - create the records
+    ln.track()
+    first_run = ln.context.run
+    record_type = ln.Record(name="test-record-type", is_type=True).save()
+    record = ln.Record(name="test-record", type=record_type).save()
 
-    # In the creating run, both records are outputs.
+    # records are outputs of the creating run
     assert record_type in first_run.output_records.all()
     assert record in first_run.output_records.all()
 
-    # Exporting in the same run should not back-link outputs as inputs.
-    record_type.to_dataframe(use_export_run=False)
+    # exporting in the same run should not back-link outputs as inputs
+    # to avoid cycles in data lineage
+    record_type.to_dataframe()
     assert record_type not in first_run.input_records.all()
     assert record not in first_run.input_records.all()
 
-    # In a subsequent run, the same records are regular inputs.
+    # Second run - retrieve the records
     ln.track()
     second_run = ln.context.run
     record_type = ln.Record.get(name="test-record-type")
-    record_type.to_dataframe(use_export_run=False)
+    assert record_type not in second_run.output_records.all()
+    # trigger input tracking by calling .to_dataframe()
+    record_type.to_dataframe()
     assert record_type in second_run.input_records.all()
     assert ln.Record.get(name="test-record") in second_run.input_records.all()
-    assert record_type not in second_run.output_records.all()
+
+    # clean up the test records
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
+    first_run.delete(permanent=True)
+    second_run.delete(permanent=True)
+    ln.context._run = None
