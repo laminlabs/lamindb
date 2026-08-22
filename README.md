@@ -81,7 +81,7 @@ pip install lamindb-core
 
 </details>
 
-Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Pure markdown docs ship with the package in `docs/` and are available from the web via [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? [skills](lamindb/.agents). Docs: `docs/` or [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & datasets
 
