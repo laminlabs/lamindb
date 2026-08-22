@@ -1,5 +1,6 @@
 import lamindb as ln
 import pytest
+from django.db.models import ProtectedError
 
 
 @pytest.fixture
@@ -22,12 +23,21 @@ def create_dataset():
     yield create
 
     for dataset in created_datasets[::-1]:
+        run_id = dataset.run_id
+        recreating_runs = dataset.recreating_runs.all()
+        for recreating_run in recreating_runs:
+            recreating_run.delete(permanent=True)
         dataset.delete(permanent=True)
+        if ln.Run.filter(id=run_id).exists():
+            try:
+                ln.Run.get(id=run_id).delete(permanent=True)
+            except ProtectedError:
+                pass
 
 
 @pytest.mark.parametrize("registry_str", ["artifact", "collection"])
 def test_track_run_input(create_dataset, registry_str):
-    # First run - create the artifact/collection
+    # First run - create the dataset
     ln.track()
     # create an object
     dataset = create_dataset(registry_str)
@@ -40,7 +50,7 @@ def test_track_run_input(create_dataset, registry_str):
     first_run = ln.context.run
     first_dataset = dataset
 
-    # Second run -- recreate the artifact/collection
+    # Second run -- recreate the dataset
     ln.track()
     # the new global run is not the same as the previous one
     assert ln.context.run != first_run
@@ -60,7 +70,7 @@ def test_track_run_input(create_dataset, registry_str):
     # assert that there is indeed no cycle
     assert dataset not in getattr(ln.context.run, f"input_{registry_str}s").all()
 
-    # Third run - retrieve the artifact/collection
+    # Third run - retrieve the dataset
     ln.track()
     assert ln.context.run != first_run
     # now we're querying the object
