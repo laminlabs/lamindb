@@ -287,10 +287,11 @@ def test_track_input_record(create_recreatable, registry_str):
     ln.track()
     previous_run = ln.context.run
     record = create_recreatable(registry_str)
+    # .cache() triggers input tracking
     record.cache()
-    assert (
-        record not in getattr(ln.context.run, f"input_{registry_str}s").all()
-    )  # avoid cycle with created artifact
+    # here tracking this object as in input of the current is skipped
+    # because it was just created and we would get a cycle between the input and the output
+    assert record not in getattr(ln.context.run, f"input_{registry_str}s").all()
 
     # Second run
     ln.track(new_run=True)
