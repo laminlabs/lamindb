@@ -69,12 +69,6 @@ from ._is_versioned import (
     create_uid,
 )
 from ._lineage import (
-    WARNING_NO_INPUT as _WARNING_NO_INPUT,
-)
-from ._lineage import (
-    WARNING_RUN_TRANSFORM as _WARNING_RUN_TRANSFORM,
-)
-from ._lineage import (
     get_run,
     populate_recreating_run,
     track_run_inputs,
@@ -142,10 +136,6 @@ def _s():
     if _storage_cache is None:
         _storage_cache = _lazy_load_storage_module()
     return _storage_cache
-
-
-WARNING_RUN_TRANSFORM = _WARNING_RUN_TRANSFORM
-WARNING_NO_INPUT = _WARNING_NO_INPUT
 
 
 def _identify_zarr_type(storepath, *, check: bool = True):
