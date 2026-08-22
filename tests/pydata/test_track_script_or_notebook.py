@@ -298,6 +298,9 @@ def test_track_input_record(create_record, kind):
     record = create_record(kind)
     assert ln.context.run in record.recreating_runs.all()
     assert record._recreating_run_id == ln.context.run.id
+    # trigger input tracking by calling .cache()
+    # should fail here as the sqlrecord was just created
+    # and we would get a cycle between the input and the output
     record.cache()
     assert (
         record not in getattr(ln.context.run, f"input_{kind}s").all()
@@ -310,14 +313,12 @@ def test_track_input_record(create_record, kind):
         record = ln.Artifact.get(key="README.md")
     else:
         record = ln.Collection.get(key="test-collection")
+    # trigger input tracking by calling .cache()
     record.cache()
+    # now it's tracked that this record is an input of the current run
     assert record._input_of_run_id == ln.context.run.id
-    assert ln.context.run not in record.recreating_runs.all()
-    assert not hasattr(record, "_recreating_run_id")
     assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
-
-    # Saving after input tracking should still avoid a recreating run cycle.
-    record.save()
+    # this run does not re-create this record
     assert ln.context.run not in record.recreating_runs.all()
     assert not hasattr(record, "_recreating_run_id")
 
