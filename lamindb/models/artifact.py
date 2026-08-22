@@ -3935,6 +3935,39 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
         ]
 
 
+def is_valid_input(sqlrecord: Artifact | Collection, run: Run) -> bool:
+    is_valid = False
+    # if a sqlrecord is not yet saved it has sqlrecord._state.db = None
+    # then it can't be an input
+    # we silently ignore because what will happen is that
+    # the sqlrecord either gets saved and then is tracked as an output
+    # or it won't get saved at all
+    if sqlrecord._state.db == "default":
+        # things are OK if the sqlrecord is on the default db
+        is_valid = True
+    else:
+        # sqlrecord is on another db
+        # we have to save the sqlrecord into the current db with
+        # the run being attached to a transfer transform
+        logger.info(
+            f"completing transfer to track {sqlrecord.__class__.__name__}('{sqlrecord.uid}') as input"
+        )
+        sqlrecord.save()
+        is_valid = True
+    # avoid cycles: sqlrecord can't be both input and output
+    if sqlrecord.run_id == run.id:
+        logger.debug(
+            f"not tracking {sqlrecord} as input to run {run} because created by same run"
+        )
+        is_valid = False
+    if run.id == getattr(sqlrecord, "_recreating_run_id", None):
+        logger.debug(
+            f"not tracking {sqlrecord} as input to run {run} because re-created in same run"
+        )
+        is_valid = False
+    return is_valid
+
+
 def track_run_input(
     sqlrecord: (
         Artifact | Iterable[Artifact]
@@ -3968,39 +4001,6 @@ def track_run_input(
     input_sqlrecords = []
     if run is not None:
         assert not run._state.adding, "Save the run before tracking its inputs."
-
-        def is_valid_input(sqlrecord: Artifact | Collection):
-            is_valid = False
-            # if a sqlrecord is not yet saved it has sqlrecord._state.db = None
-            # then it can't be an input
-            # we silently ignore because what will happen is that
-            # the sqlrecord either gets saved and then is tracked as an output
-            # or it won't get saved at all
-            if sqlrecord._state.db == "default":
-                # things are OK if the sqlrecord is on the default db
-                is_valid = True
-            else:
-                # sqlrecord is on another db
-                # we have to save the sqlrecord into the current db with
-                # the run being attached to a transfer transform
-                logger.info(
-                    f"completing transfer to track {sqlrecord.__class__.__name__}('{sqlrecord.uid}') as input"
-                )
-                sqlrecord.save()
-                is_valid = True
-            # avoid cycles: sqlrecord can't be both input and output
-            if sqlrecord.run_id == run.id:
-                logger.debug(
-                    f"not tracking {sqlrecord} as input to run {run} because created by same run"
-                )
-                is_valid = False
-            if run.id == getattr(sqlrecord, "_recreating_run_id", None):
-                logger.debug(
-                    f"not tracking {sqlrecord} as input to run {run} because re-created in same run"
-                )
-                is_valid = False
-            return is_valid
-
         input_sqlrecords = [
             sqlrecord for sqlrecord in sqlrecord_iter if is_valid_input(sqlrecord)
         ]

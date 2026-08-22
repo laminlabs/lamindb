@@ -33,6 +33,7 @@ def create_dataset():
                 ln.Run.get(id=run_id).delete(permanent=True)
             except ProtectedError:
                 pass
+    # clean up global state
     ln.context._run = None
 
 
