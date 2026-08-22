@@ -202,7 +202,7 @@ def track_run_inputs(
                 if not locked_datasets:
                     raise e
                 no_write_msg = (
-                    "It is not allowed to modify locked datasets: "
+                    "It is not allowed to modify locked objects: "
                     + ", ".join(
                         r.__class__.__name__ + f"(uid={r.uid})" for r in locked_datasets
                     )
