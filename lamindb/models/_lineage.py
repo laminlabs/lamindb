@@ -20,23 +20,23 @@ if TYPE_CHECKING:
     from .collection import Collection
 
 
-def populate_recreating_run(sqlrecord: Artifact | Collection, run: Run | None) -> None:
+def populate_recreating_run(dataset: Artifact | Collection, run: Run | None) -> None:
     if run is None:
         return
-    if sqlrecord.run is None:
-        sqlrecord.run = run
-    elif sqlrecord.run != run:
-        # if this current run tracks this sqlrecord already as
+    if dataset.run is None:
+        dataset.run = run
+    elif dataset.run != run:
+        # if this current run tracks this dataset already as
         # an input, then we don't track it as a recreating run to avoid a cycle
         # unfortunately we have to retrieve this information from the database
-        # and can't cache it in sqlrecord._input_of_run_id like we do for sqlrecord._recreating_run_id
+        # and can't cache it in dataset._input_of_run_id like we do for dataset._recreating_run_id
         # since recreating_runs is called in the object constructor
         # TODO: in the future we could rewrite the two network requests as a single using
         # plain SQL to optimize performance
-        if sqlrecord.input_of_runs.filter(id=run.id).exists():
+        if dataset.input_of_runs.filter(id=run.id).exists():
             return
-        sqlrecord.recreating_runs.add(run)
-        sqlrecord._recreating_run_id = run.id
+        dataset.recreating_runs.add(run)
+        dataset._recreating_run_id = run.id
 
 
 # also see current_run() in core._data
@@ -58,50 +58,50 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def is_valid_input(sqlrecord: Artifact | Collection, run: Run) -> bool:
+def is_valid_input(dataset: Artifact | Collection, run: Run) -> bool:
     is_valid = False
-    # if a sqlrecord is not yet saved it has sqlrecord._state.db = None
+    # if a dataset is not yet saved it has dataset._state.db = None
     # then it can't be an input
     # we silently ignore because what will happen is that
-    # the sqlrecord either gets saved and then is tracked as an output
+    # the dataset either gets saved and then is tracked as an output
     # or it won't get saved at all
-    if sqlrecord._state.db == "default":
-        # things are OK if the sqlrecord is on the default db
+    if dataset._state.db == "default":
+        # things are OK if the dataset is on the default db
         is_valid = True
     else:
-        # sqlrecord is on another db
-        # we have to save the sqlrecord into the current db with
+        # dataset is on another db
+        # we have to save the dataset into the current db with
         # the run being attached to a transfer transform
         logger.info(
-            f"completing transfer to track {sqlrecord.__class__.__name__}('{sqlrecord.uid}') as input"
+            f"completing transfer to track {dataset.__class__.__name__}('{dataset.uid}') as input"
         )
-        sqlrecord.save()
+        dataset.save()
         is_valid = True
-    # avoid cycles: sqlrecord can't be both input and output
-    if sqlrecord.run_id == run.id:
+    # avoid cycles: dataset can't be both input and output
+    if dataset.run_id == run.id:
         logger.debug(
-            f"not tracking {sqlrecord} as input to run {run} because created by same run"
+            f"not tracking {dataset} as input to run {run} because created by same run"
         )
         is_valid = False
-    if run.id == getattr(sqlrecord, "_recreating_run_id", None):
+    if run.id == getattr(dataset, "_recreating_run_id", None):
         logger.debug(
-            f"not tracking {sqlrecord} as input to run {run} because re-created in same run"
+            f"not tracking {dataset} as input to run {run} because re-created in same run"
         )
         is_valid = False
     return is_valid
 
 
 def track_run_inputs(
-    sqlrecord_or_sqlrecords: (
+    dataset_or_datasets: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ) -> None:
-    """Links one or many sqlrecords as inputs to a run.
+    """Links one or many datasets as inputs to a run.
 
     This function contains all validation logic to make decisions on whether a
-    sqlrecord qualifies as an input or not.
+    dataset qualifies as an input or not.
     """
     if is_run_input is False:
         return None
@@ -118,21 +118,21 @@ def track_run_inputs(
         run = get_current_tracked_run()
         if run is None:
             run = context.run
-    # consider that sqlrecord is an iterable of Data
-    sqlrecord_iter: Iterable[Artifact] | Iterable[Collection] = (
-        [sqlrecord_or_sqlrecords]
-        if isinstance(sqlrecord_or_sqlrecords, (Artifact, Collection))
-        else sqlrecord_or_sqlrecords
+    # consider that dataset is an iterable of Data
+    dataset_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [dataset_or_datasets]
+        if isinstance(dataset_or_datasets, (Artifact, Collection))
+        else dataset_or_datasets
     )
-    input_sqlrecords = []
+    input_datasets = []
     if run is not None:
         assert not run._state.adding, "Save the run before tracking its inputs."
-        input_sqlrecords = [
-            sqlrecord for sqlrecord in sqlrecord_iter if is_valid_input(sqlrecord, run)
+        input_datasets = [
+            dataset for dataset in dataset_iter if is_valid_input(dataset, run)
         ]
-        input_sqlrecords_ids = [sqlrecord.id for sqlrecord in input_sqlrecords]
-    if input_sqlrecords:
-        registry_str = input_sqlrecords[0].__class__.__name__.lower()
+        input_datasets_ids = [dataset.id for dataset in input_datasets]
+    if input_datasets:
+        registry_str = input_datasets[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
@@ -146,27 +146,27 @@ def track_run_inputs(
                 isettings = setup_settings.instance
                 if not (isettings._is_clone or isettings.is_read_only_connection):
                     logger.warning(WARNING_NO_INPUT)
-        elif input_sqlrecords:
+        elif input_datasets:
             logger.debug(
-                f"adding {registry_str} ids {input_sqlrecords_ids} as inputs for run {run.id}"
+                f"adding {registry_str} ids {input_datasets_ids} as inputs for run {run.id}"
             )
             track = True
     else:
         track = is_run_input
-    if not track or not input_sqlrecords:
+    if not track or not input_datasets:
         return None
     assert run is not None, "No run context set. Call `ln.track()`."
     if registry_str == "artifact":
         IsLink = run.input_artifacts.through
         links = [
-            IsLink(run_id=run.id, artifact_id=sqlrecord_id)
-            for sqlrecord_id in input_sqlrecords_ids
+            IsLink(run_id=run.id, artifact_id=dataset_id)
+            for dataset_id in input_datasets_ids
         ]
     else:
         IsLink = run.input_collections.through
         links = [
-            IsLink(run_id=run.id, collection_id=sqlrecord_id)
-            for sqlrecord_id in input_sqlrecords_ids
+            IsLink(run_id=run.id, collection_id=dataset_id)
+            for dataset_id in input_datasets_ids
         ]
     try:
         IsLink.objects.bulk_create(links, ignore_conflicts=True)
@@ -181,30 +181,29 @@ def track_run_inputs(
                 ) from None
             write_access_spaces = available_spaces["admin"] + available_spaces["write"]
             no_write_access_spaces = {
-                sqlrecord_space
-                for sqlrecord in input_sqlrecords
-                if (sqlrecord_space := sqlrecord.space) not in write_access_spaces
+                dataset_space
+                for dataset in input_datasets
+                if (dataset_space := dataset.space) not in write_access_spaces
             }
             if (run_space := run.space) not in write_access_spaces:
                 no_write_access_spaces.add(run_space)
 
             if not no_write_access_spaces:
                 # if there are no unavailable spaces, then this should be due to locking
-                locked_sqlrecords = [
-                    sqlrecord
-                    for sqlrecord in input_sqlrecords
-                    if getattr(sqlrecord, "is_locked", False)
+                locked_datasets = [
+                    dataset
+                    for dataset in input_datasets
+                    if getattr(dataset, "is_locked", False)
                 ]
                 if run.is_locked:
-                    locked_sqlrecords.append(run)
-                # if no unavailable spaces and no locked sqlrecords, just raise the original error
-                if not locked_sqlrecords:
+                    locked_datasets.append(run)
+                # if no unavailable spaces and no locked datasets, just raise the original error
+                if not locked_datasets:
                     raise e
                 no_write_msg = (
-                    "It is not allowed to modify locked sqlrecords: "
+                    "It is not allowed to modify locked datasets: "
                     + ", ".join(
-                        r.__class__.__name__ + f"(uid={r.uid})"
-                        for r in locked_sqlrecords
+                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_datasets
                     )
                     + "."
                 )
