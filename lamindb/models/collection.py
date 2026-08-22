@@ -19,12 +19,12 @@ from ..base.uids import base62_20
 from ..errors import FieldValidationError, ValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
+from ._track_run_inputs import track_run_inputs
 from .artifact import (
     Artifact,
     get_run,
     populate_recreating_run,
     save_schema_links,
-    track_run_input,
 )
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
@@ -360,8 +360,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         self._artifacts = artifacts
         if revises is not None and revises.uid != self.uid:
-            track_run_input(revises, run=run)
-        track_run_input(artifacts, run=run)
+            track_run_inputs(revises, run=run)
+        track_run_inputs(artifacts, run=run)
 
     @strict_classmethod
     def get(
@@ -454,7 +454,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        track_run_input(self, is_run_input)
+        track_run_inputs(self, is_run_input)
         return dataframe
 
     def mapped(
@@ -561,7 +561,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
-        track_run_input(self, is_run_input)
+        track_run_inputs(self, is_run_input)
         return ds
 
     def cache(self, is_run_input: bool | None = None) -> list[UPath]:
@@ -578,7 +578,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         for artifact in self.ordered_artifacts.all():
             # do not want to track data lineage on the artifact level
             path_list.append(artifact.cache(is_run_input=False))
-        track_run_input(self, is_run_input)
+        track_run_inputs(self, is_run_input)
         return path_list
 
     def load(
@@ -591,11 +591,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
-        # cannot call track_run_input here, see comment further down
+        # cannot call track_run_inputs here, see comment further down
         artifacts = self.ordered_artifacts.all()
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
-        track_run_input(self, is_run_input)
+        track_run_inputs(self, is_run_input)
         return concat_object
 
     def verify_schema(self) -> None:

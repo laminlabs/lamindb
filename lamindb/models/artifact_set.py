@@ -9,7 +9,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from upath import UPath
 
-from .artifact import Artifact, track_run_input
+from ._track_run_inputs import track_run_inputs
+from .artifact import Artifact
 from .collection import Collection, _load_concat_artifacts
 from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT
 
@@ -57,7 +58,7 @@ class ArtifactSet(Iterable):
         artifacts: list[Artifact] = list(self)
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # track only if successful
-        track_run_input(artifacts, is_run_input)
+        track_run_inputs(artifacts, is_run_input)
         return concat_object
 
     @doc_args(Collection.open.__doc__)
@@ -78,7 +79,7 @@ class ArtifactSet(Iterable):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        track_run_input(artifacts, is_run_input)
+        track_run_inputs(artifacts, is_run_input)
         return dataframe
 
     @doc_args(Collection.mapped.__doc__)
@@ -128,7 +129,7 @@ class ArtifactSet(Iterable):
             dtype,
         )
         # track only if successful
-        track_run_input(artifacts, is_run_input)
+        track_run_inputs(artifacts, is_run_input)
         return ds
 
 
