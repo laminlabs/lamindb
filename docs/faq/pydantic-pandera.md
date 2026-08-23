@@ -190,7 +190,7 @@ What was the cell type validation based on? Let's inspect the `CellType` registr
 bt.CellType.to_dataframe()
 ```
 
-The `CellType` regsitry is hierachical as it contains the Cell Ontology.
+The `CellType` registry is hierarchical as it contains the Cell Ontology.
 
 ```python
 bt.CellType.get(name="CD8-positive, alpha-beta T cell").view_parents()
