@@ -9,9 +9,9 @@ LaminDB is an open-source data management tool that makes it easy to query, trac
 
 1. Untraceable results cannot be trusted, especially when non-verifiable tasks are delegated to agents.
 2. Without effective access to multimodal data, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
-3. Without governing changes to data akin to governing changes to software with git, it's hard to develop agentic workflows.
+3. Without governing changes to data akin to governing changes to software with git, it's hard to evaluate agents, debug their mistakes, and safely merge their contributions.
 
-Especially in life sciences, hard-to-verify tasks are abundant, data formats are particularly heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
+Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
 
 </details>
 
