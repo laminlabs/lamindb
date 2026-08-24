@@ -7,11 +7,11 @@ LaminDB is an open-source data management tool that makes it easy to query, trac
 <details>
 <summary>Why?</summary>
 
-1. Untraceable results cannot be trusted, especially in the age of agents.
+1. Untraceable results cannot be trusted, especially when non-verifiable tasks are delegated to agents.
 2. Without effective access to multimodal data, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
-3. We want to govern changes to data like we govern changes to code with git.
+3. Without governing changes to data akin to governing changes to software with git, it's hard to evaluate agents, debug their mistakes, and safely merge their contributions.
 
-Especially in life sciences, teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
+Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
 
 </details>
 
@@ -81,7 +81,7 @@ pip install lamindb-core
 
 </details>
 
-Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Pure markdown docs ship with the package in `docs/` and are available from the web via [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? [skills](lamindb/.agents). Docs: `docs/` or [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & datasets
 
