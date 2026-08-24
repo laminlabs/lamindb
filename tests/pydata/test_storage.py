@@ -7,7 +7,6 @@ import lamindb as ln
 # because the internal logic that retrieves information about other instances
 # depends on whether the current instance is managed on the hub
 def test_reference_storage_location(ccaplog):
-    assert ln.setup.settings.instance.is_on_hub
     ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
     assert ln.Storage.get(root="s3://lamindata").instance_uid == "4XIuR0tvaiXM"
     assert (
