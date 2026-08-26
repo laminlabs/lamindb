@@ -176,15 +176,17 @@ def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> N
     if (
         fk_data
         and "run" in fk_data
-        and fk_data["run"]
-        and fk_data["run"]["id"]
-        and "name" in fk_data["run"]
-        and "uid" in fk_data["run"]
-        and "transform_key" in fk_data["run"]
+        and (fk_data_run := fk_data["run"])
+        and fk_data_run["id"]
+        and "name" in fk_data_run
+        and "uid" in fk_data_run
+        and (fk_data_run["name"] is not None or fk_data_run["uid"] is not None)
+        and "transform_key" in fk_data_run
+        and (fk_data_run_transform_key := fk_data_run["transform_key"]) is not None
     ):
         run, transform_key = (
-            SimpleNamespace(**fk_data["run"]),
-            fk_data["run"]["transform_key"],
+            SimpleNamespace(**fk_data_run),
+            fk_data_run_transform_key,
         )
     elif record.run_id is not None:
         try:
