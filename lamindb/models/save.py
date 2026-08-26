@@ -62,7 +62,7 @@ def _prepare_storage_repair_metadata_save(artifact: Artifact) -> None:
 
 
 def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None:
-    """Finalize deferred lineage and clear private repair state."""
+    """Finalize deferred repair lineage inside the metadata transaction."""
     from ._lineage import populate_recreating_run
     from .artifact import Artifact
 
@@ -72,6 +72,10 @@ def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None
         populate_recreating_run(artifact, pending_run)
         if artifact.run_id != previous_run_id:
             super(Artifact, artifact).save(update_fields=["run"], using=using)
+
+
+def _clear_storage_repair_state(artifact: Artifact) -> None:
+    """Clear private repair state after the metadata transaction commits."""
     for attribute in (
         "_is_storage_repair",
         "_storage_repair_upload_succeeded",
@@ -88,8 +92,6 @@ def _save_storage_repair_metadata(
     save_kwargs: dict | None = None,
 ) -> None:
     """Atomically persist repaired metadata, markers, and deferred lineage."""
-    from .artifact import Artifact
-
     kwargs = {} if save_kwargs is None else save_kwargs.copy()
     if using is not None:
         kwargs["using"] = using
@@ -99,12 +101,16 @@ def _save_storage_repair_metadata(
     try:
         with transaction.atomic(using=using):
             _prepare_storage_repair_metadata_save(artifact)
-            super(Artifact, artifact).save(**kwargs)
+            artifact._save_skip_storage(**kwargs)
             _finish_storage_repair(artifact, using=using)
+        _clear_storage_repair_state(artifact)
     except Exception:
         # The database transaction rolled back; keep the in-memory object retryable
         # and aligned with the persisted repair markers.
         artifact.run_id = previous_run_id
+        artifact._state.fields_cache.pop("run", None)
+        if hasattr(artifact, "_recreating_run_id"):
+            del artifact._recreating_run_id
         artifact._storage_ongoing = True
         artifact._aux["sr"] = 1
         raise
