@@ -515,7 +515,8 @@ def test_existing_hash_keeps_completed_storage_object(tmp_path):
     duplicate.delete(permanent=True)
 
 
-def test_existing_hash_repairs_missing_storage_object(tmp_path):
+@pytest.mark.parametrize("source_kind", ["local", "cloud"])
+def test_existing_hash_repairs_missing_storage_object(tmp_path, source_kind):
     original_path = tmp_path / "original.jpg"
     duplicate_path = tmp_path / "duplicate.jpg"
     original_path.write_bytes(b"same-content")
@@ -533,10 +534,16 @@ def test_existing_hash_repairs_missing_storage_object(tmp_path):
         key="uploads/duplicate.jpg",
         description="duplicate description",
     )
+    if source_kind == "cloud":
+        duplicate._cloud_filepath = UPath(duplicate._local_filepath)
+        del duplicate._local_filepath
 
     assert not duplicate._state.adding
     assert duplicate.id == original.id
-    assert duplicate._local_filepath == duplicate_path
+    if source_kind == "local":
+        assert duplicate._local_filepath == duplicate_path
+    else:
+        assert duplicate._cloud_filepath == UPath(duplicate_path)
 
     duplicate.save()
     assert duplicate.path.exists()
@@ -550,7 +557,8 @@ def test_existing_hash_repairs_missing_storage_object(tmp_path):
     duplicate.delete(permanent=True)
 
 
-def test_existing_hash_repair_failure_preserves_record(tmp_path):
+@pytest.mark.parametrize("save_mode", ["single", "bulk"])
+def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
     original_path = tmp_path / "original-failure.jpg"
     duplicate_path = tmp_path / "duplicate-failure.jpg"
     original_path.write_bytes(b"repair-failure")
@@ -569,14 +577,22 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path):
         description="duplicate description",
     )
     upload_error = RuntimeError("simulated upload failure")
-    with (
+    upload_patch = (
         patch(
             "lamindb.models.artifact.check_and_attempt_upload",
             return_value=upload_error,
-        ),
-        pytest.raises(RuntimeError, match="simulated upload failure"),
-    ):
-        duplicate.save()
+        )
+        if save_mode == "single"
+        else patch(
+            "lamindb.models.save.upload_artifact",
+            side_effect=upload_error,
+        )
+    )
+    with upload_patch, pytest.raises(RuntimeError, match="simulated upload failure"):
+        if save_mode == "single":
+            duplicate.save()
+        else:
+            ln.save([duplicate])
 
     persisted = ln.Artifact.get(id=original.id)
     assert persisted.key == "uploads/original-failure.jpg"
@@ -679,6 +695,104 @@ def test_existing_hash_repair_rejects_occupied_target_key(tmp_path):
     occupied.delete(permanent=True, storage=True)
     duplicate.delete(permanent=True, storage=True)
     storage.delete()
+
+
+def test_bulk_existing_hash_repair_succeeds(tmp_path):
+    original_path = tmp_path / "bulk-success-original.txt"
+    duplicate_path = tmp_path / "bulk-success-duplicate.txt"
+    original_path.write_text("bulk-repair-success")
+    duplicate_path.write_text("bulk-repair-success")
+    original = ln.Artifact(
+        original_path,
+        key="uploads/bulk-success-original.txt",
+        description="original description",
+    ).save()
+    original.path.unlink()
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/bulk-success-duplicate.txt",
+        description="repaired description",
+    )
+
+    ln.save([duplicate])
+
+    persisted = ln.Artifact.get(id=original.id)
+    assert persisted.path.read_text() == "bulk-repair-success"
+    assert persisted.description == "repaired description"
+    persisted.delete(permanent=True)
+
+
+def test_inaccessible_same_hash_storage_does_not_abort_construction(tmp_path):
+    original_path = tmp_path / "inaccessible-original.txt"
+    duplicate_path = tmp_path / "inaccessible-duplicate.txt"
+    original_path.write_text("inaccessible-storage")
+    duplicate_path.write_text("inaccessible-storage")
+    original = ln.Artifact(
+        original_path, key="uploads/inaccessible-original.txt"
+    ).save()
+    storage_path_type = type(original.path)
+
+    with patch.object(
+        storage_path_type,
+        "exists",
+        side_effect=PermissionError("storage is not accessible"),
+    ):
+        duplicate = ln.Artifact(
+            duplicate_path,
+            key="uploads/inaccessible-duplicate.txt",
+        )
+
+    assert duplicate._state.adding
+    original.delete(permanent=True)
+
+
+@pytest.mark.parametrize("failure_stage", ["cleanup", "database"])
+def test_existing_hash_repair_retry(tmp_path, failure_stage):
+    original_path = tmp_path / "retry-original.txt"
+    duplicate_path = tmp_path / "retry-duplicate.txt"
+    original_path.write_text("repair-retry")
+    duplicate_path.write_text("repair-retry")
+    original = ln.Artifact(
+        original_path,
+        key="uploads/retry-original.txt",
+        description="original description",
+    ).save()
+    original.path.unlink()
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/retry-duplicate.txt",
+        description="repaired description",
+    )
+
+    if failure_stage == "cleanup":
+        with (
+            patch(
+                "lamindb.models.save.upload_artifact",
+                side_effect=RuntimeError("simulated upload failure"),
+            ),
+            patch(
+                "lamindb.models.artifact.check_and_attempt_clearing",
+                return_value=RuntimeError("simulated cleanup failure"),
+            ),
+            pytest.raises(RuntimeError, match="simulated upload failure"),
+        ):
+            duplicate.save()
+        assert duplicate._clear_storagekey is not None
+    else:
+        with (
+            patch(
+                "lamindb.models.sqlrecord.SQLRecord.save",
+                side_effect=RuntimeError("simulated database failure"),
+            ),
+            pytest.raises(RuntimeError, match="simulated database failure"),
+        ):
+            duplicate.save()
+
+    assert ln.Artifact.get(id=original.id).description == "original description"
+    duplicate.save()
+    assert duplicate.path.read_text() == "repair-retry"
+    assert ln.Artifact.get(id=original.id).description == "repaired description"
+    duplicate.delete(permanent=True)
 
 
 def test_invalid_suffix_is_empty(tmp_path):

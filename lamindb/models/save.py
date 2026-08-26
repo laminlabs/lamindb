@@ -135,11 +135,14 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 # will switch to True after the successful upload / saving
-                if getattr(record, "_local_filepath", None) is not None and getattr(
-                    record, "_to_store", False
-                ):
+                has_source = (
+                    getattr(record, "_local_filepath", None) is not None
+                    or getattr(record, "_cloud_filepath", None) is not None
+                )
+                if has_source and getattr(record, "_to_store", False):
                     record._storage_ongoing = True
-                record._save_skip_storage(using=using)
+                if not getattr(record, "_is_storage_repair", False):
+                    record._save_skip_storage(using=using)
         store_artifacts(artifacts, using=using)
 
     # this function returns None as potentially 10k records might be saved
@@ -317,9 +320,18 @@ def check_and_attempt_upload(
     **kwargs,
 ) -> Exception | None:
     # kwargs are propagated to .upload_from in the end
-    # if Artifact object is either newly instantiated or replace() was called on
-    # a local env it will have a _local_filepath and needs to be uploaded
-    if getattr(artifact, "_local_filepath", None) is not None:
+    # New artifacts, replacements, and repairs can use either a local or cloud source.
+    local_filepath = getattr(artifact, "_local_filepath", None)
+    cloud_filepath = getattr(artifact, "_cloud_filepath", None)
+    should_upload_cloud_source = cloud_filepath is not None and getattr(
+        artifact, "_to_store", False
+    )
+    if local_filepath is not None or should_upload_cloud_source:
+        is_storage_repair = getattr(artifact, "_is_storage_repair", False)
+        if is_storage_repair:
+            # A stale cleanup key from an earlier failed repair points at the
+            # destination we are about to restore and must not survive a retry.
+            artifact._clear_storagekey = None
         try:
             storage_path, cache_path = upload_artifact(
                 artifact,
@@ -340,7 +352,7 @@ def check_and_attempt_upload(
                 )  # type: ignore
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
-        if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
+        if local_filepath is not None and os.getenv("LAMINDB_MULTI_INSTANCE") is None:
             # this happens only after the actual upload was performed
             # we avoid failing here in case any problems happen in copy_or_move_to_cache
             # because the cache copying or cleanup is not absolutely necessary
@@ -358,7 +370,12 @@ def check_and_attempt_upload(
                     logger.warning(f"A problem with cache on saving: {e}")
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
-        del artifact._local_filepath
+        if is_storage_repair:
+            artifact._storage_repair_upload_succeeded = True
+        if local_filepath is not None:
+            del artifact._local_filepath
+        if cloud_filepath is not None:
+            del artifact._cloud_filepath
     # returning None means proceed (either success or no action needed)
     return None
 
@@ -460,27 +477,57 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
 
     # upload new local artifacts
     for artifact in artifacts:
+        is_storage_repair = getattr(artifact, "_is_storage_repair", False)
         # failure here sets ._clear_storagekey
         # for cleanup below
         exception = check_and_attempt_upload(artifact, using)
         if exception is not None:
+            if is_storage_repair:
+                exception_clear = check_and_attempt_clearing(
+                    artifact, raise_file_not_found_error=False, using=using
+                )
+                if exception_clear is not None:
+                    logger.warning(
+                        f"clean up of {artifact._clear_storagekey} after the repair upload error failed"  # type: ignore
+                    )
             break
 
-        stored_artifacts += [artifact]
+        repair_upload_succeeded = getattr(
+            artifact, "_storage_repair_upload_succeeded", False
+        )
+        if is_storage_repair and not repair_upload_succeeded:
+            exception = RuntimeError(
+                "Cannot retry storage repair without a source path."
+            )
+            break
         # update to show successful saving
         # only update if _storage_ongoing was set to True before
         # this should be a single transaction for the updates of all the artifacts
         # but then it would just abort all artifacts, even those successfully stored before
         # TODO: there should also be some kind of exception handling here
         # but this requires refactoring
-        if artifact._storage_ongoing:
-            artifact._storage_ongoing = False
-            # each .save() is a separate transaction below
-            super(Artifact, artifact).save(using=using)
+        try:
+            if artifact._storage_ongoing or repair_upload_succeeded:
+                artifact._storage_ongoing = False
+                # each .save() is a separate transaction below
+                super(Artifact, artifact).save(using=using)
+            if is_storage_repair:
+                del artifact._is_storage_repair
+                del artifact._storage_repair_upload_succeeded
+                artifact._clear_storagekey = None
+        except Exception as error:
+            exception = error
+            break
+
+        stored_artifacts += [artifact]
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
-        exception = check_and_attempt_clearing(
-            artifact, raise_file_not_found_error=True, using=using
+        exception = (
+            None
+            if is_storage_repair
+            else check_and_attempt_clearing(
+                artifact, raise_file_not_found_error=True, using=using
+            )
         )
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
@@ -491,15 +538,17 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
         with transaction.atomic():
             for artifact in artifacts:
                 if artifact not in stored_artifacts:
-                    artifact._delete_skip_storage(using=using)
-                    # clean up storage after failure in check_and_attempt_upload
-                    exception_clear = check_and_attempt_clearing(
-                        artifact, raise_file_not_found_error=False, using=using
-                    )
-                    if exception_clear is not None:
-                        logger.warning(
-                            f"clean up of {artifact._clear_storagekey} after the upload error failed"  # type: ignore
+                    is_storage_repair = getattr(artifact, "_is_storage_repair", False)
+                    if not is_storage_repair:
+                        artifact._delete_skip_storage(using=using)
+                        # clean up storage after failure in check_and_attempt_upload
+                        exception_clear = check_and_attempt_clearing(
+                            artifact, raise_file_not_found_error=False, using=using
                         )
+                        if exception_clear is not None:
+                            logger.warning(
+                                f"clean up of {artifact._clear_storagekey} after the upload error failed"  # type: ignore
+                            )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback
         # needs to be refactored - also, the orginal error should be raised

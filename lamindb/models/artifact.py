@@ -667,13 +667,21 @@ def get_artifact_kwargs_from_data(
     }
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        storage_object_exists = existing_artifact.path.exists()
+        try:
+            storage_object_exists = existing_artifact.path.exists()
+        except Exception as error:
+            logger.warning(
+                f"could not verify storage for same-hash artifact {existing_artifact.uid}: {error}"
+            )
+            storage_object_exists = None
         storage_is_managed = (
             existing_artifact.storage.instance_uid == setup_settings.instance.uid
         )
         # A record in foreign/read-only storage cannot be repaired by this instance.
         # Ignore that hash match and construct a writable artifact instead.
-        if not storage_object_exists and not storage_is_managed:
+        if storage_object_exists is None or (
+            not storage_object_exists and not storage_is_managed
+        ):
             stat_or_artifact = get_stat_or_artifact(
                 path=path,
                 storage=storage,
@@ -3573,6 +3581,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         has_source_filepath = has_local_filepath or cloud_filepath is not None
         flag_complete = has_source_filepath and getattr(self, "_to_store", False)
         is_storage_repair = getattr(self, "_is_storage_repair", False)
+        repair_upload_succeeded = getattr(
+            self, "_storage_repair_upload_succeeded", False
+        )
+        if (
+            is_storage_repair
+            and not has_source_filepath
+            and not repair_upload_succeeded
+        ):
+            raise RuntimeError("Cannot retry storage repair without a source path.")
         if flag_complete:
             if is_not_artifact_storage_managed_by_current_instance:
                 raise ValueError(
@@ -3603,27 +3620,36 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise_file_not_found_error = False
             if not is_storage_repair:
                 self._delete_skip_storage()
-        else:
+        elif not is_storage_repair:
             # this is the case when it is cleaned on .replace
             raise_file_not_found_error = True
-        # this is triggered by an exception in check_and_attempt_upload or by replace.
-        exception_clear = check_and_attempt_clearing(
-            self,
-            raise_file_not_found_error=raise_file_not_found_error,
-            using=using,
-        )
+        # A successful repair has no stale object to clear: its cleanup key, if
+        # present, names the destination that was just restored.
+        if exception_upload is not None or not is_storage_repair:
+            exception_clear = check_and_attempt_clearing(
+                self,
+                raise_file_not_found_error=raise_file_not_found_error,
+                using=using,
+            )
+        else:
+            exception_clear = None
         if exception_upload is not None:
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
         # the saving / upload process has been successful
-        if flag_complete:
+        repair_upload_succeeded = getattr(
+            self, "_storage_repair_upload_succeeded", False
+        )
+        if flag_complete or repair_upload_succeeded:
             self._storage_ongoing = False
             # pass kwargs below because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
             if is_storage_repair:
                 del self._is_storage_repair
+                del self._storage_repair_upload_succeeded
+                self._clear_storagekey = None
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
