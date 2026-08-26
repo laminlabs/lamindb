@@ -667,19 +667,38 @@ def get_artifact_kwargs_from_data(
     }
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        # if the artifact was unsuccessfully saved, we want to
-        # enable re-uploading after returning the artifact object
-        # the upload is triggered by whether the privates are returned
-        if existing_artifact._storage_ongoing or not existing_artifact.path.exists():
-            privates["key"] = key
-            returned_privates = privates  # upload or repair necessary
-        else:
-            returned_privates = {"key": key}
-        returned_privates["is_artifact_storage_managed_by_current_instance"] = (
+        storage_object_exists = existing_artifact.path.exists()
+        storage_is_managed = (
             existing_artifact.storage.instance_uid == setup_settings.instance.uid
         )
-        return existing_artifact, returned_privates
-    else:
+        # A record in foreign/read-only storage cannot be repaired by this instance.
+        # Ignore that hash match and construct a writable artifact instead.
+        if not storage_object_exists and not storage_is_managed:
+            stat_or_artifact = get_stat_or_artifact(
+                path=path,
+                storage=storage,
+                key=key,
+                instance=using,
+                is_replace=is_replace,
+                skip_hash_lookup=True,
+                skip_key_revises_lookup=skip_key_revises_lookup,
+                target_branch_id=target_branch_id,
+            )
+        else:
+            # if the artifact was unsuccessfully saved, we want to
+            # enable re-uploading after returning the artifact object
+            # the upload is triggered by whether the privates are returned
+            if existing_artifact._storage_ongoing or not storage_object_exists:
+                privates["key"] = key
+                privates["is_storage_repair"] = not storage_object_exists
+                returned_privates = privates  # upload or repair necessary
+            else:
+                returned_privates = {"key": key}
+            returned_privates["is_artifact_storage_managed_by_current_instance"] = (
+                storage_is_managed
+            )
+            return existing_artifact, returned_privates
+    if not isinstance(stat_or_artifact, Artifact):
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
     # update local path
@@ -2013,7 +2032,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self._local_filepath = privates["local_filepath"]
                 self._cloud_filepath = privates["cloud_filepath"]
                 self._memory_rep = privates["memory_rep"]
-                self._to_store = not privates["check_path_in_storage"]
+                is_storage_repair = privates.get("is_storage_repair", False)
+                self._to_store = (
+                    is_storage_repair or not privates["check_path_in_storage"]
+                )
+                if is_storage_repair:
+                    self._is_storage_repair = True
 
                 if (
                     self._to_store
@@ -2037,12 +2061,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if kwargs_or_artifact._key_is_virtual and kwargs_or_artifact.key is None:
                 attr_to_update["key"] = key
             elif self.key != key and key is not None:
-                if not self.path.exists():
-                    logger.warning(f"updating previous key {self.key} to new key {key}")
-                    self.key = key
-                    # Keep tracked state aligned with this internal dedup-time key
-                    # normalization so save() doesn't treat it as a user key edit.
-                    self._original_values["key"] = key
+                is_storage_repair = privates.get("is_storage_repair", False)
+                if is_storage_repair:
+                    # Keep the persisted key and physical storage key. This matches
+                    # healthy hash deduplication and prevents a supplied key from
+                    # overwriting an unrelated storage object.
+                    logger.warning(
+                        f"repairing missing storage object at existing key {self.key}; ignoring passed key {key}"
+                    )
                 else:
                     logger.warning(
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup=True if you want to duplicate the artifact"
@@ -3543,7 +3569,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"Unable to save the artifact because the local path {local_filepath} does not exist."
             )
 
-        flag_complete = has_local_filepath and getattr(self, "_to_store", False)
+        cloud_filepath = getattr(self, "_cloud_filepath", None)
+        has_source_filepath = has_local_filepath or cloud_filepath is not None
+        flag_complete = has_source_filepath and getattr(self, "_to_store", False)
+        is_storage_repair = getattr(self, "_is_storage_repair", False)
         if flag_complete:
             if is_not_artifact_storage_managed_by_current_instance:
                 raise ValueError(
@@ -3552,7 +3581,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
-        self._save_skip_storage(**kwargs)
+        # Existing repair records must remain unchanged until storage succeeds.
+        # A failed repair therefore leaves the persisted metadata intact.
+        if not is_storage_repair:
+            self._save_skip_storage(**kwargs)
 
         using = None
         if "using" in kwargs:
@@ -3569,7 +3601,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # often it is ACID in the filesystem itself
             # for example, s3 won't have the failed file, so just skip the delete in this case
             raise_file_not_found_error = False
-            self._delete_skip_storage()
+            if not is_storage_repair:
+                self._delete_skip_storage()
         else:
             # this is the case when it is cleaned on .replace
             raise_file_not_found_error = True
@@ -3589,6 +3622,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # pass kwargs below because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
+            if is_storage_repair:
+                del self._is_storage_repair
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
@@ -3616,6 +3651,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._external_features
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
+        if hasattr(self, "_cloud_filepath"):
+            del self._cloud_filepath
         return self
 
 

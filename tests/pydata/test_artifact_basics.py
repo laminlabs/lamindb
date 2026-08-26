@@ -540,10 +540,145 @@ def test_existing_hash_repairs_missing_storage_object(tmp_path):
 
     duplicate.save()
     assert duplicate.path.exists()
-    assert duplicate.key == "uploads/duplicate.jpg"
+    assert duplicate.key == "uploads/original.jpg"
     assert duplicate.description == "duplicate description"
 
+    duplicate.description = "description after repair"
+    duplicate.save()
+    assert ln.Artifact.get(id=duplicate.id).description == "description after repair"
+
     duplicate.delete(permanent=True)
+
+
+def test_existing_hash_repair_failure_preserves_record(tmp_path):
+    original_path = tmp_path / "original-failure.jpg"
+    duplicate_path = tmp_path / "duplicate-failure.jpg"
+    original_path.write_bytes(b"repair-failure")
+    duplicate_path.write_bytes(original_path.read_bytes())
+
+    original = ln.Artifact(
+        original_path,
+        key="uploads/original-failure.jpg",
+        description="original description",
+    ).save()
+    original.path.unlink()
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/duplicate-failure.jpg",
+        description="duplicate description",
+    )
+    upload_error = RuntimeError("simulated upload failure")
+    with (
+        patch(
+            "lamindb.models.artifact.check_and_attempt_upload",
+            return_value=upload_error,
+        ),
+        pytest.raises(RuntimeError, match="simulated upload failure"),
+    ):
+        duplicate.save()
+
+    persisted = ln.Artifact.get(id=original.id)
+    assert persisted.key == "uploads/original-failure.jpg"
+    assert persisted.description == "original description"
+    persisted.delete(permanent=True, storage=False)
+
+
+def test_existing_hash_repairs_from_registered_storage(tmp_path):
+    storage_root = tmp_path / "registered-repair-storage"
+    storage_root.mkdir()
+    original_path = storage_root / "physical" / "original.txt"
+    duplicate_path = storage_root / "physical" / "duplicate.txt"
+    original_path.parent.mkdir()
+    original_path.write_text("registered-repair")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+
+    original = ln.Artifact(original_path, key="virtual/original.txt").save()
+    original_real_key = original._real_key
+    original.path.unlink()
+    duplicate_path.write_text("registered-repair")
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="virtual/duplicate.txt",
+        skip_hash_lookup=False,
+    )
+    duplicate.save()
+
+    assert duplicate.id == original.id
+    assert duplicate._real_key == original_real_key
+    assert duplicate.path.read_text() == "registered-repair"
+
+    duplicate.delete(permanent=True, storage=True)
+    duplicate_path.unlink()
+    storage.delete()
+
+
+def test_missing_hash_match_in_foreign_storage_creates_writable_artifact(tmp_path):
+    storage_root = tmp_path / "foreign-repair-storage"
+    storage_root.mkdir()
+    foreign_path = storage_root / "foreign.txt"
+    duplicate_path = tmp_path / "writable.txt"
+    foreign_path.write_text("foreign-repair")
+    duplicate_path.write_text("foreign-repair")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+    foreign_artifact = ln.Artifact(foreign_path).save()
+    foreign_artifact.path.unlink()
+    storage.instance_uid = "foreign-instance"
+    storage.save()
+
+    duplicate = ln.Artifact(duplicate_path, key="uploads/writable.txt")
+
+    assert duplicate._state.adding
+    assert duplicate.storage.instance_uid == lamindb_setup.settings.instance.uid
+    duplicate.save()
+    assert duplicate.path.exists()
+
+    duplicate.delete(permanent=True)
+    foreign_artifact.delete(permanent=True, storage=False)
+    storage.delete()
+
+
+def test_existing_hash_repair_rejects_occupied_target_key(tmp_path):
+    storage_root = tmp_path / "conflict-storage"
+    storage_root.mkdir()
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+    occupied_path = tmp_path / "occupied.txt"
+    original_path = tmp_path / "missing.txt"
+    duplicate_path = tmp_path / "duplicate.txt"
+    occupied_path.write_text("occupied-content")
+    original_path.write_text("repair-content")
+    duplicate_path.write_text("repair-content")
+
+    occupied = ln.Artifact(
+        occupied_path,
+        key="uploads/occupied.txt",
+        key_is_virtual=False,
+        storage=storage,
+    ).save()
+    original = ln.Artifact(
+        original_path,
+        key="uploads/missing.txt",
+        key_is_virtual=False,
+        storage=storage,
+    ).save()
+    original.path.unlink()
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/occupied.txt",
+        key_is_virtual=False,
+        storage=storage,
+    )
+    duplicate.save()
+
+    assert duplicate.id == original.id
+    assert duplicate.key == "uploads/missing.txt"
+    assert duplicate.path.read_text() == "repair-content"
+    assert occupied.path.read_text() == "occupied-content"
+    occupied.delete(permanent=True, storage=True)
+    duplicate.delete(permanent=True, storage=True)
+    storage.delete()
 
 
 def test_invalid_suffix_is_empty(tmp_path):

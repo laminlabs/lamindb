@@ -546,8 +546,11 @@ def upload_artifact(
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
+        source_path = getattr(artifact, "_local_filepath", None)
+        if source_path is None:
+            source_path = artifact._cloud_filepath
         paths.store_file_or_folder(
-            artifact._local_filepath,
+            source_path,
             storage_path,
             print_progress=print_progress,
             **kwargs,
