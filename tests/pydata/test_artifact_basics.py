@@ -537,10 +537,13 @@ def test_existing_hash_repairs_missing_storage_object(tmp_path):
     assert duplicate.id == original.id
     assert duplicate._local_filepath == duplicate_path
 
-    duplicate.save()
+    duplicate.save(update_fields=["description"])
     assert duplicate.path.exists()
     assert duplicate.key == "uploads/original.jpg"
     assert duplicate.description == "duplicate description"
+    persisted = ln.Artifact.get(id=duplicate.id)
+    assert not persisted._storage_ongoing
+    assert persisted._aux is None or "sr" not in persisted._aux
 
     duplicate.description = "description after repair"
     duplicate.save()

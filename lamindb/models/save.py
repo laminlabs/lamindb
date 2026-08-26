@@ -93,6 +93,8 @@ def _save_storage_repair_metadata(
     kwargs = {} if save_kwargs is None else save_kwargs.copy()
     if using is not None:
         kwargs["using"] = using
+    if kwargs.get("update_fields") is not None:
+        kwargs["update_fields"] = set(kwargs["update_fields"]) | {"_aux"}
     previous_run_id = artifact.run_id
     try:
         with transaction.atomic(using=using):
