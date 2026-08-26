@@ -1146,6 +1146,46 @@ def test_save_config_artifact_tracked_as_run_input(
     ln.finish()
 
 
+def test_checkpoint_forwards_key_is_virtual_to_artifact_publisher(
+    instance,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Checkpoint should pass explicit key virtuality to its artifact publisher."""
+
+    class RecordingPublisher:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def create_artifact(self, local_path: Path | str, **kwargs: Any) -> Any:
+            self.calls.append({"local_path": local_path, **kwargs})
+            return MagicMock(path="s3://bucket/config.yaml")
+
+        def storage_uri(self, artifact: Any) -> str:
+            return str(artifact.path)
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("trainer:\n  max_epochs: 1\n", encoding="utf-8")
+    checkpoint = ll.Checkpoint(dirpath=dirpath, key_is_virtual=False)
+    publisher = RecordingPublisher()
+    checkpoint._artifact_publisher = publisher
+    trainer = MagicMock(loggers=[])
+
+    checkpoint.save_config_artifact(trainer, config_path)
+
+    assert publisher.calls == [
+        {
+            "local_path": config_path,
+            "key": f"{dirpath.rstrip('/')}/config.yaml",
+            "description": "Lightning CLI config",
+            "kind": "config",
+            "key_is_virtual": False,
+            "add_as_input_to_run": True,
+            "skip_hash_lookup": True,
+        }
+    ]
+
+
 def test_checkpoint_subclass_receives_artifact_events(
     dataloader: DataLoader,
     dirpath: str,

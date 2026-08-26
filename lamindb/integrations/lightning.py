@@ -139,6 +139,7 @@ class ArtifactPublisher(Protocol):
         key: str,
         description: str,
         kind: str | None = None,
+        key_is_virtual: bool | None = None,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> Any: ...
@@ -161,10 +162,13 @@ class LaminArtifactPublisher:
         key: str,
         description: str,
         kind: str | None = None,
+        key_is_virtual: bool | None = None,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> ln.Artifact:
         artifact_kwargs: dict[str, Any] = {"key": key, "description": description}
+        if key_is_virtual is not None:
+            artifact_kwargs["key_is_virtual"] = key_is_virtual
         if kind is not None:
             artifact_kwargs["kind"] = kind
         if add_as_input_to_run:
@@ -825,6 +829,10 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             logger case the logger's auto-incremented version is replaced;
             for the dirpath and no-logger cases the run UID is appended as
             an extra path segment. Prevents cross-run key collisions.
+        key_is_virtual: Whether Lamin should treat checkpoint-related artifact
+            keys as virtual keys. Pass `False` to store artifacts directly under
+            the provided key in the configured storage. The default `None`
+            preserves Lamin's artifact construction default.
         artifact_observers: Optional observer objects notified when checkpoint,
             config, or hparams artifacts are saved or when checkpoint files are
             removed locally. Observers follow :class:`ArtifactObserver` and
@@ -898,6 +906,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
         run_uid_is_version: bool = True,
+        key_is_virtual: bool | None = None,
         artifact_observers: list[ArtifactObserver] | None = None,
     ) -> None:
         self._original_dirpath = dirpath
@@ -920,6 +929,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._feature_annotator = FeatureAnnotator(features)
         self._hparams_yaml_saved = False
         self._run_uid_is_version = run_uid_is_version
+        self._key_is_virtual = key_is_virtual
         self._trainer: pl.Trainer | None = None
         self._artifact_publisher: ArtifactPublisher = LaminArtifactPublisher()
 
@@ -1040,6 +1050,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             key=key,
             description=description,
             kind=kind,
+            key_is_virtual=self._key_is_virtual,
             add_as_input_to_run=add_as_input_to_run,
             skip_hash_lookup=skip_hash_lookup,
         )
