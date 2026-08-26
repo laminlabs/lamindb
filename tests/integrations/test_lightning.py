@@ -1166,7 +1166,7 @@ def test_checkpoint_forwards_key_is_virtual_to_artifact_publisher(
 
     config_path = tmp_path / "config.yaml"
     config_path.write_text("trainer:\n  max_epochs: 1\n", encoding="utf-8")
-    checkpoint = ll.Checkpoint(dirpath=dirpath, key_is_virtual=False)
+    checkpoint = ll.Checkpoint(dirpath=dirpath, key_is_virtual=True)
     publisher = RecordingPublisher()
     checkpoint._artifact_publisher = publisher
     trainer = MagicMock(loggers=[])
@@ -1179,7 +1179,7 @@ def test_checkpoint_forwards_key_is_virtual_to_artifact_publisher(
             "key": f"{dirpath.rstrip('/')}/config.yaml",
             "description": "Lightning CLI config",
             "kind": "config",
-            "key_is_virtual": False,
+            "key_is_virtual": True,
             "add_as_input_to_run": True,
             "skip_hash_lookup": True,
         }

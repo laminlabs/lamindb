@@ -139,7 +139,7 @@ class ArtifactPublisher(Protocol):
         key: str,
         description: str,
         kind: str | None = None,
-        key_is_virtual: bool | None = None,
+        key_is_virtual: bool = False,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> Any: ...
@@ -162,13 +162,15 @@ class LaminArtifactPublisher:
         key: str,
         description: str,
         kind: str | None = None,
-        key_is_virtual: bool | None = None,
+        key_is_virtual: bool = False,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> ln.Artifact:
-        artifact_kwargs: dict[str, Any] = {"key": key, "description": description}
-        if key_is_virtual is not None:
-            artifact_kwargs["key_is_virtual"] = key_is_virtual
+        artifact_kwargs: dict[str, Any] = {
+            "key": key,
+            "description": description,
+            "key_is_virtual": key_is_virtual,
+        }
         if kind is not None:
             artifact_kwargs["kind"] = kind
         if add_as_input_to_run:
