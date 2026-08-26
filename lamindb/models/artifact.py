@@ -82,8 +82,8 @@ from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
 from .save import (
-    _finish_storage_repair,
     _mark_storage_repair_ongoing,
+    _save_storage_repair_metadata,
     check_and_attempt_clearing,
     check_and_attempt_upload,
 )
@@ -685,12 +685,15 @@ def get_artifact_kwargs_from_data(
         requires_storage_write = (
             existing_artifact._storage_ongoing or not storage_object_exists
         )
+        persisted_storage_repair = (
+            existing_artifact._aux is not None and existing_artifact._aux.get("sr") == 1
+        )
         # A record in foreign/read-only storage cannot be repaired by this instance.
         # Ignore that hash match and construct a writable artifact instead.
         local_repair_source = local_filepath is not None
         if (
             storage_object_exists is None
-            or (not storage_object_exists and not storage_is_managed)
+            or (requires_storage_write and not storage_is_managed)
             or (requires_storage_write and not local_repair_source)
         ):
             stat_or_artifact = get_stat_or_artifact(
@@ -709,7 +712,9 @@ def get_artifact_kwargs_from_data(
             # the upload is triggered by whether the privates are returned
             if existing_artifact._storage_ongoing or not storage_object_exists:
                 privates["key"] = key
-                privates["is_storage_repair"] = not storage_object_exists
+                privates["is_storage_repair"] = (
+                    not storage_object_exists or persisted_storage_repair
+                )
                 returned_privates = privates  # upload or repair necessary
             else:
                 returned_privates = {"key": key}
@@ -3658,12 +3663,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self, "_storage_repair_upload_succeeded", False
         )
         if flag_complete or repair_upload_succeeded:
-            self._storage_ongoing = False
-            # pass kwargs below because it can contain `using` or other things
-            # affecting the connection
-            super().save(**kwargs)
             if is_storage_repair:
-                _finish_storage_repair(self, using=using)
+                _save_storage_repair_metadata(
+                    self,
+                    using=using,
+                    save_kwargs=kwargs,
+                )
+            else:
+                self._storage_ongoing = False
+                # pass kwargs below because it can contain `using` or other things
+                # affecting the connection
+                super().save(**kwargs)
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:

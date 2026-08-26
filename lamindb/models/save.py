@@ -43,12 +43,22 @@ def _prepare_cross_instance_create(record: SQLRecord, using: str | None) -> None
 def _mark_storage_repair_ongoing(artifact: Artifact, using: str | None = None) -> None:
     """Persist only the repair marker before touching storage."""
     artifact._storage_ongoing = True
+    artifact._aux["sr"] = 1
     manager = artifact.__class__.objects
     if using is not None:
         manager = manager.using(using)
     updated = manager.filter(pk=artifact.pk).update(_aux=artifact._aux)
     if updated != 1:
         raise RuntimeError("Could not mark artifact storage repair as ongoing.")
+
+
+def _prepare_storage_repair_metadata_save(artifact: Artifact) -> None:
+    """Clear repair markers in the metadata written after upload."""
+    artifact._storage_ongoing = False
+    if artifact._aux is not None:
+        artifact._aux.pop("sr", None)
+        if not artifact._aux:
+            artifact._aux = None
 
 
 def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None:
@@ -58,11 +68,10 @@ def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None
 
     pending_run = getattr(artifact, "_storage_repair_run", None)
     if pending_run is not None:
-        with transaction.atomic(using=using):
-            previous_run_id = artifact.run_id
-            populate_recreating_run(artifact, pending_run)
-            if artifact.run_id != previous_run_id:
-                super(Artifact, artifact).save(update_fields=["run"], using=using)
+        previous_run_id = artifact.run_id
+        populate_recreating_run(artifact, pending_run)
+        if artifact.run_id != previous_run_id:
+            super(Artifact, artifact).save(update_fields=["run"], using=using)
     for attribute in (
         "_is_storage_repair",
         "_storage_repair_upload_succeeded",
@@ -71,6 +80,32 @@ def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None
         if hasattr(artifact, attribute):
             delattr(artifact, attribute)
     artifact._clear_storagekey = None
+
+
+def _save_storage_repair_metadata(
+    artifact: Artifact,
+    using: str | None = None,
+    save_kwargs: dict | None = None,
+) -> None:
+    """Atomically persist repaired metadata, markers, and deferred lineage."""
+    from .artifact import Artifact
+
+    kwargs = {} if save_kwargs is None else save_kwargs.copy()
+    if using is not None:
+        kwargs["using"] = using
+    previous_run_id = artifact.run_id
+    try:
+        with transaction.atomic(using=using):
+            _prepare_storage_repair_metadata_save(artifact)
+            super(Artifact, artifact).save(**kwargs)
+            _finish_storage_repair(artifact, using=using)
+    except Exception:
+        # The database transaction rolled back; keep the in-memory object retryable
+        # and aligned with the persisted repair markers.
+        artifact.run_id = previous_run_id
+        artifact._storage_ongoing = True
+        artifact._aux["sr"] = 1
+        raise
 
 
 def save(
@@ -162,6 +197,11 @@ def save(
             bulk_set_features_in_records(records_with_lazy_features, using=using)
 
     if artifacts:
+        new_artifact_object_ids = {
+            id(record)
+            for record in artifacts
+            if record._state.adding or record.pk is None
+        }
         for record in artifacts:
             _prepare_cross_instance_create(record, using)
         _ensure_using_connection(Artifact, using)
@@ -176,7 +216,11 @@ def save(
                         record._storage_ongoing = True
                 if not getattr(record, "_is_storage_repair", False):
                     record._save_skip_storage(using=using)
-        store_artifacts(artifacts, using=using)
+        store_artifacts(
+            artifacts,
+            using=using,
+            new_artifact_object_ids=new_artifact_object_ids,
+        )
 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
@@ -491,7 +535,11 @@ def check_and_attempt_clearing(
     return None
 
 
-def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> None:
+def store_artifacts(
+    artifacts: Iterable[Artifact],
+    using: str | None = None,
+    new_artifact_object_ids: set[int] | None = None,
+) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
@@ -535,11 +583,12 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
         # but this requires refactoring
         try:
             if artifact._storage_ongoing or repair_upload_succeeded:
-                artifact._storage_ongoing = False
-                # each .save() is a separate transaction below
-                super(Artifact, artifact).save(using=using)
-            if is_storage_repair:
-                _finish_storage_repair(artifact, using=using)
+                if is_storage_repair:
+                    _save_storage_repair_metadata(artifact, using=using)
+                else:
+                    artifact._storage_ongoing = False
+                    # each .save() is a separate transaction below
+                    super(Artifact, artifact).save(using=using)
         except Exception as error:
             exception = error
             break
@@ -564,7 +613,11 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
             for artifact in artifacts:
                 if artifact not in stored_artifacts:
                     is_storage_repair = getattr(artifact, "_is_storage_repair", False)
-                    if not is_storage_repair:
+                    was_new = (
+                        new_artifact_object_ids is None
+                        or id(artifact) in new_artifact_object_ids
+                    )
+                    if not is_storage_repair and was_new:
                         artifact._delete_skip_storage(using=using)
                         # clean up storage after failure in check_and_attempt_upload
                         exception_clear = check_and_attempt_clearing(

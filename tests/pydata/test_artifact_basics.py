@@ -568,6 +568,11 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
         key="uploads/duplicate-failure.jpg",
         description="duplicate description",
     )
+    healthy = None
+    if save_mode == "bulk":
+        healthy_path = tmp_path / "healthy-existing.txt"
+        healthy_path.write_text("healthy-existing")
+        healthy = ln.Artifact(healthy_path, key="uploads/healthy-existing.txt").save()
     upload_error = RuntimeError("simulated upload failure")
     upload_patch = (
         patch(
@@ -584,12 +589,16 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
         if save_mode == "single":
             duplicate.save()
         else:
-            ln.save([duplicate])
+            ln.save([duplicate, healthy])
 
     persisted = ln.Artifact.get(id=original.id)
     assert persisted.key == "uploads/original-failure.jpg"
     assert persisted.description == "original description"
     assert persisted._storage_ongoing
+    assert persisted._aux["sr"] == 1
+    if healthy is not None:
+        assert ln.Artifact.filter(id=healthy.id).exists()
+        healthy.delete(permanent=True)
     persisted.delete(permanent=True, storage=False)
 
 
@@ -771,6 +780,25 @@ def test_existing_hash_repair_retry(tmp_path, failure_stage):
         ):
             duplicate.save()
         assert duplicate._clear_storagekey is not None
+        interrupted = ln.Artifact.get(id=original.id)
+        assert interrupted._storage_ongoing
+        assert interrupted._aux["sr"] == 1
+        interrupted.path.write_text("partial-repair")
+        duplicate = ln.Artifact(
+            duplicate_path,
+            key="uploads/retry-duplicate.txt",
+            description="repaired description",
+        )
+        assert duplicate._is_storage_repair
+        with (
+            patch(
+                "lamindb.models.artifact.check_and_attempt_upload",
+                return_value=RuntimeError("simulated retry failure"),
+            ),
+            pytest.raises(RuntimeError, match="simulated retry failure"),
+        ):
+            duplicate.save()
+        assert ln.Artifact.filter(id=original.id).exists()
     else:
         with (
             patch(
@@ -786,6 +814,28 @@ def test_existing_hash_repair_retry(tmp_path, failure_stage):
     assert duplicate.path.read_text() == "repair-retry"
     assert ln.Artifact.get(id=original.id).description == "repaired description"
     duplicate.delete(permanent=True)
+
+
+def test_ongoing_foreign_artifact_uses_writable_fallback(tmp_path):
+    storage_root = tmp_path / "foreign-ongoing-storage"
+    storage_root.mkdir()
+    foreign_path = storage_root / "foreign-ongoing.txt"
+    duplicate_path = tmp_path / "writable-ongoing.txt"
+    foreign_path.write_text("foreign-ongoing")
+    duplicate_path.write_text("foreign-ongoing")
+    storage = ln.Storage(root=storage_root.resolve().as_posix(), type="local").save()
+    foreign_artifact = ln.Artifact(foreign_path).save()
+    foreign_artifact._storage_ongoing = True
+    foreign_artifact._save_skip_storage()
+    storage.instance_uid = "foreign-instance"
+    storage.save()
+
+    duplicate = ln.Artifact(duplicate_path, key="uploads/writable-ongoing.txt")
+
+    assert duplicate._state.adding
+    assert duplicate.storage.instance_uid == lamindb_setup.settings.instance.uid
+    foreign_artifact.delete(permanent=True, storage=False)
+    storage.delete()
 
 
 def test_existing_hash_repair_defers_recreating_run(tmp_path):
@@ -820,6 +870,24 @@ def test_existing_hash_repair_defers_recreating_run(tmp_path):
         duplicate.save()
 
     assert repair_run not in duplicate.recreating_runs.all()
+
+    def add_lineage_then_fail(artifact, run):
+        artifact.recreating_runs.add(run)
+        raise RuntimeError("simulated lineage failure")
+
+    with (
+        patch(
+            "lamindb.models._lineage.populate_recreating_run",
+            side_effect=add_lineage_then_fail,
+        ),
+        pytest.raises(RuntimeError, match="simulated lineage failure"),
+    ):
+        duplicate.save()
+
+    persisted = ln.Artifact.get(id=original.id)
+    assert persisted._storage_ongoing
+    assert persisted._aux["sr"] == 1
+    assert repair_run not in persisted.recreating_runs.all()
     duplicate.save()
     assert repair_run in duplicate.recreating_runs.all()
 
