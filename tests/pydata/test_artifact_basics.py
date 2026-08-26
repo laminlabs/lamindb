@@ -515,8 +515,7 @@ def test_existing_hash_keeps_completed_storage_object(tmp_path):
     duplicate.delete(permanent=True)
 
 
-@pytest.mark.parametrize("source_kind", ["local", "cloud"])
-def test_existing_hash_repairs_missing_storage_object(tmp_path, source_kind):
+def test_existing_hash_repairs_missing_storage_object(tmp_path):
     original_path = tmp_path / "original.jpg"
     duplicate_path = tmp_path / "duplicate.jpg"
     original_path.write_bytes(b"same-content")
@@ -534,16 +533,9 @@ def test_existing_hash_repairs_missing_storage_object(tmp_path, source_kind):
         key="uploads/duplicate.jpg",
         description="duplicate description",
     )
-    if source_kind == "cloud":
-        duplicate._cloud_filepath = UPath(duplicate._local_filepath)
-        del duplicate._local_filepath
-
     assert not duplicate._state.adding
     assert duplicate.id == original.id
-    if source_kind == "local":
-        assert duplicate._local_filepath == duplicate_path
-    else:
-        assert duplicate._cloud_filepath == UPath(duplicate_path)
+    assert duplicate._local_filepath == duplicate_path
 
     duplicate.save()
     assert duplicate.path.exists()
@@ -597,6 +589,7 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
     persisted = ln.Artifact.get(id=original.id)
     assert persisted.key == "uploads/original-failure.jpg"
     assert persisted.description == "original description"
+    assert persisted._storage_ongoing
     persisted.delete(permanent=True, storage=False)
 
 
@@ -793,6 +786,47 @@ def test_existing_hash_repair_retry(tmp_path, failure_stage):
     assert duplicate.path.read_text() == "repair-retry"
     assert ln.Artifact.get(id=original.id).description == "repaired description"
     duplicate.delete(permanent=True)
+
+
+def test_existing_hash_repair_defers_recreating_run(tmp_path):
+    original_path = tmp_path / "lineage-original.txt"
+    duplicate_path = tmp_path / "lineage-duplicate.txt"
+    original_path.write_text("lineage-repair")
+    duplicate_path.write_text("lineage-repair")
+    transform = ln.Transform(key="artifact repair lineage").save()
+    original_run = ln.Run(transform).save()
+    repair_run = ln.Run(transform).save()
+    original = ln.Artifact(
+        original_path,
+        key="uploads/lineage-original.txt",
+        run=original_run,
+    ).save()
+    original.path.unlink()
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/lineage-duplicate.txt",
+        run=repair_run,
+    )
+    assert repair_run not in duplicate.recreating_runs.all()
+
+    with (
+        patch(
+            "lamindb.models.artifact.check_and_attempt_upload",
+            return_value=RuntimeError("simulated upload failure"),
+        ),
+        pytest.raises(RuntimeError, match="simulated upload failure"),
+    ):
+        duplicate.save()
+
+    assert repair_run not in duplicate.recreating_runs.all()
+    duplicate.save()
+    assert repair_run in duplicate.recreating_runs.all()
+
+    duplicate.delete(permanent=True)
+    repair_run.delete(permanent=True)
+    original_run.delete(permanent=True)
+    transform.delete(permanent=True)
 
 
 def test_invalid_suffix_is_empty(tmp_path):

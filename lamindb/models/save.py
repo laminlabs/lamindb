@@ -40,6 +40,39 @@ def _prepare_cross_instance_create(record: SQLRecord, using: str | None) -> None
         record.run_id = None
 
 
+def _mark_storage_repair_ongoing(artifact: Artifact, using: str | None = None) -> None:
+    """Persist only the repair marker before touching storage."""
+    artifact._storage_ongoing = True
+    manager = artifact.__class__.objects
+    if using is not None:
+        manager = manager.using(using)
+    updated = manager.filter(pk=artifact.pk).update(_aux=artifact._aux)
+    if updated != 1:
+        raise RuntimeError("Could not mark artifact storage repair as ongoing.")
+
+
+def _finish_storage_repair(artifact: Artifact, using: str | None = None) -> None:
+    """Finalize deferred lineage and clear private repair state."""
+    from ._lineage import populate_recreating_run
+    from .artifact import Artifact
+
+    pending_run = getattr(artifact, "_storage_repair_run", None)
+    if pending_run is not None:
+        with transaction.atomic(using=using):
+            previous_run_id = artifact.run_id
+            populate_recreating_run(artifact, pending_run)
+            if artifact.run_id != previous_run_id:
+                super(Artifact, artifact).save(update_fields=["run"], using=using)
+    for attribute in (
+        "_is_storage_repair",
+        "_storage_repair_upload_succeeded",
+        "_storage_repair_run",
+    ):
+        if hasattr(artifact, attribute):
+            delattr(artifact, attribute)
+    artifact._clear_storagekey = None
+
+
 def save(
     records: Iterable[SQLRecord],
     ignore_conflicts: bool | None = False,
@@ -135,12 +168,12 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 # will switch to True after the successful upload / saving
-                has_source = (
-                    getattr(record, "_local_filepath", None) is not None
-                    or getattr(record, "_cloud_filepath", None) is not None
-                )
+                has_source = getattr(record, "_local_filepath", None) is not None
                 if has_source and getattr(record, "_to_store", False):
-                    record._storage_ongoing = True
+                    if getattr(record, "_is_storage_repair", False):
+                        _mark_storage_repair_ongoing(record, using=using)
+                    else:
+                        record._storage_ongoing = True
                 if not getattr(record, "_is_storage_repair", False):
                     record._save_skip_storage(using=using)
         store_artifacts(artifacts, using=using)
@@ -320,13 +353,9 @@ def check_and_attempt_upload(
     **kwargs,
 ) -> Exception | None:
     # kwargs are propagated to .upload_from in the end
-    # New artifacts, replacements, and repairs can use either a local or cloud source.
+    # New artifacts, replacements, and repairs upload from local sources.
     local_filepath = getattr(artifact, "_local_filepath", None)
-    cloud_filepath = getattr(artifact, "_cloud_filepath", None)
-    should_upload_cloud_source = cloud_filepath is not None and getattr(
-        artifact, "_to_store", False
-    )
-    if local_filepath is not None or should_upload_cloud_source:
+    if local_filepath is not None:
         is_storage_repair = getattr(artifact, "_is_storage_repair", False)
         if is_storage_repair:
             # A stale cleanup key from an earlier failed repair points at the
@@ -374,8 +403,6 @@ def check_and_attempt_upload(
             artifact._storage_repair_upload_succeeded = True
         if local_filepath is not None:
             del artifact._local_filepath
-        if cloud_filepath is not None:
-            del artifact._cloud_filepath
     # returning None means proceed (either success or no action needed)
     return None
 
@@ -512,9 +539,7 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
                 # each .save() is a separate transaction below
                 super(Artifact, artifact).save(using=using)
             if is_storage_repair:
-                del artifact._is_storage_repair
-                del artifact._storage_repair_upload_succeeded
-                artifact._clear_storagekey = None
+                _finish_storage_repair(artifact, using=using)
         except Exception as error:
             exception = error
             break
@@ -595,11 +620,8 @@ def upload_artifact(
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
-        source_path = getattr(artifact, "_local_filepath", None)
-        if source_path is None:
-            source_path = artifact._cloud_filepath
         paths.store_file_or_folder(
-            source_path,
+            artifact._local_filepath,
             storage_path,
             print_progress=print_progress,
             **kwargs,

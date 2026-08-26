@@ -81,7 +81,12 @@ from .feature import Feature, JsonValue
 from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
-from .save import check_and_attempt_clearing, check_and_attempt_upload
+from .save import (
+    _finish_storage_repair,
+    _mark_storage_repair_ongoing,
+    check_and_attempt_clearing,
+    check_and_attempt_upload,
+)
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -677,10 +682,16 @@ def get_artifact_kwargs_from_data(
         storage_is_managed = (
             existing_artifact.storage.instance_uid == setup_settings.instance.uid
         )
+        requires_storage_write = (
+            existing_artifact._storage_ongoing or not storage_object_exists
+        )
         # A record in foreign/read-only storage cannot be repaired by this instance.
         # Ignore that hash match and construct a writable artifact instead.
-        if storage_object_exists is None or (
-            not storage_object_exists and not storage_is_managed
+        local_repair_source = local_filepath is not None
+        if (
+            storage_object_exists is None
+            or (not storage_object_exists and not storage_is_managed)
+            or (requires_storage_write and not local_repair_source)
         ):
             stat_or_artifact = get_stat_or_artifact(
                 path=path,
@@ -2085,7 +2096,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # an existing artifact might have an imcomplete upload and hence we should
             # re-populate _local_filepath because this is what triggers the upload
             set_private_attributes()
-            populate_recreating_run(self, run)
+            if privates.get("is_storage_repair", False):
+                self._storage_repair_run = run
+            else:
+                populate_recreating_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -3577,8 +3591,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"Unable to save the artifact because the local path {local_filepath} does not exist."
             )
 
-        cloud_filepath = getattr(self, "_cloud_filepath", None)
-        has_source_filepath = has_local_filepath or cloud_filepath is not None
+        has_source_filepath = has_local_filepath
         flag_complete = has_source_filepath and getattr(self, "_to_store", False)
         is_storage_repair = getattr(self, "_is_storage_repair", False)
         repair_upload_succeeded = getattr(
@@ -3596,7 +3609,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     "Cannot save an artifact to a storage location that is not managed by the current instance."
                 )
             # _storage_ongoing indicates whether the storage saving / upload process is ongoing
-            self._storage_ongoing = True  # will be updated to False once complete
+            if is_storage_repair:
+                _mark_storage_repair_ongoing(self, using=kwargs.get("using"))
+            else:
+                self._storage_ongoing = True  # will be updated to False once complete
 
         # Existing repair records must remain unchanged until storage succeeds.
         # A failed repair therefore leaves the persisted metadata intact.
@@ -3647,9 +3663,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # affecting the connection
             super().save(**kwargs)
             if is_storage_repair:
-                del self._is_storage_repair
-                del self._storage_repair_upload_succeeded
-                self._clear_storagekey = None
+                _finish_storage_repair(self, using=using)
 
         # this is only for keep_artifacts_local
         if local_path is not None and not state_was_adding:
@@ -3677,8 +3691,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._external_features
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
-        if hasattr(self, "_cloud_filepath"):
-            del self._cloud_filepath
         return self
 
 
