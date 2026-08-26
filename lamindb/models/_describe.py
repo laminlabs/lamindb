@@ -4,6 +4,7 @@ import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Literal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
 from django.db.models import Q
 from lamin_utils import colors, logger
@@ -178,7 +179,12 @@ def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> N
             fk_data["run"]["transform_key"],
         )
     elif record.run_id is not None:
-        run, transform_key = record.run, record.run.transform.key
+        try:
+            run = record.run
+            transform_key = run.transform.key
+        except ObjectDoesNotExist:
+            # run or transform are in an unavailable space
+            run, transform_key = None, None
     else:
         run, transform_key = None, None
     text_uid = Text.assemble(("uid: ", "dim"), f"{record.uid}")
