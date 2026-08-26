@@ -173,7 +173,15 @@ def format_bytes(bytes_value):
 
 
 def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> None:
-    if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
+    if (
+        fk_data
+        and "run" in fk_data
+        and fk_data["run"]
+        and fk_data["run"]["id"]
+        and "name" in fk_data["run"]
+        and "uid" in fk_data["run"]
+        and "transform_key" in fk_data["run"]
+    ):
         run, transform_key = (
             SimpleNamespace(**fk_data["run"]),
             fk_data["run"]["transform_key"],
