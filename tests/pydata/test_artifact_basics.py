@@ -484,6 +484,68 @@ def test_upload_checks_hash_by_default(tmp_path):
     artifact_1.delete(permanent=True)
 
 
+def test_existing_hash_keeps_completed_storage_object(tmp_path):
+    original_path = tmp_path / "original.jpg"
+    duplicate_path = tmp_path / "duplicate.jpg"
+    original_path.write_bytes(b"same-content")
+    duplicate_path.write_bytes(original_path.read_bytes())
+
+    original = ln.Artifact(
+        original_path,
+        key="uploads/original.jpg",
+        description="original description",
+    ).save()
+    original_artifact_path = original.path
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/duplicate.jpg",
+        description="duplicate description",
+    )
+
+    assert not duplicate._state.adding
+    assert duplicate.id == original.id
+    assert duplicate.key == "uploads/original.jpg"
+    assert not hasattr(duplicate, "_local_filepath")
+
+    duplicate.save()
+    assert duplicate.path == original_artifact_path
+    assert duplicate.description == "duplicate description"
+
+    duplicate.delete(permanent=True)
+
+
+def test_existing_hash_repairs_missing_storage_object(tmp_path):
+    original_path = tmp_path / "original.jpg"
+    duplicate_path = tmp_path / "duplicate.jpg"
+    original_path.write_bytes(b"same-content")
+    duplicate_path.write_bytes(original_path.read_bytes())
+
+    original = ln.Artifact(
+        original_path,
+        key="uploads/original.jpg",
+        description="original description",
+    ).save()
+    original.path.unlink()
+
+    duplicate = ln.Artifact(
+        duplicate_path,
+        key="uploads/duplicate.jpg",
+        description="duplicate description",
+    )
+
+    assert not duplicate._state.adding
+    assert duplicate.id == original.id
+    assert duplicate._local_filepath == duplicate_path
+
+    duplicate.save()
+    assert duplicate.path.exists()
+    assert duplicate.key == "uploads/duplicate.jpg"
+    assert duplicate.description == "duplicate description"
+
+    duplicate.delete(permanent=True)
+
+
 def test_invalid_suffix_is_empty(tmp_path):
     filepath = tmp_path / "test.xyz"
     filepath.write_text("test-content")
