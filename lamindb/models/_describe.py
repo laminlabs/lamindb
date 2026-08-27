@@ -4,6 +4,7 @@ import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Literal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
 from django.db.models import Q
 from lamin_utils import colors, logger
@@ -172,13 +173,28 @@ def format_bytes(bytes_value):
 
 
 def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> None:
-    if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
+    if (
+        fk_data
+        and "run" in fk_data
+        and (fk_data_run := fk_data["run"])
+        and fk_data_run["id"]
+        and "name" in fk_data_run
+        and "uid" in fk_data_run
+        and (fk_data_run["name"] is not None or fk_data_run["uid"] is not None)
+        and "transform_key" in fk_data_run
+        and (fk_data_run_transform_key := fk_data_run["transform_key"]) is not None
+    ):
         run, transform_key = (
-            SimpleNamespace(**fk_data["run"]),
-            fk_data["run"]["transform_key"],
+            SimpleNamespace(**fk_data_run),
+            fk_data_run_transform_key,
         )
     elif record.run_id is not None:
-        run, transform_key = record.run, record.run.transform.key
+        try:
+            run = record.run
+            transform_key = run.transform.key
+        except ObjectDoesNotExist:
+            # run or transform are in an unavailable space
+            run, transform_key = None, None
     else:
         run, transform_key = None, None
     text_uid = Text.assemble(("uid: ", "dim"), f"{record.uid}")
