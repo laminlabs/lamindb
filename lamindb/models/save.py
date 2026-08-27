@@ -205,11 +205,12 @@ def save(
             bulk_set_features_in_records(records_with_lazy_features, using=using)
 
     if artifacts:
-        new_artifact_object_ids = {
-            id(record)
+        candidate_new_artifact_uids = {
+            id(record): record.uid
             for record in artifacts
             if record._state.adding or record.pk is None
         }
+        new_artifact_object_ids = set()
         for record in artifacts:
             _prepare_cross_instance_create(record, using)
         _ensure_using_connection(Artifact, using)
@@ -224,6 +225,9 @@ def save(
                         record._storage_ongoing = True
                 if not getattr(record, "_is_storage_repair", False):
                     record._save_skip_storage(using=using)
+                    candidate_uid = candidate_new_artifact_uids.get(id(record))
+                    if candidate_uid is not None and record.uid == candidate_uid:
+                        new_artifact_object_ids.add(id(record))
         store_artifacts(
             artifacts,
             using=using,

@@ -572,10 +572,17 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
         description="duplicate description",
     )
     healthy = None
+    collision = None
     if save_mode == "bulk":
         healthy_path = tmp_path / "healthy-existing.txt"
         healthy_path.write_text("healthy-existing")
         healthy = ln.Artifact(healthy_path, key="uploads/healthy-existing.txt").save()
+        collision = ln.Artifact(
+            healthy_path,
+            key="uploads/healthy-existing.txt",
+            skip_hash_lookup=True,
+        )
+        assert collision._state.adding
     upload_error = RuntimeError("simulated upload failure")
     upload_patch = (
         patch(
@@ -592,7 +599,7 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
         if save_mode == "single":
             duplicate.save()
         else:
-            ln.save([duplicate, healthy])
+            ln.save([duplicate, collision])
 
     persisted = ln.Artifact.get(id=original.id)
     assert persisted.key == "uploads/original-failure.jpg"
@@ -600,6 +607,7 @@ def test_existing_hash_repair_failure_preserves_record(tmp_path, save_mode):
     assert persisted._storage_ongoing
     assert persisted._aux["sr"] == 1
     if healthy is not None:
+        assert collision.id == healthy.id
         assert ln.Artifact.filter(id=healthy.id).exists()
         healthy.delete(permanent=True)
     persisted.delete(permanent=True, storage=False)
@@ -811,6 +819,8 @@ def test_existing_hash_repair_retry(tmp_path, failure_stage):
             pytest.raises(RuntimeError, match="simulated database failure"),
         ):
             duplicate.save()
+        assert duplicate._is_storage_repair
+        assert duplicate._storage_repair_upload_succeeded
 
     assert ln.Artifact.get(id=original.id).description == "original description"
     duplicate.save()
