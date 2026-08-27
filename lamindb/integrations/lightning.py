@@ -968,7 +968,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if self._original_dirpath is not None:
             prefix = str(self._original_dirpath).rstrip("/")
             return f"{prefix}/{run_uid}" if run_uid else prefix
-        if len(trainer.loggers) > 0:
+        if LoggerInfo(trainer).first_logger is not None:
             return self._logger_prefix(trainer, run_uid)
         return run_uid or ""
 
@@ -980,16 +980,17 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _logger_prefix(self, trainer: pl.Trainer, run_uid: str | None) -> str:
         """Derive a key prefix from the trainer's first logger."""
-        assert trainer.loggers, "_logger_prefix requires at least one logger"
-        logger = trainer.loggers[0]
-        save_dir = logger.save_dir or trainer.default_root_dir
-        name = str(logger.name).rstrip("/")
-        if run_uid:
-            version = run_uid
-        else:
-            version = logger.version
-            version = version if isinstance(version, str) else f"version_{version}"
-        return f"{Path(save_dir).name}/{name}/{version.rstrip('/')}"
+        logger_info = LoggerInfo(trainer)
+        assert logger_info.first_logger is not None, (
+            "_logger_prefix requires at least one logger"
+        )
+        assert logger_info.save_dir is not None
+        assert logger_info.name is not None
+        assert logger_info.version is not None
+        save_dir = logger_info.save_dir
+        name = logger_info.name
+        version = run_uid or logger_info.version
+        return f"{save_dir.name}/{name}/{version}"
 
     @property
     def base_prefix(self) -> str:
@@ -1158,11 +1159,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if self._hparams_yaml_saved:
             return
 
-        log_dir = trainer.log_dir
-        if not log_dir:
-            return
-
-        hparams_path = Path(log_dir) / "hparams.yaml"
+        log_dir = LoggerInfo(trainer).trainer_log_dir_without_broadcast
+        hparams_path = log_dir / "hparams.yaml"
         if not hparams_path.exists():
             return
 
@@ -1303,17 +1301,9 @@ class SaveConfigCallback(_SaveConfigCallback):
         This method always uses `logger.save_dir` + `name` + `version`,
         giving a consistent directory layout regardless of logger type.
         """
-        if len(trainer.loggers) > 0:
-            first = trainer.loggers[0]
-            save_dir = (
-                first.save_dir
-                if first.save_dir is not None
-                else trainer.default_root_dir
-            )
-            name = first.name
-            version = first.version
-            version = version if isinstance(version, str) else f"version_{version}"
-            return Path(save_dir) / str(name) / version / self.config_filename
+        logger_dir = LoggerInfo(trainer).logger_dir
+        if logger_dir is not None:
+            return logger_dir / self.config_filename
         return Path(trainer.default_root_dir) / self.config_filename
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
@@ -1403,6 +1393,68 @@ class Callback(pl.Callback):
 
         if feature_values:
             artifact.features.add_values(feature_values)
+
+
+class LoggerInfo:
+    """First-logger path metadata without accessing `trainer.log_dir`."""
+
+    def __init__(self, trainer: pl.Trainer):
+        self.trainer = trainer
+        self.first_logger: Any | None = (
+            trainer.loggers[0] if len(trainer.loggers) > 0 else None
+        )
+
+    @property
+    def save_dir(self) -> Path | None:
+        """Return the first logger's save directory."""
+        if self.first_logger is None:
+            return None
+        return Path(
+            getattr(self.first_logger, "save_dir", None)
+            or self.trainer.default_root_dir
+        )
+
+    @property
+    def name(self) -> str | None:
+        """Return the first logger's normalized name."""
+        if self.first_logger is None:
+            return None
+        return str(self.first_logger.name).rstrip("/")
+
+    @property
+    def version(self) -> str | None:
+        """Return the first logger's normalized version."""
+        if self.first_logger is None:
+            return None
+        version = self.first_logger.version
+        return (version if isinstance(version, str) else f"version_{version}").rstrip(
+            "/"
+        )
+
+    @property
+    def logger_dir(self) -> Path | None:
+        """Return ``save_dir/name/version`` for the first logger."""
+        if self.save_dir is None or self.name is None or self.version is None:
+            return None
+        return self.save_dir / self.name / self.version
+
+    @property
+    def trainer_log_dir_without_broadcast(self) -> Path:
+        """Return Lightning's local log directory without calling `trainer.log_dir`.
+
+        `trainer.log_dir` broadcasts the resolved path and therefore must be called
+        on all ranks. Checkpoint artifact side effects run only on global rank zero,
+        so they need a local path derivation that does not perform collectives.
+        """
+        if self.first_logger is not None:
+            log_dir = getattr(self.first_logger, "log_dir", None)
+            if log_dir is not None:
+                return Path(log_dir)
+
+            if self.logger_dir is not None:
+                return self.logger_dir
+
+        return Path(self.trainer.default_root_dir)
 
 
 __all__ = [
