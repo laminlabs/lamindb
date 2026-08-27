@@ -1147,7 +1147,6 @@ def test_save_config_artifact_tracked_as_run_input(
 
 
 def test_checkpoint_forwards_key_is_virtual_to_artifact_publisher(
-    instance,
     dirpath: str,
     tmp_path: Path,
 ):
