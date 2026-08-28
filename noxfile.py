@@ -178,7 +178,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
-        pass
+        extras += "mcp"
     elif group == "permissions":
         pass
     elif group == "profile":
@@ -197,9 +197,10 @@ def install_ci(session, group):
     # installing this after lamindb to be sure that these packages won't be reinstaled
     # during lamindb installation
     if IS_PR or group == "docs" or group == "profile":
+        local_cli = "./sub/lamin-cli[mcp]" if group == "cli" else "./sub/lamin-cli"
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
+            f"uv pip install --system ./sub/lamindb-setup {local_cli} ./sub/bionty ./sub/pertdb",
         )
     if group == "permissions":
         # have to install after lamindb installation
