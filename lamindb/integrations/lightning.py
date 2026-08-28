@@ -139,7 +139,7 @@ class ArtifactPublisher(Protocol):
         key: str,
         description: str,
         kind: str | None = None,
-        key_is_virtual: bool = False,
+        key_is_virtual: bool = True,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> Any: ...
@@ -162,7 +162,7 @@ class LaminArtifactPublisher:
         key: str,
         description: str,
         kind: str | None = None,
-        key_is_virtual: bool = False,
+        key_is_virtual: bool = True,
         add_as_input_to_run: bool = False,
         skip_hash_lookup: bool = False,
     ) -> ln.Artifact:
@@ -833,7 +833,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             an extra path segment. Prevents cross-run key collisions.
         key_is_virtual: Whether Lamin should treat checkpoint-related artifact
             keys as virtual keys. Pass `False` to store artifacts directly under
-            the provided key in the configured storage. The default `None`
+            the provided key in the configured storage. The default True
             preserves Lamin's artifact construction default.
         artifact_observers: Optional observer objects notified when checkpoint,
             config, or hparams artifacts are saved or when checkpoint files are
@@ -908,7 +908,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
         run_uid_is_version: bool = True,
-        key_is_virtual: bool | None = None,
+        key_is_virtual: bool = True,
         artifact_observers: list[ArtifactObserver] | None = None,
     ) -> None:
         self._original_dirpath = dirpath
