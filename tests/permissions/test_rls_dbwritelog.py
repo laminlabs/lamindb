@@ -458,12 +458,6 @@ def test_tracking_error():
     transform = ln.Transform(key="My transform").save()
     run = ln.Run(transform).save()
 
-    # this error because ln.setup.settings.instance._db_permissions is not jwt
-    # it is None
-    with pytest.raises(ln.errors.NoWriteAccess) as e:
-        track_run_inputs(artifact, run)
-    assert "You’re not allowed to write to the instance " in str(e)
-
     # the instance is local so we set this manually
     ln.setup.settings.instance._db_permissions = "jwt"
     # write access is determined by the run space, not the artifact space
@@ -493,7 +487,11 @@ def test_tracking_error():
     track_run_inputs(artifact, run_full_access)
     assert run_full_access in artifact.input_of_runs.all()
 
+    # without jwt, the same RLS failure is reported as instance-level
     ln.setup.settings.instance._db_permissions = None
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        track_run_inputs(artifact, run)
+    assert "You’re not allowed to write to the instance " in str(e)
 
 
 def test_token_reset():
