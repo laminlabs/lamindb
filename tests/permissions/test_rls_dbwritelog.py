@@ -466,27 +466,32 @@ def test_tracking_error():
 
     # the instance is local so we set this manually
     ln.setup.settings.instance._db_permissions = "jwt"
-    # artifact.space is not available for writes
-    with pytest.raises(ln.errors.NoWriteAccess) as e:
-        track_run_inputs(artifact, run)
-    assert "You’re not allowed to write to the space " in str(e)
+    # write access is determined by the run space, not the artifact space
+    track_run_inputs(artifact, run)
+    assert run in artifact.input_of_runs.all()
 
-    # this artifact is locked
-    artifact = ln.Artifact.get(description="test locking")
-    with pytest.raises(ln.errors.NoWriteAccess) as e:
-        track_run_inputs(artifact, run)
-    assert "It is not allowed to modify locked objects" in str(e)
+    # locked artifact is also allowed; only the run is checked
+    artifact_locked = ln.Artifact.get(description="test locking")
+    track_run_inputs(artifact_locked, run)
+    assert run in artifact_locked.input_of_runs.all()
+
+    run_full_access = ln.Run(transform)
+    run_full_access.space = ln.Space.get(name="full access")
+    run_full_access.save()
 
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
         )
-    # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
-    artifact = ln.Artifact.get(description="test tracking error")
+    # default space is read-only now
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         track_run_inputs(artifact, run)
-    assert "You’re not allowed to write to the spaces " in str(e)
+    assert "You’re not allowed to write to the space " in str(e)
+
+    # full access run is still writable; artifact space does not matter
+    track_run_inputs(artifact, run_full_access)
+    assert run_full_access in artifact.input_of_runs.all()
 
     ln.setup.settings.instance._db_permissions = None
 
