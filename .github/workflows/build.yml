@@ -80,7 +80,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: allow_track
+          ref: main
 
       - uses: actions/setup-python@v6
         with:
