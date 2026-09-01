@@ -180,47 +180,18 @@ def track_run_inputs(
                     f"You’re not allowed to write to the instance {instance.slug}.\n"
                     "Please contact administrators of the instance if you need write access."
                 ) from None
+            # write access to *_input_of_runs is determined by the run space
             write_access_spaces = available_spaces["admin"] + available_spaces["write"]
-            no_write_access_spaces = {
-                dataset_space
-                for dataset in input_datasets
-                if (dataset_space := dataset.space) not in write_access_spaces
-            }
-            if (run_space := run.space) not in write_access_spaces:
-                no_write_access_spaces.add(run_space)
-
-            if not no_write_access_spaces:
-                # if there are no unavailable spaces, then this should be due to locking
-                locked_datasets = [
-                    dataset
-                    for dataset in input_datasets
-                    if getattr(dataset, "is_locked", False)
-                ]
-                if run.is_locked:
-                    locked_datasets.append(run)
-                # if no unavailable spaces and no locked datasets, just raise the original error
-                if not locked_datasets:
-                    raise e
-                no_write_msg = (
+            if run.space not in write_access_spaces:
+                raise NoWriteAccess(
+                    f"You’re not allowed to write to the space '{run.space.name}'.\n"
+                    "Please contact administrators of the space if you need write access."
+                ) from None
+            if run.is_locked:
+                raise NoWriteAccess(
                     "It is not allowed to modify locked objects: "
-                    + ", ".join(
-                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_datasets
-                    )
-                    + "."
-                )
-                raise NoWriteAccess(no_write_msg) from None
-
-            if len(no_write_access_spaces) > 1:
-                name_msg = ", ".join(
-                    f"'{space.name}'" for space in no_write_access_spaces
-                )
-                space_msg = "spaces"
-            else:
-                name_msg = f"'{no_write_access_spaces.pop().name}'"
-                space_msg = "space"
-            raise NoWriteAccess(
-                f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
-                f"Please contact administrators of the {space_msg} if you need write access."
-            ) from None
+                    + f"Run(uid={run.uid})."
+                ) from None
+            raise e
         else:
             raise e
