@@ -23,6 +23,9 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
+mcp = [
+    "lamindb-core[mcp]==2.10.0",
+]
 gcp = [
     "lamindb_setup[gcp]",
 ]
