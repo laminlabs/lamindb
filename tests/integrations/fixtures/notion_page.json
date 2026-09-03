@@ -1,0 +1,130 @@
+{
+  "object": "list",
+  "results": [
+    {
+      "object": "page",
+      "id": "page-abc-1234",
+      "last_edited_time": "2024-01-15T10:30:00.000Z",
+      "properties": {
+        "Name": {
+          "id": "title",
+          "type": "title",
+          "title": [
+            { "type": "text", "plain_text": "Row " },
+            { "type": "text", "plain_text": "One" }
+          ]
+        },
+        "Notes": {
+          "id": "notes_id",
+          "type": "rich_text",
+          "rich_text": [{ "type": "text", "plain_text": "some notes" }]
+        },
+        "Email": {
+          "id": "email_id",
+          "type": "email",
+          "email": "alice@example.com"
+        },
+        "Phone": {
+          "id": "phone_id",
+          "type": "phone_number",
+          "phone_number": "+1-555-0100"
+        },
+        "Website": {
+          "id": "url_id",
+          "type": "url",
+          "url": "https://example.com"
+        },
+        "Score": { "id": "score_id", "type": "number", "number": 7.5 },
+        "Active": { "id": "active_id", "type": "checkbox", "checkbox": true },
+        "Priority": {
+          "id": "priority_id",
+          "type": "select",
+          "select": { "id": "1", "name": "High", "color": "red" }
+        },
+        "State": {
+          "id": "state_id",
+          "type": "status",
+          "status": { "id": "c", "name": "Done", "color": "green" }
+        },
+        "Tags": {
+          "id": "tags_id",
+          "type": "multi_select",
+          "multi_select": [
+            { "id": "x", "name": "python", "color": "blue" },
+            { "id": "y", "name": "data", "color": "green" }
+          ]
+        },
+        "Due": {
+          "id": "due_id",
+          "type": "date",
+          "date": {
+            "start": "2024-02-01",
+            "end": "2024-02-07",
+            "time_zone": null
+          }
+        },
+        "Owner": {
+          "id": "owner_id",
+          "type": "people",
+          "people": [{ "object": "user", "id": "user-id-abc" }]
+        },
+        "Related": {
+          "id": "related_id",
+          "type": "relation",
+          "relation": [{ "id": "related-page-id-111" }]
+        },
+        "Attachment": {
+          "id": "attachment_id",
+          "type": "files",
+          "files": [
+            {
+              "type": "external",
+              "name": "doc.pdf",
+              "external": { "url": "https://example.com/doc.pdf" }
+            },
+            {
+              "type": "file",
+              "name": "img.png",
+              "file": {
+                "url": "https://s3.amazonaws.com/img.png",
+                "expiry_time": "2024-01-16T10:30:00.000Z"
+              }
+            }
+          ]
+        },
+        "Created": {
+          "id": "created_id",
+          "type": "created_time",
+          "created_time": "2024-01-10T08:00:00.000Z"
+        },
+        "Edited": {
+          "id": "edited_id",
+          "type": "last_edited_time",
+          "last_edited_time": "2024-01-15T10:30:00.000Z"
+        },
+        "Author": {
+          "id": "author_id",
+          "type": "created_by",
+          "created_by": { "object": "user", "id": "user-created-1" }
+        },
+        "LastEditor": {
+          "id": "editor_id",
+          "type": "last_edited_by",
+          "last_edited_by": { "object": "user", "id": "user-edited-2" }
+        },
+        "Rollup": {
+          "id": "rollup_id",
+          "type": "rollup",
+          "rollup": { "type": "number", "number": 5, "function": "sum" }
+        },
+        "Formula": {
+          "id": "formula_id",
+          "type": "formula",
+          "formula": { "type": "number", "number": 2 }
+        }
+      }
+    }
+  ],
+  "has_more": false,
+  "next_cursor": null
+}
