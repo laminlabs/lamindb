@@ -401,9 +401,19 @@ def save_context_core(
             return "rerun-the-notebook"
     if run is not None:
         base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
-        paths = [base_path / "run_env_pip.txt", base_path / "r_environment.txt"]
-        existing_paths = [path for path in paths if path.exists()]
-        if len(existing_paths) == 2:
+        # Accept any non-empty env file written by track_python_environment.
+        # Size is checked here so an empty file (e.g. from a failed pip freeze) never
+        # reaches the hash lookup and can't collide with unrelated data artifacts.
+        _candidate_names = ("pixi.lock", "run_env_pip.txt", "r_environment.txt")
+        existing_paths = [
+            base_path / name
+            for name in _candidate_names
+            if (base_path / name).is_file() and (base_path / name).stat().st_size > 0
+        ]
+        if (
+            (base_path / "run_env_pip.txt") in existing_paths
+            and (base_path / "r_environment.txt") in existing_paths
+        ):
             # let's not store the python environment for an R session for now
             existing_paths = [base_path / "r_environment.txt"]
 
@@ -421,26 +431,40 @@ def save_context_core(
 
                 # Set description based on what we're saving
                 if len(existing_paths) == 1:
-                    if existing_paths[0].name == "run_env_pip.txt":
-                        description = "requirements.txt"
-                    elif existing_paths[0].name == "r_environment.txt":
-                        description = "r_environment.txt"
+                    _description_map = {
+                        "run_env_pip.txt": "requirements.txt",
+                        "pixi.lock": "pixi.lock",
+                        "r_environment.txt": "r_environment.txt",
+                    }
+                    description = _description_map.get(
+                        existing_paths[0].name, existing_paths[0].name
+                    )
                     size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
                     size, env_hash, _, _ = hash_dir(artifact_path)
 
-                artifact = (
-                    ln.Artifact.objects.filter(hash=env_hash)
-                    .exclude(
-                        size=0
-                    )  # exclude empty files, which may occur for one reason or another
-                    .one_or_none()
-                )
-                new_env_artifact = artifact is None
+                if size == 0:
+                    # Belt-and-suspenders: discovery already filters empty files, but
+                    # guard here too so an empty hash never reaches the DB query.
+                    # An empty hash (MD5 of b"") can collide with data artifacts that
+                    # were registered with a placeholder hash.
+                    logger.warning(
+                        "environment file is empty, skipping linking an environment"
+                    )
+                else:
+                    # Scope reuse to __lamindb_run__ artifacts only — data artifacts
+                    # with a coincidental or placeholder hash must not be returned here.
+                    artifact = (
+                        ln.Artifact.objects.filter(
+                            hash=env_hash, kind="__lamindb_run__"
+                        )
+                        .exclude(size=0)
+                        .one_or_none()
+                    )
+                    new_env_artifact = artifact is None
 
-                if new_env_artifact:
-                    if size > 0:
+                    if new_env_artifact:
                         artifact = ln.Artifact(
                             artifact_path,
                             description=description,
@@ -448,14 +472,10 @@ def save_context_core(
                             run=False,
                         )
                         artifact.save(upload=True, print_progress=False)
-                    else:
-                        logger.warning(
-                            "environment file is empty, skipping linking an environment"
-                        )
 
-                run.environment = artifact
-                if new_env_artifact:
-                    logger.debug(f"saved run.environment: {run.environment}")
+                    run.environment = artifact
+                    if new_env_artifact:
+                        logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at and run is not None:

@@ -724,6 +724,70 @@ def test_logstream_tracker_exception_handling():
             log_path.unlink()
 
 
+def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch):
+    """pixi.lock is copied to cache when sys.prefix is inside .pixi/envs/; nothing
+    written when sys.prefix is a normal venv or pixi.lock is absent."""
+    from lamindb.core._track_environment import _find_pixi_project_root, _track_pixi_lock
+
+    project_root = (tmp_path / "my_project").resolve()
+    (project_root / ".pixi" / "envs" / "default").mkdir(parents=True)
+    (project_root / "pixi.toml").write_text("[project]\nname = 'test'\n")
+    lock_content = "version: 6\nenvironments:\n  default:\n    packages: []\n"
+    (project_root / "pixi.lock").write_text(lock_content)
+
+    fake_prefix = str(project_root / ".pixi" / "envs" / "default")
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", fake_prefix)
+
+    # pixi env detected and lock copied
+    assert _find_pixi_project_root() == project_root
+    env_dir = tmp_path / "env_cache"
+    assert _track_pixi_lock(env_dir) is True
+    assert (env_dir / "pixi.lock").read_text() == lock_content
+
+    # normal venv prefix → not detected, no file written
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv"))
+    monkeypatch.chdir(tmp_path)
+    assert _find_pixi_project_root() is None
+
+    # pixi detected but lock absent → not copied
+    (project_root / "pixi.lock").unlink()
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", fake_prefix)
+    env_dir2 = tmp_path / "env_cache2"
+    assert _track_pixi_lock(env_dir2) is False
+    assert not (env_dir2 / "pixi.lock").exists()
+
+
+def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
+    """No empty file is written when pip freeze fails (non-zero exit) or
+    returns blank output — both would otherwise produce the empty-MD5 hash."""
+    import subprocess as _subprocess
+    from lamindb.core._track_environment import _track_pip_freeze
+
+    env_dir = tmp_path / "env_cache"
+
+    # case 1: pip missing (non-zero exit)
+    def pip_missing(cmd, **kwargs):
+        r = _subprocess.CompletedProcess(cmd, returncode=1)
+        r.stdout = ""
+        r.stderr = "No module named pip"
+        return r
+
+    with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_missing):
+        assert _track_pip_freeze(env_dir) is False
+    assert not (env_dir / "run_env_pip.txt").exists()
+
+    # case 2: pip exits 0 but blank output (empty env)
+    def pip_blank(cmd, **kwargs):
+        r = _subprocess.CompletedProcess(cmd, returncode=0)
+        r.stdout = "   \n"
+        r.stderr = ""
+        return r
+
+    with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_blank):
+        assert _track_pip_freeze(env_dir) is False
+    assert not (env_dir / "run_env_pip.txt").exists()
+
+
 def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
     tracker = LogStreamTracker()
     run = MockRun("sigint")
