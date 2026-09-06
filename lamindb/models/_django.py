@@ -9,7 +9,6 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 
-from ._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
 from ._relations import dict_related_model_to_related_name, get_schema_modules
 from .schema import Schema
 
@@ -17,6 +16,9 @@ if TYPE_CHECKING:
     from .artifact import Artifact, Collection
     from .record import Record
     from .run import Run
+
+
+SCHEMA_MEMBER_PREVIEW_LIMIT = 20
 
 
 def patch_many_to_many_descriptor() -> None:

@@ -46,8 +46,7 @@ from ._describe import (
     describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_or_run_with_related
-from ._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
+from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT, get_artifact_or_run_with_related
 from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,

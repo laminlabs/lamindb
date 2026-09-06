@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from lamindb.models._describe import describe_postgres, describe_sqlite
-from lamindb.models._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
+from lamindb.models._django import SCHEMA_MEMBER_PREVIEW_LIMIT
 
 N_WIDE_DF_FEATURES = SCHEMA_MEMBER_PREVIEW_LIMIT + 5
 
