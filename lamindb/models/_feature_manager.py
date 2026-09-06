@@ -46,7 +46,7 @@ from ._describe import (
     describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_or_run_with_related
+from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT, get_artifact_or_run_with_related
 from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
@@ -533,7 +533,9 @@ def get_features_data(
                     # features.first() is a lot slower than features[0] here
                     name_field = get_name_field(features[0])
                     feature_names = list(
-                        features.values_list(name_field, flat=True)[:20]
+                        features.values_list(name_field, flat=True)[
+                            :SCHEMA_MEMBER_PREVIEW_LIMIT
+                        ]
                     )
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
@@ -658,9 +660,29 @@ def describe_features(
     # Dataset features section
     # internal features that contain labels (only `Feature` features contain labels)
     internal_feature_labels_slot: dict[str, list] = {}
+    skipped_internal_feature_labels: list[str] = []
     for feature_name, feature_row in internal_feature_labels.items():
-        slot, _ = feature_data.get(feature_name)
+        slot_and_dtype = feature_data.get(feature_name)
+        if slot_and_dtype is None:
+            # Internal categorical values can exist for features omitted from the
+            # schema-member preview (`SCHEMA_MEMBER_PREVIEW_LIMIT`).
+            skipped_internal_feature_labels.append(feature_name)
+            continue
+        slot, _ = slot_and_dtype
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
+    if skipped_internal_feature_labels:
+        skipped_preview = _format_values(
+            sorted(skipped_internal_feature_labels),
+            n=5,
+            quotes=False,
+        )
+        logger.warning(
+            "Skipping values for "
+            f"{len(skipped_internal_feature_labels)} internal feature(s) in "
+            f"describe(): {skipped_preview}. "
+            "These features are outside the schema preview limit "
+            f"({SCHEMA_MEMBER_PREVIEW_LIMIT})."
+        )
 
     dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():

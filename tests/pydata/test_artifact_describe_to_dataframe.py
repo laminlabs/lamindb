@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 from lamindb.models._describe import describe_postgres, describe_sqlite
+from lamindb.models._django import SCHEMA_MEMBER_PREVIEW_LIMIT
+
+N_WIDE_DF_FEATURES = SCHEMA_MEMBER_PREVIEW_LIMIT + 5
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -47,7 +50,7 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
 
 # parallels the `registries` guide
 # please also see the test_querset.py tests
-def test_describe_to_dataframe_example_dataset():
+def test_describe_to_dataframe_example_dataset(ccaplog):
     ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
     artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
@@ -167,6 +170,38 @@ def test_describe_to_dataframe_example_dataset():
     assert "created_by:" in output
     assert "created_at:" in output
 
+    # Regression: describe should not fail when internal categorical features
+    # exceed the schema member preview limit used in feature metadata.
+    extra_df_features = [
+        ln.Feature(name=f"extra_cat_{i:02d}", dtype=str).save()
+        for i in range(N_WIDE_DF_FEATURES)
+    ]
+    wide_df_schema = ln.Schema(
+        features=extra_df_features,
+        name="many-df-feature-schema",
+    ).save()
+    wide_df = pd.DataFrame(
+        {
+            f"extra_cat_{i:02d}": pd.Categorical(["A", "B", "B"])
+            for i in range(N_WIDE_DF_FEATURES)
+        }
+    )
+    artifact3 = ln.Artifact.from_dataframe(
+        wide_df,
+        key="examples/dataset_with_many_df_features.parquet",
+        schema=wide_df_schema,
+    ).save()
+    artifact3.features.add_values(
+        {
+            f"extra_cat_{i:02d}": "A" if i % 2 == 0 else "B"
+            for i in range(N_WIDE_DF_FEATURES)
+        }
+    )
+    output_wide = artifact3.describe(return_str=True)
+    assert "Dataset features" in output_wide
+    assert f"extra_cat_{SCHEMA_MEMBER_PREVIEW_LIMIT - 1:02d}" in output_wide
+    assert "Skipping values for 5 internal feature(s) in describe()" in ccaplog.text
+
     # dataset section
     assert (
         artifact.features.describe(return_str=True)
@@ -237,6 +272,8 @@ def test_describe_to_dataframe_example_dataset():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
+    artifact3.delete(permanent=True)
+    wide_df_schema.delete(permanent=True)
     ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
         permanent=True
     )
