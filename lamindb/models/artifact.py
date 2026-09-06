@@ -1355,8 +1355,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
         - collection: A collection object provides a `uid` for every version and its content won't change.
 
-    If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
-    pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
+    If you want to **validate & annotate** a dataframe or an array by parsing its data and mapping it onto
+    the feature & label registries, pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
         artifact = ln.Artifact.from_dataframe(
             "./my_file.parquet",
@@ -1364,9 +1364,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema="valid_features"
         ).save()
 
-    To annotate by **external features**::
+    To annotate any artifact by **external features** (not parsed from the dataset and therefore external to it)::
 
-        artifact = ln.Artifact("./my_file.parquet", features={"cell_type_by_model": "T cell"}).save()
+        artifact = ln.Artifact("./my_file.png", features={"cell_type_by_model": "T cell"}).save()
 
     You can make a **new version** of an artifact by passing an existing `key`::
 
@@ -1375,8 +1375,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     You can write artifacts to **non-default storage locations** by passing the `storage` argument::
 
-        storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
-        ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
+        storage = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
+        ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage).save()  # upload to s3://my_bucket
 
     Notes
     -----

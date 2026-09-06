@@ -357,10 +357,12 @@ This pattern applies to any ontology where the same registry serves multiple org
 
 <!-- #endregion -->
 
-## External data validation
+## External features
 
-Since not all metadata is always stored within the dataset itself, it is also possible to validate external metadata.
-For instance, you might want to validate a separate metadata dictionary or JSON file against a schema before attaching it to your data.
+Since not all metadata is always stored within the dataset itself, it is also possible to validate external features.
+For instance, you might want to validate a separate metadata dictionary against a schema before attaching it to your data.
+In `artifact.describe()`, these values appear under **External features** rather than under dataset slots such as `columns`, `obs`, etc.
+By contrast, features parsed from dataset slots appear as **Dataset features**.
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_dataframe_external_features.py
