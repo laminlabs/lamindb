@@ -50,7 +50,7 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
 
 # parallels the `registries` guide
 # please also see the test_querset.py tests
-def test_describe_to_dataframe_example_dataset():
+def test_describe_to_dataframe_example_dataset(ccaplog):
     ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
     artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
@@ -200,6 +200,7 @@ def test_describe_to_dataframe_example_dataset():
     output_wide = artifact3.describe(return_str=True)
     assert "Dataset features" in output_wide
     assert f"extra_cat_{SCHEMA_MEMBER_PREVIEW_LIMIT - 1:02d}" in output_wide
+    assert "Skipping values for 5 internal feature(s) in describe()" in ccaplog.text
 
     # dataset section
     assert (

@@ -660,13 +660,29 @@ def describe_features(
     # Dataset features section
     # internal features that contain labels (only `Feature` features contain labels)
     internal_feature_labels_slot: dict[str, list] = {}
+    skipped_internal_feature_labels: list[str] = []
     for feature_name, feature_row in internal_feature_labels.items():
         slot_and_dtype = feature_data.get(feature_name)
         if slot_and_dtype is None:
-            # Gracefully handle incomplete feature metadata.
+            # Internal categorical values can exist for features omitted from the
+            # schema-member preview (`SCHEMA_MEMBER_PREVIEW_LIMIT`).
+            skipped_internal_feature_labels.append(feature_name)
             continue
         slot, _ = slot_and_dtype
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
+    if skipped_internal_feature_labels:
+        skipped_preview = _format_values(
+            sorted(skipped_internal_feature_labels),
+            n=5,
+            quotes=False,
+        )
+        logger.warning(
+            "Skipping values for "
+            f"{len(skipped_internal_feature_labels)} internal feature(s) in "
+            f"describe(): {skipped_preview}. "
+            "These features are outside the schema preview limit "
+            f"({SCHEMA_MEMBER_PREVIEW_LIMIT})."
+        )
 
     dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():
