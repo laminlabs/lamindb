@@ -272,3 +272,35 @@ def test_flow_annotation_runtime_validation_type_matrix():
             record.delete(permanent=True)
         if record2 is not None:
             record2.delete(permanent=True)
+
+
+def test_flow_annotation_validation_ignores_existing_feature_name_collision():
+    feature = None
+    run = None
+    record_type = None
+    record = None
+    try:
+        unique = time.time_ns()
+        record_type = ln.Record(name=f"type-{unique}", is_type=True).save()
+        record = ln.Record(name=f"record-{unique}", type=record_type).save()
+        feature = ln.Feature(name="organism", dtype=ln.Record).save()
+        dtype_annotation = f"cat[Record[{record_type.uid}]]"
+
+        @ln.flow(global_run="clear")
+        def typed_flow(organism: dtype_annotation) -> str:
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run_uid = typed_flow(record)
+        run = ln.Run.get(uid=run_uid)
+        assert run.params == {"organism": f"Record[{record.uid}]"}
+    finally:
+        ln.context._run = None
+        if run is not None:
+            run.delete(permanent=True)
+        if feature is not None:
+            feature.delete(permanent=True)
+        if record is not None:
+            record.delete(permanent=True)
+        if record_type is not None:
+            record_type.delete(permanent=True)
