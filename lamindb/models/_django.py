@@ -9,6 +9,7 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 
+from ._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
 from ._relations import dict_related_model_to_related_name, get_schema_modules
 from .schema import Schema
 
@@ -349,7 +350,11 @@ def get_collection_with_related(
     }
 
 
-def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int = 20):
+def get_schema_m2m_relations(
+    artifact: Artifact,
+    slot_schema: dict,
+    limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
+):
     """Fetch all many-to-many relationships for given feature sets."""
     from .can_curate import get_name_field
 

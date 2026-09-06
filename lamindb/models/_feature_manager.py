@@ -47,6 +47,7 @@ from ._describe import (
     format_rich_tree,
 )
 from ._django import get_artifact_or_run_with_related
+from ._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
 from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
@@ -533,7 +534,9 @@ def get_features_data(
                     # features.first() is a lot slower than features[0] here
                     name_field = get_name_field(features[0])
                     feature_names = list(
-                        features.values_list(name_field, flat=True)[:20]
+                        features.values_list(name_field, flat=True)[
+                            :SCHEMA_MEMBER_PREVIEW_LIMIT
+                        ]
                     )
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
@@ -659,7 +662,11 @@ def describe_features(
     # internal features that contain labels (only `Feature` features contain labels)
     internal_feature_labels_slot: dict[str, list] = {}
     for feature_name, feature_row in internal_feature_labels.items():
-        slot, _ = feature_data.get(feature_name)
+        slot_and_dtype = feature_data.get(feature_name)
+        if slot_and_dtype is None:
+            # Gracefully handle incomplete feature metadata.
+            continue
+        slot, _ = slot_and_dtype
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
 
     dataset_features_tree_children = []

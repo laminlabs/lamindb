@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 from lamindb.models._describe import describe_postgres, describe_sqlite
+from lamindb.models._feature_constants import SCHEMA_MEMBER_PREVIEW_LIMIT
+
+N_WIDE_DF_FEATURES = SCHEMA_MEMBER_PREVIEW_LIMIT + 5
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -170,14 +173,18 @@ def test_describe_to_dataframe_example_dataset():
     # Regression: describe should not fail when internal categorical features
     # exceed the schema member preview limit used in feature metadata.
     extra_df_features = [
-        ln.Feature(name=f"extra_cat_{i:02d}", dtype=str).save() for i in range(25)
+        ln.Feature(name=f"extra_cat_{i:02d}", dtype=str).save()
+        for i in range(N_WIDE_DF_FEATURES)
     ]
     wide_df_schema = ln.Schema(
         features=extra_df_features,
         name="many-df-feature-schema",
     ).save()
     wide_df = pd.DataFrame(
-        {f"extra_cat_{i:02d}": pd.Categorical(["A", "B", "B"]) for i in range(25)}
+        {
+            f"extra_cat_{i:02d}": pd.Categorical(["A", "B", "B"])
+            for i in range(N_WIDE_DF_FEATURES)
+        }
     )
     artifact3 = ln.Artifact.from_dataframe(
         wide_df,
@@ -185,11 +192,14 @@ def test_describe_to_dataframe_example_dataset():
         schema=wide_df_schema,
     ).save()
     artifact3.features.add_values(
-        {f"extra_cat_{i:02d}": "A" if i % 2 == 0 else "B" for i in range(25)}
+        {
+            f"extra_cat_{i:02d}": "A" if i % 2 == 0 else "B"
+            for i in range(N_WIDE_DF_FEATURES)
+        }
     )
     output_wide = artifact3.describe(return_str=True)
     assert "Dataset features" in output_wide
-    assert "extra_cat_19" in output_wide
+    assert f"extra_cat_{SCHEMA_MEMBER_PREVIEW_LIMIT - 1:02d}" in output_wide
 
     # dataset section
     assert (
