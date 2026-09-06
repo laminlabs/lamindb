@@ -486,7 +486,7 @@ def _validate_with_virtual_schema(
 
     features = []
     for key, dtype_arg in dtype_args_by_key.items():
-        feature = Feature(name=key, dtype=dtype_arg)
+        feature = Feature(name=key, dtype=dtype_arg, _skip_validation=True)  # type: ignore
         # allow constructing an in-memory schema from virtual, unsaved features
         feature._state.adding = False
         features.append(feature)
