@@ -169,26 +169,24 @@ def test_describe_to_dataframe_example_dataset():
 
     # Regression: describe should not fail when internal categorical features
     # exceed the schema member preview limit used in feature metadata.
-    extra_obs_features = [
+    extra_df_features = [
         ln.Feature(name=f"extra_cat_{i:02d}", dtype=str).save() for i in range(25)
     ]
-    obs_schema = ln.Schema(
-        features=extra_obs_features,
-        name="many-obs-feature-schema",
+    wide_df_schema = ln.Schema(
+        features=extra_df_features,
+        name="many-df-feature-schema",
     ).save()
-    anndata_schema = ln.Schema(
-        otype="AnnData",
-        slots={"obs": obs_schema},
-        name="many-obs-anndata-schema",
+    wide_df = pd.DataFrame(
+        {f"extra_cat_{i:02d}": pd.Categorical(["A", "B", "B"]) for i in range(25)}
+    )
+    artifact3 = ln.Artifact.from_dataframe(
+        wide_df,
+        key="examples/dataset_with_many_df_features.parquet",
+        schema=wide_df_schema,
     ).save()
-    adata_wide = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
-    for i in range(25):
-        adata_wide.obs[f"extra_cat_{i:02d}"] = pd.Categorical(["A", "B", "B"])
-    artifact3 = ln.Artifact.from_anndata(
-        adata_wide,
-        key="examples/dataset_with_many_obs_features.h5ad",
-        schema=anndata_schema,
-    ).save()
+    artifact3.features.add_values(
+        {f"extra_cat_{i:02d}": "A" if i % 2 == 0 else "B" for i in range(25)}
+    )
     output_wide = artifact3.describe(return_str=True)
     assert "Dataset features" in output_wide
     assert "extra_cat_19" in output_wide
@@ -264,8 +262,7 @@ def test_describe_to_dataframe_example_dataset():
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
     artifact3.delete(permanent=True)
-    anndata_schema.delete(permanent=True)
-    obs_schema.delete(permanent=True)
+    wide_df_schema.delete(permanent=True)
     ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
         permanent=True
     )
