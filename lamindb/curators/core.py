@@ -608,6 +608,38 @@ class SlotsCurator(Curator):
         )
 
 
+def _check_sqlrecord_type(value: SQLRecord, feature: Feature) -> None:
+    """Raise ValidationError if value.type_id doesn't match the type_uid in feature's dtype.
+
+    Only runs when the dtype contains a type_uid (e.g. cat[Record[<uid>]]).
+    Plain cat[ULabel], cat[bionty.Gene], etc. are unaffected.
+    """
+    from lamindb.models.feature import parse_dtype
+
+    parsed = parse_dtype(feature._dtype_str)
+    if not parsed:
+        return
+    type_uid = parsed[0].get("type_uid")
+    if not type_uid:
+        return
+    registry = parsed[0]["registry"]
+    type_record = registry.objects.using(feature._state.db).get(uid=type_uid)
+    if value.type_id != type_record.id:
+        actual = getattr(value, "type", None)
+        raise ValidationError(
+            f"Expected a record of type '{type_record.name}' "
+            f"for feature '{feature.name}', but received "
+            f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
+        )
+
+
+def _check_sqlrecord_type_in_list(values: list, feature: Feature) -> None:
+    """Apply _check_sqlrecord_type to each SQLRecord in a list."""
+    for v in values:
+        if isinstance(v, SQLRecord):
+            _check_sqlrecord_type(v, feature)
+
+
 def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
     d = dict(d)
@@ -624,12 +656,15 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
             if feature.name in df.columns:
                 value = df.loc[0, feature.name]
                 if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
+                    _check_sqlrecord_type_in_list(value, feature)
                     df.attrs[feature.name] = "list_of_categories"
                 else:
                     if isinstance(value, SQLRecord) and value._state.adding:
                         raise ValidationError(
                             f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
                         )
+                    if isinstance(value, SQLRecord):
+                        _check_sqlrecord_type(value, feature)
                     df[feature.name] = pd.Categorical(df[feature.name])
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
@@ -1727,21 +1762,11 @@ class CatVector:
         # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)
 
-        # if values are SQLRecord, we don't need to validate them against the registry
-        # but we do need to verify type_id when the feature's dtype pins a specific type
+        # if values are SQLRecord, we don't need to validate them
         if all(isinstance(v, SQLRecord) for v in str_values):
             assert all(v._state.adding is False for v in str_values), (
                 "All records must be saved."
             )
-            if self._type_record is not None:
-                for v in str_values:
-                    if v.type_id != self._type_record.id:
-                        actual = getattr(v, "type", None)
-                        raise ValidationError(
-                            f"Expected a record of type '{self._type_record.name}' "
-                            f"for feature '{self._key}', but received "
-                            f"'{v.name}' of type '{getattr(actual, 'name', None)}'."
-                        )
             self.records = str_values  # type: ignore
             validated_values = str_values  # type: ignore
             return validated_values, []
