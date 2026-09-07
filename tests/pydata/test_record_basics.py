@@ -1734,7 +1734,9 @@ def test_feature_rejects_builtin_scalar_for_record_dtype():
     with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
         ln.Record(name="row_str", type=sheet, features={"foo": "123"}).save()
 
-    # cleanup
+    # cleanup — row_int / row_str are saved before the feature ValidationError fires,
+    # so they must be deleted before sheet (which they reference via type_id).
+    ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
     schema.delete(permanent=True)
     foo_feature.delete(permanent=True)
