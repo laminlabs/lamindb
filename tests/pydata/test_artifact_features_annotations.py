@@ -1004,3 +1004,24 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+def test_artifact_sqlrecord_type_mismatch_raises_validation_error():
+    """Wrong-type SQLRecord passed to artifact.features.add_values must raise ValidationError."""
+    type_a = ln.Record(name="ArtTypeA_mismatch", is_type=True).save()
+    type_b = ln.Record(name="ArtTypeB_mismatch", is_type=True).save()
+    record_b = ln.Record(name="art_record_b_mismatch", type=type_b).save()
+    feature = ln.Feature(name="art_feature_mismatch", dtype=type_a).save()
+    artifact = ln.Artifact(".gitignore", key="art_type_mismatch_test").save()
+
+    # single SQLRecord of wrong type → ValidationError
+    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'ArtTypeA_mismatch'"):
+        artifact.features.add_values({feature: record_b})
+
+    # cleanup
+    artifact.delete(permanent=True)
+    feature.delete(permanent=True)
+    record_b.delete(permanent=True)
+    type_a.delete(permanent=True)
+    type_b.delete(permanent=True)
+
