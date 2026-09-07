@@ -830,3 +830,37 @@ def test_schema_describe_handles_legacy_none_itype():
 
     schema.delete(permanent=True)
     feature.delete(permanent=True)
+
+
+def test_schema_itype_scoped_to_feature_type():
+    """Schema(itype=feature_type) scopes the schema to only that feature type."""
+    import pandas as pd
+    from lamindb.curators import DataFrameCurator
+
+    # Two feature type namespaces.
+    type_a = ln.Feature(name="TypeA", is_type=True).save()
+    type_b = ln.Feature(name="TypeB", is_type=True).save()
+
+    # One feature per namespace.
+    feat_a = ln.Feature(name="feat_in_type_a", dtype=float, type=type_a).save()
+    feat_b = ln.Feature(name="feat_in_type_b", dtype=float, type=type_b).save()
+
+    # Schema scoped to TypeA only — itype stored as "Feature[<uid>]".
+    schema = ln.Schema(itype=type_a).save()
+    assert schema.itype == f"Feature[{type_a.uid}]"
+    assert schema.flexible is True
+    assert schema.dtype is None
+
+    # Curator must pick up only feat_a, not feat_b.
+    df = pd.DataFrame({"feat_in_type_a": [1.0], "feat_in_type_b": [2.0]})
+    curator = DataFrameCurator(df, schema)
+    pandera_cols = set(curator._atomic_curator._pandera_schema.columns.keys())
+    assert "feat_in_type_a" in pandera_cols
+    assert "feat_in_type_b" not in pandera_cols
+
+    # Cleanup.
+    schema.delete(permanent=True)
+    feat_a.delete(permanent=True)
+    feat_b.delete(permanent=True)
+    type_a.delete(permanent=True)
+    type_b.delete(permanent=True)
