@@ -1509,6 +1509,20 @@ class FeatureManager:
                     label_records = [value]
                 else:
                     label_records = value  # type: ignore
+                parsed = parse_dtype(feature._dtype_str)
+                if parsed:
+                    type_uid = parsed[0].get("type_uid")
+                    if type_uid:
+                        registry = parsed[0]["registry"]
+                        type_rec = registry.objects.using(feature._state.db).get(uid=type_uid)
+                        for lr in label_records:
+                            if lr.type_id != type_rec.id:
+                                actual = getattr(lr, "type", None)
+                                raise ValidationError(
+                                    f"Expected a record of type '{type_rec.name}' "
+                                    f"for feature '{feature.name}', but received "
+                                    f"'{lr.name}' of type '{getattr(actual, 'name', None)}'."
+                                )
             else:
                 if isinstance(value, str):
                     values = [value]  # type: ignore
@@ -1816,6 +1830,20 @@ class FeatureManager:
                         label_records = [value]
                     else:
                         label_records = value  # type: ignore
+                    parsed = parse_dtype(feature._dtype_str)
+                    if parsed:
+                        type_uid = parsed[0].get("type_uid")
+                        if type_uid:
+                            registry = parsed[0]["registry"]
+                            type_rec = registry.objects.using(feature._state.db).get(uid=type_uid)
+                            for lr in label_records:
+                                if lr.type_id != type_rec.id:
+                                    actual = getattr(lr, "type", None)
+                                    raise ValidationError(
+                                        f"Expected a record of type '{type_rec.name}' "
+                                        f"for feature '{feature.name}', but received "
+                                        f"'{lr.name}' of type '{getattr(actual, 'name', None)}'."
+                                    )
                     for record in label_records:
                         if record._state.adding:
                             raise ValidationError(
