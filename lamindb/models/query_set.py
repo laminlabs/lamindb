@@ -28,7 +28,7 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
-from ..errors import DoesNotExist, MultipleResultsFound
+from ..errors import DoesNotExist, InvalidArgument, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT, _lookup, _search
@@ -1080,6 +1080,35 @@ def process_cols_from_include(
     return result
 
 
+def _ensure_filter_queries(queries: tuple) -> None:
+    """Reject positional filter arguments that are not query expressions.
+
+    `Registry.filter()` used to swallow non-`Q` positional args and return an
+    unfiltered queryset. Django itself errors, but with an unhelpful
+    `ValueError: too many values to unpack`. Require `Q` objects (or
+    `FeaturePredicate` / Django conditional expressions) and point callers at
+    `get()` / keyword lookups instead.
+    """
+    from .feature import FeaturePredicate
+
+    for query in queries:
+        if isinstance(query, (Q, FeaturePredicate)) or getattr(
+            query, "conditional", False
+        ):
+            continue
+        if isinstance(query, str):
+            raise InvalidArgument(
+                "filter() does not accept a string as a positional argument. "
+                f"Did you mean get({query!r})? To query, pass a Q object or "
+                f"keyword arguments, e.g. filter(uid={query!r})."
+            )
+        raise InvalidArgument(
+            "filter() positional arguments must be Q objects. "
+            "Pass field lookups as keyword arguments, e.g. filter(uid='...'), "
+            "or use get() to retrieve a single record by uid."
+        )
+
+
 def _queryset_class_factory(
     registry: Registry, queryset_cls: type[models.QuerySet]
 ) -> type[models.QuerySet]:
@@ -1138,6 +1167,7 @@ class BasicQuerySet(models.QuerySet):
 
     def filter(self, *queries, **expressions) -> BasicQuerySet:
         """Query a set of records."""
+        _ensure_filter_queries(queries)
         expressions = map_query_kwargs(self, expressions)
         if queries or expressions:
             return super().filter(*queries, **expressions)
@@ -1527,6 +1557,8 @@ class QuerySet(BasicQuerySet):
         from lamindb.models import Artifact, Record, Run
 
         from .feature import FeaturePredicate
+
+        _ensure_filter_queries(queries)
 
         feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
         queries = tuple(q for q in queries if not isinstance(q, FeaturePredicate))

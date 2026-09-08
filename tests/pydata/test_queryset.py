@@ -280,6 +280,21 @@ def test_one_first():
         qs.one_or_none()
 
 
+def test_filter_rejects_non_q_positional_args():
+    uid = "1y7UO5uJgJCx0000"
+    with pytest.raises(InvalidArgument, match=re.escape(f"Did you mean get({uid!r})")):
+        ln.Transform.filter(uid)
+    with pytest.raises(InvalidArgument, match=re.escape(f"Did you mean get({uid!r})")):
+        ln.Artifact.filter(uid)
+    with pytest.raises(InvalidArgument, match=re.escape(f"Did you mean get({uid!r})")):
+        ln.Transform.filter().filter(uid)
+    with pytest.raises(InvalidArgument, match="positional arguments must be Q objects"):
+        ln.Transform.filter(123)
+
+    assert ln.Transform.filter(ln.Q(uid=uid)).count() == 0
+    assert ln.Transform.filter(uid=uid).count() == 0
+
+
 def test_filter_related_field_name():
     with pytest.raises(
         FieldError,

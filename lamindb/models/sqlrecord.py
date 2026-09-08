@@ -827,6 +827,11 @@ class Registry(ModelBase):
             queries: One or multiple `Q` objects.
             expressions: Fields and values passed as Django query expressions.
 
+        Raises:
+            :exc:`lamindb.errors.InvalidArgument`: If a positional argument is
+                not a `Q` object. Pass field lookups as keyword arguments or use
+                :meth:`~lamindb.models.SQLRecord.get` to look up a record by uid.
+
         See Also:
             - Guide: :doc:`docs:query-search`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
