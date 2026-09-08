@@ -1683,3 +1683,61 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species.delete(permanent=True)
     human.delete(permanent=True)
     species_type.delete(permanent=True)
+
+
+def test_sqlrecord_type_mismatch_raises_validation_error():
+    """Passing a record of the wrong type in the SQLRecord fast path must raise ValidationError."""
+    type_a = ln.Record(name="TypeA_mismatch", is_type=True).save()
+    type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
+    record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
+    feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
+    sample = ln.Record(name="sample_mismatch").save()
+
+    # single SQLRecord of wrong type → ValidationError
+    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+        sample.features.add_values({feature: record_b})
+
+    # list of SQLRecords containing a wrong-type record → ValidationError
+    record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
+    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+        sample.features.add_values({feature: [record_a, record_b]})
+
+    # cleanup
+    sample.delete(permanent=True)
+    record_a.delete(permanent=True)
+    record_b.delete(permanent=True)
+    feature.delete(permanent=True)
+    type_a.delete(permanent=True)
+    type_b.delete(permanent=True)
+
+
+def test_feature_rejects_builtin_scalar_for_record_dtype():
+    """Assigning a raw int/str to a cat[Record[...]] feature.
+
+    Counterpart to the wrong-record-type case: instead of a record of the
+    wrong type, we hand the record-typed ``foo`` feature a plain builtin
+    scalar (an int, then a str). lamindb treats the scalar as a *name lookup*
+    into the feature's record type; since no record has that name, it raises
+    ValidationError. (A wrong-typed record slips through precisely because it
+    *is* a real record to link to.)
+    """
+    foo_type = ln.Record(name="FooType", is_type=True).save()
+    foo_feature = ln.Feature(name="foo", dtype=foo_type).save()
+    schema = ln.Schema(name="foo_sheet_schema", features=[foo_feature]).save()
+    sheet = ln.Record(name="FooSheet", is_type=True, schema=schema).save()
+
+    # A raw int for a record-typed feature.
+    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+        ln.Record(name="row_int", type=sheet, features={"foo": 123}).save()
+
+    # A raw str for a record-typed feature.
+    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+        ln.Record(name="row_str", type=sheet, features={"foo": "123"}).save()
+
+    # cleanup — row_int / row_str are saved before the feature ValidationError fires,
+    # so they must be deleted before sheet (which they reference via type_id).
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    foo_feature.delete(permanent=True)
+    foo_type.delete(permanent=True)
