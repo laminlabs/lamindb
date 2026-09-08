@@ -431,14 +431,10 @@ def save_context_core(
 
                 # Set description based on what we're saving
                 if len(existing_paths) == 1:
-                    _description_map = {
-                        "run_env_pip.txt": "requirements.txt",
-                        "pixi.lock": "pixi.lock",
-                        "r_environment.txt": "r_environment.txt",
-                    }
-                    description = _description_map.get(
-                        existing_paths[0].name, existing_paths[0].name
-                    )
+                    filename = existing_paths[0].name
+                    # use the filename as description, except pip freeze which is
+                    # stored as run_env_pip.txt but shown as requirements.txt
+                    description = "requirements.txt" if filename == "run_env_pip.txt" else filename
                     size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
