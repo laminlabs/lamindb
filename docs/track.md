@@ -171,23 +171,26 @@ lamin settings set worktree true
 ```
 
 In this mode, each child directory maps on a branch.
-That means branch context is isolated per directory instead of shared globally.
-Keep `current_instance` only in the `dev-dir` root; per-branch child directories only carry `current_branch`.
+That means branch context is isolated per directory instead of shared globally, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
 
-This is useful if multiple agents work in parallel on different branches in the same environment. Here is an examplary structure:
+```bash
+lamin switch -c branch-a
+cd branch-a
+```
+
+Here is an examplary structure:
 
 ```bash
 dbs/
-  my_instance/                # dev-dir
-    branch-a/                 # worktree directory
+  my_instance/                # development directory (dev-dir)
+    .lamin/
+    branch-a/                 # branch directory in the worktree
       analysis/
         script1.py
-    branch-b/                 # another worktree directory with another version of script1.py
+    branch-b/                 # another branch directory with another version of script1.py
       analysis/
         script1.py
 ```
-
-In worktree mode, run branch-aware commands from inside a worktree child directory under `dev-dir`.
 
 (sync-code-with-git)=
 
