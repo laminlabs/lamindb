@@ -39,11 +39,15 @@ def switch(target: str | Branch, *, space: bool = False, create: bool = False):
                         )
                     child_dir.mkdir(parents=True, exist_ok=True)
                     original_cwd = cwd
+                    previous_branch = settings._branch
                     try:
                         os.chdir(child_dir)
                         switch(target, space=False, create=True)
                     finally:
                         os.chdir(original_cwd)
+                        # Root-level bootstrap should prepare the child worktree
+                        # without mutating branch cache in the caller's context.
+                        settings._branch = previous_branch
                     return
             settings._resolve_active_worktree_root(raise_on_error=True)
 
