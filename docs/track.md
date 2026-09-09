@@ -164,14 +164,13 @@ When you `cd` into the development directory, LaminDB auto-connects to the confi
 
 ### Worktree
 
-If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch.
+If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch, inspired by `git worktree`.
 
 ```bash
 lamin settings set worktree true
 ```
 
-In this mode, each child directory maps on a branch.
-That means branch context is isolated per directory instead of shared globally, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
+In this mode, each child directory maps on a branch, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
 
 ```bash
 lamin switch -c branch-a

@@ -19,6 +19,8 @@ def switch(target: str | Branch, *, space: bool = False, create: bool = False):
         space: If True, switch space; otherwise switch branch.
         create: If True and switching branch, create the branch if it does not exist.
     """
+    is_worktree_bootstrap = False
+
     if space:
         settings.space = target
     else:

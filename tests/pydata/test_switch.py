@@ -19,6 +19,11 @@ def test_switch_create_existing_branch_raises():
     assert "-c/--create" in msg or "Omit" in msg
 
 
+def test_switch_space_does_not_depend_on_worktree_bootstrap_state():
+    ln.setup.switch("all", space=True)
+    assert ln.setup.settings.space.name == "all"
+
+
 def test_switch_create_worktree_from_dev_dir_root(tmp_path: Path):
     previous_dev_dir = ln_setup.settings.dev_dir
     previous_worktree = ln_setup.settings.worktree
