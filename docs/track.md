@@ -16,7 +16,7 @@ To run examples, if you don't have a `lamindb` instance, create one:
 lamin init
 ```
 
-## Track agentic workflows
+## Track agent runs
 
 ### Sessions
 
@@ -49,7 +49,7 @@ lamin save /path/to/.claude/plans/my_task.md
 
 <!-- #endregion -->
 
-## Manage notebooks and scripts
+## Track scripts and notebooks
 
 Call {meth}`~lamindb.track` to save your notebook or script as a `transform` and start tracking inputs & outputs of a run.
 
@@ -92,27 +92,104 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
-### Organize local development
+### Use projects
+
+You can link the entities created during a run to a project.
+
+```python
+import lamindb as ln
+
+my_project = ln.Project(name="My project").save()  # create & save a project
+ln.track(project="My project")  # pass project
+open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # auto-labeled by project
+```
+
+Filter entities by project, e.g., artifacts:
+
+```python
+ln.Artifact.filter(projects=my_project).to_dataframe()
+```
+
+Access entities linked to a project:
+
+```python
+my_project.artifacts.to_dataframe()
+```
+
+The same works for `my_project.transforms` or `my_project.runs`.
+
+### Use spaces
+
+You can write the entities created during a run into a space that you configure on LaminHub. This is particularly useful if you want to restrict access to a space. Note that this doesn't affect bionty entities who should typically be commonly accessible.
 
 <!-- #region -->
 
-If no development directory is set, script & notebook keys equal their filenames.
-Otherwise, they represent the relative path in the development directory.
-The exception is packaged source code, whose keys have the form `pypackages/{package_name}/path/to/file.py`.
+```python
+ln.track(space="Our team space")
+```
 
-To set the development directory to your current shell development directory, run:
+<!-- #endregion -->
+
+## Organize local development
+
+<!-- #region -->
+
+### Development directory
+
+The development directory (`dev-dir`) is the local root LaminDB uses to map script, notebook, and notes paths.
+
+- If a development directory is set, keys are stored as paths relative to that directory.
+- Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
+
+Whenever you're not just reading from but writing to a LaminDB instance, configure a development directory already during connection by passing the `--here` flag:
+
+```bash
+lamin connect --here account/name
+```
+
+You can also configure the development directory independent from connecting by running:
 
 ```bash
 lamin settings set dev-dir .
 ```
 
-You can see the current status by running:
+You can see the current configuration by running:
 
 ```bash
 lamin info
 ```
 
-When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
+When you `cd` into the development directory, LaminDB auto-connects to the configured database.
+
+### Worktree
+
+If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch, inspired by `git worktree`.
+
+```bash
+lamin settings set worktree true
+```
+
+In this mode, each child directory maps on a branch, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
+
+```bash
+lamin switch -c branch-a
+cd branch-a
+```
+
+Here is an examplary structure:
+
+```bash
+dbs/
+  my_instance/                # development directory (dev-dir)
+    .lamin/
+    branch-a/                 # branch directory in the worktree
+      analysis/
+        script1.py
+    branch-b/                 # another branch directory with another version of script1.py
+      analysis/
+        script1.py
+```
 
 (sync-code-with-git)=
 
@@ -153,45 +230,6 @@ dbs/
     repo2/
       .git/
   ...
-```
-
-<!-- #endregion -->
-
-### Use projects
-
-You can link the entities created during a run to a project.
-
-```python
-import lamindb as ln
-
-my_project = ln.Project(name="My project").save()  # create & save a project
-ln.track(project="My project")  # pass project
-open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # auto-labeled by project
-```
-
-Filter entities by project, e.g., artifacts:
-
-```python
-ln.Artifact.filter(projects=my_project).to_dataframe()
-```
-
-Access entities linked to a project:
-
-```python
-my_project.artifacts.to_dataframe()
-```
-
-The same works for `my_project.transforms` or `my_project.runs`.
-
-### Use spaces
-
-You can write the entities created during a run into a space that you configure on LaminHub. This is particularly useful if you want to restrict access to a space. Note that this doesn't affect bionty entities who should typically be commonly accessible.
-
-<!-- #region -->
-
-```python
-ln.track(space="Our team space")
 ```
 
 <!-- #endregion -->

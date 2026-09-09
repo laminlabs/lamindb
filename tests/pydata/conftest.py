@@ -47,6 +47,7 @@ def pytest_sessionstart():
         )
 
     ln.settings.creation.artifact_silence_missing_run_warning = True
+    ln_setup.settings.worktree = False
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 

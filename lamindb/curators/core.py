@@ -656,7 +656,7 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
             if feature.name in df.columns:
                 value = df.loc[0, feature.name]
                 if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
-                    _check_sqlrecord_type_in_list(value, feature)
+                    _check_sqlrecord_type_in_list(value, feature)  # type: ignore
                     df.attrs[feature.name] = "list_of_categories"
                 else:
                     if isinstance(value, SQLRecord) and value._state.adding:

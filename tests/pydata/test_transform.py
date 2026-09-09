@@ -6,6 +6,7 @@ from unittest.mock import patch
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
+from lamindb_setup.errors import WorktreePathError
 
 
 def test_transform_from_path_infers_kind_and_key(tmp_path):
@@ -54,6 +55,48 @@ def test_transform_from_path_uses_dev_dir_relative_key_for_relative_path(tmp_pat
         assert transform.key == f"pipelines/{path_in_dev_dir.name}"
     finally:
         os.chdir(previous_cwd)
+        ln_setup.settings.dev_dir = previous_dev_dir
+
+
+def test_transform_from_path_uses_active_worktree_relative_key(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    path_in_child.parent.mkdir(parents=True, exist_ok=True)
+    path_in_child.write_text("print('hello from worktree')\n")
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        os.chdir(child_root)
+        transform = ln.Transform.from_path(path_in_child)
+        assert transform.key == f"pipelines/{path_in_child.name}"
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.worktree = previous_worktree
+        ln_setup.settings.dev_dir = previous_dev_dir
+
+
+def test_transform_from_path_errors_outside_worktree_child(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    path_in_child.parent.mkdir(parents=True, exist_ok=True)
+    path_in_child.write_text("print('outside child should fail')\n")
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        os.chdir(worktree_parent)
+        with pytest.raises(WorktreePathError, match="inside a child directory"):
+            ln.Transform.from_path(path_in_child)
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.worktree = previous_worktree
         ln_setup.settings.dev_dir = previous_dev_dir
 
 
