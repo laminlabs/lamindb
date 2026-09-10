@@ -8,7 +8,7 @@ acid
 idempotency
 ```
 
-LaminDB is a distributed data management system like git that can be run or hosted anywhere. It just needs a SQLite or Postgres database and at least one storage location (file system, S3, GCP, HuggingFace, ...). Creating a local LaminDB instance after `pip install lamindb` is as easy as:
+LaminDB is a distributed data management system like git that can be run or hosted anywhere. It just needs a SQLite or Postgres database and at least one storage location (file system, S3, GCP, Hugging Face, ...). Creating a local LaminDB instance after `pip install lamindb` is as easy as:
 
 ::::{tab-set}
 :::{tab-item} Shell
