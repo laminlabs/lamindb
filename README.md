@@ -16,7 +16,9 @@ It takes a few seconds to install LaminDB and create a database on your laptop.
 
 Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
 
-While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs. LaminDB generalizes core lakehouse guarantees—ACID transactions, time travel, and schema evolution—to multimodal data (`parquet`, `zarr`, `AnnData`, images) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query with engines like Polars or DuckDB.
+Traditional data infrastructure doesn't solve these issues because it was built for business analytics rather than complex AI workflows.
+While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs.
+LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel, and schema evolution — to multimodal data (`parquet`, `zarr`, `AnnData`, images) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query with your favorite compute engines (Polars, DuckDB, ...).
 
 </details>
 
@@ -41,7 +43,7 @@ Architecture?
 - **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites
-- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
 <details>
