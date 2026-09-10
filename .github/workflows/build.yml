@@ -43,29 +43,29 @@ jobs:
           DOCS_GROUPS=("tutorial" "guide" "tiledbsoma" "biology" "faq" "storage")
           CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer" "cli" "permissions" "no-instance" "minimal")
           CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
-          GROUPS=()
+          SELECTED_GROUPS=()
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
+            SELECTED_GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
           else
             if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
-              GROUPS+=("${CORE_GROUPS[@]}")
+              SELECTED_GROUPS+=("${CORE_GROUPS[@]}")
             fi
             if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
-              GROUPS+=("${DOCS_GROUPS[@]}")
+              SELECTED_GROUPS+=("${DOCS_GROUPS[@]}")
             fi
             if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-              GROUPS+=("curator")
+              SELECTED_GROUPS+=("curator")
             fi
             if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
-              GROUPS+=("integrations")
+              SELECTED_GROUPS+=("integrations")
             fi
           fi
 
           # Ensure unique group names while preserving insertion order.
           UNIQUE_GROUPS=()
           declare -A SEEN=()
-          for group in "${GROUPS[@]}"; do
+          for group in "${SELECTED_GROUPS[@]}"; do
             if [[ -z "${SEEN[$group]+x}" ]]; then
               UNIQUE_GROUPS+=("$group")
               SEEN[$group]=1
