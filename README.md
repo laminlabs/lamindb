@@ -46,6 +46,8 @@ Architecture?
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
+Read more: [docs.lamin.ai/architecture](https://docs.lamin.ai/architecture).
+
 <details>
 <summary>Who?</summary>
 
