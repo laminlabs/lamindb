@@ -87,24 +87,24 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 <div style="float: right; width: 65%; margin: 0.5rem 0 1rem 1.5rem; font-size: 0.85em;">
 
-| Feature                                  | Raw S3 | Iceberg | DuckLake | LaminDB |
-| ---------------------------------------- | ------ | ------- | -------- | ------- |
-| Data lake (file management & annotation) | ✅     | ❌      | ❌       | ✅      |
-| ACID transactions                        | ❌     | ✅      | ✅       | ✅ ¹    |
-| Time travel / snapshot version isolation | ❌     | ✅      | ✅       | ✅ ²    |
-| Schema evolution without rewriting data  | ❌     | ✅ ³    | ✅ ³     | ✅ ³    |
-| Write-Audit-Publish workflow             | ❌     | ✅      | ❌       | ✅ ⁴    |
-| Query engine independence                | ✅     | ✅      | ❌       | ✅      |
-| Concurrent writers                       | ❌ ⁵   | ❌      | ✅       | ✅      |
-| Automatic maintenance                    | ❌     | ❌      | ✅ ⁶     | ✅ ⁶    |
-| Native multi-table transactions          | ❌     | ❌      | ✅       | ❌      |
-| Dataset formats beyond tables            | ✅     | ❌      | ❌       | ✅      |
-| Data lineage                             | ❌     | ❌      | ❌       | ✅      |
-| Registries/ontologies                    | ❌     | ❌      | ❌       | ✅      |
+| Feature                                                      | Raw S3 | Iceberg | DuckLake | LaminDB |
+| ------------------------------------------------------------ | ------ | ------- | -------- | ------- |
+| Data lake (file management & annotation)                     | ✅     | ❌      | ❌       | ✅      |
+| ACID transactions                                            | ❌     | ✅      | ✅       | ✅ ¹    |
+| Time travel / snapshot version isolation                     | ❌     | ✅      | ✅       | ✅ ²    |
+| Schema evolution without rewriting data                      | ❌     | ✅ ³    | ✅ ³     | ✅ ³    |
+| Write-Audit-Publish workflow                                 | ❌     | ✅      | ❌       | ✅ ⁴    |
+| Decoupled compute (zero-penalty pushdowns via DuckDB/Polars) | ✅     | ✅      | ❌       | ✅      |
+| Concurrent writers                                           | ❌ ⁵   | ❌      | ✅       | ✅      |
+| Automatic maintenance                                        | ❌     | ❌      | ✅ ⁶     | ✅ ⁶    |
+| Native multi-table transactions                              | ❌     | ❌      | ✅       | ❌      |
+| Dataset formats beyond tables                                | ✅     | ❌      | ❌       | ✅      |
+| Data lineage                                                 | ❌     | ❌      | ❌       | ✅      |
+| Registries/ontologies                                        | ❌     | ❌      | ❌       | ✅      |
 
 :::{dropdown} **Table 1.** A high-level overview of lakehouse technologies.
 
-¹ LaminDB [guarantees data ↔ metadata consistency through ACID operations](https://docs.lamin.ai/acid), but does not guarantee row-level ACID operations the way Iceberg and DuckLake do. Because you can map an insert into a collection of parquet files via `lamindb.Collection.append()` in an ACID way, the practical robustness guarantee to the user is similar.
+¹ LaminDB provides snapshot isolation and time travel by managing dataset state as transactional metadata records in Postgres/SQLite rather than mutating existing files. While it does not perform in-place row-level mutations like a SQL database, operations like `Collection.append()` atomically create new collection versions pointing to new, immutable artifacts. This extends core lakehouse ACID guarantees to multimodal datasets without conflict. For more, see {doc}`acid`.
 
 ² See the [Developer experience](#time-travel) section for examples.
 
@@ -126,6 +126,19 @@ Unlike Iceberg and DuckLake, **LaminDB** goes beyond tables, supporting datasets
 
 While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
 While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
+
+### Decoupled compute & query pushdowns
+
+Unlike DuckLake or Lakebase, which tightly couple their metadata catalog to a SQL execution engine, LaminDB intentionally decouples metadata orchestration from query execution.
+
+LaminDB acts as a semantic filter layer for your datasets (e.g., querying Postgres for all datasets belonging to an experiment). Once it yields the precise object storage paths, you pass them directly to modern open-source engines like **DuckDB, Polars, or PySpark**.
+
+Because these compute engines natively support reading formats like Parquet and Zarr over S3, you retain 100% of their query optimization benefits, including:
+
+- **Projection Pushdowns:** Only downloading the specific columns requested in your query.
+- **Filter Pushdowns:** Reading file footers to perform row-group pruning and skip irrelevant data blocks before downloading them.
+
+This "bring-your-own-compute" architecture ensures that using LaminDB for provenance and ACID governance never incurs a performance penalty on analytical queries. See {doc}`tables` for more details.
 
 (time-travel)=
 
