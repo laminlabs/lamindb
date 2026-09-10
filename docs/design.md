@@ -140,12 +140,18 @@ Because these engines read native Parquet and Zarr files directly over object st
 
 This decoupled design ensures that using LaminDB for provenance, lineage, and ACID governance introduces zero performance penalty during data processing and analytics. See {doc}`tables` for implementation details.
 
+### Branching & idempotency
+
+To safely delegate tasks to autonomous agents and distributed teams, data infrastructure must support non-destructive experimentation and repeatable execution.
+
+- **Git-like branching (Write-Audit-Publish):** LaminDB provides database-level branching (`stage`, `review`, `merge`) to support isolated workflows. Agents or developers can perform exploratory writes, schema modifications, or pipeline runs on a dedicated branch without corrupting production data or lineage. Once validated, changes are merged into the main database. For details, see {doc}`manage-changes`.
+- **Idempotent execution:** Re-running Python scripts, workflow tasks (Nextflow, Snakemake), or agent traces is inherently safe. LaminDB validates content hashes and metadata prior to writing, ensuring that executing logic multiple times never creates duplicate artifacts or dangling storage objects. For details, see {doc}`idempotency`.
+
 (time-travel)=
 
-### Developer experience
+### Schema evolution & time travel
 
 To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling.
-In the queries themselves, there is no noteworthy difference to what we've discussed above (see [Querying Iceberg & LanceDB](#iceberg-lancedb)).
 
 The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
 
