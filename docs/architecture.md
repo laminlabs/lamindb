@@ -261,7 +261,11 @@ table.checkout(1)             # checkout a previous version
 :::::
 ::::::
 
-## Database schema & API
+## Permissions
+
+See {doc}`docs:permissions`.
+
+## Metadata schema & API
 
 LaminDB provides a SQL schema for common metadata entities: {class}`~lamindb.Artifact`, {class}`~lamindb.Collection`, {class}`~lamindb.Transform`, {class}`~lamindb.Feature`, {class}`~lamindb.Record` etc. - see the [API reference](/api) or the [source code](https://github.com/laminlabs/lamindb/tree/main/lamindb/models).
 
