@@ -81,7 +81,7 @@ For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone
 
 ## Distributed architecture & zero-copy transfer
 
-Within a single team, collaborators typically share a central database as their source of truth. However, across teams, divisions, or external organizations, LaminDB operates as a distributed system — much like distinct git repositories.
+Within a single team, collaborators often share a single central database as their source of truth. However, across teams, divisions, or external organizations, LaminDB operates as a distributed system — much like distinct git repositories.
 
 - **Cross-database transfer:** One team can produce and annotate data in Database A (e.g., an S3-backed environment in AWS), while a downstream team operating in Database B (e.g., on GCP or local storage) imports and builds upon those assets. LaminDB makes lineage-aware data sharing easy. For details, see {doc}`transfer`.
 - **Zero-Copy data federation:** Downstream databases can register and query raw storage objects created by upstream teams without duplicating or physically moving the underlying storage bytes—even across different cloud providers or regions.
