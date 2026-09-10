@@ -676,19 +676,15 @@ class ComponentCurator(Curator):
         feature_ids: set[int] = set()
 
         if schema.flexible:
-            _itype = schema.itype
-            if _itype and _itype.startswith("Feature["):
-                # Scoped itype: "Feature[<uid>]" — only fetch features of that type.
-                _type_uid = _itype[len("Feature["):-1]
-                features += (
-                    Feature.connect(using)
-                    .filter(name__in=self._dataset.keys(), type__uid=_type_uid)
-                    .to_list()
-                )
-            else:
-                features += (
-                    Feature.connect(using).filter(name__in=self._dataset.keys()).to_list()
-                )
+            qs = Feature.connect(using).filter(name__in=self._dataset.keys())
+            itype = schema.itype
+            if itype and itype.startswith("Feature["):
+                # Scoped itype "Feature[<uid>]": restrict to features of that type only.
+                # Note: startswith("Feature[") not startswith("Feature") because the
+                # unscoped "Feature" itype should not filter by type__uid.
+                type_uid = itype[8:-1]  # len("Feature[") == 8
+                qs = qs.filter(type__uid=type_uid)
+            features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 
         if schema.n_members and schema.n_members > 0:
@@ -1254,6 +1250,10 @@ class AnnDataCurator(SlotsCurator):
                     or (
                         slot == "var"
                         and schema.slots["var"].itype is not None
+                    # startswith("Feature") covers both "Feature" and "Feature[uid]":
+                    # neither generic nor scoped Feature schemas use gene-ID indices,
+                    # so neither should be transposed. Only gene-registry itypes
+                    # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
                     and not schema.slots["var"].itype.startswith("Feature")
                     )
                     else getattr(self._dataset, slot)
