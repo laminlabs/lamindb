@@ -156,6 +156,14 @@ To see how these concepts translate into developer experience, let's compare the
 The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
 
 ::::::{tab-set}
+:::::{tab-item} LaminDB
+Atomic and snapshot-isolated. A new parquet file creates a new collection version.
+
+```python
+collection.append(batch)  # batch is an artifact
+```
+
+:::::
 :::::{tab-item} Iceberg
 Atomic and snapshot-isolated. New Parquet files and a snapshot manifest are written to S3; concurrent readers see a consistent state throughout.
 
@@ -173,20 +181,20 @@ table.add(batch)  # batch is a pyarrow dataset
 ```
 
 :::::
-
-:::::{tab-item} LaminDB
-Atomic and snapshot-isolated. A new parquet file creates a new collection version.
-
-```python
-collection.append(batch)  # batch is an artifact
-```
-
-:::::
 ::::::
 
 Similarly, when an analysis requires new features, the following snippets ensure that columns are updated consistently across the entire dataset, and future incoming datasets.
 
 ::::::{tab-set}
+:::::{tab-item} LaminDB
+LaminDB registers the feature in its schema registry, validating all future artifacts instance-wide.
+
+```python
+feature = ln.Feature(name="QC_PASS", dtype=bool).save()
+collection.schema.add(feature)
+```
+
+:::::
 
 :::::{tab-item} Iceberg
 A new metadata file records the updated schema. Existing Parquet files are not modified; reads of old files return `null` for the new column.
@@ -208,20 +216,18 @@ table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 
 :::::
 
-:::::{tab-item} LaminDB
-LaminDB registers the feature in its schema registry, validating all future artifacts instance-wide.
-
-```python
-feature = ln.Feature(name="QC_PASS", dtype=bool).save()
-collection.schema.add(feature)
-```
-
-:::::
 ::::::
 
 Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
 
 ::::::{tab-set}
+:::::{tab-item} LaminDB
+
+```python
+collection.versions.get(version="1")  # get a previous version
+```
+
+:::::
 
 :::::{tab-item} Iceberg
 
@@ -236,14 +242,6 @@ table.scan(snapshot_id=first_snapshot)
 
 ```python
 table.checkout(1)             # checkout a previous version
-```
-
-:::::
-
-:::::{tab-item} LaminDB
-
-```python
-collection.versions.get(version="1")  # get a previous version
 ```
 
 :::::
@@ -265,7 +263,7 @@ On top of the metadata schema, LaminDB is a Python API that models datasets as a
 
 LaminDB can be extended with modules building on the [Django](https://github.com/django/django) ecosystem. Examples are:
 
-- [bionty](./bionty): Basic biological ontologies, with easy import from >20 public ontologies
+- [bionty](https://github.com/laminlabs/bionty): Basic biological ontologies, with easy import from >20 public ontologies
 - [pertdb](https://github.com/laminlabs/pertdb): Registries for perturbations (compounds, biologics, genetic interventions, etc.)
 
 If you'd like to create your own module:
@@ -280,17 +278,17 @@ For more information, see {doc}`docs:setup`.
 LaminDB and its plugins consist in open-source Python libraries & publicly hosted metadata assets:
 
 - [lamindb](https://github.com/laminlabs/lamindb): Core library.
-- [bionty](https://github.com/laminlabs/bionty): Basic biological ontologies, with easy import from >20 public ontologies
-- [pertdb](https://github.com/laminlabs/pertdb): Registries for perturbations (compounds, biologics, genetic interventions, etc.)
 
 Tightly integrated dependencies are available as git submodules [here](https://github.com/laminlabs/lamindb/tree/main/sub), for instance,
 
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB.
 - [lamin-cli](https://github.com/laminlabs/lamin-cli): The CLI.
+- [lamin-skills](https://github.com/laminlabs/lamin-skills): Agent skills.
 
 Use cases / domain-specific repos:
 
-- [lamin-usecases](https://github.com/laminlabs/lamin-usecases): Use cases as visible on the docs.
+- [lamin-usecases](https://github.com/laminlabs/lamin-usecases): Mixed use cases.
+- [lamin-agents](https://github.com/laminlabs/lamin-agents): Agentic use cases.
 - [redun-lamin](https://github.com/laminlabs/redun-lamin): Track redun workflow runs with LaminDB.
 - [lamin-mlops](https://github.com/laminlabs/lamin-mlops): MLOps use cases (MNIST, W&B, MLflow, Croissant).
 - [cellxgene-lamin](https://github.com/laminlabs/cellxgene-lamin): CELLxGENE data and curation.
