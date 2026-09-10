@@ -81,11 +81,11 @@ For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone
 
 ## Distributed architecture & zero-copy transfer
 
-Like git, LaminDB is a distributed system designed for local execution autonomy and central governance. While teams typically establish a central remote database (Postgres or LaminHub) as the production source of truth—much like a central GitHub repository—LaminDB does not force compute through a centralized REST API backend.
+Within a single team, collaborators typically share a central database as their source of truth. However, across teams, divisions, or external organizations, LaminDB operates as a distributed system — much like distinct git repositories.
 
-- **Local-First Autonomy:** Developers and autonomous agents can spin up lightweight, local instances backed by SQLite to run fast experiments or offline pipelines without network latency or central database write locks.
-- **Lineage-Aware Transfer:** Metadata records, computational transforms, and datasets can be pushed and transferred across instances (e.g., moving validated results from a local sandbox or edge cluster into a central organization registry) while preserving full computational lineage. For details, see {doc}`transfer`.
-- **Zero-Copy Data Federation:** References to massive datasets stored across diverse buckets (S3, GCP, local disk) can be federated across databases without duplicating or moving underlying raw storage bytes.
+- **Cross-database transfer:** One team can produce and annotate data in Database A (e.g., an S3-backed environment in AWS), while a downstream team operating in Database B (e.g., on GCP or local storage) imports and builds upon those assets. LaminDB makes lineage-aware data sharing easy. For details, see {doc}`transfer`.
+- **Zero-Copy data federation:** Downstream databases can register and query raw storage objects created by upstream teams without duplicating or physically moving the underlying storage bytes—even across different cloud providers or regions.
+- **Direct storage & database access:** Whether querying a team's shared Postgres database or federating across distinct databases, clients hit storage and databases directly through standard PyData or R drivers without routing through a bottlenecking REST API.
 
 ## Lakehouse architecture
 
