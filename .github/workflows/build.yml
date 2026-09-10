@@ -41,8 +41,9 @@ jobs:
         shell: bash
         run: |
           GROUPS=$(jq -n -c '[]')
-          CORE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
           DOCS_GROUPS=$(jq -n -c '["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]')
+          CORE_NON_DOCS_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
+          CORE_GROUPS=$(jq -n -c --argjson non_docs "$CORE_NON_DOCS_GROUPS" --argjson docs "$DOCS_GROUPS" '$non_docs + $docs')
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
             GROUPS=$(jq -n -c --argjson core "$CORE_GROUPS" '$core + ["curator", "integrations"]')
