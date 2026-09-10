@@ -26,9 +26,11 @@ jobs:
           filters: |
             docs:
               - 'docs/**'
+              - 'README.md'
             core:
               - '**'
               - '!docs/**'
+              - '!README.md'
             curator:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
