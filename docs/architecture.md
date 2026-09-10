@@ -79,12 +79,18 @@ For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone
 :end-before: Read more:
 :::
 
+## Distributed architecture & zero-copy transfer
+
+Like git, LaminDB is a distributed system designed for local execution autonomy and central governance. While teams typically establish a central remote database (Postgres or LaminHub) as the production source of truth—much like a central GitHub repository—LaminDB does not force compute through a centralized REST API backend.
+
+- **Local-First Autonomy:** Developers and autonomous agents can spin up lightweight, local instances backed by SQLite to run fast experiments or offline pipelines without network latency or central database write locks.
+- **Lineage-Aware Transfer:** Metadata records, computational transforms, and datasets can be pushed and transferred across instances (e.g., moving validated results from a local sandbox or edge cluster into a central organization registry) while preserving full computational lineage. For details, see {doc}`transfer`.
+- **Zero-Copy Data Federation:** References to massive datasets stored across diverse buckets (S3, GCP, local disk) can be federated across databases without duplicating or moving underlying raw storage bytes.
+
 ## Lakehouse architecture
 
 Working with a high number of raw files across different sources almost inevitably leads to fragile data organization. This brittleness is amplified when working with agents: they prioritize solving the immediate task over long-term maintainability, they make frequent mistakes, and their concurrent read/write patterns can quickly corrupt a purely file-based architecture. Lakehouse frameworks solve these problems with [ACID transactions](https://en.wikipedia.org/wiki/ACID) to prevent partial writes, with schema enforcement to prevent inconsistent datasets, and with time travel to easily restore erroneous written datasets.
 And, as discussed earlier, they also make agents more efficient. So, let's briefly review available options.
-
-### Frameworks
 
 <figure style="float: right; width: 400px; margin-left: 0.5rem">
   <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/OgVhDACCMhzGKC4t0001.svg" />
@@ -136,19 +142,19 @@ This enables unified schema management, data lineage, and registry annotations a
 While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
 While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
 
-### Decoupled compute & query pushdowns
+## Decoupled compute & query pushdowns
 
 Rather than locking metadata resolution inside a dedicated query engine or custom SQL driver, LaminDB acts as an independent semantic orchestration layer.
 
 When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths directly to modern open-source engines like DuckDB, Polars, or PySpark.
 Because these engines read native Parquet and Zarr files directly over object storage, query execution retains full optimization benefits:
 
-- Projection Pushdowns: Only downloading requested columns.
-- Filter Pushdowns: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
+- **Projection Pushdowns**: Only downloading requested columns.
+- **Filter Pushdowns**: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
 
 This decoupled design ensures that using LaminDB for provenance, lineage, and ACID governance introduces zero performance penalty during data processing and analytics. See {doc}`tables` for implementation details.
 
-### Branching & idempotency
+## Branching & idempotency
 
 To safely delegate tasks to autonomous agents and distributed teams, data infrastructure must support non-destructive experimentation and repeatable execution.
 
@@ -157,7 +163,7 @@ To safely delegate tasks to autonomous agents and distributed teams, data infras
 
 (time-travel)=
 
-### Schema evolution & time travel
+## Schema evolution & time travel
 
 To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling.
 
