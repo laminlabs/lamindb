@@ -8,15 +8,7 @@ acid
 idempotency
 ```
 
-LaminDB is a distributed data management system like git that can be run or hosted anywhere. It just needs a SQLite or Postgres database and at least one storage location (file system, S3, GCP, HuggingFace, ...).
-
-Before you create a local database, create a development directory and `cd` into it:
-
-```bash
-mkdir mydata && cd mydata
-```
-
-Then call:
+LaminDB is a distributed data management system like git that can be run or hosted anywhere. It just needs a SQLite or Postgres database and at least one storage location (file system, S3, GCP, HuggingFace, ...). Creating a local LaminDB instance after `pip install lamindb` is as easy as:
 
 ::::{tab-set}
 :::{tab-item} Shell
@@ -46,13 +38,13 @@ lamin_init()
 :::
 ::::
 
-Or you can let collaborators connect to a cloud-hosted instance:
+Or you connect to an existing remote database:
 
 ::::{tab-set}
 :::{tab-item} Shell
 
 ```bash
-lamin connect account/instance
+lamin connect --here account/instance  # --here localizes your connection to the current directory
 ```
 
 :::
@@ -77,7 +69,166 @@ ln <- ln$connect("account/instance")
 :::
 ::::
 
-For learning more about how to create & host LaminDB instances, see {doc}`docs:setup`. LaminDB instances work standalone but can optionally be managed by LaminHub. For an architecture diagram of LaminHub, [reach out](https://lamin.ai/contact)!
+For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone but can optionally be managed by LaminHub.
+
+## Lakehouse architecture
+
+Working with a high number of raw files across different sources almost inevitably leads to fragile data organization. This brittleness is amplified when working with agents: they prioritize solving the immediate task over long-term maintainability, they make frequent mistakes, and their concurrent read/write patterns can quickly corrupt a purely file-based architecture. Lakehouse frameworks solve these problems with [ACID transactions](https://en.wikipedia.org/wiki/ACID) to prevent partial writes, with schema enforcement to prevent inconsistent datasets, and with time travel to easily restore erroneous written datasets.
+And, as discussed earlier, they also make agents more efficient. So, let's briefly review available options.
+
+### Frameworks
+
+<figure style="float: right; width: 400px; margin-left: 0.5rem">
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/OgVhDACCMhzGKC4t0001.svg" />
+  <strong>Figure 4.</strong> File layout of an Iceberg table.
+</figure>
+
+Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[^delta][^databricks] and Apache Hudi,[^hudi] Iceberg provides ACID transactions and "time travel" by organizing parquet files into snapshots, managed by manifest and metadata files (**Figure 4**). However, this file-based metadata introduces costs (snapshot creation is expensive dictating large, infrequent writes), optimistic concurrency leads to conflicts between simultaneous writers, and coordinating updates on S3 requires an external catalog like AWS Glue or Nessie.[^nessie]
+
+<div style="float: right; width: 65%; margin: 0.5rem 0 1rem 1.5rem; font-size: 0.85em;">
+
+| Feature                                  | Raw S3 | Iceberg | DuckLake | LaminDB |
+| ---------------------------------------- | ------ | ------- | -------- | ------- |
+| Data lake (file management & annotation) | ✅     | ❌      | ❌       | ✅      |
+| ACID transactions                        | ❌     | ✅      | ✅       | ✅ ¹    |
+| Time travel / snapshot version isolation | ❌     | ✅      | ✅       | ✅ ²    |
+| Schema evolution without rewriting data  | ❌     | ✅ ³    | ✅ ³     | ✅ ³    |
+| Write-Audit-Publish workflow             | ❌     | ✅      | ❌       | ✅ ⁴    |
+| Query engine independence                | ✅     | ✅      | ❌       | ✅      |
+| Concurrent writers                       | ❌ ⁵   | ❌      | ✅       | ✅      |
+| Automatic maintenance                    | ❌     | ❌      | ✅ ⁶     | ✅ ⁶    |
+| Native multi-table transactions          | ❌     | ❌      | ✅       | ❌      |
+| Dataset formats beyond tables            | ✅     | ❌      | ❌       | ✅      |
+| Data lineage                             | ❌     | ❌      | ❌       | ✅      |
+| Registries/ontologies                    | ❌     | ❌      | ❌       | ✅      |
+
+:::{dropdown} **Table 1.** A high-level overview of lakehouse technologies.
+
+¹ LaminDB [guarantees data ↔ metadata consistency through ACID operations](https://docs.lamin.ai/acid), but does not guarantee row-level ACID operations the way Iceberg and DuckLake do. Because you can map an insert into a collection of parquet files via `lamindb.Collection.append()` in an ACID way, the practical robustness guarantee to the user is similar.
+
+² See the [Developer experience](#time-travel) section for examples.
+
+³ Adding a nullable/optional column without rewriting existing files.
+
+⁴ In LaminDB, via branches (stage, review, merge).
+
+⁵ Raw files have no commit protocol; concurrent writers risk partial writes / last-writer-wins.
+
+⁶ No need for cleaning orphaned files like in Iceberg.
+
+:::
+
+</div>
+
+An increasingly popular approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata.
+
+Unlike Iceberg and DuckLake, **LaminDB** goes beyond tables, supporting datasets across any storage format — Parquet, AnnData, HDF5, Zarr, VCF, and more. The user can manage anything from blobs in a data lake to multimodal datasets based on a single schema concept. LaminDB shares DuckLake's architectural design — a relational database for metadata and storage for data — and natively provides data lineage (**Table 1**).
+
+While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
+While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
+
+(time-travel)=
+
+### Developer experience
+
+To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling.
+In the queries themselves, there is no noteworthy difference to what we've discussed above (see [Querying Iceberg & LanceDB](#iceberg-lancedb)).
+
+The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
+
+::::::{tab-set}
+:::::{tab-item} Iceberg
+Atomic and snapshot-isolated. New Parquet files and a snapshot manifest are written to S3; concurrent readers see a consistent state throughout.
+
+```python
+table.append(batch)  # batch is a pyarrow dataset
+```
+
+:::::
+
+:::::{tab-item} LanceDB
+`add()` writes new rows to S3 and automatically increments the table version.
+
+```python
+table.add(batch)  # batch is a pyarrow dataset
+```
+
+:::::
+
+:::::{tab-item} LaminDB
+Atomic and snapshot-isolated. A new parquet file creates a new collection version.
+
+```python
+collection.append(batch)  # batch is an artifact
+```
+
+:::::
+::::::
+
+Similarly, when an analysis requires new features, the following snippets ensure that columns are updated consistently across the entire dataset, and future incoming datasets.
+
+::::::{tab-set}
+
+:::::{tab-item} Iceberg
+A new metadata file records the updated schema. Existing Parquet files are not modified; reads of old files return `null` for the new column.
+
+```python
+from pyiceberg.types import BooleanType
+with table.update_schema() as update:
+    update.add_column("QC_PASS", BooleanType())
+```
+
+:::::
+
+:::::{tab-item} LanceDB
+`add_columns` takes a per-column SQL value expression — hence the `CAST(NULL AS BOOLEAN)` string, which supplies both the value and its type for existing rows.
+
+```python
+table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
+```
+
+:::::
+
+:::::{tab-item} LaminDB
+LaminDB registers the feature in its schema registry, validating all future artifacts instance-wide.
+
+```python
+feature = ln.Feature(name="QC_PASS", dtype=bool).save()
+collection.schema.add(feature)
+```
+
+:::::
+::::::
+
+Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
+
+::::::{tab-set}
+
+:::::{tab-item} Iceberg
+
+```python
+first_snapshot = table.history()[0].snapshot_id  # access version 0
+table.scan(snapshot_id=first_snapshot)
+```
+
+:::::
+
+:::::{tab-item} LanceDB
+
+```python
+table.checkout(1)             # checkout a previous version
+```
+
+:::::
+
+:::::{tab-item} LaminDB
+
+```python
+collection.versions.get(version="1")  # get a previous version
+```
+
+:::::
+::::::
 
 ## Database schema & API
 
