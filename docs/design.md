@@ -122,25 +122,23 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 An increasingly popular approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata. A complementary development in operational workloads is **Lakebase**, which decouples Postgres database compute and storage via Write-Ahead Logs in object storage. This brings serverless, transactional Postgres to live applications and agents, while continuously syncing operational row changes into analytical lakehouses like Delta Lake.
 
-Unlike Iceberg, DuckLake or Lakebase, **LaminDB** goes beyond tables, supporting datasets across any storage format — Parquet, AnnData, HDF5, Zarr, VCF, and more. The user can manage anything from blobs in a data lake to multimodal datasets based on a single schema concept. LaminDB shares DuckLake's architectural design — a relational database for metadata and storage for data — and natively provides data lineage (**Table 1**).
+**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond tables to support any format (parquet, zarr, AnnData, HDF5, images).
+This enables unified schema management, data lineage, and registry annotations across complex, multimodal datasets (Table 1).
 
 While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
 While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
 
 ### Decoupled compute & query pushdowns
 
-Like modern lakehouses, LaminDB decouples compute from storage.
-However, unlike systems that couple metadata resolution to specialized SQL drivers, LaminDB intentionally decouples metadata orchestration from query execution.
-It gives you total query engine independence without sacrificing zero-penalty pushdowns in DuckDB or Polars.
+Rather than locking metadata resolution inside a dedicated query engine or custom SQL driver, LaminDB acts as an independent semantic orchestration layer.
 
-LaminDB acts as a semantic filter layer for your datasets (e.g., querying Postgres for all datasets belonging to an experiment). Once it yields the precise object storage paths, you pass them directly to modern open-source engines like **DuckDB, Polars, or PySpark**.
+When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths directly to modern open-source engines like DuckDB, Polars, or PySpark.
+Because these engines read native Parquet and Zarr files directly over object storage, query execution retains full optimization benefits:
 
-Because these compute engines natively support reading formats like Parquet and Zarr over S3, you retain 100% of their query optimization benefits, including:
+- Projection Pushdowns: Only downloading requested columns.
+- Filter Pushdowns: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
 
-- **Projection Pushdowns:** Only downloading the specific columns requested in your query.
-- **Filter Pushdowns:** Reading file footers to perform row-group pruning and skip irrelevant data blocks before downloading them.
-
-This "bring-your-own-compute" architecture ensures that using LaminDB for provenance and ACID governance never incurs a performance penalty on analytical queries. See {doc}`tables` for more details.
+This decoupled design ensures that using LaminDB for provenance, lineage, and ACID governance introduces zero performance penalty during data processing and analytics. See {doc}`tables` for implementation details.
 
 (time-travel)=
 
