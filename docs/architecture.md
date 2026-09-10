@@ -75,7 +75,7 @@ For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone
 ## At a glance
 
 :::{include} ../README.md
-:start-after: How?
+:start-after: Architecture?
 :end-before: Read more:
 :::
 
