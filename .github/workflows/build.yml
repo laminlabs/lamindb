@@ -40,41 +40,52 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          GROUPS=$(jq -n -c '[]')
-          DOCS_GROUPS=$(jq -n -c '["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]')
-          CORE_NON_DOCS_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
-          CORE_GROUPS=$(jq -n -c --argjson non_docs "$CORE_NON_DOCS_GROUPS" --argjson docs "$DOCS_GROUPS" '$non_docs + $docs')
+          DOCS_GROUPS=("tutorial" "guide" "tiledbsoma" "biology" "faq" "storage")
+          CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer" "cli" "permissions" "no-instance" "minimal")
+          CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
+          GROUPS=()
 
           if [[ "${{ github.event_name }}" == "push" ]]; then
-            GROUPS=$(jq -n -c --argjson core "$CORE_GROUPS" '$core + ["curator", "integrations"]')
+            GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
           else
             if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
-              GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$CORE_GROUPS" '$current + $groups')
+              GROUPS+=("${CORE_GROUPS[@]}")
             fi
-
             if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
-              GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$DOCS_GROUPS" '$current + $groups')
+              GROUPS+=("${DOCS_GROUPS[@]}")
             fi
-
             if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-              GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["curator"]')
+              GROUPS+=("curator")
             fi
-
             if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
-              GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["integrations"]')
+              GROUPS+=("integrations")
             fi
           fi
 
-          # Ensure unique group names.
-          UNIQUE_GROUPS=$(echo "$GROUPS" | jq -c 'unique')
-          MATRIX=$(jq -n -c --argjson groups "$UNIQUE_GROUPS" '{group: $groups}')
+          # Ensure unique group names while preserving insertion order.
+          UNIQUE_GROUPS=()
+          declare -A SEEN=()
+          for group in "${GROUPS[@]}"; do
+            if [[ -z "${SEEN[$group]+x}" ]]; then
+              UNIQUE_GROUPS+=("$group")
+              SEEN[$group]=1
+            fi
+          done
+
+          if (( ${#UNIQUE_GROUPS[@]} == 0 )); then
+            MATRIX='{"group":[]}'
+          else
+            GROUPS_JSON=$(printf '"%s",' "${UNIQUE_GROUPS[@]}")
+            GROUPS_JSON="[${GROUPS_JSON%,}]"
+            MATRIX="{\"group\":${GROUPS_JSON}}"
+          fi
 
           # Output as single line for GitHub Actions
-          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
           # Pretty print for debugging
           echo "Generated matrix:"
-          echo "$MATRIX" | jq .
+          echo "$MATRIX"
 
   test:
     needs: pre-filter
