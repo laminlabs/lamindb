@@ -23,7 +23,7 @@ transfer
 :hidden:
 :caption: Other topics
 
-design
+architecture
 faq
 storage
 ```
