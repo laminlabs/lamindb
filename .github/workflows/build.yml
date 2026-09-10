@@ -21,9 +21,13 @@ jobs:
 
       - uses: dorny/paths-filter@v3
         id: changes
-        if: github.event_name != 'push'
         with:
           filters: |
+            docs:
+              - 'docs/**'
+            core:
+              - '**'
+              - '!docs/**'
             curator:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
@@ -35,24 +39,28 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
-          ADDITIONAL_GROUPS=[]
+          GROUPS=$(jq -n -c '[]')
+          CORE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
+          DOCS_GROUPS=$(jq -n -c '["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]')
 
-          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            # Run everything on push and dispatch
-            ADDITIONAL_GROUPS=$(jq -n -c '["curator", "integrations"]')
-          else
-            # Otherwise check which paths changed
-            if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["curator"]')
-            fi
-            if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
-              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["integrations"]')
-            fi
+          if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
+            GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$CORE_GROUPS" '$current + $groups')
           fi
 
-          # Combine base groups with any additional groups
-          MATRIX=$(jq -n -c --argjson base "$BASE_GROUPS" --argjson additional "$ADDITIONAL_GROUPS" '{group: ($base + $additional)}')
+          if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
+            GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$DOCS_GROUPS" '$current + $groups')
+          fi
+
+          if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+            GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["curator"]')
+          fi
+
+          if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
+            GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["integrations"]')
+          fi
+
+          # Ensure unique group names while preserving order.
+          MATRIX=$(jq -n -c --argjson groups "$GROUPS" '{group: ($groups | reduce .[] as $g ([]; if index($g) then . else . + [$g] end))}')
 
           # Output as single line for GitHub Actions
           echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
