@@ -75,8 +75,8 @@ For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone
 ## At a glance
 
 :::{include} ../README.md
-:start-line: 28
-:end-line: 47
+:start-after: How?
+:end-before: Read more:
 :::
 
 ## Lakehouse architecture
