@@ -2,7 +2,10 @@
 
 # LaminDB: Data management for traceable, multimodal AI
 
-LaminDB is an open-source data management tool that makes it easy to query, trace & govern datasets across diverse storage formats and locations. It gives you context through annotations, memory through lineage, and governance through branching and versioning. It uses a scalable lakehouse architecture that integrates files, tables, arrays, ontologies, and notes. It supports biological formats and registries by the creators of Scanpy.
+LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
+Like git, LaminDB is a distributed system that runs anywhere and captures all relevant context about your work.
+This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
+It takes a few seconds to install LaminDB and create a database on your laptop.
 
 <details>
 <summary>Why?</summary>
@@ -12,6 +15,8 @@ LaminDB is an open-source data management tool that makes it easy to query, trac
 3. Without governing changes to data akin to governing changes to software with git, it's hard to evaluate agents, debug their mistakes, and safely merge their contributions.
 
 Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
+
+While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs. LaminDB generalizes core lakehouse guarantees—ACID transactions, time travel, and schema evolution—to multimodal data (`parquet`, `zarr`, `AnnData`, images) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query with engines like Polars or DuckDB.
 
 </details>
 
