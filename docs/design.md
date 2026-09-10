@@ -80,7 +80,7 @@ And, as discussed earlier, they also make agents more efficient. So, let's brief
 
 <figure style="float: right; width: 400px; margin-left: 0.5rem">
   <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/OgVhDACCMhzGKC4t0001.svg" />
-  <strong>Figure 4.</strong> File layout of an Iceberg table.
+  *File layout of an Iceberg table.*
 </figure>
 
 Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[^delta][^databricks] and Apache Hudi,[^hudi] Iceberg provides ACID transactions and "time travel" by organizing parquet files into snapshots, managed by manifest and metadata files (**Figure 4**). However, this file-based metadata introduces costs (snapshot creation is expensive dictating large, infrequent writes), optimistic concurrency leads to conflicts between simultaneous writers, and coordinating updates on S3 requires an external catalog like AWS Glue or Nessie.[^nessie]
@@ -102,7 +102,7 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 | Data lineage                             | ❌     | ❌      | ❌       | ✅      |
 | Registries/ontologies                    | ❌     | ❌      | ❌       | ✅      |
 
-:::{dropdown} **Table 1.** A high-level overview of lakehouse technologies.
+:::{dropdown} _A high-level overview of lakehouse technologies._
 
 ¹ LaminDB provides snapshot isolation and time travel by managing dataset state as transactional metadata records in Postgres/SQLite rather than mutating existing files. While it does not perform in-place row-level mutations like a SQL database, operations like `Collection.append()` atomically create new collection versions pointing to new, immutable artifacts. This extends core lakehouse ACID guarantees to multimodal datasets without conflict. For more, see {doc}`acid`.
 
