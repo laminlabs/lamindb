@@ -20,14 +20,16 @@ Especially in life sciences, hard-to-verify tasks are abundant, data formats are
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **lakehouse** → query across many datasets, manage tables & arrays schema-based and [ACID](https://docs.lamin.ai/acid)
+- **lakehouse** → manage datasets in any format (`parquet`, `zarr`, ...) with time travel, schema evolution & [ACID guarantees](https://docs.lamin.ai/acid); query with your favorite engine (Polars, DuckDB, ...)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
-- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
+- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, …
 - **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code
 
 Architecture?
 
 - **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
+- **decoupled compute** → run zero-penalty query pushdowns & row-group pruning with your favorite engine (Polars, DuckDB, ...)
+- **multimodal ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
 - **unified** → federate data [across storage locations (local, S3, GCP, …)](https://docs.lamin.ai/lamindb.storage) in any database
