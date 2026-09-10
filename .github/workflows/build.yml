@@ -21,6 +21,7 @@ jobs:
 
       - uses: dorny/paths-filter@v3
         id: changes
+        if: github.event_name != 'push'
         with:
           filters: |
             docs:
@@ -43,20 +44,24 @@ jobs:
           CORE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
           DOCS_GROUPS=$(jq -n -c '["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]')
 
-          if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
-            GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$CORE_GROUPS" '$current + $groups')
-          fi
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            GROUPS=$(jq -n -c --argjson core "$CORE_GROUPS" '$core + ["curator", "integrations"]')
+          else
+            if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
+              GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$CORE_GROUPS" '$current + $groups')
+            fi
 
-          if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
-            GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$DOCS_GROUPS" '$current + $groups')
-          fi
+            if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
+              GROUPS=$(jq -n -c --argjson current "$GROUPS" --argjson groups "$DOCS_GROUPS" '$current + $groups')
+            fi
 
-          if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["curator"]')
-          fi
+            if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+              GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["curator"]')
+            fi
 
-          if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
-            GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["integrations"]')
+            if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
+              GROUPS=$(jq -n -c --argjson current "$GROUPS" '$current + ["integrations"]')
+            fi
           fi
 
           # Ensure unique group names while preserving order.
