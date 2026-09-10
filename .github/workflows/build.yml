@@ -65,8 +65,9 @@ jobs:
             fi
           fi
 
-          # Ensure unique group names while preserving order.
-          MATRIX=$(jq -n -c --argjson groups "$GROUPS" '{group: ($groups | reduce .[] as $g ([]; if index($g) then . else . + [$g] end))}')
+          # Ensure unique group names.
+          UNIQUE_GROUPS=$(echo "$GROUPS" | jq -c 'unique')
+          MATRIX=$(jq -n -c --argjson groups "$UNIQUE_GROUPS" '{group: $groups}')
 
           # Output as single line for GitHub Actions
           echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
