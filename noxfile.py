@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -454,11 +455,11 @@ def clidocs(session):
 
                     page += f"### {command_name}\n\n"
                     if help_docstring:
-                        page += f"{help_docstring}\n"
+                        page += f"{help_docstring.strip()}\n"
                     command_block = f"```text\n{help_string}\n```"
                     page += f"\n\nOptions:\n\n{command_block}\n\n"
                     if pyr_alt_string:
-                        page += f"{pyr_alt_delimiter}{pyr_alt_string}\n\n"
+                        page += f"{pyr_alt_delimiter} {pyr_alt_string.strip()}\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
@@ -475,21 +476,25 @@ def clidocs(session):
 
                 page += f"### lamin {command_name}\n\n"
                 if help_docstring:
-                    page += f"{help_docstring}\n\n"
+                    page += f"{help_docstring.strip()}\n\n"
                 page += f"```text\n{help_string}\n```\n\n"
 
         current_content = Path("./docs/cli.md").read_text()
         preamble = current_content.split("<!-- auto-generated-docs-from-here -->")[0]
-        new_content = preamble + "<!-- auto-generated-docs-from-here -->" + page
+        # Keep generated docs stable across environments by normalizing blank lines.
+        page = re.sub(r"\n{3,}", "\n\n", page).strip() + "\n"
+        new_content = (
+            preamble.rstrip() + "\n\n<!-- auto-generated-docs-from-here -->\n\n" + page
+        )
         if current_content != new_content:
             Path("./docs/cli.md").write_text(new_content)
-            run(session, "git add docs/cli.md")
-            run(
-                session,
-                "git -c user.name='lamin-ci' -c user.email='open-source@lamin.ai' "
-                "commit -m 'Updated CLI docs'",
-            )
             if os.getenv("CI"):
+                run(session, "git add docs/cli.md")
+                run(
+                    session,
+                    "git -c user.name='lamin-ci' -c user.email='open-source@lamin.ai' "
+                    "commit -m 'Updated CLI docs'",
+                )
                 branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME")
                 if branch:
                     run(session, f"git push origin HEAD:{branch}")
