@@ -274,8 +274,8 @@ LaminDB provides a SQL schema for common metadata entities: {class}`~lamindb.Art
 The core metadata schema is extendable through modules, e.g., with basic biological ({class}`~bionty.Gene`, {class}`~bionty.Protein`, {class}`~bionty.CellLine`, etc.) & operational entities (`Biosample`, `Techsample`, `Treatment`, etc.).
 
 Data models are defined in Python using the Django ORM. Django translates them to SQL tables.
-[Django](https://github.com/django/django) is one of the most-used & highly-starred projects on GitHub (~1M dependents, ~73k stars) and has been robustly maintained for 15 years.
-While the SQLAlchemy ORM has some advantages, Django is the most popular choice for building metadata management systems in the life sciences.
+[Django](https://github.com/django/django) is one of the most-used & highly-starred projects on GitHub and has been robustly maintained for 15 years.
+While the SQLAlchemy ORM has some advantages, Django has been the most popular choice for building metadata management systems in the life sciences for over a decade.
 
 On top of the metadata schema, LaminDB is a Python API that models datasets as artifacts, abstracts storage & database access, data transformations, and ontologies.
 
