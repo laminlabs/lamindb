@@ -122,7 +122,6 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 | Schema evolution without rewriting data  | ❌     | ✅ ³    | ✅ ³     | ✅ ³    |
 | Write-Audit-Publish workflow             | ❌     | ✅      | ❌       | ✅ ⁴    |
 | Automatic maintenance                    | ❌     | ❌      | ✅ ⁵     | ✅ ⁵    |
-| Native multi-table transactions          | ❌     | ❌      | ✅       | ❌      |
 | Dataset formats beyond tables            | ✅     | ❌      | ❌       | ✅      |
 | Data lineage                             | ❌     | ❌      | ❌       | ✅      |
 | Registries/ontologies                    | ❌     | ❌      | ❌       | ✅      |
@@ -145,7 +144,7 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 An increasingly popular approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata. A complementary development in operational workloads is **Lakebase**, which decouples Postgres database compute and storage via Write-Ahead Logs in object storage. This brings serverless, transactional Postgres to live applications and agents, while continuously syncing operational row changes into analytical lakehouses like Delta Lake.
 
-**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond tables to support any format (parquet, zarr, AnnData, HDF5, images).
+**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond tables to support any format, in particular, parquet, zarr, AnnData, HDF5, and others.
 This enables unified schema management, data lineage, and registry annotations across complex, multimodal datasets (Table 1).
 
 While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
