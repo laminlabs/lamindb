@@ -31,16 +31,14 @@ from .query_set import (
     get_default_branch_ids,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
     IsLink,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -52,6 +50,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     import pandas as pd
+
+    from lamindb.base.types import Unset
 
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
@@ -590,6 +590,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
+    Also see the guide: :doc:`/manage-records`.
+
     Create a **record** with a single feature::
 
         # create a feature if you don't yet have one
@@ -603,14 +605,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # use a record type to create an experiments registry
-        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
+        # create an Experiments type
+        experiments = ln.Record(name="Experiments", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
         # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+        experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-        # create a samples sheet by constraining a record type with a schema
+        # create a Sample Sheet by constraining a record type with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
@@ -619,14 +621,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         sample1.save()
 
         # reset the feature values for the record including the experiment
-        sample1.features.set_values({
-            gc_content: 0.5,
+        sample1.features.set_values({gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records of a type to a dataframe::
 
-        experiments_registry.to_dataframe()
+        experiments.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
@@ -667,11 +668,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
-
-    You can edit records like spreadsheets in the UI:
-
-    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0003.png
-        :width: 800px
 
     .. dropdown:: An index feature maps onto the name field of a record.
 

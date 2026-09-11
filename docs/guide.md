@@ -15,7 +15,7 @@ query-search
 track
 organize
 manage-changes
-manage-ontologies
+manage-records
 transfer
 ```
 
