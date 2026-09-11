@@ -1,11 +1,13 @@
+import os
+import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch
 
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
-
-from worktree_test_utils import run_worktree_case
+from lamindb_setup.errors import WorktreePathError
 
 
 def test_transform_from_path_infers_kind_and_key(tmp_path):
@@ -28,19 +30,85 @@ def test_transform_from_path_infers_kind_and_key(tmp_path):
 
 
 def test_transform_from_path_uses_dev_dir_relative_key(tmp_path):
-    run_worktree_case("transform_dev_dir_key", tmp_path)
+    previous_dev_dir = ln_setup.settings.dev_dir
+    path_in_dev_dir = tmp_path / "pipelines" / f"wf-{time.time_ns()}.py"
+    path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
+    path_in_dev_dir.write_text("print('hello')\n")
+    try:
+        ln_setup.settings.dev_dir = tmp_path
+        transform = ln.Transform.from_path(path_in_dev_dir)
+        assert transform.key == f"pipelines/{path_in_dev_dir.name}"
+    finally:
+        ln_setup.settings.dev_dir = previous_dev_dir
 
 
 def test_transform_from_path_uses_dev_dir_relative_key_for_relative_path(tmp_path):
-    run_worktree_case("transform_relative_dev_dir_key", tmp_path)
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_cwd = Path.cwd()
+    path_in_dev_dir = tmp_path / "pipelines" / f"wf-{time.time_ns()}.py"
+    path_in_dev_dir.parent.mkdir(parents=True, exist_ok=True)
+    path_in_dev_dir.write_text("print('hello')\n")
+    try:
+        ln_setup.settings.dev_dir = tmp_path
+        os.chdir(tmp_path)
+        relative_path = Path("pipelines") / path_in_dev_dir.name
+        transform = ln.Transform.from_path(relative_path)
+        assert transform.key == f"pipelines/{path_in_dev_dir.name}"
+    finally:
+        os.chdir(previous_cwd)
+        ln_setup.settings.dev_dir = previous_dev_dir
 
 
 def test_transform_from_path_uses_active_worktree_relative_key(tmp_path):
-    run_worktree_case("transform_worktree_key", tmp_path)
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    worktree_parent.mkdir()
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('hello from worktree')\n")
+        os.chdir(child_root)
+        transform = ln.Transform.from_path(path_in_child)
+        assert transform.key == f"pipelines/{path_in_child.name}"
+    finally:
+        os.chdir(previous_cwd)
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
+        ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree:
+            ln_setup.settings._worktree_path.write_text("true")
 
 
 def test_transform_from_path_errors_outside_worktree_child(tmp_path):
-    run_worktree_case("transform_outside_worktree_errors", tmp_path)
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    worktree_parent.mkdir()
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('outside child should fail')\n")
+        os.chdir(worktree_parent)
+        with pytest.raises(WorktreePathError, match="inside a child directory"):
+            ln.Transform.from_path(path_in_child)
+    finally:
+        os.chdir(previous_cwd)
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
+        ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree:
+            ln_setup.settings._worktree_path.write_text("true")
 
 
 def test_transform_from_path_persists_source_code_once(tmp_path):
