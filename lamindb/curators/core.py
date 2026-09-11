@@ -679,11 +679,28 @@ class ComponentCurator(Curator):
             qs = Feature.connect(using).filter(name__in=self._dataset.keys())
             itype = schema.itype
             if itype and itype.startswith("Feature["):
-                # Scoped itype "Feature[<uid>]": restrict to features of that type only.
-                # Note: startswith("Feature[") not startswith("Feature") because the
-                # unscoped "Feature" itype should not filter by type__uid.
-                type_uid = itype[8:-1]  # len("Feature[") == 8
-                qs = qs.filter(type__uid=type_uid)
+                # Scoped itype "Feature[<uid>]": restrict to features whose type
+                # is the root type OR any of its descendant types (recursive).
+                # Note: startswith("Feature[") not startswith("Feature") because
+                # the unscoped "Feature" itype should not filter by type__uid.
+                #
+                # BFS over the type hierarchy to collect all descendant type UIDs.
+                # Example: type_a → {type_a, type_a1, type_a2}, so features
+                # of type_a1 and type_a2 are also included.
+                root_uid = itype[8:-1]  # len("Feature[") == 8
+                type_uids: set[str] = {root_uid}
+                queue = [root_uid]
+                while queue:
+                    uid = queue.pop()
+                    for child_uid in (
+                        Feature.connect(using)
+                        .filter(type__uid=uid, is_type=True)
+                        .values_list("uid", flat=True)
+                    ):
+                        if child_uid not in type_uids:
+                            type_uids.add(child_uid)
+                            queue.append(child_uid)
+                qs = qs.filter(type__uid__in=type_uids)
             features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 

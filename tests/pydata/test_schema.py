@@ -833,34 +833,63 @@ def test_schema_describe_handles_legacy_none_itype():
 
 
 def test_schema_itype_scoped_to_feature_type():
-    """Schema(itype=feature_type) scopes the schema to only that feature type."""
+    """Schema(itype=feature_type) scopes recursively through the type hierarchy.
+
+    Hierarchy used in this test:
+        type_a
+        ├── type_a1  (sub-type of type_a)
+        │   ├── feat_a1_1
+        │   └── feat_a1_2
+        └── type_a2  (sub-type of type_a)
+            └── feat_a2_1
+        type_b  (unrelated — must be excluded)
+        └── feat_b
+    """
     import pandas as pd
     from lamindb.curators import DataFrameCurator
 
-    # Two feature type namespaces.
+    # Root type and an unrelated type.
     type_a = ln.Feature(name="TypeA", is_type=True).save()
     type_b = ln.Feature(name="TypeB", is_type=True).save()
 
-    # One feature per namespace.
-    feat_a = ln.Feature(name="feat_in_type_a", dtype=float, type=type_a).save()
-    feat_b = ln.Feature(name="feat_in_type_b", dtype=float, type=type_b).save()
+    # Sub-types of type_a (one level down).
+    type_a1 = ln.Feature(name="TypeA1", is_type=True, type=type_a).save()
+    type_a2 = ln.Feature(name="TypeA2", is_type=True, type=type_a).save()
 
-    # Schema scoped to TypeA only — itype stored as "Feature[<uid>]".
+    # Leaf features.
+    feat_a1_1 = ln.Feature(name="feat_a1_1", dtype=float, type=type_a1).save()
+    feat_a1_2 = ln.Feature(name="feat_a1_2", dtype=float, type=type_a1).save()
+    feat_a2_1 = ln.Feature(name="feat_a2_1", dtype=float, type=type_a2).save()
+    feat_b = ln.Feature(name="feat_b", dtype=float, type=type_b).save()
+
+    # Schema scoped to type_a — itype stored as "Feature[<uid>]".
     schema = ln.Schema(itype=type_a).save()
     assert schema.itype == f"Feature[{type_a.uid}]"
     assert schema.flexible is True
     assert schema.dtype is None
 
-    # Curator must pick up only feat_a, not feat_b.
-    df = pd.DataFrame({"feat_in_type_a": [1.0], "feat_in_type_b": [2.0]})
+    # Curator must pick up features from type_a1 AND type_a2 (recursive),
+    # but exclude feat_b which belongs to the unrelated type_b.
+    df = pd.DataFrame({
+        "feat_a1_1": [1.0],
+        "feat_a1_2": [2.0],
+        "feat_a2_1": [3.0],
+        "feat_b": [4.0],
+    })
     curator = DataFrameCurator(df, schema)
     pandera_cols = set(curator._atomic_curator._pandera_schema.columns.keys())
-    assert "feat_in_type_a" in pandera_cols
-    assert "feat_in_type_b" not in pandera_cols
+    assert "feat_a1_1" in pandera_cols
+    assert "feat_a1_2" in pandera_cols
+    assert "feat_a2_1" in pandera_cols
+    assert "feat_b" not in pandera_cols
 
     # Cleanup.
     schema.delete(permanent=True)
-    feat_a.delete(permanent=True)
+    feat_a1_1.delete(permanent=True)
+    feat_a1_2.delete(permanent=True)
+    feat_a2_1.delete(permanent=True)
     feat_b.delete(permanent=True)
+    type_a1.delete(permanent=True)
+    type_a2.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
