@@ -86,10 +86,11 @@ This document provides more background and details for several of the bullets.
 Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — databases and storage locations are located in different clouds or different computers and objects are shared and transferred across.
 For example, one team might create data in one database on AWS, while another team operating with a database on GCP imports and builds upon those assets. Yet another team might run LaminDB entirely on-prem.
 
-Transferring data from one database to another has two noteworthy properties:
+Transferring data from one database to another has three noteworthy properties:
 
 - it's **lineage-aware**: that is, information about the upstream database is stored in the downstream database
 - it defaults to **zero-copy**: rather than copying terabytes of data, a downstream database only receives a metadata record; this makes re-using data fast and lightweight
+- it functions like a **sync**: due to idempotency of operations in LaminDB, a repeated transfer does not duplicate data
 
 For details, see {doc}`transfer`.
 
