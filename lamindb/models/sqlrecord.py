@@ -1692,8 +1692,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             return type(cls_or_self).describe(  # type: ignore
                 cls_or_self,
                 return_str=return_str,
-                include=include,
-                n_max_features=n_max_features,
             )
         else:
             return describe_postgres_sqlite(

@@ -1574,8 +1574,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return type(cls_or_self).describe(
                 cls_or_self,
                 return_str=return_str,
-                include=include,
-                n_max_features=n_max_features,
             )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")
