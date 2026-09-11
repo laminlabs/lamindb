@@ -28,6 +28,9 @@ Home = "https://github.com/laminlabs/lamindb"
 [project.optional-dependencies]
 # full: keep in sync with pyproject.full.toml dependencies (excluding lamindb-core).
 # If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
+mcp = [
+    "lamin_cli[mcp]==1.19.3",
+]
 full = [
     # LaminDB optional modules, included to avoid users forgetting about extras
     "bionty>=2.3.1,<3",  # 30kB pure python, no dependencies
