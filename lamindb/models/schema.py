@@ -1567,11 +1567,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         cls_or_self,
         return_str: bool = False,
         include: None | Literal["comments"] = None,
+        n_max_features: int | None = None,
     ) -> None | str:
         """Describe schema."""
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(
-                cls_or_self, return_str=return_str, include=include
+                cls_or_self,
+                return_str=return_str,
             )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")

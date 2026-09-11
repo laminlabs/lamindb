@@ -15,7 +15,7 @@ query-search
 track
 organize
 manage-changes
-manage-ontologies
+manage-records
 transfer
 ```
 
@@ -23,7 +23,7 @@ transfer
 :hidden:
 :caption: Other topics
 
-design
+architecture
 faq
 storage
 ```

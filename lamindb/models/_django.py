@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from .run import Run
 
 
-SCHEMA_MEMBER_PREVIEW_LIMIT = 20
+SCHEMA_MEMBER_PREVIEW_LIMIT = 50
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -87,6 +87,7 @@ def get_artifact_or_run_with_related(
     include_m2m: bool = False,
     include_feature_link: bool = False,
     include_schema: bool = False,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ) -> dict[str, Any]:
     """Fetch an artifact with its related data."""
     from ._label_manager import EXCLUDE_LABELS
@@ -258,7 +259,9 @@ def get_artifact_or_run_with_related(
         elif k == "m2m_schemas":
             if v:
                 related_data["m2m_schemas"] = get_schema_m2m_relations(
-                    record, {i["schema"]: i["slot"] for i in v}
+                    record,
+                    {i["schema"]: i["slot"] for i in v},
+                    limit=schema_member_preview_limit,
                 )
 
     def convert_link_data_to_m2m(
