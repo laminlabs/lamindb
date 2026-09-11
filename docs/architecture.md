@@ -83,18 +83,22 @@ This document provides more background and details for several of the bullets.
 
 ## Distributed architecture
 
-Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — databases and storage locations are located in different clouds or different computers and objects are shared and transferred across.
-For example, one team might create data in one database on AWS, while another team operating with a database on GCP imports and builds upon those assets. Yet another team might run LaminDB entirely on-prem.
+Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — databases and storage locations are distributed across different clouds or physical machines, with objects seamlessly shared and transferred between them.
+For example, one team might work in a LaminDB instance on AWS, while another team operating on GCP imports and builds upon those assets. Yet another team might run LaminDB entirely on-prem.
 
-Transferring data from one database to another has three noteworthy properties:
+Distributing data across two LaminDB instances is even meaningful on the same machine and in the same cloud: it allows two teams to completely decouple their work, which means they can usually move faster since they don't need to align on schema and naming conventions.
+
+Transferring data between LaminDB instances has three noteworthy properties:
 
 - it's **lineage-aware**: that is, information about the upstream database is stored in the downstream database
 - it defaults to **zero-copy**: rather than copying terabytes of data, a downstream database only receives a metadata record; this makes re-using data fast and lightweight
-- it functions like a **sync**: due to idempotency of operations in LaminDB, a repeated transfer does not duplicate data
+- it's **idempotent**: a repeated transfer does not duplicate data, making it safe to sync updates
 
 For details, see {doc}`transfer`.
 
-One can also create full "clones" of databases by running `lamin io export` or `lamin io snapshot`, although this is particularly useful to expose metadata serverless in an SQLite instance.
+One can also create full "clones" of databases by running `lamin io export` or `lamin io snapshot`, which is particularly useful to expose metadata serverless in an SQLite instance.
+
+The distributed architecture allows organizations to build a global, interconnected data ecosystem without requiring centralized infrastructure.
 
 ## Lakehouse architecture
 
