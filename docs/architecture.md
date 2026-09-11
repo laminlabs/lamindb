@@ -72,14 +72,16 @@ ln <- ln$connect("account/instance")
 
 For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone but can optionally be managed by LaminHub.
 
-## At a glance
+On a high-level, LaminDB's architecture has the following properties:
 
 :::{include} ../README.md
 :start-after: Architecture?
 :end-before: Read more:
 :::
 
-## Distributed architecture & zero-copy transfer
+This document provides more background and details for several of the bullets.
+
+## Distributed architecture
 
 Within a single team, collaborators often share a single central database as their source of truth. However, across teams, divisions, or external organizations, LaminDB operates as a distributed system — much like distinct git repositories.
 
@@ -90,7 +92,7 @@ Within a single team, collaborators often share a single central database as the
 ## Lakehouse architecture
 
 Working with a high number of raw files across different sources almost inevitably leads to fragile data organization. This brittleness is amplified when working with agents: they prioritize solving the immediate task over long-term maintainability, they make frequent mistakes, and their concurrent read/write patterns can quickly corrupt a purely file-based architecture. Lakehouse frameworks solve these problems with [ACID transactions](https://en.wikipedia.org/wiki/ACID) to prevent partial writes, with schema enforcement to prevent inconsistent datasets, and with time travel to easily restore erroneous written datasets.
-And, as discussed earlier, they also make agents more efficient. So, let's briefly review available options.
+They also make agents more efficient.[^1000genomes-blog] Let's briefly review available options.
 
 <figure style="float: right; width: 400px; margin-left: 0.5rem">
   <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/OgVhDACCMhzGKC4t0001.svg" />
@@ -124,7 +126,7 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 ³ Adding a nullable/optional column without rewriting existing files.
 
-⁴ In LaminDB, via branches (stage, review, merge).
+⁴ In LaminDB, via branches (draft, review, merge).
 
 ⁵ Raw files have no commit protocol; concurrent writers risk partial writes / last-writer-wins.
 
@@ -142,7 +144,7 @@ This enables unified schema management, data lineage, and registry annotations a
 While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
 While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
 
-## Decoupled compute & query pushdowns
+## Decoupled compute
 
 Rather than locking metadata resolution inside a dedicated query engine or custom SQL driver, LaminDB acts as an independent semantic orchestration layer.
 
@@ -322,7 +324,7 @@ There is a public repository for LaminHub:
 
 - [laminhub-public](https://github.com/laminlabs/laminhub-public): Make issues and follow releases of LaminHub, no source code.
 
-## References
+---
 
 [^apache-iceberg]: Apache Software Foundation. Apache Iceberg: The open table format for analytic datasets. [Apache Iceberg](https://iceberg.apache.org/).
 
@@ -341,3 +343,5 @@ There is a public repository for LaminHub:
 [^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown).
 
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
+
+[^1000genomes-blog]: Pillai R et al. (2026). Agentic variant analysis of the 1000 Genomes Project using Polars, DuckDB, and lakehouses. [Lamin Blog](https://blog.lamin.ai/1000genomes).
