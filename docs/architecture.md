@@ -83,11 +83,17 @@ This document provides more background and details for several of the bullets.
 
 ## Distributed architecture
 
-Within a single team, collaborators often share a single central database as their source of truth. However, across teams, divisions, or external organizations, LaminDB operates as a distributed system — much like distinct git repositories.
+Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — much like distinct git repositories and objects are shared and transferred across databases.
+For example, one team might create data in one database on AWS, while another team operating with a database on GCP imports and builds upon those assets.
 
-- **Cross-database transfer:** One team can produce and annotate data in Database A (e.g., an S3-backed environment in AWS), while a downstream team operating in Database B (e.g., on GCP or local storage) imports and builds upon those assets. LaminDB makes lineage-aware data sharing easy. For details, see {doc}`transfer`.
-- **Zero-Copy data federation:** Downstream databases can register and query raw storage objects created by upstream teams without duplicating or physically moving the underlying storage bytes—even across different cloud providers or regions.
-- **Direct storage & database access:** Whether querying a team's shared Postgres database or federating across distinct databases, clients hit storage and databases directly through standard PyData or R drivers without routing through a bottlenecking REST API.
+Transferring data from database to another has two remarkable properties:
+
+- it's **lineage-aware**: that is, information about the upstream database is stored in the downstream database
+- it defaults to **zero-copy**: rather than copying terabytes of data, a downstream database only receives a metadata record; this makes re-using data fast and lightweight
+
+For details, see {doc}`transfer`.
+
+One can also create full "clones" of databases by running `lamin io export` or `lamin io snapshot`, although this is particularly useful to expose metadata serverless in an SQLite instance.
 
 ## Lakehouse architecture
 
@@ -325,7 +331,7 @@ There is a public repository for LaminHub:
 
 - [laminhub-public](https://github.com/laminlabs/laminhub-public): Make issues and follow releases of LaminHub, no source code.
 
----
+<hr>
 
 [^apache-iceberg]: Apache Software Foundation. Apache Iceberg: The open table format for analytic datasets. [Apache Iceberg](https://iceberg.apache.org/).
 
