@@ -349,5 +349,3 @@ There is a public repository for LaminHub:
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
 
 [^1000genomes-blog]: Pillai R et al. (2026). Agentic variant analysis of the 1000 Genomes Project using Polars, DuckDB, and lakehouses. [Lamin Blog](https://blog.lamin.ai/1000genomes).
-
-[^distributed]: Wikipedia. Distributed computing. [Wikipedia](https://en.wikipedia.org/wiki/Distributed_computing).
