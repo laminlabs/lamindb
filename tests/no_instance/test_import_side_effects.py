@@ -133,3 +133,37 @@ def test_storage_import_side_effects(
 
     result = _probe_modules_loaded(code)
     _assert_modules(result, expected_after, label)
+
+
+def test_deprecated_base_ids():
+    """lamindb.base.ids is deprecated in favour of lamindb.base.uids."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        import lamindb.base.ids  # noqa: F401
+
+    assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
+
+
+def test_deprecated_core_exceptions():
+    """lamindb.core.exceptions is deprecated in favour of lamindb.errors."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        import lamindb.core.exceptions  # noqa: F401
+
+    assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
+
+
+def test_setup_shim_imports():
+    """lamindb.setup.core, .errors and .types are thin re-export shims."""
+    import lamindb.setup.core  # noqa: F401
+    import lamindb.setup.errors  # noqa: F401
+    import lamindb.setup.types  # noqa: F401
+
+
+def test_core_storage_types_import():
+    """lamindb.core.storage.types is a TYPE_CHECKING-only module."""
+    import lamindb.core.storage.types  # noqa: F401
