@@ -247,7 +247,9 @@ def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
 def describe_artifact(
     record: Artifact,
     related_data: dict | None = None,
+    n_max_features: int | None = None,
 ) -> Tree:
+    from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT
     from ._feature_manager import describe_features
     from ._label_manager import describe_labels
 
@@ -255,10 +257,13 @@ def describe_artifact(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
+    if n_max_features is None:
+        n_max_features = SCHEMA_MEMBER_PREVIEW_LIMIT
     tree = describe_header(record)
     dataset_features_tree, external_features_tree = describe_features(
         record,
         related_data=related_data,
+        schema_member_preview_limit=n_max_features,
     )
     labels_tree = describe_labels(record, related_data=related_data)
     two_column_items = []  # type: ignore
@@ -646,8 +651,12 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     return tree
 
 
-def describe_postgres(record):
-    from ._django import get_artifact_or_run_with_related, get_collection_with_related
+def describe_postgres(record, n_max_features: int | None = None):
+    from ._django import (
+        SCHEMA_MEMBER_PREVIEW_LIMIT,
+        get_artifact_or_run_with_related,
+        get_collection_with_related,
+    )
 
     model_name = record.__class__.__name__
     msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
@@ -655,16 +664,23 @@ def describe_postgres(record):
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
     if model_name in {"Artifact", "Run"}:
+        if n_max_features is None:
+            n_max_features = SCHEMA_MEMBER_PREVIEW_LIMIT
         result = get_artifact_or_run_with_related(
             record,
             include_feature_link=True,
             include_fk=True,
             include_m2m=True,
             include_schema=True,
+            schema_member_preview_limit=n_max_features,
         )
         related_data = result.get("related_data", {})
         if model_name == "Artifact":
-            tree = describe_artifact(record, related_data=related_data)
+            tree = describe_artifact(
+                record,
+                related_data=related_data,
+                n_max_features=n_max_features,
+            )
         else:
             tree = describe_run(record, related_data=related_data)
     elif model_name == "Record":
@@ -688,7 +704,9 @@ def describe_postgres(record):
     return tree
 
 
-def describe_sqlite(record):
+def describe_sqlite(record, n_max_features: int | None = None):
+    from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT
+
     model_name = record.__class__.__name__
     msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
@@ -723,7 +741,14 @@ def describe_sqlite(record):
         )
     if model_name in {"Artifact", "Run", "Record"}:
         if model_name == "Artifact":
-            tree = describe_artifact(record)
+            tree = describe_artifact(
+                record,
+                n_max_features=(
+                    n_max_features
+                    if n_max_features is not None
+                    else SCHEMA_MEMBER_PREVIEW_LIMIT
+                ),
+            )
         elif model_name == "Run":
             tree = describe_run(record)
         else:
@@ -777,6 +802,7 @@ def describe_postgres_sqlite(
     record,
     return_str: bool = False,
     include: None | Literal["comments"] = None,
+    n_max_features: int | None = None,
 ) -> str | None:
     from ._describe import format_rich_tree
 
@@ -784,8 +810,8 @@ def describe_postgres_sqlite(
         not record._state.adding
         and connections[record._state.db].vendor == "postgresql"
     ):
-        tree = describe_postgres(record)
+        tree = describe_postgres(record, n_max_features=n_max_features)
     else:
-        tree = describe_sqlite(record)
+        tree = describe_sqlite(record, n_max_features=n_max_features)
     append_readme_blocks_to_tree(record, tree, include=include)
     return format_rich_tree(tree, return_str=return_str)
