@@ -485,6 +485,7 @@ def get_features_data(
     related_data: dict | None = None,
     to_dict: bool = False,
     external_only: bool = False,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ):
     from .artifact import Artifact
 
@@ -534,7 +535,7 @@ def get_features_data(
                     name_field = get_name_field(features[0])
                     feature_names = list(
                         features.values_list(name_field, flat=True)[
-                            :SCHEMA_MEMBER_PREVIEW_LIMIT
+                            :schema_member_preview_limit
                         ]
                     )
                     schema_data[slot] = (schema, feature_names)
@@ -642,6 +643,7 @@ def get_features_data(
 def describe_features(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ) -> tuple[Tree | None, Tree | None]:
     """Describe features of an artifact or collection."""
     if self._state.adding:
@@ -655,6 +657,7 @@ def describe_features(
     ) = get_features_data(
         self,
         related_data=related_data,
+        schema_member_preview_limit=schema_member_preview_limit,
     )
 
     # Dataset features section
@@ -665,7 +668,7 @@ def describe_features(
         slot_and_dtype = feature_data.get(feature_name)
         if slot_and_dtype is None:
             # Internal categorical values can exist for features omitted from the
-            # schema-member preview (`SCHEMA_MEMBER_PREVIEW_LIMIT`).
+            # schema-member preview (`schema_member_preview_limit`).
             skipped_internal_feature_labels.append(feature_name)
             continue
         slot, _ = slot_and_dtype
@@ -681,7 +684,7 @@ def describe_features(
             f"{len(skipped_internal_feature_labels)} internal feature(s) in "
             f"describe(): {skipped_preview}. "
             "These features are outside the schema preview limit "
-            f"({SCHEMA_MEMBER_PREVIEW_LIMIT})."
+            f"({schema_member_preview_limit})."
         )
 
     dataset_features_tree_children = []
