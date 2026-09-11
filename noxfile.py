@@ -401,6 +401,11 @@ def test(session, group):
 @nox.session
 def clidocs(session):
     def update_cli_docs():
+        def normalize_help_usage(help_text: str) -> str:
+            # Click versions differ on whether group subcommands are rendered
+            # as COMMAND or [COMMAND]. Keep docs stable across environments.
+            return help_text.replace("[COMMAND] [ARGS]...", "COMMAND [ARGS]...")
+
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import COMMAND_GROUPS, _generate_help
 
@@ -442,6 +447,7 @@ def clidocs(session):
                     processed_commands.add(command_name)
 
                     help_string = help_dict["help"].replace("Usage: main", "lamin")
+                    help_string = normalize_help_usage(help_string)
                     help_docstring = help_dict["docstring"]
 
                     pyr_alt_delimiter = "→ Python/R alternative:"
@@ -472,6 +478,7 @@ def clidocs(session):
             for command_name, full_key in remaining_commands:
                 help_dict = helps[full_key]
                 help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
+                help_string = normalize_help_usage(help_string)
                 help_docstring = help_dict["docstring"]
 
                 page += f"### lamin {command_name}\n\n"
