@@ -1,13 +1,11 @@
 """Tests for ln.setup.switch."""
 
-import os
-import time
 from pathlib import Path
 
 import lamindb as ln
-import lamindb_setup as ln_setup
 import pytest
-from lamindb_setup.core._settings_store import local_current_branch_file
+
+from worktree_test_utils import run_worktree_case
 
 
 def test_switch_create_existing_branch_raises():
@@ -25,26 +23,4 @@ def test_switch_space_does_not_depend_on_worktree_bootstrap_state():
 
 
 def test_switch_create_worktree_from_dev_dir_root(tmp_path: Path):
-    previous_dev_dir = ln_setup.settings.dev_dir
-    previous_worktree = ln_setup.settings.worktree
-    previous_cwd = Path.cwd()
-    worktree_parent = tmp_path / "worktrees"
-    worktree_parent.mkdir(parents=True, exist_ok=True)
-    branch_name = f"wt-{time.time_ns()}"
-    try:
-        ln_setup.settings.dev_dir = worktree_parent
-        ln_setup.settings.worktree = True
-        os.chdir(worktree_parent)
-        ln.setup.switch(branch_name, create=True)
-        assert (worktree_parent / branch_name).exists()
-        assert (
-            local_current_branch_file(worktree_parent / branch_name)
-            .read_text()
-            .split("\n")[1]
-            == branch_name
-        )
-    finally:
-        os.chdir(previous_cwd)
-        ln_setup.settings.worktree = previous_worktree
-        ln_setup.settings.dev_dir = previous_dev_dir
-        ln.Branch.filter(name=branch_name).delete(permanent=True)
+    run_worktree_case("switch_creates_worktree", tmp_path)
