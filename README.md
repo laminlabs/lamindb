@@ -350,35 +350,32 @@ artifact.features.set_values({
 ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
 ```
 
-You can create records for entities underlying your experiments (samples, perturbations, instruments, etc.):
+You can create **records** for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
 ```python
 ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can dynamically create registries and relationships of entities via record types:
+You can create record types and relationships:
 
 ```python
-# create an experiments registry by defining a record type
-experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+# create an Experiments type
+experiments = ln.Record(name="Experiments", is_type=True).save()
 
-# create a record inside the Experiments registry
-ln.Record(name="Experiment 1", type=experiments_registry).save()
+# create a record of that type
+experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
-# create a feature that links experiments, creating a relationship
-experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+# create a feature that links experiments (a relationship)
+experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-# create a sample record that links the sample to `Experiment 1` via the `experiment` feature
-ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: "Experiment 1"}).save()
+# create a sample record
+ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: experiment1}).save()
 
-# export a registry to a dataframe
-experiments_registry.to_dataframe()
+# export all experiments
+experiments.to_dataframe()
 ```
 
-<details>
-<summary>You can edit records like Excel sheets on LaminHub.</summary>
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0003.png">
-</details>
+Watch a mini video: [youtu.be/NRzVQXJaRH8](https://youtu.be/NRzVQXJaRH8)
 
 ### Lakehouse
 
