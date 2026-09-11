@@ -116,8 +116,6 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 | Time travel / snapshot version isolation | ❌     | ✅      | ✅       | ✅ ²    |
 | Schema evolution without rewriting data  | ❌     | ✅ ³    | ✅ ³     | ✅ ³    |
 | Write-Audit-Publish workflow             | ❌     | ✅      | ❌       | ✅ ⁴    |
-| Query engine independence                | ✅     | ✅      | ❌       | ✅      |
-| Concurrent writers                       | ❌ ⁵   | ❌      | ✅       | ✅      |
 | Automatic maintenance                    | ❌     | ❌      | ✅ ⁶     | ✅ ⁶    |
 | Native multi-table transactions          | ❌     | ❌      | ✅       | ❌      |
 | Dataset formats beyond tables            | ✅     | ❌      | ❌       | ✅      |
@@ -134,9 +132,7 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 ⁴ In LaminDB, via branches (draft, review, merge).
 
-⁵ Raw files have no commit protocol; concurrent writers risk partial writes / last-writer-wins.
-
-⁶ No need for cleaning orphaned files like in Iceberg.
+⁵ No need for cleaning orphaned files like in Iceberg.
 
 :::
 
