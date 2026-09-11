@@ -481,7 +481,9 @@ def clidocs(session):
         current_content = Path("./docs/cli.md").read_text()
         preamble = current_content.split("<!-- auto-generated-docs-from-here -->")[0]
         new_content = preamble + "<!-- auto-generated-docs-to-here -->" + page
-        Path("./docs/cli.md").write_text(new_content)
+        if current_content != new_content:
+            Path("./docs/cli.md").write_text(new_content)
+            run(session, "git commit -m 'Updated CLI docs'")
 
     update_cli_docs()
 
