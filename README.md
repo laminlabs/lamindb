@@ -40,9 +40,9 @@ Architecture?
 - **unified** → federate data [across storage locations (local, S3, GCP, …)](https://docs.lamin.ai/lamindb.storage) in any database
 - **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
-- **decoupled compute** → run zero-penalty query pushdowns & row-group pruning with your favorite engine (Polars, DuckDB, ...)
 - **ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
 - **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites
+- **decoupled compute** → run your favorite engine (Polars, DuckDB, data loaders, ...) with all its benefits
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
