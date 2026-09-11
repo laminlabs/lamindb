@@ -83,8 +83,8 @@ This document provides more background and details for several of the bullets.
 
 ## Distributed architecture
 
-Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — much like distinct git repositories and objects are shared and transferred across databases.
-For example, one team might create data in one database on AWS, while another team operating with a database on GCP imports and builds upon those assets.
+Within a single team, collaborators often share a single central database as their source of truth. However, across teams and organizations, LaminDB is typically used as a distributed system — databases and storage locations are located in different clouds or different computers and objects are shared and transferred across.
+For example, one team might create data in one database on AWS, while another team operating with a database on GCP imports and builds upon those assets. Yet another team might run LaminDB entirely on-prem.
 
 Transferring data from one database to another has two noteworthy properties:
 
@@ -348,3 +348,5 @@ There is a public repository for LaminHub:
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
 
 [^1000genomes-blog]: Pillai R et al. (2026). Agentic variant analysis of the 1000 Genomes Project using Polars, DuckDB, and lakehouses. [Lamin Blog](https://blog.lamin.ai/1000genomes).
+
+[^distributed]: Wikipedia. Distributed computing. [Wikipedia](https://en.wikipedia.org/wiki/Distributed_computing).
