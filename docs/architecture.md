@@ -72,7 +72,7 @@ ln <- ln$connect("account/instance")
 
 For more configuration, see {doc}`docs:setup`. LaminDB instances work standalone but can optionally be managed by LaminHub.
 
-On a high-level, LaminDB's architecture has the following properties:
+On a high level, LaminDB's architecture has the following properties:
 
 :::{include} ../README.md
 :start-after: Architecture?
@@ -307,6 +307,8 @@ Tightly integrated dependencies are available as git submodules [here](https://g
 
 Use cases / domain-specific repos:
 
+- [nf-lamin](https://github.com/laminlabs/nf-lamin): Nextflow integration with LaminDB.
+- [laminr](https://github.com/laminlabs/laminr): R client for LaminDB.
 - [lamin-usecases](https://github.com/laminlabs/lamin-usecases): Mixed use cases.
 - [lamin-agents](https://github.com/laminlabs/lamin-agents): Agentic use cases.
 - [redun-lamin](https://github.com/laminlabs/redun-lamin): Track redun workflow runs with LaminDB.
@@ -314,7 +316,6 @@ Use cases / domain-specific repos:
 - [cellxgene-lamin](https://github.com/laminlabs/cellxgene-lamin): CELLxGENE data and curation.
 - [lamin-spatial](https://github.com/laminlabs/lamin-spatial): Spatial data (RxRx, Vitessce).
 - [snakemake-lamin](https://github.com/laminlabs/snakemake-lamin): Track Snakemake runs with LaminDB.
-- [nf-lamin](https://github.com/laminlabs/nf-lamin): Nextflow integration with LaminDB.
 
 For a comprehensive list of open-sourced software, browse our [GitHub account](https://github.com/laminlabs), for instance,
 
