@@ -124,7 +124,7 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 :::{dropdown} _A high-level overview of lakehouse technologies._
 
-¹ LaminDB provides snapshot isolation and time travel by managing dataset state as transactional metadata records in Postgres/SQLite rather than mutating existing files. While it does not perform in-place row-level mutations like a SQL database, operations like `Collection.append()` atomically create new collection versions pointing to new, immutable artifacts. This extends core lakehouse ACID guarantees to multimodal datasets without conflict. For more, see {doc}`acid`.
+¹ LaminDB provides snapshot isolation and time travel by managing dataset state as transactional metadata records in Postgres/SQLite rather than mutating existing files. While it does not perform in-place row-level mutations like a SQL database, operations like `Collection.append()` atomically create new collection versions pointing to new, immutable artifacts. This extends core lakehouse ACID guarantees to multimodal datasets, explicitly rejecting conflicting concurrent revisions. For more, see {doc}`acid`.
 
 ² See the [Developer experience](#time-travel) section for examples.
 
@@ -156,14 +156,14 @@ Because these engines read native Parquet and Zarr files directly over object st
 - **Projection Pushdowns**: Only downloading requested columns.
 - **Filter Pushdowns**: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
 
-This decoupled design ensures that using LaminDB for provenance, lineage, and ACID governance introduces zero performance penalty during data processing and analytics. See {doc}`tables` for implementation details.
+This decoupled design ensures that using LaminDB for provenance, lineage, and ACID governance introduces minimal performance overhead during data processing and analytics. See {doc}`tables` for implementation details.
 
 ## Branching & idempotency
 
 To safely delegate tasks to autonomous agents and distributed teams, data infrastructure must support non-destructive experimentation and repeatable execution.
 
 - **Git-like branching (Write-Audit-Publish):** LaminDB provides database-level branching (`stage`, `review`, `merge`) to support isolated workflows. Agents or developers can perform exploratory writes, schema modifications, or pipeline runs on a dedicated branch without corrupting production data or lineage. Once validated, changes are merged into the main database. For details, see {doc}`manage-changes`.
-- **Idempotent execution:** Re-running Python scripts, workflow tasks (Nextflow, Snakemake), or agent traces is inherently safe. LaminDB validates content hashes and metadata prior to writing, ensuring that executing logic multiple times never creates duplicate artifacts or dangling storage objects. For details, see {doc}`idempotency`.
+- **Idempotent execution:** Re-running Python scripts, workflow tasks (Nextflow, Snakemake), or agent traces is inherently safe. LaminDB validates content hashes and metadata prior to writing, preventing duplicate artifacts or dangling storage objects within the scope of content-hash reuse. For details, see {doc}`idempotency`.
 
 (time-travel)=
 
