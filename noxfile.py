@@ -399,11 +399,11 @@ def test(session, group):
 
 @nox.session
 def clidocs(session):
-    def generate_cli_docs():
+    def update_cli_docs():
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import COMMAND_GROUPS, _generate_help
 
-        page = "# CLI\n\n"
+        page = ""
         helps = _generate_help()
 
         # First, add the main lamin command
@@ -478,9 +478,12 @@ def clidocs(session):
                     page += f"{help_docstring}\n\n"
                 page += f"```text\n{help_string}\n```\n\n"
 
-        Path("./docs/cli.md").write_text(page)
+        current_content = Path("./docs/cli.md").read_text()
+        preamble = current_content.split("<!-- auto-generated-docs-from-here -->")[0]
+        new_content = preamble + "<!-- auto-generated-docs-to-here -->" + page
+        Path("./docs/cli.md").write_text(new_content)
 
-    generate_cli_docs()
+    update_cli_docs()
 
 
 @nox.session
