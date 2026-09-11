@@ -480,10 +480,19 @@ def clidocs(session):
 
         current_content = Path("./docs/cli.md").read_text()
         preamble = current_content.split("<!-- auto-generated-docs-from-here -->")[0]
-        new_content = preamble + "<!-- auto-generated-docs-to-here -->" + page
+        new_content = preamble + "<!-- auto-generated-docs-from-here -->" + page
         if current_content != new_content:
             Path("./docs/cli.md").write_text(new_content)
-            run(session, "git commit -m 'Updated CLI docs'")
+            run(session, "git add docs/cli.md")
+            run(
+                session,
+                "git -c user.name='lamin-ci' -c user.email='open-source@lamin.ai' "
+                "commit -m 'Updated CLI docs'",
+            )
+            if os.getenv("CI"):
+                branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME")
+                if branch:
+                    run(session, f"git push origin HEAD:{branch}")
 
     update_cli_docs()
 
