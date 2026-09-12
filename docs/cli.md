@@ -4,6 +4,17 @@
 
 Manage data with LaminDB instances.
 
+:::{dropdown} How do I enable shell autocompletion?
+
+On MacOS, enable shell autocompletion by adding the following to your `~/.zshrc`:
+
+```bash
+autoload -Uz compinit && compinit
+eval "$(_LAMIN_COMPLETE=zsh_source lamin)"
+```
+
+:::
+
 ## Configure your environment
 
 ### connect
@@ -676,16 +687,16 @@ Options:
 
 Manage development, cache, modules, branch, space, and mount settings.
 
-Get or set a setting by name:
+Get or set the following settings:
 
 - `dev-dir` → development directory {attr}`~lamindb.setup.core.SetupSettings.dev_dir`
 - `cache-dir` → cache directory {attr}`~lamindb.setup.core.SetupSettings.cache_dir`
 - `modules` → environment schema modules {attr}`~lamindb.setup.core.SetupSettings.modules`
-- `branch` → branch {attr}`~lamindb.setup.core.SetupSettings.branch`
-- `space` → space {attr}`~lamindb.setup.core.SetupSettings.space`
-- `worktree` → whether dev-dir is a worktree parent
+- `branch` → current {attr}`~lamindb.setup.core.SetupSettings.branch`
+- `space` → current {attr}`~lamindb.setup.core.SetupSettings.space`
+- `worktree` → toggle {attr}`~lamindb.setup.core.SetupSettings.worktree` mode (dev-dir is a worktree parent where each child directory maps on a branch)
 
-Display via [lamin info](https://docs.lamin.ai/cli#info)
+You can display your current settings by running: `lamin info`
 
 Examples:
 
