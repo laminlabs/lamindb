@@ -4,17 +4,6 @@
 
 Manage data with LaminDB instances.
 
-:::{dropdown} How do I enable shell autocompletion?
-
-On MacOS, enable shell autocompletion by adding the following to your `~/.zshrc`:
-
-```bash
-autoload -Uz compinit && compinit
-eval "$(_LAMIN_COMPLETE=zsh_source lamin)"
-```
-
-:::
-
 ## Configure your environment
 
 ### connect

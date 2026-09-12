@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -65,18 +66,23 @@ def test_transform_from_path_uses_active_worktree_relative_key(tmp_path):
     worktree_parent = tmp_path / "worktrees"
     child_root = worktree_parent / "feature-a"
     path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
-    path_in_child.parent.mkdir(parents=True, exist_ok=True)
-    path_in_child.write_text("print('hello from worktree')\n")
+    worktree_parent.mkdir()
     try:
         ln_setup.settings.dev_dir = worktree_parent
         ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('hello from worktree')\n")
         os.chdir(child_root)
         transform = ln.Transform.from_path(path_in_child)
         assert transform.key == f"pipelines/{path_in_child.name}"
     finally:
         os.chdir(previous_cwd)
-        ln_setup.settings.worktree = previous_worktree
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
         ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree:
+            ln_setup.settings._worktree_path.write_text("true")
 
 
 def test_transform_from_path_errors_outside_worktree_child(tmp_path):
@@ -86,18 +92,23 @@ def test_transform_from_path_errors_outside_worktree_child(tmp_path):
     worktree_parent = tmp_path / "worktrees"
     child_root = worktree_parent / "feature-a"
     path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
-    path_in_child.parent.mkdir(parents=True, exist_ok=True)
-    path_in_child.write_text("print('outside child should fail')\n")
+    worktree_parent.mkdir()
     try:
         ln_setup.settings.dev_dir = worktree_parent
         ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('outside child should fail')\n")
         os.chdir(worktree_parent)
         with pytest.raises(WorktreePathError, match="inside a child directory"):
             ln.Transform.from_path(path_in_child)
     finally:
         os.chdir(previous_cwd)
-        ln_setup.settings.worktree = previous_worktree
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
         ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree:
+            ln_setup.settings._worktree_path.write_text("true")
 
 
 def test_transform_from_path_persists_source_code_once(tmp_path):
