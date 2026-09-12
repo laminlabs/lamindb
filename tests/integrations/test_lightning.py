@@ -708,6 +708,43 @@ def test_checkpoint_hparams_yaml_with_hparams(
     shutil.rmtree(tmp_path / "test_logs", ignore_errors=True)
 
 
+def test_checkpoint_hparams_yaml_does_not_call_trainer_log_dir(
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Checkpoint should avoid trainer.log_dir while saving hparams.yaml."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class TrainerStub:
+        def __init__(self, logger: CSVLogger, default_root_dir: Path):
+            self.loggers = [logger]
+            self.default_root_dir = default_root_dir
+
+        @property
+        def log_dir(self) -> str:
+            raise AssertionError("trainer.log_dir must not be called")
+
+    logger = CSVLogger(save_dir=tmp_path, name="test_logs")
+    hparams_path = Path(logger.log_dir) / "hparams.yaml"
+    hparams_path.parent.mkdir(parents=True, exist_ok=True)
+    hparams_path.write_text("hidden_size: 64\n")
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath, monitor="train_loss", run_uid_is_version=False
+    )
+    trainer = cast("pl.Trainer", TrainerStub(logger, tmp_path))
+    callback._save_hparams_yaml(trainer)
+
+    hparams_key = f"{dirpath.rstrip('/')}/checkpoints/hparams.yaml"
+    hparams_artifact = ln.Artifact.filter(key=hparams_key).one_or_none()
+
+    assert hparams_artifact is not None
+    assert callback.last_hparams_artifact == hparams_artifact
+
+    hparams_artifact.delete(permanent=True)
+    shutil.rmtree(tmp_path / "test_logs", ignore_errors=True)
+
+
 @pytest.mark.parametrize(
     ("use_dirpath", "use_logger"),
     [
@@ -1144,6 +1181,45 @@ def test_save_config_artifact_tracked_as_run_input(
     config_artifact.delete(permanent=True, storage=True)
     checkpoint_artifact.delete(permanent=True, storage=True)
     ln.finish()
+
+
+def test_checkpoint_forwards_key_is_virtual_to_artifact_publisher(
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Checkpoint should pass explicit key virtuality to its artifact publisher."""
+
+    class RecordingPublisher:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, Any]] = []
+
+        def create_artifact(self, local_path: Path | str, **kwargs: Any) -> Any:
+            self.calls.append({"local_path": local_path, **kwargs})
+            return MagicMock(path="s3://bucket/config.yaml")
+
+        def storage_uri(self, artifact: Any) -> str:
+            return str(artifact.path)
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("trainer:\n  max_epochs: 1\n", encoding="utf-8")
+    checkpoint = ll.Checkpoint(dirpath=dirpath, key_is_virtual=False)
+    publisher = RecordingPublisher()
+    checkpoint._artifact_publisher = publisher
+    trainer = MagicMock(loggers=[])
+
+    checkpoint.save_config_artifact(trainer, config_path)
+
+    assert publisher.calls == [
+        {
+            "local_path": config_path,
+            "key": f"{dirpath.rstrip('/')}/config.yaml",
+            "description": "Lightning CLI config",
+            "kind": "config",
+            "key_is_virtual": False,
+            "add_as_input_to_run": True,
+            "skip_hash_lookup": True,
+        }
+    ]
 
 
 def test_checkpoint_subclass_receives_artifact_events(

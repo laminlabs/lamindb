@@ -4,6 +4,7 @@ import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Literal
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
 from django.db.models import Q
 from lamin_utils import colors, logger
@@ -172,21 +173,37 @@ def format_bytes(bytes_value):
 
 
 def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> None:
-    if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
+    if (
+        fk_data
+        and "run" in fk_data
+        and (fk_data_run := fk_data["run"])
+        and fk_data_run["id"]
+        and "name" in fk_data_run
+        and "uid" in fk_data_run
+        and (fk_data_run["name"] is not None or fk_data_run["uid"] is not None)
+        and "transform_key" in fk_data_run
+        and (fk_data_run_transform_key := fk_data_run["transform_key"]) is not None
+    ):
         run, transform_key = (
-            SimpleNamespace(**fk_data["run"]),
-            fk_data["run"]["transform_key"],
+            SimpleNamespace(**fk_data_run),
+            fk_data_run_transform_key,
         )
-    elif record.run is not None:
-        run, transform_key = record.run, record.run.transform.key
+    elif record.run_id is not None:
+        try:
+            run = record.run
+            transform_key = run.transform.key
+        except ObjectDoesNotExist:
+            # run or transform are in an unavailable space
+            run, transform_key = None, None
     else:
         run, transform_key = None, None
     text_uid = Text.assemble(("uid: ", "dim"), f"{record.uid}")
-    text_run = Text.assemble(
-        ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
-    )
     two_column_items.append(text_uid)
-    two_column_items.append(text_run)
+    if run is not None:
+        text_run = Text.assemble(
+            ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
+        )
+        two_column_items.append(text_run)
 
 
 def append_branch_space_created_at_created_by(
@@ -230,7 +247,9 @@ def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
 def describe_artifact(
     record: Artifact,
     related_data: dict | None = None,
+    n_max_features: int | None = None,
 ) -> Tree:
+    from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT
     from ._feature_manager import describe_features
     from ._label_manager import describe_labels
 
@@ -238,10 +257,13 @@ def describe_artifact(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
+    if n_max_features is None:
+        n_max_features = SCHEMA_MEMBER_PREVIEW_LIMIT
     tree = describe_header(record)
     dataset_features_tree, external_features_tree = describe_features(
         record,
         related_data=related_data,
+        schema_member_preview_limit=n_max_features,
     )
     labels_tree = describe_labels(record, related_data=related_data)
     two_column_items = []  # type: ignore
@@ -535,20 +557,44 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         guide_style="dim",
     )
     two_column_items = []  # type: ignore
+    schema_defaults = {
+        "otype": None,
+        "suffix": None,
+        "ordered_set": False,
+        "maximal_set": False,
+        "minimal_set": True,
+        "branch": "main",
+        "space": "all",
+    }
     append_uid_run(record, two_column_items)
-    two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
-    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
-    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
+    if record.itype not in (None, "Feature"):
+        two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
+    if record.otype != schema_defaults["otype"]:
+        two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
+    if record.suffix != schema_defaults["suffix"]:
+        two_column_items.append(Text.assemble(("suffix: ", "dim"), f"{record.suffix}"))
+    if record.ordered_set != schema_defaults["ordered_set"]:
+        two_column_items.append(
+            Text.assemble(("ordered_set: ", "dim"), f"{record.ordered_set}")
+        )
+    if record.maximal_set != schema_defaults["maximal_set"]:
+        two_column_items.append(
+            Text.assemble(("maximal_set: ", "dim"), f"{record.maximal_set}")
+        )
+    if record.minimal_set != schema_defaults["minimal_set"]:
+        two_column_items.append(
+            Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
+        )
+    if record.branch.name != schema_defaults["branch"]:
+        two_column_items.append(Text.assemble(("branch: ", "dim"), record.branch.name))
+    if record.space.name != schema_defaults["space"]:
+        two_column_items.append(Text.assemble(("space: ", "dim"), record.space.name))
     two_column_items.append(
-        Text.assemble(("ordered_set: ", "dim"), f"{record.ordered_set}")
+        Text.assemble(("created_at: ", "dim"), format_field_value(record.created_at))
     )
     two_column_items.append(
-        Text.assemble(("maximal_set: ", "dim"), f"{record.maximal_set}")
+        Text.assemble(("created_by: ", "dim"), record.created_by.handle)
     )
-    two_column_items.append(
-        Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
-    )
-    append_branch_space_created_at_created_by(record, two_column_items)
     add_two_column_items_to_tree(tree, two_column_items)
 
     # Add features section
@@ -558,10 +604,13 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     )
     members_count_display = f" ({n_members}{index_info})" if n_members else ""
     if n_members or (record.dtype and record.itype is not None):
+        feature_section_title = (
+            "Features" if record.itype in {None, "", "Feature"} else record.itype
+        )
         features = tree.add(
             Text.assemble(
                 (
-                    "Features" if record.itype == "Feature" else record.itype,
+                    feature_section_title,
                     "bold bright_magenta",
                 ),
                 (members_count_display, "dim"),
@@ -602,8 +651,12 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     return tree
 
 
-def describe_postgres(record):
-    from ._django import get_artifact_or_run_with_related, get_collection_with_related
+def describe_postgres(record, n_max_features: int | None = None):
+    from ._django import (
+        SCHEMA_MEMBER_PREVIEW_LIMIT,
+        get_artifact_or_run_with_related,
+        get_collection_with_related,
+    )
 
     model_name = record.__class__.__name__
     msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
@@ -611,16 +664,23 @@ def describe_postgres(record):
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
     if model_name in {"Artifact", "Run"}:
+        if n_max_features is None:
+            n_max_features = SCHEMA_MEMBER_PREVIEW_LIMIT
         result = get_artifact_or_run_with_related(
             record,
             include_feature_link=True,
             include_fk=True,
             include_m2m=True,
             include_schema=True,
+            schema_member_preview_limit=n_max_features,
         )
         related_data = result.get("related_data", {})
         if model_name == "Artifact":
-            tree = describe_artifact(record, related_data=related_data)
+            tree = describe_artifact(
+                record,
+                related_data=related_data,
+                n_max_features=n_max_features,
+            )
         else:
             tree = describe_run(record, related_data=related_data)
     elif model_name == "Record":
@@ -644,7 +704,9 @@ def describe_postgres(record):
     return tree
 
 
-def describe_sqlite(record):
+def describe_sqlite(record, n_max_features: int | None = None):
+    from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT
+
     model_name = record.__class__.__name__
     msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
@@ -679,7 +741,14 @@ def describe_sqlite(record):
         )
     if model_name in {"Artifact", "Run", "Record"}:
         if model_name == "Artifact":
-            tree = describe_artifact(record)
+            tree = describe_artifact(
+                record,
+                n_max_features=(
+                    n_max_features
+                    if n_max_features is not None
+                    else SCHEMA_MEMBER_PREVIEW_LIMIT
+                ),
+            )
         elif model_name == "Run":
             tree = describe_run(record)
         else:
@@ -733,6 +802,7 @@ def describe_postgres_sqlite(
     record,
     return_str: bool = False,
     include: None | Literal["comments"] = None,
+    n_max_features: int | None = None,
 ) -> str | None:
     from ._describe import format_rich_tree
 
@@ -740,8 +810,8 @@ def describe_postgres_sqlite(
         not record._state.adding
         and connections[record._state.db].vendor == "postgresql"
     ):
-        tree = describe_postgres(record)
+        tree = describe_postgres(record, n_max_features=n_max_features)
     else:
-        tree = describe_sqlite(record)
+        tree = describe_sqlite(record, n_max_features=n_max_features)
     append_readme_blocks_to_tree(record, tree, include=include)
     return format_rich_tree(tree, return_str=return_str)

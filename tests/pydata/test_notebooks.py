@@ -29,7 +29,7 @@ def test_run_after_rename_no_uid():
     assert result.returncode == 0
 
     uid = ln.Transform.get(
-        key="with-title-initialized-consecutive-finish-not-last-cell.ipynb"
+        key__endswith="with-title-initialized-consecutive-finish-not-last-cell.ipynb"
     ).uid
 
     # now, assume the user renames the notebook
@@ -45,7 +45,7 @@ def test_run_after_rename_no_uid():
     print(result.stderr.decode())
     assert result.returncode == 0
 
-    assert ln.Transform.get(key="no-uid-renamed.ipynb").uid == uid
+    assert ln.Transform.get(key__endswith="no-uid-renamed.ipynb").uid == uid
 
     # new_path.unlink()
 

@@ -17,6 +17,8 @@ Mixins for registries
 .. autoclass:: HasType
 .. autoclass:: HasParents
 .. autoclass:: CanCurate
+.. autoclass:: HasSynonyms
+.. autoclass:: HasAbbr
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
@@ -143,7 +145,7 @@ Utils
 
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasAbbr, HasSynonyms
 from .sqlrecord import (
     BaseSQLRecord,
     SQLRecord,
@@ -173,7 +175,8 @@ from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager
 from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .db import DB
-from .artifact_set import ArtifactSet, RecordSet
+from .artifact_set import ArtifactSet
+from .record_set import RecordSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 
@@ -237,3 +240,10 @@ from .block import (
 )
 
 FeatureValue = JsonValue  # backward compatibility
+
+from .sqlrecord import _ensure_lamindb_router
+
+# Best-effort early registration of LaminDBRouter.
+# This may no-op if Django settings are not configured yet, so we also call
+# _ensure_lamindb_router() in add_db_connection() as a late safety net.
+_ensure_lamindb_router()

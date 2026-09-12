@@ -43,18 +43,19 @@ This architecture guarantees:
 
 Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted.
 
+Let's create a test database:
+
 ```bash
-lamin init --storage ./test-acid
+lamin init
 ```
+
+We're starting by writing a simple `acid.fasta` file:
 
 ```python
 import pytest
 import lamindb as ln
-from upath import UPath
 
-ln.settings.verbosity = "debug"
-
-open("sample.fasta", "w").write(">seq1\nACGT\n")
+open("acid.fasta", "w").write(">seq1\ACID\n")
 ```
 
 ### Simulating a failed upload within Python
@@ -62,13 +63,13 @@ open("sample.fasta", "w").write(">seq1\nACGT\n")
 Let's try to save an artifact to a storage location without permission.
 
 ```python
-artifact = ln.Artifact("sample.fasta", key="sample.fasta")
+artifact = ln.Artifact("acid.fasta", key="acid.fasta")
 ```
 
 To simulate an unauthorized storage location, we temporarily override the default storage root:
 
 ```python
-ln.settings.storage._root = UPath("s3://nf-core-awsmegatests")
+ln.settings.storage._root = ln.UPath("s3://nf-core-awsmegatests")
 ```
 
 This raises an exception, and because the transaction is atomic, nothing gets saved to the database:
@@ -77,7 +78,7 @@ This raises an exception, and because the transaction is atomic, nothing gets sa
 with pytest.raises(PermissionError) as error:
     artifact.save()
 print(error.exconly())
-assert len(ln.Artifact.filter()) == 0
+assert not ln.Artifact.filter(key="acid.fasta").exists()
 ```
 
 ### Atomicity during bulk creation
@@ -92,15 +93,15 @@ artifacts = [artifact, "this is not a record"]
 with pytest.raises(Exception) as error:
     ln.save(artifacts)
 print(error.exconly())
-assert len(ln.Artifact.filter()) == 0  # nothing got saved
+assert not ln.Artifact.filter(key="acid.fasta").exists()
 ```
 
 ### Simulating an externally aborted upload
 
-Let's restore a proper storage location:
+Let's restore the storage location in the `./storage` folder:
 
 ```python
-ln.settings.storage._root = UPath("./test-acid").absolute()
+ln.settings.storage._root = ln.UPath("./acid/storage").absolute()
 ```
 
 The save operation works:
@@ -121,15 +122,13 @@ assert artifact._aux == {"so": 1}  # storage/upload is ongoing
 Because the system knows the upload is incomplete, we can safely re-run the save operation to recover:
 
 ```python
-artifact = ln.Artifact("sample.fasta", key="sample.fasta").save()
+artifact = ln.Artifact("acid.fasta", key="acid.fasta").save()
 ```
+
+A few checks:
 
 ```python
+assert ln.Artifact.filter(key="acid.fasta").exists()
 assert not artifact._storage_ongoing
 assert artifact._aux is None
-```
-
-```bash tags=["hide-cell"]
-rm -r ./test-acid
-lamin delete --force test-acid
 ```

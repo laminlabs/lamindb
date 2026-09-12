@@ -2,15 +2,15 @@
 execute_via: python
 ---
 
-# Pydantic & Pandera vs. LaminDB
+# Pydantic, Pandera, and LaminDB
 
 This doc explains conceptual differences between data validation with `pydantic`, `pandera`, and `LaminDB`.
 
 ```bash
-lamin init --storage test-pydantic-pandera --modules bionty
+lamin init --storage test-validation-libs --modules bionty
 ```
 
-Let us work with a test dataframe.
+Let us work with an exemplary pandas dataframe.
 
 ```python
 import pandas as pd
@@ -190,7 +190,7 @@ What was the cell type validation based on? Let's inspect the `CellType` registr
 bt.CellType.to_dataframe()
 ```
 
-The `CellType` regsitry is hierachical as it contains the Cell Ontology.
+The `CellType` registry is hierarchical as it contains the Cell Ontology.
 
 ```python
 bt.CellType.get(name="CD8-positive, alpha-beta T cell").view_parents()

@@ -7,7 +7,9 @@ execute_via: python
 This guide shows how to manage ontologies for basic biological entities.
 
 ```{raw} html
+<div align="center">
 <iframe width="560" height="315" src="https://www.youtube.com/embed/3vpWjHj3Kw8?si=D0jxqL2zB4idh2QA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
 ```
 
 If instead you're interested in
@@ -15,9 +17,10 @@ If instead you're interested in
 - accessing public ontologies, see {doc}`docs:public-ontologies`
 - flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
+Let's create a database in the current directory:
+
 ```bash
-# pip install lamindb
-lamin init --storage ./test-ontologies --modules bionty
+lamin init --modules bionty
 ```
 
 ## Import records from public ontologies
@@ -74,7 +77,7 @@ hsc_record
 Filter by fields and relationships:
 
 ```python
-gdt_cell = bt.CellType.get(ontology_id="CL:0000798", created_by__handle="testuser1")
+gdt_cell = bt.CellType.get(ontology_id="CL:0000798")
 gdt_cell
 ```
 

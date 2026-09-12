@@ -1,17 +1,24 @@
 [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-# LaminDB - Open-source data management for biology
+# LaminDB: Data management for traceable, multimodal AI
 
-LaminDB makes it easy to query, trace & validate datasets across diverse storage formats and locations.
-It gives you context through annotations, memory through lineage, and governance through branching and versioning.
-It uses a scalable lakehouse architecture that understands bio-formats, registries, ontologies, and markdown notes.
+LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
+Like git, LaminDB is a distributed system that runs anywhere and captures all relevant context about your work.
+This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
+It takes a few seconds to install LaminDB and create a database on your laptop.
 
 <details>
 <summary>Why?</summary>
 
-1. Untraceable results cannot be trusted, especially in the age of agents.
-2. Without effective data access, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
-3. We want to govern changes to data like we govern changes to code with git.
+1. Untraceable results cannot be trusted, especially when non-verifiable tasks are delegated to agents.
+2. Without effective access to multimodal data, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
+3. Without governing changes to data akin to governing changes to software with git, it's hard to evaluate agents, debug their mistakes, and safely merge their contributions.
+
+Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
+
+Traditional data infrastructure doesn't solve these issues because it was built for business analytics rather than complex AI workflows.
+While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs.
+LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel, and schema evolution — to multimodal data (`parquet`, `zarr`, `AnnData`, images) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query with your favorite compute engines (Polars, DuckDB, ...).
 
 </details>
 
@@ -20,10 +27,10 @@ It uses a scalable lakehouse architecture that understands bio-formats, registri
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **lakehouse** → query across many datasets, manage tables and arrays schema-based and [ACID](https://docs.lamin.ai/acid)
-- **LIMS & ELN** → unified schema-based records management with support for ontologies & markdown notes
-- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, `zarr`, …
-- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code together
+- **lakehouse** → manage datasets in any format (`parquet`, `zarr`, ...) with time travel, schema evolution & [ACID guarantees](https://docs.lamin.ai/acid); query with your favorite engine (Polars, DuckDB, ...)
+- **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
+- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, …
+- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code
 
 Architecture?
 
@@ -33,9 +40,13 @@ Architecture?
 - **unified** → federate data [across storage locations (local, S3, GCP, …)](https://docs.lamin.ai/lamindb.storage) in any database
 - **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
+- **ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
 - **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites
-- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty) [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **decoupled compute** → run your favorite engine (Polars, DuckDB, data loaders, ...) with all its benefits
+- **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
+
+Read more: [docs.lamin.ai/architecture](https://docs.lamin.ai/architecture).
 
 <details>
 <summary>Who?</summary>
@@ -81,9 +92,9 @@ pip install lamindb-core
 
 </details>
 
-Agent? The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Docs: [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? See `.agents/` in [`lamindb/`](https://github.com/laminlabs/lamindb/tree/main/lamindb). Docs: See [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) or [llms.txt](https://docs.lamin.ai/llms.txt).
 
-### Query databases & load artifacts
+### Query databases & datasets
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
@@ -116,10 +127,10 @@ accessor = artifact.open()     # return a streaming accessor
 
 For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
 
-### Configure your database
+### Save files & folders
 
-You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
-To connect to an existing instance, run:
+You can create a database at [lamin.ai](https://lamin.ai) and invite collaborators.
+To connect to an existing database, run:
 
 ```shell
 lamin login
@@ -127,18 +138,19 @@ lamin connect account/name  # tip: add flag `--here` to scope to current directo
 ```
 
 <details>
-<summary>Or init a new instance instead (no login required).</summary>
+<summary>Or init a new database instead (no login required).</summary>
+
+Navigate into a development direcotry, just like you'd do for `git init`, and run:
 
 ```shell
-lamin init --storage ./quickstart-data --modules bionty
+lamin init --modules bionty
 ```
+
+For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
 </details>
 
-On the terminal and in a Python session, LaminDB will now auto-connect.
-For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
-
-### Save files & folders as artifacts
+On the terminal and in a Python session, `lamindb` will now auto-connect.
 
 To save a file or folder via the API:
 
@@ -164,13 +176,11 @@ lamin load --key sample.fasta
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-### Lineage: agents
+### Trace data, code & agents
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Ask your coding agent to copy it to wherever it reads skills from — `.claude/skills/` for Claude Code, `.agents/skills/` for GitHub Copilot — so that it automatically tracks agent sessions.
 
-### Lineage: scripts & notebooks
-
-To create a dataset while tracking source code, inputs, outputs, logs, and environment:
+To create a dataset in a script or notebook while tracking source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
@@ -241,10 +251,7 @@ ln.Project(name="My project").save()  # create a project in Python
 
 </details>
 
-
-### Lineage: functions & workflows
-
-You can achieve the same traceability for functions & workflows:
+You can track **workflows** by decorating functions:
 
 <!-- #skip_laminr -->
 
@@ -279,7 +286,7 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 </details>
 
-### Labeling & queries by fields
+### Label artifacts
 
 You can label an artifact by running:
 
@@ -310,19 +317,17 @@ If you want to include more information into the resulting dataframe, pass `incl
 ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
 ```
 
-Note: The query syntax for `DB` objects and for your default database is the same.
+The query syntax for `DB` objects and for your default database is the same.
 
-### The core data model
+Here is an overview that illustrates how artifacts can be labeled by other entities:
 
-Here is an overview that illustrates how `Artifact` links to all other registries:
-
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
+<img width="700px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
 
-### Queries by features
+### Manage features & records
 
-You can annotate datasets and samples with features. Let's define some:
+Let's define some features:
 
 ```python
 from datetime import date
@@ -332,7 +337,7 @@ experiment_note = ln.Feature(name="experiment_note", dtype=str).save()
 experiment_date = ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
-During annotation, feature names and data types are validated against these definitions.
+The most basic thing you can do with features is annotating artifacts, records, or runs with them:
 
 ```python
 artifact.features.set_values({
@@ -340,56 +345,93 @@ artifact.features.set_values({
     experiment_note: "Looks great",
     experiment_date: "2025-10-24",
 })
+
+# query
+ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
 ```
 
-Query for it:
-
-```python
-ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
-```
-
-If you want to include the feature values into the dataframe, pass `include`.
-
-```python
-ln.Artifact.to_dataframe(include="features")  # include the feature annotations
-```
-
-### Lake ♾️ LIMS ♾️ Sheets
-
-You can create records for entities underlying your experiments (samples, perturbations, instruments, etc.):
+You can create **records** for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
 ```python
 ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can dynamically create registries and relationships of entities:
+You can create record types and relationships:
 
 ```python
-# create an experiments registry by defining a record type
-experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+# create an Experiments type
+experiments = ln.Record(name="Experiments", is_type=True).save()
 
-# create a record inside the Experiments registry
-ln.Record(name="Experiment 1", type=experiments_registry).save()
+# create a record of that type
+experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
-# create a feature that links experiments, creating a relationship
-experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+# create a feature that links experiments (a relationship)
+experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-# create a sample record that links the sample to `Experiment 1` via the `experiment` feature
-ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: "Experiment 1"}).save()
+# create a sample record
+ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: experiment1}).save()
+
+# export all experiments
+experiments.to_dataframe()
 ```
 
-You can export a dynamic registry as a dataframe:
+Watch a mini video: [youtu.be/NRzVQXJaRH8](https://youtu.be/NRzVQXJaRH8)
+
+### Lakehouse
+
+Here is how you ingest a `DataFrame`:
 
 ```python
-experiments_registry.to_dataframe()
+import pandas as pd
+
+df = pd.DataFrame({
+    "sequence_str": ["ACGT", "TGCA"],
+    "gc_content": [0.55, 0.54],
+    "experiment_note": ["Looks great", "Ok"],
+    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
+})
+ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-<details>
-<summary>You can edit records like Excel sheets on LaminHub.</summary>
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png">
-</details>
+To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
 
-### Versioning and branching
+```python
+ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
+artifact = ln.Artifact.from_dataframe(
+    df,
+    key="my_datasets/sequences.parquet",
+    schema="valid_features"  # validate columns against features
+).save()
+artifact.describe()
+```
+
+Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
+
+You can filter for datasets by schema and then launch distributed queries or batch load distributed datasets. For tables, see: [docs.lamin.ai/tables](https://docs.lamin.ai/tables). For arrays, see: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
+
+To validate an `AnnData`, call:
+
+```python
+import anndata as ad
+import numpy as np
+import pandas as pd
+
+adata = ad.AnnData(
+    X=np.ones((21, 10)),
+    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
+    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
+)
+artifact = ln.Artifact.from_anndata(
+    adata,
+    key="my_datasets/scrna.h5ad",
+    schema="ensembl_gene_ids_and_valid_features_in_obs"
+).save()
+artifact.describe()
+```
+
+To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+
+### Branching & versioning
 
 LaminDB co-versions code and datasets for you.
 If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
@@ -429,6 +471,8 @@ lamin merge my_branch  # merge contribution branch into main
 
 Read more: [docs.lamin.ai/manage-changes](https://docs.lamin.ai/manage-changes).
 
+Watch a mini video: [youtu.be/rzRwcMj6-fc](https://youtu.be/rzRwcMj6-fc)
+
 ### Data sharing
 
 To share data in a lineage-aware way, transfer objects from a source database to your default database:
@@ -440,62 +484,6 @@ artifact.save()
 ```
 
 This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/transfer](https://docs.lamin.ai/transfer).
-
-### Lakehouse ♾️ feature store
-
-Here is how you ingest a `DataFrame`:
-
-```python
-import pandas as pd
-
-df = pd.DataFrame({
-    "sequence_str": ["ACGT", "TGCA"],
-    "gc_content": [0.55, 0.54],
-    "experiment_note": ["Looks great", "Ok"],
-    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
-})
-ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
-```
-
-To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
-
-```python
-ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
-artifact = ln.Artifact.from_dataframe(
-    df,
-    key="my_datasets/sequences.parquet",
-    schema="valid_features"  # validate columns against features
-).save()
-artifact.describe()
-```
-
-Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
-
-You can filter for datasets by schema and then launch distributed queries and batch loading.
-
-### Lakehouse beyond tables
-
-To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_features_in_obs`, call:
-
-```python
-import anndata as ad
-import numpy as np
-import pandas as pd
-
-adata = ad.AnnData(
-    X=np.ones((21, 10)),
-    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
-    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
-)
-artifact = ln.Artifact.from_anndata(
-    adata,
-    key="my_datasets/scrna.h5ad",
-    schema="ensembl_gene_ids_and_valid_features_in_obs"
-).save()
-artifact.describe()
-```
-
-To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
@@ -519,7 +507,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 
 Watch a mini video: [youtu.be/3vpWjHj3Kw8](https://youtu.be/3vpWjHj3Kw8)
 
-### Save unstructured notes
+### Manage notes
 
 When in your development directory, you can save markdown files as records:
 

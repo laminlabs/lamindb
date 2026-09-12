@@ -371,8 +371,13 @@ def mudata_papalexi21_subset(with_uns: bool = False) -> MuData:
         >>> mdata[:, -300:].copy().write("papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu")
     """
     import mudata as md
+    from packaging.version import parse as parse_version
 
-    md.set_options(pull_on_update=False)
+    # mudata 0.4 replaced set_options() with settings; default is already False
+    if parse_version(md.__version__) < parse_version("0.4.0"):
+        md.set_options(pull_on_update=False)
+    else:
+        md.settings.pull_on_update = False
 
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",

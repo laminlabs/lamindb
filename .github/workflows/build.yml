@@ -24,6 +24,13 @@ jobs:
         if: github.event_name != 'push'
         with:
           filters: |
+            docs:
+              - 'docs/**'
+              - 'README.md'
+            core:
+              - '**'
+              - '!docs/**'
+              - '!README.md'
             curator:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
@@ -35,31 +42,52 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-pydata-sqlite", "unit-pydata-postgres", "unit-storage", "tutorial", "guide", "tiledbsoma", "biology", "faq", "storage", "transfer", "cli", "permissions", "no-instance", "minimal"]')
-          ADDITIONAL_GROUPS=[]
+          DOCS_GROUPS=("tutorial" "guide" "tiledbsoma" "biology" "faq" "storage")
+          CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer" "cli" "permissions" "no-instance" "minimal")
+          CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
+          SELECTED_GROUPS=()
 
-          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            # Run everything on push and dispatch
-            ADDITIONAL_GROUPS=$(jq -n -c '["curator", "integrations"]')
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            SELECTED_GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
           else
-            # Otherwise check which paths changed
+            if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
+              SELECTED_GROUPS+=("${CORE_GROUPS[@]}")
+            fi
+            if [[ "${{ steps.changes.outputs.docs }}" == "true" ]]; then
+              SELECTED_GROUPS+=("${DOCS_GROUPS[@]}")
+            fi
             if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["curator"]')
+              SELECTED_GROUPS+=("curator")
             fi
             if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
-              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["integrations"]')
+              SELECTED_GROUPS+=("integrations")
             fi
           fi
 
-          # Combine base groups with any additional groups
-          MATRIX=$(jq -n -c --argjson base "$BASE_GROUPS" --argjson additional "$ADDITIONAL_GROUPS" '{group: ($base + $additional)}')
+          # Ensure unique group names while preserving insertion order.
+          UNIQUE_GROUPS=()
+          declare -A SEEN=()
+          for group in "${SELECTED_GROUPS[@]}"; do
+            if [[ -z "${SEEN[$group]+x}" ]]; then
+              UNIQUE_GROUPS+=("$group")
+              SEEN[$group]=1
+            fi
+          done
+
+          if (( ${#UNIQUE_GROUPS[@]} == 0 )); then
+            MATRIX='{"group":[]}'
+          else
+            GROUPS_JSON=$(printf '"%s",' "${UNIQUE_GROUPS[@]}")
+            GROUPS_JSON="[${GROUPS_JSON%,}]"
+            MATRIX="{\"group\":${GROUPS_JSON}}"
+          fi
 
           # Output as single line for GitHub Actions
-          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
           # Pretty print for debugging
           echo "Generated matrix:"
-          echo "$MATRIX" | jq .
+          echo "$MATRIX"
 
   test:
     needs: pre-filter
@@ -87,7 +115,7 @@ jobs:
           python-version: |
             ${{ matrix.group == 'tiledbsoma' && '3.13' ||
                 matrix.group == 'permissions' && '3.14' ||
-                github.ref == 'refs/heads/release' && '3.11' ||
+                github.ref == 'refs/heads/release' && '3.12' ||
                 '3.14'
                 }}
 
@@ -156,6 +184,10 @@ jobs:
   docs:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
         with:

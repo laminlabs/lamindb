@@ -1,0 +1,833 @@
+#!/usr/bin/env python3
+r"""Apply 0193 link-table partial unique indexes table-by-table via psycopg2.
+
+For each table, independently:
+  1. Drop legacy unique_together constraints (short AccessExclusiveLock)
+  2. Deduplicate NULL-feature rows (DELETE … USING)
+  3. CREATE UNIQUE INDEX CONCURRENTLY for both partial uniques
+
+Uses autocommit so CONCURRENTLY is legal and locks are not held across tables.
+
+Examples:
+  python scripts/migrate_0193_partial_uniques.py \\
+      --dsn "postgresql://user:pass@host:5432/dbname"
+
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --table lamindb_artifactulabel
+
+  # Status only (no changes):
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --stat
+
+  # Restore legacy UNIQUE if new indexes are missing or INVALID:
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --repair-legacy
+
+  # After SQL succeeds, record Django migration as applied:
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --fake-django
+
+  # Faster/slower CREATE INDEX progress logs (default every 10s; 0=off):
+  python scripts/migrate_0193_partial_uniques.py --dsn "$DATABASE_URL" --progress-interval 5
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import threading
+import time
+from dataclasses import dataclass
+
+import psycopg2
+from psycopg2 import sql
+
+MIGRATION_APP = "lamindb"
+MIGRATION_NAME = "0193_v2_9_part_2"
+
+
+@dataclass(frozen=True)
+class LinkTable:
+    table: str
+    pair: tuple[str, str]
+    triple: tuple[str, ...]
+    name: str
+    name_null: str
+
+
+LINK_TABLES: list[LinkTable] = [
+    LinkTable(
+        "lamindb_artifactartifact",
+        ("artifact_id", "value_id"),
+        ("artifact_id", "value_id", "feature_id"),
+        "unique_artifactartifact",
+        "unique_artifactartifact_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactproject",
+        ("artifact_id", "project_id"),
+        ("artifact_id", "project_id", "feature_id"),
+        "unique_artifactproject",
+        "unique_artifactproject_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactrecord",
+        ("artifact_id", "record_id"),
+        ("artifact_id", "record_id", "feature_id"),
+        "unique_artifactrecord",
+        "unique_artifactrecord_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactreference",
+        ("artifact_id", "reference_id"),
+        ("artifact_id", "reference_id", "feature_id"),
+        "unique_artifactreference",
+        "unique_artifactreference_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactrun",
+        ("artifact_id", "run_id"),
+        ("artifact_id", "run_id", "feature_id"),
+        "unique_artifactrun",
+        "unique_artifactrun_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactulabel",
+        ("artifact_id", "ulabel_id"),
+        ("artifact_id", "ulabel_id", "feature_id"),
+        "unique_artifactulabel",
+        "unique_artifactulabel_null_feature",
+    ),
+    LinkTable(
+        "lamindb_artifactuser",
+        ("artifact_id", "user_id"),
+        ("artifact_id", "user_id", "feature_id"),
+        "unique_artifactuser",
+        "unique_artifactuser_null_feature",
+    ),
+    LinkTable(
+        "lamindb_collectionrecord",
+        ("collection_id", "record_id"),
+        ("collection_id", "record_id", "feature_id"),
+        "unique_collectionrecord",
+        "unique_collectionrecord_null_feature",
+    ),
+    LinkTable(
+        "lamindb_projectrecord",
+        ("project_id", "record_id"),
+        ("project_id", "feature_id", "record_id"),
+        "unique_projectrecord",
+        "unique_projectrecord_null_feature",
+    ),
+    LinkTable(
+        "lamindb_referencerecord",
+        ("reference_id", "record_id"),
+        ("reference_id", "feature_id", "record_id"),
+        "unique_referencerecord",
+        "unique_referencerecord_null_feature",
+    ),
+    LinkTable(
+        "lamindb_runartifact",
+        ("run_id", "artifact_id"),
+        ("run_id", "artifact_id", "feature_id"),
+        "unique_runartifact",
+        "unique_runartifact_null_feature",
+    ),
+    LinkTable(
+        "lamindb_runrecord",
+        ("run_id", "record_id"),
+        ("run_id", "record_id", "feature_id"),
+        "unique_runrecord",
+        "unique_runrecord_null_feature",
+    ),
+    LinkTable(
+        "lamindb_transformrecord",
+        ("transform_id", "record_id"),
+        ("transform_id", "record_id", "feature_id"),
+        "unique_transformrecord",
+        "unique_transformrecord_null_feature",
+    ),
+]
+
+
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
+
+def quote_ident(name: str) -> sql.Identifier:
+    return sql.Identifier(name)
+
+
+def drop_legacy_uniques(cur, table: str, *, dry_run: bool) -> list[str]:
+    cur.execute(
+        """
+        SELECT c.conname
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        JOIN pg_namespace n ON t.relnamespace = n.oid
+        WHERE n.nspname = current_schema()
+          AND t.relname = %s
+          AND c.contype = 'u'
+        """,
+        (table,),
+    )
+    names = [row[0] for row in cur.fetchall()]
+    for conname in names:
+        stmt = sql.SQL("ALTER TABLE {} DROP CONSTRAINT IF EXISTS {}").format(
+            quote_ident(table), quote_ident(conname)
+        )
+        log(f"  DROP CONSTRAINT {conname}")
+        if not dry_run:
+            cur.execute(stmt)
+    return names
+
+
+def dedupe_null_feature(cur, spec: LinkTable, *, dry_run: bool) -> int:
+    """Delete extra NULL-feature rows; keep MIN(id) per pair (same as 0193)."""
+    n_dupes = count_null_feature_dupes(cur, spec)
+    if n_dupes == 0:
+        return 0
+    if dry_run:
+        return n_dupes
+
+    a, b = spec.pair
+    # Equivalent to: DELETE … WHERE id NOT IN (SELECT MIN(id) … GROUP BY pair).
+    # Postgres deletes each target row at most once even if several dup rows match.
+    stmt = sql.SQL(
+        """
+        DELETE FROM {table} AS keep
+        USING {table} AS dup
+        WHERE keep.feature_id IS NULL
+          AND dup.feature_id IS NULL
+          AND keep.{a} = dup.{a}
+          AND keep.{b} = dup.{b}
+          AND keep.id > dup.id
+        """
+    ).format(
+        table=quote_ident(spec.table),
+        a=quote_ident(a),
+        b=quote_ident(b),
+    )
+    cur.execute(stmt)
+    return cur.rowcount
+
+
+def index_exists(cur, name: str) -> bool:
+    cur.execute("SELECT 1 FROM pg_class WHERE relname = %s AND relkind = 'i'", (name,))
+    return cur.fetchone() is not None
+
+
+def index_is_valid(cur, name: str) -> bool:
+    status = index_status(cur, name)
+    return status == "valid"
+
+
+def index_status(cur, name: str) -> str:
+    """Return 'valid', 'invalid', or 'missing'."""
+    cur.execute(
+        """
+        SELECT i.indisvalid
+        FROM pg_class c
+        JOIN pg_index i ON i.indexrelid = c.oid
+        WHERE c.relname = %s AND c.relkind = 'i'
+        """,
+        (name,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return "missing"
+    return "valid" if row[0] else "invalid"
+
+
+def legacy_unique_constraints(cur, table: str) -> list[str]:
+    cur.execute(
+        """
+        SELECT c.conname
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        JOIN pg_namespace n ON t.relnamespace = n.oid
+        WHERE n.nspname = current_schema()
+          AND t.relname = %s
+          AND c.contype = 'u'
+        """,
+        (table,),
+    )
+    return [row[0] for row in cur.fetchall()]
+
+
+def count_null_feature_dupes(cur, spec: LinkTable) -> int:
+    """Rows that dedupe would delete: all but MIN(id) per NULL-feature pair."""
+    a, b = spec.pair
+    stmt = sql.SQL(
+        """
+        SELECT COALESCE(SUM(cnt - 1), 0)::bigint
+        FROM (
+            SELECT COUNT(*) AS cnt
+            FROM {table}
+            WHERE feature_id IS NULL
+            GROUP BY {a}, {b}
+            HAVING COUNT(*) > 1
+        ) grouped
+        """
+    ).format(
+        table=quote_ident(spec.table),
+        a=quote_ident(a),
+        b=quote_ident(b),
+    )
+    cur.execute(stmt)
+    return int(cur.fetchone()[0])
+
+
+def django_migration_recorded(cur) -> bool:
+    cur.execute(
+        """
+        SELECT 1 FROM django_migrations
+        WHERE app = %s AND name = %s
+        """,
+        (MIGRATION_APP, MIGRATION_NAME),
+    )
+    return cur.fetchone() is not None
+
+
+def print_stats(conn, tables: list[LinkTable]) -> None:
+    """Read-only progress report for 0193 partial uniques."""
+    n_indexes = 0
+    n_valid = 0
+    n_invalid = 0
+    n_missing = 0
+    n_legacy = 0
+    n_dupes = 0
+    n_tables_done = 0
+
+    log("\n=== status ===")
+    with conn.cursor() as cur:
+        recorded = django_migration_recorded(cur)
+        log(
+            f"django_migrations {MIGRATION_APP}.{MIGRATION_NAME}: "
+            f"{'recorded' if recorded else 'not recorded'}"
+        )
+        log(
+            f"{'table':<32} {'legacy':>6} {'dupes':>7} "
+            f"{'idx_feature':<10} {'idx_null':<10} {'ready':>5}"
+        )
+        log("-" * 80)
+
+        for spec in tables:
+            legacy = legacy_unique_constraints(cur, spec.table)
+            dupes = count_null_feature_dupes(cur, spec)
+            st_feat = index_status(cur, spec.name)
+            st_null = index_status(cur, spec.name_null)
+
+            for st in (st_feat, st_null):
+                n_indexes += 1
+                if st == "valid":
+                    n_valid += 1
+                elif st == "invalid":
+                    n_invalid += 1
+                else:
+                    n_missing += 1
+
+            n_legacy += len(legacy)
+            n_dupes += dupes
+            ready = (
+                not legacy and dupes == 0 and st_feat == "valid" and st_null == "valid"
+            )
+            if ready:
+                n_tables_done += 1
+
+            log(
+                f"{spec.table:<32} {len(legacy):>6} {dupes:>7} "
+                f"{st_feat:<10} {st_null:<10} {'yes' if ready else 'no':>5}"
+            )
+
+    log("-" * 80)
+    log(
+        f"tables ready: {n_tables_done}/{len(tables)}  |  "
+        f"indexes valid/invalid/missing: {n_valid}/{n_invalid}/{n_missing} "
+        f"(of {n_indexes})  |  "
+        f"legacy constraints: {n_legacy}  |  "
+        f"pending NULL-feature dupes: {n_dupes}"
+    )
+
+
+def _format_create_index_progress(row: tuple) -> str:
+    """Pretty-print one pg_stat_progress_create_index row."""
+    (
+        phase,
+        lockers_total,
+        lockers_done,
+        blocks_total,
+        blocks_done,
+        tuples_total,
+        tuples_done,
+    ) = row
+    parts = [f"phase={phase}"]
+    if blocks_total:
+        pct = 100.0 * blocks_done / blocks_total
+        parts.append(f"blocks={blocks_done}/{blocks_total} ({pct:.1f}%)")
+    if tuples_total:
+        pct = 100.0 * tuples_done / tuples_total
+        parts.append(f"tuples={tuples_done}/{tuples_total} ({pct:.1f}%)")
+    if lockers_total:
+        parts.append(f"lockers={lockers_done}/{lockers_total}")
+    return ", ".join(parts)
+
+
+def poll_create_index_progress(
+    dsn: str,
+    *,
+    table: str,
+    index_name: str,
+    stop: threading.Event,
+    interval: float,
+) -> None:
+    """Background: log pg_stat_progress_create_index until stop is set."""
+    try:
+        monitor = psycopg2.connect(dsn)
+    except Exception as exc:  # noqa: BLE001 - best-effort progress only
+        log(f"  progress monitor unavailable: {exc}")
+        return
+    try:
+        monitor.autocommit = True
+        started = time.perf_counter()
+        while not stop.wait(interval):
+            with monitor.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        p.phase,
+                        p.lockers_total,
+                        p.lockers_done,
+                        p.blocks_total,
+                        p.blocks_done,
+                        p.tuples_total,
+                        p.tuples_done
+                    FROM pg_stat_progress_create_index p
+                    JOIN pg_class t ON t.oid = p.relid
+                    WHERE t.relname = %s
+                    ORDER BY p.pid
+                    LIMIT 1
+                    """,
+                    (table,),
+                )
+                row = cur.fetchone()
+            elapsed = time.perf_counter() - started
+            if row:
+                log(
+                    f"  … {index_name} [{elapsed:.0f}s] "
+                    f"{_format_create_index_progress(row)}"
+                )
+            else:
+                log(
+                    f"  … {index_name} [{elapsed:.0f}s] "
+                    f"waiting (no pg_stat_progress_create_index row yet)"
+                )
+    except Exception as exc:  # noqa: BLE001
+        log(f"  progress monitor stopped: {exc}")
+    finally:
+        monitor.close()
+
+
+def create_unique_index_concurrently(
+    conn,
+    *,
+    name: str,
+    table: str,
+    columns: tuple[str, ...],
+    where_sql: str,
+    dry_run: bool,
+    dsn: str | None = None,
+    progress_interval: float = 10.0,
+) -> None:
+    old = conn.autocommit
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            if index_exists(cur, name) and index_is_valid(cur, name):
+                log(f"  index {name}: already valid, skip create")
+                return
+            if index_exists(cur, name):
+                log(f"  index {name}: INVALID leftover, dropping first")
+                if not dry_run:
+                    cur.execute(
+                        sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}").format(
+                            quote_ident(name)
+                        )
+                    )
+
+            cols = sql.SQL(", ").join(quote_ident(c) for c in columns)
+            stmt = sql.SQL(
+                "CREATE UNIQUE INDEX CONCURRENTLY {} ON {} ({}) WHERE {}"
+            ).format(
+                quote_ident(name),
+                quote_ident(table),
+                cols,
+                sql.SQL(where_sql),
+            )
+            log(f"  CREATE UNIQUE INDEX CONCURRENTLY {name}")
+            if dry_run:
+                return
+
+            stop = threading.Event()
+            monitor: threading.Thread | None = None
+            if dsn and progress_interval > 0:
+                monitor = threading.Thread(
+                    target=poll_create_index_progress,
+                    kwargs={
+                        "dsn": dsn,
+                        "table": table,
+                        "index_name": name,
+                        "stop": stop,
+                        "interval": progress_interval,
+                    },
+                    daemon=True,
+                )
+                monitor.start()
+            try:
+                started = time.perf_counter()
+                cur.execute(stmt)
+                log(f"  created {name} in {time.perf_counter() - started:.1f}s")
+            finally:
+                stop.set()
+                if monitor is not None:
+                    monitor.join(timeout=progress_interval + 2)
+    finally:
+        conn.autocommit = old
+
+
+def migrate_table(
+    conn,
+    spec: LinkTable,
+    *,
+    dry_run: bool,
+    dsn: str | None = None,
+    progress_interval: float = 10.0,
+    table_label: str = "",
+) -> None:
+    started = time.perf_counter()
+    prefix = f"{table_label} " if table_label else ""
+    log(f"\n=== {prefix}{spec.table} ===")
+
+    # Steps that need a normal transaction: drop constraint + dedupe.
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            dropped = drop_legacy_uniques(cur, spec.table, dry_run=dry_run)
+            if not dropped:
+                log("  no legacy unique constraints")
+
+            deleted = dedupe_null_feature(cur, spec, dry_run=dry_run)
+            log(f"  dedupe NULL-feature rows: {deleted}")
+
+        if dry_run:
+            conn.rollback()
+        else:
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    # Index DDL must be outside a transaction.
+    create_unique_index_concurrently(
+        conn,
+        name=spec.name,
+        table=spec.table,
+        columns=spec.triple,
+        where_sql='"feature_id" IS NOT NULL',
+        dry_run=dry_run,
+        dsn=dsn,
+        progress_interval=progress_interval,
+    )
+    create_unique_index_concurrently(
+        conn,
+        name=spec.name_null,
+        table=spec.table,
+        columns=spec.pair,
+        where_sql='"feature_id" IS NULL',
+        dry_run=dry_run,
+        dsn=dsn,
+        progress_interval=progress_interval,
+    )
+
+    elapsed = time.perf_counter() - started
+    log(f"  done in {elapsed:.1f}s")
+
+
+def legacy_constraint_name(spec: LinkTable) -> str:
+    """Same name Django would generate for unique_together on ``triple``."""
+    from django.db.backends.utils import names_digest
+
+    table_name = spec.table
+    column_names = list(spec.triple)
+    suffix = "_uniq"
+    hash_suffix_part = f"{names_digest(table_name, *column_names, length=8)}{suffix}"
+    max_length = 63  # Postgres
+    index_name = "{}_{}_{}".format(table_name, "_".join(column_names), hash_suffix_part)
+    if len(index_name) <= max_length:
+        return index_name
+    if len(hash_suffix_part) > max_length / 3:
+        hash_suffix_part = hash_suffix_part[: max_length // 3]
+    other_length = (max_length - len(hash_suffix_part)) // 2 - 1
+    return "{}_{}_{}".format(
+        table_name[:other_length],
+        "_".join(column_names)[:other_length],
+        hash_suffix_part,
+    )
+
+
+def repair_legacy_table(
+    conn,
+    spec: LinkTable,
+    *,
+    dry_run: bool,
+    table_label: str = "",
+    **_kwargs,
+) -> None:
+    """Add back UNIQUE(triple) only when new indexes are missing or INVALID.
+
+    If both new indexes are valid, the table is considered migrated and is skipped.
+    Also drops INVALID leftovers of the new index names.
+    """
+    prefix = f"{table_label} " if table_label else ""
+    log(f"\n=== {prefix}repair legacy {spec.table} ===")
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            st_feat = index_status(cur, spec.name)
+            st_null = index_status(cur, spec.name_null)
+            legacy = legacy_unique_constraints(cur, spec.table)
+
+            if st_feat == "valid" and st_null == "valid":
+                log("  new indexes ok; skip")
+                conn.rollback()
+                return
+
+            # Only act when something is wrong with the new indexes.
+            if st_feat not in {"missing", "invalid"} and st_null not in {
+                "missing",
+                "invalid",
+            }:
+                log(f"  unexpected index state feat={st_feat} null={st_null}; skip")
+                conn.rollback()
+                return
+
+            log(f"  new indexes: {spec.name}={st_feat}, {spec.name_null}={st_null}")
+            invalid_names = [
+                name
+                for name, st in ((spec.name, st_feat), (spec.name_null, st_null))
+                if st == "invalid"
+            ]
+            needs_add = not legacy
+        conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
+
+    # DROP INDEX CONCURRENTLY must be outside a transaction.
+    if invalid_names:
+        old = conn.autocommit
+        conn.autocommit = True
+        try:
+            with conn.cursor() as cur:
+                for name in invalid_names:
+                    log(f"  DROP INDEX CONCURRENTLY IF EXISTS {name} (invalid)")
+                    if not dry_run:
+                        cur.execute(
+                            sql.SQL("DROP INDEX CONCURRENTLY IF EXISTS {}").format(
+                                quote_ident(name)
+                            )
+                        )
+        finally:
+            conn.autocommit = old
+
+    if not needs_add:
+        log(f"  legacy unique already present: {legacy}")
+        return
+
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            # Re-check; another unique may still exist under a Django hashed name.
+            legacy = legacy_unique_constraints(cur, spec.table)
+            if legacy:
+                log(f"  legacy unique already present: {legacy}")
+                conn.rollback()
+                return
+
+            conname = legacy_constraint_name(spec)
+            cols = sql.SQL(", ").join(quote_ident(c) for c in spec.triple)
+            stmt = sql.SQL("ALTER TABLE {} ADD CONSTRAINT {} UNIQUE ({})").format(
+                quote_ident(spec.table),
+                quote_ident(conname),
+                cols,
+            )
+            log(f"  ADD CONSTRAINT {conname} UNIQUE ({', '.join(spec.triple)})")
+            if not dry_run:
+                cur.execute(stmt)
+                conn.commit()
+            else:
+                conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def fake_django_migration(conn, *, dry_run: bool) -> None:
+    log(f"\n=== fake Django migration {MIGRATION_APP}.{MIGRATION_NAME} ===")
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1 FROM django_migrations
+                WHERE app = %s AND name = %s
+                """,
+                (MIGRATION_APP, MIGRATION_NAME),
+            )
+            if cur.fetchone():
+                log("  already recorded, skip")
+                conn.rollback()
+                return
+            log("  INSERT INTO django_migrations ...")
+            if not dry_run:
+                cur.execute(
+                    """
+                    INSERT INTO django_migrations (app, name, applied)
+                    VALUES (%s, %s, NOW())
+                    """,
+                    (MIGRATION_APP, MIGRATION_NAME),
+                )
+                conn.commit()
+            else:
+                conn.rollback()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument(
+        "--dsn",
+        default=os.environ.get("DATABASE_URL")
+        or os.environ.get("LAMINDB_DJANGO_DATABASE_URL"),
+        help="Postgres DSN (or set DATABASE_URL / LAMINDB_DJANGO_DATABASE_URL)",
+    )
+    p.add_argument(
+        "--table",
+        action="append",
+        dest="tables",
+        help="Only migrate this table (repeatable). Default: all link tables.",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print actions / counts without changing the database.",
+    )
+    p.add_argument(
+        "--stat",
+        action="store_true",
+        help="Print per-table status (indexes/legacy/dupes) and exit without changes.",
+    )
+    p.add_argument(
+        "--repair-legacy",
+        action="store_true",
+        help=(
+            "If new indexes are missing or INVALID: drop INVALID leftovers and "
+            "re-add legacy UNIQUE(triple) when absent. No-op when both new indexes are valid."
+        ),
+    )
+    p.add_argument(
+        "--fake-django",
+        action="store_true",
+        help=f"Record {MIGRATION_APP}.{MIGRATION_NAME} in django_migrations after SQL.",
+    )
+    p.add_argument(
+        "--lock-timeout",
+        default="5s",
+        help="Postgres lock_timeout for DROP CONSTRAINT / DELETE (default: 5s).",
+    )
+    p.add_argument(
+        "--progress-interval",
+        type=float,
+        default=10.0,
+        help=(
+            "Seconds between CREATE INDEX CONCURRENTLY progress logs "
+            "(default: 10; 0 disables)."
+        ),
+    )
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    if not args.dsn:
+        log("error: pass --dsn or set DATABASE_URL")
+        return 2
+
+    selected = LINK_TABLES
+    if args.tables:
+        wanted = set(args.tables)
+        selected = [t for t in LINK_TABLES if t.table in wanted]
+        missing = wanted - {t.table for t in selected}
+        if missing:
+            log(f"error: unknown table(s): {sorted(missing)}")
+            return 2
+
+    log("connecting…")
+    conn = psycopg2.connect(args.dsn)
+    try:
+        conn.autocommit = False
+        with conn.cursor() as cur:
+            cur.execute("SELECT current_database(), current_user")
+            db, user = cur.fetchone()
+            log(f"database={db} user={user}")
+            if args.lock_timeout and not args.stat:
+                cur.execute(
+                    "SELECT set_config('lock_timeout', %s, false)",
+                    (args.lock_timeout,),
+                )
+            conn.commit()
+
+        if args.stat:
+            print_stats(conn, selected)
+            return 0
+
+        if args.repair_legacy and args.fake_django:
+            log("error: refuse --repair-legacy together with --fake-django")
+            return 2
+
+        action = repair_legacy_table if args.repair_legacy else migrate_table
+        total = len(selected)
+        for i, spec in enumerate(selected, 1):
+            label = f"[{i}/{total}]"
+            # Retry DROP/DELETE a few times if lock_timeout fires under load.
+            attempts = 0
+            while True:
+                attempts += 1
+                try:
+                    action(
+                        conn,
+                        spec,
+                        dry_run=args.dry_run,
+                        dsn=args.dsn,
+                        progress_interval=args.progress_interval,
+                        table_label=label,
+                    )
+                    break
+                except psycopg2.errors.LockNotAvailable:
+                    conn.rollback()
+                    if attempts >= 5:
+                        raise
+                    sleep_s = min(2**attempts, 30)
+                    log(f"  lock timeout on {spec.table}, retry in {sleep_s}s…")
+                    time.sleep(sleep_s)
+
+        if args.fake_django:
+            fake_django_migration(conn, dry_run=args.dry_run)
+
+        log("\nAll done.")
+        return 0
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

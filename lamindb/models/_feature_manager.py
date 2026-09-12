@@ -46,7 +46,7 @@ from ._describe import (
     describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_or_run_with_related
+from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT, get_artifact_or_run_with_related
 from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
@@ -485,6 +485,7 @@ def get_features_data(
     related_data: dict | None = None,
     to_dict: bool = False,
     external_only: bool = False,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ):
     from .artifact import Artifact
 
@@ -533,7 +534,9 @@ def get_features_data(
                     # features.first() is a lot slower than features[0] here
                     name_field = get_name_field(features[0])
                     feature_names = list(
-                        features.values_list(name_field, flat=True)[:20]
+                        features.values_list(name_field, flat=True)[
+                            :schema_member_preview_limit
+                        ]
                     )
                     schema_data[slot] = (schema, feature_names)
                     for feature_name in feature_names:
@@ -640,6 +643,7 @@ def get_features_data(
 def describe_features(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ) -> tuple[Tree | None, Tree | None]:
     """Describe features of an artifact or collection."""
     if self._state.adding:
@@ -653,14 +657,35 @@ def describe_features(
     ) = get_features_data(
         self,
         related_data=related_data,
+        schema_member_preview_limit=schema_member_preview_limit,
     )
 
     # Dataset features section
     # internal features that contain labels (only `Feature` features contain labels)
     internal_feature_labels_slot: dict[str, list] = {}
+    skipped_internal_feature_labels: list[str] = []
     for feature_name, feature_row in internal_feature_labels.items():
-        slot, _ = feature_data.get(feature_name)
+        slot_and_dtype = feature_data.get(feature_name)
+        if slot_and_dtype is None:
+            # Internal categorical values can exist for features omitted from the
+            # schema-member preview (`schema_member_preview_limit`).
+            skipped_internal_feature_labels.append(feature_name)
+            continue
+        slot, _ = slot_and_dtype
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
+    if skipped_internal_feature_labels:
+        skipped_preview = _format_values(
+            sorted(skipped_internal_feature_labels),
+            n=5,
+            quotes=False,
+        )
+        logger.warning(
+            "Skipping values for "
+            f"{len(skipped_internal_feature_labels)} internal feature(s) in "
+            f"describe(): {skipped_preview}. "
+            "These features are outside the schema preview limit "
+            f"({schema_member_preview_limit})."
+        )
 
     dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():
@@ -1700,7 +1725,10 @@ class FeatureManager:
             )
             schema = Schema(feature_objects)
         ExperimentalDictCurator(
-            dictionary, schema, require_saved_schema=False
+            dictionary,
+            schema,
+            require_saved_schema=False,
+            using=self._host._state.db,
         ).validate()
         if host_is_record and schema.index is not None:
             from .record import strip_index_for_record_persistence
@@ -1730,6 +1758,7 @@ class FeatureManager:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
 
+        host_db = self._host._state.db
         host_is_record = self._host.__class__.__name__ == "Record"
         if host_is_record:
             feature_json_values: list[SQLRecord] = []
@@ -1746,12 +1775,12 @@ class FeatureManager:
             )
             self._raise_not_validated_values(record_not_validated_values)
             if feature_json_values:
-                save(feature_json_values)
+                save(feature_json_values, using=host_db)
             for links in links_by_model.values():
                 try:
-                    save(links, ignore_conflicts=False)
+                    save(links, ignore_conflicts=False, using=host_db)
                 except Exception:
-                    save(links, ignore_conflicts=True)
+                    save(links, ignore_conflicts=True, using=host_db)
             from .record import get_type_schema_index, persist_record_name
 
             if (
@@ -1918,7 +1947,9 @@ class FeatureManager:
         if host_is_artifact:
             schema = self._get_external_schema()
         if schema is not None:
-            ExperimentalDictCurator(dictionary, schema).validate()
+            ExperimentalDictCurator(
+                dictionary, schema, using=self._host._state.db
+            ).validate()
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name
@@ -2142,7 +2173,6 @@ class FeatureManager:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
         from lamindb import settings
 
-        using_key = settings._using_key
         for slot, schema in data.features.slots.items():  # type: ignore
             try:
                 members = schema.members
@@ -2178,7 +2208,7 @@ class FeatureManager:
                 if n_new_members > 0:
                     # transfer foreign keys needs to be run before transfer to default db
                     transfer_fk_to_default_db_bulk(
-                        new_members, using_key, transfer_logs=transfer_logs
+                        new_members, None, transfer_logs=transfer_logs
                     )
                     for feature in new_members:
                         # not calling save=True here as in labels, because want to
@@ -2187,7 +2217,7 @@ class FeatureManager:
                         # in the previous step transfer_fk_to_default_db_bulk
                         transfer_to_default_db(
                             feature,
-                            using_key,
+                            None,
                             transfer_fk=False,
                             transfer_logs=transfer_logs,
                         )
@@ -2221,7 +2251,9 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
 
-def bulk_set_features_in_records(records: Iterable[Record]) -> None:
+def bulk_set_features_in_records(
+    records: Iterable[Record], using: str | None = None
+) -> None:
     import numpy as np
 
     """Bulk-set lazy feature dictionaries for records.
@@ -2240,6 +2272,8 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     ]
     if len(records_with_features) == 0:
         return None
+
+    using = using if using not in (None, "default") else None
 
     batch_schema: Schema | None = None
     batch_schema_index: Feature | None = None
@@ -2308,6 +2342,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     )
 
     data: dict[str, pd.Series] = {}
+    multivalued_columns: list[str] = []
     for column in ordered_columns:
         # None from entirely-null columns is not a valid sentinel for extension
         # dtypes (StringDtype, BooleanDtype, Int64Dtype) — convert to pd.NA
@@ -2316,22 +2351,30 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             for v in (row.get(column, pd.NA) for row in prepared_rows)
         ]
         target_dtype = feature_dtype_by_name.get(column)
-        if target_dtype is not None:
+        is_multivalued = any(
+            isinstance(v, (list, tuple, set, np.ndarray)) for v in values
+        )
+        if target_dtype is not None and not is_multivalued:
             data[column] = pd.Series(values, dtype=target_dtype)
         else:
-            data[column] = pd.Series(values)
+            data[column] = pd.Series(values, dtype="object")
+        if is_multivalued:
+            multivalued_columns.append(column)
     if data:
         dataframe = pd.DataFrame(data)
     else:
         dataframe = pd.DataFrame(index=range(len(prepared_rows)))
 
     dataframe = move_schema_index_column_to_dataframe_index(dataframe, batch_schema)
+    # set after the index move, which does not preserve `.attrs`
+    for column in multivalued_columns:
+        dataframe.attrs[column] = "list_of_categories"
     # Single-pass dataframe curation:
     # validate schema and resolve categoricals once for the entire batch.
     #
     # The resolved label records are then reused below when creating per-record
     # link rows, avoiding repeated registry calls for each row.
-    curator = DataFrameCurator(dataframe, batch_schema)
+    curator = DataFrameCurator(dataframe, batch_schema, using=using)
     curator.validate()
 
     members_by_name: dict[str, list[Feature]] = defaultdict(list)
@@ -2412,18 +2455,18 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
-        save(feature_json_values)
+        save(feature_json_values, using=using)
     for links in links_by_model.values():
         try:
-            save(links, ignore_conflicts=False)
+            save(links, ignore_conflicts=False, using=using)
         except Exception:
-            save(links, ignore_conflicts=True)
+            save(links, ignore_conflicts=True, using=using)
     from .save import bulk_update
 
     if batch_schema_index is not None:
         # only `name` was modified (via strip_index_for_record_persistence)
         # updating all fields generates a massive CASE WHEN SQL for large batches
-        bulk_update(records_with_features, update_fields=["name"])
+        bulk_update(records_with_features, update_fields=["name"], using=using)
     for record in records_with_features:
         del record._features
     return None

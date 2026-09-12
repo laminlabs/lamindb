@@ -5,6 +5,10 @@ execute_via: python
 # Query arrays in storage
 
 This guide covers streaming array-like datasets — `AnnData`, `SpatialData`, and generic `HDF5` — directly from disk or cloud storage. For tabular datasets, see {doc}`tables`.
+For an in-depth example of distributed data loaders for the `AnnData` format, see these blog posts:
+
+- [blog.lamin.ai/mapped-collection](https://blog.lamin.ai/mapped-collection) (2024)
+- [blog.lamin.ai/annbatch](https://blog.lamin.ai/annbatch) (2026)
 
 ```bash
 # replace with your username and S3 bucket
@@ -17,8 +21,6 @@ Import lamindb and track this notebook.
 ```python
 import lamindb as ln
 import numpy as np
-
-db = ln.DB("laminlabs/lamindata")  # we'll pull the SpatialData example from there
 ```
 
 ## AnnData
@@ -110,6 +112,8 @@ artifact.delete(permanent=True)
 You can also access `AnnData` objects inside `SpatialData` tables:
 
 ```python
+db = ln.DB("laminlabs/lamindata")
+
 artifact = db.Artifact.get(key="visium_aligned_guide_min.zarr")
 
 access = artifact.open()

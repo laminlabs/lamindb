@@ -21,14 +21,27 @@ from lamindb.base.users import current_user_id
 
 from ..base.uids import base62_12
 from .artifact import Artifact
-from .can_curate import CanCurate
+from .can_curate import CanCurate, HasAbbr
 from .collection import Collection
 from .feature import Feature
 from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
+from lamindb.errors import FieldValidationError
+
+from lamindb.base.types import Unset
+
+from .sqlrecord import (
+    UNSET,
+    BaseSQLRecord,
+    HasType,
+    IsLink,
+    SQLRecord,
+    ValidateFields,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -43,7 +56,7 @@ if TYPE_CHECKING:
 
 
 class Reference(
-    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
 ):
     """References such as internal studies, papers, documents, or URLs.
 
@@ -217,7 +230,7 @@ class Reference(
     def __init__(
         self,
         name: str,
-        type: Reference | None = None,
+        type: Reference | None | Unset = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
@@ -237,7 +250,43 @@ class Reference(
     ): ...
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        assert not args, "Only keyword args allowed."
+        name: str = kwargs.pop("name", None)
+        type: Reference | None | Unset = kwargs.pop("type", UNSET)
+        is_type: bool = kwargs.pop("is_type", False)
+        abbr: str | None = kwargs.pop("abbr", None)
+        url: str | None = kwargs.pop("url", None)
+        pubmed_id: int | None = kwargs.pop("pubmed_id", None)
+        doi: str | None = kwargs.pop("doi", None)
+        description: str | None = kwargs.pop("description", None)
+        text: str | None = kwargs.pop("text", None)
+        date: DateType | None = kwargs.pop("date", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
+        _skip_validation = kwargs.pop("_skip_validation", False)
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Reference)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            type=type,
+            is_type=is_type,
+            abbr=abbr,
+            url=url,
+            pubmed_id=pubmed_id,
+            doi=doi,
+            description=description,
+            text=text,
+            date=date,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+            **space_branch_kwargs,
+        )
 
     def query_references(self) -> QuerySet:
         """Query references of sub types.
@@ -248,7 +297,9 @@ class Reference(
         return _query_relatives([self], "references")  # type: ignore
 
 
-class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(
+    SQLRecord, HasType, CanCurate, HasAbbr, TracksRun, TracksUpdates, ValidateFields
+):
     """Projects to label artifacts, transforms, records, and runs.
 
     Args:
@@ -447,7 +498,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     def __init__(
         self,
         name: str,
-        type: Project | None = None,
+        type: Project | None | Unset = UNSET,
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
@@ -464,7 +515,37 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     ): ...
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        if len(args) == len(self._meta.concrete_fields):
+            super().__init__(*args, **kwargs)
+            return None
+        assert not args, "Only keyword args allowed."
+        name: str = kwargs.pop("name", None)
+        type: Project | None | Unset = kwargs.pop("type", UNSET)
+        is_type: bool = kwargs.pop("is_type", False)
+        abbr: str | None = kwargs.pop("abbr", None)
+        url: str | None = kwargs.pop("url", None)
+        start_date: DateType | None = kwargs.pop("start_date", None)
+        end_date: DateType | None = kwargs.pop("end_date", None)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
+        _skip_validation = kwargs.pop("_skip_validation", False)
+        _aux = kwargs.pop("_aux", None)
+        if len(kwargs) > 0:
+            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Project)])
+            raise FieldValidationError(
+                f"Only {valid_keywords} are valid keyword arguments"
+            )
+        super().__init__(
+            name=name,
+            type=type,
+            is_type=is_type,
+            abbr=abbr,
+            url=url,
+            start_date=start_date,
+            end_date=end_date,
+            _skip_validation=_skip_validation,
+            _aux=_aux,
+            **space_branch_kwargs,
+        )
 
     def query_projects(self) -> QuerySet:
         """Query projects of sub types.

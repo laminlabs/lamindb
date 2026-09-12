@@ -42,7 +42,7 @@ from ..examples import datasets  # backward compat
 from . import subsettings
 from ._context import Context
 from ._settings import Settings
-
+from ._verify_lineage import verify_lineage
 
 def __getattr__(name: str):
     # need to lazy import a few auxliary modules to maintain backward compatibility

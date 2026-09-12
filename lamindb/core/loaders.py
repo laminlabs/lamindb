@@ -29,6 +29,7 @@ from lamindb_setup.core.upath import (
 
 if TYPE_CHECKING:
     from anndata import AnnData
+    from lamindb_setup.core.upath import UPath  # noqa
     from lamindb_setup.types import AnyPathStr
     from mudata import MuData
     from pandas import DataFrame
@@ -100,7 +101,7 @@ def load_zarr(storepath, **kwargs):  # type: ignore
     try:
         from ..core.storage._zarr import load_zarr as _load_zarr
     except ImportError:
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
+        raise ImportError("Please install zarr: pip install zarr") from None
     return _load_zarr(storepath, **kwargs)
 
 

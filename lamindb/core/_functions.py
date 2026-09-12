@@ -60,6 +60,11 @@ def _create_tracked_decorator(
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             params = dict(bound_args.arguments)
+            expected_param_types = {
+                name: parameter.annotation
+                for name, parameter in sig.parameters.items()
+                if parameter.annotation is not inspect._empty
+            }
 
             initiated_by_run = get_current_tracked_run()
             track_kwargs: dict = {}
@@ -95,6 +100,7 @@ def _create_tracked_decorator(
                 kind=transform_kind,
                 entrypoint=func.__qualname__,
                 params=params,
+                expected_param_types=expected_param_types,
                 new_run=True,
                 project=track_kwargs.get("project"),
                 space=track_kwargs.get("space"),
@@ -142,6 +148,8 @@ def flow(
     """Use `@flow()` to track a function as a workflow.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
+
+    Parameters will be validated against their type annotations, if they are type annotated.
 
     The decorator creates a :class:`~lamindb.Transform` with kind `"script"` that maps onto the file in
     which the function is defined.

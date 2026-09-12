@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -20,9 +21,12 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
-# SpatialData.write() regression with ome-zarr>=0.14:
+# SpatialData.write() had a regression with ome-zarr>=0.14:
 # https://github.com/scverse/spatialdata/issues/1090
-SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
+# seems to be solved, unpinning for now
+SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr"
+# compatibility with anndata>=0.13.0
+SPATIALDATA_CONSTRAINT = "spatialdata==0.8.0"
 
 
 GROUPS = {}
@@ -30,7 +34,7 @@ GROUPS["tutorial"] = [
     "README.ipynb",
     "transfer.ipynb",
     "tables.ipynb",
-    "arrays.ipynb",
+    "manage-ontologies.ipynb",
     "query-search.ipynb",
 ]
 GROUPS["guide"] = [
@@ -42,7 +46,7 @@ GROUPS["tiledbsoma"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
-    "manage-ontologies.ipynb",
+    "arrays.ipynb",
 ]
 
 
@@ -106,32 +110,34 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "unit-storage":
         extras += "gcp"
         run(session, "uv pip install --system huggingface_hub")
+        run(session, "uv pip install --system anndata==0.13.2")
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
         run(
             session,
-            "uv pip install --system huggingface_hub polars anndata==0.12.2 duckdb 'pyiceberg[sql]==0.11.1' lancedb==0.34.0 sqlalchemy",
+            "uv pip install --system huggingface_hub polars anndata==0.13.2 duckdb 'pyiceberg[sql]==0.11.1' lancedb==0.34.0 sqlalchemy",
         )
     elif group == "guide":
         # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
         # so do not force the zarr_v2 compatibility extra in this group.
         run(
             session,
-            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "tiledbsoma":
         # this group also exercises spatialdata through docs notebooks
         # and should resolve against zarr>=3.
+        run(session, "uv pip install --system anndata==0.12.19")
         run(
             session,
-            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
+            f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
         )
     elif group == "biology":
         extras += "fcs"
@@ -155,7 +161,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+            f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
@@ -166,7 +172,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            f"uv pip install --system mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
+            f"uv pip install --system mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
         )
         run(
             session,
@@ -334,7 +340,10 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
-        run(session, "lamin init --storage ./test-readme --modules bionty")
+        run(
+            session,
+            "lamin init --modules bionty",
+        )
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
@@ -391,11 +400,16 @@ def test(session, group):
 
 @nox.session
 def clidocs(session):
-    def generate_cli_docs():
+    def update_cli_docs():
+        def normalize_help_usage(help_text: str) -> str:
+            # Click versions differ on whether group subcommands are rendered
+            # as COMMAND or [COMMAND]. Keep docs stable across environments.
+            return help_text.replace("[COMMAND] [ARGS]...", "COMMAND [ARGS]...")
+
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import COMMAND_GROUPS, _generate_help
 
-        page = "# CLI\n\n"
+        page = ""
         helps = _generate_help()
 
         # First, add the main lamin command
@@ -433,6 +447,7 @@ def clidocs(session):
                     processed_commands.add(command_name)
 
                     help_string = help_dict["help"].replace("Usage: main", "lamin")
+                    help_string = normalize_help_usage(help_string)
                     help_docstring = help_dict["docstring"]
 
                     pyr_alt_delimiter = "→ Python/R alternative:"
@@ -446,11 +461,11 @@ def clidocs(session):
 
                     page += f"### {command_name}\n\n"
                     if help_docstring:
-                        page += f"{help_docstring}\n"
+                        page += f"{help_docstring.strip()}\n"
                     command_block = f"```text\n{help_string}\n```"
                     page += f"\n\nOptions:\n\n{command_block}\n\n"
                     if pyr_alt_string:
-                        page += f"{pyr_alt_delimiter}{pyr_alt_string}\n\n"
+                        page += f"{pyr_alt_delimiter} {pyr_alt_string.strip()}\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
@@ -463,16 +478,35 @@ def clidocs(session):
             for command_name, full_key in remaining_commands:
                 help_dict = helps[full_key]
                 help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
+                help_string = normalize_help_usage(help_string)
                 help_docstring = help_dict["docstring"]
 
                 page += f"### lamin {command_name}\n\n"
                 if help_docstring:
-                    page += f"{help_docstring}\n\n"
+                    page += f"{help_docstring.strip()}\n\n"
                 page += f"```text\n{help_string}\n```\n\n"
 
-        Path("./docs/cli.md").write_text(page)
+        current_content = Path("./docs/cli.md").read_text()
+        preamble = current_content.split("<!-- auto-generated-docs-from-here -->")[0]
+        # Keep generated docs stable across environments by normalizing blank lines.
+        page = re.sub(r"\n{3,}", "\n\n", page).strip() + "\n"
+        new_content = (
+            preamble.rstrip() + "\n\n<!-- auto-generated-docs-from-here -->\n\n" + page
+        )
+        if current_content != new_content:
+            Path("./docs/cli.md").write_text(new_content)
+            if os.getenv("CI"):
+                run(session, "git add docs/cli.md")
+                run(
+                    session,
+                    "git -c user.name='lamin-ci' -c user.email='open-source@lamin.ai' "
+                    "commit -m 'Updated CLI docs'",
+                )
+                branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME")
+                if branch:
+                    run(session, f"git push origin HEAD:{branch}")
 
-    generate_cli_docs()
+    update_cli_docs()
 
 
 @nox.session
@@ -490,7 +524,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,pertdb",
+        "lamin init --storage docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact()

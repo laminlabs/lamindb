@@ -1,6 +1,135 @@
-"""Dtype utils.
+"""Data types.
 
-.. autofunction:: check_dtype
+Most data types in LaminDB are string-serializable representations of standard Python types, commonly used for validating data in libraries such as pydantic.
+Categorical data types are absent from built-in Python types and are needed to anchor the validation of a categorical variable in a LaminDB registry.
+
+Simple
+------
+
+In the table below, the first column shows the object that
+can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
+that's used in the database.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+      - pandas
+    * - `int`
+      - `"int"`
+      - `int64 | int32 | int16 | int8 | uint | ...`
+    * - `float`
+      - `"float"`
+      - `float64 | float32 | float16 | float8 | ...`
+    * - `str`
+      - `"str"`
+      - `object`
+    * - `bool`
+      - `"bool"`
+      - `boolean | bool`
+    * - `datetime`
+      - `"datetime"`
+      - `datetime`
+    * - `"datetime64[ns, UTC]"`
+      - `"datetime64[ns, UTC]"`
+      - `datetime64[ns, UTC]`
+    * - `date`
+      - `"date"`
+      - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+    * - `dict`
+      - `"dict"`
+      - `object`
+    * - `"num"`
+      - `"num"`
+      - `int | float` ("num" is a convenience type for `int | float`)
+    * - `"path"`
+      - `"path"`
+      - `str` (pandas does not have a dedicated path type, validated as `str`)
+    * - `"url"`
+      - `"url"`
+      - `str` (pandas does not have a dedicated url type, validated as `str`)
+
+Categorical/ relational
+-----------------------
+
+For any categorical, you can restrict permissible
+values to the values defined in a registry. This establishes a relationship.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `ln.ULabel`
+      - `"cat[ULabel]"`
+    * - `bt.CellType`
+      - `"cat[bionty.CellType]"`
+    * - `bt.Disease`
+      - `"cat[bionty.Disease]"`
+    * - `ln.Artifact`
+      - `"cat[Artifact]"`
+
+You can restrict permissible values to instances of `ULabel` or `Record` types, i.e., to dynamic registries.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `ulabel_type` (a `ULabel` with `is_type=True`)
+      - `"cat[ULabel[<uid_of_ulabel_type>]]"`
+    * - `record_type` (a `Record` with `is_type=True`)
+      - `"cat[Record[<uid_of_record_type>]]"`
+
+You can restrict permissible values by filtering the categorical on fields of its registry.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - cat_filters
+      - string serialization
+    * - `bt.Disease`
+      - `{"source": source}`
+      - `"cat[bionty.Disease[source__uid='<uid_of_source>']]"`
+    * - `ln.Artifact`
+      - `{"schema": schema}`
+      - `"cat[Artifact[schema__uid='<uid_of_schema>']]"`
+
+Lists
+-----
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `list[bt.CellType]`
+      - `"list[cat[bionty.CellType]]"`
+    * - `list[float]`
+      - `"list[float]"`
+
+Unions
+------
+
+Unions are currently only supported for static registries.
+
+.. list-table::
+    :header-rows: 1
+
+    * - dtype
+      - string serialization
+    * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
+      - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+
+Usage
+-----
+
+In features, you can pass dtypes to the `dtype` argument. See :class:`~lamindb.Feature` for more details.
+
+In function signatures, you can use dtypes to type annotate and validate arguments.
+See :doc:`docs:track` or :func:`~lamindb.flow` for examples.
 
 """
 
@@ -15,6 +144,48 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
         # handle nested lists recursively
         return all(isinstance(item, expected_type) for item in value)
     return False
+
+
+def check_pandera_str(series) -> bool:
+    """Validate a series/index as lamin `str`, matching pandas 2 pandera results.
+
+    Pandera maps `Column("str")` differently by pandas version:
+
+    - pandas 2: `NpString` — default strings are `object`
+    - pandas 3: `STRING` / `string[pyarrow]` — default strings are `str`
+
+    Target results (pandas 2 `Column("str")`):
+
+    - `object` all-str → accept
+    - `object` mixed → reject (elementwise)
+    - `object` empty → accept
+    - `string` / `string[pyarrow]` → accept
+    - string `category` → accept
+    - `int64` / other → reject
+
+    On pandas 3, bare `Engine.dtype("str").check` already matches all-str /
+    mixed `object` and string dtypes, but rejects empty `object` and
+    `category`. Those two cases are handled explicitly below.
+    """
+    import pandas as pd
+    from pandera.engines import pandas_engine
+
+    # any empty series: pandas 2 NpString accepts vacuously (incl. empty int64);
+    # pandas 3 STRING rejects empty object/int. also covers empty export RangeIndex
+    if len(series) == 0:
+        return True
+    # string category: accept on pandas 2 (elementwise), reject on pandas 3 STRING.
+    # AnnData often stores str obs as categorical
+    if isinstance(series.dtype, pd.CategoricalDtype):
+        return all(isinstance(x, str) for x in series.dtype.categories)
+
+    # pandas 2 and 3 agree here: string dtypes accept; object is checked
+    # elementwise (all-str accept, mixed reject)
+    result = pandas_engine.Engine.dtype("str").check(series.dtype, series)
+    # object dtype → iterable of bools; string dtypes → scalar bool
+    if isinstance(result, bool):
+        return result
+    return bool(all(result))
 
 
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
@@ -44,8 +215,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             return True
         elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
             return True
-        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
-            return True
+        elif expected_type == "str":
+            return check_pandera_str(series)
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
         elif expected_type == "url" and pd.api.types.is_string_dtype(series.dtype):

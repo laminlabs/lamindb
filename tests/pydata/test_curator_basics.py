@@ -5,7 +5,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.core.exceptions import ValidationError
+from lamindb.errors import ValidationError
 
 
 def _strip_ansi(text: str) -> str:
@@ -1037,12 +1037,12 @@ def test_wrong_datatype(df):
     with pytest.raises(ln.errors.ValidationError) as excinfo:
         curator.validate()
 
-    assert "expected series 'sample_id' to have type category, got object" in str(
-        excinfo.value
-    )
+    error_msg = str(excinfo.value)
+    assert "WRONG_DATATYPE" in error_msg
+    assert "sample_id" in error_msg
     assert (
         "Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
-        in str(excinfo.value)
+        in error_msg
     )
 
     schema.delete(permanent=True)

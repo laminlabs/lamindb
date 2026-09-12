@@ -1,4 +1,4 @@
-"""Base types.
+"""Python types.
 
 Classes
 -------
@@ -25,6 +25,11 @@ Basic types
 .. autoclass:: StrField
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
+
+Auxiliary types
+---------------
+
+.. autoclass:: Unset
 """
 
 from __future__ import annotations
@@ -147,6 +152,30 @@ SimpleDtypeStr = Literal[
 DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat
+
+
+class Unset:
+    """Sentinel type to distinguish 'not passed' from explicit `None`.
+
+    The `UNSET` constant is the only instance.
+    Use `is` checks to compare against it::
+
+        if value is UNSET:
+            ...  # user did not pass the argument
+        elif value is None:
+            ...  # user explicitly passed None
+        else:
+            ...  # user passed a real value
+    """
+
+    pass
+
+
+UNSET: Unset = Unset()
+"""Sentinel value to distinguish 'argument not passed' from explicit `None`.
+
+See `Unset`.
+"""
 
 RegistryId = Literal[
     "__lamindb_artifact__",

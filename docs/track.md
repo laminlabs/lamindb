@@ -7,20 +7,36 @@ execute_via: python
 This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
 
 ```{raw} html
+<div align="center">
 <iframe width="560" height="315" src="https://www.youtube.com/embed/yK3ODFZLL1A?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
 ```
 
 To run examples, if you don't have a `lamindb` instance, create one:
 
 ```bash
-lamin init --storage ./test-track
+lamin init
 ```
 
-## Track agentic workflows
+## Track agent runs
 
 ### Sessions
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. When working with Claude Code, ask it to copy the skill to `.claude/skills/` so that it automatically tracks agent sessions.
+The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Ask your coding agent to copy it to wherever it reads skills from — `.claude/skills/` for Claude Code, `.agents/skills/` for GitHub Copilot — so that it automatically tracks agent sessions.
+
+When the agent finishes a session with `lamin finish`, usage metrics are recorded in `run.extra_data`:
+
+- `n_tokens`: total tokens for the session
+- `n_steps`: number of LLM completions/turns
+- `n_tool_calls`: number of tool invocations
+
+:::{dropdown} Details
+
+For **Claude Code**, `n_tokens` is the full billed total (input + output + cache-read + cache-write tokens), matching how Anthropic and tools like `ccusage` compute session cost.
+
+For **GitHub Copilot**, `n_tokens` presently is an output-tokens-only lower bound, not a full billed total. Don't compare `n_tokens` across the two agents directly.
+
+:::
 
 ### Plans
 
@@ -35,7 +51,7 @@ lamin save /path/to/.claude/plans/my_task.md
 
 <!-- #endregion -->
 
-## Manage notebooks and scripts
+## Track scripts and notebooks
 
 Call {meth}`~lamindb.track` to save your notebook or script as a `transform` and start tracking inputs & outputs of a run.
 
@@ -78,27 +94,104 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
-### Organize local development
+### Use projects
+
+You can link the entities created during a run to a project.
+
+```python
+import lamindb as ln
+
+my_project = ln.Project(name="My project").save()  # create & save a project
+ln.track(project="My project")  # pass project
+open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # auto-labeled by project
+```
+
+Filter entities by project, e.g., artifacts:
+
+```python
+ln.Artifact.filter(projects=my_project).to_dataframe()
+```
+
+Access entities linked to a project:
+
+```python
+my_project.artifacts.to_dataframe()
+```
+
+The same works for `my_project.transforms` or `my_project.runs`.
+
+### Use spaces
+
+You can write the entities created during a run into a space that you configure on LaminHub. This is particularly useful if you want to restrict access to a space. Note that this doesn't affect bionty entities who should typically be commonly accessible.
 
 <!-- #region -->
 
-If no development directory is set, script & notebook keys equal their filenames.
-Otherwise, they represent the relative path in the development directory.
-The exception is packaged source code, whose keys have the form `pypackages/{package_name}/path/to/file.py`.
+```python
+ln.track(space="Our team space")
+```
 
-To set the development directory to your current shell development directory, run:
+<!-- #endregion -->
+
+## Organize local development
+
+<!-- #region -->
+
+### Development directory
+
+The development directory (`dev-dir`) is the local root LaminDB uses to map script, notebook, and notes paths.
+
+- If a development directory is set, keys are stored as paths relative to that directory.
+- Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
+
+Whenever you're not just reading from but writing to a LaminDB instance, configure a development directory already during connection by passing the `--here` flag:
+
+```bash
+lamin connect --here account/name
+```
+
+You can also configure the development directory independent from connecting by running:
 
 ```bash
 lamin settings set dev-dir .
 ```
 
-You can see the current status by running:
+You can see the current configuration by running:
 
 ```bash
 lamin info
 ```
 
-When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
+When you `cd` into the development directory, LaminDB auto-connects to the configured database.
+
+### Worktree
+
+If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch, inspired by `git worktree`.
+
+```bash
+lamin settings set worktree true
+```
+
+In this mode, each child directory maps on a branch, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
+
+```bash
+lamin switch -c branch-a
+cd branch-a
+```
+
+Here is an examplary structure:
+
+```bash
+dbs/
+  my_instance/                # development directory (dev-dir)
+    .lamin/
+    branch-a/                 # branch directory in the worktree
+      analysis/
+        script1.py
+    branch-b/                 # another branch directory with another version of script1.py
+      analysis/
+        script1.py
+```
 
 (sync-code-with-git)=
 
@@ -139,45 +232,6 @@ dbs/
     repo2/
       .git/
   ...
-```
-
-<!-- #endregion -->
-
-### Use projects
-
-You can link the entities created during a run to a project.
-
-```python
-import lamindb as ln
-
-my_project = ln.Project(name="My project").save()  # create & save a project
-ln.track(project="My project")  # pass project
-open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # auto-labeled by project
-```
-
-Filter entities by project, e.g., artifacts:
-
-```python
-ln.Artifact.filter(projects=my_project).to_dataframe()
-```
-
-Access entities linked to a project:
-
-```python
-my_project.artifacts.to_dataframe()
-```
-
-The same works for `my_project.transforms` or `my_project.runs`.
-
-### Use spaces
-
-You can write the entities created during a run into a space that you configure on LaminHub. This is particularly useful if you want to restrict access to a space. Note that this doesn't affect bionty entities who should typically be commonly accessible.
-
-<!-- #region -->
-
-```python
-ln.track(space="Our team space")
 ```
 
 <!-- #endregion -->
@@ -226,7 +280,7 @@ python scripts/my_workflow.py
 Query the workflow via its filename:
 
 ```python
-transform = ln.Transform.get(key="my_workflow.py")
+transform = ln.Transform.get(key__endswith="my_workflow.py")
 transform.describe()
 ```
 
@@ -250,7 +304,36 @@ ln.Run.filter(
 ).to_dataframe()
 ```
 
-You can also pass complex parameters and features, see: {ref}`track-run-parameters`.
+### Validate parameters with type annotations
+
+If a function is type-annotated, parameters will be validated. You can use standard Python types for simple data and valid LaminDB dtype serializations to reference objects in registries. See {mod}`~lamindb.base.dtypes` for more background.
+
+<!-- #region -->
+
+```python
+@ln.flow()
+def my_func(
+    learning_rate: float,
+    run_name: str,
+    started_at: datetime,
+    organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
+    sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
+    diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
+    gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
+) -> str:
+    ...
+```
+
+:::{dropdown} You can launch type-annotated functions through the UI.
+
+<p align="center">
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/1uJhxA5HshqEV8iw0000.png" alt="Lamin dtype selectors and primitive arguments" width="340" />
+  <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6GOCZBZTZwGNRClD0000.png" alt="List, artifact, and path arguments" width="340" />
+</p>
+
+:::
+
+<!-- #endregion -->
 
 ### A multi-step workflow
 
@@ -324,7 +407,7 @@ python scripts/my_workflow_with_click.py --key my_analysis/dataset2.parquet
 CLI arguments are tracked and accessible via `run.cli_args`:
 
 ```python
-run = ln.Run.filter(transform__key="my_workflow_with_click.py").first()
+run = ln.Run.filter(transform__key__endswith="my_workflow_with_click.py").first()
 run.describe()
 ```
 

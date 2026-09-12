@@ -23,15 +23,18 @@ You can override this via `skip_hash_lookup=False` (or force skipping via `skip_
 
 :::
 
+Let's create a test database:
+
 ```bash
-# pip install lamindb
-lamin init --storage ./test-idempotency
+lamin init
 ```
+
+Let's track this run:
 
 ```python
 import lamindb as ln
 
-ln.track("ANW20Fr4eZgM0000")
+ln.track()
 ```
 
 ## SQLRecords with name field
@@ -140,9 +143,4 @@ artifact3 = ln.Artifact(filepath, key="my_fcs_file.fcs")
 assert artifact3.id == artifact2.id
 assert artifact3.run == artifact2.run != ln.context.run  # run is not updated
 assert artifact2.recreating_runs.first() == ln.context.run
-```
-
-```bash
-rm -rf ./test-idempotency
-lamin delete --force test-idempotency
 ```

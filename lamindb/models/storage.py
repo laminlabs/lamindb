@@ -64,7 +64,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     When you create a LaminDB instance, you configure its default storage location via `--storage`::
 
-        lamin init --storage ./mydatadir  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
+        mkdir mydatadir && cd mydatadir && lamin init  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
 
     View the current default storage location for writing artifacts::
 

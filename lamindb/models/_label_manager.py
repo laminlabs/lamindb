@@ -240,9 +240,8 @@ class LabelManager:
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
-        from lamindb import settings
+        using = data._state.db if data._state.db not in (None, "default") else None
 
-        using_key = settings._using_key
         for related_name, labels in _get_labels(data, instance=data._state.db).items():
             labels = labels.all()
             if not labels.exists():
@@ -254,7 +253,7 @@ class LabelManager:
             new_labels = save_validated_records(labels)
             if len(new_labels) > 0:
                 transfer_fk_to_default_db_bulk(
-                    new_labels, using_key, transfer_logs=transfer_logs
+                    new_labels, None, transfer_logs=transfer_logs
                 )
             for label in labels:
                 keys: list = []
@@ -275,7 +274,7 @@ class LabelManager:
                         keys.append(key)
                 label_returned = transfer_to_default_db(
                     label,
-                    using_key,
+                    using,
                     transfer_logs=transfer_logs,
                     transfer_fk=False,
                     save=True,
@@ -289,12 +288,12 @@ class LabelManager:
             new_features = save_validated_records(list(features))
             if len(new_features) > 0:
                 transfer_fk_to_default_db_bulk(
-                    new_features, using_key, transfer_logs=transfer_logs
+                    new_features, using, transfer_logs=transfer_logs
                 )
                 for feature in new_features:
                     transfer_to_default_db(
                         feature,  # type: ignore
-                        using_key,
+                        using,
                         transfer_logs=transfer_logs,
                         transfer_fk=False,
                     )

@@ -1,6 +1,7 @@
 __MACOSX/
 
 # LaminDB
+.lamin
 docs/pertdb.*.rst
 docs/bionty.*.rst
 README_stripped.md
@@ -15,7 +16,6 @@ docs/scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
 docs/scripts/define_valid_features.py
 docs/scripts/save_mini_immuno_datasets.py
 profile_output*
-docs/cli.md
 .coveragerc
 *.db
 *.lndb

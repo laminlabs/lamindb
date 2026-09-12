@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from .run import Run
 
 
+SCHEMA_MEMBER_PREVIEW_LIMIT = 50
+
+
 def patch_many_to_many_descriptor() -> None:
     """Patches Django's `ManyToManyDescriptor.__get__` method to suggest better errors when saving relationships of an unsaved model.
 
@@ -84,6 +87,7 @@ def get_artifact_or_run_with_related(
     include_m2m: bool = False,
     include_feature_link: bool = False,
     include_schema: bool = False,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ) -> dict[str, Any]:
     """Fetch an artifact with its related data."""
     from ._label_manager import EXCLUDE_LABELS
@@ -255,7 +259,9 @@ def get_artifact_or_run_with_related(
         elif k == "m2m_schemas":
             if v:
                 related_data["m2m_schemas"] = get_schema_m2m_relations(
-                    record, {i["schema"]: i["slot"] for i in v}
+                    record,
+                    {i["schema"]: i["slot"] for i in v},
+                    limit=schema_member_preview_limit,
                 )
 
     def convert_link_data_to_m2m(
@@ -349,7 +355,11 @@ def get_collection_with_related(
     }
 
 
-def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int = 20):
+def get_schema_m2m_relations(
+    artifact: Artifact,
+    slot_schema: dict,
+    limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
+):
     """Fetch all many-to-many relationships for given feature sets."""
     from .can_curate import get_name_field
 

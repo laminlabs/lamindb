@@ -5,11 +5,11 @@ from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
 def test_no_track_run_input_warning_without_global_instance(ccaplog):
-    from lamindb.models.artifact import WARNING_NO_INPUT, track_run_input
+    from lamindb.models._lineage import WARNING_NO_INPUT, track_run_inputs
 
     assert ln.setup.settings.instance.slug == "none/none"
 
-    track_run_input([])
+    track_run_inputs([])
 
     assert WARNING_NO_INPUT not in ccaplog.text
 
@@ -40,3 +40,11 @@ def test_get_artifact_lamindata():
         key="example_datasets/small_dataset1.parquet"
     )
     assert isinstance(artifact.load(), pd.DataFrame)
+
+
+def test_schema_slots_lamindata():
+    db = ln.DB("laminlabs/lamindata")
+    schema = db.Schema.filter().first()
+    # should not raise an error that instance is not configured
+    schema.slots  # noqa: B018
+    schema.describe()

@@ -9,10 +9,7 @@ import lamindb as ln
 def test_reference_storage_location(ccaplog):
     ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
     assert ln.Storage.get(root="s3://lamindata").instance_uid == "4XIuR0tvaiXM"
-    assert (
-        "referenced read-only storage location at s3://lamindata, is managed by instance with uid 4XIuR0tvaiXM"
-        in ccaplog.text
-    )
+    assert "storage location s3://lamindata is already marked" in ccaplog.text
 
 
 def test_create_storage_locations_parallel():

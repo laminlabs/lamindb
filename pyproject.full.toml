@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "lamindb-core[full]==2.8.1",
+    "lamindb-core[full]==2.10.0",
 ]
 
 [project.urls]
@@ -24,14 +24,13 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 gcp = [
-    "lamindb_setup[gcp]",
+    "lamindb-core[gcp]",
 ]
 zarr_v2 = [
-    "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
-    "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
+    "lamindb-core[zarr_v2]"
 ]
 fcs = [
-    "readfcs>=2.0.1",
+    "lamindb-core[fcs]",
 ]
 dev = [
      "lamindb-core[full,dev]",

@@ -2,6 +2,12 @@
 
 To manage changes, you can use versioning, branching, an `archive` and the `trash`.
 
+```{raw} html
+<div align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/rzRwcMj6-fc?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
+```
+
 ## Versioning
 
 You can make a new version of an artifact, transform, or collection by passing an existing `key`. For example, for an artifact:

@@ -17,7 +17,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.utils import class_and_instance_method, strict_classmethod
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, InvalidArgument
 
 from ..base.uids import base62_16
 from .artifact import Artifact
@@ -32,6 +32,7 @@ from .query_set import (
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
@@ -49,6 +50,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     import pandas as pd
+
+    from lamindb.base.types import Unset
 
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
@@ -519,14 +522,41 @@ class RecordBatch:
             records.append(self._cls(name=name, **record_kwargs))
         return records
 
-    def save(self) -> SQLRecordList[Record]:
-        """Persist all records and their feature values."""
+    def save(self, using: str | None = None) -> SQLRecordList[Record]:
+        """Persist all records and their feature values.
+
+        Args:
+            using: Optional slug of a target instance to write the whole batch
+                (records, scalar features, and multi-valued link rows) to, with
+                the same semantics as ``ln.save(..., using=...)``. The batch's
+                record type must already exist on that instance.
+        """
         from .query_set import SQLRecordList
         from .save import save as ln_save
 
+        # primary keys are per-instance; a cross-instance write reuses the
+        # resolved type's in-memory pk as `type_id`, so the type must already
+        # live on the target instance (`from_dataframe(type="...")` creates it on
+        # the default instance). Refuse rather than write a dangling FK.
+        if using is not None and using != "default":
+            type_db = self._resolved_type._state.db
+            if type_db != using:
+                type_location = (
+                    "the default instance"
+                    if type_db in (None, "default")
+                    else f"instance '{type_db}'"
+                )
+                raise InvalidArgument(
+                    f"Cannot save this batch to instance '{using}' because its "
+                    f"record type '{self._resolved_type.name}' lives on "
+                    f"{type_location}. Pass a type that exists on '{using}' — "
+                    f"e.g. `type=ln.DB('{using}').Record.get(name=...)` — or "
+                    f"create the type on '{using}' first."
+                )
+
         if self._records is None:
             self._records = self._build_records()
-        ln_save(self._records)
+        ln_save(self._records, using=using)
         return SQLRecordList(self._records)
 
 
@@ -560,6 +590,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
+    Also see the guide: :doc:`/manage-records`.
+
     Create a **record** with a single feature::
 
         # create a feature if you don't yet have one
@@ -573,14 +605,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # use a record type to create an experiments registry
-        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
+        # create an Experiments type
+        experiments = ln.Record(name="Experiments", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
         # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+        experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-        # create a samples sheet by constraining a record type with a schema
+        # create a Sample Sheet by constraining a record type with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
@@ -589,14 +621,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         sample1.save()
 
         # reset the feature values for the record including the experiment
-        sample1.features.set_values({
-            gc_content: 0.5,
+        sample1.features.set_values({gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records of a type to a dataframe::
 
-        experiments_registry.to_dataframe()
+        experiments.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
@@ -637,11 +668,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
-
-    You can edit records like spreadsheets in the UI:
-
-    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
-        :width: 800px
 
     .. dropdown:: An index feature maps onto the name field of a record.
 
@@ -872,7 +898,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def __init__(
         self,
         name: str | None = None,
-        type: Record | None = None,
+        type: Record | None | Unset = UNSET,
         is_type: bool = False,
         features: dict[str | Feature, Any] | None = None,
         description: str | None = None,
@@ -900,7 +926,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if len(args) > 0:
             raise ValueError("Only one non-keyword arg allowed")
         name: str = kwargs.pop("name", None)
-        type: str | None = kwargs.pop("type", None)
+        type: Record | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)

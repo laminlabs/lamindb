@@ -690,14 +690,24 @@ def test_feature_manager_raise_not_validated_values():
 def test_name_lookup():
     my_type = ln.Record(name="MyType", is_type=True).save()
     label1 = ln.Record(name="label 1", type=my_type).save()
+    # same type → returns existing typed record
     label2 = ln.Record(name="label 1", type=my_type)
     assert label2 == label1
+    # no type passed, only typed record exists → fallback returns the typed one
     label2 = ln.Record(name="label 1")
-    assert label2 != label1
-    label2.save()
-    label3 = ln.Record(name="label 1")
-    assert label3 == label2
-    label2.delete(permanent=True)
+    assert label2 == label1
+    # explicit type=None → root-level dedup: label1 is typed so not found → new record
+    label_new = ln.Record(name="label 1", type=None)
+    assert label_new != label1
+    assert label_new._state.adding  # not yet saved, truly a new record
+    # explicit type=None, root-level record exists → root-level dedup finds it → returns it
+    root_label = ln.Record(name="root label 1").save()
+    label3 = ln.Record(name="root label 1", type=None)
+    assert label3 == root_label
+    # no type passed (UNSET) → search all → finds the existing root-level record
+    label4 = ln.Record(name="root label 1")
+    assert label4 == root_label
+    root_label.delete(permanent=True)
     label1.delete(permanent=True)
     my_type.delete(permanent=True)
 
@@ -744,6 +754,12 @@ def test_single_space_enforces_type_space_or_specific_space():
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
 
+    # Without an explicit space, default to the type's owning space.
+    auto_type_space_record = ln.Record(
+        name="auto_type_space_record", type=constrained_type
+    ).save()
+    assert auto_type_space_record.space_id == constrained_type.space_id
+
     constrained_type.settings.single_space = restricted_space
     constrained_type.save()
     constrained_type.refresh_from_db()
@@ -752,6 +768,12 @@ def test_single_space_enforces_type_space_or_specific_space():
     assert single_space_setting.id == restricted_space.id
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == restricted_space.uid
+
+    # Exact-space policy also defaults when space is omitted.
+    auto_exact_space_record = ln.Record(
+        name="auto_exact_space_record", type=constrained_type
+    ).save()
+    assert auto_exact_space_record.space_id == restricted_space.id
 
     valid_record = ln.Record(
         name="same_space_record", type=constrained_type, space=restricted_space
@@ -763,7 +785,11 @@ def test_single_space_enforces_type_space_or_specific_space():
     assert "record space must match locked type space" in error.exconly()
 
     with pytest.raises(InternalError) as error:
-        ln.Record(name="different_space_record", type=constrained_type).save()
+        ln.Record(
+            name="different_space_record",
+            type=constrained_type,
+            space=ln.Space.get(1),
+        ).save()
     assert "record space must match locked type space" in error.exconly()
 
     constrained_type.settings.single_space = True
@@ -775,7 +801,9 @@ def test_single_space_enforces_type_space_or_specific_space():
 
     with pytest.raises(InternalError) as error:
         ln.Record(
-            name="different_space_record_type_space_only", type=constrained_type
+            name="different_space_record_type_space_only",
+            type=constrained_type,
+            space=ln.Space.get(1),
         ).save()
     assert "record space must match locked type space" in error.exconly()
 
@@ -792,6 +820,8 @@ def test_single_space_enforces_type_space_or_specific_space():
 
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
+    auto_type_space_record.delete(permanent=True)
+    auto_exact_space_record.delete(permanent=True)
     valid_record.delete(permanent=True)
     constrained_type.delete(permanent=True)
     restricted_space.delete(permanent=True)
@@ -1194,7 +1224,7 @@ def test_record_features_add_remove_values():
 
     # test passing ISO-format date string for date
 
-    test_record2 = ln.Record(name="test_record").save()
+    test_record2 = ln.Record(name="test_record_2").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
     feature_date = ln.Feature.get(name="feature_date")
@@ -1653,3 +1683,61 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species.delete(permanent=True)
     human.delete(permanent=True)
     species_type.delete(permanent=True)
+
+
+def test_sqlrecord_type_mismatch_raises_validation_error():
+    """Passing a record of the wrong type in the SQLRecord fast path must raise ValidationError."""
+    type_a = ln.Record(name="TypeA_mismatch", is_type=True).save()
+    type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
+    record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
+    feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
+    sample = ln.Record(name="sample_mismatch").save()
+
+    # single SQLRecord of wrong type → ValidationError
+    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+        sample.features.add_values({feature: record_b})
+
+    # list of SQLRecords containing a wrong-type record → ValidationError
+    record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
+    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+        sample.features.add_values({feature: [record_a, record_b]})
+
+    # cleanup
+    sample.delete(permanent=True)
+    record_a.delete(permanent=True)
+    record_b.delete(permanent=True)
+    feature.delete(permanent=True)
+    type_a.delete(permanent=True)
+    type_b.delete(permanent=True)
+
+
+def test_feature_rejects_builtin_scalar_for_record_dtype():
+    """Assigning a raw int/str to a cat[Record[...]] feature.
+
+    Counterpart to the wrong-record-type case: instead of a record of the
+    wrong type, we hand the record-typed ``foo`` feature a plain builtin
+    scalar (an int, then a str). lamindb treats the scalar as a *name lookup*
+    into the feature's record type; since no record has that name, it raises
+    ValidationError. (A wrong-typed record slips through precisely because it
+    *is* a real record to link to.)
+    """
+    foo_type = ln.Record(name="FooType", is_type=True).save()
+    foo_feature = ln.Feature(name="foo", dtype=foo_type).save()
+    schema = ln.Schema(name="foo_sheet_schema", features=[foo_feature]).save()
+    sheet = ln.Record(name="FooSheet", is_type=True, schema=schema).save()
+
+    # A raw int for a record-typed feature.
+    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+        ln.Record(name="row_int", type=sheet, features={"foo": 123}).save()
+
+    # A raw str for a record-typed feature.
+    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+        ln.Record(name="row_str", type=sheet, features={"foo": "123"}).save()
+
+    # cleanup — row_int / row_str are saved before the feature ValidationError fires,
+    # so they must be deleted before sheet (which they reference via type_id).
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    foo_feature.delete(permanent=True)
+    foo_type.delete(permanent=True)

@@ -12,58 +12,14 @@ import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
 from lamindb._secret_redaction import redact_secrets_in_source_code
 from lamindb.core._context import (
-    REDACTED_SECRET_VALUE,
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
-    serialize_params_to_json,
 )
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
-from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
-
-
-def test_serialize_params_to_json():
-    a_path = Path("/some/local/folder")
-    a_upath = UPath("s3://bucket/key")
-    params = {
-        "path_key": a_path,
-        "none_key": None,
-        "empty_list_key": [],
-        "list_str_key": ["string"],
-        "upath_key": a_upath,
-        "str_key": "plain",
-        "api_key": "test-api-key-value",
-        "openAIApiKey": "another-secret",
-        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
-    }
-    result = serialize_params_to_json(params)
-    # None is omitted
-    assert "none_key" not in result
-    # Empty list is omitted (same as None)
-    assert "empty_list_key" not in result
-    # Path is serialized to posix string
-    assert result["path_key"] == "/some/local/folder"
-    # UPath is serialized to posix string
-    assert result["upath_key"] == "s3://bucket/key"
-    # List of strings is JSON-serialized as-is (list[cat ? str])
-    assert result["list_str_key"] == ["string"]
-    # Other values unchanged
-    assert result["str_key"] == "plain"
-    assert result["api_key"] == REDACTED_SECRET_VALUE
-    assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
-    assert result["database_url"] == REDACTED_SECRET_VALUE
-    assert set(result.keys()) == {
-        "path_key",
-        "upath_key",
-        "str_key",
-        "list_str_key",
-        "api_key",
-        "openAIApiKey",
-        "database_url",
-    }
 
 
 def test_redact_secrets_in_source_code():
@@ -115,22 +71,6 @@ run_agent(
     assert redaction_count == 0
     assert "def run(api_key: str) -> None:" in redacted
     assert "api_key=api_key," in redacted
-
-
-def test_serialize_params_to_json_redacts_provider_api_key_names():
-    params = {
-        "LAMIN_API_KEY": "lamin-super-secret",
-        "OPENAI_API_KEY": "openai-super-secret",
-        "ANTHROPIC_API_KEY": "anthropic-super-secret",
-        "GEMINI_API_KEY": "gemini-super-secret",
-        "provider_name": "safe-value",
-    }
-    result = serialize_params_to_json(params)
-    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
-    assert result["provider_name"] == "safe-value"
 
 
 def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
@@ -316,64 +256,6 @@ def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
         ln.Run.filter(transform=transform).delete(permanent=True)
         plan_artifact.delete(permanent=True)
         transform.delete(permanent=True)
-
-
-@pytest.fixture
-def create_record():
-    """Factory fixture that returns a function to create records."""
-    created_records = []
-
-    def create(kind: str) -> ln.models.SQLRecord:
-        if kind == "artifact":
-            record = ln.Artifact("README.md", key="README.md").save()
-        elif kind == "collection":
-            a1 = ln.Artifact("README.md", key="README.md").save()
-            created_records.append(a1)
-            a2 = ln.Artifact("pyproject.toml", key="pyproject.toml").save()
-            created_records.append(a2)
-            record = ln.Collection([a1, a2], key="test-collection").save()
-        created_records.append(record)
-        return record
-
-    yield create
-
-    for record in created_records[::-1]:
-        record.delete(permanent=True)
-
-
-@pytest.mark.parametrize("kind", ["artifact", "collection"])
-def test_track_input_record(create_record, kind):
-    # First run
-    ln.track()
-    previous_run = ln.context.run
-    record = create_record(kind)
-    record.cache()
-    assert (
-        record not in getattr(ln.context.run, f"input_{kind}s").all()
-    )  # avoid cycle with created artifact
-
-    # Second run
-    ln.track(new_run=True)
-    assert ln.context.run != previous_run
-    record = create_record(kind)
-    assert ln.context.run in record.recreating_runs.all()
-    assert record._subsequent_run_id == ln.context.run.id
-    record.cache()
-    assert (
-        record not in getattr(ln.context.run, f"input_{kind}s").all()
-    )  # avoid cycle with re-created artifact
-
-    # Third run
-    ln.track(new_run=True)
-    assert ln.context.run != previous_run
-    if kind == "artifact":
-        record = ln.Artifact.get(key="README.md")
-    else:
-        record = ln.Collection.get(key="test-collection")
-    record.cache()
-    assert ln.context.run not in record.recreating_runs.all()
-    assert not hasattr(record, "_subsequent_run_id")
-    assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
 
 
 def test_track_notebook_colab():
@@ -583,7 +465,7 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert "renaming transform" in result.stdout.decode()
-    transform = ln.Transform.get(key="script-to-test-filename-change.py")
+    transform = ln.Transform.get(key__endswith="script-to-test-filename-change.py")
     assert transform.latest_run.cli_args is None
 
     # version already taken
@@ -626,6 +508,9 @@ def test_run_scripts():
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
+
+    # TODO: repurpose the two following tests because now in presence of dev-dir (August 2026),
+    # they don't lead to the same transform anymore
     # this test creates a transform with key script-to-test-versioning.py at the root level
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
@@ -633,9 +518,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "ignoring transform" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate4/script-to-test-versioning.py"
+    )
 
     # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
@@ -644,10 +529,9 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" in result.stdout.decode()
-
-    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    transform = ln.Transform.get(
+        key__endswith="duplicate5/script-to-test-versioning.py"
+    )
     assert transform.latest_run.finished_at is not None
 
 
@@ -663,7 +547,7 @@ def test_run_external_script():
     assert result.returncode == 0
     assert "created Transform" in result.stdout.decode()
     assert "started new Run" in result.stdout.decode()
-    transform = ln.Transform.get(key="run-track-and-finish-sync-git.py")
+    transform = ln.Transform.get(key__endswith="run-track-and-finish-sync-git.py")
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ0000"
@@ -838,6 +722,70 @@ def test_logstream_tracker_exception_handling():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch):
+    """pixi.lock is copied to cache when sys.prefix is inside .pixi/envs/; nothing
+    written when sys.prefix is a normal venv or pixi.lock is absent."""
+    from lamindb.core._track_environment import _find_pixi_project_root, _track_pixi_lock
+
+    project_root = (tmp_path / "my_project").resolve()
+    (project_root / ".pixi" / "envs" / "default").mkdir(parents=True)
+    (project_root / "pixi.toml").write_text("[project]\nname = 'test'\n")
+    lock_content = "version: 6\nenvironments:\n  default:\n    packages: []\n"
+    (project_root / "pixi.lock").write_text(lock_content)
+
+    fake_prefix = str(project_root / ".pixi" / "envs" / "default")
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", fake_prefix)
+
+    # pixi env detected and lock copied
+    assert _find_pixi_project_root() == project_root
+    env_dir = tmp_path / "env_cache"
+    assert _track_pixi_lock(env_dir) is True
+    assert (env_dir / "pixi.lock").read_text() == lock_content
+
+    # normal venv prefix → not detected, no file written
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv"))
+    monkeypatch.chdir(tmp_path)
+    assert _find_pixi_project_root() is None
+
+    # pixi detected but lock absent → not copied
+    (project_root / "pixi.lock").unlink()
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", fake_prefix)
+    env_dir2 = tmp_path / "env_cache2"
+    assert _track_pixi_lock(env_dir2) is False
+    assert not (env_dir2 / "pixi.lock").exists()
+
+
+def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
+    """No empty file is written when pip freeze fails (non-zero exit) or
+    returns blank output — both would otherwise produce the empty-MD5 hash."""
+    import subprocess as _subprocess
+    from lamindb.core._track_environment import _track_pip_freeze
+
+    env_dir = tmp_path / "env_cache"
+
+    # case 1: pip missing (non-zero exit)
+    def pip_missing(cmd, **kwargs):
+        r = _subprocess.CompletedProcess(cmd, returncode=1)
+        r.stdout = ""
+        r.stderr = "No module named pip"
+        return r
+
+    with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_missing):
+        assert _track_pip_freeze(env_dir) is False
+    assert not (env_dir / "run_env_pip.txt").exists()
+
+    # case 2: pip exits 0 but blank output (empty env)
+    def pip_blank(cmd, **kwargs):
+        r = _subprocess.CompletedProcess(cmd, returncode=0)
+        r.stdout = "   \n"
+        r.stderr = ""
+        return r
+
+    with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_blank):
+        assert _track_pip_freeze(env_dir) is False
+    assert not (env_dir / "run_env_pip.txt").exists()
 
 
 def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():

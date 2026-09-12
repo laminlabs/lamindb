@@ -181,8 +181,8 @@ def test_transfer_from_remote_to_local(ccaplog):
 
     # check all ids are adjusted
     assert id_remote != artifact1.id
-    assert run_remote != artifact1.run
-    assert transform_remote != artifact1.transform
+    assert run_remote.uid != artifact1.run.uid
+    assert transform_remote.uid != artifact1.transform.uid
     assert created_by_remote.handle != artifact1.created_by.handle
     assert storage_remote.uid == artifact1.storage.uid
     assert storage_remote.created_at == artifact1.storage.created_at
