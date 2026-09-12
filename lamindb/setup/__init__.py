@@ -4,22 +4,13 @@ from lamindb_setup import (
     connect,
     delete,
     init,
+    merge,
     settings,
+    switch,
 )
 
 from . import core, errors, types
-from ._merge import merge  # noqa: F401
 
 del connect  # we have this at the root level, hence, we don't want it here
-__doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup").replace(
-    """.. autofunction:: delete""",
-    """.. autofunction:: delete
-
-Change management
------------------
-
-.. autofunction:: switch
-.. autofunction:: merge
-""",
-)
+__doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup")
 settings.__doc__ = settings.__doc__.replace("lamindb_setup", "lamindb.setup")
