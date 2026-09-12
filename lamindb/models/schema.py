@@ -143,7 +143,7 @@ def transfer_schema_members(
     # Only Feature schemas require member-level transfer here.
     # Non-Feature schemas (e.g. large Gene schemas) can have huge memberships
     # and are handled via regular mapping/lookup paths.
-    if source_schema.itype != "Feature":
+    if source_schema.itype is None or not source_schema.itype.startswith("Feature"):
         return None
 
     index_feature_uid = source_schema._index_feature_uid
@@ -818,7 +818,17 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         optional_features = []
         features_registry: Registry = None
         if itype is not None:
-            if itype != "Composite":
+            # If a Feature instance with is_type=True is passed, encode as
+            # "Feature[uid]" to scope the schema to only that feature type.
+            # This check must come before the "Composite" string comparison to
+            # avoid triggering SQLRecord.__bool__ on the Feature instance.
+            if isinstance(itype, Feature) and getattr(itype, "is_type", False):
+                if itype._state.adding:
+                    raise InvalidArgument(
+                        f"Please save the feature type '{itype.name}' before using it as itype."
+                    )
+                itype = f"Feature[{itype.uid}]"
+            elif itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
             else:
                 warnings.warn(
@@ -850,7 +860,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     optional_features = optional_features_manual
         # n_features stays None if no features passed (flexible schema)
         if dtype is None:
-            dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
+            dtype = None if itype is not None and itype.startswith("Feature") else NUMBER_TYPE
         else:
             dtype = get_type_str(dtype)
         if slots:
