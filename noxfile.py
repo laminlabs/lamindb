@@ -186,6 +186,8 @@ def install_ci(session, group):
         pass
     elif group == "minimal":
         run(session, "uv pip install --system pytest")
+        if IS_PR:
+            run(session, "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli")
         run(session, "uv pip install --system .")
         return
 
