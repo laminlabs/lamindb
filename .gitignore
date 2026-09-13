@@ -68,6 +68,7 @@ docs/biology/test-multimodal/
 default_storage
 default_storage_unit_core
 default_storage_unit_storage
+testdb-integrations/
 test.ipynb
 test2.ipynb
 run-tests

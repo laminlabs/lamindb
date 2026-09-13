@@ -1,0 +1,6 @@
+{
+  "object": "database",
+  "id": "b86daf14-2a54-4728-bda2-496c5760d863",
+  "title": [{ "plain_text": "Test Database", "type": "text" }],
+  "data_sources": [{ "id": "ds-1111-2222", "name": "Default" }]
+}

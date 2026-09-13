@@ -31,6 +31,8 @@ jobs:
               - '**'
               - '!docs/**'
               - '!README.md'
+              - '!lamindb/integrations/**'
+              - '!tests/integrations/**'
             curator:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
