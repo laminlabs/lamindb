@@ -187,18 +187,18 @@ def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> 
             )
 
 
-def get_schema_record_field_feature_uids(schema: Schema | None) -> dict[str, str]:
+def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
     """Return schema feature uid -> concrete Record field for field-mapped features."""
     if schema is None:
         return {}
-    mappings = schema.record_field_feature_uids
+    mappings = schema._record_fields
     allowed_fields = get_mappable_record_feature_fields()
     return {uid: field for uid, field in mappings.items() if field in allowed_fields}
 
 
 def schema_has_record_mapped_features(schema: Schema | None) -> bool:
     """Whether schema has features mapped to concrete Record fields."""
-    return len(get_schema_record_field_feature_uids(schema)) > 0
+    return len(get_schema_record_fields(schema)) > 0
 
 
 def _coerce_feature_value_for_record_field(
@@ -265,7 +265,7 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
             record.name, index_feature
         )
     schema = record.type.schema if record.type is not None else None  # type: ignore
-    mapped_fields = get_schema_record_field_feature_uids(schema)
+    mapped_fields = get_schema_record_fields(schema)
     if not mapped_fields:
         return
     features = schema.members.filter(uid__in=list(mapped_fields.keys()))  # type: ignore
@@ -387,7 +387,7 @@ def strip_index_for_record_persistence(
     """Move schema-mapped values to `Record` fields, drop from link-table writes."""
     if index_feature is None:
         index_feature = schema.index
-    record_field_mappings = get_schema_record_field_feature_uids(schema)
+    record_field_mappings = get_schema_record_fields(schema)
     if index_feature is None and not record_field_mappings:
         return dictionary, feature_objects
 

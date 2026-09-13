@@ -510,7 +510,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
         "1": ("optionals", list[str]),
-        "2": ("record_field_feature_uids", dict[str, str]),
+        "2": ("record_fields", dict[str, str]),
         "3": ("index_feature_uid", str),
     }
 
@@ -827,7 +827,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         suffix = validate_schema_suffix(suffix)
         optional_features = []
-        record_field_feature_uids: dict[str, str] = {}
+        record_fields: dict[str, str] = {}
         features_registry: Registry = None
         if itype is not None:
             if itype != "Composite":
@@ -874,7 +874,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                             "Cannot map a feature to Record.name when schema.index is set: "
                             "the index feature is already stored on Record.name automatically"
                         )
-                    if field_name in record_field_feature_uids.values():
+                    if field_name in record_fields.values():
                         raise ValueError(
                             f"Multiple features map to record field '{field_name}'. "
                             "Only one feature can target a given record field."
@@ -883,7 +883,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         raise ValueError(
                             "A schema index feature cannot also map to a record field"
                         )
-                    record_field_feature_uids[configured_feature.uid] = field_name
+                    record_fields[configured_feature.uid] = field_name
                 if optional_features:
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
@@ -932,8 +932,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # index feature (key "3") - remains in _aux
         if index is not None:
             aux_dict.setdefault("af", {})["3"] = index.uid
-        if record_field_feature_uids:
-            aux_dict.setdefault("af", {})["2"] = record_field_feature_uids
+        if record_fields:
+            aux_dict.setdefault("af", {})["2"] = record_fields
 
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
@@ -981,13 +981,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 ]
             else:
                 feature_list_for_hashing = [feature.uid for feature in features]
-            if record_field_feature_uids:
+            if record_fields:
                 feature_list_for_hashing = [
                     (
                         f"{item}({HASH_CODE['field']}="
-                        f"{record_field_feature_uids.get(item.split('(')[0])})"
+                        f"{record_fields.get(item.split('(')[0])})"
                     )
-                    if item.split("(")[0] in record_field_feature_uids
+                    if item.split("(")[0] in record_fields
                     else item
                     for item in feature_list_for_hashing
                 ]
@@ -1504,7 +1504,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             self._aux.setdefault("af", {})["3"] = value
 
     @property
-    def record_field_feature_uids(self) -> dict[str, str]:
+    def _record_fields(self) -> dict[str, str]:
         """Map schema feature uid -> concrete record field name."""
         if (
             self._aux is not None
@@ -1513,14 +1513,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             and isinstance(self._aux["af"]["2"], dict)
         ):
             return dict(self._aux["af"]["2"])
-        # backward compatibility with short-lived local key used during development
-        if (
-            self._aux is not None
-            and "af" in self._aux
-            and "4" in self._aux["af"]
-            and isinstance(self._aux["af"]["4"], dict)
-        ):
-            return dict(self._aux["af"]["4"])
         return {}
 
     @property
