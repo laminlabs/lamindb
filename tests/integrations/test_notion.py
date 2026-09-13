@@ -1,11 +1,13 @@
-"""Unit tests for lamindb.integrations.notion.
+"""Tests for lamindb.integrations.notion.
 
-No live network calls — all HTTP is mocked at the httpx.Client level.
+Most tests mock HTTP at the httpx.Client level; one smoke test can run live
+when NOTION_TOKEN is present.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -935,3 +937,16 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "discovered_records" not in text
     assert "[bold]create_records[/]: [green]5[/]" in text
     assert text.index("create_record_types") < text.index("create_records")
+
+
+def test_sync_from_notion_live_smoke_with_env_token():
+    token = os.getenv("NOTION_TOKEN")
+    if not token:
+        pytest.skip("Set NOTION_TOKEN to run live Notion integration smoke test.")
+    report = sync_from_notion(
+        parents="7283894209c44522a7c79620795d0409",
+        token=token,
+        apply=False,
+    )
+    assert report.apply is False
+    assert report.discovered_pages >= 1
