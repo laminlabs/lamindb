@@ -743,7 +743,7 @@ def sync_from_notion(
     dry_run: bool = False,
     limit: int | None = None,
 ) -> SyncReport:
-    """Sync Notion pages via the class-based sync API."""
+    """Sync Notion pages to LaminDB records."""
     syncer = _NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]

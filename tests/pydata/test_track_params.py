@@ -149,8 +149,10 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
             require_saved_schema=False,
             using=None,
             key_label="items",
+            validate_keys=False,
         ):
             captured["key_label"] = key_label
+            captured["validate_keys"] = validate_keys
 
         def validate(self):
             return None
@@ -161,5 +163,6 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
     )
 
     assert captured["key_label"] == "params"
+    assert captured["validate_keys"] is False
     assert valid_keys == {"count"}
     assert invalid_reasons == {}
