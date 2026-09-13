@@ -19,6 +19,7 @@ from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
     SyncReport,
+    _artifact_key_from_url,
     _ensure_artifacts,
     _flatten,
     _NotionReader,
@@ -238,7 +239,9 @@ def test_ensure_artifacts_downloads_then_saves_local_file():
             transfer_details_by_url={"https://example.com/a.pdf": detail},
             report=report,
         )
-    Artifact.assert_called_once_with("mock-notion-a.pdf")
+    Artifact.assert_called_once_with(
+        "mock-notion-a.pdf", key=_artifact_key_from_url("https://example.com/a.pdf")
+    )
     assert out["https://example.com/a.pdf"] is created_artifact
     assert report.created_artifacts == [detail]
 

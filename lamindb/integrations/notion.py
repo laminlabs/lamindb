@@ -15,7 +15,6 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -583,8 +582,13 @@ def _short_file_source(url: str, max_name_len: int = 48) -> str:
     filename = Path(parsed.path).name or "file"
     if len(filename) > max_name_len:
         filename = filename[: max_name_len - 3] + "..."
-    token = sha256(url.encode("utf-8")).hexdigest()[:8]
-    return f"{filename} [{token}]"
+    return filename
+
+
+def _artifact_key_from_url(url: str) -> str:
+    parsed = urlparse(url)
+    filename = Path(parsed.path).name or "file"
+    return f"notion_sync/{filename}"
 
 
 def _download_file_to_temp_path(url: str) -> str:
@@ -620,7 +624,9 @@ def _ensure_artifacts(
         tmp_path = None
         try:
             tmp_path = _download_file_to_temp_path(url)
-            artifacts[url] = ln.Artifact(tmp_path).save()
+            artifacts[url] = ln.Artifact(
+                tmp_path, key=_artifact_key_from_url(url)
+            ).save()
             if report is not None and transfer_details_by_url is not None:
                 detail = transfer_details_by_url.get(url, _short_file_source(url))
                 if detail not in report.created_artifacts:
