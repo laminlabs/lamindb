@@ -1111,6 +1111,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         slot: str | None = None,
         require_saved_schema: bool = False,
         using: str | None = None,
+        key_label: str = "items",
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -1127,6 +1128,7 @@ class ExperimentalDictCurator(DataFrameCurator):
             require_saved_schema=require_saved_schema,
             using=using,
         )
+        self._atomic_curator.cat._cat_vectors["columns"]._key = key_label
 
 
 def _resolve_schema_slot_path(

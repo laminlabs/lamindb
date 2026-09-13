@@ -625,6 +625,7 @@ def _validate_with_virtual_schema(
             values_by_key,
             schema,
             require_saved_schema=False,
+            key_label="params",
         ).validate()
     except Exception as error:
         error_text = str(error)
