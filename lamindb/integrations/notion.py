@@ -1307,6 +1307,16 @@ class _NotionSyncer:
             )
         rec_type = qs.one()
         if apply:
+            columns = self.reader.columns(database_id)
+            feature_plan = self._database_feature_plan(database_id, columns=columns)
+            index_feature_name = self._index_feature_name_from_columns(columns)
+            _, features, schema = self._plan_or_create_db_metadata(
+                db_name,
+                feature_plan,
+                index_feature_name=index_feature_name,
+                apply=True,
+                report=report,
+            )
             changed = False
             if rec_type.description != db_description:
                 rec_type.description = db_description
@@ -1317,6 +1327,20 @@ class _NotionSyncer:
             if getattr(rec_type, "_aux", None) != merged_aux:
                 rec_type._aux = merged_aux
                 changed = True
+            if rec_type.schema is None and schema is not None:
+                rec_type.schema = schema
+                changed = True
+            if rec_type.schema is not None:
+                existing_schema_feature_names = {
+                    feature.name for feature in rec_type.schema.members
+                }
+                missing_schema_features = [
+                    feature
+                    for feature in features
+                    if feature.name not in existing_schema_feature_names
+                ]
+                if missing_schema_features:
+                    rec_type.schema.add(missing_schema_features)
             if changed:
                 rec_type.save()
         return rec_type
@@ -1364,10 +1388,6 @@ class _NotionSyncer:
             parent_ids = list(parents)
         if not parent_ids:
             raise ValueError("parents is required and must contain at least one ID.")
-        logger.important(
-            f"notion sync start: parents={[_compact_uuid(pid) for pid in parent_ids]}, "
-            f"apply={apply}, limit={limit}"
-        )
 
         report = SyncReport(
             apply=apply,
@@ -1375,10 +1395,6 @@ class _NotionSyncer:
         )
         db_id_set, parent_pages = self._collect_database_ids(parent_ids)
         db_ids = sorted(db_id_set)
-        logger.important(
-            f"notion sync discovery: parent_pages={len(parent_pages)}, "
-            f"databases={[_compact_uuid(db_id) for db_id in db_ids]}"
-        )
         if not db_ids:
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "

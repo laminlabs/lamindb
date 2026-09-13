@@ -927,6 +927,56 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
     assert report.created_record_types == ["Website analytics"]
 
 
+def test_resolve_record_type_apply_adds_missing_features_to_existing_schema(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
+    existing_feature = type("Feature", (), {"name": "name"})()
+    missing_feature = type("Feature", (), {"name": "page_views"})()
+    rec_type = MagicMock()
+    rec_type.name = "Website analytics"
+    rec_type.description = None
+    rec_type._aux = None
+    rec_type.schema = MagicMock()
+    rec_type.schema.members = [existing_feature]
+
+    with (
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Website analytics"}]},
+        ),
+        patch.object(
+            syncer.reader,
+            "columns",
+            return_value={"name": "title", "page_views": "number"},
+        ),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("name", "str", str), ("page_views", "num", "num")],
+        ),
+        patch.object(
+            syncer,
+            "_plan_or_create_db_metadata",
+            return_value=(
+                object(),
+                [existing_feature, missing_feature],
+                rec_type.schema,
+            ),
+        ) as plan_or_create,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        resolved = syncer._resolve_record_type(db_id, apply=True, report=report)
+
+    assert resolved is rec_type
+    plan_or_create.assert_called_once()
+    rec_type.schema.add.assert_called_once_with([missing_feature])
+
+
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
