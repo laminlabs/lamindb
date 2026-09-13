@@ -1072,6 +1072,36 @@ def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
 
     assert db_ids == {"db-1"}
     assert parent_pages == {page_id: page_id}
+    assert syncer._parent_page_emojis == {page_id: None}
+
+
+def test_collect_database_ids_stores_parent_page_emoji(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response(
+        {"object": "page", "id": page_id, "icon": {"type": "emoji", "emoji": "📊"}}
+    )
+    children = _make_response(
+        {
+            "results": [
+                {"id": "db-1", "type": "child_database", "has_children": False}
+            ],
+            "has_more": False,
+            "next_cursor": None,
+        }
+    )
+    syncer.reader.s.request.side_effect = [db_400, page_ok, children]
+
+    syncer._collect_database_ids([page_id])
+
+    assert syncer._parent_page_emojis == {page_id: "📊"}
 
 
 def test_schema_validation_accepts_exact_property_parity(syncer):
@@ -1087,6 +1117,48 @@ def test_schema_validation_checks_full_property_parity(syncer):
     ):
         with pytest.raises(ValueError, match="missing in Lamin schema"):
             syncer._validate_schema("db-1", rec_type)
+
+
+def test_resolve_record_type_apply_assigns_parent_type(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
+    rec_type = MagicMock()
+    rec_type.name = "Website analytics"
+    rec_type.description = None
+    rec_type._aux = {"ei": "📊"}
+    rec_type.schema = MagicMock()
+    rec_type.schema.members = []
+    rec_type.type_id = None
+    parent_type = type("ParentType", (), {"id": 7})()
+
+    with (
+        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("name", "str", str)],
+        ),
+        patch.object(
+            syncer,
+            "_plan_or_create_db_metadata",
+            return_value=(object(), [], rec_type.schema),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        syncer._resolve_record_type(
+            db_id,
+            apply=True,
+            report=report,
+            payload={"title": [{"plain_text": "Website analytics"}]},
+            parent_type=parent_type,
+        )
+
+    assert rec_type.type is parent_type
+    rec_type.save.assert_called_once()
 
 
 def test_import_pages_dry_run_does_not_write(syncer):

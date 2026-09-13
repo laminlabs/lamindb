@@ -952,6 +952,7 @@ class _NotionSyncer:
         if not token:
             raise ValueError("Pass token=... or set NOTION_TOKEN.")
         self.reader = _NotionReader(token=token)
+        self._parent_page_emojis: dict[str, str | None] = {}
 
     def _safe_call(self, path: str) -> dict | None:
         try:
@@ -999,6 +1000,7 @@ class _NotionSyncer:
     ) -> tuple[set[str], dict[str, str]]:
         database_ids: set[str] = set()
         parent_pages: dict[str, str] = {}
+        parent_page_emojis: dict[str, str | None] = {}
         seen_blocks: set[str] = set()
         for parent in parents:
             db_payload = self._safe_call(f"/databases/{parent}")
@@ -1019,26 +1021,57 @@ class _NotionSyncer:
                 )
             parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
             parent_pages[parent] = parent_title
+            parent_page_emojis[parent] = self._database_emoji(page_payload)
             self._collect_databases_from_block(parent, seen_blocks, database_ids)
+        self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
 
     def _resolve_or_create_type_by_name(
-        self, name: str, *, apply: bool, report: SyncReport
+        self,
+        name: str,
+        *,
+        emoji: str | None = None,
+        apply: bool,
+        report: SyncReport,
     ):
         qs = ln.Record.filter(name=name, is_type=True)
         count = qs.count()
         if count == 0:
             if apply:
-                ln.Record(name=name, is_type=True).save()
+                record_kwargs: dict[str, Any] = {"name": name, "is_type": True}
+                aux = self._merge_aux_with_emoji(None, emoji)
+                if aux is not None:
+                    record_kwargs["_aux"] = aux
+                rec_type = ln.Record(**record_kwargs).save()
                 if name not in report.created_record_types:
                     report.created_record_types.append(name)
+                return rec_type
             elif name not in report.create_record_types:
                 report.create_record_types.append(name)
-            return
+            return None
         if count > 1:
             raise ValueError(
                 f"Ambiguous Lamin record type name {name!r}: found {count} matches."
             )
+        rec_type = qs.one()
+        if apply and emoji is not None:
+            merged_aux = self._merge_aux_with_emoji(
+                getattr(rec_type, "_aux", None), emoji
+            )
+            if getattr(rec_type, "_aux", None) != merged_aux:
+                rec_type._aux = merged_aux
+                rec_type.save(update_fields=["_aux"])
+        return rec_type
+
+    @staticmethod
+    def _database_parent_page_id(payload: dict) -> str | None:
+        parent = payload.get("parent")
+        if not isinstance(parent, dict):
+            return None
+        if parent.get("type") != "page_id":
+            return None
+        page_id = parent.get("page_id")
+        return page_id if isinstance(page_id, str) and page_id else None
 
     @staticmethod
     def _database_title(payload: dict, fallback: str) -> str:
@@ -1250,6 +1283,7 @@ class _NotionSyncer:
         db_description: str | None,
         db_emoji: str | None,
         report: SyncReport,
+        parent_type=None,
     ):
         columns = self.reader.columns(database_id)
         feature_plan = self._database_feature_plan(database_id, columns=columns)
@@ -1268,15 +1302,29 @@ class _NotionSyncer:
             "is_type": True,
             "schema": schema,
         }
+        if parent_type is not None:
+            record_kwargs["type"] = parent_type
         aux = self._merge_aux_with_emoji(None, db_emoji)
         if aux is not None:
             record_kwargs["_aux"] = aux
         return ln.Record(**record_kwargs).save()
 
     def _resolve_record_type(
-        self, database_id: str, *, apply: bool, report: SyncReport
+        self,
+        database_id: str,
+        *,
+        apply: bool,
+        report: SyncReport,
+        payload: dict | None = None,
+        parent_type=None,
+        parent_types_by_page_id: dict[str, Any] | None = None,
     ):
-        payload = self.reader._call("GET", f"/databases/{database_id}")
+        if payload is None:
+            payload = self.reader._call("GET", f"/databases/{database_id}")
+        if parent_type is None and parent_types_by_page_id:
+            parent_page_id = self._database_parent_page_id(payload)
+            if parent_page_id is not None:
+                parent_type = parent_types_by_page_id.get(parent_page_id)
         db_name = self._database_title(payload, fallback=database_id)
         db_description = self._database_description(payload)
         db_emoji = self._database_emoji(payload)
@@ -1296,9 +1344,19 @@ class _NotionSyncer:
                     report=report,
                 )
                 return None
-            rec_type = self._create_record_type(
-                database_id, db_name, db_description, db_emoji, report=report
-            )
+            if parent_type is not None:
+                rec_type = self._create_record_type(
+                    database_id,
+                    db_name,
+                    db_description,
+                    db_emoji,
+                    report=report,
+                    parent_type=parent_type,
+                )
+            else:
+                rec_type = self._create_record_type(
+                    database_id, db_name, db_description, db_emoji, report=report
+                )
             report.created_record_types.append(db_name)
             return rec_type
         if count > 1:
@@ -1329,6 +1387,11 @@ class _NotionSyncer:
                 changed = True
             if rec_type.schema is None and schema is not None:
                 rec_type.schema = schema
+                changed = True
+            if parent_type is not None and getattr(
+                rec_type, "type_id", None
+            ) != getattr(parent_type, "id", None):
+                rec_type.type = parent_type
                 changed = True
             if rec_type.schema is not None:
                 existing_schema_feature_names = {
@@ -1403,10 +1466,16 @@ class _NotionSyncer:
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Parent pages can also map to LaminDB record types.
-        for parent_type_name in sorted(set(parent_pages.values())):
-            self._resolve_or_create_type_by_name(
-                parent_type_name, apply=apply, report=report
+        parent_types_by_page_id: dict[str, Any] = {}
+        for parent_id, parent_type_name in sorted(parent_pages.items()):
+            parent_type = self._resolve_or_create_type_by_name(
+                parent_type_name,
+                emoji=self._parent_page_emojis.get(parent_id),
+                apply=apply,
+                report=report,
             )
+            if parent_type is not None:
+                parent_types_by_page_id[parent_id] = parent_type
 
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}
@@ -1415,7 +1484,12 @@ class _NotionSyncer:
             logger.important(
                 f"notion sync schema-check: resolving record type for db={_compact_uuid(db_id)}"
             )
-            rec_type = self._resolve_record_type(db_id, apply=apply, report=report)
+            rec_type = self._resolve_record_type(
+                db_id,
+                apply=apply,
+                report=report,
+                parent_types_by_page_id=parent_types_by_page_id,
+            )
             if rec_type is not None:
                 self._validate_schema(db_id, rec_type)
                 logger.important(
