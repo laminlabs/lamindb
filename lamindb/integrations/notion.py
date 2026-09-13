@@ -23,6 +23,11 @@ API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
 
 
+def _compact_uuid(value: str) -> str:
+    """Format UUID-like strings without dashes for CLI-facing messages."""
+    return value.replace("-", "")
+
+
 @dataclass
 class SyncReport:
     discovered: int = 0
@@ -519,6 +524,12 @@ class _NotionSyncer:
             return self.reader._call("GET", path)
         except LookupError:
             return None
+        except httpx.HTTPStatusError as error:
+            # Parent probing can hit 400 when an ID is valid but not for the
+            # probed endpoint (e.g. page ID on /databases/{id}); treat as miss.
+            if error.response is not None and error.response.status_code == 400:
+                return None
+            raise
 
     def _iter_block_children(self, block_id: str) -> list[dict]:
         children: list[dict] = []
@@ -594,7 +605,8 @@ class _NotionSyncer:
         count = qs.count()
         if count == 0:
             raise ValueError(
-                f"No Lamin record type named {db_name!r} for Notion database {database_id!r}."
+                f"No LaminDB record type named {db_name!r} for Notion database "
+                f"{_compact_uuid(database_id)!r}."
             )
         if count > 1:
             raise ValueError(

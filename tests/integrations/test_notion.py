@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
@@ -656,6 +657,55 @@ def test_syncer_init_raises_without_token(monkeypatch):
 def test_import_pages_requires_parents(syncer):
     with pytest.raises(ValueError, match="parents is required"):
         syncer.import_pages([])
+
+
+def test_resolve_record_type_message_uses_lamindb_and_compact_uuid(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    with (
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Website analytics"}]},
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        with pytest.raises(ValueError) as exc:
+            syncer._resolve_record_type(db_id)
+    assert (
+        str(exc.value)
+        == "No LaminDB record type named 'Website analytics' for Notion database "
+        "'3b2d2040857e4febbb68d2bec9d6ba09'."
+    )
+
+
+def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response({"object": "page", "id": page_id})
+    children = _make_response(
+        {
+            "results": [
+                {"id": "db-1", "type": "child_database", "has_children": False}
+            ],
+            "has_more": False,
+            "next_cursor": None,
+        }
+    )
+    syncer.reader.s.request.side_effect = [db_400, page_ok, children]
+
+    db_ids = syncer._collect_database_ids([page_id])
+
+    assert db_ids == {"db-1"}
 
 
 def test_schema_validation_requires_notion_last_edited(syncer):
