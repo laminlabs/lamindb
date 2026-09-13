@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
@@ -20,10 +20,11 @@ from lamindb.base.utils import class_and_instance_method, strict_classmethod
 from lamindb.errors import FieldValidationError, InvalidArgument
 
 from ..base.uids import base62_16
+from ..errors import ValidationError
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature
+from .feature import AllowedFields, Feature, parse_dtype
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
@@ -31,16 +32,14 @@ from .query_set import (
     get_default_branch_ids,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     Branch,
     HasType,
     IsLink,
     Space,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -53,6 +52,8 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
+    from lamindb.base.types import Unset
+
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
@@ -64,6 +65,7 @@ if TYPE_CHECKING:
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
+ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(AllowedFields))
 
 
 def get_type_schema_index(record_type: Record | None) -> Feature | None:
@@ -136,14 +138,143 @@ def persist_record_name(record: Record) -> None:
     SQLRecord.save(record, update_fields=["name"])
 
 
+def get_mappable_record_feature_fields() -> dict[str, models.Field]:
+    """Record fields that can be targets for `feature.with_config(field=...)`."""
+    fields = {field.name: field for field in Record._meta.concrete_fields}
+    return {
+        name: fields[name]
+        for name in sorted(ALLOWED_RECORD_FEATURE_FIELDS)
+        if name in fields
+    }
+
+
+def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> None:
+    """Validate feature<->Record-field compatibility for schema field mapping."""
+    fields = get_mappable_record_feature_fields()
+    if field_name not in fields:
+        allowed = ", ".join(sorted(fields))
+        raise ValueError(
+            f"Unsupported feature field mapping '{field_name}'. "
+            f"Allowed values are: {allowed}"
+        )
+    record_field = fields[field_name]
+    dtype = feature.dtype_as_str or ""
+
+    if isinstance(record_field, models.ForeignKey):
+        parsed = parse_dtype(feature._dtype_str)
+        if len(parsed) != 1 or parsed[0].get("list", False):
+            raise ValueError(
+                f"feature.with_config(field='{field_name}') requires a "
+                "non-list categorical dtype"
+            )
+        registry = parsed[0]["registry"]
+        remote_model = record_field.remote_field.model
+        if registry is not remote_model:
+            raise ValueError(
+                f"feature.with_config(field='{field_name}') requires a categorical "
+                f"dtype pointing to {remote_model.__name__}"
+            )
+    elif isinstance(record_field, models.DateTimeField):
+        if dtype not in {"datetime", "datetime64[ns, UTC]"}:
+            raise ValueError(
+                f"feature.with_config(field='{field_name}') requires feature dtype "
+                "'datetime' or 'datetime64[ns, UTC]'"
+            )
+    elif isinstance(record_field, (models.CharField, models.TextField)):
+        if dtype != "str":
+            raise ValueError(
+                f"feature.with_config(field='{field_name}') requires feature dtype 'str'"
+            )
+
+
+def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
+    """Return schema feature uid -> concrete Record field for field-mapped features."""
+    if schema is None:
+        return {}
+    mappings = schema._record_fields
+    allowed_fields = get_mappable_record_feature_fields()
+    return {uid: field for uid, field in mappings.items() if field in allowed_fields}
+
+
+def schema_has_record_mapped_features(schema: Schema | None) -> bool:
+    """Whether schema has features mapped to concrete Record fields."""
+    return len(get_schema_record_fields(schema)) > 0
+
+
+def _coerce_feature_value_for_record_field(
+    value: Any, feature: Feature, record_field: models.Field
+) -> Any:
+    import pandas as pd
+
+    if value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
+        return None
+    if isinstance(record_field, models.ForeignKey):
+        remote_model = record_field.remote_field.model
+        if isinstance(value, remote_model):
+            if value._state.adding:
+                raise ValidationError(f"Please save {value} before annotation.")
+            return value
+        parsed = parse_dtype(feature._dtype_str)
+        field_str = parsed[0]["field_str"] if parsed else "name"
+        if isinstance(value, str):
+            matches = remote_model.filter(**{field_str: value})
+            if matches.count() == 1:
+                return matches.one()
+            if matches.count() == 0:
+                raise ValidationError(
+                    f"No {remote_model.__name__} matches {field_str}={value!r} "
+                    f"for feature '{feature.name}'"
+                )
+            raise ValidationError(
+                f"Multiple {remote_model.__name__} records match {field_str}={value!r} "
+                f"for feature '{feature.name}'"
+            )
+        raise TypeError(
+            f"feature '{feature.name}' mapped to {record_field.name} expects a "
+            f"{remote_model.__name__} record (or uniquely-resolving string), "
+            f"not {type(value).__name__}"
+        )
+    if isinstance(record_field, models.DateTimeField):
+        timestamp = pd.to_datetime(value, utc=True)
+        return timestamp.to_pydatetime()
+    return value
+
+
+def _feature_value_from_mapped_record_field(
+    record: Record, feature: Feature, field_name: str
+) -> Any:
+    record_fields = get_mappable_record_feature_fields()
+    record_field = record_fields.get(field_name)
+    value = getattr(record, field_name)
+    if value is None:
+        return None
+    if isinstance(record_field, models.ForeignKey):
+        parsed = parse_dtype(feature._dtype_str)
+        field_str = parsed[0]["field_str"] if parsed else "name"
+        return getattr(value, field_str)
+    return value
+
+
 def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
-    """Expose the index feature in `get_values` / feature dicts from `record.name`."""
+    """Expose index + field-mapped features in `get_values()` dictionaries."""
     index_feature = get_type_schema_index(record.type)
     if index_feature is None or record.name is None:
+        pass
+    else:
+        dictionary[index_feature.name] = index_value_from_record_name(
+            record.name, index_feature
+        )
+    schema = record.type.schema if record.type is not None else None  # type: ignore
+    mapped_fields = get_schema_record_fields(schema)
+    if not mapped_fields:
         return
-    dictionary[index_feature.name] = index_value_from_record_name(
-        record.name, index_feature
-    )
+    features = schema.members.filter(uid__in=list(mapped_fields.keys()))  # type: ignore
+    for feature in features:
+        value = _feature_value_from_mapped_record_field(
+            record, feature, mapped_fields[feature.uid]
+        )
+        if value is not None:
+            dictionary[feature.name] = value
 
 
 def pop_index_from_feature_dictionary(
@@ -253,26 +384,66 @@ def strip_index_for_record_persistence(
     values_by_feature_uid: dict[str, Any] | None = None,
     index_feature: Feature | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
-    """Move schema index values to `record.name` and drop them from link-table writes."""
+    """Move schema-mapped values to `Record` fields, drop from link-table writes."""
     if index_feature is None:
         index_feature = schema.index
-    if index_feature is None:
+    record_field_mappings = get_schema_record_fields(schema)
+    if index_feature is None and not record_field_mappings:
         return dictionary, feature_objects
 
     index_value = None
-    if values_by_feature_uid is not None and index_feature.uid in values_by_feature_uid:
-        index_value = values_by_feature_uid[index_feature.uid]
-    elif index_feature.name in dictionary:
-        index_value = dictionary[index_feature.name]
+    if index_feature is not None:
+        if (
+            values_by_feature_uid is not None
+            and index_feature.uid in values_by_feature_uid
+        ):
+            index_value = values_by_feature_uid[index_feature.uid]
+        elif index_feature.name in dictionary:
+            index_value = dictionary[index_feature.name]
 
-    if index_value is not None:
-        apply_index_feature_to_record(record, index_feature, index_value, persist=False)
+        if index_value is not None:
+            apply_index_feature_to_record(
+                record, index_feature, index_value, persist=False
+            )
 
     dictionary = dict(dictionary)
-    dictionary.pop(index_feature.name, None)
-    feature_objects = [
-        feature for feature in feature_objects if feature.uid != index_feature.uid
-    ]
+    update_fields = set(getattr(record, "_mapped_feature_update_fields", set()))
+    if index_feature is not None:
+        dictionary.pop(index_feature.name, None)
+        feature_objects = [
+            feature for feature in feature_objects if feature.uid != index_feature.uid
+        ]
+        update_fields.add("name")
+    mapped_feature_uids = set(record_field_mappings.keys())
+    if mapped_feature_uids:
+        record_fields = get_mappable_record_feature_fields()
+        filtered_features: list[Feature] = []
+        for feature in feature_objects:
+            field_name = record_field_mappings.get(feature.uid)
+            if field_name is None:
+                filtered_features.append(feature)
+                continue
+            record_field = record_fields[field_name]
+            if (
+                values_by_feature_uid is not None
+                and feature.uid in values_by_feature_uid
+            ):
+                value = values_by_feature_uid[feature.uid]
+            elif feature.name in dictionary:
+                value = dictionary[feature.name]
+            else:
+                dictionary.pop(feature.name, None)
+                continue
+            coerced = _coerce_feature_value_for_record_field(
+                value, feature, record_field
+            )
+            if coerced is not None:
+                setattr(record, field_name, coerced)
+                update_fields.add(field_name)
+            dictionary.pop(feature.name, None)
+        feature_objects = filtered_features
+    if update_fields:
+        record._mapped_feature_update_fields = update_fields
     return dictionary, feature_objects
 
 
@@ -590,6 +761,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
+    Also see the guide: :doc:`/manage-records`.
+
     Create a **record** with a single feature::
 
         # create a feature if you don't yet have one
@@ -603,14 +776,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # use a record type to create an experiments registry
-        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
+        # create an Experiments type
+        experiments = ln.Record(name="Experiments", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
         # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+        experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-        # create a samples sheet by constraining a record type with a schema
+        # create a Sample Sheet by constraining a record type with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
@@ -619,14 +792,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         sample1.save()
 
         # reset the feature values for the record including the experiment
-        sample1.features.set_values({
-            gc_content: 0.5,
+        sample1.features.set_values({gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records of a type to a dataframe::
 
-        experiments_registry.to_dataframe()
+        experiments.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
@@ -667,11 +839,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
-
-    You can edit records like spreadsheets in the UI:
-
-    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0003.png
-        :width: 800px
 
     .. dropdown:: An index feature maps onto the name field of a record.
 

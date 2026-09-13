@@ -201,6 +201,13 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     assert "Dataset features" in output_wide
     assert f"extra_cat_{SCHEMA_MEMBER_PREVIEW_LIMIT - 1:02d}" in output_wide
     assert "Skipping values for 5 internal feature(s) in describe()" in ccaplog.text
+    ccaplog.clear()
+    output_wide_custom_limit = artifact3.describe(return_str=True, n_max_features=20)
+    assert "Dataset features" in output_wide_custom_limit
+    assert "extra_cat_19" in output_wide_custom_limit
+    assert "extra_cat_20" not in output_wide_custom_limit
+    assert "Skipping values for 35 internal feature(s) in describe()" in ccaplog.text
+    assert "These features are outside the schema preview limit (20)." in ccaplog.text
 
     # dataset section
     assert (

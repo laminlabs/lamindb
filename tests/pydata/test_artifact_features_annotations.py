@@ -1004,3 +1004,4 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+

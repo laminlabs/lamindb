@@ -1,9 +1,12 @@
 import functools
 import inspect
+from collections.abc import Iterable as IterableABC
+from collections.abc import Mapping as MappingABC
+from collections.abc import Sequence as SequenceABC
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, Union, get_type_hints
 
 from lamindb.base import deprecated
 
@@ -13,6 +16,15 @@ from ._context import context as global_context
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_DEFAULT_ANNOTATION_GLOBALS: dict[str, Any] = {
+    "Any": Any,
+    "Literal": Literal,
+    "Union": Union,
+    "Iterable": IterableABC,
+    "Sequence": SequenceABC,
+    "Mapping": MappingABC,
+}
 
 # Create a context variable to store the current tracked run
 current_tracked_run: ContextVar[Run | None] = ContextVar(
@@ -44,6 +56,58 @@ def _create_tracked_decorator(
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
         # Get the original signature
         sig = inspect.signature(func)
+        frame = inspect.currentframe()
+        definition_locals = (
+            frame.f_back.f_locals.copy()
+            if frame is not None and frame.f_back is not None
+            else {}
+        )
+        del frame
+
+        def _expected_param_types() -> dict[str, Any]:
+            """Resolve function parameter annotations, including postponed ones."""
+            raw_annotations = {
+                name: parameter.annotation
+                for name, parameter in sig.parameters.items()
+                if parameter.annotation is not inspect._empty
+            }
+            closure_locals = {}
+            if func.__closure__ is not None:
+                closure_locals = {
+                    name: cell.cell_contents
+                    for name, cell in zip(
+                        func.__code__.co_freevars, func.__closure__, strict=False
+                    )
+                }
+            localns = {**definition_locals, **closure_locals}
+            try:
+                resolved_type_hints = get_type_hints(
+                    func,
+                    globalns=func.__globals__,
+                    localns=localns,
+                    include_extras=True,
+                )
+            except Exception:
+                resolved_type_hints = {}
+            expected_param_types: dict[str, Any] = {}
+            for name, raw in raw_annotations.items():
+                resolved = resolved_type_hints.get(name)
+                if resolved is not None:
+                    expected_param_types[name] = resolved
+                    continue
+                if isinstance(raw, str):
+                    try:
+                        expected_param_types[name] = eval(  # noqa: S307
+                            raw,
+                            {**_DEFAULT_ANNOTATION_GLOBALS, **func.__globals__},
+                            localns,
+                        )
+                        continue
+                    except Exception:
+                        expected_param_types[name] = raw
+                        continue
+                expected_param_types[name] = raw
+            return expected_param_types
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -60,11 +124,7 @@ def _create_tracked_decorator(
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             params = dict(bound_args.arguments)
-            expected_param_types = {
-                name: parameter.annotation
-                for name, parameter in sig.parameters.items()
-                if parameter.annotation is not inspect._empty
-            }
+            expected_param_types = _expected_param_types()
 
             initiated_by_run = get_current_tracked_run()
             track_kwargs: dict = {}
