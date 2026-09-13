@@ -386,6 +386,119 @@ class _NotionReader:
             rows.append(row)
         return rows
 
+    @staticmethod
+    def _rich_text_to_markdown(rich_text: list[dict]) -> str:
+        chunks: list[str] = []
+        for segment in rich_text:
+            text = segment.get("plain_text", "")
+            if not text:
+                continue
+            href = segment.get("href")
+            if isinstance(href, str) and href and href != text:
+                text = f"[{text}]({href})"
+            annotations = segment.get("annotations") or {}
+            if annotations.get("code"):
+                text = f"`{text}`"
+            if annotations.get("bold"):
+                text = f"**{text}**"
+            if annotations.get("italic"):
+                text = f"*{text}*"
+            if annotations.get("strikethrough"):
+                text = f"~~{text}~~"
+            chunks.append(text)
+        return "".join(chunks)
+
+    def _block_to_markdown_lines(
+        self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
+    ) -> list[str]:
+        block_type = block.get("type")
+        payload = block.get(block_type) if isinstance(block_type, str) else None
+        rich_text = payload.get("rich_text", []) if isinstance(payload, dict) else []
+        text = self._rich_text_to_markdown(rich_text)
+        indent = "  " * depth
+
+        lines: list[str] = []
+        if block_type == "heading_1":
+            lines.append(f"{indent}# {text}".rstrip())
+        elif block_type == "heading_2":
+            lines.append(f"{indent}## {text}".rstrip())
+        elif block_type == "heading_3":
+            lines.append(f"{indent}### {text}".rstrip())
+        elif block_type == "bulleted_list_item":
+            lines.append(f"{indent}- {text}".rstrip())
+        elif block_type == "numbered_list_item":
+            lines.append(f"{indent}1. {text}".rstrip())
+        elif block_type == "to_do":
+            checked = (
+                bool(payload.get("checked")) if isinstance(payload, dict) else False
+            )
+            marker = "x" if checked else " "
+            lines.append(f"{indent}- [{marker}] {text}".rstrip())
+        elif block_type == "quote":
+            lines.append(f"{indent}> {text}".rstrip())
+        elif block_type == "code":
+            language = payload.get("language") if isinstance(payload, dict) else None
+            fence = f"```{language}" if language else "```"
+            lines.extend([f"{indent}{fence}", f"{indent}{text}", f"{indent}```"])
+        elif block_type == "divider":
+            lines.append(f"{indent}---")
+        else:
+            if text:
+                prefix = f"{indent}1. " if parent_is_numbered else indent
+                lines.append(f"{prefix}{text}".rstrip())
+
+        if block_type == "toggle":
+            lines.append(f"{indent}<details>")
+            summary = text.strip() or "Details"
+            lines.append(f"{indent}<summary>{summary}</summary>")
+            lines.append(f"{indent}<p>")
+            if block.get("has_children") and block.get("id"):
+                child_blocks = self._iter_block_children(block["id"])
+                for child in child_blocks:
+                    lines.extend(
+                        self._block_to_markdown_lines(
+                            child,
+                            depth=depth + 1,
+                            parent_is_numbered=False,
+                        )
+                    )
+            lines.append(f"{indent}</p>")
+            lines.append(f"{indent}</details>")
+            return lines
+
+        if block.get("has_children") and block.get("id"):
+            child_blocks = self._iter_block_children(block["id"])
+            for child in child_blocks:
+                lines.extend(
+                    self._block_to_markdown_lines(
+                        child,
+                        depth=depth + 1,
+                        parent_is_numbered=block_type == "numbered_list_item",
+                    )
+                )
+        return lines
+
+    def _iter_block_children(self, block_id: str) -> list[dict]:
+        children: list[dict] = []
+        cursor: str | None = None
+        while True:
+            params: dict[str, Any] = {"page_size": 100}
+            if cursor:
+                params["start_cursor"] = cursor
+            payload = self._call("GET", f"/blocks/{block_id}/children", params=params)
+            children.extend(payload.get("results", []))
+            if not payload.get("has_more"):
+                return children
+            cursor = payload.get("next_cursor")
+
+    def page_markdown(self, page_id: str) -> str:
+        """Page body as markdown, including nested child blocks."""
+        markdown_lines: list[str] = []
+        for block in self._iter_block_children(page_id):
+            markdown_lines.extend(self._block_to_markdown_lines(block))
+        text = "\n".join(line.rstrip() for line in markdown_lines).strip()
+        return re.sub(r"\n{3,}", "\n\n", text)
+
     def relation_titles(
         self,
         database_id: str,
@@ -760,9 +873,26 @@ def _write(
             create_labels=False,
         )
         rec.features.set_values(values)
+        notion_id = row.get("notion_id")
+        if isinstance(notion_id, str) and notion_id:
+            _attach_page_markdown(rec, reader.page_markdown(notion_id))
         pending += p
         records += 1
     return {"records": records, "pending": pending}
+
+
+def _attach_page_markdown(record: Any, markdown_content: str) -> None:
+    content = markdown_content.strip()
+    if not content:
+        return
+    if getattr(record, "notes", None) == content:
+        return
+    recordblock = ln.models.RecordBlock(
+        record=record,
+        content=content,
+        kind="readme",
+    ).save()
+    record.ablocks.add(recordblock, bulk=False)
 
 
 def _upsert_all(rec_type, rows) -> dict:

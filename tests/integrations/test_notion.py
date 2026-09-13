@@ -20,6 +20,7 @@ from lamindb.integrations.notion import (
     BASE,
     SyncReport,
     _artifact_key_from_url,
+    _attach_page_markdown,
     _ensure_artifacts,
     _flatten,
     _NotionReader,
@@ -27,6 +28,7 @@ from lamindb.integrations.notion import (
     _planned_missing_file_transfers,
     _short_file_source,
     _upsert_all,
+    _write,
     sync_from_notion,
 )
 
@@ -679,6 +681,97 @@ def test_rows_no_limit_paginates_fully(reader):
     assert len(reader.rows("db-1")) == 2
 
 
+def test_page_markdown_exports_nested_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "h1",
+                        "type": "heading_2",
+                        "has_children": False,
+                        "heading_2": {"rich_text": [{"plain_text": "Overview"}]},
+                    },
+                    {
+                        "id": "todo-1",
+                        "type": "to_do",
+                        "has_children": False,
+                        "to_do": {
+                            "checked": True,
+                            "rich_text": [{"plain_text": "Ship integration"}],
+                        },
+                    },
+                    {
+                        "id": "list-1",
+                        "type": "bulleted_list_item",
+                        "has_children": True,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "Milestones"}]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "child-1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "v1 in October"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "## Overview" in markdown
+    assert "- [x] Ship integration" in markdown
+    assert "- Milestones" in markdown
+    assert "  v1 in October" in markdown
+
+
+def test_page_markdown_exports_toggle_as_details_html(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-1",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {"rich_text": [{"plain_text": "Details"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "paragraph-1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "Inner note"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "<details>" in markdown
+    assert "<summary>Details</summary>" in markdown
+    assert "<p>" in markdown
+    assert "  Inner note" in markdown
+    assert "</p>" in markdown
+    assert "</details>" in markdown
+
+
 # ---------------------------------------------------------------------------
 # _NotionSyncer
 # ---------------------------------------------------------------------------
@@ -706,6 +799,57 @@ def _ts(value: str) -> datetime:
 def _fake_record(updated_at: str | None):
     updated = _ts(updated_at) if updated_at else None
     return type("Record", (), {"updated_at": updated, "created_at": updated})()
+
+
+def test_attach_page_markdown_adds_readme_only_when_changed():
+    record = MagicMock()
+    record.notes = "old notes"
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+    with patch(
+        "lamindb.integrations.notion.ln.models.RecordBlock", return_value=block_factory
+    ) as RecordBlock:
+        _attach_page_markdown(record, "new notes")
+    RecordBlock.assert_called_once_with(
+        record=record, content="new notes", kind="readme"
+    )
+    record.ablocks.add.assert_called_once_with(saved_block, bulk=False)
+
+    record.ablocks.add.reset_mock()
+    with patch("lamindb.integrations.notion.ln.models.RecordBlock") as RecordBlock:
+        _attach_page_markdown(record, "old notes")
+    RecordBlock.assert_not_called()
+    record.ablocks.add.assert_not_called()
+
+
+def test_write_attaches_page_markdown_to_records():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [{"notion_id": "page-1", "Name": "A"}]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = "# Notes\n\nhello"
+    rec_type = _fake_rec_type("People", ["Name"])
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+
+    with patch(
+        "lamindb.integrations.notion.ln.models.RecordBlock", return_value=block_factory
+    ):
+        stats = _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}},
+            by_id=by_id,
+        )
+
+    rec.features.set_values.assert_called_once()
+    reader.page_markdown.assert_called_once_with("page-1")
+    rec.ablocks.add.assert_called_once_with(saved_block, bulk=False)
+    assert stats == {"records": 1, "pending": 0}
 
 
 def test_syncer_init_raises_without_token(monkeypatch):
