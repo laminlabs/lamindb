@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 import httpx
 from lamin_utils import logger
 from rich.console import Console
+from rich.markup import escape as rich_escape
 
 import lamindb as ln
 
@@ -89,8 +90,11 @@ class SyncReport:
     def to_pretty_text(self) -> str:
         """Render a concise human-readable sync report."""
 
+        def safe(value: str | int) -> str:
+            return rich_escape(str(value))
+
         def metric(key: str, value: str | int, color: str = "white") -> str:
-            return f"[bold white]{key}[/]: [{color}]{value}[/]"
+            return f"[bold white]{key}[/]: [{color}]{safe(value)}[/]"
 
         lines: list[str] = []
         if not self.apply:
@@ -158,28 +162,35 @@ class SyncReport:
         if self.create_features:
             lines.append("[bold]create_features[/]:")
             lines.extend(
-                f"  [{action_color}]{feature}[/]" for feature in self.create_features
+                f"  [{action_color}]{safe(feature)}[/]"
+                for feature in self.create_features
             )
         if self.created_features:
             lines.append("[bold]created_features[/]:")
-            lines.extend(f"  [green]{feature}[/]" for feature in self.created_features)
+            lines.extend(
+                f"  [green]{safe(feature)}[/]" for feature in self.created_features
+            )
         if self.update_features:
             lines.append("[bold]update_features[/]:")
             lines.extend(
-                f"  [{action_color}]{feature}[/]" for feature in self.update_features
+                f"  [{action_color}]{safe(feature)}[/]"
+                for feature in self.update_features
             )
         if self.updated_features:
             lines.append("[bold]updated_features[/]:")
-            lines.extend(f"  [green]{feature}[/]" for feature in self.updated_features)
+            lines.extend(
+                f"  [green]{safe(feature)}[/]" for feature in self.updated_features
+            )
         if self.create_artifacts:
             lines.append("[bold]create_artifacts[/]:")
             lines.extend(
-                f"  [{action_color}]{artifact}[/]" for artifact in self.create_artifacts
+                f"  [{action_color}]{safe(artifact)}[/]"
+                for artifact in self.create_artifacts
             )
         if self.created_artifacts:
             lines.append("[bold]created_artifacts[/]:")
             lines.extend(
-                f"  [green]{artifact}[/]" for artifact in self.created_artifacts
+                f"  [green]{safe(artifact)}[/]" for artifact in self.created_artifacts
             )
         lines.extend(
             [

@@ -31,6 +31,7 @@ from lamindb.integrations.notion import (
     _write,
     sync_from_notion,
 )
+from rich.console import Console
 
 FIXTURES = Path(__file__).parent / "notion_test_data"
 
@@ -1677,6 +1678,21 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     )
     assert "create_records" in text
     assert text.index("create_record_types") < text.index("create_records")
+
+
+def test_sync_report_rich_render_preserves_bracketed_dtypes():
+    report = SyncReport(
+        apply=False,
+        update_features=[
+            "Organizations / interaction: list[str]",
+            "Organizations / file: list[Artifact]",
+        ],
+    )
+    console = Console(record=True, force_terminal=False, color_system=None, width=200)
+    console.print(report.to_pretty_text(), markup=True, highlight=False)
+    rendered = console.export_text()
+    assert "list[str]" in rendered
+    assert "list[Artifact]" in rendered
 
 
 def test_sync_from_notion_live_smoke_with_env_token():
