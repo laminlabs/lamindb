@@ -38,6 +38,26 @@ def _compact_uuid(value: str) -> str:
     return value.replace("-", "") if UUID_DASHED_PATTERN.match(value) else value
 
 
+def _normalize_notion_id(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    return _compact_uuid(value)
+
+
+def _extract_emoji(payload: dict) -> str | None:
+    icon = payload.get("icon")
+    if not isinstance(icon, dict) or icon.get("type") != "emoji":
+        return None
+    emoji = icon.get("emoji")
+    if not isinstance(emoji, str):
+        return None
+    emoji = emoji.strip()
+    return emoji or None
+
+
 @dataclass
 class SyncReport:
     apply: bool = False
@@ -351,6 +371,8 @@ class _NotionReader:
         database_id: str,
         drop: set[str] | None = None,
         limit: int | None = None,
+        *,
+        include_page_emoji: bool = False,
     ) -> list[dict]:
         """Every page flattened to a dict.
 
@@ -383,6 +405,8 @@ class _NotionReader:
             row["notion_id"] = page.get("id")
             row["created_time"] = page.get("created_time")
             row["last_edited_time"] = page.get("last_edited_time")
+            if include_page_emoji:
+                row["__notion_emoji__"] = _extract_emoji(page)
             rows.append(row)
         return rows
 
@@ -794,7 +818,12 @@ def _row_values(
     values: dict[Any, Any] = {}
     pending = 0
     for prop, val in row.items():
-        if prop in ("notion_id", "created_time", "last_edited_time") or val in (
+        if prop in (
+            "notion_id",
+            "created_time",
+            "last_edited_time",
+            "__notion_emoji__",
+        ) or val in (
             None,
             [],
             "",
@@ -904,6 +933,7 @@ def _upsert_all(rec_type, rows) -> dict:
     by_id = _existing_by_ref(rec_type)  # ONE query, not one per row
     for row in rows:
         nid, name = row["notion_id"], row.get("name")
+        row_emoji = row.get("__notion_emoji__")
         created_at = _parse_notion_timestamp(row.get("created_time"))
         updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
         if created_at is None:
@@ -918,6 +948,7 @@ def _upsert_all(rec_type, rows) -> dict:
                 reference=nid,
                 reference_type="notion",
             )
+            rec._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
             if created_at is not None:
                 rec.created_at = created_at
             if updated_at is not None:
@@ -939,6 +970,12 @@ def _upsert_all(rec_type, rows) -> dict:
         ) != _normalized_timestamp(updated_at):
             rec.updated_at = updated_at
             changed_fields.append("updated_at")
+        merged_aux = _NotionSyncer._merge_aux_with_emoji(
+            getattr(rec, "_aux", None), row_emoji
+        )
+        if getattr(rec, "_aux", None) != merged_aux:
+            rec._aux = merged_aux
+            changed_fields.append("_aux")
         if changed_fields:
             rec.save(update_fields=changed_fields)
     return by_id
@@ -953,6 +990,7 @@ class _NotionSyncer:
             raise ValueError("Pass token=... or set NOTION_TOKEN.")
         self.reader = _NotionReader(token=token)
         self._parent_page_emojis: dict[str, str | None] = {}
+        self._database_parent_pages: dict[str, str] = {}
 
     def _safe_call(self, path: str) -> dict | None:
         try:
@@ -982,7 +1020,12 @@ class _NotionSyncer:
             cursor = payload.get("next_cursor")
 
     def _collect_databases_from_block(
-        self, block_id: str, seen: set[str], out: set[str]
+        self,
+        block_id: str,
+        seen: set[str],
+        out: set[str],
+        *,
+        parent_page_id: str | None = None,
     ) -> None:
         for block in self._iter_block_children(block_id):
             bid = block.get("id")
@@ -992,8 +1035,16 @@ class _NotionSyncer:
                 seen.add(bid)
             if block.get("type") == "child_database" and bid:
                 out.add(bid)
+                normalized_db_id = _normalize_notion_id(bid)
+                if parent_page_id is not None and normalized_db_id is not None:
+                    self._database_parent_pages[normalized_db_id] = parent_page_id
             if block.get("has_children") and bid:
-                self._collect_databases_from_block(bid, seen, out)
+                self._collect_databases_from_block(
+                    bid,
+                    seen,
+                    out,
+                    parent_page_id=parent_page_id,
+                )
 
     def _collect_database_ids(
         self, parents: list[str]
@@ -1001,6 +1052,7 @@ class _NotionSyncer:
         database_ids: set[str] = set()
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
+        self._database_parent_pages = {}
         seen_blocks: set[str] = set()
         for parent in parents:
             db_payload = self._safe_call(f"/databases/{parent}")
@@ -1011,7 +1063,10 @@ class _NotionSyncer:
                     notion_id = row.get("notion_id")
                     if notion_id:
                         self._collect_databases_from_block(
-                            notion_id, seen_blocks, database_ids
+                            notion_id,
+                            seen_blocks,
+                            database_ids,
+                            parent_page_id=None,
                         )
                 continue
             page_payload = self._safe_call(f"/pages/{parent}")
@@ -1020,9 +1075,15 @@ class _NotionSyncer:
                     f"Parent {_compact_uuid(parent)!r} is neither a readable database nor page."
                 )
             parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
-            parent_pages[parent] = parent_title
-            parent_page_emojis[parent] = self._database_emoji(page_payload)
-            self._collect_databases_from_block(parent, seen_blocks, database_ids)
+            parent_id = _normalize_notion_id(parent) or parent
+            parent_pages[parent_id] = parent_title
+            parent_page_emojis[parent_id] = self._database_emoji(page_payload)
+            self._collect_databases_from_block(
+                parent,
+                seen_blocks,
+                database_ids,
+                parent_page_id=parent_id,
+            )
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
 
@@ -1071,7 +1132,7 @@ class _NotionSyncer:
         if parent.get("type") != "page_id":
             return None
         page_id = parent.get("page_id")
-        return page_id if isinstance(page_id, str) and page_id else None
+        return _normalize_notion_id(page_id)
 
     @staticmethod
     def _database_title(payload: dict, fallback: str) -> str:
@@ -1089,14 +1150,7 @@ class _NotionSyncer:
 
     @staticmethod
     def _database_emoji(payload: dict) -> str | None:
-        icon = payload.get("icon")
-        if not isinstance(icon, dict) or icon.get("type") != "emoji":
-            return None
-        emoji = icon.get("emoji")
-        if not isinstance(emoji, str):
-            return None
-        emoji = emoji.strip()
-        return emoji or None
+        return _extract_emoji(payload)
 
     @staticmethod
     def _merge_aux_with_emoji(aux: Any, emoji: str | None) -> dict[str, Any] | None:
@@ -1322,12 +1376,24 @@ class _NotionSyncer:
         if payload is None:
             payload = self.reader._call("GET", f"/databases/{database_id}")
         if parent_type is None and parent_types_by_page_id:
+            parent_page_id = self._database_parent_pages.get(
+                _normalize_notion_id(database_id) or database_id
+            )
+            if parent_page_id is not None:
+                parent_type = parent_types_by_page_id.get(parent_page_id)
+        if parent_type is None and parent_types_by_page_id:
             parent_page_id = self._database_parent_page_id(payload)
             if parent_page_id is not None:
                 parent_type = parent_types_by_page_id.get(parent_page_id)
+        if parent_type is None and len(parent_types_by_page_id or {}) == 1:
+            parent_type = next(iter(parent_types_by_page_id.values()))
         db_name = self._database_title(payload, fallback=database_id)
         db_description = self._database_description(payload)
         db_emoji = self._database_emoji(payload)
+        if db_emoji is None and parent_type is not None:
+            parent_aux = getattr(parent_type, "_aux", None)
+            if isinstance(parent_aux, dict):
+                db_emoji = parent_aux.get("ei")
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
@@ -1507,7 +1573,7 @@ class _NotionSyncer:
             # Phase A: discover + upsert identity rows.
             for db_id in db_ids:
                 rec_type = rec_types[db_id]
-                rows = self.reader.rows(db_id, limit=limit)
+                rows = self.reader.rows(db_id, limit=limit, include_page_emoji=apply)
                 report.discovered += len(rows)
                 logger.important(
                     f"notion sync phase A: db={_compact_uuid(db_id)}, discovered_rows={len(rows)}"
