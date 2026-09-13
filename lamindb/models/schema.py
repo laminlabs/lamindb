@@ -32,11 +32,7 @@ from ._relations import (
     get_related_name,
 )
 from .can_curate import CanCurate
-from .feature import (
-    Feature,
-    serialize_dtype,
-    serialize_pandas_dtype,
-)
+from .feature import Feature, serialize_dtype, serialize_pandas_dtype
 from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
@@ -340,7 +336,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`. This is equivalent to an automatic `field="name"` mapping for the index feature.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -414,6 +410,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="required_feature", dtype=str).save(),
             ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
         ]).save()
+
+    Map a feature to a field in :class:`~lamindb.Record`::
+
+        schema = ln.Schema([
+            ln.Feature(name="created_at", dtype=datetime).save().with_config(field="created_at"),
+            ln.Feature(name="external_id", dtype=str).save().with_config(field="reference"),
+        ]).save()
+
+    Setting :attr:`~lamindb.Schema.index` automatically maps the
+    index feature to the `name` field on :class:`~lamindb.Record` (equivalent to
+    `feature.with_config(field="name")` for that feature)::
+
+        sample_id = ln.Feature(name="sample_id", dtype=str).save()
+        schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
 
     Parse & validate feature identifier values::
 
@@ -500,6 +510,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
         "1": ("optionals", list[str]),
+        "2": ("record_fields", dict[str, str]),
         "3": ("index_feature_uid", str),
     }
 
@@ -816,6 +827,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         suffix = validate_schema_suffix(suffix)
         optional_features = []
+        record_fields: dict[str, str] = {}
         features_registry: Registry = None
         if itype is not None:
             if itype != "Composite":
@@ -844,6 +856,34 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
                 ]
+                from .record import validate_record_feature_field_mapping
+
+                for configured_feature, config in configs:
+                    field_name = config.get("field")
+                    if field_name is None:
+                        continue
+                    if not isinstance(field_name, str):
+                        raise TypeError(
+                            "feature.with_config(field=...) expects a string value"
+                        )
+                    validate_record_feature_field_mapping(
+                        configured_feature, field_name
+                    )
+                    if field_name == "name" and index is not None:
+                        raise ValueError(
+                            "Cannot map a feature to Record.name when schema.index is set: "
+                            "the index feature is already stored on Record.name automatically"
+                        )
+                    if field_name in record_fields.values():
+                        raise ValueError(
+                            f"Multiple features map to record field '{field_name}'. "
+                            "Only one feature can target a given record field."
+                        )
+                    if index is not None and configured_feature.uid == index.uid:
+                        raise ValueError(
+                            "A schema index feature cannot also map to a record field"
+                        )
+                    record_fields[configured_feature.uid] = field_name
                 if optional_features:
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
@@ -883,7 +923,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             None  # None means flexible schema (no fixed number of features)
         )
         coerce_default = False
-        aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
+        aux_dict: dict[str, dict[str, bool | str | list[str] | dict[str, str]]] = {}
 
         # optional features (key "1") - remains in _aux
         if optional_features:
@@ -892,6 +932,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # index feature (key "3") - remains in _aux
         if index is not None:
             aux_dict.setdefault("af", {})["3"] = index.uid
+        if record_fields:
+            aux_dict.setdefault("af", {})["2"] = record_fields
 
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
@@ -909,6 +951,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "index": "k",
             "slots_hash": "l",
             "suffix": "m",
+            "field": "n",
         }
         # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -938,6 +981,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 ]
             else:
                 feature_list_for_hashing = [feature.uid for feature in features]
+            if record_fields:
+                feature_list_for_hashing = [
+                    (
+                        f"{item}({HASH_CODE['field']}="
+                        f"{record_fields.get(item.split('(')[0])})"
+                    )
+                    if item.split("(")[0] in record_fields
+                    else item
+                    for item in feature_list_for_hashing
+                ]
             if not ordered_set:  # order matters if ordered_set is True, if not sort
                 feature_list_for_hashing = sorted(feature_list_for_hashing)
             features_hash = hash_string(":".join(feature_list_for_hashing))
@@ -1394,7 +1447,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         For `DataFrame` / `AnnData` schemas, validates row indices during curation.
         For record sheet schemas, the index feature must have `dtype=str`; see
-        :class:`~lamindb.Record`. The schema must be saved before assigning
+        :class:`~lamindb.Record`. The index feature automatically targets
+        :attr:`~lamindb.Record.name` (equivalent to `field="name"` for that
+        feature). The schema must be saved before assigning
         `schema.index` (pass `index` to the constructor for unsaved schemas).
         Assignment only sets or clears the index marker; it does not add or remove
         schema members. On :meth:`~lamindb.Schema.save`, record sheets migrate row
@@ -1447,6 +1502,18 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             self._aux.get("af", {}).pop("3")
         else:
             self._aux.setdefault("af", {})["3"] = value
+
+    @property
+    def _record_fields(self) -> dict[str, str]:
+        """Map schema feature uid -> concrete record field name."""
+        if (
+            self._aux is not None
+            and "af" in self._aux
+            and "2" in self._aux["af"]
+            and isinstance(self._aux["af"]["2"], dict)
+        ):
+            return dict(self._aux["af"]["2"])
+        return {}
 
     @property
     def slots(self) -> dict[str, Schema]:
