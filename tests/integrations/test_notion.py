@@ -659,8 +659,9 @@ def test_import_pages_requires_parents(syncer):
         syncer.import_pages([])
 
 
-def test_resolve_record_type_message_uses_lamindb_and_compact_uuid(syncer):
+def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
     with (
         patch.object(
             syncer.reader,
@@ -672,13 +673,33 @@ def test_resolve_record_type_message_uses_lamindb_and_compact_uuid(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        with pytest.raises(ValueError) as exc:
-            syncer._resolve_record_type(db_id)
-    assert (
-        str(exc.value)
-        == "No LaminDB record type named 'Website analytics' for Notion database "
-        "'3b2d2040857e4febbb68d2bec9d6ba09'."
-    )
+        rec_type = syncer._resolve_record_type(db_id, dry_run=True, report=report)
+    assert rec_type is None
+    assert report.create_record_types == ["Website analytics"]
+
+
+def test_resolve_record_type_creates_type_when_missing(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
+    created_type = object()
+    with (
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Website analytics"}]},
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+        patch.object(
+            syncer, "_create_record_type", return_value=created_type
+        ) as create,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        rec_type = syncer._resolve_record_type(db_id, dry_run=False, report=report)
+    assert rec_type is created_type
+    create.assert_called_once_with(db_id, "Website analytics")
+    assert report.created_record_types == ["Website analytics"]
 
 
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
@@ -740,12 +761,55 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", dry_run=True)
+    assert report.dry_run is True
+    assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
     assert report.created == 2
     assert report.updated == 0
     assert report.unchanged == 0
     upsert_all.assert_not_called()
     write.assert_not_called()
+
+
+def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
+    rows = [
+        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
+    ]
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(syncer, "_resolve_record_type", return_value=None),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_pages("parent", dry_run=True)
+    assert report.dry_run is True
+    assert report.message == "Dry run report -- nothing got created"
+    assert report.discovered == 2
+    assert report.created == 2
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
+def test_import_pages_report_compacts_database_ids(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
+    rows = [{"notion_id": "a", "last_edited_time": "t1", "Name": "A"}]
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value={db_id}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all", return_value={}),
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 0, "pending": 0},
+        ),
+    ):
+        report = syncer.import_pages("parent", dry_run=True)
+    assert report.databases == ["3b2d2040857e4febbb68d2bec9d6ba09"]
 
 
 def test_import_pages_writes_only_created_or_changed(syncer):
@@ -783,11 +847,11 @@ def test_import_pages_writes_only_created_or_changed(syncer):
     assert report.pending_relations == 1
 
 
-def test_sync_from_notion_delegates_to_syncer_and_logs():
-    sync_report = SyncReport(created=1)
+def test_sync_from_notion_delegates_to_syncer_and_prints():
+    sync_report = SyncReport(created=1, dry_run=True)
     with (
         patch("lamindb.integrations.notion._NotionSyncer") as Syncer,
-        patch("lamindb.integrations.notion.logger") as log,
+        patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
         report = sync_from_notion(parents=["p1", "p2"], dry_run=True, limit=3)
@@ -795,5 +859,25 @@ def test_sync_from_notion_delegates_to_syncer_and_logs():
     Syncer.return_value.import_pages.assert_called_once_with(
         parents=["p1", "p2"], dry_run=True, limit=3
     )
-    log.important.assert_called_once()
+    rich_print.assert_called_once()
+    assert "Dry run --" in rich_print.call_args[0][0]
     assert report is sync_report
+
+
+def test_sync_report_pretty_text_groups_and_labels_metrics():
+    report = SyncReport(
+        dry_run=True,
+        databases=["3b2d2040857e4febbb68d2bec9d6ba09"],
+        discovered=5,
+        created=5,
+        updated=1,
+        unchanged=2,
+        pending_relations=0,
+        failed=0,
+        create_record_types=["Website analytics"],
+    )
+    text = report.to_pretty_text()
+    assert "Dry run --" in text
+    assert "Scope" in text
+    assert "[bold]discovered_databases[/]: [green]1[/]" in text
+    assert "[bold]create_records[/]: [green]5[/]" in text

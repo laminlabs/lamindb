@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -16,20 +17,27 @@ from typing import Any
 
 import httpx
 from lamin_utils import logger
+from rich.console import Console
 
 import lamindb as ln
 
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
+UUID_DASHED_PATTERN = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+RICH_CONSOLE = Console(force_terminal=True, no_color=False)
 
 
 def _compact_uuid(value: str) -> str:
     """Format UUID-like strings without dashes for CLI-facing messages."""
-    return value.replace("-", "")
+    return value.replace("-", "") if UUID_DASHED_PATTERN.match(value) else value
 
 
 @dataclass
 class SyncReport:
+    dry_run: bool = False
+    message: str | None = None
     discovered: int = 0
     created: int = 0
     updated: int = 0
@@ -38,9 +46,59 @@ class SyncReport:
     failed: int = 0
     errors: list[str] = field(default_factory=list)
     databases: list[str] = field(default_factory=list)
+    created_record_types: list[str] = field(default_factory=list)
+    create_record_types: list[str] = field(default_factory=list)
+
+    def to_pretty_text(self) -> str:
+        """Render a concise human-readable sync report."""
+
+        def metric(key: str, value: str | int) -> str:
+            return f"[bold]{key}[/]: [green]{value}[/]"
+
+        lines: list[str] = []
+        if self.dry_run:
+            lines.append("[bold yellow]Dry run -- nothing got created[/]")
+        else:
+            lines.append("[bold cyan]Sync report[/]")
+        lines.append("")
+        lines.append("[bold cyan]Scope[/]")
+        lines.append(metric("discovered_databases", len(self.databases)))
+        if self.databases:
+            lines.append(metric("database_ids", ", ".join(self.databases)))
+        lines.append(metric("discovered_records", self.discovered))
+
+        lines.append("")
+        lines.append("[bold cyan]Record actions[/]")
+        lines.extend(
+            [
+                metric("create_records", self.created),
+                metric("update_records", self.updated),
+                metric("unchanged_records", self.unchanged),
+                metric("pending_relations", self.pending_relations),
+                metric("failed_records", self.failed),
+            ]
+        )
+        if self.create_record_types or self.created_record_types:
+            lines.append("")
+            lines.append("[bold cyan]Record type actions[/]")
+        if self.create_record_types:
+            lines.append(
+                metric("create_record_types", ", ".join(self.create_record_types))
+            )
+        if self.created_record_types:
+            lines.append(
+                metric("created_record_types", ", ".join(self.created_record_types))
+            )
+        if self.errors:
+            lines.append("")
+            lines.append("[bold red]Errors[/]")
+            lines.extend(f"[red]- {error}[/]" for error in self.errors)
+        return "\n".join(lines)
 
     def as_dict(self) -> dict[str, Any]:
         return {
+            "dry_run": self.dry_run,
+            "message": self.message,
             "discovered": self.discovered,
             "created": self.created,
             "updated": self.updated,
@@ -49,6 +107,8 @@ class SyncReport:
             "failed": self.failed,
             "errors": self.errors,
             "databases": self.databases,
+            "created_record_types": self.created_record_types,
+            "create_record_types": self.create_record_types,
         }
 
 
@@ -155,10 +215,12 @@ class _NotionReader:
         if database_id not in self._ds:
             sources = self.data_sources(database_id)
             if not sources:
-                raise LookupError(f"No data sources on database {database_id!r}.")
+                raise LookupError(
+                    f"No data sources on database {_compact_uuid(database_id)!r}."
+                )
             if len(sources) > 1:
                 logger.warning(
-                    f"database {database_id!r} has {len(sources)} data sources; "
+                    f"database {_compact_uuid(database_id)!r} has {len(sources)} data sources; "
                     f"using {sources[0]['name']!r}"
                 )
             self._ds[database_id] = sources[0]["id"]
@@ -578,7 +640,7 @@ class _NotionSyncer:
             page_payload = self._safe_call(f"/pages/{parent}")
             if page_payload is None:
                 raise LookupError(
-                    f"Parent {parent!r} is neither a readable database nor page."
+                    f"Parent {_compact_uuid(parent)!r} is neither a readable database nor page."
                 )
             self._collect_databases_from_block(parent, seen_blocks, database_ids)
         return database_ids
@@ -598,16 +660,54 @@ class _NotionSyncer:
             )
         return {feature.name for feature in schema.members}
 
-    def _resolve_record_type(self, database_id: str):
+    @staticmethod
+    def _feature_dtype_from_notion_type(notion_type: str):
+        if notion_type == "number":
+            return "num"
+        if notion_type == "checkbox":
+            return bool
+        if notion_type in {"multi_select", "people", "relation", "files"}:
+            return list[str]
+        return str
+
+    def _create_record_type(self, database_id: str, db_name: str):
+        columns = self.reader.columns(database_id)
+        ordered_feature_names = list(columns) + ["notion_last_edited"]
+        existing = {
+            feature.name: feature
+            for feature in ln.Feature.filter(name__in=ordered_feature_names)
+        }
+        features: list[Any] = []
+        for name in ordered_feature_names:
+            feature = existing.get(name)
+            if feature is None:
+                notion_type = (
+                    "last_edited_time"
+                    if name == "notion_last_edited"
+                    else columns[name]
+                )
+                feature = ln.Feature(
+                    name=name,
+                    dtype=self._feature_dtype_from_notion_type(notion_type),
+                ).save()
+            features.append(feature)
+        schema = ln.Schema(features).save()
+        return ln.Record(name=db_name, is_type=True, schema=schema).save()
+
+    def _resolve_record_type(
+        self, database_id: str, *, dry_run: bool, report: SyncReport
+    ):
         payload = self.reader._call("GET", f"/databases/{database_id}")
         db_name = self._database_title(payload, fallback=database_id)
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
-            raise ValueError(
-                f"No LaminDB record type named {db_name!r} for Notion database "
-                f"{_compact_uuid(database_id)!r}."
-            )
+            if dry_run:
+                report.create_record_types.append(db_name)
+                return None
+            rec_type = self._create_record_type(database_id, db_name)
+            report.created_record_types.append(db_name)
+            return rec_type
         if count > 1:
             raise ValueError(
                 f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
@@ -632,7 +732,7 @@ class _NotionSyncer:
                 problems.append(f"extra in Lamin schema: {extra_features}")
             msg = "; ".join(problems)
             raise ValueError(
-                f"Schema mismatch for database {database_id!r} <-> record type "
+                f"Schema mismatch for database {_compact_uuid(database_id)!r} <-> record type "
                 f"{rec_type.name!r}: {msg}"
             )
 
@@ -663,20 +763,24 @@ class _NotionSyncer:
         if not parent_ids:
             raise ValueError("parents is required and must contain at least one ID.")
 
-        report = SyncReport()
+        report = SyncReport(
+            dry_run=dry_run,
+            message="Dry run report -- nothing got created" if dry_run else None,
+        )
         db_ids = sorted(self._collect_database_ids(parent_ids))
         if not db_ids:
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "
                 "on page trees that include at least one Notion database."
             )
-        report.databases = db_ids
+        report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}
         for db_id in db_ids:
-            rec_type = self._resolve_record_type(db_id)
-            self._validate_schema(db_id, rec_type)
+            rec_type = self._resolve_record_type(db_id, dry_run=dry_run, report=report)
+            if rec_type is not None:
+                self._validate_schema(db_id, rec_type)
             rec_types[db_id] = rec_type
 
         after_maps: dict[str, dict[str, Any]] = {}
@@ -688,6 +792,12 @@ class _NotionSyncer:
                 rec_type = rec_types[db_id]
                 rows = self.reader.rows(db_id, limit=limit)
                 report.discovered += len(rows)
+                if rec_type is None:
+                    # dry-run mode with missing type: all discovered rows are new.
+                    report.created += len(rows)
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    continue
 
                 before = _existing_by_ref(rec_type)
                 before_edit = self._existing_edit_map(before)
@@ -743,7 +853,7 @@ def sync_from_notion(
     dry_run: bool = False,
     limit: int | None = None,
 ) -> SyncReport:
-    """Sync Notion pages to LaminDB records."""
+    """Sync Notion pages via the class-based sync API."""
     syncer = _NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
@@ -752,7 +862,7 @@ def sync_from_notion(
     else:
         raise TypeError("parents must be a str or list[str].")
     report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit)
-    logger.important(f"{json.dumps(report.as_dict(), sort_keys=True)}")
+    RICH_CONSOLE.print(report.to_pretty_text(), markup=True, highlight=False)
     return report
 
 
