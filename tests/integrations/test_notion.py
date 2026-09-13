@@ -724,9 +724,10 @@ def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, children]
 
-    db_ids = syncer._collect_database_ids([page_id])
+    db_ids, parent_pages = syncer._collect_database_ids([page_id])
 
     assert db_ids == {"db-1"}
+    assert parent_pages == {page_id: page_id}
 
 
 def test_schema_validation_requires_notion_last_edited(syncer):
@@ -752,7 +753,11 @@ def test_import_pages_dry_run_does_not_write(syncer):
         {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
     ]
     with (
-        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
@@ -763,6 +768,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         report = syncer.import_pages("parent", apply=False)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
+    assert report.discovered_pages == 4
     assert report.discovered == 2
     assert report.created == 2
     assert report.updated == 0
@@ -777,7 +783,11 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
     ]
     with (
-        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
         patch.object(syncer, "_resolve_record_type", return_value=None),
         patch.object(syncer.reader, "rows", return_value=rows),
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
@@ -792,12 +802,45 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
     write.assert_not_called()
 
 
+def test_import_pages_dry_run_includes_parent_page_type(syncer):
+    rows = [{"notion_id": "a", "last_edited_time": "t1", "Name": "A"}]
+    rec_type = _fake_rec_type("Website analytics", ["Name", "notion_last_edited"])
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(
+                {"db-1"},
+                {"7283894209c44522a7c79620795d0409": "Import metrics"},
+            ),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_pages("parent", apply=False)
+    assert "Import metrics" in report.create_record_types
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
 def test_import_pages_report_compacts_database_ids(syncer):
     rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
     rows = [{"notion_id": "a", "last_edited_time": "t1", "Name": "A"}]
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     with (
-        patch.object(syncer, "_collect_database_ids", return_value={db_id}),
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({db_id}, {"parent"}),
+        ),
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
@@ -826,7 +869,11 @@ def test_import_pages_writes_only_created_or_changed(syncer):
         "c": _fake_record(None),
     }
     with (
-        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
@@ -867,6 +914,7 @@ def test_sync_from_notion_delegates_to_syncer_and_prints():
 def test_sync_report_pretty_text_groups_and_labels_metrics():
     report = SyncReport(
         apply=False,
+        discovered_pages=7,
         databases=["3b2d2040857e4febbb68d2bec9d6ba09"],
         discovered=5,
         created=5,
@@ -877,7 +925,8 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
         create_record_types=["Website analytics"],
     )
     text = report.to_pretty_text()
-    assert "Dry run --" in text
+    assert "Discovered 7 Notion pages." in text
+    assert "Dry run: nothing got created." in text
     assert "pass apply=True or --apply on the CLI" in text
     assert "Scope" in text
     assert "[bold]discovered_databases[/]: [green]1[/]" in text

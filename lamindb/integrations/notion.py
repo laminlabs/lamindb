@@ -38,6 +38,7 @@ def _compact_uuid(value: str) -> str:
 class SyncReport:
     apply: bool = False
     message: str | None = None
+    discovered_pages: int = 0
     discovered: int = 0
     created: int = 0
     updated: int = 0
@@ -62,6 +63,8 @@ class SyncReport:
             )
         else:
             lines.append("[bold cyan]Sync report[/]")
+        if self.discovered_pages > 0:
+            lines.append(f"[bold]Discovered {self.discovered_pages} Notion pages.[/]")
         lines.append("")
         lines.append("[bold cyan]Scope[/]")
         lines.append(metric("discovered_databases", len(self.databases)))
@@ -608,8 +611,11 @@ class _NotionSyncer:
             if block.get("has_children") and bid:
                 self._collect_databases_from_block(bid, seen, out)
 
-    def _collect_database_ids(self, parents: list[str]) -> set[str]:
+    def _collect_database_ids(
+        self, parents: list[str]
+    ) -> tuple[set[str], dict[str, str]]:
         database_ids: set[str] = set()
+        parent_pages: dict[str, str] = {}
         seen_blocks: set[str] = set()
         for parent in parents:
             db_payload = self._safe_call(f"/databases/{parent}")
@@ -628,8 +634,28 @@ class _NotionSyncer:
                 raise LookupError(
                     f"Parent {_compact_uuid(parent)!r} is neither a readable database nor page."
                 )
+            parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
+            parent_pages[parent] = parent_title
             self._collect_databases_from_block(parent, seen_blocks, database_ids)
-        return database_ids
+        return database_ids, parent_pages
+
+    def _resolve_or_create_type_by_name(
+        self, name: str, *, apply: bool, report: SyncReport
+    ):
+        qs = ln.Record.filter(name=name, is_type=True)
+        count = qs.count()
+        if count == 0:
+            if apply:
+                ln.Record(name=name, is_type=True).save()
+                if name not in report.created_record_types:
+                    report.created_record_types.append(name)
+            elif name not in report.create_record_types:
+                report.create_record_types.append(name)
+            return
+        if count > 1:
+            raise ValueError(
+                f"Ambiguous Lamin record type name {name!r}: found {count} matches."
+            )
 
     @staticmethod
     def _database_title(payload: dict, fallback: str) -> str:
@@ -753,13 +779,20 @@ class _NotionSyncer:
             apply=apply,
             message="Dry run report -- nothing got created" if not apply else None,
         )
-        db_ids = sorted(self._collect_database_ids(parent_ids))
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids)
+        db_ids = sorted(db_id_set)
         if not db_ids:
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "
                 "on page trees that include at least one Notion database."
             )
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
+
+        # Parent pages can also map to LaminDB record types.
+        for parent_type_name in sorted(set(parent_pages.values())):
+            self._resolve_or_create_type_by_name(
+                parent_type_name, apply=apply, report=report
+            )
 
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}
@@ -808,6 +841,9 @@ class _NotionSyncer:
                 else:
                     after_maps[db_id] = before
 
+            report.discovered_pages = (
+                len(parent_pages) + len(report.databases) + report.discovered
+            )
             if not apply:
                 return report
 
