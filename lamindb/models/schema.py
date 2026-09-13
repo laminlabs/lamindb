@@ -427,16 +427,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Configure a feature so that it draws its values from a backward-relationship among records::
 
-        meetings = ln.Record(name="Meetings", is_type=True).save()
-        people = ln.Record(name="People", is_type=True).save()
-        attendees = ln.Feature(name="attendees", dtype=list[people]).save()
-
-        meetings_schema = ln.Schema([attendees], name="meetings-schema").save()
-        people_schema = ln.Schema([
-            ln.Feature(name="attended_meetings", dtype=list[meetings])
-            .save()
-            .with_config(backward=attendees),
-        ], name="people-schema").save()
+        author = ln.Feature(name="author", dtype=author).save()
+        books = ln.Feature(name="books", dtype=list[book]).save()
+        # Book.author
+        # Author.books <-- backward relationship of Book.author
+        ln.Schema([author]).save()
+        ln.Schema([books.with_config(backward=author)]).save()
 
     Parse & validate feature identifier values::
 
