@@ -23,7 +23,7 @@ from lamindb.integrations.notion import (
     sync_from_notion,
 )
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent / "notion_test_data"
 
 
 def _load_fixture(name: str) -> dict:
