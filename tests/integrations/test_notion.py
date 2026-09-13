@@ -10,7 +10,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from lamindb.integrations.notion import API_VERSION, BASE, Reader, _flatten
+from lamindb.integrations.notion import (
+    API_VERSION,
+    BASE,
+    NotionReader,
+    NotionSyncer,
+    _flatten,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -48,10 +54,10 @@ ORG_PAGES = {
 
 @pytest.fixture()
 def reader():
-    """Reader with requests.Session replaced by a MagicMock."""
+    """NotionReader with requests.Session replaced by a MagicMock."""
     with patch("requests.Session") as MockSession:
         MockSession.return_value = MagicMock()
-        client = Reader(token="secret-test-token")  # noqa: S106
+        client = NotionReader(token="secret-test-token")  # noqa: S106
     return client
 
 
@@ -212,13 +218,13 @@ def test_flatten_empty_dict():
 def test_init_raises_on_empty_token():
     with patch("requests.Session"):
         with pytest.raises(ValueError, match="access token"):
-            Reader(token="")  # noqa: S106
+            NotionReader(token="")  # noqa: S106
 
 
 def test_init_sets_headers():
     with patch("requests.Session") as MockSession:
         MockSession.return_value = MagicMock()
-        client = Reader(token="tok")  # noqa: S106
+        client = NotionReader(token="tok")  # noqa: S106
     headers = client.s.headers.update.call_args[0][0]
     assert headers["Authorization"] == "Bearer tok"
     assert headers["Notion-Version"] == API_VERSION
@@ -250,11 +256,10 @@ def test_404_mentions_sharing(reader):
 
 def test_500_falls_through_to_raise_for_status(reader):
     r500 = _make_response({}, 500)
-    r500.raise_for_status.side_effect = RuntimeError("500 Server Error")
     reader.s.request.return_value = r500
-    with pytest.raises(RuntimeError, match="500"):
+    with pytest.raises(RuntimeError, match="gave up after retries"):
         reader.data_sources("db")
-    r500.raise_for_status.assert_called_once()
+    r500.raise_for_status.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -610,3 +615,117 @@ def test_rows_no_limit_paginates_fully(reader):
     p2 = _make_response({"results": [{"id": "b", "properties": {}}], "has_more": False})
     reader.s.request.side_effect = [_make_response(DB), p1, p2]
     assert len(reader.rows("db-1")) == 2
+
+
+# ---------------------------------------------------------------------------
+# NotionSyncer
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def syncer(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("requests.Session") as MockSession:
+        MockSession.return_value = MagicMock()
+        return NotionSyncer()
+
+
+def _fake_rec_type(name: str, features: list[str]):
+    schema = type(
+        "Schema", (), {"members": [type("F", (), {"name": f}) for f in features]}
+    )
+    return type("RecordType", (), {"name": name, "schema": schema})()
+
+
+def _fake_record(last_edited: str | None):
+    feature_mgr = MagicMock()
+    feature_mgr.get_values.return_value = {"notion_last_edited": last_edited}
+    return type("Record", (), {"features": feature_mgr})()
+
+
+def test_syncer_init_raises_without_token(monkeypatch):
+    monkeypatch.delenv("NOTION_TOKEN", raising=False)
+    with pytest.raises(ValueError, match="NOTION_TOKEN"):
+        with patch("requests.Session") as MockSession:
+            MockSession.return_value = MagicMock()
+            NotionSyncer()
+
+
+def test_import_pages_requires_parents(syncer):
+    with pytest.raises(ValueError, match="parents is required"):
+        syncer.import_pages([])
+
+
+def test_schema_validation_requires_notion_last_edited(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    with patch.object(syncer.reader, "columns", return_value={"Name": "title"}):
+        with pytest.raises(ValueError, match="notion_last_edited"):
+            syncer._validate_schema("db-1", rec_type)
+
+
+def test_schema_validation_checks_full_property_parity(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited", "Extra"])
+    with patch.object(
+        syncer.reader, "columns", return_value={"Name": "title", "Email": "email"}
+    ):
+        with pytest.raises(ValueError, match="missing in Lamin schema"):
+            syncer._validate_schema("db-1", rec_type)
+
+
+def test_import_pages_dry_run_does_not_write(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
+    rows = [
+        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
+    ]
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_pages("parent", dry_run=True)
+    assert report["discovered"] == 2
+    assert report["created"] == 2
+    assert report["updated"] == 0
+    assert report["unchanged"] == 0
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
+def test_import_pages_writes_only_created_or_changed(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
+    rows = [
+        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "t-new", "Name": "B"},
+        {"notion_id": "c", "last_edited_time": "t3", "Name": "C"},
+    ]
+    existing = {"a": _fake_record("t1"), "b": _fake_record("t-old")}
+    after = {
+        "a": _fake_record("t1"),
+        "b": _fake_record("t-old"),
+        "c": _fake_record(None),
+    }
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value={"db-1"}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value=existing),
+        patch("lamindb.integrations.notion._upsert_all", return_value=after),
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 2, "pending": 1},
+        ) as write,
+    ):
+        report = syncer.import_pages(["parent"])
+    write_rows = write.call_args[0][1]
+    assert [r["notion_id"] for r in write_rows] == ["b", "c"]
+    assert report["created"] == 1
+    assert report["updated"] == 1
+    assert report["unchanged"] == 1
+    assert report["pending_relations"] == 1

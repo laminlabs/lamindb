@@ -1,21 +1,16 @@
-"""Read a Notion database into Lamin records.
+"""Sync Notion pages to LaminDB records.
 
-Two halves:
+.. autoclass:: NotionSyncer
 
-* :class:`Reader` — a read-only Notion client (databases -> data sources ->
-  pages), flattening pages to plain dicts. Relation values are always lists of
-  Notion page UUIDs (the stable join key), never titles.
-* the sync layer — :func:`sync_all` pulls several databases in the efficient
-  order (upsert everything, then write everything, so every cross-database link
-  resolves in a single pass). :func:`import_db` / :func:`link` are the per-
-  database path for incremental updates afterwards.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from typing import Any
 
 import requests
@@ -23,6 +18,30 @@ from lamin_utils import logger
 
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
+
+
+@dataclass
+class ImportReport:
+    discovered: int = 0
+    created: int = 0
+    updated: int = 0
+    unchanged: int = 0
+    pending_relations: int = 0
+    failed: int = 0
+    errors: list[str] = field(default_factory=list)
+    databases: list[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "discovered": self.discovered,
+            "created": self.created,
+            "updated": self.updated,
+            "unchanged": self.unchanged,
+            "pending_relations": self.pending_relations,
+            "failed": self.failed,
+            "errors": self.errors,
+            "databases": self.databases,
+        }
 
 
 def _flatten(prop: dict) -> Any:
@@ -70,7 +89,7 @@ def _page_title(page: dict) -> str:
     return ""
 
 
-class Reader:
+class NotionReader:
     """Read-only Notion reader. Databases contain data sources; rows live on the data source."""
 
     def __init__(self, token: str) -> None:
@@ -439,53 +458,6 @@ def _row_values(row, rel, lab, feat, resolved, prop_map, create_labels):
     return values, pending
 
 
-def upsert(rec_type, notion_id: str, name: str | None = None):
-    """Create-or-get a single record keyed on its Notion UUID (stable identity).
-
-    A changed title is a plain attribute update on the already-saved row (an
-    UPDATE, not a re-construction), so it cannot trigger name-based merge. For
-    bulk loads prefer :func:`import_db` / :func:`sync_all`, which resolve the
-    existing-record map once instead of querying per row.
-    """
-    import lamindb as ln
-
-    rec = ln.Record.filter(
-        type=rec_type, reference=notion_id, reference_type="notion"
-    ).one_or_none()
-    if rec is None:
-        return ln.Record(
-            name=name or None,
-            type=rec_type,
-            reference=notion_id,
-            reference_type="notion",
-        ).save()
-    if name and rec.name != name:
-        rec.name = name
-        rec.save()
-    return rec
-
-
-def materialize(record, row: dict, spec: dict, resolved: dict, prop_map=None) -> int:
-    """Rebuild ONE record's full feature state from its Notion row; write once.
-
-    Standalone helper — resolves the schema and label kinds itself. Bulk paths
-    use the internal fast loop instead (schema resolved once for all rows).
-    Returns the count of relation targets that did not resolve (still pending).
-    """
-    rel, lab = _kinds(spec)
-    schema = (
-        record.type.schema
-        if (record.type is not None and record.type.schema is not None)
-        else record.schema
-    )
-    feat = _feat_map(schema)
-    values, pending = _row_values(
-        row, rel, lab, feat, resolved, prop_map, create_labels=True
-    )
-    record.features.set_values(values)
-    return pending
-
-
 def _write(reader, rows, rec_type, spec, prop_map=None, by_id=None) -> dict:
     """Materialize every row of one database. Schema, kinds and labels resolved once."""
     rel, lab = _kinds(spec)
@@ -538,73 +510,228 @@ def _upsert_all(rec_type, rows) -> dict:
     return by_id
 
 
-def import_db(reader, database_id: str, rec_type, drop=None, prop_map=None) -> dict:
-    """Import one Notion database: upsert every row, then write it once.
+class NotionSyncer:
+    """Idempotent sync of Notion parent trees into typed Lamin records."""
 
-    Same-database relations (e.g. people->people) resolve immediately. Relations
-    into a database you haven't imported yet come back as ``pending`` — import
-    that database and call :func:`link`, or use :func:`sync_all` to do the whole
-    set in one efficient pass. Returns ``{"records": int, "pending": int}``.
-    """
-    with _bulk_creation():
-        spec = reader.schema(database_id)
-        rows = reader.rows(database_id, drop=drop)  # single paginated pull
-        by_id = _upsert_all(rec_type, rows)
-        return _write(reader, rows, rec_type, spec, prop_map, by_id=by_id)
+    def __init__(self, token: str | None = None) -> None:
+        token = token or os.getenv("NOTION_TOKEN")
+        if not token:
+            raise ValueError("Pass token=... or set NOTION_TOKEN.")
+        self.reader = NotionReader(token=token)
 
+    def _safe_call(self, path: str) -> dict | None:
+        try:
+            return self.reader._call("GET", path)
+        except LookupError:
+            return None
 
-def link(reader, database_id: str, rec_type, drop=None, prop_map=None) -> dict:
-    """Re-resolve one database's relations against everything imported so far.
-
-    Idempotent and convergent: run it after importing more databases and
-    previously-``pending`` links attach. Re-pulls rows because a full-replace
-    write needs the scalar values too. Returns ``{"records", "pending"}``.
-    """
-    with _bulk_creation():
-        spec = reader.schema(database_id)
-        rows = reader.rows(database_id, drop=drop)
-        return _write(reader, rows, rec_type, spec, prop_map)
-
-
-def sync_all(reader, mapping: dict, drop=None, prop_maps=None) -> dict:
-    """Import several databases in the efficient order — no re-link, no double write.
-
-    Phase A upserts every row of every database, so all references exist. Phase B
-    then writes each database exactly once, and because every target already
-    exists, cross-database links (people->org, meeting->people) resolve in that
-    single pass. This replaces the import-then-relink dance and halves the writes.
-
-    Args:
-        mapping: ``{rec_type: database_id}`` — the Record type for each database.
-        drop: property names/types to omit on every page.
-        prop_maps: ``{rec_type: {notion_prop: feature_name}}`` per database.
-
-    Returns:
-        ``{rec_type: {"records": int, "pending": int}}``. Any leftover ``pending``
-        means a relation target lives outside the databases you passed.
-    """
-    prop_maps = prop_maps or {}
-    with _bulk_creation():
-        specs: dict = {}
-        all_rows: dict = {}
-        maps: dict = {}
-        # Phase A — pull + upsert every database so all references exist
-        for rec_type, db_id in mapping.items():
-            specs[rec_type] = reader.schema(db_id)
-            all_rows[rec_type] = reader.rows(db_id, drop=drop)
-            maps[rec_type] = _upsert_all(rec_type, all_rows[rec_type])
-        # Phase B — write each database once; every link now resolves
-        out: dict = {}
-        for rec_type, _db_id in mapping.items():
-            out[rec_type] = _write(
-                reader,
-                all_rows[rec_type],
-                rec_type,
-                specs[rec_type],
-                prop_maps.get(rec_type),
-                by_id=maps[rec_type],
+    def _iter_block_children(self, block_id: str) -> list[dict]:
+        children: list[dict] = []
+        cursor: str | None = None
+        while True:
+            params: dict[str, Any] = {"page_size": 100}
+            if cursor:
+                params["start_cursor"] = cursor
+            payload = self.reader._call(
+                "GET", f"/blocks/{block_id}/children", params=params
             )
+            children.extend(payload.get("results", []))
+            if not payload.get("has_more"):
+                return children
+            cursor = payload.get("next_cursor")
+
+    def _collect_databases_from_block(
+        self, block_id: str, seen: set[str], out: set[str]
+    ) -> None:
+        for block in self._iter_block_children(block_id):
+            bid = block.get("id")
+            if bid and bid in seen:
+                continue
+            if bid:
+                seen.add(bid)
+            if block.get("type") == "child_database" and bid:
+                out.add(bid)
+            if block.get("has_children") and bid:
+                self._collect_databases_from_block(bid, seen, out)
+
+    def _collect_database_ids(self, parents: list[str]) -> set[str]:
+        database_ids: set[str] = set()
+        seen_blocks: set[str] = set()
+        for parent in parents:
+            db_payload = self._safe_call(f"/databases/{parent}")
+            if db_payload is not None:
+                database_ids.add(parent)
+                # recurse through rows as pages to discover nested child databases
+                for row in self.reader.rows(parent):
+                    notion_id = row.get("notion_id")
+                    if notion_id:
+                        self._collect_databases_from_block(
+                            notion_id, seen_blocks, database_ids
+                        )
+                continue
+            page_payload = self._safe_call(f"/pages/{parent}")
+            if page_payload is None:
+                raise LookupError(
+                    f"Parent {parent!r} is neither a readable database nor page."
+                )
+            self._collect_databases_from_block(parent, seen_blocks, database_ids)
+        return database_ids
+
+    @staticmethod
+    def _database_title(payload: dict, fallback: str) -> str:
+        title = payload.get("title") or []
+        text = "".join(part.get("plain_text", "") for part in title).strip()
+        return text or fallback
+
+    @staticmethod
+    def _schema_feature_names(rec_type) -> set[str]:
+        schema = rec_type.schema
+        if schema is None:
+            raise ValueError(
+                f"Record type {rec_type.name!r} has no schema. Add a schema before syncing."
+            )
+        return {feature.name for feature in schema.members}
+
+    def _resolve_record_type(self, database_id: str):
+        import lamindb as ln
+
+        payload = self.reader._call("GET", f"/databases/{database_id}")
+        db_name = self._database_title(payload, fallback=database_id)
+        qs = ln.Record.filter(name=db_name, is_type=True)
+        count = qs.count()
+        if count == 0:
+            raise ValueError(
+                f"No Lamin record type named {db_name!r} for Notion database {database_id!r}."
+            )
+        if count > 1:
+            raise ValueError(
+                f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
+            )
+        return qs.one()
+
+    def _validate_schema(self, database_id: str, rec_type) -> None:
+        notion_props = set(self.reader.columns(database_id))
+        schema_features = self._schema_feature_names(rec_type)
+        missing_features = sorted(notion_props - schema_features)
+        extra_features = sorted(schema_features - notion_props - {"notion_last_edited"})
+        if "notion_last_edited" not in schema_features:
+            raise ValueError(
+                f"Record type {rec_type.name!r} is missing required feature "
+                "'notion_last_edited'."
+            )
+        if missing_features or extra_features:
+            problems: list[str] = []
+            if missing_features:
+                problems.append(f"missing in Lamin schema: {missing_features}")
+            if extra_features:
+                problems.append(f"extra in Lamin schema: {extra_features}")
+            msg = "; ".join(problems)
+            raise ValueError(
+                f"Schema mismatch for database {database_id!r} <-> record type "
+                f"{rec_type.name!r}: {msg}"
+            )
+
+    @staticmethod
+    def _existing_edit_map(by_id: dict) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for notion_id, record in by_id.items():
+            out[notion_id] = record.features.get_values().get("notion_last_edited")
         return out
 
+    def import_pages(
+        self,
+        parents: str | list[str],
+        *,
+        dry_run: bool = False,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Import parent trees, validating schema before any write.
 
-__all__ = ["Reader", "upsert", "materialize", "import_db", "link", "sync_all"]
+        `parents` are Notion page/database IDs. The sync discovers databases under
+        these roots, validates property parity against Lamin schemas, then performs
+        an idempotent upsert/materialize pass.
+        """
+        if isinstance(parents, str):
+            parent_ids = [parents]
+        else:
+            parent_ids = list(parents)
+        if not parent_ids:
+            raise ValueError("parents is required and must contain at least one ID.")
+
+        report = ImportReport()
+        db_ids = sorted(self._collect_database_ids(parent_ids))
+        if not db_ids:
+            raise ValueError(
+                "No child databases discovered under parents. In phase 1, sync operates "
+                "on page trees that include at least one Notion database."
+            )
+        report.databases = db_ids
+
+        # Step 1: resolve and validate schema parity before any write.
+        rec_types: dict[str, Any] = {}
+        for db_id in db_ids:
+            rec_type = self._resolve_record_type(db_id)
+            self._validate_schema(db_id, rec_type)
+            rec_types[db_id] = rec_type
+
+        after_maps: dict[str, dict[str, Any]] = {}
+        to_write: dict[str, list[dict[str, Any]]] = {}
+
+        with _bulk_creation():
+            # Phase A: discover + upsert identity rows.
+            for db_id in db_ids:
+                rec_type = rec_types[db_id]
+                rows = self.reader.rows(db_id, limit=limit)
+                report.discovered += len(rows)
+
+                before = _existing_by_ref(rec_type)
+                before_edit = self._existing_edit_map(before)
+
+                writes: list[dict[str, Any]] = []
+                for row in rows:
+                    notion_id = row["notion_id"]
+                    edited = row.get("last_edited_time")
+                    existing = before_edit.get(notion_id)
+                    if notion_id not in before:
+                        report.created += 1
+                        writes.append(row)
+                    elif existing == edited:
+                        report.unchanged += 1
+                    else:
+                        report.updated += 1
+                        writes.append(row)
+                to_write[db_id] = writes
+
+                if not dry_run:
+                    after_maps[db_id] = _upsert_all(rec_type, rows)
+                else:
+                    after_maps[db_id] = before
+
+            if dry_run:
+                return report.as_dict()
+
+            # Phase B: materialize only changed/new rows.
+            for db_id in db_ids:
+                rec_type = rec_types[db_id]
+                spec = self.reader.schema(db_id)
+                write_rows = to_write[db_id]
+                if not write_rows:
+                    continue
+                stats = _write(
+                    self.reader,
+                    write_rows,
+                    rec_type,
+                    spec,
+                    prop_map=None,
+                    by_id=after_maps[db_id],
+                )
+                report.pending_relations += stats["pending"]
+
+        return report.as_dict()
+
+
+__all__ = [
+    "NotionReader",
+    "ImportReport",
+    "NotionSyncer",
+]
