@@ -29,7 +29,7 @@ def test_cellxgene_curation(cellxgene_defaults) -> None:
     """Tests validating a recent CELLxGENE dataset."""
 
     # this dataset is validated by cellxgene schema 7.0.0 which uses ensembl release 114
-    source = bt.Gene.add_source(name="ensembl", version="release-114", organism="mouse")
+    source = bt.Gene.add_source("ensembl", version="release-114", organism="mouse")
     source.currently_used = True
     source.save()
 
