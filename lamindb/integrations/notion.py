@@ -1379,10 +1379,17 @@ class _NotionSyncer:
                 matches.append(qs.one())
         return self._pick_unique(matches)
 
-    def _resolve_ulabel_type_by_name_candidates(self, names: list[str]) -> Any | None:
+    def _resolve_ulabel_type_by_name_candidates(
+        self, names: list[str], *, parent_type: Any | None = None
+    ) -> Any | None:
         matches: list[Any] = []
         for candidate in names:
-            qs = ln.ULabel.filter(name__iexact=candidate, is_type=True)
+            filters: dict[str, Any] = {"name__iexact": candidate, "is_type": True}
+            if parent_type is None:
+                filters["type__isnull"] = True
+            else:
+                filters["type"] = parent_type
+            qs = ln.ULabel.filter(**filters)
             if qs.count() == 1:
                 matches.append(qs.one())
         return self._pick_unique(matches)
@@ -1425,12 +1432,27 @@ class _NotionSyncer:
         return list(dict.fromkeys([*combined, *prop_candidates]))
 
     def _default_label_type_name(self, db_name: str, property_name: str) -> str:
-        singular_db = self._singularize(db_name.replace("_", " ")).strip()
-        prop = property_name.replace("_", " ").strip().lower()
-        plural_prop = self._pluralize(prop)
-        if singular_db and plural_prop:
-            return f"{singular_db} {plural_prop}"
-        return plural_prop or singular_db
+        prop = property_name.replace(" ", "_").strip().lower()
+        return self._pluralize(prop)
+
+    def _resolve_or_plan_parent_ulabel_type(
+        self,
+        db_name: str,
+        *,
+        apply: bool,
+        report: SyncReport | None,
+    ) -> Any | None:
+        parent = self._resolve_ulabel_type_by_name_candidates(
+            [db_name], parent_type=None
+        )
+        if parent is not None:
+            return parent
+        if report is not None:
+            key = "created_ulabel_types" if apply else "create_ulabel_types"
+            self._append_unique(getattr(report, key), db_name)
+        if apply:
+            return ln.ULabel(name=db_name, is_type=True).save()
+        return None
 
     def _resolve_or_plan_ulabel_type(
         self,
@@ -1439,28 +1461,33 @@ class _NotionSyncer:
         *,
         apply: bool,
         report: SyncReport | None,
-    ) -> tuple[Any | None, str]:
+    ) -> tuple[Any | None, str, str]:
+        parent_type = self._resolve_or_plan_parent_ulabel_type(
+            db_name, apply=apply, report=report
+        )
         default_name = self._default_label_type_name(db_name, property_name)
-        candidates = [
-            default_name,
-            *self._label_type_name_candidates(db_name, property_name),
-        ]
+        candidates = [default_name, *self._name_candidates(property_name)]
         candidates = list(dict.fromkeys(c for c in candidates if c))
-        label_type = self._resolve_ulabel_type_by_name_candidates(candidates)
+        label_type = self._resolve_ulabel_type_by_name_candidates(
+            candidates, parent_type=parent_type
+        )
+        label_type_path = f"{db_name} / {default_name}"
         if label_type is not None:
-            return label_type, label_type.name
+            return label_type, label_type.name, label_type_path
         if report is not None:
             key = "created_ulabel_types" if apply else "create_ulabel_types"
-            self._append_unique(getattr(report, key), default_name)
+            self._append_unique(getattr(report, key), label_type_path)
         if apply:
-            created = ln.ULabel(name=default_name, is_type=True).save()
-            return created, created.name
-        return None, default_name
+            created = ln.ULabel(
+                name=default_name, is_type=True, type=parent_type
+            ).save()
+            return created, created.name, label_type_path
+        return None, default_name, label_type_path
 
     def _plan_or_create_ulabels(
         self,
         label_type: Any | None,
-        label_type_name: str,
+        label_type_path: str,
         choices: list[str] | None,
         *,
         apply: bool,
@@ -1480,7 +1507,7 @@ class _NotionSyncer:
             )
         missing = [value for value in ordered_unique if value not in existing]
         for value in missing:
-            detail = f"{label_type_name} / {value}"
+            detail = f"{label_type_path} / {value}"
             key = "created_ulabels" if apply else "create_ulabels"
             self._append_unique(getattr(report, key), detail)
         if apply and label_type is not None:
@@ -1498,15 +1525,17 @@ class _NotionSyncer:
     ) -> tuple[str, Any]:
         notion_type = property_spec["type"]
         if notion_type in {"select", "status", "multi_select"}:
-            label_type, label_type_name = self._resolve_or_plan_ulabel_type(
-                db_name,
-                property_name,
-                apply=apply,
-                report=report,
+            label_type, label_type_name, label_type_path = (
+                self._resolve_or_plan_ulabel_type(
+                    db_name,
+                    property_name,
+                    apply=apply,
+                    report=report,
+                )
             )
             self._plan_or_create_ulabels(
                 label_type,
-                label_type_name,
+                label_type_path,
                 property_spec.get("choices"),
                 apply=apply,
                 report=report,

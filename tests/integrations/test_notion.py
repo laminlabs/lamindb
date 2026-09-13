@@ -1289,7 +1289,7 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert resolve_record.called
 
 
-def test_multi_select_ulabel_type_candidates_include_db_scoped_name(syncer):
+def test_multi_select_ulabel_type_candidates_include_hierarchical_child_name(syncer):
     with patch.object(
         syncer, "_resolve_ulabel_type_by_name_candidates"
     ) as resolve_ulabel:
@@ -1299,8 +1299,8 @@ def test_multi_select_ulabel_type_candidates_include_db_scoped_name(syncer):
             "interaction",
             {"type": "multi_select", "target": None, "dual": None},
         )
-    candidates = resolve_ulabel.call_args.args[0]
-    assert "Organization interactions" in candidates
+    child_candidates = resolve_ulabel.call_args_list[1].args[0]
+    assert "interactions" in child_candidates
 
 
 def test_multi_select_plans_ulabel_type_and_labels_in_dry_run(syncer):
@@ -1321,28 +1321,36 @@ def test_multi_select_plans_ulabel_type_and_labels_in_dry_run(syncer):
             apply=False,
             report=report,
         )
-    assert dtype_label == "list[Organization interactions]"
+    assert dtype_label == "list[interactions]"
     assert getattr(dtype, "__origin__", None) is list
     assert dtype.__args__[0] is ln.ULabel
-    assert report.create_ulabel_types == ["Organization interactions"]
+    assert report.create_ulabel_types == [
+        "Organizations",
+        "Organizations / interactions",
+    ]
     assert report.create_ulabels == [
-        "Organization interactions / Call",
-        "Organization interactions / Email",
+        "Organizations / interactions / Call",
+        "Organizations / interactions / Email",
     ]
 
 
 def test_multi_select_creates_ulabel_type_and_labels_in_apply(syncer):
     report = SyncReport(apply=True)
+    parent_type = MagicMock()
+    parent_type.name = "Organizations"
+    parent_type.id = 41
     created_type = MagicMock()
-    created_type.name = "Organization interactions"
+    created_type.name = "interactions"
     created_type.id = 77
     with (
         patch.object(
-            syncer, "_resolve_ulabel_type_by_name_candidates", return_value=None
+            syncer,
+            "_resolve_ulabel_type_by_name_candidates",
+            side_effect=[parent_type, None],
         ),
         patch("lamindb.integrations.notion.ln.ULabel") as ULabel,
     ):
-        ULabel.return_value.save.side_effect = [created_type, MagicMock(), MagicMock()]
+        ULabel.return_value.save.side_effect = [created_type, MagicMock()]
         ULabel.filter.return_value.values_list.return_value = ["Call"]
         dtype_label, _ = syncer._dtype_from_notion_property(
             "Organizations",
@@ -1356,9 +1364,9 @@ def test_multi_select_creates_ulabel_type_and_labels_in_apply(syncer):
             apply=True,
             report=report,
         )
-    assert dtype_label == "list[Organization interactions]"
-    assert report.created_ulabel_types == ["Organization interactions"]
-    assert report.created_ulabels == ["Organization interactions / Email"]
+    assert dtype_label == "list[interactions]"
+    assert report.created_ulabel_types == ["Organizations / interactions"]
+    assert report.created_ulabels == ["Organizations / interactions / Email"]
 
 
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
