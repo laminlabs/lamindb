@@ -1929,8 +1929,10 @@ class _NotionSyncer:
         schema_spec: dict[str, dict[str, Any]],
         features_by_name: dict[str, Any],
         current_type_name: str | None = None,
+        locked_feature_names: set[str] | None = None,
     ) -> dict[str, Any]:
         """Infer schema feature name -> source feature for dual Notion relation pairs."""
+        locked_feature_names = locked_feature_names or set()
         logger.important(
             "backward relation: infer start "
             f"relation_props={[name for name, spec in schema_spec.items() if spec.get('type') == 'relation']} "
@@ -1939,6 +1941,12 @@ class _NotionSyncer:
         matches: list[tuple[str, Any, str]] = []
         for property_name, property_spec in schema_spec.items():
             if property_spec.get("type") != "relation":
+                continue
+            if property_name in locked_feature_names:
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-configured"
+                )
                 continue
             local_feature = features_by_name.get(property_name)
             if local_feature is None:
@@ -2427,12 +2435,22 @@ class _NotionSyncer:
         else:
             features = []
         features_by_name = {feature.name: feature for feature in features}
+        locked_feature_names: set[str] = set()
+        if schema is not None:
+            existing_backward_uids = dict(schema._backward_feature_uids)
+            locked_feature_names = {
+                feature_name
+                for feature_name, feature in features_by_name.items()
+                if isinstance(getattr(feature, "uid", None), str)
+                and feature.uid in existing_backward_uids
+            }
         backward_features_by_name: dict[str, Any] = {}
         if schema_spec:
             backward_features_by_name = self._infer_notion_backward_relation_features(
                 schema_spec,
                 features_by_name,
                 current_type_name=db_name,
+                locked_feature_names=locked_feature_names,
             )
         if schema is None:
             if apply:

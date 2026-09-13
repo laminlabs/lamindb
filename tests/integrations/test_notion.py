@@ -1642,6 +1642,59 @@ def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer
     assert input_mock.call_count == 2
 
 
+def test_infer_notion_backward_relation_feature_skips_already_configured(syncer):
+    software_type = type("SoftwareType", (), {"name": "Software"})()
+    software_feature_type = MagicMock()
+    person_feature = MagicMock()
+    person_feature.uid = "F_PERSON"
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    software_feature = MagicMock()
+    software_feature.name = "software"
+    schema_spec = {
+        "meetings": {
+            "type": "relation",
+            "target": "ds-meetings",
+            "dual": {"synced_property_name": "external_attendees"},
+        },
+        "software": {
+            "type": "relation",
+            "target": "ds-software",
+            "dual": {"synced_property_name": "person"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="y") as input_mock,
+    ):
+        stdin.isatty.return_value = True
+        target_names.side_effect = lambda target: (
+            ["Software"] if target == "ds-software" else ["Meetings"]
+        )
+        resolve_type.side_effect = [software_type]
+        software_type_qs = MagicMock()
+        software_type_qs.one_or_none.return_value = software_feature_type
+        software_source_qs = MagicMock()
+        software_source_qs.one_or_none.return_value = person_feature
+        Feature.filter.side_effect = [
+            software_type_qs,
+            software_source_qs,
+        ]
+
+        mapping = syncer._infer_notion_backward_relation_features(
+            schema_spec,
+            {"meetings": meetings_feature, "software": software_feature},
+            locked_feature_names={"meetings"},
+        )
+
+    assert mapping == {"software": person_feature}
+    assert input_mock.call_count == 1
+
+
 def test_infer_notion_backward_relation_feature_self_referential_target(syncer):
     people_type = type("PeopleType", (), {"name": "People"})()
     people_feature_type = MagicMock()
