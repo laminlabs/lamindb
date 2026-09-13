@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -20,6 +21,7 @@ from lamindb.integrations.notion import (
     _flatten,
     _NotionReader,
     _NotionSyncer,
+    _upsert_all,
     sync_from_notion,
 )
 
@@ -424,7 +426,7 @@ def test_rows_empty_returns_empty_list(reader):
 def test_rows_first_two_keys_are_page_level(reader):
     reader.s.request.side_effect = [_make_response(DB), _make_response(PAGES)]
     rows = reader.rows("db-1")
-    assert list(rows[0])[:2] == ["notion_id", "last_edited_time"]
+    assert list(rows[0])[:3] == ["notion_id", "created_time", "last_edited_time"]
 
 
 def test_rows_page_fields_win_over_same_named_property(reader):
@@ -642,10 +644,13 @@ def _fake_rec_type(name: str, features: list[str]):
     return type("RecordType", (), {"name": name, "schema": schema})()
 
 
-def _fake_record(last_edited: str | None):
-    feature_mgr = MagicMock()
-    feature_mgr.get_values.return_value = {"notion_last_edited": last_edited}
-    return type("Record", (), {"features": feature_mgr})()
+def _ts(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _fake_record(updated_at: str | None):
+    updated = _ts(updated_at) if updated_at else None
+    return type("Record", (), {"updated_at": updated, "created_at": updated})()
 
 
 def test_syncer_init_raises_without_token(monkeypatch):
@@ -676,7 +681,7 @@ def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
         patch.object(
             syncer,
             "_database_feature_plan",
-            return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
+            return_value=[("Name", "str", str)],
         ),
         patch.object(syncer, "_plan_or_create_db_metadata"),
         patch("lamindb.integrations.notion.ln.Record") as Record,
@@ -705,7 +710,7 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
         patch.object(
             syncer,
             "_database_feature_plan",
-            return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
+            return_value=[("Name", "str", str)],
         ),
         patch("lamindb.integrations.notion.ln.Record") as Record,
         patch.object(
@@ -728,7 +733,6 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
     feature_plan = [
         ("Display name", "str", str),
         ("Score", "num", "num"),
-        ("notion_last_edited", "str", str),
     ]
     schema = object()
     with (
@@ -781,15 +785,14 @@ def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
     assert parent_pages == {page_id: page_id}
 
 
-def test_schema_validation_requires_notion_last_edited(syncer):
+def test_schema_validation_accepts_exact_property_parity(syncer):
     rec_type = _fake_rec_type("People", ["Name"])
     with patch.object(syncer.reader, "columns", return_value={"Name": "title"}):
-        with pytest.raises(ValueError, match="notion_last_edited"):
-            syncer._validate_schema("db-1", rec_type)
+        syncer._validate_schema("db-1", rec_type)
 
 
 def test_schema_validation_checks_full_property_parity(syncer):
-    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited", "Extra"])
+    rec_type = _fake_rec_type("People", ["Name", "Extra"])
     with patch.object(
         syncer.reader, "columns", return_value={"Name": "title", "Email": "email"}
     ):
@@ -798,10 +801,10 @@ def test_schema_validation_checks_full_property_parity(syncer):
 
 
 def test_import_pages_dry_run_does_not_write(syncer):
-    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
+    rec_type = _fake_rec_type("People", ["Name"])
     rows = [
-        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
-        {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
+        {"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "2024-01-02T00:00:00Z", "Name": "B"},
     ]
     with (
         patch.object(
@@ -830,8 +833,8 @@ def test_import_pages_dry_run_does_not_write(syncer):
 
 def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
     rows = [
-        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
-        {"notion_id": "b", "last_edited_time": "t2", "Name": "B"},
+        {"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "2024-01-02T00:00:00Z", "Name": "B"},
     ]
     with (
         patch.object(
@@ -854,8 +857,8 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
 
 
 def test_import_pages_dry_run_includes_parent_page_type(syncer):
-    rows = [{"notion_id": "a", "last_edited_time": "t1", "Name": "A"}]
-    rec_type = _fake_rec_type("Website analytics", ["Name", "notion_last_edited"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    rec_type = _fake_rec_type("Website analytics", ["Name"])
     with (
         patch.object(
             syncer,
@@ -883,14 +886,14 @@ def test_import_pages_dry_run_includes_parent_page_type(syncer):
 
 
 def test_import_pages_report_compacts_database_ids(syncer):
-    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
-    rows = [{"notion_id": "a", "last_edited_time": "t1", "Name": "A"}]
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     with (
         patch.object(
             syncer,
             "_collect_database_ids",
-            return_value=({db_id}, {"parent"}),
+            return_value=({db_id}, {"parent-id": "Parent"}),
         ),
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
@@ -907,16 +910,19 @@ def test_import_pages_report_compacts_database_ids(syncer):
 
 
 def test_import_pages_writes_only_created_or_changed(syncer):
-    rec_type = _fake_rec_type("People", ["Name", "notion_last_edited"])
+    rec_type = _fake_rec_type("People", ["Name"])
     rows = [
-        {"notion_id": "a", "last_edited_time": "t1", "Name": "A"},
-        {"notion_id": "b", "last_edited_time": "t-new", "Name": "B"},
-        {"notion_id": "c", "last_edited_time": "t3", "Name": "C"},
+        {"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"},
+        {"notion_id": "b", "last_edited_time": "2024-01-02T00:00:00Z", "Name": "B"},
+        {"notion_id": "c", "last_edited_time": "2024-01-03T00:00:00Z", "Name": "C"},
     ]
-    existing = {"a": _fake_record("t1"), "b": _fake_record("t-old")}
+    existing = {
+        "a": _fake_record("2024-01-01T00:00:00Z"),
+        "b": _fake_record("2024-01-01T00:00:00Z"),
+    }
     after = {
-        "a": _fake_record("t1"),
-        "b": _fake_record("t-old"),
+        "a": _fake_record("2024-01-01T00:00:00Z"),
+        "b": _fake_record("2024-01-01T00:00:00Z"),
         "c": _fake_record(None),
     }
     with (
@@ -943,6 +949,27 @@ def test_import_pages_writes_only_created_or_changed(syncer):
     assert report.updated == 1
     assert report.unchanged == 1
     assert report.pending_relations == 1
+
+
+def test_upsert_all_populates_created_and_updated_from_notion():
+    rows = [
+        {
+            "notion_id": "page-1",
+            "name": "A",
+            "created_time": "2024-01-01T08:00:00Z",
+            "last_edited_time": "2024-01-03T10:00:00Z",
+        }
+    ]
+    rec = MagicMock()
+    rec.save.return_value = rec
+    with (
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion.ln.Record", return_value=rec),
+    ):
+        out = _upsert_all(rec_type=object(), rows=rows)
+    assert out["page-1"] is rec
+    assert rec.created_at == _ts("2024-01-01T08:00:00Z")
+    assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
 
 
 def test_sync_from_notion_delegates_to_syncer_and_prints():

@@ -13,6 +13,7 @@ import re
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -186,6 +187,23 @@ def _page_title(page: dict) -> str:
     return ""
 
 
+def _parse_notion_timestamp(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _normalized_timestamp(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).replace(microsecond=0)
+
+
 class _NotionReader:
     """Read-only Notion reader. Databases contain data sources; rows live on the data source."""
 
@@ -337,13 +355,18 @@ class _NotionReader:
 
         rows: list[dict] = []
         for page in self._query(ds, limit=limit):
-            row: dict[str, Any] = {"notion_id": None, "last_edited_time": None}
+            row: dict[str, Any] = {
+                "notion_id": None,
+                "created_time": None,
+                "last_edited_time": None,
+            }
             for name, prop in page.get("properties", {}).items():
                 if name in drop or prop.get("type") in drop:
                     continue
                 row[name] = _flatten(prop)
             # page-level fields win over any same-named user property
             row["notion_id"] = page.get("id")
+            row["created_time"] = page.get("created_time")
             row["last_edited_time"] = page.get("last_edited_time")
             rows.append(row)
         return rows
@@ -427,17 +450,23 @@ class _NotionReader:
 
         Returns:
             Dict with one key per property plus ``notion_id`` and
-            ``last_edited_time``. Relation/people values are lists of Notion
-            page UUIDs — the stable join key.
+            page-level timestamps (``created_time``, ``last_edited_time``).
+            Relation/people values are lists of Notion page UUIDs — the stable
+            join key.
         """
         drop = drop or set()
         raw = self._call("GET", f"/pages/{page_id}")
-        row: dict[str, Any] = {"notion_id": None, "last_edited_time": None}
+        row: dict[str, Any] = {
+            "notion_id": None,
+            "created_time": None,
+            "last_edited_time": None,
+        }
         for name, prop in raw.get("properties", {}).items():
             if name in drop or prop.get("type") in drop:
                 continue
             row[name] = _flatten(prop)
         row["notion_id"] = raw.get("id")
+        row["created_time"] = raw.get("created_time")
         row["last_edited_time"] = raw.get("last_edited_time")
         return row
 
@@ -524,7 +553,11 @@ def _row_values(row, rel, lab, feat, resolved, prop_map, create_labels):
     values: dict[Any, Any] = {}
     pending = 0
     for prop, val in row.items():
-        if prop in ("notion_id", "last_edited_time") or val in (None, [], ""):
+        if prop in ("notion_id", "created_time", "last_edited_time") or val in (
+            None,
+            [],
+            "",
+        ):
             continue
         f = feat.get(prop_map.get(prop, prop))
         if f is None:
@@ -545,9 +578,6 @@ def _row_values(row, rel, lab, feat, resolved, prop_map, create_labels):
                 values[f] = names if isinstance(val, list) else names[0]
         else:
             values[f] = val
-
-    if "notion_last_edited" in feat:
-        values[feat["notion_last_edited"]] = row.get("last_edited_time")
     return values, pending
 
 
@@ -587,17 +617,43 @@ def _upsert_all(rec_type, rows) -> dict:
     by_id = _existing_by_ref(rec_type)  # ONE query, not one per row
     for row in rows:
         nid, name = row["notion_id"], row.get("name")
+        created_at = _parse_notion_timestamp(row.get("created_time"))
+        updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
+        if created_at is None:
+            created_at = updated_at
+        if updated_at is None:
+            updated_at = created_at
         rec = by_id.get(nid)
         if rec is None:
-            by_id[nid] = ln.Record(
+            rec = ln.Record(
                 name=name or None,
                 type=rec_type,
                 reference=nid,
                 reference_type="notion",
-            ).save()
-        elif name and rec.name != name:
+            )
+            if created_at is not None:
+                rec.created_at = created_at
+            if updated_at is not None:
+                rec.updated_at = updated_at
+            by_id[nid] = rec.save()
+            continue
+
+        changed_fields: list[str] = []
+        if name and rec.name != name:
             rec.name = name
-            rec.save()
+            changed_fields.append("name")
+        if created_at is not None and _normalized_timestamp(
+            rec.created_at
+        ) != _normalized_timestamp(created_at):
+            rec.created_at = created_at
+            changed_fields.append("created_at")
+        if updated_at is not None and _normalized_timestamp(
+            rec.updated_at
+        ) != _normalized_timestamp(updated_at):
+            rec.updated_at = updated_at
+            changed_fields.append("updated_at")
+        if changed_fields:
+            rec.save(update_fields=changed_fields)
     return by_id
 
 
@@ -744,12 +800,10 @@ class _NotionSyncer:
     ) -> list[tuple[str, str, Any]]:
         if columns is None:
             columns = self.reader.columns(database_id)
-        ordered_feature_names = list(columns) + ["notion_last_edited"]
+        ordered_feature_names = list(columns)
         plan: list[tuple[str, str, Any]] = []
         for name in ordered_feature_names:
-            notion_type = (
-                "last_edited_time" if name == "notion_last_edited" else columns[name]
-            )
+            notion_type = columns[name]
             plan.append(
                 (
                     name,
@@ -896,12 +950,7 @@ class _NotionSyncer:
         notion_props = set(self.reader.columns(database_id))
         schema_features = self._schema_feature_names(rec_type)
         missing_features = sorted(notion_props - schema_features)
-        extra_features = sorted(schema_features - notion_props - {"notion_last_edited"})
-        if "notion_last_edited" not in schema_features:
-            raise ValueError(
-                f"Record type {rec_type.name!r} is missing required feature "
-                "'notion_last_edited'."
-            )
+        extra_features = sorted(schema_features - notion_props)
         if missing_features or extra_features:
             problems: list[str] = []
             if missing_features:
@@ -918,7 +967,7 @@ class _NotionSyncer:
     def _existing_edit_map(by_id: dict) -> dict[str, Any]:
         out: dict[str, Any] = {}
         for notion_id, record in by_id.items():
-            out[notion_id] = record.features.get_values().get("notion_last_edited")
+            out[notion_id] = _normalized_timestamp(getattr(record, "updated_at", None))
         return out
 
     def import_pages(
@@ -990,7 +1039,9 @@ class _NotionSyncer:
                 writes: list[dict[str, Any]] = []
                 for row in rows:
                     notion_id = row["notion_id"]
-                    edited = row.get("last_edited_time")
+                    edited = _normalized_timestamp(
+                        _parse_notion_timestamp(row.get("last_edited_time"))
+                    )
                     existing = before_edit.get(notion_id)
                     if notion_id not in before:
                         report.created += 1
