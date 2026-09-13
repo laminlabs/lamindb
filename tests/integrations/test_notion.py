@@ -1025,8 +1025,10 @@ def test_plan_metadata_uses_schema_members_when_feature_type_missing(syncer):
         ("website", "str", str),
     ]
     schema = MagicMock()
-    summary_feature = type("Feature", (), {"name": "summary"})()
-    interaction_feature = type("Feature", (), {"name": "interaction"})()
+    summary_feature = type("Feature", (), {"name": "summary", "dtype_as_str": "str"})()
+    interaction_feature = type(
+        "Feature", (), {"name": "interaction", "dtype_as_str": "list[ULabel]"}
+    )()
     schema.members.all.return_value = [summary_feature, interaction_feature]
     schema.members.filter.return_value = [summary_feature, interaction_feature]
 
@@ -1059,7 +1061,7 @@ def test_plan_metadata_uses_schema_members_when_feature_type_missing(syncer):
     assert report.create_features == ["Organizations / website: str"]
     assert report.update_features == [
         "Organizations / summary: str",
-        "Organizations / interaction: list[str]",
+        "Organizations / interaction: list[ULabel]",
     ]
 
 
@@ -1101,6 +1103,61 @@ def test_plan_metadata_apply_updates_existing_schema_features_to_feature_type(sy
     existing_feature.save.assert_called_once_with(update_fields=["type"])
     assert existing_feature.type is feature_type
     assert report.updated_features == ["Organizations / summary: str"]
+
+
+def test_update_features_report_existing_lamin_dtype_labels(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [
+        ("business_type", "list[str]", list[str]),
+        ("summary", "str", str),
+        ("person", "list[str]", list[str]),
+        ("interaction", "list[str]", list[str]),
+        ("website", "str", str),
+    ]
+    schema = MagicMock()
+
+    def _feature(name: str, dtype: str):
+        feature = MagicMock()
+        feature.name = name
+        feature.dtype_as_str = dtype
+        feature.type_id = None
+        return feature
+
+    business_type = _feature("business_type", "list[ULabel]")
+    summary = _feature("summary", "str")
+    person = _feature("person", "list[People]")
+    interaction = _feature("interaction", "list[ULabel]")
+    schema.members.all.return_value = [business_type, summary, person, interaction]
+    schema.members.filter.return_value = [business_type, summary, person, interaction]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 0
+        feature_type_qs.one_or_none.return_value = None
+        Feature.filter.return_value = feature_type_qs
+
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=False,
+            report=report,
+        )
+
+    assert report.update_features == [
+        "Organizations / business_type: list[ULabel]",
+        "Organizations / summary: str",
+        "Organizations / person: list[People]",
+        "Organizations / interaction: list[ULabel]",
+    ]
+    assert report.create_features == ["Organizations / website: str"]
 
 
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
@@ -1187,6 +1244,42 @@ def test_feature_dtype_for_files_maps_to_artifact_list(syncer):
     assert syncer._feature_dtype_label_from_notion_type("files") == "list[Artifact]"
     assert getattr(dtype, "__origin__", None) is list
     assert dtype.__args__[0] is ln.Artifact
+
+
+def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(syncer):
+    db_id = "db-1"
+    schema_spec = {
+        "business_type": {"type": "multi_select", "target": None, "dual": None},
+        "person": {
+            "type": "relation",
+            "target": "ds-people",
+            "dual": {"synced_property_name": "people"},
+        },
+    }
+    columns = {"business_type": "multi_select", "person": "relation"}
+    people_type = type("PeopleType", (), {"name": "People"})
+    people_ulabel_type = type("PeopleULabelType", (), {"name": "People"})
+
+    with (
+        patch.object(
+            syncer, "_resolve_ulabel_type_by_name_candidates"
+        ) as resolve_ulabel,
+        patch.object(
+            syncer, "_resolve_record_type_by_name_candidates"
+        ) as resolve_record,
+    ):
+        resolve_ulabel.return_value = people_ulabel_type
+        resolve_record.return_value = people_type
+        plan = syncer._database_feature_plan(
+            db_id, columns=columns, schema_spec=schema_spec
+        )
+
+    assert plan[0][0] == "business_type"
+    assert plan[0][1] == "list[People]"
+    assert plan[1][0] == "person"
+    assert plan[1][1] == "list[People]"
+    assert resolve_ulabel.called
+    assert resolve_record.called
 
 
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):

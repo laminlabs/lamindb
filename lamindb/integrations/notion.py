@@ -1302,6 +1302,86 @@ class _NotionSyncer:
         return "str"
 
     @staticmethod
+    def _name_candidates(name: str) -> list[str]:
+        raw = (name or "").strip()
+        if not raw:
+            return []
+        base = raw.replace("_", " ")
+        variants = [raw, base, base.title()]
+        if base.endswith("s"):
+            singular = base[:-1].strip()
+            if singular:
+                variants.extend([singular, singular.title()])
+        else:
+            plural = f"{base}s"
+            variants.extend([plural, plural.title()])
+        # Preserve order while deduplicating.
+        return list(dict.fromkeys(v for v in variants if v))
+
+    @staticmethod
+    def _pick_unique(records: list[Any]) -> Any | None:
+        unique_by_id: dict[Any, Any] = {}
+        for record in records:
+            record_id = getattr(record, "id", None)
+            key = record_id if record_id is not None else id(record)
+            unique_by_id[key] = record
+        if len(unique_by_id) == 1:
+            return next(iter(unique_by_id.values()))
+        return None
+
+    def _resolve_record_type_by_name_candidates(self, names: list[str]) -> Any | None:
+        matches: list[Any] = []
+        for candidate in names:
+            qs = ln.Record.filter(name__iexact=candidate, is_type=True)
+            if qs.count() == 1:
+                matches.append(qs.one())
+        return self._pick_unique(matches)
+
+    def _resolve_ulabel_type_by_name_candidates(self, names: list[str]) -> Any | None:
+        matches: list[Any] = []
+        for candidate in names:
+            qs = ln.ULabel.filter(name__iexact=candidate, is_type=True)
+            if qs.count() == 1:
+                matches.append(qs.one())
+        return self._pick_unique(matches)
+
+    @staticmethod
+    def _list_dtype_for(dynamic_type: Any) -> Any:
+        # dynamic_type is resolved at runtime from DB records, so mypy cannot
+        # validate it as a static type argument.
+        return list[dynamic_type]  # type: ignore[valid-type]
+
+    def _dtype_from_notion_property(
+        self, property_name: str, property_spec: dict[str, Any]
+    ) -> tuple[str, Any]:
+        notion_type = property_spec["type"]
+        if notion_type == "multi_select":
+            label_type = self._resolve_ulabel_type_by_name_candidates(
+                self._name_candidates(property_name)
+            )
+            if label_type is not None:
+                return f"list[{label_type.name}]", self._list_dtype_for(label_type)
+            return "list[ULabel]", list[ln.ULabel]
+        if notion_type == "relation":
+            names = self._name_candidates(property_name)
+            dual = property_spec.get("dual")
+            if isinstance(dual, dict):
+                synced_name = dual.get("synced_property_name")
+                if isinstance(synced_name, str) and synced_name:
+                    names.extend(self._name_candidates(synced_name))
+                    names = list(dict.fromkeys(names))
+            relation_type = self._resolve_record_type_by_name_candidates(names)
+            if relation_type is not None:
+                return f"list[{relation_type.name}]", self._list_dtype_for(
+                    relation_type
+                )
+            return "list[str]", list[str]
+        return (
+            self._feature_dtype_label_from_notion_type(notion_type),
+            self._feature_dtype_from_notion_type(notion_type),
+        )
+
+    @staticmethod
     def _record_field_mapping_for_notion_type(notion_type: str) -> str | None:
         if notion_type == "created_time":
             return "created_at"
@@ -1329,19 +1409,25 @@ class _NotionSyncer:
         return None
 
     def _database_feature_plan(
-        self, database_id: str, columns: dict[str, str] | None = None
+        self,
+        database_id: str,
+        columns: dict[str, str] | None = None,
+        schema_spec: dict[str, dict[str, Any]] | None = None,
     ) -> list[tuple[str, str, Any]]:
+        if schema_spec is None:
+            schema_spec = self.reader.schema(database_id)
         if columns is None:
-            columns = self.reader.columns(database_id)
+            columns = {k: v["type"] for k, v in schema_spec.items()}
         ordered_feature_names = list(columns)
         plan: list[tuple[str, str, Any]] = []
         for name in ordered_feature_names:
-            notion_type = columns[name]
+            property_spec = schema_spec.get(name, {"type": columns[name]})
+            dtype_label, dtype = self._dtype_from_notion_property(name, property_spec)
             plan.append(
                 (
                     name,
-                    self._feature_dtype_label_from_notion_type(notion_type),
-                    self._feature_dtype_from_notion_type(notion_type),
+                    dtype_label,
+                    dtype,
                 )
             )
         return plan
@@ -1350,6 +1436,14 @@ class _NotionSyncer:
     def _append_unique(values: list[str], value: str) -> None:
         if value not in values:
             values.append(value)
+
+    @staticmethod
+    def _feature_dtype_label(feature: Any) -> str | None:
+        for attr in ("dtype_as_str", "_dtype_str", "dtype"):
+            value = getattr(feature, attr, None)
+            if isinstance(value, str) and value:
+                return value
+        return None
 
     def _plan_or_create_db_metadata(
         self,
@@ -1411,19 +1505,23 @@ class _NotionSyncer:
             f"missing_features={len(missing_specs)}"
         )
 
-        type_update_specs: list[tuple[str, str, Any]] = []
+        type_update_specs: list[tuple[str, str, Any, Any]] = []
         if schema is not None:
             for name, dtype_label, dtype in feature_plan:
                 existing_feature = schema_members_by_name.get(name)
                 if existing_feature is None:
                     continue
                 if feature_type is None:
-                    type_update_specs.append((name, dtype_label, dtype))
+                    type_update_specs.append(
+                        (name, dtype_label, dtype, existing_feature)
+                    )
                     continue
                 if getattr(existing_feature, "type_id", None) != getattr(
                     feature_type, "id", None
                 ):
-                    type_update_specs.append((name, dtype_label, dtype))
+                    type_update_specs.append(
+                        (name, dtype_label, dtype, existing_feature)
+                    )
 
         if missing_specs:
             for name, dtype_label, _ in missing_specs:
@@ -1434,8 +1532,9 @@ class _NotionSyncer:
                     self._append_unique(report.create_features, detail)
 
         if type_update_specs:
-            for name, dtype_label, _ in type_update_specs:
-                detail = f"{db_name} / {name}: {dtype_label}"
+            for name, dtype_label, _, existing_feature in type_update_specs:
+                existing_dtype_label = self._feature_dtype_label(existing_feature)
+                detail = f"{db_name} / {name}: {existing_dtype_label or dtype_label}"
                 if apply:
                     self._append_unique(report.updated_features, detail)
                 else:
@@ -1454,7 +1553,7 @@ class _NotionSyncer:
             and schema is not None
             and type_update_specs
         ):
-            for name, _, _ in type_update_specs:
+            for name, _, _, _ in type_update_specs:
                 feature = schema_members_by_name.get(name)
                 if feature is None:
                     continue
