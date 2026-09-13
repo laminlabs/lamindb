@@ -3,7 +3,7 @@ import inspect
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, get_type_hints
 
 from lamindb.base import deprecated
 
@@ -45,6 +45,18 @@ def _create_tracked_decorator(
         # Get the original signature
         sig = inspect.signature(func)
 
+        def _expected_param_types() -> dict[str, Any]:
+            """Resolve function parameter annotations, including postponed ones."""
+            try:
+                resolved_type_hints = get_type_hints(func, include_extras=True)
+            except Exception:
+                resolved_type_hints = {}
+            return {
+                name: resolved_type_hints.get(name, parameter.annotation)
+                for name, parameter in sig.parameters.items()
+                if parameter.annotation is not inspect._empty
+            }
+
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
             if global_context.run is None:
@@ -60,11 +72,7 @@ def _create_tracked_decorator(
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             params = dict(bound_args.arguments)
-            expected_param_types = {
-                name: parameter.annotation
-                for name, parameter in sig.parameters.items()
-                if parameter.annotation is not inspect._empty
-            }
+            expected_param_types = _expected_param_types()
 
             initiated_by_run = get_current_tracked_run()
             track_kwargs: dict = {}

@@ -470,7 +470,43 @@ def _annotation_to_feature_dtype_arg(
                 return None, value, f"expected {annotation.__name__}"
             return annotation, value, None
         if annotation in {bool, int, float, str, dict, list}:
-            return annotation, value, None
+            if annotation is bool:
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, bool)
+                    else (None, value, "expected bool")
+                )
+            if annotation is int:
+                # bool is a subclass of int in Python, exclude it explicitly.
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, int) and not isinstance(value, bool)
+                    else (None, value, "expected int")
+                )
+            if annotation is float:
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, float)
+                    else (None, value, "expected float")
+                )
+            if annotation is str:
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, str)
+                    else (None, value, "expected str")
+                )
+            if annotation is dict:
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, dict)
+                    else (None, value, "expected dict")
+                )
+            if annotation is list:
+                return (
+                    (annotation, value, None)
+                    if isinstance(value, list)
+                    else (None, value, "expected list")
+                )
         return None, value, f"unsupported annotation type {annotation!r}"
     return None, value, f"unsupported annotation {annotation!r}"
 
