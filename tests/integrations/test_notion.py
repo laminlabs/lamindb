@@ -906,15 +906,14 @@ def test_import_pages_requires_parents(syncer):
 def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
+    schema_spec = {"Name": {"type": "title"}, "Score": {"type": "number"}}
     with (
         patch.object(
             syncer.reader,
             "_call",
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
-        patch.object(
-            syncer.reader, "columns", return_value={"Name": "title", "Score": "number"}
-        ),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",
@@ -935,15 +934,14 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
     created_type = object()
+    schema_spec = {"Name": {"type": "title"}, "Score": {"type": "number"}}
     with (
         patch.object(
             syncer.reader,
             "_call",
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
-        patch.object(
-            syncer.reader, "columns", return_value={"Name": "title", "Score": "number"}
-        ),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",
@@ -976,6 +974,7 @@ def test_resolve_record_type_apply_adds_missing_features_to_existing_schema(sync
     rec_type._aux = None
     rec_type.schema = MagicMock()
     rec_type.schema.members = [existing_feature]
+    schema_spec = {"name": {"type": "title"}, "page_views": {"type": "number"}}
 
     with (
         patch.object(
@@ -983,11 +982,7 @@ def test_resolve_record_type_apply_adds_missing_features_to_existing_schema(sync
             "_call",
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
-        patch.object(
-            syncer.reader,
-            "columns",
-            return_value={"name": "title", "page_views": "number"},
-        ),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",
@@ -1018,6 +1013,7 @@ def test_resolve_record_type_apply_adds_missing_features_to_existing_schema(sync
 def test_resolve_record_type_dry_run_plans_missing_features_for_existing_schema(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
+    schema_spec = {"name": {"type": "title"}, "page_views": {"type": "number"}}
     rec_type = MagicMock()
     rec_type.name = "Website analytics"
     rec_type.description = None
@@ -1032,8 +1028,8 @@ def test_resolve_record_type_dry_run_plans_missing_features_for_existing_schema(
         ),
         patch.object(
             syncer.reader,
-            "columns",
-            return_value={"name": "title", "page_views": "number"},
+            "schema",
+            return_value=schema_spec,
         ),
         patch.object(
             syncer,
@@ -1296,14 +1292,17 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
-    columns = {"Display name": "title", "Score": "number"}
+    schema_spec = {
+        "Display name": {"type": "title"},
+        "Score": {"type": "number"},
+    }
     feature_plan = [
         ("Display name", "str", str),
         ("Score", "num", "num"),
     ]
     schema = object()
     with (
-        patch.object(syncer.reader, "columns", return_value=columns),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(syncer, "_database_feature_plan", return_value=feature_plan),
         patch.object(
             syncer,
@@ -1324,6 +1323,7 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
     plan_or_create.assert_called_once_with(
         "Website analytics",
         feature_plan,
+        schema_spec=schema_spec,
         index_feature_name="Display name",
         record_field_mappings={"Display name": "name"},
         apply=True,
@@ -1480,6 +1480,318 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert plan[1][1] == "list[People]"
     assert resolve_ulabel.called
     assert resolve_record.called
+
+
+def test_infer_notion_backward_relation_feature_prefers_target_named_side(syncer):
+    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
+    meetings_feature_type = MagicMock()
+    external_attendees_feature = MagicMock()
+    external_attendees_feature.uid = "F_EXT_ATT"
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    schema_spec = {
+        "meetings": {
+            "type": "relation",
+            "target": "ds-meetings",
+            "dual": {"synced_property_name": "external_attendees"},
+        },
+        "external_attendees": {
+            "type": "relation",
+            "target": "ds-people",
+            "dual": {"synced_property_name": "meetings"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+    ):
+        target_names.side_effect = [["Meetings"], ["People"]]
+        resolve_type.side_effect = [meetings_type, None]
+        feature_type_qs = MagicMock()
+        feature_type_qs.one_or_none.return_value = meetings_feature_type
+        source_feature_qs = MagicMock()
+        source_feature_qs.one_or_none.return_value = external_attendees_feature
+        Feature.filter.side_effect = [feature_type_qs, source_feature_qs]
+
+        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+            schema_spec,
+            {"meetings": meetings_feature},
+        )
+
+    assert feature_name == "meetings"
+    assert source_feature is external_attendees_feature
+
+
+def test_infer_notion_backward_relation_feature_skips_ambiguous_non_interactive(syncer):
+    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
+    software_type = type("SoftwareType", (), {"name": "Software"})()
+    meetings_feature_type = MagicMock()
+    software_feature_type = MagicMock()
+    external_attendees_feature = MagicMock()
+    external_attendees_feature.uid = "F_EXT_ATT"
+    person_feature = MagicMock()
+    person_feature.uid = "F_PERSON"
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meeting"
+    software_feature = MagicMock()
+    software_feature.name = "software"
+    schema_spec = {
+        "meeting": {
+            "type": "relation",
+            "target": "ds-meetings",
+            "dual": {"synced_property_name": "external_attendees"},
+        },
+        "software": {
+            "type": "relation",
+            "target": "ds-software",
+            "dual": {"synced_property_name": "person"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+    ):
+        target_names.side_effect = [["Meetings"], ["Software"]]
+        resolve_type.side_effect = [meetings_type, software_type]
+        meetings_type_qs = MagicMock()
+        meetings_type_qs.one_or_none.return_value = meetings_feature_type
+        meetings_source_qs = MagicMock()
+        meetings_source_qs.one_or_none.return_value = external_attendees_feature
+        software_type_qs = MagicMock()
+        software_type_qs.one_or_none.return_value = software_feature_type
+        software_source_qs = MagicMock()
+        software_source_qs.one_or_none.return_value = person_feature
+        Feature.filter.side_effect = [
+            meetings_type_qs,
+            meetings_source_qs,
+            software_type_qs,
+            software_source_qs,
+        ]
+
+        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+            schema_spec,
+            {"meeting": meetings_feature, "software": software_feature},
+        )
+
+    assert feature_name is None
+    assert source_feature is None
+
+
+def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer):
+    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
+    software_type = type("SoftwareType", (), {"name": "Software"})()
+    meetings_feature_type = MagicMock()
+    software_feature_type = MagicMock()
+    external_attendees_feature = MagicMock()
+    external_attendees_feature.uid = "F_EXT_ATT"
+    person_feature = MagicMock()
+    person_feature.uid = "F_PERSON"
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meeting"
+    software_feature = MagicMock()
+    software_feature.name = "software"
+    schema_spec = {
+        "meeting": {
+            "type": "relation",
+            "target": "ds-meetings",
+            "dual": {"synced_property_name": "external_attendees"},
+        },
+        "software": {
+            "type": "relation",
+            "target": "ds-software",
+            "dual": {"synced_property_name": "person"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="1"),
+    ):
+        stdin.isatty.return_value = True
+        target_names.side_effect = [["Meetings"], ["Software"]]
+        resolve_type.side_effect = [meetings_type, software_type]
+        meetings_type_qs = MagicMock()
+        meetings_type_qs.one_or_none.return_value = meetings_feature_type
+        meetings_source_qs = MagicMock()
+        meetings_source_qs.one_or_none.return_value = external_attendees_feature
+        software_type_qs = MagicMock()
+        software_type_qs.one_or_none.return_value = software_feature_type
+        software_source_qs = MagicMock()
+        software_source_qs.one_or_none.return_value = person_feature
+        Feature.filter.side_effect = [
+            meetings_type_qs,
+            meetings_source_qs,
+            software_type_qs,
+            software_source_qs,
+        ]
+
+        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+            schema_spec,
+            {"meeting": meetings_feature, "software": software_feature},
+        )
+
+    assert feature_name == "meeting"
+    assert source_feature is external_attendees_feature
+
+
+def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
+    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
+    software_type = type("SoftwareType", (), {"name": "Software"})()
+    meetings_feature_type = MagicMock()
+    software_feature_type = MagicMock()
+    external_attendees_feature = MagicMock()
+    external_attendees_feature.uid = "F_EXT_ATT"
+    person_feature = MagicMock()
+    person_feature.uid = "F_PERSON"
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meeting"
+    software_feature = MagicMock()
+    software_feature.name = "software"
+    schema_spec = {
+        "meeting": {
+            "type": "relation",
+            "target": "ds-meetings",
+            "dual": {"synced_property_name": "external_attendees"},
+        },
+        "software": {
+            "type": "relation",
+            "target": "ds-software",
+            "dual": {"synced_property_name": "person"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch.object(
+            syncer,
+            "_relation_feature_matches_target_type",
+            side_effect=[True, False],
+        ),
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+    ):
+        target_names.side_effect = [["Meetings"], ["Software"]]
+        resolve_type.side_effect = [meetings_type, software_type]
+        meetings_type_qs = MagicMock()
+        meetings_type_qs.one_or_none.return_value = meetings_feature_type
+        meetings_source_qs = MagicMock()
+        meetings_source_qs.one_or_none.return_value = external_attendees_feature
+        software_type_qs = MagicMock()
+        software_type_qs.one_or_none.return_value = software_feature_type
+        software_source_qs = MagicMock()
+        software_source_qs.one_or_none.return_value = person_feature
+        Feature.filter.side_effect = [
+            meetings_type_qs,
+            meetings_source_qs,
+            software_type_qs,
+            software_source_qs,
+        ]
+
+        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+            schema_spec,
+            {"meeting": meetings_feature, "software": software_feature},
+        )
+
+    assert feature_name == "meeting"
+    assert source_feature is external_attendees_feature
+
+
+def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    meetings_feature.uid = "F_MEETINGS"
+    schema = MagicMock()
+    schema.members.all.return_value = [meetings_feature]
+    schema.members.filter.return_value = [meetings_feature]
+    schema._backward_feature_uid = None
+    schema._aux = {}
+    source_feature = MagicMock()
+    source_feature.uid = "F_EXT_ATT"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch.object(
+            syncer,
+            "_infer_notion_backward_relation_feature",
+            return_value=("meetings", source_feature),
+        ),
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 7
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [meetings_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "People",
+            feature_plan,
+            schema_spec={"meetings": {"type": "relation"}},
+            apply=True,
+            report=report,
+        )
+
+    assert report.updated_schemas == ["People"]
+    assert schema._aux["af"]["4"] == "F_EXT_ATT"
+    schema.save.assert_called_once_with(update_fields=["_aux"])
+
+
+def test_plan_metadata_dry_run_reports_backward_mapping_update(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    meetings_feature.uid = "F_MEETINGS"
+    schema = MagicMock()
+    schema.members.all.return_value = [meetings_feature]
+    schema.members.filter.return_value = [meetings_feature]
+    schema._backward_feature_uid = None
+    source_feature = MagicMock()
+    source_feature.uid = "F_EXT_ATT"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch.object(
+            syncer,
+            "_infer_notion_backward_relation_feature",
+            return_value=("meetings", source_feature),
+        ),
+    ):
+        feature_type = MagicMock()
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [meetings_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "People",
+            feature_plan,
+            schema_spec={"meetings": {"type": "relation"}},
+            apply=False,
+            report=report,
+        )
+
+    assert report.update_schemas == ["People"]
+    schema.save.assert_not_called()
 
 
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
@@ -1926,9 +2238,10 @@ def test_resolve_record_type_apply_assigns_parent_type(syncer):
     rec_type.schema.members = []
     rec_type.type_id = None
     parent_type = type("ParentType", (), {"id": 7, "name": "General asset"})()
+    schema_spec = {"name": {"type": "title"}}
 
     with (
-        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",
@@ -1969,9 +2282,10 @@ def test_resolve_record_type_dry_run_reports_parent_type_move(syncer):
     rec_type.schema.members = []
     rec_type.type_id = None
     parent_type = type("ParentType", (), {"id": 7, "name": "General asset"})()
+    schema_spec = {"name": {"type": "title"}}
 
     with (
-        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",
@@ -2004,9 +2318,10 @@ def test_resolve_record_type_dry_run_reports_schema_attachment(syncer):
     rec_type._aux = None
     rec_type.schema = None
     rec_type.type_id = None
+    schema_spec = {"name": {"type": "title"}}
 
     with (
-        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(syncer.reader, "schema", return_value=schema_spec),
         patch.object(
             syncer,
             "_database_feature_plan",

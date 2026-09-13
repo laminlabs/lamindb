@@ -1907,6 +1907,224 @@ class _NotionSyncer:
                 mappings[feature_name] = record_field
         return mappings
 
+    def _relation_property_matches_target_names(
+        self, property_name: str, target_names: list[str]
+    ) -> bool:
+        property_tokens = {
+            token.strip().lower().replace("_", " ")
+            for token in self._name_candidates(property_name)
+            if isinstance(token, str) and token.strip()
+        }
+        target_tokens: set[str] = set()
+        for target_name in target_names:
+            target_tokens.update(
+                token.strip().lower().replace("_", " ")
+                for token in self._name_candidates(target_name)
+                if isinstance(token, str) and token.strip()
+            )
+        return len(property_tokens & target_tokens) > 0
+
+    def _infer_notion_backward_relation_feature(
+        self,
+        schema_spec: dict[str, dict[str, Any]],
+        features_by_name: dict[str, Any],
+    ) -> tuple[str | None, Any | None]:
+        """Infer (feature_name, source_feature) for a dual Notion relation pair."""
+        logger.important(
+            "notion sync backward-debug: infer start "
+            f"relation_props={[name for name, spec in schema_spec.items() if spec.get('type') == 'relation']} "
+            f"local_features={sorted(features_by_name.keys())}"
+        )
+        matches: list[tuple[str, Any, str]] = []
+        for property_name, property_spec in schema_spec.items():
+            if property_spec.get("type") != "relation":
+                continue
+            local_feature = features_by_name.get(property_name)
+            if local_feature is None:
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=local-feature-missing"
+                )
+                continue
+            dual = property_spec.get("dual")
+            if not isinstance(dual, dict):
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=dual-missing"
+                )
+                continue
+            synced_property_name = dual.get("synced_property_name")
+            target = property_spec.get("target")
+            if (
+                not isinstance(synced_property_name, str)
+                or not synced_property_name.strip()
+                or not isinstance(target, str)
+                or not target.strip()
+            ):
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=dual-or-target-invalid "
+                    f"synced={synced_property_name!r} target={target!r}"
+                )
+                continue
+            target_names = self._relation_target_name_candidates(target)
+            if not self._relation_property_matches_target_names(
+                property_name, target_names
+            ):
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=target-name-mismatch "
+                    f"target_names={target_names}"
+                )
+                continue
+            target_type = self._resolve_record_type_by_name_candidates(target_names)
+            if target_type is None:
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=target-type-unresolved "
+                    f"target_names={target_names}"
+                )
+                continue
+            if not self._relation_feature_matches_target_type(
+                local_feature, target_type
+            ):
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=local-feature-target-mismatch "
+                    f"local_dtype={getattr(local_feature, '_dtype_str', None)!r} "
+                    f"target_type={getattr(target_type, 'name', target_type)!r}"
+                )
+                continue
+            source_feature = None
+            target_feature_type = ln.Feature.filter(
+                name=target_type.name, is_type=True
+            ).one_or_none()
+            if target_feature_type is not None:
+                source_feature = ln.Feature.filter(
+                    name__iexact=synced_property_name.strip(),
+                    type=target_feature_type,
+                ).one_or_none()
+            if (
+                source_feature is None
+                and getattr(target_type, "schema", None) is not None
+            ):
+                members = target_type.schema.members
+                if hasattr(members, "filter"):
+                    source_candidates = list(
+                        members.filter(name__iexact=synced_property_name.strip())
+                    )
+                else:
+                    source_candidates = [
+                        feature
+                        for feature in members
+                        if feature.name.lower() == synced_property_name.strip().lower()
+                    ]
+                source_feature = self._pick_unique(source_candidates)
+            if source_feature is None:
+                logger.important(
+                    "notion sync backward-debug: skip relation "
+                    f"{property_name!r} reason=source-feature-unresolved "
+                    f"target_type={getattr(target_type, 'name', target_type)!r} "
+                    f"synced_property={synced_property_name.strip()!r}"
+                )
+                continue
+            logger.important(
+                "notion sync backward-debug: candidate relation "
+                f"{property_name!r} -> source_feature={source_feature.name!r} "
+                f"uid={source_feature.uid!r}"
+            )
+            matches.append(
+                (property_name, source_feature, synced_property_name.strip())
+            )
+        if len(matches) == 1:
+            logger.important(
+                "notion sync backward-debug: infer success "
+                f"feature={matches[0][0]!r} source_uid={matches[0][1].uid!r}"
+            )
+            return matches[0][0], matches[0][1]
+        if len(matches) > 1:
+            if sys.stdin is None or not sys.stdin.isatty():
+                logger.warning(
+                    "notion sync backward relation: multiple candidates found in "
+                    "a non-interactive session; skipping auto-configuration"
+                )
+                logger.important(
+                    "notion sync backward-debug: infer ambiguous candidates "
+                    f"{[(name, feature.uid) for name, feature, _ in matches]}"
+                )
+                return None, None
+            RICH_CONSOLE.print(
+                "[bold yellow]notion backward relation[/] multiple candidates found; "
+                "choose the feature to configure as backward-derived:",
+                markup=True,
+                highlight=False,
+            )
+            for i, (property_name, source_feature, synced_property_name) in enumerate(
+                matches, start=1
+            ):
+                RICH_CONSOLE.print(
+                    f"  {i}. {property_name} <-- {synced_property_name} "
+                    f"(source uid: {source_feature.uid})",
+                    markup=True,
+                    highlight=False,
+                )
+            while True:
+                selected = input(
+                    "Choose backward relation candidate [1-"
+                    f"{len(matches)}] (Enter to skip): "
+                ).strip()
+                if selected == "":
+                    logger.important(
+                        "notion sync backward-debug: user skipped ambiguous candidate selection"
+                    )
+                    return None, None
+                if selected.isdigit():
+                    idx = int(selected)
+                    if 1 <= idx <= len(matches):
+                        property_name, source_feature, _ = matches[idx - 1]
+                        logger.important(
+                            "notion sync backward-debug: user selected candidate "
+                            f"feature={property_name!r} source_uid={source_feature.uid!r}"
+                        )
+                        return property_name, source_feature
+                RICH_CONSOLE.print(
+                    f"[yellow]Invalid choice. Use 1-{len(matches)} or press Enter to skip.[/]",
+                    markup=True,
+                    highlight=False,
+                )
+        logger.important(
+            "notion sync backward-debug: infer no-unique-match "
+            f"matches={[(name, feature.uid) for name, feature, _ in matches]}"
+        )
+        return None, None
+
+    @staticmethod
+    def _relation_feature_matches_target_type(
+        local_feature: Any, target_type: Any
+    ) -> bool:
+        """Whether a local relation feature points to a specific target record type."""
+        from lamindb.models.feature import parse_dtype
+
+        dtype_str = getattr(local_feature, "_dtype_str", None)
+        if not isinstance(dtype_str, str) or not dtype_str:
+            return True
+        parsed = parse_dtype(dtype_str)
+        if len(parsed) != 1:
+            return False
+        parsed_dtype = parsed[0]
+        if parsed_dtype.get("registry_str") != "Record":
+            return False
+        registry = parsed_dtype.get("registry")
+        registry_uid = getattr(registry, "uid", None)
+        target_uid = getattr(target_type, "uid", None)
+        if isinstance(registry_uid, str) and isinstance(target_uid, str):
+            return registry_uid == target_uid
+        registry_name = getattr(registry, "name", None)
+        target_name = getattr(target_type, "name", None)
+        if isinstance(registry_name, str) and isinstance(target_name, str):
+            return registry_name.lower() == target_name.lower()
+        return False
+
     @staticmethod
     def _index_feature_name_from_columns(columns: dict[str, str]) -> str | None:
         for name, notion_type in columns.items():
@@ -2006,6 +2224,7 @@ class _NotionSyncer:
         self,
         db_name: str,
         feature_plan: list[tuple[str, str, Any]],
+        schema_spec: dict[str, dict[str, Any]] | None = None,
         index_feature_name: str | None = None,
         record_field_mappings: dict[str, str] | None = None,
         *,
@@ -2156,6 +2375,16 @@ class _NotionSyncer:
                 ]
         else:
             features = []
+        features_by_name = {feature.name: feature for feature in features}
+        backward_feature_name: str | None = None
+        backward_source_feature: Any | None = None
+        if schema_spec:
+            (
+                backward_feature_name,
+                backward_source_feature,
+            ) = self._infer_notion_backward_relation_feature(
+                schema_spec, features_by_name
+            )
         if schema is None:
             if apply:
                 index_feature = next(
@@ -2177,7 +2406,17 @@ class _NotionSyncer:
                         # index feature is attached through the dedicated index field.
                         continue
                     mapped_field = record_field_mappings.get(feature.name)
-                    if mapped_field is None:
+                    if (
+                        backward_feature_name is not None
+                        and feature.name == backward_feature_name
+                        and backward_source_feature is not None
+                    ):
+                        schema_features.append(
+                            feature.with_config(
+                                field=mapped_field, backward=backward_source_feature
+                            )
+                        )
+                    elif mapped_field is None:
                         schema_features.append(feature)
                     else:
                         schema_features.append(feature.with_config(field=mapped_field))
@@ -2193,6 +2432,25 @@ class _NotionSyncer:
         else:
             logger.important(f"notion sync metadata: schema {db_name!r} already exists")
             if missing_specs:
+                if apply:
+                    self._append_unique(report.updated_schemas, db_name)
+                else:
+                    self._append_unique(report.update_schemas, db_name)
+            backward_mapping_needed = (
+                backward_source_feature is not None
+                and backward_feature_name is not None
+                and schema._backward_feature_uid is None
+                and features_by_name.get(backward_feature_name) is not None
+            )
+            logger.important(
+                "notion sync backward-debug: schema backward-eval "
+                f"db={db_name!r} inferred_feature={backward_feature_name!r} "
+                f"inferred_source_uid={getattr(backward_source_feature, 'uid', None)!r} "
+                f"existing_backward_uid={getattr(schema, '_backward_feature_uid', None)!r} "
+                f"target_feature_exists={features_by_name.get(backward_feature_name) is not None if backward_feature_name is not None else False} "
+                f"needed={backward_mapping_needed}"
+            )
+            if backward_mapping_needed:
                 if apply:
                     self._append_unique(report.updated_schemas, db_name)
                 else:
@@ -2214,6 +2472,16 @@ class _NotionSyncer:
                     logger.important(
                         f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
                     )
+            if apply and backward_mapping_needed:
+                target_feature = features_by_name.get(backward_feature_name)
+                if target_feature is not None:
+                    schema._aux = schema._aux or {}
+                    schema._aux.setdefault("af", {})["4"] = backward_source_feature.uid
+                    schema.save(update_fields=["_aux"])
+                    logger.important(
+                        "notion sync metadata: updated backward relation mapping "
+                        f"for schema {db_name!r}"
+                    )
         return feature_type, features, schema
 
     def _create_record_type(
@@ -2225,11 +2493,13 @@ class _NotionSyncer:
         report: SyncReport,
         parent_type=None,
     ):
-        columns = self.reader.columns(database_id)
+        schema_spec = self.reader.schema(database_id)
+        columns = {k: v["type"] for k, v in schema_spec.items()}
         feature_plan = self._database_feature_plan(
             database_id,
             db_name=db_name,
             columns=columns,
+            schema_spec=schema_spec,
             apply=True,
             report=report,
         )
@@ -2238,6 +2508,7 @@ class _NotionSyncer:
         _, _, schema = self._plan_or_create_db_metadata(
             db_name,
             feature_plan,
+            schema_spec=schema_spec,
             index_feature_name=index_feature_name,
             record_field_mappings=record_field_mappings,
             apply=True,
@@ -2291,11 +2562,29 @@ class _NotionSyncer:
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
-            columns = self.reader.columns(database_id)
+            schema_spec = self.reader.schema(database_id)
+            relation_debug = {
+                name: {
+                    "target": spec.get("target"),
+                    "synced_property_name": (
+                        spec.get("dual", {}).get("synced_property_name")
+                        if isinstance(spec.get("dual"), dict)
+                        else None
+                    ),
+                }
+                for name, spec in schema_spec.items()
+                if spec.get("type") == "relation"
+            }
+            logger.important(
+                "notion sync backward-debug: loaded schema spec "
+                f"db={db_name!r} relation_props={relation_debug}"
+            )
+            columns = {k: v["type"] for k, v in schema_spec.items()}
             feature_plan = self._database_feature_plan(
                 database_id,
                 db_name=db_name,
                 columns=columns,
+                schema_spec=schema_spec,
                 apply=apply,
                 report=report,
             )
@@ -2306,6 +2595,7 @@ class _NotionSyncer:
                 self._plan_or_create_db_metadata(
                     db_name,
                     feature_plan,
+                    schema_spec=schema_spec,
                     index_feature_name=index_feature_name,
                     record_field_mappings=record_field_mappings,
                     apply=False,
@@ -2332,11 +2622,29 @@ class _NotionSyncer:
                 f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
             )
         rec_type = qs.one()
-        columns = self.reader.columns(database_id)
+        schema_spec = self.reader.schema(database_id)
+        relation_debug = {
+            name: {
+                "target": spec.get("target"),
+                "synced_property_name": (
+                    spec.get("dual", {}).get("synced_property_name")
+                    if isinstance(spec.get("dual"), dict)
+                    else None
+                ),
+            }
+            for name, spec in schema_spec.items()
+            if spec.get("type") == "relation"
+        }
+        logger.important(
+            "notion sync backward-debug: loaded schema spec "
+            f"db={db_name!r} relation_props={relation_debug}"
+        )
+        columns = {k: v["type"] for k, v in schema_spec.items()}
         feature_plan = self._database_feature_plan(
             database_id,
             db_name=db_name,
             columns=columns,
+            schema_spec=schema_spec,
             apply=apply,
             report=report,
         )
@@ -2353,6 +2661,7 @@ class _NotionSyncer:
             _, features, schema = self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
+                schema_spec=schema_spec,
                 index_feature_name=index_feature_name,
                 record_field_mappings=record_field_mappings,
                 apply=True,
@@ -2397,6 +2706,7 @@ class _NotionSyncer:
             self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
+                schema_spec=schema_spec,
                 index_feature_name=index_feature_name,
                 record_field_mappings=record_field_mappings,
                 apply=False,
