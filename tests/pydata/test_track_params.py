@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -90,9 +91,43 @@ def test_serialize_params_to_json_serializes_valid_record_annotations():
 
 
 def test_serialize_params_to_json_skips_unsupported_annotation(ccaplog):
-    params = {"mode": "fast"}
+    params = {"mode": "turbo"}
     result = serialize_params_to_json(
         params, expected_param_types={"mode": Literal["fast", "slow"]}
     )
     assert "mode" not in result
-    assert "unsupported annotation" in ccaplog.text
+    assert "literal value mismatch" in ccaplog.text
+
+
+def test_serialize_params_to_json_supports_literal_annotation():
+    params = {"mode": "fast"}
+    result = serialize_params_to_json(
+        params, expected_param_types={"mode": Literal["fast", "slow"]}
+    )
+    assert result == {"mode": "fast"}
+
+
+def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
+    params = {
+        "names": ["a", "b"],
+        "counts": {"a": 1, "b": 2},
+        "mixed": [1, "two", 3],
+    }
+    result = serialize_params_to_json(
+        params,
+        expected_param_types={
+            "names": Sequence[str],
+            "counts": Mapping[str, int],
+            "mixed": list[int | str],
+        },
+    )
+    assert result == params
+
+
+def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
+    params = {"value": "alpha"}
+    result = serialize_params_to_json(
+        params, expected_param_types={"value": "UnknownType"}
+    )
+    assert result == {}
+    assert "unresolved string annotation" in ccaplog.text
