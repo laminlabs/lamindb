@@ -1556,8 +1556,11 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         return self
 
     def with_config(
-        self, optional: bool | None = None, field: AllowedFields | None = None
-    ) -> tuple[Feature, dict[str, bool | AllowedFields]]:
+        self,
+        optional: bool | None = None,
+        field: AllowedFields | None = None,
+        backward: Feature | None = None,
+    ) -> tuple[Feature, dict[str, bool | AllowedFields | Feature]]:
         """Pass additional configuration to :class:`~lamindb.Schema`.
 
         Args:
@@ -1567,12 +1570,16 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 so values are stored on the record model rather than in feature
                 link tables. For record schemas, :attr:`~lamindb.Schema.index`
                 automatically targets :attr:`~lamindb.Record.name`.
+            backward: For record schemas, mark this feature as derived from the
+                reverse links of another feature on a related sheet.
         """
-        config: dict[str, bool | AllowedFields] = {}
+        config: dict[str, bool | AllowedFields | Feature] = {}
         if optional is not None:
             config["optional"] = optional
         if field is not None:
             config["field"] = field
+        if backward is not None:
+            config["backward"] = backward
         return self, config
 
     @property

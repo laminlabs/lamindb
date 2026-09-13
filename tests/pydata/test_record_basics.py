@@ -794,6 +794,77 @@ def test_record_schema_field_mappings_validation():
     duplicate_target_feature_2.delete(permanent=True)
 
 
+def test_record_schema_backward_feature_mapping_reads_reverse_links():
+    attendees_feature = ln.Feature(name="attendees", dtype=list[ln.Record]).save()
+    meetings_schema = ln.Schema(
+        features=[attendees_feature],
+        name="backward-map-meetings-schema",
+    ).save()
+    meetings_sheet = ln.Record(
+        name="backward-map-meetings-sheet", is_type=True, schema=meetings_schema
+    ).save()
+
+    attended_meetings_feature = ln.Feature(
+        name="attended_meetings", dtype=list[ln.Record]
+    ).save()
+    people_schema = ln.Schema(
+        features=[
+            attended_meetings_feature.with_config(backward=attendees_feature),
+        ],
+        name="backward-map-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="backward-map-people-sheet", is_type=True, schema=people_schema
+    ).save()
+
+    alice = ln.Record(name="backward-map-alice", type=people_sheet).save()
+    bob = ln.Record(name="backward-map-bob", type=people_sheet).save()
+    meeting_1 = ln.Record(name="backward-map-meeting-1", type=meetings_sheet).save()
+    meeting_2 = ln.Record(name="backward-map-meeting-2", type=meetings_sheet).save()
+
+    meeting_1.features.set_values({"attendees": [alice, bob]})
+    meeting_2.features.set_values({"attendees": [alice]})
+
+    alice_values = alice.features.get_values()
+    bob_values = bob.features.get_values()
+
+    assert people_schema._aux["af"]["4"] == attendees_feature.uid
+    assert alice_values["attended_meetings"] == [
+        "backward-map-meeting-1",
+        "backward-map-meeting-2",
+    ]
+    assert bob_values["attended_meetings"] == ["backward-map-meeting-1"]
+    assert (
+        ln.models.RecordRecord.filter(
+            record=alice, feature=attended_meetings_feature
+        ).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordRecord.filter(
+            record=bob, feature=attended_meetings_feature
+        ).count()
+        == 0
+    )
+
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+    ):
+        alice.features.set_values({"attended_meetings": [meeting_1]})
+
+    meeting_1.delete(permanent=True)
+    meeting_2.delete(permanent=True)
+    alice.delete(permanent=True)
+    bob.delete(permanent=True)
+    meetings_sheet.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    meetings_schema.delete(permanent=True)
+    people_schema.delete(permanent=True)
+    attendees_feature.delete(permanent=True)
+    attended_meetings_feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()
