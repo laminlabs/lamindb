@@ -723,6 +723,7 @@ class _NotionSyncer:
         return report
 
 
+@ln.flow("Ofbk5ruuTiN2")
 def sync_from_notion(
     *,
     parents: str | list[str],
