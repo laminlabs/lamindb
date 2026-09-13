@@ -777,7 +777,9 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
         Record.filter.return_value = qs
         rec_type = syncer._resolve_record_type(db_id, apply=True, report=report)
     assert rec_type is created_type
-    create.assert_called_once_with(db_id, "Website analytics", report=report)
+    create.assert_called_once_with(
+        db_id, "Website analytics", None, None, report=report
+    )
     assert report.created_record_types == ["Website analytics"]
 
 
@@ -801,7 +803,13 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
         patch("lamindb.integrations.notion.ln.Record") as Record,
     ):
         Record.return_value.save.return_value = "created-type"
-        rec_type = syncer._create_record_type(db_id, "Website analytics", report=report)
+        rec_type = syncer._create_record_type(
+            db_id,
+            "Website analytics",
+            "Website traffic including page views and unique visitors.",
+            "🦆",
+            report=report,
+        )
     assert rec_type == "created-type"
     plan_or_create.assert_called_once_with(
         "Website analytics",
@@ -810,6 +818,31 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
         apply=True,
         report=report,
     )
+    Record.assert_called_once_with(
+        name="Website analytics",
+        description="Website traffic including page views and unique visitors.",
+        is_type=True,
+        schema=schema,
+        _aux={"ei": "🦆"},
+    )
+
+
+def test_database_emoji_and_description_parsing(syncer):
+    payload = {
+        "title": [{"plain_text": "Website analytics"}],
+        "description": [{"plain_text": "Website traffic including page views."}],
+        "icon": {"type": "emoji", "emoji": "🦆"},
+    }
+    assert syncer._database_title(payload, fallback="db-1") == "Website analytics"
+    assert (
+        syncer._database_description(payload) == "Website traffic including page views."
+    )
+    assert syncer._database_emoji(payload) == "🦆"
+
+
+def test_merge_aux_with_emoji_uses_frontend_convention(syncer):
+    assert syncer._merge_aux_with_emoji({"ss": 1}, "🦆") == {"ss": 1, "ei": "🦆"}
+    assert syncer._merge_aux_with_emoji({"ss": 1, "ei": "🦆"}, None) == {"ss": 1}
 
 
 def test_feature_dtype_for_files_maps_to_artifact_list(syncer):

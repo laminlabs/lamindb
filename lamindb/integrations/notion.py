@@ -917,6 +917,34 @@ class _NotionSyncer:
         return text or fallback
 
     @staticmethod
+    def _database_description(payload: dict) -> str | None:
+        description = payload.get("description") or []
+        if not isinstance(description, list):
+            return None
+        text = "".join(part.get("plain_text", "") for part in description).strip()
+        return text or None
+
+    @staticmethod
+    def _database_emoji(payload: dict) -> str | None:
+        icon = payload.get("icon")
+        if not isinstance(icon, dict) or icon.get("type") != "emoji":
+            return None
+        emoji = icon.get("emoji")
+        if not isinstance(emoji, str):
+            return None
+        emoji = emoji.strip()
+        return emoji or None
+
+    @staticmethod
+    def _merge_aux_with_emoji(aux: Any, emoji: str | None) -> dict[str, Any] | None:
+        merged = dict(aux) if isinstance(aux, dict) else {}
+        if emoji is None:
+            merged.pop("ei", None)
+        else:
+            merged["ei"] = emoji
+        return merged or None
+
+    @staticmethod
     def _schema_feature_names(rec_type) -> set[str]:
         schema = rec_type.schema
         if schema is None:
@@ -1063,7 +1091,14 @@ class _NotionSyncer:
                 self._append_unique(report.create_schemas, db_name)
         return feature_type, features, schema
 
-    def _create_record_type(self, database_id: str, db_name: str, report: SyncReport):
+    def _create_record_type(
+        self,
+        database_id: str,
+        db_name: str,
+        db_description: str | None,
+        db_emoji: str | None,
+        report: SyncReport,
+    ):
         columns = self.reader.columns(database_id)
         feature_plan = self._database_feature_plan(database_id, columns=columns)
         index_feature_name = self._index_feature_name_from_columns(columns)
@@ -1075,13 +1110,24 @@ class _NotionSyncer:
             report=report,
         )
         assert schema is not None  # schema is always created/resolved in apply mode
-        return ln.Record(name=db_name, is_type=True, schema=schema).save()
+        record_kwargs: dict[str, Any] = {
+            "name": db_name,
+            "description": db_description,
+            "is_type": True,
+            "schema": schema,
+        }
+        aux = self._merge_aux_with_emoji(None, db_emoji)
+        if aux is not None:
+            record_kwargs["_aux"] = aux
+        return ln.Record(**record_kwargs).save()
 
     def _resolve_record_type(
         self, database_id: str, *, apply: bool, report: SyncReport
     ):
         payload = self.reader._call("GET", f"/databases/{database_id}")
         db_name = self._database_title(payload, fallback=database_id)
+        db_description = self._database_description(payload)
+        db_emoji = self._database_emoji(payload)
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
@@ -1098,14 +1144,30 @@ class _NotionSyncer:
                     report=report,
                 )
                 return None
-            rec_type = self._create_record_type(database_id, db_name, report=report)
+            rec_type = self._create_record_type(
+                database_id, db_name, db_description, db_emoji, report=report
+            )
             report.created_record_types.append(db_name)
             return rec_type
         if count > 1:
             raise ValueError(
                 f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
             )
-        return qs.one()
+        rec_type = qs.one()
+        if apply:
+            changed = False
+            if rec_type.description != db_description:
+                rec_type.description = db_description
+                changed = True
+            merged_aux = self._merge_aux_with_emoji(
+                getattr(rec_type, "_aux", None), db_emoji
+            )
+            if getattr(rec_type, "_aux", None) != merged_aux:
+                rec_type._aux = merged_aux
+                changed = True
+            if changed:
+                rec_type.save()
+        return rec_type
 
     def _validate_schema(self, database_id: str, rec_type) -> None:
         notion_props = set(self.reader.columns(database_id))
