@@ -2,16 +2,28 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import json
 import os
 import signal
 import sys
 import threading
 import traceback
 from collections.abc import Iterable as IterableABC
+from collections.abc import Mapping as MappingABC
+from collections.abc import Sequence as SequenceABC
 from datetime import datetime, timezone
 from pathlib import Path
 from types import UnionType
-from typing import TYPE_CHECKING, Any, Callable, TextIO, Union, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    TextIO,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import lamindb_setup as ln_setup
 from django.db.models import Q
@@ -40,6 +52,25 @@ if TYPE_CHECKING:
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
+
+_PRIMITIVE_ANNOTATION_TYPE_CHECKERS: dict[type, Callable[[Any], bool]] = {
+    bool: lambda value: isinstance(value, bool),
+    # bool is a subclass of int in Python, exclude it explicitly.
+    int: lambda value: isinstance(value, int) and not isinstance(value, bool),
+    float: lambda value: isinstance(value, float),
+    str: lambda value: isinstance(value, str),
+    dict: lambda value: isinstance(value, dict),
+    list: lambda value: isinstance(value, list),
+}
+
+_PRIMITIVE_ITERABLE_DTYPE_ARGS: dict[type, Any] = {
+    bool: list[bool],
+    int: list[int],
+    float: list[float],
+    str: list[str],
+    dict: list[dict],
+    list: list[list],
+}
 
 
 def get_key_from_module(caller_module: str) -> str:
@@ -416,50 +447,112 @@ def _annotation_to_feature_dtype_arg(
                 return dtype_str, normalized_value, None
         return None, value, "no union option matched"
 
-    if origin in {list, set, frozenset, IterableABC}:
+    if origin is Literal:
+        for literal_value in args:
+            if literal_value is None and value is None:
+                return None, value, None
+            if value == literal_value and type(value) is type(literal_value):  # noqa: E721
+                if isinstance(literal_value, (bool, int, float, str, dict, list)):
+                    return _annotation_to_feature_dtype_arg(type(literal_value), value)
+                return None, value, None
+        return None, value, "literal value mismatch"
+
+    if origin in {list, set, frozenset, IterableABC, SequenceABC}:
         if not isinstance(value, IterableABC) or isinstance(value, (str, bytes, dict)):
             return None, value, "expected iterable"
         if origin is list and not isinstance(value, list):
             return None, value, "expected list"
+        if origin is set and not isinstance(value, set):
+            return None, value, "expected set"
+        if origin is frozenset and not isinstance(value, frozenset):
+            return None, value, "expected frozenset"
+        if origin is SequenceABC and not isinstance(value, SequenceABC):
+            return None, value, "expected sequence"
         items = list(value)
         item_annotation = args[0] if args else Any
         if item_annotation is Any:
             return None, value, None
         if isinstance(item_annotation, str):
             return f"list[{item_annotation}]", items, None
-        if isinstance(item_annotation, type):
-            if issubclass(item_annotation, SQLRecord):
-                if any(not isinstance(item, item_annotation) for item in items):
-                    return (
-                        None,
-                        value,
-                        f"iterable item mismatch (expected {item_annotation.__name__})",
-                    )
-                return [item_annotation], items, None
-            if item_annotation in {int, float, bool, str, dict, list}:
-                if item_annotation is int:
-                    return list[int], items, None
-                if item_annotation is float:
-                    return list[float], items, None
-                if item_annotation is bool:
-                    return list[bool], items, None
-                if item_annotation is str:
-                    return list[str], items, None
-                if item_annotation is dict:
-                    return list[dict], items, None
-                if item_annotation is list:
-                    return list[list], items, None
-        return None, value, f"unsupported iterable item annotation {item_annotation!r}"
+        normalized_items: list[Any] = []
+        item_dtype_args: list[Any] = []
+        for item in items:
+            item_dtype_arg, item_normalized_value, reason = (
+                _annotation_to_feature_dtype_arg(item_annotation, item)
+            )
+            if reason is not None:
+                return None, value, f"iterable item mismatch ({reason})"
+            normalized_items.append(item_normalized_value)
+            item_dtype_args.append(item_dtype_arg)
+        if isinstance(item_annotation, type) and issubclass(item_annotation, SQLRecord):
+            return [item_annotation], normalized_items, None
+        if (
+            isinstance(item_annotation, type)
+            and item_annotation in _PRIMITIVE_ITERABLE_DTYPE_ARGS
+        ):
+            return (
+                _PRIMITIVE_ITERABLE_DTYPE_ARGS[item_annotation],
+                normalized_items,
+                None,
+            )
+        if (
+            item_dtype_args
+            and all(dtype_arg == item_dtype_args[0] for dtype_arg in item_dtype_args)
+            and item_dtype_args[0] in _PRIMITIVE_ITERABLE_DTYPE_ARGS.values()
+        ):
+            return item_dtype_args[0], normalized_items, None
+        return None, normalized_items, None
 
-    if origin is dict:
+    if origin in {dict, MappingABC}:
         if not isinstance(value, dict):
-            return None, value, "expected dict"
-        return dict, value, None
+            return None, value, "expected mapping"
+        if not args:
+            return dict, value, None
+        key_annotation = args[0] if len(args) > 0 else Any
+        value_annotation = args[1] if len(args) > 1 else Any
+        normalized_mapping: dict[Any, Any] = {}
+        for key, val in value.items():
+            _, normalized_key, key_reason = _annotation_to_feature_dtype_arg(
+                key_annotation, key
+            )
+            if key_reason is not None:
+                return None, value, f"mapping key mismatch ({key_reason})"
+            _, normalized_val, val_reason = _annotation_to_feature_dtype_arg(
+                value_annotation, val
+            )
+            if val_reason is not None:
+                return None, value, f"mapping value mismatch ({val_reason})"
+            normalized_mapping[normalized_key] = normalized_val
+        return dict, normalized_mapping, None
 
     if origin is tuple:
         if not isinstance(value, tuple):
             return None, value, "expected tuple"
-        return list, list(value), None
+        items = list(value)
+        if not args:
+            return list, items, None
+        if len(args) == 2 and args[1] is Ellipsis:
+            item_annotation = args[0]
+            normalized_items = []
+            for item in items:
+                _, normalized_item, reason = _annotation_to_feature_dtype_arg(
+                    item_annotation, item
+                )
+                if reason is not None:
+                    return None, value, f"tuple item mismatch ({reason})"
+                normalized_items.append(normalized_item)
+            return list, normalized_items, None
+        if len(args) != len(items):
+            return None, value, "tuple arity mismatch"
+        normalized_items = []
+        for item, item_annotation in zip(items, args, strict=False):
+            _, normalized_item, reason = _annotation_to_feature_dtype_arg(
+                item_annotation, item
+            )
+            if reason is not None:
+                return None, value, f"tuple item mismatch ({reason})"
+            normalized_items.append(normalized_item)
+        return list, normalized_items, None
 
     if origin is not None:
         return None, value, f"unsupported annotation origin {origin!r}"
@@ -469,46 +562,39 @@ def _annotation_to_feature_dtype_arg(
             if not isinstance(value, annotation):
                 return None, value, f"expected {annotation.__name__}"
             return annotation, value, None
-        if annotation in {bool, int, float, str, dict, list}:
-            if annotation is bool:
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, bool)
-                    else (None, value, "expected bool")
-                )
-            if annotation is int:
-                # bool is a subclass of int in Python, exclude it explicitly.
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, int) and not isinstance(value, bool)
-                    else (None, value, "expected int")
-                )
-            if annotation is float:
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, float)
-                    else (None, value, "expected float")
-                )
-            if annotation is str:
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, str)
-                    else (None, value, "expected str")
-                )
-            if annotation is dict:
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, dict)
-                    else (None, value, "expected dict")
-                )
-            if annotation is list:
-                return (
-                    (annotation, value, None)
-                    if isinstance(value, list)
-                    else (None, value, "expected list")
-                )
+        if annotation in _PRIMITIVE_ANNOTATION_TYPE_CHECKERS:
+            checker = _PRIMITIVE_ANNOTATION_TYPE_CHECKERS[annotation]
+            if checker(value):
+                return annotation, value, None
+            return None, value, f"expected {annotation.__name__}"
         return None, value, f"unsupported annotation type {annotation!r}"
     return None, value, f"unsupported annotation {annotation!r}"
+
+
+def _serialize_typed_param_value(
+    key: str, value: Any, normalized_value: Any
+) -> Any | None:
+    """Serialize a typed parameter value for JSON storage in run.params."""
+    dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
+    if (
+        dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
+    ) and dtype not in {"cat ? str", "list[cat ? str]"}:
+        if isinstance(value, SQLRecord):
+            return f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
+        if isinstance(value, IterableABC) and not isinstance(value, (str, bytes, dict)):
+            items = list(value)
+            if items and all(isinstance(item, SQLRecord) for item in items):
+                return [
+                    f"{item.__class__.__get_name_with_module__()}[{item.uid}]"
+                    for item in items
+                ]
+    else:
+        return converted_value
+    try:
+        json.dumps(normalized_value)
+    except TypeError:
+        return None
+    return normalized_value
 
 
 def _validate_with_virtual_schema(
@@ -555,7 +641,6 @@ def serialize_params_to_json(
     params: dict, expected_param_types: dict[str, Any] | None = None
 ) -> dict:
     serialized_params: dict[str, Any] = {}
-    serializable_raw_values: dict[str, Any] = {}
     params_for_validation: dict[str, Any] = {}
     dtype_args_by_key: dict[str, Any] = {}
     expected_type_by_key: dict[str, Any] = {}
@@ -564,47 +649,50 @@ def serialize_params_to_json(
         # None and empty list are missing/empty values, skip them consistent with elsewhere in the code
         if value is None or (isinstance(value, list) and len(value) == 0):
             continue
-        # First, keep only params that are serializable.
-        dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
-        if (
-            dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
-        ) and dtype not in {"cat ? str", "list[cat ? str]"}:
-            if isinstance(value, SQLRecord):
-                serialized_params[key] = (
-                    f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
-                )
-            elif dtype.startswith("list[cat"):
-                items = list(value)
-                if items and all(isinstance(item, SQLRecord) for item in items):
-                    serialized_params[key] = [  # type: ignore
-                        f"{item.__class__.__get_name_with_module__()}[{item.uid}]"
-                        for item in items
-                    ]
-        else:
-            serialized_params[key] = converted_value
-        if key not in serialized_params:
-            logger.warning(
-                f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
-            )
-            continue
-        serializable_raw_values[key] = value
-
-    # Then, validate only the serializable params.
-    for key, value in serializable_raw_values.items():
         expected_type = (
             expected_param_types.get(key) if expected_param_types is not None else None
         )
         if expected_type is None:
+            # Keep untyped params only if serializable.
+            dtype, converted_value, _ = infer_convert_dtype_key_value(
+                key, value, mute=True
+            )
+            if (
+                dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
+            ) and dtype not in {"cat ? str", "list[cat ? str]"}:
+                if isinstance(value, SQLRecord):
+                    serialized_params[key] = (
+                        f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
+                    )
+                elif dtype.startswith("list[cat"):
+                    items = list(value)
+                    if items and all(isinstance(item, SQLRecord) for item in items):
+                        serialized_params[key] = [  # type: ignore
+                            f"{item.__class__.__get_name_with_module__()}[{item.uid}]"
+                            for item in items
+                        ]
+            else:
+                serialized_params[key] = converted_value
+            if key not in serialized_params:
+                logger.warning(
+                    f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
+                )
             continue
         dtype_arg, normalized_value, reason = _annotation_to_feature_dtype_arg(
             expected_type, value
         )
         if reason is not None:
-            serialized_params.pop(key, None)
             logger.warning(
                 f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
             )
             continue
+        serialized_value = _serialize_typed_param_value(key, value, normalized_value)
+        if serialized_value is None:
+            logger.warning(
+                f"skipping param {key} with value {value!r}: not JSON serializable after annotation matching"
+            )
+            continue
+        serialized_params[key] = serialized_value
         if dtype_arg is None:
             continue
         params_for_validation[key] = normalized_value
@@ -616,7 +704,7 @@ def serialize_params_to_json(
     )
     for key in params_for_validation:
         if key not in valid_keys:
-            value = serializable_raw_values[key]
+            value = params[key]
             serialized_params.pop(key, None)
             expected_type = expected_type_by_key[key]
             reason = invalid_reasons.get(key, "virtual schema validation failed")
