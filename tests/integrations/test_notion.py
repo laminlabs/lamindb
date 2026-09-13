@@ -1565,11 +1565,11 @@ def test_infer_notion_backward_relation_feature_skips_ambiguous_non_interactive(
     person_feature = MagicMock()
     person_feature.uid = "F_PERSON"
     meetings_feature = MagicMock()
-    meetings_feature.name = "meeting"
+    meetings_feature.name = "meetings"
     software_feature = MagicMock()
     software_feature.name = "software"
     schema_spec = {
-        "meeting": {
+        "meetings": {
             "type": "relation",
             "target": "ds-meetings",
             "dual": {"synced_property_name": "external_attendees"},
@@ -1621,11 +1621,11 @@ def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer
     person_feature = MagicMock()
     person_feature.uid = "F_PERSON"
     meetings_feature = MagicMock()
-    meetings_feature.name = "meeting"
+    meetings_feature.name = "meetings"
     software_feature = MagicMock()
     software_feature.name = "software"
     schema_spec = {
-        "meeting": {
+        "meetings": {
             "type": "relation",
             "target": "ds-meetings",
             "dual": {"synced_property_name": "external_attendees"},
@@ -1664,10 +1664,10 @@ def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer
 
         mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
-            {"meeting": meetings_feature, "software": software_feature},
+            {"meetings": meetings_feature, "software": software_feature},
         )
 
-    assert mapping == {"meeting": external_attendees_feature}
+    assert mapping == {"meetings": external_attendees_feature}
     assert input_mock.call_count == 2
 
 
@@ -1756,7 +1756,7 @@ def test_infer_notion_backward_relation_feature_self_referential_target(syncer):
         patch("builtins.input", side_effect=["y", "n"]) as input_mock,
     ):
         stdin.isatty.return_value = True
-        target_names.side_effect = [["People", "Peoples"], ["People", "Peoples"]]
+        target_names.side_effect = [["People"], ["People"]]
         resolve_type.side_effect = [people_type, people_type]
         people_type_qs_1 = MagicMock()
         people_type_qs_1.one_or_none.return_value = people_feature_type
@@ -1793,11 +1793,11 @@ def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
     person_feature = MagicMock()
     person_feature.uid = "F_PERSON"
     meetings_feature = MagicMock()
-    meetings_feature.name = "meeting"
+    meetings_feature.name = "meetings"
     software_feature = MagicMock()
     software_feature.name = "software"
     schema_spec = {
-        "meeting": {
+        "meetings": {
             "type": "relation",
             "target": "ds-meetings",
             "dual": {"synced_property_name": "external_attendees"},
@@ -1841,10 +1841,10 @@ def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
 
         mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
-            {"meeting": meetings_feature, "software": software_feature},
+            {"meetings": meetings_feature, "software": software_feature},
         )
 
-    assert mapping == {"meeting": external_attendees_feature}
+    assert mapping == {"meetings": external_attendees_feature}
 
 
 def test_relation_feature_matches_target_type_requires_exact_name(syncer):

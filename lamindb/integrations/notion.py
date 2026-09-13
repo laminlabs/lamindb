@@ -1547,6 +1547,15 @@ class _NotionSyncer:
         return list(dict.fromkeys(v for v in variants if v))
 
     @staticmethod
+    def _strict_name_candidates(name: str) -> list[str]:
+        raw = (name or "").strip()
+        if not raw:
+            return []
+        base = raw.replace("_", " ")
+        variants = [raw, base, base.title()]
+        return list(dict.fromkeys(v for v in variants if v))
+
+    @staticmethod
     def _pick_unique(records: list[Any]) -> Any | None:
         unique_by_id: dict[Any, Any] = {}
         for record in records:
@@ -1706,7 +1715,7 @@ class _NotionSyncer:
         db_payload = self._safe_call(f"/databases/{target}")
         if db_payload is not None:
             db_name = self._database_title(db_payload, fallback=normalized_target)
-            return self._name_candidates(db_name)
+            return self._strict_name_candidates(db_name)
 
         data_source_payload = self._safe_call(f"/data_sources/{target}")
         if data_source_payload is None:
@@ -1715,7 +1724,7 @@ class _NotionSyncer:
         names: list[str] = []
         ds_name = data_source_payload.get("name")
         if isinstance(ds_name, str) and ds_name.strip():
-            names.extend(self._name_candidates(ds_name.strip()))
+            names.extend(self._strict_name_candidates(ds_name.strip()))
 
         parent = data_source_payload.get("parent")
         if isinstance(parent, dict):
@@ -1726,7 +1735,7 @@ class _NotionSyncer:
                     db_name = self._database_title(
                         parent_db_payload, fallback=parent_db_id
                     )
-                    names.extend(self._name_candidates(db_name))
+                    names.extend(self._strict_name_candidates(db_name))
 
         return list(dict.fromkeys(names))
 
@@ -1949,14 +1958,14 @@ class _NotionSyncer:
     ) -> bool:
         property_tokens = {
             token.strip().lower().replace("_", " ")
-            for token in self._name_candidates(property_name)
+            for token in self._strict_name_candidates(property_name)
             if isinstance(token, str) and token.strip()
         }
         target_tokens: set[str] = set()
         for target_name in target_names:
             target_tokens.update(
                 token.strip().lower().replace("_", " ")
-                for token in self._name_candidates(target_name)
+                for token in self._strict_name_candidates(target_name)
                 if isinstance(token, str) and token.strip()
             )
         return len(property_tokens & target_tokens) > 0
