@@ -2479,10 +2479,9 @@ class _NotionSyncer:
                         f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
                     )
             if apply and backward_mapping_needed and target_feature is not None:
-                schema._aux = schema._aux or {}
                 backward_mappings = dict(schema._backward_feature_uids)
                 backward_mappings[target_feature.uid] = backward_source_feature.uid
-                schema._aux.setdefault("af", {})["4"] = backward_mappings
+                schema._backward_feature_uids = backward_mappings
                 schema.save(update_fields=["_aux"])
                 logger.important(
                     "notion sync metadata: updated backward relation mapping "

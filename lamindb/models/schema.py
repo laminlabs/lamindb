@@ -518,16 +518,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
+        # define optional features in the schema as a list of their uids
         "1": ("optionals", list[str]),
+        # map schema feature uid -> concrete record field name
         "2": (
             "record_fields",
             dict[str, str],
-        ),  # map schema feature uid -> concrete record field name
+        ),
+        # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
+        # map schema feature uid -> source feature uid
         "4": (
             "backward_feature_uids",
             dict[str, str],
-        ),  # map schema feature uid -> source feature uid
+        ),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -845,6 +849,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         optional_features = []
         record_fields: dict[str, str] = {}
         backward_feature_uids: dict[str, str] = {}
+        backward_source_features_by_uid: dict[str, Feature] = {}
         features_registry: Registry = None
         if itype is not None:
             # If a Feature instance with is_type=True is passed, encode as
@@ -924,27 +929,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         raise ValueError(
                             "Can only create schema from validated features"
                         )
-                    configured_dtype = parse_dtype(configured_feature._dtype_str)
-                    backward_dtype = parse_dtype(backward_feature._dtype_str)
-                    if (
-                        len(configured_dtype) != 1
-                        or len(backward_dtype) != 1
-                        or configured_dtype[0].get("registry_str") != "Record"
-                        or backward_dtype[0].get("registry_str") != "Record"
-                    ):
-                        raise ValueError(
-                            "feature.with_config(backward=...) requires both features "
-                            "to have categorical Record dtype"
-                        )
-                    if not configured_dtype[0].get("list", False):
-                        raise ValueError(
-                            "feature.with_config(backward=...) requires the configured "
-                            "feature to have list categorical Record dtype"
-                        )
-                    if configured_feature.uid == backward_feature.uid:
-                        raise ValueError(
-                            "feature.with_config(backward=...) cannot point to itself"
-                        )
                     existing_source = backward_feature_uids.get(configured_feature.uid)
                     if (
                         existing_source is not None
@@ -954,31 +938,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                             "feature.with_config(backward=...) currently supports "
                             "a single source per configured feature"
                         )
-                    reverse_source = backward_feature_uids.get(backward_feature.uid)
-                    if reverse_source == configured_feature.uid:
-                        raise ValueError(
-                            "feature.with_config(backward=...) cannot be configured "
-                            "symmetrically in the same schema"
-                        )
-                    # Prevent symmetric backward configuration across related schemas.
-                    reverse_exists = False
-                    candidate_schemas = Schema.filter(
-                        features__uid=backward_feature.uid
-                    )
-                    for candidate_schema in candidate_schemas:
-                        existing_backward = candidate_schema._backward_feature_uids
-                        if (
-                            existing_backward.get(backward_feature.uid)
-                            == configured_feature.uid
-                        ):
-                            reverse_exists = True
-                            break
-                    if reverse_exists:
-                        raise ValueError(
-                            "feature.with_config(backward=...) cannot be configured "
-                            "symmetrically across related schemas"
-                        )
                     backward_feature_uids[configured_feature.uid] = backward_feature.uid
+                    backward_source_features_by_uid[backward_feature.uid] = (
+                        backward_feature
+                    )
+                backward_feature_uids = self._validate_backward_feature_uids(
+                    backward_feature_uids,
+                    schema_features=features,  # type: ignore[arg-type]
+                    source_features_by_uid=backward_source_features_by_uid,
+                )
                 if optional_features:
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
@@ -1638,6 +1606,121 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ):
             return dict(self._aux["af"]["4"])
         return {}
+
+    @_backward_feature_uids.setter
+    def _backward_feature_uids(self, value: dict[str, str] | None) -> None:
+        normalized = self._validate_backward_feature_uids(value or {})
+        self._aux = self._aux or {}
+        if normalized:
+            self._aux.setdefault("af", {})["4"] = normalized
+        else:
+            self._aux.get("af", {}).pop("4", None)
+
+    def _validate_backward_feature_uids(
+        self,
+        backward_feature_uids: dict[str, str],
+        *,
+        schema_features: list[Feature] | None = None,
+        source_features_by_uid: dict[str, Feature] | None = None,
+    ) -> dict[str, str]:
+        if not isinstance(backward_feature_uids, dict):
+            raise TypeError("schema backward_feature_uids must be a dict[str, str]")
+        if not backward_feature_uids:
+            return {}
+        normalized: dict[str, str] = {}
+        for feature_uid, source_uid in backward_feature_uids.items():
+            if not isinstance(feature_uid, str) or not isinstance(source_uid, str):
+                raise TypeError("schema backward_feature_uids must be a dict[str, str]")
+            normalized[feature_uid] = source_uid
+
+        if schema_features is None:
+            state = getattr(self, "_state", None)
+            if state is None or state.adding:
+                members = self.members
+                schema_features = list(members) if members is not None else []
+            else:
+                schema_features = list(
+                    self.members.filter(uid__in=list(normalized.keys()))
+                )
+        schema_features_by_uid = {feature.uid: feature for feature in schema_features}
+        missing_target_uids = [
+            uid for uid in normalized if uid not in schema_features_by_uid
+        ]
+        if missing_target_uids:
+            raise ValueError(
+                "schema backward_feature_uids keys must reference features of this schema"
+            )
+
+        source_features: dict[str, Feature] = dict(source_features_by_uid or {})
+        missing_source_uids = [
+            uid for uid in set(normalized.values()) if uid not in source_features
+        ]
+        if missing_source_uids:
+            source_features.update(
+                {
+                    feature.uid: feature
+                    for feature in Feature.filter(uid__in=missing_source_uids)
+                }
+            )
+
+        for configured_uid, backward_uid in normalized.items():
+            if configured_uid == backward_uid:
+                raise ValueError(
+                    "feature.with_config(backward=...) cannot point to itself"
+                )
+            configured_feature = schema_features_by_uid[configured_uid]
+            backward_feature = source_features.get(backward_uid)
+            if backward_feature is None:
+                raise ValueError(
+                    "feature.with_config(backward=...) source feature not found"
+                )
+            configured_dtype = parse_dtype(configured_feature._dtype_str)
+            backward_dtype = parse_dtype(backward_feature._dtype_str)
+            if (
+                len(configured_dtype) != 1
+                or len(backward_dtype) != 1
+                or configured_dtype[0].get("registry_str") != "Record"
+                or backward_dtype[0].get("registry_str") != "Record"
+            ):
+                raise ValueError(
+                    "feature.with_config(backward=...) requires both features "
+                    "to have categorical Record dtype"
+                )
+            if not configured_dtype[0].get("list", False):
+                raise ValueError(
+                    "feature.with_config(backward=...) requires the configured "
+                    "feature to have list categorical Record dtype"
+                )
+
+        for configured_uid, backward_uid in normalized.items():
+            if normalized.get(backward_uid) == configured_uid:
+                raise ValueError(
+                    "feature.with_config(backward=...) cannot be configured "
+                    "symmetrically in the same schema"
+                )
+
+        state = getattr(self, "_state", None)
+        current_schema_uid = (
+            self.uid
+            if state is not None and not state.adding and isinstance(self.uid, str)
+            else None
+        )
+        for configured_uid, backward_uid in normalized.items():
+            candidate_schemas = Schema.filter(features__uid=backward_uid)
+            for candidate_schema in candidate_schemas:
+                candidate_backward_uids = (
+                    normalized
+                    if current_schema_uid is not None
+                    and candidate_schema.uid == current_schema_uid
+                    else candidate_schema._backward_feature_uids
+                )
+                if candidate_backward_uids.get(backward_uid) == configured_uid:
+                    raise ValueError(
+                        "feature.with_config(backward=...) cannot be configured "
+                        "symmetrically across related schemas"
+                    )
+
+        return normalized
 
     @property
     def slots(self) -> dict[str, Schema]:

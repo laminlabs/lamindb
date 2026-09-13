@@ -978,6 +978,18 @@ def test_record_schema_backward_feature_mapping_validation_no_symmetric_config()
     ):
         ln.Schema([feature_a.with_config(backward=feature_a)]).save()
 
+    schema_a = ln.Schema([feature_a], name="setter-backward-schema-a").save()
+    schema_b = ln.Schema([feature_b], name="setter-backward-schema-b").save()
+    schema_a._backward_feature_uids = {feature_a.uid: feature_b.uid}
+    schema_a.save(update_fields=["_aux"])
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically across related schemas",
+    ):
+        schema_b._backward_feature_uids = {feature_b.uid: feature_a.uid}
+    schema_a.delete(permanent=True)
+    schema_b.delete(permanent=True)
+
     feature_a.delete(permanent=True)
     feature_b.delete(permanent=True)
 

@@ -1746,7 +1746,7 @@ def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
         )
 
     assert report.updated_schemas == ["People"]
-    assert schema._aux["af"]["4"] == {"F_MEETINGS": "F_EXT_ATT"}
+    assert schema._backward_feature_uids == {"F_MEETINGS": "F_EXT_ATT"}
     schema.save.assert_called_once_with(update_fields=["_aux"])
 
 
