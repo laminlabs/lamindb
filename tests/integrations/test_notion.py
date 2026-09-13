@@ -1444,6 +1444,35 @@ def test_formula_dtype_caches_prompt_result(syncer):
     assert second == ("url", "url")
 
 
+def test_formula_dtype_reuses_existing_schema_feature_dtype(syncer):
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "internal"
+    existing_feature.dtype_as_str = "bool"
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input") as ask,
+    ):
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Schema.filter.return_value = schema_qs
+        stdin.isatty.return_value = True
+
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "People",
+            "internal",
+            {"type": "formula", "formula_expression": "foo"},
+        )
+
+    assert ask.call_count == 0
+    assert dtype_label == "bool"
+    assert dtype is bool
+
+
 def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(syncer):
     db_id = "db-1"
     schema_spec = {

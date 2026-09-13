@@ -1158,6 +1158,35 @@ class _NotionSyncer:
         }
         return mapping.get(normalized)
 
+    def _existing_formula_dtype_choice(
+        self, db_name: str, property_name: str
+    ) -> tuple[str, Any] | None:
+        schema_qs = ln.Schema.filter(name=db_name)
+        if schema_qs.count() != 1:
+            return None
+        schema = schema_qs.one_or_none()
+        if schema is None:
+            return None
+        members = schema.members
+        if hasattr(members, "filter"):
+            candidates = list(members.filter(name__iexact=property_name))
+        else:
+            candidates = [
+                feature
+                for feature in members
+                if isinstance(getattr(feature, "name", None), str)
+                and feature.name.lower() == property_name.lower()
+            ]
+        existing_feature = self._pick_unique(candidates)
+        if existing_feature is None:
+            return None
+        existing_dtype = getattr(existing_feature, "dtype_as_str", None) or getattr(
+            existing_feature, "_dtype_str", None
+        )
+        if not isinstance(existing_dtype, str):
+            return None
+        return self._parse_formula_dtype_choice(existing_dtype)
+
     def _dtype_from_formula_property(
         self,
         db_name: str,
@@ -1168,6 +1197,14 @@ class _NotionSyncer:
         cached = self._formula_dtype_cache.get(cache_key)
         if cached is not None:
             return cached
+        existing = self._existing_formula_dtype_choice(db_name, property_name)
+        if existing is not None:
+            logger.important(
+                "formula dtype: reusing existing schema dtype "
+                f"db={db_name!r}, property={property_name!r}, dtype={existing[0]!r}"
+            )
+            self._formula_dtype_cache[cache_key] = existing
+            return existing
         expression = property_spec.get("formula_expression")
         if not isinstance(expression, str) or not expression:
             expression = "<formula expression unavailable from Notion API>"
