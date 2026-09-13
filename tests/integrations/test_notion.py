@@ -977,6 +977,45 @@ def test_resolve_record_type_apply_adds_missing_features_to_existing_schema(sync
     rec_type.schema.add.assert_called_once_with([missing_feature])
 
 
+def test_resolve_record_type_dry_run_plans_missing_features_for_existing_schema(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
+    rec_type = MagicMock()
+    rec_type.name = "Website analytics"
+    rec_type.description = None
+    rec_type._aux = None
+    rec_type.schema = MagicMock()
+
+    with (
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Website analytics"}]},
+        ),
+        patch.object(
+            syncer.reader,
+            "columns",
+            return_value={"name": "title", "page_views": "number"},
+        ),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("name", "str", str), ("page_views", "num", "num")],
+        ),
+        patch.object(syncer, "_plan_or_create_db_metadata") as plan_or_create,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        resolved = syncer._resolve_record_type(db_id, apply=False, report=report)
+
+    assert resolved is rec_type
+    plan_or_create.assert_called_once()
+    assert plan_or_create.call_args.kwargs["apply"] is False
+
+
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
@@ -1182,6 +1221,14 @@ def test_schema_validation_checks_full_property_parity(syncer):
     ):
         with pytest.raises(ValueError, match="missing in Lamin schema"):
             syncer._validate_schema("db-1", rec_type)
+
+
+def test_schema_validation_dry_run_allows_missing_without_extra(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    with patch.object(
+        syncer.reader, "columns", return_value={"Name": "title", "Email": "email"}
+    ):
+        syncer._validate_schema("db-1", rec_type, apply=False)
 
 
 def test_resolve_record_type_apply_assigns_parent_type(syncer):
@@ -1512,6 +1559,7 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
         create_record_types=["Website analytics"],
         create_feature_types=["Website analytics"],
         create_schemas=["Website analytics"],
+        update_schemas=["Website analytics"],
         create_features=[
             "Website analytics / Name: str",
             "Website analytics / Score: num",
@@ -1532,6 +1580,7 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "discovered_records" not in text
     assert "create_feature_types" in text
     assert "create_schemas" in text
+    assert "update_schemas" in text
     assert "Website analytics / Score: num" in text
     assert "create_artifacts" in text
     assert (

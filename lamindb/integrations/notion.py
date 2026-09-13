@@ -77,6 +77,8 @@ class SyncReport:
     create_feature_types: list[str] = field(default_factory=list)
     created_schemas: list[str] = field(default_factory=list)
     create_schemas: list[str] = field(default_factory=list)
+    updated_schemas: list[str] = field(default_factory=list)
+    update_schemas: list[str] = field(default_factory=list)
     created_features: list[str] = field(default_factory=list)
     create_features: list[str] = field(default_factory=list)
     created_artifacts: list[str] = field(default_factory=list)
@@ -142,6 +144,14 @@ class SyncReport:
         if self.created_schemas:
             lines.append(
                 metric("created_schemas", ", ".join(self.created_schemas), "green")
+            )
+        if self.update_schemas:
+            lines.append(
+                metric("update_schemas", ", ".join(self.update_schemas), action_color)
+            )
+        if self.updated_schemas:
+            lines.append(
+                metric("updated_schemas", ", ".join(self.updated_schemas), "green")
             )
         if self.create_features:
             lines.append("[bold]create_features[/]:")
@@ -1433,6 +1443,11 @@ class _NotionSyncer:
                 self._append_unique(report.create_schemas, db_name)
         else:
             logger.important(f"notion sync metadata: schema {db_name!r} already exists")
+            if missing_specs:
+                if apply:
+                    self._append_unique(report.updated_schemas, db_name)
+                else:
+                    self._append_unique(report.update_schemas, db_name)
             if apply and record_field_mappings:
                 schema_record_fields = dict(schema._record_fields)
                 changed = False
@@ -1556,11 +1571,11 @@ class _NotionSyncer:
                 f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
             )
         rec_type = qs.one()
+        columns = self.reader.columns(database_id)
+        feature_plan = self._database_feature_plan(database_id, columns=columns)
+        index_feature_name = self._index_feature_name_from_columns(columns)
+        record_field_mappings = self._record_field_mappings_from_columns(columns)
         if apply:
-            columns = self.reader.columns(database_id)
-            feature_plan = self._database_feature_plan(database_id, columns=columns)
-            index_feature_name = self._index_feature_name_from_columns(columns)
-            record_field_mappings = self._record_field_mappings_from_columns(columns)
             _, features, schema = self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
@@ -1600,13 +1615,30 @@ class _NotionSyncer:
                     rec_type.schema.add(missing_schema_features)
             if changed:
                 rec_type.save()
+        else:
+            self._plan_or_create_db_metadata(
+                db_name,
+                feature_plan,
+                index_feature_name=index_feature_name,
+                record_field_mappings=record_field_mappings,
+                apply=False,
+                report=report,
+            )
         return rec_type
 
-    def _validate_schema(self, database_id: str, rec_type) -> None:
+    def _validate_schema(
+        self, database_id: str, rec_type, *, apply: bool = True
+    ) -> None:
         notion_props = set(self.reader.columns(database_id))
         schema_features = self._schema_feature_names(rec_type)
         missing_features = sorted(notion_props - schema_features)
         extra_features = sorted(schema_features - notion_props)
+        if missing_features and not apply and not extra_features:
+            logger.important(
+                f"notion sync schema-check: discovered existing schema {rec_type.name!r} "
+                f"with missing features={missing_features}; dry run reports planned updates"
+            )
+            return
         if missing_features or extra_features:
             problems: list[str] = []
             if missing_features:
@@ -1689,7 +1721,7 @@ class _NotionSyncer:
                 parent_types_by_page_id=parent_types_by_page_id,
             )
             if rec_type is not None:
-                self._validate_schema(db_id, rec_type)
+                self._validate_schema(db_id, rec_type, apply=apply)
                 logger.important(
                     f"notion sync schema-check: validated db={_compact_uuid(db_id)} against "
                     f"record_type={rec_type.name!r}"
