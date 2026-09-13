@@ -63,17 +63,21 @@ class SyncReport:
             )
         else:
             lines.append("[bold cyan]Sync report[/]")
-        if self.discovered_pages > 0:
-            lines.append(f"[bold]Discovered {self.discovered_pages} Notion pages.[/]")
         lines.append("")
         lines.append("[bold cyan]Scope[/]")
-        lines.append(metric("discovered_databases", len(self.databases)))
-        if self.databases:
-            lines.append(metric("database_ids", ", ".join(self.databases)))
-        lines.append(metric("discovered_records", self.discovered))
+        if self.discovered_pages > 0:
+            lines.append(f"[bold]Discovered {self.discovered_pages} Notion pages.[/]")
 
         lines.append("")
-        lines.append("[bold cyan]Record actions[/]")
+        lines.append("[bold cyan]Actions[/]")
+        if self.create_record_types:
+            lines.append(
+                metric("create_record_types", ", ".join(self.create_record_types))
+            )
+        if self.created_record_types:
+            lines.append(
+                metric("created_record_types", ", ".join(self.created_record_types))
+            )
         lines.extend(
             [
                 metric("create_records", self.created),
@@ -83,17 +87,6 @@ class SyncReport:
                 metric("failed_records", self.failed),
             ]
         )
-        if self.create_record_types or self.created_record_types:
-            lines.append("")
-            lines.append("[bold cyan]Record type actions[/]")
-        if self.create_record_types:
-            lines.append(
-                metric("create_record_types", ", ".join(self.create_record_types))
-            )
-        if self.created_record_types:
-            lines.append(
-                metric("created_record_types", ", ".join(self.created_record_types))
-            )
         if self.errors:
             lines.append("")
             lines.append("[bold red]Errors[/]")

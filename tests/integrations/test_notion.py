@@ -929,5 +929,9 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "Dry run: nothing got created." in text
     assert "pass apply=True or --apply on the CLI" in text
     assert "Scope" in text
-    assert "[bold]discovered_databases[/]: [green]1[/]" in text
+    assert "Actions" in text
+    assert "discovered_databases" not in text
+    assert "database_ids" not in text
+    assert "discovered_records" not in text
     assert "[bold]create_records[/]: [green]5[/]" in text
+    assert text.index("create_record_types") < text.index("create_records")
