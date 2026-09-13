@@ -17,6 +17,8 @@ from typing import Any
 import requests
 from lamin_utils import logger
 
+import lamindb as ln
+
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
 
@@ -345,8 +347,6 @@ class _NotionReader:
 @contextmanager
 def _bulk_creation():
     """Disable the per-create similar-name search for the duration of a bulk sync."""
-    import lamindb as ln
-
     prev = ln.settings.creation.search_names
     ln.settings.creation.search_names = False
     try:
@@ -375,8 +375,6 @@ def _feat_map(schema) -> dict:
 
 def _existing_by_ref(rec_type) -> dict:
     """{notion_uuid: ln.Record} for a type — ONE query, reused for upsert + write."""
-    import lamindb as ln
-
     return {
         r.reference: r for r in ln.Record.filter(type=rec_type, reference_type="notion")
     }
@@ -384,8 +382,6 @@ def _existing_by_ref(rec_type) -> dict:
 
 def _resolved_map(uuids) -> dict:
     """{notion_uuid: ln.Record} for the UUIDs that resolve — ONE query, not N."""
-    import lamindb as ln
-
     uuids = list(uuids)
     if not uuids:
         return {}
@@ -404,8 +400,6 @@ def _ensure_labels(names) -> None:
     does when that search is disabled. (Pre-existing duplicates still need a
     one-time manual cleanup — this only stops NEW ones being made.)
     """
-    import lamindb as ln
-
     names = {n for n in names if n}
     if not names:
         return
@@ -492,8 +486,6 @@ def _upsert_all(rec_type, rows) -> dict:
     Returns the {notion_uuid: record} map (existing + newly created), ready to
     hand to :func:`_write` so it never re-queries.
     """
-    import lamindb as ln
-
     by_id = _existing_by_ref(rec_type)  # ONE query, not one per row
     for row in rows:
         nid, name = row["notion_id"], row.get("name")
@@ -594,8 +586,6 @@ class _NotionSyncer:
         return {feature.name for feature in schema.members}
 
     def _resolve_record_type(self, database_id: str):
-        import lamindb as ln
-
         payload = self.reader._call("GET", f"/databases/{database_id}")
         db_name = self._database_title(payload, fallback=database_id)
         qs = ln.Record.filter(name=db_name, is_type=True)
@@ -731,6 +721,7 @@ class _NotionSyncer:
         return report
 
 
+@ln.flow("Ofbk5ruuTiN2")
 def sync_from_notion(
     *,
     parents: list[str] | tuple[str, ...] | str,
