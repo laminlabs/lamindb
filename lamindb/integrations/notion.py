@@ -1206,18 +1206,6 @@ class _NotionSyncer:
                     name__in=[name for name, _, _ in feature_plan], type=feature_type
                 )
             )
-            feature_ids = [
-                getattr(feature, "uid", getattr(feature, "id", None))
-                for feature in features
-            ]
-            duplicate_count = len(feature_ids) - len(
-                {feature_id for feature_id in feature_ids if feature_id is not None}
-            )
-            if duplicate_count > 0:
-                logger.important(
-                    f"notion sync metadata: db={db_name!r}, duplicate feature rows observed in query "
-                    f"(count={duplicate_count}, ids={feature_ids})"
-                )
         else:
             features = []
 
@@ -1242,22 +1230,11 @@ class _NotionSyncer:
                     f"notion sync metadata: creating schema {db_name!r} with "
                     f"{len(features)} features, index={index_feature_name!r}"
                 )
-                try:
-                    schema = ln.Schema(
-                        features,
-                        name=db_name,
-                        index=index_feature,
-                    ).save()
-                except Exception as error:
-                    feature_debug = [
-                        f"{getattr(feature, 'name', '<unknown>')}:{getattr(feature, 'uid', getattr(feature, 'id', '?'))}"
-                        for feature in features
-                    ]
-                    logger.important(
-                        f"notion sync metadata failed while creating schema {db_name!r}; "
-                        f"features={feature_debug}; error={error}"
-                    )
-                    raise
+                schema = ln.Schema(
+                    features,
+                    name=db_name,
+                    index=index_feature,
+                ).save()
                 self._append_unique(report.created_schemas, db_name)
                 logger.important(f"notion sync metadata: created schema {db_name!r}")
             else:
