@@ -1253,6 +1253,12 @@ def test_feature_dtype_for_files_maps_to_artifact_list(syncer):
     assert dtype.__args__[0] is ln.Artifact
 
 
+def test_feature_dtype_for_url_maps_to_lamindb_url(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("url")
+    assert syncer._feature_dtype_label_from_notion_type("url") == "url"
+    assert dtype == "url"
+
+
 def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(syncer):
     db_id = "db-1"
     schema_spec = {

@@ -1315,6 +1315,8 @@ class _NotionSyncer:
     def _feature_dtype_from_notion_type(notion_type: str):
         if notion_type == "number":
             return "num"
+        if notion_type == "url":
+            return "url"
         if notion_type == "checkbox":
             return bool
         if notion_type in {"created_time", "last_edited_time"}:
@@ -1331,6 +1333,8 @@ class _NotionSyncer:
     def _feature_dtype_label_from_notion_type(notion_type: str) -> str:
         if notion_type == "number":
             return "num"
+        if notion_type == "url":
+            return "url"
         if notion_type == "checkbox":
             return "bool"
         if notion_type in {"created_time", "last_edited_time"}:
