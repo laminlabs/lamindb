@@ -122,3 +122,12 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
         },
     )
     assert result == params
+
+
+def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
+    params = {"value": "alpha"}
+    result = serialize_params_to_json(
+        params, expected_param_types={"value": "UnknownType"}
+    )
+    assert result == {}
+    assert "unresolved string annotation" in ccaplog.text

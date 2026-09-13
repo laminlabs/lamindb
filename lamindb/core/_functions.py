@@ -1,9 +1,12 @@
 import functools
 import inspect
+from collections.abc import Iterable as IterableABC
+from collections.abc import Mapping as MappingABC
+from collections.abc import Sequence as SequenceABC
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Literal, ParamSpec, TypeVar, get_type_hints
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, Union, get_type_hints
 
 from lamindb.base import deprecated
 
@@ -13,6 +16,15 @@ from ._context import context as global_context
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+_DEFAULT_ANNOTATION_GLOBALS: dict[str, Any] = {
+    "Any": Any,
+    "Literal": Literal,
+    "Union": Union,
+    "Iterable": IterableABC,
+    "Sequence": SequenceABC,
+    "Mapping": MappingABC,
+}
 
 # Create a context variable to store the current tracked run
 current_tracked_run: ContextVar[Run | None] = ContextVar(
@@ -67,19 +79,35 @@ def _create_tracked_decorator(
                         func.__code__.co_freevars, func.__closure__, strict=False
                     )
                 }
+            localns = {**definition_locals, **closure_locals}
             try:
                 resolved_type_hints = get_type_hints(
                     func,
                     globalns=func.__globals__,
-                    localns={**definition_locals, **closure_locals},
+                    localns=localns,
                     include_extras=True,
                 )
             except Exception:
-                return raw_annotations
-            return {
-                name: resolved_type_hints.get(name, raw)
-                for name, raw in raw_annotations.items()
-            }
+                resolved_type_hints = {}
+            expected_param_types: dict[str, Any] = {}
+            for name, raw in raw_annotations.items():
+                resolved = resolved_type_hints.get(name)
+                if resolved is not None:
+                    expected_param_types[name] = resolved
+                    continue
+                if isinstance(raw, str):
+                    try:
+                        expected_param_types[name] = eval(  # noqa: S307
+                            raw,
+                            {**_DEFAULT_ANNOTATION_GLOBALS, **func.__globals__},
+                            localns,
+                        )
+                        continue
+                    except Exception:
+                        expected_param_types[name] = raw
+                        continue
+                expected_param_types[name] = raw
+            return expected_param_types
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:

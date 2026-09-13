@@ -432,6 +432,12 @@ def _annotation_to_feature_dtype_arg(
         return (None, value, None) if value is None else (None, value, "expected None")
 
     if isinstance(annotation, str):
+        from ..models.feature import parse_dtype
+
+        try:
+            parse_dtype(annotation, check_exists=False)
+        except Exception:
+            return None, value, f"unresolved string annotation {annotation!r}"
         return annotation, value, None
 
     origin = get_origin(annotation)
