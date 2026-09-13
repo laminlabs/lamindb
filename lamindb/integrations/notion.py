@@ -1153,10 +1153,17 @@ class _NotionSyncer:
                 f"Ambiguous LaminDB feature type name {db_name!r}: found {feature_type_count} matches."
             )
         feature_type = feature_type_qs.one_or_none()
+        logger.important(
+            f"notion sync metadata: db={db_name!r}, apply={apply}, "
+            f"feature_plan_size={len(feature_plan)}, feature_type_exists={feature_type is not None}"
+        )
         if feature_type is None:
             if apply:
                 feature_type = ln.Feature(name=db_name, is_type=True).save()
                 self._append_unique(report.created_feature_types, db_name)
+                logger.important(
+                    f"notion sync metadata: created feature type {db_name!r}"
+                )
             else:
                 self._append_unique(report.create_feature_types, db_name)
 
@@ -1164,14 +1171,19 @@ class _NotionSyncer:
         if feature_type is None:
             missing_specs = feature_plan
         else:
+            feature_names = [name for name, _, _ in feature_plan]
             existing_names = set(
                 ln.Feature.filter(
-                    name__in=[name for name, _, _ in feature_plan], type=feature_type
+                    name__in=feature_names, type=feature_type
                 ).values_list("name", flat=True)
             )
             missing_specs = [
                 spec for spec in feature_plan if spec[0] not in existing_names
             ]
+            logger.important(
+                f"notion sync metadata: db={db_name!r}, existing_features={len(existing_names)}, "
+                f"missing_features={len(missing_specs)}"
+            )
 
         if missing_specs:
             for name, dtype_label, _ in missing_specs:
@@ -1184,6 +1196,9 @@ class _NotionSyncer:
         if apply and feature_type is not None and missing_specs:
             for name, _, dtype in missing_specs:
                 ln.Feature(name=name, dtype=dtype, type=feature_type).save()
+            logger.important(
+                f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
+            )
 
         if feature_type is not None:
             features = list(
@@ -1191,6 +1206,18 @@ class _NotionSyncer:
                     name__in=[name for name, _, _ in feature_plan], type=feature_type
                 )
             )
+            feature_ids = [
+                getattr(feature, "uid", getattr(feature, "id", None))
+                for feature in features
+            ]
+            duplicate_count = len(feature_ids) - len(
+                {feature_id for feature_id in feature_ids if feature_id is not None}
+            )
+            if duplicate_count > 0:
+                logger.important(
+                    f"notion sync metadata: db={db_name!r}, duplicate feature rows observed in query "
+                    f"(count={duplicate_count}, ids={feature_ids})"
+                )
         else:
             features = []
 
@@ -1211,14 +1238,32 @@ class _NotionSyncer:
                     ),
                     None,
                 )
-                schema = ln.Schema(
-                    features,
-                    name=db_name,
-                    index=index_feature,
-                ).save()
+                logger.important(
+                    f"notion sync metadata: creating schema {db_name!r} with "
+                    f"{len(features)} features, index={index_feature_name!r}"
+                )
+                try:
+                    schema = ln.Schema(
+                        features,
+                        name=db_name,
+                        index=index_feature,
+                    ).save()
+                except Exception as error:
+                    feature_debug = [
+                        f"{getattr(feature, 'name', '<unknown>')}:{getattr(feature, 'uid', getattr(feature, 'id', '?'))}"
+                        for feature in features
+                    ]
+                    logger.important(
+                        f"notion sync metadata failed while creating schema {db_name!r}; "
+                        f"features={feature_debug}; error={error}"
+                    )
+                    raise
                 self._append_unique(report.created_schemas, db_name)
+                logger.important(f"notion sync metadata: created schema {db_name!r}")
             else:
                 self._append_unique(report.create_schemas, db_name)
+        else:
+            logger.important(f"notion sync metadata: schema {db_name!r} already exists")
         return feature_type, features, schema
 
     def _create_record_type(
@@ -1342,6 +1387,10 @@ class _NotionSyncer:
             parent_ids = list(parents)
         if not parent_ids:
             raise ValueError("parents is required and must contain at least one ID.")
+        logger.important(
+            f"notion sync start: parents={[_compact_uuid(pid) for pid in parent_ids]}, "
+            f"apply={apply}, limit={limit}"
+        )
 
         report = SyncReport(
             apply=apply,
@@ -1349,6 +1398,10 @@ class _NotionSyncer:
         )
         db_id_set, parent_pages = self._collect_database_ids(parent_ids)
         db_ids = sorted(db_id_set)
+        logger.important(
+            f"notion sync discovery: parent_pages={len(parent_pages)}, "
+            f"databases={[_compact_uuid(db_id) for db_id in db_ids]}"
+        )
         if not db_ids:
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "
@@ -1366,9 +1419,16 @@ class _NotionSyncer:
         rec_types: dict[str, Any] = {}
         db_specs: dict[str, dict[str, Any]] = {}
         for db_id in db_ids:
+            logger.important(
+                f"notion sync schema-check: resolving record type for db={_compact_uuid(db_id)}"
+            )
             rec_type = self._resolve_record_type(db_id, apply=apply, report=report)
             if rec_type is not None:
                 self._validate_schema(db_id, rec_type)
+                logger.important(
+                    f"notion sync schema-check: validated db={_compact_uuid(db_id)} against "
+                    f"record_type={rec_type.name!r}"
+                )
             rec_types[db_id] = rec_type
             db_specs[db_id] = self.reader.schema(db_id)
 
@@ -1382,6 +1442,9 @@ class _NotionSyncer:
                 rec_type = rec_types[db_id]
                 rows = self.reader.rows(db_id, limit=limit)
                 report.discovered += len(rows)
+                logger.important(
+                    f"notion sync phase A: db={_compact_uuid(db_id)}, discovered_rows={len(rows)}"
+                )
                 if rec_type is None:
                     # dry-run mode with missing type: all discovered rows are new.
                     report.created += len(rows)
@@ -1416,6 +1479,10 @@ class _NotionSyncer:
                         report.updated += 1
                         writes.append(row)
                 to_write[db_id] = writes
+                logger.important(
+                    f"notion sync phase A: db={_compact_uuid(db_id)}, create={sum(1 for row in writes if row['notion_id'] not in before)}, "
+                    f"update={sum(1 for row in writes if row['notion_id'] in before)}, unchanged={len(rows) - len(writes)}"
+                )
                 _, _, file_props = _kinds(db_specs[db_id])
                 transfer_map, transfer_details = _planned_missing_file_transfers(
                     writes, file_props
@@ -1427,6 +1494,9 @@ class _NotionSyncer:
                             report.create_artifacts.append(detail)
 
                 if apply:
+                    logger.important(
+                        f"notion sync phase A: upserting identity rows for db={_compact_uuid(db_id)}"
+                    )
                     after_maps[db_id] = _upsert_all(rec_type, rows)
                 else:
                     after_maps[db_id] = before
@@ -1444,6 +1514,9 @@ class _NotionSyncer:
                 write_rows = to_write[db_id]
                 if not write_rows:
                     continue
+                logger.important(
+                    f"notion sync phase B: materializing db={_compact_uuid(db_id)} rows={len(write_rows)}"
+                )
                 stats = _write(
                     self.reader,
                     write_rows,
@@ -1455,7 +1528,13 @@ class _NotionSyncer:
                     report=report,
                 )
                 report.pending_relations += stats["pending"]
+                logger.important(
+                    f"notion sync phase B: finished db={_compact_uuid(db_id)} records={stats['records']} pending_relations={stats['pending']}"
+                )
 
+        logger.important(
+            f"notion sync done: created={report.created}, updated={report.updated}, unchanged={report.unchanged}"
+        )
         return report
 
 
