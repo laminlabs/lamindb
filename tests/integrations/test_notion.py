@@ -1646,6 +1646,35 @@ def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     assert syncer.reader.s.request.call_count == 2
 
 
+def test_collect_database_ids_from_database_registers_its_parent_page(syncer):
+    database_id = "b86daf142a544728bda2496c5760d863"
+    parent_page_id = "11111111111111111111111111111111"
+    db_ok = _make_response(
+        {
+            "id": database_id,
+            "parent": {"type": "page_id", "page_id": parent_page_id},
+        }
+    )
+    page_ok = _make_response(
+        {
+            "object": "page",
+            "id": parent_page_id,
+            "icon": {"type": "emoji", "emoji": "🧭"},
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "General asset"}]}
+            },
+        }
+    )
+    syncer.reader.s.request.side_effect = [db_ok, page_ok]
+
+    db_ids, parent_pages = syncer._collect_database_ids([database_id], limit=0)
+
+    assert db_ids == {database_id}
+    assert parent_pages == {parent_page_id: "General asset"}
+    assert syncer._parent_page_emojis == {parent_page_id: "🧭"}
+    assert syncer._database_parent_pages == {database_id: parent_page_id}
+
+
 def test_schema_validation_accepts_exact_property_parity(syncer):
     rec_type = _fake_rec_type("People", ["Name"])
     with patch.object(syncer.reader, "columns", return_value={"Name": "title"}):
@@ -1679,7 +1708,7 @@ def test_resolve_record_type_apply_assigns_parent_type(syncer):
     rec_type.schema = MagicMock()
     rec_type.schema.members = []
     rec_type.type_id = None
-    parent_type = type("ParentType", (), {"id": 7})()
+    parent_type = type("ParentType", (), {"id": 7, "name": "General asset"})()
 
     with (
         patch.object(syncer.reader, "columns", return_value={"name": "title"}),
@@ -1709,6 +1738,44 @@ def test_resolve_record_type_apply_assigns_parent_type(syncer):
 
     assert rec_type.type is parent_type
     rec_type.save.assert_called_once()
+    assert report.updated_record_types == ["Website analytics: <root> -> General asset"]
+
+
+def test_resolve_record_type_dry_run_reports_parent_type_move(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport(apply=False)
+    rec_type = MagicMock()
+    rec_type.name = "Website analytics"
+    rec_type.description = None
+    rec_type._aux = {"ei": "📊"}
+    rec_type.schema = MagicMock()
+    rec_type.schema.members = []
+    rec_type.type_id = None
+    parent_type = type("ParentType", (), {"id": 7, "name": "General asset"})()
+
+    with (
+        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("name", "str", str)],
+        ),
+        patch.object(syncer, "_plan_or_create_db_metadata"),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        syncer._resolve_record_type(
+            db_id,
+            apply=False,
+            report=report,
+            payload={"title": [{"plain_text": "Website analytics"}]},
+            parent_type=parent_type,
+        )
+
+    assert report.update_record_types == ["Website analytics: <root> -> General asset"]
 
 
 def test_import_pages_dry_run_does_not_write(syncer):
@@ -1995,6 +2062,7 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
         pending_relations=0,
         failed=0,
         create_record_types=["Website analytics"],
+        update_record_types=["Projects: <root> -> General asset"],
         create_feature_types=["Website analytics"],
         create_schemas=["Website analytics"],
         update_schemas=["Website analytics"],
@@ -2018,6 +2086,8 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "database_ids" not in text
     assert "discovered_records" not in text
     assert "create_feature_types" in text
+    assert "update_record_types" in text
+    assert "Projects: <root> -> General asset" in text
     assert "create_schemas" in text
     assert "update_schemas" in text
     assert "update_features" in text

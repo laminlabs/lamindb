@@ -74,6 +74,8 @@ class SyncReport:
     databases: list[str] = field(default_factory=list)
     created_record_types: list[str] = field(default_factory=list)
     create_record_types: list[str] = field(default_factory=list)
+    updated_record_types: list[str] = field(default_factory=list)
+    update_record_types: list[str] = field(default_factory=list)
     created_feature_types: list[str] = field(default_factory=list)
     create_feature_types: list[str] = field(default_factory=list)
     created_ulabel_types: list[str] = field(default_factory=list)
@@ -128,6 +130,22 @@ class SyncReport:
                 metric(
                     "created_record_types",
                     ", ".join(self.created_record_types),
+                    "green",
+                )
+            )
+        if self.update_record_types:
+            lines.append(
+                metric(
+                    "update_record_types",
+                    ", ".join(self.update_record_types),
+                    action_color,
+                )
+            )
+        if self.updated_record_types:
+            lines.append(
+                metric(
+                    "updated_record_types",
+                    ", ".join(self.updated_record_types),
                     "green",
                 )
             )
@@ -1185,6 +1203,22 @@ class _NotionSyncer:
             db_payload = self._safe_call(f"/databases/{parent}")
             if db_payload is not None:
                 database_ids.add(parent)
+                normalized_db_id = _normalize_notion_id(parent) or parent
+                parent_page_id = self._database_parent_page_id(db_payload)
+                if parent_page_id is not None:
+                    self._database_parent_pages[normalized_db_id] = parent_page_id
+                    if parent_page_id not in parent_pages:
+                        parent_page_payload = self._safe_call(
+                            f"/pages/{parent_page_id}"
+                        )
+                        if parent_page_payload is not None:
+                            parent_title = _page_title(
+                                parent_page_payload
+                            ).strip() or _compact_uuid(parent_page_id)
+                            parent_pages[parent_page_id] = parent_title
+                            parent_page_emojis[parent_page_id] = self._database_emoji(
+                                parent_page_payload
+                            )
                 # recurse through rows as pages to discover nested child databases
                 if limit == 0:
                     continue
@@ -1782,6 +1816,18 @@ class _NotionSyncer:
             detail = f"{detail} -> {' / '.join(mapped_targets)}"
         return detail
 
+    @staticmethod
+    def _record_type_move_detail(rec_type: Any, parent_type: Any) -> str:
+        previous_parent_raw = getattr(getattr(rec_type, "type", None), "name", None)
+        previous_parent = (
+            previous_parent_raw
+            if isinstance(previous_parent_raw, str) and previous_parent_raw
+            else None
+        )
+        previous = previous_parent if previous_parent else "<root>"
+        target = getattr(parent_type, "name", None) or str(parent_type)
+        return f"{rec_type.name}: {previous} -> {target}"
+
     def _plan_or_create_db_metadata(
         self,
         db_name: str,
@@ -2110,6 +2156,13 @@ class _NotionSyncer:
         )
         index_feature_name = self._index_feature_name_from_columns(columns)
         record_field_mappings = self._record_field_mappings_from_columns(columns)
+        record_type_move_detail: str | None = None
+        if parent_type is not None and getattr(rec_type, "type_id", None) != getattr(
+            parent_type, "id", None
+        ):
+            record_type_move_detail = self._record_type_move_detail(
+                rec_type, parent_type
+            )
         if apply:
             _, features, schema = self._plan_or_create_db_metadata(
                 db_name,
@@ -2137,6 +2190,10 @@ class _NotionSyncer:
             ) != getattr(parent_type, "id", None):
                 rec_type.type = parent_type
                 changed = True
+                if record_type_move_detail is not None:
+                    self._append_unique(
+                        report.updated_record_types, record_type_move_detail
+                    )
             if rec_type.schema is not None:
                 existing_schema_feature_names = {
                     feature.name for feature in rec_type.schema.members
@@ -2159,6 +2216,8 @@ class _NotionSyncer:
                 apply=False,
                 report=report,
             )
+            if record_type_move_detail is not None:
+                self._append_unique(report.update_record_types, record_type_move_detail)
         return rec_type
 
     def _validate_schema(
