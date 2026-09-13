@@ -1271,11 +1271,13 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
         patch.object(
             syncer, "_resolve_ulabel_type_by_name_candidates"
         ) as resolve_ulabel,
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
         patch.object(
             syncer, "_resolve_record_type_by_name_candidates"
         ) as resolve_record,
     ):
         resolve_ulabel.return_value = people_ulabel_type
+        target_names.return_value = ["People"]
         resolve_record.return_value = people_type
         plan = syncer._database_feature_plan(
             db_id, columns=columns, schema_spec=schema_spec
@@ -1287,6 +1289,119 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert plan[1][1] == "list[People]"
     assert resolve_ulabel.called
     assert resolve_record.called
+
+
+def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
+    with patch.object(
+        syncer, "_resolve_record_type_by_name_candidates"
+    ) as resolve_record:
+        resolve_record.side_effect = [None, None]
+        with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+            target_names.return_value = []
+            dtype_label, dtype = syncer._dtype_from_notion_property(
+                "Organizations",
+                "software",
+                {
+                    "type": "relation",
+                    "target": "target-ds-id",
+                    "dual": {"synced_property_name": "organization"},
+                },
+            )
+
+    assert dtype_label == "list[str]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is str
+    assert resolve_record.call_args_list[0].args[0] == []
+    assert "software" in resolve_record.call_args_list[1].args[0]
+    assert "Software" in resolve_record.call_args_list[1].args[0]
+    assert "organization" not in resolve_record.call_args_list[1].args[0]
+    assert "Organizations" not in resolve_record.call_args_list[1].args[0]
+
+
+def test_relation_dtype_with_target_falls_back_to_property_name_only(syncer):
+    reference_type = type("ReferenceType", (), {"name": "References"})
+    with patch.object(
+        syncer, "_resolve_record_type_by_name_candidates"
+    ) as resolve_record:
+        resolve_record.side_effect = [None, reference_type]
+        with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+            target_names.return_value = []
+            dtype_label, dtype = syncer._dtype_from_notion_property(
+                "Organizations",
+                "reference",
+                {
+                    "type": "relation",
+                    "target": "target-ds-id",
+                    "dual": {"synced_property_name": "organization"},
+                },
+            )
+
+    assert dtype_label == "list[References]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is reference_type
+    assert resolve_record.call_args_list[0].args[0] == []
+    assert "reference" in resolve_record.call_args_list[1].args[0]
+    assert "Reference" in resolve_record.call_args_list[1].args[0]
+    assert "organization" not in resolve_record.call_args_list[1].args[0]
+    assert "Organizations" not in resolve_record.call_args_list[1].args[0]
+
+
+def test_relation_dtype_with_target_plans_missing_record_type(syncer):
+    report = SyncReport(apply=False)
+    with patch.object(
+        syncer, "_resolve_record_type_by_name_candidates"
+    ) as resolve_record:
+        resolve_record.side_effect = [None, None]
+        with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+            target_names.return_value = []
+            dtype_label, dtype = syncer._dtype_from_notion_property(
+                "Organizations",
+                "reference",
+                {
+                    "type": "relation",
+                    "target": "target-ds-id",
+                    "dual": {"synced_property_name": "organization"},
+                },
+                apply=False,
+                report=report,
+            )
+
+    assert dtype_label == "list[References]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.Record
+    assert report.create_record_types == ["References"]
+
+
+def test_relation_dtype_with_target_prefers_notion_database_name(syncer):
+    report = SyncReport(apply=False)
+    with patch.object(
+        syncer, "_resolve_record_type_by_name_candidates"
+    ) as resolve_record:
+        resolve_record.side_effect = [None]
+        with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+            target_names.return_value = [
+                "software",
+                "Software",
+                "softwares",
+                "Softwares",
+            ]
+            dtype_label, dtype = syncer._dtype_from_notion_property(
+                "Organizations",
+                "software",
+                {
+                    "type": "relation",
+                    "target": "target-ds-id",
+                    "dual": {"synced_property_name": "organization"},
+                },
+                apply=False,
+                report=report,
+            )
+
+    assert dtype_label == "list[Software]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.Record
+    assert report.create_record_types == ["Software"]
+    assert "Softwares" not in report.create_record_types
 
 
 def test_multi_select_ulabel_type_candidates_include_hierarchical_child_name(syncer):

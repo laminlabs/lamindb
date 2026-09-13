@@ -1514,6 +1514,87 @@ class _NotionSyncer:
             for value in missing:
                 ln.ULabel(name=value, type=label_type).save()
 
+    def _relation_target_name_candidates(self, target: str) -> list[str]:
+        normalized_target = _normalize_notion_id(target) or target
+
+        db_payload = self._safe_call(f"/databases/{target}")
+        if db_payload is not None:
+            db_name = self._database_title(db_payload, fallback=normalized_target)
+            return self._name_candidates(db_name)
+
+        data_source_payload = self._safe_call(f"/data_sources/{target}")
+        if data_source_payload is None:
+            return []
+
+        names: list[str] = []
+        ds_name = data_source_payload.get("name")
+        if isinstance(ds_name, str) and ds_name.strip():
+            names.extend(self._name_candidates(ds_name.strip()))
+
+        parent = data_source_payload.get("parent")
+        if isinstance(parent, dict):
+            parent_db_id = parent.get("database_id")
+            if isinstance(parent_db_id, str) and parent_db_id.strip():
+                parent_db_payload = self._safe_call(f"/databases/{parent_db_id}")
+                if parent_db_payload is not None:
+                    db_name = self._database_title(
+                        parent_db_payload, fallback=parent_db_id
+                    )
+                    names.extend(self._name_candidates(db_name))
+
+        return list(dict.fromkeys(names))
+
+    @staticmethod
+    def _preferred_record_type_name(
+        names: list[str], *, prefer_plural: bool = True
+    ) -> str | None:
+        candidates = [
+            name for name in dict.fromkeys(names) if isinstance(name, str) and name
+        ]
+        if not candidates:
+            return None
+        if not prefer_plural:
+            titled = [name for name in candidates if name[:1].isupper()]
+            if titled:
+                return titled[0]
+            return candidates[0]
+        plural_titled = [
+            name for name in candidates if name[:1].isupper() and name.endswith("s")
+        ]
+        if plural_titled:
+            return plural_titled[0]
+        titled = [name for name in candidates if name[:1].isupper()]
+        if titled:
+            return titled[0]
+        plural = [name for name in candidates if name.endswith("s")]
+        if plural:
+            return plural[0]
+        return candidates[0]
+
+    def _resolve_or_plan_relation_record_type(
+        self,
+        names: list[str],
+        *,
+        apply: bool,
+        report: SyncReport | None,
+        prefer_plural: bool = True,
+    ) -> tuple[Any | None, str | None]:
+        deduped = list(dict.fromkeys(names))
+        relation_type = self._resolve_record_type_by_name_candidates(deduped)
+        if relation_type is not None:
+            return relation_type, relation_type.name
+        planned_name = self._preferred_record_type_name(
+            deduped, prefer_plural=prefer_plural
+        )
+        if planned_name is None or report is None:
+            return None, None
+        created = self._resolve_or_create_type_by_name(
+            planned_name, apply=apply, report=report
+        )
+        if created is not None:
+            return created, created.name
+        return None, planned_name
+
     def _dtype_from_notion_property(
         self,
         db_name: str,
@@ -1548,14 +1629,47 @@ class _NotionSyncer:
                 return label_type.name, label_type
             return label_type_name, ln.ULabel
         if notion_type == "relation":
+            target = property_spec.get("target")
+            if isinstance(target, str) and target:
+                target_names = self._relation_target_name_candidates(target)
+                relation_type, planned_name = (
+                    self._resolve_or_plan_relation_record_type(
+                        target_names, apply=apply, report=report, prefer_plural=False
+                    )
+                )
+                if relation_type is not None:
+                    return f"list[{relation_type.name}]", self._list_dtype_for(
+                        relation_type
+                    )
+                if planned_name is not None:
+                    return f"list[{planned_name}]", list[ln.Record]
+                # Fallback to the local property name only (not dual synced-name)
+                # to recover obvious mappings like presentations->Presentations
+                # while avoiding cross-side self-type mis-inference.
+                relation_type, planned_name = (
+                    self._resolve_or_plan_relation_record_type(
+                        self._name_candidates(property_name),
+                        apply=apply,
+                        report=report,
+                    )
+                )
+                if relation_type is not None:
+                    return f"list[{relation_type.name}]", self._list_dtype_for(
+                        relation_type
+                    )
+                if planned_name is not None:
+                    return f"list[{planned_name}]", list[ln.Record]
+                return "list[str]", list[str]
+
             names = self._name_candidates(property_name)
             dual = property_spec.get("dual")
             if isinstance(dual, dict):
                 synced_name = dual.get("synced_property_name")
                 if isinstance(synced_name, str) and synced_name:
                     names.extend(self._name_candidates(synced_name))
-                    names = list(dict.fromkeys(names))
-            relation_type = self._resolve_record_type_by_name_candidates(names)
+            relation_type = self._resolve_record_type_by_name_candidates(
+                list(dict.fromkeys(names))
+            )
             if relation_type is not None:
                 return f"list[{relation_type.name}]", self._list_dtype_for(
                     relation_type
