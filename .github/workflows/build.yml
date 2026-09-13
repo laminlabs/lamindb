@@ -31,6 +31,8 @@ jobs:
               - '**'
               - '!docs/**'
               - '!README.md'
+              - '!lamindb/integrations/**'
+              - '!tests/integrations/**'
             curator:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
@@ -166,6 +168,8 @@ jobs:
       - run: nox -s prepare
         if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') }}
       - run: nox -s "test(group='${{ matrix.group }}')"
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4

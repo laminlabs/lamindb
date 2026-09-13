@@ -3,7 +3,11 @@ from pathlib import Path
 from typing import Literal
 
 import lamindb as ln
-from lamindb.core._context import REDACTED_SECRET_VALUE, serialize_params_to_json
+from lamindb.core._context import (
+    REDACTED_SECRET_VALUE,
+    _validate_with_virtual_schema,
+    serialize_params_to_json,
+)
 from lamindb_setup.core.upath import UPath
 
 
@@ -131,3 +135,34 @@ def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
     )
     assert result == {}
     assert "unresolved string annotation" in ccaplog.text
+
+
+def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
+    captured: dict[str, str] = {}
+
+    class DummyCurator:
+        def __init__(
+            self,
+            dataset,
+            schema,
+            slot=None,
+            require_saved_schema=False,
+            using=None,
+            key_label="items",
+            validate_keys=False,
+        ):
+            captured["key_label"] = key_label
+            captured["validate_keys"] = validate_keys
+
+        def validate(self):
+            return None
+
+    monkeypatch.setattr("lamindb.curators.core.ExperimentalDictCurator", DummyCurator)
+    valid_keys, invalid_reasons = _validate_with_virtual_schema(
+        {"count": 1}, {"count": int}
+    )
+
+    assert captured["key_label"] == "params"
+    assert captured["validate_keys"] is False
+    assert valid_keys == {"count"}
+    assert invalid_reasons == {}

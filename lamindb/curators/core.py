@@ -1123,6 +1123,8 @@ class ExperimentalDictCurator(DataFrameCurator):
         slot: str | None = None,
         require_saved_schema: bool = False,
         using: str | None = None,
+        key_label: str = "items",
+        validate_keys: bool = False,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -1139,6 +1141,8 @@ class ExperimentalDictCurator(DataFrameCurator):
             require_saved_schema=require_saved_schema,
             using=using,
         )
+        self._atomic_curator.cat._cat_vectors["columns"]._key = key_label
+        self._atomic_curator.cat._validate_columns = validate_keys
 
 
 def _resolve_schema_slot_path(
@@ -2151,6 +2155,7 @@ class DataFrameCatManager:
         maximal_set: bool = False,
         schema: Schema | None = None,
         using: str | None = None,
+        validate_columns: bool = True,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -2170,6 +2175,7 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
+        self._validate_columns = validate_columns
         columns = self._dataset.keys()
         if maximal_set:
             columns = [
@@ -2291,13 +2297,15 @@ class DataFrameCatManager:
         self._validate_category_error_messages = ""  # reset the error messages
         validated = True
         for key, cat_vector in self._cat_vectors.items():
+            if key == "columns" and not self._validate_columns:
+                continue
             logger.info(f"validating vector {key}")
             cat_vector.validate()
             validated &= cat_vector.is_validated
         self._is_validated = validated
         self._non_validated = {}  # type: ignore
 
-        if self._index is not None:
+        if self._index is not None and "columns" in self._cat_vectors:
             # cat_vector.validate() populates validated labels
             # the index should become part of the feature set corresponding to the dataframe
             if self._cat_vectors["columns"].records is not None:
