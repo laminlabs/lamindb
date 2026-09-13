@@ -1,6 +1,6 @@
 """Sync Notion pages to LaminDB records.
 
-.. autoclass:: NotionSyncer
+.. autofunction:: sync_from_notion
 .. autoclass:: SyncReport
 
 """
@@ -511,8 +511,8 @@ def _upsert_all(rec_type, rows) -> dict:
     return by_id
 
 
-class NotionSyncer:
-    """Idempotent sync of Notion parent trees into typed Lamin records."""
+class _NotionSyncer:
+    """Sync Notion page trees to typed LaminDB records."""
 
     def __init__(self, token: str | None = None) -> None:
         token = token or os.getenv("NOTION_TOKEN")
@@ -645,7 +645,7 @@ class NotionSyncer:
         *,
         dry_run: bool = False,
         limit: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> SyncReport:
         """Import parent trees, validating schema before any write.
 
         `parents` are Notion page/database IDs. The sync discovers databases under
@@ -709,7 +709,7 @@ class NotionSyncer:
                     after_maps[db_id] = before
 
             if dry_run:
-                return report.as_dict()
+                return report
 
             # Phase B: materialize only changed/new rows.
             for db_id in db_ids:
@@ -728,10 +728,28 @@ class NotionSyncer:
                 )
                 report.pending_relations += stats["pending"]
 
-        return report.as_dict()
+        return report
+
+
+def sync_from_notion(
+    *,
+    parents: list[str] | tuple[str, ...] | str,
+    token: str | None = None,
+    dry_run: bool = False,
+    limit: int | None = None,
+) -> SyncReport:
+    """Sync Notion pages via the class-based sync API."""
+    syncer = _NotionSyncer(token=token)
+    if isinstance(parents, str):
+        parent_list = [parents]
+    else:
+        parent_list = list(parents)
+    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit)
+    logger.important(f"{json.dumps(report.as_dict(), sort_keys=True)}")
+    return report
 
 
 __all__ = [
+    "sync_from_notion",
     "SyncReport",
-    "NotionSyncer",
 ]

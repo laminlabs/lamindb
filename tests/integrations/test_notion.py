@@ -13,9 +13,11 @@ import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
-    NotionSyncer,
+    SyncReport,
     _flatten,
     _NotionReader,
+    _NotionSyncer,
+    sync_from_notion,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -618,7 +620,7 @@ def test_rows_no_limit_paginates_fully(reader):
 
 
 # ---------------------------------------------------------------------------
-# NotionSyncer
+# _NotionSyncer
 # ---------------------------------------------------------------------------
 
 
@@ -627,7 +629,7 @@ def syncer(monkeypatch):
     monkeypatch.setenv("NOTION_TOKEN", "env-token")
     with patch("requests.Session") as MockSession:
         MockSession.return_value = MagicMock()
-        return NotionSyncer()
+        return _NotionSyncer()
 
 
 def _fake_rec_type(name: str, features: list[str]):
@@ -648,7 +650,7 @@ def test_syncer_init_raises_without_token(monkeypatch):
     with pytest.raises(ValueError, match="NOTION_TOKEN"):
         with patch("requests.Session") as MockSession:
             MockSession.return_value = MagicMock()
-            NotionSyncer()
+            _NotionSyncer()
 
 
 def test_import_pages_requires_parents(syncer):
@@ -688,10 +690,10 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", dry_run=True)
-    assert report["discovered"] == 2
-    assert report["created"] == 2
-    assert report["updated"] == 0
-    assert report["unchanged"] == 0
+    assert report.discovered == 2
+    assert report.created == 2
+    assert report.updated == 0
+    assert report.unchanged == 0
     upsert_all.assert_not_called()
     write.assert_not_called()
 
@@ -725,7 +727,23 @@ def test_import_pages_writes_only_created_or_changed(syncer):
         report = syncer.import_pages(["parent"])
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["b", "c"]
-    assert report["created"] == 1
-    assert report["updated"] == 1
-    assert report["unchanged"] == 1
-    assert report["pending_relations"] == 1
+    assert report.created == 1
+    assert report.updated == 1
+    assert report.unchanged == 1
+    assert report.pending_relations == 1
+
+
+def test_sync_from_notion_delegates_to_syncer_and_logs():
+    sync_report = SyncReport(created=1)
+    with (
+        patch("lamindb.integrations.notion._NotionSyncer") as Syncer,
+        patch("lamindb.integrations.notion.logger") as log,
+    ):
+        Syncer.return_value.import_pages.return_value = sync_report
+        report = sync_from_notion(parents=("p1", "p2"), dry_run=True, limit=3)
+    Syncer.assert_called_once_with(token=None)
+    Syncer.return_value.import_pages.assert_called_once_with(
+        parents=["p1", "p2"], dry_run=True, limit=3
+    )
+    log.info.assert_called_once()
+    assert report is sync_report
