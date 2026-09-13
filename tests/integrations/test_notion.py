@@ -411,6 +411,13 @@ def test_schema_exposes_dual_property(reader):
     assert schema["Name"]["dual"] is None  # not a relation
 
 
+def test_schema_exposes_select_and_multiselect_choices(reader):
+    reader.s.request.side_effect = [_make_response(DB), _make_response(DS)]
+    schema = reader.schema("db-1")
+    assert schema["Priority"]["choices"] == ["High"]
+    assert schema["Tags"]["choices"] == ["python"]
+
+
 def test_schema_single_property_relation_has_no_dual(reader):
     single = {
         "properties": {
@@ -1061,7 +1068,7 @@ def test_plan_metadata_uses_schema_members_when_feature_type_missing(syncer):
     assert report.create_features == ["Organizations / website: str"]
     assert report.update_features == [
         "Organizations / summary: str",
-        "Organizations / interaction: list[ULabel]",
+        "Organizations / interaction: list[str]",
     ]
 
 
@@ -1152,10 +1159,10 @@ def test_update_features_report_existing_lamin_dtype_labels(syncer):
         )
 
     assert report.update_features == [
-        "Organizations / business_type: list[ULabel]",
+        "Organizations / business_type: list[str]",
         "Organizations / summary: str",
-        "Organizations / person: list[People]",
-        "Organizations / interaction: list[ULabel]",
+        "Organizations / person: list[str]",
+        "Organizations / interaction: list[str]",
     ]
     assert report.create_features == ["Organizations / website: str"]
 
@@ -1280,6 +1287,78 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert plan[1][1] == "list[People]"
     assert resolve_ulabel.called
     assert resolve_record.called
+
+
+def test_multi_select_ulabel_type_candidates_include_db_scoped_name(syncer):
+    with patch.object(
+        syncer, "_resolve_ulabel_type_by_name_candidates"
+    ) as resolve_ulabel:
+        resolve_ulabel.return_value = None
+        syncer._dtype_from_notion_property(
+            "Organizations",
+            "interaction",
+            {"type": "multi_select", "target": None, "dual": None},
+        )
+    candidates = resolve_ulabel.call_args.args[0]
+    assert "Organization interactions" in candidates
+
+
+def test_multi_select_plans_ulabel_type_and_labels_in_dry_run(syncer):
+    report = SyncReport(apply=False)
+    with patch.object(
+        syncer, "_resolve_ulabel_type_by_name_candidates"
+    ) as resolve_ulabel:
+        resolve_ulabel.return_value = None
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "Organizations",
+            "interaction",
+            {
+                "type": "multi_select",
+                "choices": ["Email", "Call"],
+                "target": None,
+                "dual": None,
+            },
+            apply=False,
+            report=report,
+        )
+    assert dtype_label == "list[Organization interactions]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.ULabel
+    assert report.create_ulabel_types == ["Organization interactions"]
+    assert report.create_ulabels == [
+        "Organization interactions / Call",
+        "Organization interactions / Email",
+    ]
+
+
+def test_multi_select_creates_ulabel_type_and_labels_in_apply(syncer):
+    report = SyncReport(apply=True)
+    created_type = MagicMock()
+    created_type.name = "Organization interactions"
+    created_type.id = 77
+    with (
+        patch.object(
+            syncer, "_resolve_ulabel_type_by_name_candidates", return_value=None
+        ),
+        patch("lamindb.integrations.notion.ln.ULabel") as ULabel,
+    ):
+        ULabel.return_value.save.side_effect = [created_type, MagicMock(), MagicMock()]
+        ULabel.filter.return_value.values_list.return_value = ["Call"]
+        dtype_label, _ = syncer._dtype_from_notion_property(
+            "Organizations",
+            "interaction",
+            {
+                "type": "multi_select",
+                "choices": ["Email", "Call"],
+                "target": None,
+                "dual": None,
+            },
+            apply=True,
+            report=report,
+        )
+    assert dtype_label == "list[Organization interactions]"
+    assert report.created_ulabel_types == ["Organization interactions"]
+    assert report.created_ulabels == ["Organization interactions / Email"]
 
 
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):

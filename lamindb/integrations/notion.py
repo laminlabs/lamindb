@@ -76,6 +76,10 @@ class SyncReport:
     create_record_types: list[str] = field(default_factory=list)
     created_feature_types: list[str] = field(default_factory=list)
     create_feature_types: list[str] = field(default_factory=list)
+    created_ulabel_types: list[str] = field(default_factory=list)
+    create_ulabel_types: list[str] = field(default_factory=list)
+    created_ulabels: list[str] = field(default_factory=list)
+    create_ulabels: list[str] = field(default_factory=list)
     created_schemas: list[str] = field(default_factory=list)
     create_schemas: list[str] = field(default_factory=list)
     updated_schemas: list[str] = field(default_factory=list)
@@ -143,6 +147,22 @@ class SyncReport:
                     "green",
                 )
             )
+        if self.create_ulabel_types:
+            lines.append(
+                metric(
+                    "create_ulabel_types",
+                    ", ".join(self.create_ulabel_types),
+                    action_color,
+                )
+            )
+        if self.created_ulabel_types:
+            lines.append(
+                metric(
+                    "created_ulabel_types",
+                    ", ".join(self.created_ulabel_types),
+                    "green",
+                )
+            )
         if self.create_schemas:
             lines.append(
                 metric("create_schemas", ", ".join(self.create_schemas), action_color)
@@ -181,6 +201,14 @@ class SyncReport:
             lines.extend(
                 f"  [green]{safe(feature)}[/]" for feature in self.updated_features
             )
+        if self.create_ulabels:
+            lines.append("[bold]create_ulabels[/]:")
+            lines.extend(
+                f"  [{action_color}]{safe(label)}[/]" for label in self.create_ulabels
+            )
+        if self.created_ulabels:
+            lines.append("[bold]created_ulabels[/]:")
+            lines.extend(f"  [green]{safe(label)}[/]" for label in self.created_ulabels)
         if self.create_artifacts:
             lines.append("[bold]create_artifacts[/]:")
             lines.extend(
@@ -340,7 +368,7 @@ class _NotionReader:
         return self._ds[database_id]
 
     def schema(self, database_id: str) -> dict[str, dict]:
-        """{property_name: {"type": str, "target": str | None, "dual": dict | None}}.
+        """{property_name: {"type": str, "target": str | None, "dual": dict | None, "choices": list[str] | None}}.
 
         `target` and `dual` are set only for relation properties. `target` names
         the data source the relation points at. `dual` is Notion's synced-property
@@ -356,11 +384,25 @@ class _NotionReader:
             t = p.get("type", "")
             target = None
             dual = None
+            choices = None
             if t == "relation":
                 rel = p.get("relation", {})
                 target = rel.get("data_source_id") or rel.get("database_id")
                 dual = rel.get("dual_property")
-            out[name] = {"type": t, "target": target, "dual": dual}
+            if t in {"select", "status", "multi_select"}:
+                type_payload = p.get(t, {})
+                options = (
+                    type_payload.get("options", [])
+                    if isinstance(type_payload, dict)
+                    else []
+                )
+                choices = [
+                    option.get("name", "").strip()
+                    for option in options
+                    if isinstance(option, dict) and isinstance(option.get("name"), str)
+                ]
+                choices = [value for value in choices if value]
+            out[name] = {"type": t, "target": target, "dual": dual, "choices": choices}
         self._schema[database_id] = out
         return out
 
@@ -1351,17 +1393,131 @@ class _NotionSyncer:
         # validate it as a static type argument.
         return list[dynamic_type]  # type: ignore[valid-type]
 
+    @staticmethod
+    def _singularize(value: str) -> str:
+        base = value.strip()
+        if base.endswith("s") and len(base) > 1:
+            return base[:-1]
+        return base
+
+    @staticmethod
+    def _pluralize(value: str) -> str:
+        base = value.strip()
+        if not base:
+            return base
+        if base.endswith("y") and len(base) > 1 and base[-2].lower() not in "aeiou":
+            return f"{base[:-1]}ies"
+        if base.endswith("s"):
+            return base
+        return f"{base}s"
+
+    def _label_type_name_candidates(
+        self, db_name: str, property_name: str
+    ) -> list[str]:
+        db_candidates = self._name_candidates(db_name)
+        prop_candidates = self._name_candidates(property_name)
+        singular_db = self._singularize(db_name.replace("_", " "))
+        singular_db_candidates = self._name_candidates(singular_db)
+        combined: list[str] = []
+        for db_candidate in [*db_candidates, *singular_db_candidates]:
+            for prop_candidate in prop_candidates:
+                combined.append(f"{db_candidate} {prop_candidate}".strip())
+        return list(dict.fromkeys([*combined, *prop_candidates]))
+
+    def _default_label_type_name(self, db_name: str, property_name: str) -> str:
+        singular_db = self._singularize(db_name.replace("_", " ")).strip()
+        prop = property_name.replace("_", " ").strip().lower()
+        plural_prop = self._pluralize(prop)
+        if singular_db and plural_prop:
+            return f"{singular_db} {plural_prop}"
+        return plural_prop or singular_db
+
+    def _resolve_or_plan_ulabel_type(
+        self,
+        db_name: str,
+        property_name: str,
+        *,
+        apply: bool,
+        report: SyncReport | None,
+    ) -> tuple[Any | None, str]:
+        default_name = self._default_label_type_name(db_name, property_name)
+        candidates = [
+            default_name,
+            *self._label_type_name_candidates(db_name, property_name),
+        ]
+        candidates = list(dict.fromkeys(c for c in candidates if c))
+        label_type = self._resolve_ulabel_type_by_name_candidates(candidates)
+        if label_type is not None:
+            return label_type, label_type.name
+        if report is not None:
+            key = "created_ulabel_types" if apply else "create_ulabel_types"
+            self._append_unique(getattr(report, key), default_name)
+        if apply:
+            created = ln.ULabel(name=default_name, is_type=True).save()
+            return created, created.name
+        return None, default_name
+
+    def _plan_or_create_ulabels(
+        self,
+        label_type: Any | None,
+        label_type_name: str,
+        choices: list[str] | None,
+        *,
+        apply: bool,
+        report: SyncReport | None,
+    ) -> None:
+        if report is None or not choices:
+            return
+        ordered_unique = sorted({value for value in choices if value})
+        if not ordered_unique:
+            return
+        existing: set[str] = set()
+        if label_type is not None:
+            existing = set(
+                ln.ULabel.filter(name__in=ordered_unique, type=label_type).values_list(
+                    "name", flat=True
+                )
+            )
+        missing = [value for value in ordered_unique if value not in existing]
+        for value in missing:
+            detail = f"{label_type_name} / {value}"
+            key = "created_ulabels" if apply else "create_ulabels"
+            self._append_unique(getattr(report, key), detail)
+        if apply and label_type is not None:
+            for value in missing:
+                ln.ULabel(name=value, type=label_type).save()
+
     def _dtype_from_notion_property(
-        self, property_name: str, property_spec: dict[str, Any]
+        self,
+        db_name: str,
+        property_name: str,
+        property_spec: dict[str, Any],
+        *,
+        apply: bool = False,
+        report: SyncReport | None = None,
     ) -> tuple[str, Any]:
         notion_type = property_spec["type"]
-        if notion_type == "multi_select":
-            label_type = self._resolve_ulabel_type_by_name_candidates(
-                self._name_candidates(property_name)
+        if notion_type in {"select", "status", "multi_select"}:
+            label_type, label_type_name = self._resolve_or_plan_ulabel_type(
+                db_name,
+                property_name,
+                apply=apply,
+                report=report,
             )
+            self._plan_or_create_ulabels(
+                label_type,
+                label_type_name,
+                property_spec.get("choices"),
+                apply=apply,
+                report=report,
+            )
+            if notion_type == "multi_select":
+                if label_type is not None:
+                    return f"list[{label_type.name}]", self._list_dtype_for(label_type)
+                return f"list[{label_type_name}]", list[ln.ULabel]
             if label_type is not None:
-                return f"list[{label_type.name}]", self._list_dtype_for(label_type)
-            return "list[ULabel]", list[ln.ULabel]
+                return label_type.name, label_type
+            return label_type_name, ln.ULabel
         if notion_type == "relation":
             names = self._name_candidates(property_name)
             dual = property_spec.get("dual")
@@ -1411,9 +1567,14 @@ class _NotionSyncer:
     def _database_feature_plan(
         self,
         database_id: str,
+        db_name: str | None = None,
         columns: dict[str, str] | None = None,
         schema_spec: dict[str, dict[str, Any]] | None = None,
+        *,
+        apply: bool = False,
+        report: SyncReport | None = None,
     ) -> list[tuple[str, str, Any]]:
+        db_name = db_name or database_id
         if schema_spec is None:
             schema_spec = self.reader.schema(database_id)
         if columns is None:
@@ -1422,7 +1583,13 @@ class _NotionSyncer:
         plan: list[tuple[str, str, Any]] = []
         for name in ordered_feature_names:
             property_spec = schema_spec.get(name, {"type": columns[name]})
-            dtype_label, dtype = self._dtype_from_notion_property(name, property_spec)
+            dtype_label, dtype = self._dtype_from_notion_property(
+                db_name,
+                name,
+                property_spec,
+                apply=apply,
+                report=report,
+            )
             plan.append(
                 (
                     name,
@@ -1436,14 +1603,6 @@ class _NotionSyncer:
     def _append_unique(values: list[str], value: str) -> None:
         if value not in values:
             values.append(value)
-
-    @staticmethod
-    def _feature_dtype_label(feature: Any) -> str | None:
-        for attr in ("dtype_as_str", "_dtype_str", "dtype"):
-            value = getattr(feature, attr, None)
-            if isinstance(value, str) and value:
-                return value
-        return None
 
     def _plan_or_create_db_metadata(
         self,
@@ -1532,9 +1691,8 @@ class _NotionSyncer:
                     self._append_unique(report.create_features, detail)
 
         if type_update_specs:
-            for name, dtype_label, _, existing_feature in type_update_specs:
-                existing_dtype_label = self._feature_dtype_label(existing_feature)
-                detail = f"{db_name} / {name}: {existing_dtype_label or dtype_label}"
+            for name, dtype_label, _, _ in type_update_specs:
+                detail = f"{db_name} / {name}: {dtype_label}"
                 if apply:
                     self._append_unique(report.updated_features, detail)
                 else:
@@ -1646,7 +1804,13 @@ class _NotionSyncer:
         parent_type=None,
     ):
         columns = self.reader.columns(database_id)
-        feature_plan = self._database_feature_plan(database_id, columns=columns)
+        feature_plan = self._database_feature_plan(
+            database_id,
+            db_name=db_name,
+            columns=columns,
+            apply=True,
+            report=report,
+        )
         index_feature_name = self._index_feature_name_from_columns(columns)
         record_field_mappings = self._record_field_mappings_from_columns(columns)
         _, _, schema = self._plan_or_create_db_metadata(
@@ -1706,7 +1870,13 @@ class _NotionSyncer:
         count = qs.count()
         if count == 0:
             columns = self.reader.columns(database_id)
-            feature_plan = self._database_feature_plan(database_id, columns=columns)
+            feature_plan = self._database_feature_plan(
+                database_id,
+                db_name=db_name,
+                columns=columns,
+                apply=apply,
+                report=report,
+            )
             index_feature_name = self._index_feature_name_from_columns(columns)
             record_field_mappings = self._record_field_mappings_from_columns(columns)
             if not apply:
@@ -1741,7 +1911,13 @@ class _NotionSyncer:
             )
         rec_type = qs.one()
         columns = self.reader.columns(database_id)
-        feature_plan = self._database_feature_plan(database_id, columns=columns)
+        feature_plan = self._database_feature_plan(
+            database_id,
+            db_name=db_name,
+            columns=columns,
+            apply=apply,
+            report=report,
+        )
         index_feature_name = self._index_feature_name_from_columns(columns)
         record_field_mappings = self._record_field_mappings_from_columns(columns)
         if apply:
