@@ -10,11 +10,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from hashlib import sha256
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from lamin_utils import logger
@@ -56,6 +60,8 @@ class SyncReport:
     create_schemas: list[str] = field(default_factory=list)
     created_features: list[str] = field(default_factory=list)
     create_features: list[str] = field(default_factory=list)
+    created_artifacts: list[str] = field(default_factory=list)
+    create_artifacts: list[str] = field(default_factory=list)
 
     def to_pretty_text(self) -> str:
         """Render a concise human-readable sync report."""
@@ -126,6 +132,16 @@ class SyncReport:
         if self.created_features:
             lines.append("[bold]created_features[/]:")
             lines.extend(f"  [green]{feature}[/]" for feature in self.created_features)
+        if self.create_artifacts:
+            lines.append("[bold]create_artifacts[/]:")
+            lines.extend(
+                f"  [{action_color}]{artifact}[/]" for artifact in self.create_artifacts
+            )
+        if self.created_artifacts:
+            lines.append("[bold]created_artifacts[/]:")
+            lines.extend(
+                f"  [green]{artifact}[/]" for artifact in self.created_artifacts
+            )
         lines.extend(
             [
                 metric("create_records", self.created, action_color),
@@ -482,13 +498,14 @@ def _bulk_creation():
         ln.settings.creation.search_names = prev
 
 
-def _kinds(spec: dict) -> tuple[set, set]:
-    """Split a Notion schema into (relation-props, label-props)."""
+def _kinds(spec: dict) -> tuple[set, set, set]:
+    """Split a Notion schema into (relation-props, label-props, file-props)."""
     rel = {p for p, s in spec.items() if s["type"] in ("relation", "people")}
     lab = {
         p for p, s in spec.items() if s["type"] in ("select", "status", "multi_select")
     }
-    return rel, lab
+    file = {p for p, s in spec.items() if s["type"] == "files"}
+    return rel, lab, file
 
 
 def _feat_map(schema) -> dict:
@@ -547,7 +564,112 @@ def _batch_labels(rows: list[dict], lab: set) -> None:
     _ensure_labels(names)
 
 
-def _row_values(row, rel, lab, feat, resolved, prop_map, create_labels):
+def _iter_file_urls(rows: list[dict], file_props: set[str]):
+    for row in rows:
+        notion_id = row.get("notion_id")
+        for prop in file_props:
+            value = row.get(prop)
+            if isinstance(value, list):
+                urls = value
+            else:
+                urls = [value]
+            for url in urls:
+                if isinstance(url, str) and url:
+                    yield str(notion_id), prop, url
+
+
+def _short_file_source(url: str, max_name_len: int = 48) -> str:
+    parsed = urlparse(url)
+    filename = Path(parsed.path).name or "file"
+    if len(filename) > max_name_len:
+        filename = filename[: max_name_len - 3] + "..."
+    token = sha256(url.encode("utf-8")).hexdigest()[:8]
+    return f"{filename} [{token}]"
+
+
+def _download_file_to_temp_path(url: str) -> str:
+    parsed = urlparse(url)
+    suffix = Path(parsed.path).suffix
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        prefix="notion-sync-",
+        suffix=suffix,
+    ) as tmp:
+        tmp_path = tmp.name
+    with httpx.stream("GET", url, timeout=60, follow_redirects=True) as response:
+        response.raise_for_status()
+        with open(tmp_path, "wb") as handle:
+            for chunk in response.iter_bytes():
+                if chunk:
+                    handle.write(chunk)
+    return tmp_path
+
+
+def _ensure_artifacts(
+    file_urls: set[str],
+    *,
+    transfer_details_by_url: dict[str, str] | None = None,
+    report: SyncReport | None = None,
+) -> dict[str, Any]:
+    """Create artifacts for Notion file URLs by downloading first."""
+    urls = sorted({url for url in file_urls if isinstance(url, str) and url})
+    if not urls:
+        return {}
+    artifacts: dict[str, Any] = {}
+    for url in urls:
+        tmp_path = None
+        try:
+            tmp_path = _download_file_to_temp_path(url)
+            artifacts[url] = ln.Artifact(tmp_path).save()
+            if report is not None and transfer_details_by_url is not None:
+                detail = transfer_details_by_url.get(url, _short_file_source(url))
+                if detail not in report.created_artifacts:
+                    report.created_artifacts.append(detail)
+        except (
+            Exception
+        ) as error:  # pragma: no cover - defensive against network/filesystem issues
+            logger.warning(
+                f"Could not register Notion file URL as Artifact: {url} ({error})"
+            )
+        finally:
+            if tmp_path is not None:
+                try:
+                    Path(tmp_path).unlink()
+                except OSError:
+                    pass
+    return artifacts
+
+
+def _batch_artifacts(
+    rows: list[dict],
+    file_props: set[str],
+    *,
+    transfer_details_by_url: dict[str, str] | None = None,
+    report: SyncReport | None = None,
+) -> dict[str, Any]:
+    urls = {url for _, _, url in _iter_file_urls(rows, file_props)}
+    return _ensure_artifacts(
+        urls,
+        transfer_details_by_url=transfer_details_by_url,
+        report=report,
+    )
+
+
+def _planned_missing_file_transfers(
+    rows: list[dict], file_props: set[str]
+) -> tuple[dict[str, str], list[str]]:
+    by_url: dict[str, str] = {}
+    details: list[str] = []
+    for notion_id, prop, url in _iter_file_urls(rows, file_props):
+        detail = f"{_short_file_source(url)} <- {_compact_uuid(notion_id)}:{prop}"
+        details.append(detail)
+        by_url.setdefault(url, detail)
+    return by_url, details
+
+
+def _row_values(
+    row, rel, lab, file_props, feat, resolved, artifacts_by_url, prop_map, create_labels
+):
     """Build the full {Feature: value} dict for one row. Returns (values, pending)."""
     prop_map = prop_map or {}
     values: dict[Any, Any] = {}
@@ -576,17 +698,38 @@ def _row_values(row, rel, lab, feat, resolved, prop_map, create_labels):
                 ):  # standalone path; bulk path pre-creates via _batch_labels
                     _ensure_labels(names)
                 values[f] = names if isinstance(val, list) else names[0]
+        elif prop in file_props:
+            urls = [u for u in (val if isinstance(val, list) else [val]) if u]
+            hits = [artifacts_by_url[url] for url in urls if url in artifacts_by_url]
+            if hits:
+                values[f] = hits if isinstance(val, list) else hits[0]
         else:
             values[f] = val
     return values, pending
 
 
-def _write(reader, rows, rec_type, spec, prop_map=None, by_id=None) -> dict:
+def _write(
+    reader,
+    rows,
+    rec_type,
+    spec,
+    prop_map=None,
+    by_id=None,
+    *,
+    transfer_details_by_url: dict[str, str] | None = None,
+    report: SyncReport | None = None,
+) -> dict:
     """Materialize every row of one database. Schema, kinds and labels resolved once."""
-    rel, lab = _kinds(spec)
+    rel, lab, file_props = _kinds(spec)
     feat = _feat_map(rec_type.schema)
 
     _batch_labels(rows, lab)  # every ULabel created in one call
+    artifacts_by_url = _batch_artifacts(
+        rows,
+        file_props,
+        transfer_details_by_url=transfer_details_by_url,
+        report=report,
+    )
 
     targets = {u for row in rows for p in rel for u in (row.get(p) or [])}
     resolved = _resolved_map(targets)  # one query for all relation targets
@@ -600,7 +743,15 @@ def _write(reader, rows, rec_type, spec, prop_map=None, by_id=None) -> dict:
         if rec is None:  # not imported yet — nothing to write
             continue
         values, p = _row_values(
-            row, rel, lab, feat, resolved, prop_map, create_labels=False
+            row,
+            rel,
+            lab,
+            file_props,
+            feat,
+            resolved,
+            artifacts_by_url,
+            prop_map,
+            create_labels=False,
         )
         rec.features.set_values(values)
         pending += p
@@ -774,8 +925,10 @@ class _NotionSyncer:
             return "num"
         if notion_type == "checkbox":
             return bool
-        if notion_type in {"multi_select", "people", "relation", "files"}:
+        if notion_type in {"multi_select", "people", "relation"}:
             return list[str]
+        if notion_type == "files":
+            return list[ln.Artifact]
         return str
 
     @staticmethod
@@ -784,8 +937,10 @@ class _NotionSyncer:
             return "num"
         if notion_type == "checkbox":
             return "bool"
-        if notion_type in {"multi_select", "people", "relation", "files"}:
+        if notion_type in {"multi_select", "people", "relation"}:
             return "list[str]"
+        if notion_type == "files":
+            return "list[Artifact]"
         return "str"
 
     @staticmethod
@@ -1011,14 +1166,17 @@ class _NotionSyncer:
 
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}
+        db_specs: dict[str, dict[str, Any]] = {}
         for db_id in db_ids:
             rec_type = self._resolve_record_type(db_id, apply=apply, report=report)
             if rec_type is not None:
                 self._validate_schema(db_id, rec_type)
             rec_types[db_id] = rec_type
+            db_specs[db_id] = self.reader.schema(db_id)
 
         after_maps: dict[str, dict[str, Any]] = {}
         to_write: dict[str, list[dict[str, Any]]] = {}
+        planned_transfers_by_db: dict[str, dict[str, str]] = {}
 
         with _bulk_creation():
             # Phase A: discover + upsert identity rows.
@@ -1031,6 +1189,14 @@ class _NotionSyncer:
                     report.created += len(rows)
                     to_write[db_id] = []
                     after_maps[db_id] = {}
+                    _, _, file_props = _kinds(db_specs[db_id])
+                    transfer_map, transfer_details = _planned_missing_file_transfers(
+                        rows, file_props
+                    )
+                    planned_transfers_by_db[db_id] = transfer_map
+                    for detail in transfer_details:
+                        if detail not in report.create_artifacts:
+                            report.create_artifacts.append(detail)
                     continue
 
                 before = _existing_by_ref(rec_type)
@@ -1052,6 +1218,15 @@ class _NotionSyncer:
                         report.updated += 1
                         writes.append(row)
                 to_write[db_id] = writes
+                _, _, file_props = _kinds(db_specs[db_id])
+                transfer_map, transfer_details = _planned_missing_file_transfers(
+                    writes, file_props
+                )
+                planned_transfers_by_db[db_id] = transfer_map
+                if not apply:
+                    for detail in transfer_details:
+                        if detail not in report.create_artifacts:
+                            report.create_artifacts.append(detail)
 
                 if apply:
                     after_maps[db_id] = _upsert_all(rec_type, rows)
@@ -1067,7 +1242,7 @@ class _NotionSyncer:
             # Phase B: materialize only changed/new rows.
             for db_id in db_ids:
                 rec_type = rec_types[db_id]
-                spec = self.reader.schema(db_id)
+                spec = db_specs[db_id]
                 write_rows = to_write[db_id]
                 if not write_rows:
                     continue
@@ -1078,6 +1253,8 @@ class _NotionSyncer:
                     spec,
                     prop_map=None,
                     by_id=after_maps[db_id],
+                    transfer_details_by_url=planned_transfers_by_db.get(db_id, {}),
+                    report=report,
                 )
                 report.pending_relations += stats["pending"]
 

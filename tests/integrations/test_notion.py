@@ -13,14 +13,18 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
+import lamindb as ln
 import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
     SyncReport,
+    _ensure_artifacts,
     _flatten,
     _NotionReader,
     _NotionSyncer,
+    _planned_missing_file_transfers,
+    _short_file_source,
     _upsert_all,
     sync_from_notion,
 )
@@ -193,6 +197,52 @@ def test_flatten_files_unknown_subtype_skipped():
     assert _flatten(prop) == []
 
 
+def test_planned_missing_file_transfers_lists_each_missing_file():
+    rows = [
+        {
+            "notion_id": "row-1",
+            "Attachment": ["https://example.com/a.pdf", "https://example.com/b.pdf"],
+        }
+    ]
+    transfer_map, details = _planned_missing_file_transfers(rows, {"Attachment"})
+    assert set(transfer_map) == {
+        "https://example.com/a.pdf",
+        "https://example.com/b.pdf",
+    }
+    assert details == [
+        f"{_short_file_source('https://example.com/a.pdf')} <- row-1:Attachment",
+        f"{_short_file_source('https://example.com/b.pdf')} <- row-1:Attachment",
+    ]
+
+
+def test_ensure_artifacts_downloads_then_saves_local_file():
+    report = SyncReport(apply=True)
+    created_artifact = type("ArtifactStub", (), {"uid": "abc"})()
+    record = MagicMock()
+    record.save.return_value = created_artifact
+    with (
+        patch(
+            "lamindb.integrations.notion._download_file_to_temp_path",
+            return_value="mock-notion-a.pdf",
+        ),
+        patch(
+            "lamindb.integrations.notion.ln.Artifact", return_value=record
+        ) as Artifact,
+        patch("lamindb.integrations.notion.os.remove"),
+    ):
+        detail = (
+            f"{_short_file_source('https://example.com/a.pdf')} <- row-1:Attachment"
+        )
+        out = _ensure_artifacts(
+            {"https://example.com/a.pdf"},
+            transfer_details_by_url={"https://example.com/a.pdf": detail},
+            report=report,
+        )
+    Artifact.assert_called_once_with("mock-notion-a.pdf")
+    assert out["https://example.com/a.pdf"] is created_artifact
+    assert report.created_artifacts == [detail]
+
+
 def test_flatten_created_time(page_props):
     assert _flatten(page_props["Created"]) == "2024-01-10T08:00:00.000Z"
 
@@ -264,8 +314,10 @@ def test_404_mentions_sharing(reader):
 def test_500_falls_through_to_raise_for_status(reader):
     r500 = _make_response({}, 500)
     reader.s.request.return_value = r500
-    with pytest.raises(RuntimeError, match="gave up after retries"):
-        reader.data_sources("db")
+    with patch("lamindb.integrations.notion.time.sleep") as sleep:
+        with pytest.raises(RuntimeError, match="gave up after retries"):
+            reader.data_sources("db")
+    assert [c.args[0] for c in sleep.call_args_list] == [1, 2, 4, 8, 16, 32]
     r500.raise_for_status.assert_not_called()
 
 
@@ -757,6 +809,13 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
     )
 
 
+def test_feature_dtype_for_files_maps_to_artifact_list(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("files")
+    assert syncer._feature_dtype_label_from_notion_type("files") == "list[Artifact]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.Artifact
+
+
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
     page_id = "7283894209c44522a7c79620795d0409"
     request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
@@ -815,6 +874,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
         patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
@@ -844,6 +904,7 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         ),
         patch.object(syncer, "_resolve_record_type", return_value=None),
         patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
@@ -852,6 +913,40 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
     assert report.created == 2
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
+def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "Attachment"])
+    rows = [
+        {
+            "notion_id": "a",
+            "last_edited_time": "2024-01-01T00:00:00Z",
+            "Name": "A",
+            "Attachment": ["https://example.com/a.pdf"],
+        }
+    ]
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(
+            syncer.reader, "schema", return_value={"Attachment": {"type": "files"}}
+        ),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_pages("parent", apply=False)
+    assert report.create_artifacts == [
+        f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
+    ]
     upsert_all.assert_not_called()
     write.assert_not_called()
 
@@ -871,6 +966,7 @@ def test_import_pages_dry_run_includes_parent_page_type(syncer):
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
         patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
@@ -898,6 +994,7 @@ def test_import_pages_report_compacts_database_ids(syncer):
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
         patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
         patch("lamindb.integrations.notion._upsert_all", return_value={}),
         patch(
@@ -1007,6 +1104,10 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
             "Website analytics / Name: str",
             "Website analytics / Score: num",
         ],
+        create_artifacts=[
+            f"{_short_file_source('https://example.com/a.pdf')} <- row-1:Attachment",
+            f"{_short_file_source('https://example.com/b.pdf')} <- row-1:Attachment",
+        ],
     )
     text = report.to_pretty_text()
     assert "Discovered 7 Notion pages." in text
@@ -1020,14 +1121,26 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "create_feature_types" in text
     assert "create_schemas" in text
     assert "Website analytics / Score: num" in text
-    assert "[bold]create_records[/]" in text
+    assert "create_artifacts" in text
+    assert (
+        f"{_short_file_source('https://example.com/a.pdf')} <- row-1:Attachment" in text
+    )
+    assert "create_records" in text
     assert text.index("create_record_types") < text.index("create_records")
 
 
 def test_sync_from_notion_live_smoke_with_env_token():
     token = os.getenv("NOTION_TOKEN")
-    if not token:
-        pytest.skip("Set NOTION_TOKEN to run live Notion integration smoke test.")
+    run_live = os.getenv("CI") or os.getenv("LAMINDB_RUN_NOTION_LIVE_TESTS") in {
+        "1",
+        "true",
+        "True",
+    }
+    if not token or not run_live:
+        pytest.skip(
+            "Set NOTION_TOKEN and run in CI, or set "
+            "LAMINDB_RUN_NOTION_LIVE_TESTS=true for a local live smoke test."
+        )
     report = sync_from_notion(
         parents="7283894209c44522a7c79620795d0409",
         token=token,
