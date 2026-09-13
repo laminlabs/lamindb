@@ -711,9 +711,21 @@ class ComponentCurator(Curator):
         feature_ids: set[int] = set()
 
         if schema.flexible:
-            features += (
-                Feature.connect(using).filter(name__in=self._dataset.keys()).to_list()
-            )
+            itype = schema.itype
+            if itype and itype.startswith("Feature["):
+                # Scoped itype "Feature[<uid>]": use query_features() which
+                # efficiently traverses the full sub-type hierarchy in one
+                # query per depth level (BFS implemented in _query_relatives).
+                # Note: startswith("Feature[") not startswith("Feature") because
+                # the unscoped "Feature" itype should not filter by type.
+                root_uid = itype[8:-1]  # len("Feature[") == 8
+                feature_type = Feature.connect(using).get(uid=root_uid)
+                qs = feature_type.query_features().filter(
+                    name__in=self._dataset.keys()
+                )
+            else:
+                qs = Feature.connect(using).filter(name__in=self._dataset.keys())
+            features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 
         if schema.n_members and schema.n_members > 0:
@@ -1278,14 +1290,19 @@ class AnnDataCurator(SlotsCurator):
                     if slot == "var.T"
                     or (
                         slot == "var"
-                        and schema.slots["var"].itype not in {None, "Feature"}
+                        and schema.slots["var"].itype is not None
+                    # startswith("Feature") covers both "Feature" and "Feature[uid]":
+                    # neither generic nor scoped Feature schemas use gene-ID indices,
+                    # so neither should be transposed. Only gene-registry itypes
+                    # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
+                    and not schema.slots["var"].itype.startswith("Feature")
                     )
                     else getattr(self._dataset, slot)
                 )
             self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
-            if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
+            if slot == "var" and schema.slots["var"].itype is not None and not schema.slots["var"].itype.startswith("Feature"):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1383,10 +1400,7 @@ class MuDataCurator(SlotsCurator):
                     df = getattr(schema_dataset, modality_slot.rstrip(".T"))
 
             # Transpose var if necessary
-            if modality_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
+            if modality_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1479,10 +1493,7 @@ class SpatialDataCurator(SlotsCurator):
                         raise InvalidArgument(f"Unrecognized slot format: {slot}")
 
             # Handle var transposition logic
-            if table_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
+            if table_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
