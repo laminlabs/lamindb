@@ -732,8 +732,18 @@ class _NotionSyncer:
             return "list[str]"
         return "str"
 
-    def _database_feature_plan(self, database_id: str) -> list[tuple[str, str, Any]]:
-        columns = self.reader.columns(database_id)
+    @staticmethod
+    def _index_feature_name_from_columns(columns: dict[str, str]) -> str | None:
+        for name, notion_type in columns.items():
+            if notion_type == "title":
+                return name
+        return None
+
+    def _database_feature_plan(
+        self, database_id: str, columns: dict[str, str] | None = None
+    ) -> list[tuple[str, str, Any]]:
+        if columns is None:
+            columns = self.reader.columns(database_id)
         ordered_feature_names = list(columns) + ["notion_last_edited"]
         plan: list[tuple[str, str, Any]] = []
         for name in ordered_feature_names:
@@ -758,6 +768,7 @@ class _NotionSyncer:
         self,
         db_name: str,
         feature_plan: list[tuple[str, str, Any]],
+        index_feature_name: str | None = None,
         *,
         apply: bool,
         report: SyncReport,
@@ -819,16 +830,34 @@ class _NotionSyncer:
         schema = schema_qs.one_or_none()
         if schema is None:
             if apply:
-                schema = ln.Schema(features, name=db_name).save()
+                index_feature = next(
+                    (
+                        feature
+                        for feature in features
+                        if feature.name == index_feature_name
+                    ),
+                    None,
+                )
+                schema = ln.Schema(
+                    features,
+                    name=db_name,
+                    index=index_feature,
+                ).save()
                 self._append_unique(report.created_schemas, db_name)
             else:
                 self._append_unique(report.create_schemas, db_name)
         return feature_type, features, schema
 
     def _create_record_type(self, database_id: str, db_name: str, report: SyncReport):
-        feature_plan = self._database_feature_plan(database_id)
+        columns = self.reader.columns(database_id)
+        feature_plan = self._database_feature_plan(database_id, columns=columns)
+        index_feature_name = self._index_feature_name_from_columns(columns)
         _, _, schema = self._plan_or_create_db_metadata(
-            db_name, feature_plan, apply=True, report=report
+            db_name,
+            feature_plan,
+            index_feature_name=index_feature_name,
+            apply=True,
+            report=report,
         )
         assert schema is not None  # schema is always created/resolved in apply mode
         return ln.Record(name=db_name, is_type=True, schema=schema).save()
@@ -841,11 +870,17 @@ class _NotionSyncer:
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
-            feature_plan = self._database_feature_plan(database_id)
+            columns = self.reader.columns(database_id)
+            feature_plan = self._database_feature_plan(database_id, columns=columns)
+            index_feature_name = self._index_feature_name_from_columns(columns)
             if not apply:
                 report.create_record_types.append(db_name)
                 self._plan_or_create_db_metadata(
-                    db_name, feature_plan, apply=False, report=report
+                    db_name,
+                    feature_plan,
+                    index_feature_name=index_feature_name,
+                    apply=False,
+                    report=report,
                 )
                 return None
             rec_type = self._create_record_type(database_id, db_name, report=report)

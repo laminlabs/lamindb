@@ -671,6 +671,9 @@ def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
         patch.object(
+            syncer.reader, "columns", return_value={"Name": "title", "Score": "number"}
+        ),
+        patch.object(
             syncer,
             "_database_feature_plan",
             return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
@@ -697,6 +700,9 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
         patch.object(
+            syncer.reader, "columns", return_value={"Name": "title", "Score": "number"}
+        ),
+        patch.object(
             syncer,
             "_database_feature_plan",
             return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
@@ -713,6 +719,38 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
     assert rec_type is created_type
     create.assert_called_once_with(db_id, "Website analytics", report=report)
     assert report.created_record_types == ["Website analytics"]
+
+
+def test_create_record_type_uses_title_property_as_schema_index(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport()
+    columns = {"Display name": "title", "Score": "number"}
+    feature_plan = [
+        ("Display name", "str", str),
+        ("Score", "num", "num"),
+        ("notion_last_edited", "str", str),
+    ]
+    schema = object()
+    with (
+        patch.object(syncer.reader, "columns", return_value=columns),
+        patch.object(syncer, "_database_feature_plan", return_value=feature_plan),
+        patch.object(
+            syncer,
+            "_plan_or_create_db_metadata",
+            return_value=(object(), [], schema),
+        ) as plan_or_create,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        Record.return_value.save.return_value = "created-type"
+        rec_type = syncer._create_record_type(db_id, "Website analytics", report=report)
+    assert rec_type == "created-type"
+    plan_or_create.assert_called_once_with(
+        "Website analytics",
+        feature_plan,
+        index_feature_name="Display name",
+        apply=True,
+        report=report,
+    )
 
 
 def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
