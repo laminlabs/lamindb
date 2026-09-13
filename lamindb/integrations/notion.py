@@ -49,12 +49,18 @@ class SyncReport:
     databases: list[str] = field(default_factory=list)
     created_record_types: list[str] = field(default_factory=list)
     create_record_types: list[str] = field(default_factory=list)
+    created_feature_types: list[str] = field(default_factory=list)
+    create_feature_types: list[str] = field(default_factory=list)
+    created_schemas: list[str] = field(default_factory=list)
+    create_schemas: list[str] = field(default_factory=list)
+    created_features: list[str] = field(default_factory=list)
+    create_features: list[str] = field(default_factory=list)
 
     def to_pretty_text(self) -> str:
         """Render a concise human-readable sync report."""
 
-        def metric(key: str, value: str | int) -> str:
-            return f"[bold]{key}[/]: [green]{value}[/]"
+        def metric(key: str, value: str | int, color: str = "white") -> str:
+            return f"[bold white]{key}[/]: [{color}]{value}[/]"
 
         lines: list[str] = []
         if not self.apply:
@@ -70,21 +76,62 @@ class SyncReport:
 
         lines.append("")
         lines.append("[bold cyan]Actions[/]")
+        action_color = "yellow" if not self.apply else "green"
         if self.create_record_types:
             lines.append(
-                metric("create_record_types", ", ".join(self.create_record_types))
+                metric(
+                    "create_record_types",
+                    ", ".join(self.create_record_types),
+                    action_color,
+                )
             )
         if self.created_record_types:
             lines.append(
-                metric("created_record_types", ", ".join(self.created_record_types))
+                metric(
+                    "created_record_types",
+                    ", ".join(self.created_record_types),
+                    "green",
+                )
             )
+        if self.create_feature_types:
+            lines.append(
+                metric(
+                    "create_feature_types",
+                    ", ".join(self.create_feature_types),
+                    action_color,
+                )
+            )
+        if self.created_feature_types:
+            lines.append(
+                metric(
+                    "created_feature_types",
+                    ", ".join(self.created_feature_types),
+                    "green",
+                )
+            )
+        if self.create_schemas:
+            lines.append(
+                metric("create_schemas", ", ".join(self.create_schemas), action_color)
+            )
+        if self.created_schemas:
+            lines.append(
+                metric("created_schemas", ", ".join(self.created_schemas), "green")
+            )
+        if self.create_features:
+            lines.append("[bold]create_features[/]:")
+            lines.extend(
+                f"  [{action_color}]{feature}[/]" for feature in self.create_features
+            )
+        if self.created_features:
+            lines.append("[bold]created_features[/]:")
+            lines.extend(f"  [green]{feature}[/]" for feature in self.created_features)
         lines.extend(
             [
-                metric("create_records", self.created),
-                metric("update_records", self.updated),
-                metric("unchanged_records", self.unchanged),
-                metric("pending_relations", self.pending_relations),
-                metric("failed_records", self.failed),
+                metric("create_records", self.created, action_color),
+                metric("update_records", self.updated, action_color),
+                metric("unchanged_records", self.unchanged, action_color),
+                metric("pending_relations", self.pending_relations, action_color),
+                metric("failed_records", self.failed, action_color),
             ]
         )
         if self.errors:
@@ -675,28 +722,115 @@ class _NotionSyncer:
             return list[str]
         return str
 
-    def _create_record_type(self, database_id: str, db_name: str):
+    @staticmethod
+    def _feature_dtype_label_from_notion_type(notion_type: str) -> str:
+        if notion_type == "number":
+            return "num"
+        if notion_type == "checkbox":
+            return "bool"
+        if notion_type in {"multi_select", "people", "relation", "files"}:
+            return "list[str]"
+        return "str"
+
+    def _database_feature_plan(self, database_id: str) -> list[tuple[str, str, Any]]:
         columns = self.reader.columns(database_id)
         ordered_feature_names = list(columns) + ["notion_last_edited"]
-        existing = {
-            feature.name: feature
-            for feature in ln.Feature.filter(name__in=ordered_feature_names)
-        }
-        features: list[Any] = []
+        plan: list[tuple[str, str, Any]] = []
         for name in ordered_feature_names:
-            feature = existing.get(name)
-            if feature is None:
-                notion_type = (
-                    "last_edited_time"
-                    if name == "notion_last_edited"
-                    else columns[name]
+            notion_type = (
+                "last_edited_time" if name == "notion_last_edited" else columns[name]
+            )
+            plan.append(
+                (
+                    name,
+                    self._feature_dtype_label_from_notion_type(notion_type),
+                    self._feature_dtype_from_notion_type(notion_type),
                 )
-                feature = ln.Feature(
-                    name=name,
-                    dtype=self._feature_dtype_from_notion_type(notion_type),
-                ).save()
-            features.append(feature)
-        schema = ln.Schema(features).save()
+            )
+        return plan
+
+    @staticmethod
+    def _append_unique(values: list[str], value: str) -> None:
+        if value not in values:
+            values.append(value)
+
+    def _plan_or_create_db_metadata(
+        self,
+        db_name: str,
+        feature_plan: list[tuple[str, str, Any]],
+        *,
+        apply: bool,
+        report: SyncReport,
+    ) -> tuple[Any, list[Any], Any]:
+        feature_type_qs = ln.Feature.filter(name=db_name, is_type=True)
+        feature_type_count = feature_type_qs.count()
+        if feature_type_count > 1:
+            raise ValueError(
+                f"Ambiguous LaminDB feature type name {db_name!r}: found {feature_type_count} matches."
+            )
+        feature_type = feature_type_qs.one_or_none()
+        if feature_type is None:
+            if apply:
+                feature_type = ln.Feature(name=db_name, is_type=True).save()
+                self._append_unique(report.created_feature_types, db_name)
+            else:
+                self._append_unique(report.create_feature_types, db_name)
+
+        missing_specs: list[tuple[str, str, Any]] = []
+        if feature_type is None:
+            missing_specs = feature_plan
+        else:
+            existing_names = set(
+                ln.Feature.filter(
+                    name__in=[name for name, _, _ in feature_plan], type=feature_type
+                ).values_list("name", flat=True)
+            )
+            missing_specs = [
+                spec for spec in feature_plan if spec[0] not in existing_names
+            ]
+
+        if missing_specs:
+            for name, dtype_label, _ in missing_specs:
+                detail = f"{db_name} / {name}: {dtype_label}"
+                if apply:
+                    self._append_unique(report.created_features, detail)
+                else:
+                    self._append_unique(report.create_features, detail)
+
+        if apply and feature_type is not None and missing_specs:
+            for name, _, dtype in missing_specs:
+                ln.Feature(name=name, dtype=dtype, type=feature_type).save()
+
+        if feature_type is not None:
+            features = list(
+                ln.Feature.filter(
+                    name__in=[name for name, _, _ in feature_plan], type=feature_type
+                )
+            )
+        else:
+            features = []
+
+        schema_qs = ln.Schema.filter(name=db_name)
+        schema_count = schema_qs.count()
+        if schema_count > 1:
+            raise ValueError(
+                f"Ambiguous LaminDB schema name {db_name!r}: found {schema_count} matches."
+            )
+        schema = schema_qs.one_or_none()
+        if schema is None:
+            if apply:
+                schema = ln.Schema(features, name=db_name).save()
+                self._append_unique(report.created_schemas, db_name)
+            else:
+                self._append_unique(report.create_schemas, db_name)
+        return feature_type, features, schema
+
+    def _create_record_type(self, database_id: str, db_name: str, report: SyncReport):
+        feature_plan = self._database_feature_plan(database_id)
+        _, _, schema = self._plan_or_create_db_metadata(
+            db_name, feature_plan, apply=True, report=report
+        )
+        assert schema is not None  # schema is always created/resolved in apply mode
         return ln.Record(name=db_name, is_type=True, schema=schema).save()
 
     def _resolve_record_type(
@@ -707,10 +841,14 @@ class _NotionSyncer:
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
+            feature_plan = self._database_feature_plan(database_id)
             if not apply:
                 report.create_record_types.append(db_name)
+                self._plan_or_create_db_metadata(
+                    db_name, feature_plan, apply=False, report=report
+                )
                 return None
-            rec_type = self._create_record_type(database_id, db_name)
+            rec_type = self._create_record_type(database_id, db_name, report=report)
             report.created_record_types.append(db_name)
             return rec_type
         if count > 1:

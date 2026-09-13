@@ -670,6 +670,12 @@ def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
             "_call",
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
+        ),
+        patch.object(syncer, "_plan_or_create_db_metadata"),
         patch("lamindb.integrations.notion.ln.Record") as Record,
     ):
         qs = MagicMock()
@@ -690,6 +696,11 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
             "_call",
             return_value={"title": [{"plain_text": "Website analytics"}]},
         ),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("Name", "str", str), ("notion_last_edited", "str", str)],
+        ),
         patch("lamindb.integrations.notion.ln.Record") as Record,
         patch.object(
             syncer, "_create_record_type", return_value=created_type
@@ -700,7 +711,7 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
         Record.filter.return_value = qs
         rec_type = syncer._resolve_record_type(db_id, apply=True, report=report)
     assert rec_type is created_type
-    create.assert_called_once_with(db_id, "Website analytics")
+    create.assert_called_once_with(db_id, "Website analytics", report=report)
     assert report.created_record_types == ["Website analytics"]
 
 
@@ -909,7 +920,7 @@ def test_sync_from_notion_delegates_to_syncer_and_prints():
         parents=["p1", "p2"], apply=False, limit=3
     )
     rich_print.assert_called_once()
-    assert "Dry run --" in rich_print.call_args[0][0]
+    assert "Dry run: nothing got created." in rich_print.call_args[0][0]
     assert report is sync_report
 
 
@@ -925,6 +936,12 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
         pending_relations=0,
         failed=0,
         create_record_types=["Website analytics"],
+        create_feature_types=["Website analytics"],
+        create_schemas=["Website analytics"],
+        create_features=[
+            "Website analytics / Name: str",
+            "Website analytics / Score: num",
+        ],
     )
     text = report.to_pretty_text()
     assert "Discovered 7 Notion pages." in text
@@ -935,7 +952,10 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "discovered_databases" not in text
     assert "database_ids" not in text
     assert "discovered_records" not in text
-    assert "[bold]create_records[/]: [green]5[/]" in text
+    assert "create_feature_types" in text
+    assert "create_schemas" in text
+    assert "Website analytics / Score: num" in text
+    assert "[bold]create_records[/]" in text
     assert text.index("create_record_types") < text.index("create_records")
 
 
