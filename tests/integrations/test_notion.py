@@ -1,6 +1,6 @@
 """Unit tests for lamindb.integrations.notion.
 
-No live network calls — all HTTP is mocked at the requests.Session level.
+No live network calls — all HTTP is mocked at the httpx.Client level.
 """
 
 from __future__ import annotations
@@ -56,8 +56,8 @@ ORG_PAGES = {
 
 @pytest.fixture()
 def reader():
-    """_NotionReader with requests.Session replaced by a MagicMock."""
-    with patch("requests.Session") as MockSession:
+    """_NotionReader with httpx.Client replaced by a MagicMock."""
+    with patch("httpx.Client") as MockSession:
         MockSession.return_value = MagicMock()
         client = _NotionReader(token="secret-test-token")  # noqa: S106
     return client
@@ -218,13 +218,13 @@ def test_flatten_empty_dict():
 
 
 def test_init_raises_on_empty_token():
-    with patch("requests.Session"):
+    with patch("httpx.Client"):
         with pytest.raises(ValueError, match="access token"):
             _NotionReader(token="")  # noqa: S106
 
 
 def test_init_sets_headers():
-    with patch("requests.Session") as MockSession:
+    with patch("httpx.Client") as MockSession:
         MockSession.return_value = MagicMock()
         client = _NotionReader(token="tok")  # noqa: S106
     headers = client.s.headers.update.call_args[0][0]
@@ -627,7 +627,7 @@ def test_rows_no_limit_paginates_fully(reader):
 @pytest.fixture()
 def syncer(monkeypatch):
     monkeypatch.setenv("NOTION_TOKEN", "env-token")
-    with patch("requests.Session") as MockSession:
+    with patch("httpx.Client") as MockSession:
         MockSession.return_value = MagicMock()
         return _NotionSyncer()
 
@@ -648,7 +648,7 @@ def _fake_record(last_edited: str | None):
 def test_syncer_init_raises_without_token(monkeypatch):
     monkeypatch.delenv("NOTION_TOKEN", raising=False)
     with pytest.raises(ValueError, match="NOTION_TOKEN"):
-        with patch("requests.Session") as MockSession:
+        with patch("httpx.Client") as MockSession:
             MockSession.return_value = MagicMock()
             _NotionSyncer()
 
@@ -741,9 +741,9 @@ def test_sync_from_notion_delegates_to_syncer_and_logs():
     ):
         Syncer.return_value.import_pages.return_value = sync_report
         report = sync_from_notion(parents=("p1", "p2"), dry_run=True, limit=3)
-    Syncer.assert_called_once_with(token=None)
+    Syncer.assert_called_once_with(token="")
     Syncer.return_value.import_pages.assert_called_once_with(
         parents=["p1", "p2"], dry_run=True, limit=3
     )
-    log.info.assert_called_once()
+    log.important.assert_called_once()
     assert report is sync_report

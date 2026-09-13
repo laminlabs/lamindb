@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-import requests
+import httpx
 from lamin_utils import logger
 
 import lamindb as ln
@@ -98,7 +98,9 @@ class _NotionReader:
     def __init__(self, token: str) -> None:
         if not token:
             raise ValueError("A Notion access token is required.")
-        self.s = requests.Session()
+        self.s = httpx.Client(
+            transport=httpx.HTTPTransport(verify=True, http2=False, trust_env=True)
+        )
         self.s.headers.update(
             {
                 "Authorization": f"Bearer {token}",
@@ -724,18 +726,21 @@ class _NotionSyncer:
 @ln.flow("Ofbk5ruuTiN2")
 def sync_from_notion(
     *,
-    parents: list[str] | tuple[str, ...] | str,
-    token: str | None = None,
+    parents,
+    token: str = "",
     dry_run: bool = False,
-    limit: int | None = None,
+    limit: int = 0,
 ) -> SyncReport:
     """Sync Notion pages via the class-based sync API."""
     syncer = _NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
-    else:
+    elif isinstance(parents, list | tuple):
         parent_list = list(parents)
-    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit)
+    else:
+        raise TypeError("parents must be a str, list[str], or tuple[str, ...].")
+    limit_arg = None if limit <= 0 else limit
+    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit_arg)
     logger.important(f"{json.dumps(report.as_dict(), sort_keys=True)}")
     return report
 
