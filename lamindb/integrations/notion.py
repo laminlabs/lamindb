@@ -339,6 +339,8 @@ class _NotionReader:
 
     def _query(self, ds: str, limit: int | None = None) -> list[dict]:
         """Pages in a data source, raw. Paginates until exhausted or `limit` reached."""
+        if limit is not None and limit <= 0:
+            return []
         page_size = 100 if limit is None else min(100, max(1, limit))
         body: dict[str, Any] = {"page_size": page_size}
         pages: list[dict] = []
@@ -1026,48 +1028,81 @@ class _NotionSyncer:
         out: set[str],
         *,
         parent_page_id: str | None = None,
-    ) -> None:
+        limit: int | None = None,
+        discovered_children: list[int] | None = None,
+    ) -> bool:
         for block in self._iter_block_children(block_id):
+            if (
+                limit is not None
+                and discovered_children is not None
+                and discovered_children[0] >= limit
+            ):
+                return True
             bid = block.get("id")
             if bid and bid in seen:
                 continue
             if bid:
                 seen.add(bid)
             if block.get("type") == "child_database" and bid:
+                is_new = bid not in out
                 out.add(bid)
+                if is_new and discovered_children is not None:
+                    discovered_children[0] += 1
                 normalized_db_id = _normalize_notion_id(bid)
                 if parent_page_id is not None and normalized_db_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
+                if (
+                    limit is not None
+                    and discovered_children is not None
+                    and discovered_children[0] >= limit
+                ):
+                    return True
             if block.get("has_children") and bid:
-                self._collect_databases_from_block(
+                reached_limit = self._collect_databases_from_block(
                     bid,
                     seen,
                     out,
                     parent_page_id=parent_page_id,
+                    limit=limit,
+                    discovered_children=discovered_children,
                 )
+                if reached_limit:
+                    return True
+        return False
 
     def _collect_database_ids(
-        self, parents: list[str]
+        self, parents: list[str], limit: int | None = None
     ) -> tuple[set[str], dict[str, str]]:
+        if limit is not None and limit < 0:
+            raise ValueError("limit must be >= 0 when provided.")
         database_ids: set[str] = set()
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages = {}
         seen_blocks: set[str] = set()
+        discovered_children = [0]
         for parent in parents:
             db_payload = self._safe_call(f"/databases/{parent}")
             if db_payload is not None:
                 database_ids.add(parent)
                 # recurse through rows as pages to discover nested child databases
-                for row in self.reader.rows(parent):
+                if limit == 0:
+                    continue
+                if limit is not None and discovered_children[0] >= limit:
+                    continue
+                for row in self.reader.rows(parent, limit=limit):
                     notion_id = row.get("notion_id")
                     if notion_id:
-                        self._collect_databases_from_block(
+                        reached_limit = self._collect_databases_from_block(
                             notion_id,
                             seen_blocks,
                             database_ids,
                             parent_page_id=None,
+                            limit=limit,
+                            discovered_children=discovered_children,
                         )
+                        if reached_limit:
+                            break
                 continue
             page_payload = self._safe_call(f"/pages/{parent}")
             if page_payload is None:
@@ -1078,12 +1113,18 @@ class _NotionSyncer:
             parent_id = _normalize_notion_id(parent) or parent
             parent_pages[parent_id] = parent_title
             parent_page_emojis[parent_id] = self._database_emoji(page_payload)
-            self._collect_databases_from_block(
+            if limit == 0:
+                continue
+            reached_limit = self._collect_databases_from_block(
                 parent,
                 seen_blocks,
                 database_ids,
                 parent_page_id=parent_id,
+                limit=limit,
+                discovered_children=discovered_children,
             )
+            if reached_limit:
+                break
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
 
@@ -1522,14 +1563,8 @@ class _NotionSyncer:
             apply=apply,
             message="Dry run report -- nothing got created" if not apply else None,
         )
-        db_id_set, parent_pages = self._collect_database_ids(parent_ids)
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, limit=limit)
         db_ids = sorted(db_id_set)
-        if not db_ids:
-            raise ValueError(
-                "No child databases discovered under parents. In phase 1, sync operates "
-                "on page trees that include at least one Notion database."
-            )
-        report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Parent pages can also map to LaminDB record types.
         parent_types_by_page_id: dict[str, Any] = {}
@@ -1542,6 +1577,16 @@ class _NotionSyncer:
             )
             if parent_type is not None:
                 parent_types_by_page_id[parent_id] = parent_type
+
+        if not db_ids:
+            report.discovered_pages = len(parent_pages)
+            if limit == 0:
+                return report
+            raise ValueError(
+                "No child databases discovered under parents. In phase 1, sync operates "
+                "on page trees that include at least one Notion database."
+            )
+        report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}

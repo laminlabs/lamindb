@@ -1104,6 +1104,54 @@ def test_collect_database_ids_stores_parent_page_emoji(syncer):
     assert syncer._parent_page_emojis == {page_id: "📊"}
 
 
+def test_collect_database_ids_limit_caps_discovered_children_for_page_parent(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response({"object": "page", "id": page_id})
+    children = _make_response(
+        {
+            "results": [
+                {"id": "db-1", "type": "child_database", "has_children": False},
+                {"id": "db-2", "type": "child_database", "has_children": False},
+            ],
+            "has_more": False,
+            "next_cursor": None,
+        }
+    )
+    syncer.reader.s.request.side_effect = [db_400, page_ok, children]
+
+    db_ids, _ = syncer._collect_database_ids([page_id], limit=1)
+
+    assert db_ids == {"db-1"}
+
+
+def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response({"object": "page", "id": page_id})
+    syncer.reader.s.request.side_effect = [db_400, page_ok]
+
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+
+    assert db_ids == set()
+    assert parent_pages == {page_id: page_id}
+    assert syncer.reader.s.request.call_count == 2
+
+
 def test_schema_validation_accepts_exact_property_parity(syncer):
     rec_type = _fake_rec_type("People", ["Name"])
     with patch.object(syncer.reader, "columns", return_value={"Name": "title"}):
@@ -1172,7 +1220,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
             syncer,
             "_collect_database_ids",
             return_value=({"db-1"}, {"parent-id": "Parent"}),
-        ),
+        ) as collect_ids,
         patch.object(syncer, "_resolve_record_type", return_value=rec_type),
         patch.object(syncer, "_validate_schema"),
         patch.object(syncer.reader, "rows", return_value=rows),
@@ -1182,6 +1230,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", apply=False)
+    collect_ids.assert_called_once_with(["parent"], limit=None)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -1348,6 +1397,50 @@ def test_import_pages_writes_only_created_or_changed(syncer):
     assert report.updated == 1
     assert report.unchanged == 1
     assert report.pending_relations == 1
+
+
+def test_import_pages_passes_limit_to_database_discovery(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ) as collect_ids,
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all", return_value={}),
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 0, "pending": 0},
+        ),
+    ):
+        syncer.import_pages("parent", apply=True, limit=1)
+    collect_ids.assert_called_once_with(["parent"], limit=1)
+
+
+def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"parent-id": "Parent"}),
+        ) as collect_ids,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_pages("parent", apply=False, limit=0)
+    collect_ids.assert_called_once_with(["parent"], limit=0)
+    assert report.discovered_pages == 1
+    assert report.databases == []
+    assert report.discovered == 0
+    assert report.create_record_types == ["Parent"]
 
 
 def test_upsert_all_populates_created_and_updated_from_notion():
