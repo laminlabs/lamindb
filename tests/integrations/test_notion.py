@@ -261,8 +261,15 @@ def test_flatten_rollup_returns_none(page_props):
     assert _flatten(page_props["Rollup"]) is None
 
 
-def test_flatten_formula_returns_none(page_props):
-    assert _flatten(page_props["Formula"]) is None
+def test_flatten_formula_returns_scalar(page_props):
+    assert _flatten(page_props["Formula"]) == 2
+
+
+def test_flatten_formula_boolean_returns_bool():
+    assert (
+        _flatten({"type": "formula", "formula": {"type": "boolean", "boolean": True}})
+        is True
+    )
 
 
 def test_flatten_unknown_type_returns_none():
@@ -436,6 +443,29 @@ def test_schema_single_property_relation_has_no_dual(reader):
     schema = reader.schema("db-1")
     assert schema["Owner"]["target"] == "ds-z"
     assert schema["Owner"]["dual"] is None
+
+
+def test_schema_formula_keeps_formula_type_and_expression(reader):
+    formula_ds = {
+        "properties": {
+            "internal": {
+                "id": "internal_id",
+                "type": "formula",
+                "formula": {
+                    "type": "boolean",
+                    "expression": 'if((join(map(prop("external_attendees"), format(current)), ", ") == ""), true, false)',
+                },
+            }
+        }
+    }
+    reader.s.request.side_effect = [_make_response(DB), _make_response(formula_ds)]
+    schema = reader.schema("db-1")
+    assert schema["internal"]["type"] == "formula"
+    assert (
+        schema["internal"]["formula_expression"]
+        == 'if((join(map(prop("external_attendees"), format(current)), ", ") == ""), true, false)'
+    )
+    assert reader.columns("db-1")["internal"] == "formula"
 
 
 # ---------------------------------------------------------------------------
@@ -1309,6 +1339,60 @@ def test_feature_dtype_for_url_maps_to_lamindb_url(syncer):
     dtype = syncer._feature_dtype_from_notion_type("url")
     assert syncer._feature_dtype_label_from_notion_type("url") == "url"
     assert dtype == "url"
+
+
+def test_formula_dtype_prompts_user_for_choice(syncer):
+    with (
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="bool"),
+    ):
+        stdin.isatty.return_value = True
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "Meetings",
+            "internal",
+            {
+                "type": "formula",
+                "formula_expression": 'if((join(map(prop("external_attendees"), format(current)), ", ") == ""), true, false)',
+            },
+        )
+    assert dtype_label == "bool"
+    assert dtype is bool
+
+
+def test_formula_dtype_defaults_to_str_on_empty_input(syncer):
+    with (
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value=""),
+    ):
+        stdin.isatty.return_value = True
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "Meetings",
+            "internal",
+            {"type": "formula", "formula_expression": "foo"},
+        )
+    assert dtype_label == "str"
+    assert dtype is str
+
+
+def test_formula_dtype_caches_prompt_result(syncer):
+    with (
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="url") as ask,
+    ):
+        stdin.isatty.return_value = True
+        first = syncer._dtype_from_notion_property(
+            "Meetings",
+            "internal",
+            {"type": "formula", "formula_expression": "foo"},
+        )
+        second = syncer._dtype_from_notion_property(
+            "Meetings",
+            "internal",
+            {"type": "formula", "formula_expression": "foo"},
+        )
+    assert ask.call_count == 1
+    assert first == ("url", "url")
+    assert second == ("url", "url")
 
 
 def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(syncer):

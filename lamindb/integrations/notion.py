@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import tempfile
 import time
 from contextlib import contextmanager
@@ -288,6 +289,19 @@ def _flatten(prop: dict) -> Any:
             if "url" in src:
                 out.append(src["url"])
         return out
+    if t == "formula":
+        formula = prop.get("formula")
+        if not isinstance(formula, dict):
+            return None
+        formula_type = formula.get("type")
+        if formula_type in {"string", "number", "boolean"}:
+            return formula.get(formula_type)
+        if formula_type == "date":
+            date_value = formula.get("date")
+            if isinstance(date_value, dict):
+                return date_value.get("start")
+            return None
+        return None
     return None  # rollup, formula, unknown
 
 
@@ -386,7 +400,7 @@ class _NotionReader:
         return self._ds[database_id]
 
     def schema(self, database_id: str) -> dict[str, dict]:
-        """{property_name: {"type": str, "target": str | None, "dual": dict | None, "choices": list[str] | None}}.
+        """{property_name: {"type": str, "target": str | None, "dual": dict | None, "choices": list[str] | None, "formula_expression": str | None}}.
 
         `target` and `dual` are set only for relation properties. `target` names
         the data source the relation points at. `dual` is Notion's synced-property
@@ -403,6 +417,13 @@ class _NotionReader:
             target = None
             dual = None
             choices = None
+            formula_expression = None
+            if t == "formula":
+                formula = p.get("formula")
+                if isinstance(formula, dict):
+                    expr = formula.get("expression")
+                    if isinstance(expr, str) and expr.strip():
+                        formula_expression = expr.strip()
             if t == "relation":
                 rel = p.get("relation", {})
                 target = rel.get("data_source_id") or rel.get("database_id")
@@ -420,7 +441,13 @@ class _NotionReader:
                     if isinstance(option, dict) and isinstance(option.get("name"), str)
                 ]
                 choices = [value for value in choices if value]
-            out[name] = {"type": t, "target": target, "dual": dual, "choices": choices}
+            out[name] = {
+                "type": t,
+                "target": target,
+                "dual": dual,
+                "choices": choices,
+                "formula_expression": formula_expression,
+            }
         self._schema[database_id] = out
         return out
 
@@ -1111,6 +1138,71 @@ class _NotionSyncer:
         self.reader = _NotionReader(token=token)
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
+        self._formula_dtype_cache: dict[tuple[str, str], tuple[str, Any]] = {}
+
+    @staticmethod
+    def _parse_formula_dtype_choice(choice: str) -> tuple[str, Any] | None:
+        normalized = choice.strip().lower()
+        mapping: dict[str, tuple[str, Any]] = {
+            "bool": ("bool", bool),
+            "boolean": ("bool", bool),
+            "num": ("num", "num"),
+            "number": ("num", "num"),
+            "str": ("str", str),
+            "string": ("str", str),
+            "url": ("url", "url"),
+            "datetime": ("datetime64[ns, UTC]", datetime),
+            "datetime64[ns, utc]": ("datetime64[ns, UTC]", datetime),
+            "date": ("datetime64[ns, UTC]", datetime),
+        }
+        return mapping.get(normalized)
+
+    def _dtype_from_formula_property(
+        self,
+        db_name: str,
+        property_name: str,
+        property_spec: dict[str, Any],
+    ) -> tuple[str, Any]:
+        cache_key = (db_name, property_name)
+        cached = self._formula_dtype_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        expression = property_spec.get("formula_expression")
+        if not isinstance(expression, str) or not expression:
+            expression = "<formula expression unavailable from Notion API>"
+        logger.important(
+            f"notion sync formula dtype prompt: db={db_name!r}, property={property_name!r}"
+        )
+        RICH_CONSOLE.print(
+            f"[bold yellow]notion formula[/] {db_name}.{property_name} = {expression}",
+            markup=True,
+            highlight=False,
+        )
+        if sys.stdin is None or not sys.stdin.isatty():
+            logger.warning(
+                f"notion sync formula dtype: non-interactive session, defaulting {db_name}.{property_name} to str"
+            )
+            resolved = ("str", str)
+            self._formula_dtype_cache[cache_key] = resolved
+            return resolved
+        while True:
+            selected = input(
+                f"Choose Lamin dtype for {db_name}.{property_name} "
+                "[bool/num/str/url/datetime] (default=str): "
+            ).strip()
+            if selected == "":
+                resolved = ("str", str)
+                self._formula_dtype_cache[cache_key] = resolved
+                return resolved
+            parsed = self._parse_formula_dtype_choice(selected)
+            if parsed is not None:
+                self._formula_dtype_cache[cache_key] = parsed
+                return parsed
+            RICH_CONSOLE.print(
+                "[yellow]Invalid dtype. Use one of: bool, num, str, url, datetime.[/]",
+                markup=True,
+                highlight=False,
+            )
 
     def _safe_call(self, path: str) -> dict | None:
         try:
@@ -1652,6 +1744,10 @@ class _NotionSyncer:
         report: SyncReport | None = None,
     ) -> tuple[str, Any]:
         notion_type = property_spec["type"]
+        if notion_type == "formula":
+            return self._dtype_from_formula_property(
+                db_name, property_name, property_spec
+            )
         if notion_type in {"select", "status", "multi_select"}:
             label_type, label_type_name, label_type_path = (
                 self._resolve_or_plan_ulabel_type(
