@@ -44,17 +44,41 @@ def _create_tracked_decorator(
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
         # Get the original signature
         sig = inspect.signature(func)
+        frame = inspect.currentframe()
+        definition_locals = (
+            frame.f_back.f_locals.copy()
+            if frame is not None and frame.f_back is not None
+            else {}
+        )
+        del frame
 
         def _expected_param_types() -> dict[str, Any]:
             """Resolve function parameter annotations, including postponed ones."""
-            try:
-                resolved_type_hints = get_type_hints(func, include_extras=True)
-            except Exception:
-                resolved_type_hints = {}
-            return {
-                name: resolved_type_hints.get(name, parameter.annotation)
+            raw_annotations = {
+                name: parameter.annotation
                 for name, parameter in sig.parameters.items()
                 if parameter.annotation is not inspect._empty
+            }
+            closure_locals = {}
+            if func.__closure__ is not None:
+                closure_locals = {
+                    name: cell.cell_contents
+                    for name, cell in zip(
+                        func.__code__.co_freevars, func.__closure__, strict=False
+                    )
+                }
+            try:
+                resolved_type_hints = get_type_hints(
+                    func,
+                    globalns=func.__globals__,
+                    localns={**definition_locals, **closure_locals},
+                    include_extras=True,
+                )
+            except Exception:
+                return raw_annotations
+            return {
+                name: resolved_type_hints.get(name, raw)
+                for name, raw in raw_annotations.items()
             }
 
         @functools.wraps(func)

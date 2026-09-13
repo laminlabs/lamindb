@@ -1,16 +1,13 @@
-from __future__ import annotations
-
 import time
+from collections.abc import Iterable, Mapping, Sequence
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import InvalidArgument
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
 
 
 @ln.flow(global_run="clear")
@@ -324,6 +321,42 @@ def test_flow_pep604_union_annotation_keeps_valid_param():
 
         run_str = ln.Run.get(uid=typed_flow("root"))
         run_list = ln.Run.get(uid=typed_flow(["root", "child"]))
+        transform = run_str.transform
+        assert run_str.params == {"parents": "root"}
+        assert run_list.params == {"parents": ["root", "child"]}
+    finally:
+        ln.context._run = None
+        if run_str is not None:
+            run_str.delete(permanent=True)
+        if run_list is not None:
+            run_list.delete(permanent=True)
+        if transform is not None:
+            transform.delete(permanent=True)
+
+
+def test_flow_pep604_union_annotation_with_future_annotations(tmp_path):
+    run_str = None
+    run_list = None
+    transform = None
+    try:
+        module_path = tmp_path / "future_flow_module.py"
+        module_path.write_text(
+            """
+from __future__ import annotations
+import lamindb as ln
+
+@ln.flow(global_run="clear")
+def typed_flow(parents: str | list[str]) -> str:
+    assert ln.context.run is not None
+    return ln.context.run.uid
+""".lstrip()
+        )
+        spec = spec_from_file_location("future_flow_module", module_path)
+        assert spec is not None and spec.loader is not None
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+        run_str = ln.Run.get(uid=module.typed_flow("root"))
+        run_list = ln.Run.get(uid=module.typed_flow(["root", "child"]))
         transform = run_str.transform
         assert run_str.params == {"parents": "root"}
         assert run_list.params == {"parents": ["root", "child"]}
