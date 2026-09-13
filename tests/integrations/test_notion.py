@@ -740,8 +740,8 @@ def test_sync_from_notion_delegates_to_syncer_and_logs():
         patch("lamindb.integrations.notion.logger") as log,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_from_notion(parents=("p1", "p2"), dry_run=True, limit=3)
-    Syncer.assert_called_once_with(token="")
+        report = sync_from_notion(parents=["p1", "p2"], dry_run=True, limit=3)
+    Syncer.assert_called_once_with(token=None)
     Syncer.return_value.import_pages.assert_called_once_with(
         parents=["p1", "p2"], dry_run=True, limit=3
     )

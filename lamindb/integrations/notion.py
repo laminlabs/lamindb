@@ -723,24 +723,22 @@ class _NotionSyncer:
         return report
 
 
-@ln.flow("Ofbk5ruuTiN2")
 def sync_from_notion(
     *,
-    parents,
-    token: str = "",
+    parents: str | list[str],
+    token: str | None = None,
     dry_run: bool = False,
-    limit: int = 0,
+    limit: int | None = None,
 ) -> SyncReport:
     """Sync Notion pages via the class-based sync API."""
     syncer = _NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
-    elif isinstance(parents, list | tuple):
+    elif isinstance(parents, list):
         parent_list = list(parents)
     else:
-        raise TypeError("parents must be a str, list[str], or tuple[str, ...].")
-    limit_arg = None if limit <= 0 else limit
-    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit_arg)
+        raise TypeError("parents must be a str or list[str].")
+    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit)
     logger.important(f"{json.dumps(report.as_dict(), sort_keys=True)}")
     return report
 
