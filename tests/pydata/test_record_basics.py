@@ -865,6 +865,65 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
     attended_meetings_feature.delete(permanent=True)
 
 
+def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
+    author_feature = ln.Feature(name="author", dtype=ln.Record).save()
+    books_schema = ln.Schema(
+        features=[author_feature],
+        name="backward-map-books-schema",
+    ).save()
+    books_sheet = ln.Record(
+        name="backward-map-books-sheet", is_type=True, schema=books_schema
+    ).save()
+
+    books_feature = ln.Feature(name="books", dtype=list[ln.Record]).save()
+    authors_schema = ln.Schema(
+        features=[
+            books_feature.with_config(backward=author_feature),
+        ],
+        name="backward-map-authors-schema",
+    ).save()
+    authors_sheet = ln.Record(
+        name="backward-map-authors-sheet", is_type=True, schema=authors_schema
+    ).save()
+
+    author_a = ln.Record(name="backward-map-author-a", type=authors_sheet).save()
+    author_b = ln.Record(name="backward-map-author-b", type=authors_sheet).save()
+    book_1 = ln.Record(name="backward-map-book-1", type=books_sheet).save()
+    book_2 = ln.Record(name="backward-map-book-2", type=books_sheet).save()
+    book_3 = ln.Record(name="backward-map-book-3", type=books_sheet).save()
+
+    book_1.features.set_values({"author": author_a})
+    book_2.features.set_values({"author": author_a})
+    book_3.features.set_values({"author": author_b})
+
+    author_a_values = author_a.features.get_values()
+    author_b_values = author_b.features.get_values()
+
+    assert authors_schema._aux["af"]["4"] == author_feature.uid
+    assert author_a_values["books"] == ["backward-map-book-1", "backward-map-book-2"]
+    assert author_b_values["books"] == ["backward-map-book-3"]
+    assert (
+        ln.models.RecordRecord.filter(record=author_a, feature=books_feature).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordRecord.filter(record=author_b, feature=books_feature).count()
+        == 0
+    )
+
+    book_1.delete(permanent=True)
+    book_2.delete(permanent=True)
+    book_3.delete(permanent=True)
+    author_a.delete(permanent=True)
+    author_b.delete(permanent=True)
+    books_sheet.delete(permanent=True)
+    authors_sheet.delete(permanent=True)
+    books_schema.delete(permanent=True)
+    authors_schema.delete(permanent=True)
+    author_feature.delete(permanent=True)
+    books_feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()

@@ -935,12 +935,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                             "feature.with_config(backward=...) requires both features "
                             "to have categorical Record dtype"
                         )
-                    if configured_dtype[0].get("list", False) != backward_dtype[0].get(
-                        "list", False
-                    ):
+                    if not configured_dtype[0].get("list", False):
                         raise ValueError(
-                            "feature.with_config(backward=...) requires both features "
-                            "to have matching multiplicity (both list or both non-list)"
+                            "feature.with_config(backward=...) requires the configured "
+                            "feature to have list categorical Record dtype"
                         )
                     if (
                         backward_feature_uid is not None
