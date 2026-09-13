@@ -427,10 +427,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Configure a feature so that it draws its values from a backward-relationship among records::
 
-        author = ln.Feature(name="author", dtype=author).save()
-        books = ln.Feature(name="books", dtype=list[book]).save()
-        # Book.author
-        # Author.books <-- backward relationship of Book.author
+        author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
+        books = ln.Feature(name="books", dtype=list[ln.Record.get(name="Books")]).save()
+        # book.author  <-- the author of the book
+        # author.books <-- the books written by the author (backward relationship of Book.author)
         ln.Schema([author]).save()
         ln.Schema([books.with_config(backward=author)]).save()
 
