@@ -878,6 +878,7 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     )
     text = report.to_pretty_text()
     assert "Dry run --" in text
+    assert "pass apply=True or --apply on the CLI" in text
     assert "Scope" in text
     assert "[bold]discovered_databases[/]: [green]1[/]" in text
     assert "[bold]create_records[/]: [green]5[/]" in text

@@ -57,7 +57,9 @@ class SyncReport:
 
         lines: list[str] = []
         if not self.apply:
-            lines.append("[bold yellow]Dry run -- nothing got created[/]")
+            lines.append(
+                "[bold yellow]Dry run: nothing got created. If you're happy, pass apply=True or --apply on the CLI.[/]"
+            )
         else:
             lines.append("[bold cyan]Sync report[/]")
         lines.append("")
