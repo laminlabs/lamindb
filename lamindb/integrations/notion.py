@@ -36,7 +36,7 @@ def _compact_uuid(value: str) -> str:
 
 @dataclass
 class SyncReport:
-    dry_run: bool = False
+    apply: bool = False
     message: str | None = None
     discovered: int = 0
     created: int = 0
@@ -56,7 +56,7 @@ class SyncReport:
             return f"[bold]{key}[/]: [green]{value}[/]"
 
         lines: list[str] = []
-        if self.dry_run:
+        if not self.apply:
             lines.append("[bold yellow]Dry run -- nothing got created[/]")
         else:
             lines.append("[bold cyan]Sync report[/]")
@@ -97,7 +97,7 @@ class SyncReport:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "dry_run": self.dry_run,
+            "apply": self.apply,
             "message": self.message,
             "discovered": self.discovered,
             "created": self.created,
@@ -695,14 +695,14 @@ class _NotionSyncer:
         return ln.Record(name=db_name, is_type=True, schema=schema).save()
 
     def _resolve_record_type(
-        self, database_id: str, *, dry_run: bool, report: SyncReport
+        self, database_id: str, *, apply: bool, report: SyncReport
     ):
         payload = self.reader._call("GET", f"/databases/{database_id}")
         db_name = self._database_title(payload, fallback=database_id)
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
         if count == 0:
-            if dry_run:
+            if not apply:
                 report.create_record_types.append(db_name)
                 return None
             rec_type = self._create_record_type(database_id, db_name)
@@ -747,7 +747,7 @@ class _NotionSyncer:
         self,
         parents: str | list[str],
         *,
-        dry_run: bool = False,
+        apply: bool = False,
         limit: int | None = None,
     ) -> SyncReport:
         """Import parent trees, validating schema before any write.
@@ -764,8 +764,8 @@ class _NotionSyncer:
             raise ValueError("parents is required and must contain at least one ID.")
 
         report = SyncReport(
-            dry_run=dry_run,
-            message="Dry run report -- nothing got created" if dry_run else None,
+            apply=apply,
+            message="Dry run report -- nothing got created" if not apply else None,
         )
         db_ids = sorted(self._collect_database_ids(parent_ids))
         if not db_ids:
@@ -778,7 +778,7 @@ class _NotionSyncer:
         # Step 1: resolve and validate schema parity before any write.
         rec_types: dict[str, Any] = {}
         for db_id in db_ids:
-            rec_type = self._resolve_record_type(db_id, dry_run=dry_run, report=report)
+            rec_type = self._resolve_record_type(db_id, apply=apply, report=report)
             if rec_type is not None:
                 self._validate_schema(db_id, rec_type)
             rec_types[db_id] = rec_type
@@ -817,12 +817,12 @@ class _NotionSyncer:
                         writes.append(row)
                 to_write[db_id] = writes
 
-                if not dry_run:
+                if apply:
                     after_maps[db_id] = _upsert_all(rec_type, rows)
                 else:
                     after_maps[db_id] = before
 
-            if dry_run:
+            if not apply:
                 return report
 
             # Phase B: materialize only changed/new rows.
@@ -850,7 +850,7 @@ def sync_from_notion(
     *,
     parents: str | list[str],
     token: str | None = None,
-    dry_run: bool = False,
+    apply: bool = False,
     limit: int | None = None,
 ) -> SyncReport:
     """Sync Notion pages via the class-based sync API."""
@@ -861,7 +861,7 @@ def sync_from_notion(
         parent_list = list(parents)
     else:
         raise TypeError("parents must be a str or list[str].")
-    report = syncer.import_pages(parents=parent_list, dry_run=dry_run, limit=limit)
+    report = syncer.import_pages(parents=parent_list, apply=apply, limit=limit)
     RICH_CONSOLE.print(report.to_pretty_text(), markup=True, highlight=False)
     return report
 

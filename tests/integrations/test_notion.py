@@ -673,7 +673,7 @@ def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        rec_type = syncer._resolve_record_type(db_id, dry_run=True, report=report)
+        rec_type = syncer._resolve_record_type(db_id, apply=False, report=report)
     assert rec_type is None
     assert report.create_record_types == ["Website analytics"]
 
@@ -696,7 +696,7 @@ def test_resolve_record_type_creates_type_when_missing(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        rec_type = syncer._resolve_record_type(db_id, dry_run=False, report=report)
+        rec_type = syncer._resolve_record_type(db_id, apply=True, report=report)
     assert rec_type is created_type
     create.assert_called_once_with(db_id, "Website analytics")
     assert report.created_record_types == ["Website analytics"]
@@ -760,8 +760,8 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", dry_run=True)
-    assert report.dry_run is True
+        report = syncer.import_pages("parent", apply=False)
+    assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
     assert report.created == 2
@@ -783,8 +783,8 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", dry_run=True)
-    assert report.dry_run is True
+        report = syncer.import_pages("parent", apply=False)
+    assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
     assert report.created == 2
@@ -808,7 +808,7 @@ def test_import_pages_report_compacts_database_ids(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        report = syncer.import_pages("parent", dry_run=True)
+        report = syncer.import_pages("parent", apply=False)
     assert report.databases == ["3b2d2040857e4febbb68d2bec9d6ba09"]
 
 
@@ -838,7 +838,7 @@ def test_import_pages_writes_only_created_or_changed(syncer):
             return_value={"records": 2, "pending": 1},
         ) as write,
     ):
-        report = syncer.import_pages(["parent"])
+        report = syncer.import_pages(["parent"], apply=True)
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["b", "c"]
     assert report.created == 1
@@ -848,16 +848,16 @@ def test_import_pages_writes_only_created_or_changed(syncer):
 
 
 def test_sync_from_notion_delegates_to_syncer_and_prints():
-    sync_report = SyncReport(created=1, dry_run=True)
+    sync_report = SyncReport(created=1, apply=False)
     with (
         patch("lamindb.integrations.notion._NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_from_notion(parents=["p1", "p2"], dry_run=True, limit=3)
+        report = sync_from_notion(parents=["p1", "p2"], apply=False, limit=3)
     Syncer.assert_called_once_with(token=None)
     Syncer.return_value.import_pages.assert_called_once_with(
-        parents=["p1", "p2"], dry_run=True, limit=3
+        parents=["p1", "p2"], apply=False, limit=3
     )
     rich_print.assert_called_once()
     assert "Dry run --" in rich_print.call_args[0][0]
@@ -866,7 +866,7 @@ def test_sync_from_notion_delegates_to_syncer_and_prints():
 
 def test_sync_report_pretty_text_groups_and_labels_metrics():
     report = SyncReport(
-        dry_run=True,
+        apply=False,
         databases=["3b2d2040857e4febbb68d2bec9d6ba09"],
         discovered=5,
         created=5,
