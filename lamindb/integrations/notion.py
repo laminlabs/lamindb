@@ -1,6 +1,7 @@
 """Sync Notion pages to LaminDB records.
 
 .. autoclass:: NotionSyncer
+.. autoclass:: SyncReport
 
 """
 
@@ -21,7 +22,7 @@ BASE = "https://api.notion.com/v1"
 
 
 @dataclass
-class ImportReport:
+class SyncReport:
     discovered: int = 0
     created: int = 0
     updated: int = 0
@@ -89,7 +90,7 @@ def _page_title(page: dict) -> str:
     return ""
 
 
-class NotionReader:
+class _NotionReader:
     """Read-only Notion reader. Databases contain data sources; rows live on the data source."""
 
     def __init__(self, token: str) -> None:
@@ -517,7 +518,7 @@ class NotionSyncer:
         token = token or os.getenv("NOTION_TOKEN")
         if not token:
             raise ValueError("Pass token=... or set NOTION_TOKEN.")
-        self.reader = NotionReader(token=token)
+        self.reader = _NotionReader(token=token)
 
     def _safe_call(self, path: str) -> dict | None:
         try:
@@ -658,7 +659,7 @@ class NotionSyncer:
         if not parent_ids:
             raise ValueError("parents is required and must contain at least one ID.")
 
-        report = ImportReport()
+        report = SyncReport()
         db_ids = sorted(self._collect_database_ids(parent_ids))
         if not db_ids:
             raise ValueError(
@@ -731,7 +732,6 @@ class NotionSyncer:
 
 
 __all__ = [
-    "NotionReader",
-    "ImportReport",
+    "SyncReport",
     "NotionSyncer",
 ]

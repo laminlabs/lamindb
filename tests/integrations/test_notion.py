@@ -13,9 +13,9 @@ import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
-    NotionReader,
     NotionSyncer,
     _flatten,
+    _NotionReader,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -54,10 +54,10 @@ ORG_PAGES = {
 
 @pytest.fixture()
 def reader():
-    """NotionReader with requests.Session replaced by a MagicMock."""
+    """_NotionReader with requests.Session replaced by a MagicMock."""
     with patch("requests.Session") as MockSession:
         MockSession.return_value = MagicMock()
-        client = NotionReader(token="secret-test-token")  # noqa: S106
+        client = _NotionReader(token="secret-test-token")  # noqa: S106
     return client
 
 
@@ -218,13 +218,13 @@ def test_flatten_empty_dict():
 def test_init_raises_on_empty_token():
     with patch("requests.Session"):
         with pytest.raises(ValueError, match="access token"):
-            NotionReader(token="")  # noqa: S106
+            _NotionReader(token="")  # noqa: S106
 
 
 def test_init_sets_headers():
     with patch("requests.Session") as MockSession:
         MockSession.return_value = MagicMock()
-        client = NotionReader(token="tok")  # noqa: S106
+        client = _NotionReader(token="tok")  # noqa: S106
     headers = client.s.headers.update.call_args[0][0]
     assert headers["Authorization"] == "Bearer tok"
     assert headers["Notion-Version"] == API_VERSION
