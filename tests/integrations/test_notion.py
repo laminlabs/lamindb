@@ -1237,11 +1237,60 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
         )
 
     assert report.create_features == [
-        "Organizations / Name: str -> Schema.index / Record.name",
+        "Organizations / Name: str -> Schema.index",
         "Organizations / summary: str -> Record.description",
         "Organizations / created_at: datetime64[ns, UTC] -> Record.created_at",
         "Organizations / project: list[Project] -> LaminDB.Project registry",
     ]
+
+
+def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [
+        ("Name", "str", str),
+        ("summary", "str", str),
+    ]
+    name_feature = MagicMock()
+    name_feature.name = "Name"
+    summary_feature = MagicMock()
+    summary_feature.name = "summary"
+    summary_mapped = MagicMock()
+    summary_feature.with_config.return_value = summary_mapped
+    feature_type = MagicMock()
+    feature_type.id = 1
+    schema = MagicMock()
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        Feature.filter.side_effect = [feature_type_qs, [name_feature, summary_feature]]
+
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 0
+        schema_qs.one_or_none.return_value = None
+        Schema.filter.return_value = schema_qs
+
+        Schema.return_value.save.return_value = schema
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            index_feature_name="Name",
+            record_field_mappings={"Name": "name", "summary": "description"},
+            apply=True,
+            report=report,
+        )
+
+    name_feature.with_config.assert_not_called()
+    summary_feature.with_config.assert_called_once_with(field="description")
+    Schema.assert_called_once()
+    schema_features = Schema.call_args.args[0]
+    assert schema_features == [summary_mapped]
+    assert Schema.call_args.kwargs["index"] is name_feature
 
 
 def test_create_record_type_uses_title_property_as_schema_index(syncer):

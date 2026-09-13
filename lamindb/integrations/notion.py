@@ -1997,7 +1997,13 @@ class _NotionSyncer:
         apply: bool,
         report: SyncReport,
     ) -> tuple[Any, list[Any], Any]:
-        record_field_mappings = record_field_mappings or {}
+        record_field_mappings = dict(record_field_mappings or {})
+        if (
+            index_feature_name is not None
+            and record_field_mappings.get(index_feature_name) == "name"
+        ):
+            # The index feature is already persisted on Record.name automatically.
+            record_field_mappings.pop(index_feature_name, None)
         feature_type_qs = ln.Feature.filter(name=db_name, is_type=True)
         feature_type_count = feature_type_qs.count()
         if feature_type_count > 1:
@@ -2151,6 +2157,10 @@ class _NotionSyncer:
                 )
                 schema_features: list[Any] = []
                 for feature in features:
+                    if index_feature is not None and feature is index_feature:
+                        # schema.index persists on Record.name automatically and the
+                        # index feature is attached through the dedicated index field.
+                        continue
                     mapped_field = record_field_mappings.get(feature.name)
                     if mapped_field is None:
                         schema_features.append(feature)
