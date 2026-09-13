@@ -1686,6 +1686,8 @@ class _NotionSyncer:
 
     @staticmethod
     def _record_field_mapping_for_notion_type(notion_type: str) -> str | None:
+        if notion_type == "title":
+            return "name"
         if notion_type == "created_time":
             return "created_at"
         if notion_type == "last_edited_time":
@@ -1759,6 +1761,26 @@ class _NotionSyncer:
     def _append_unique(values: list[str], value: str) -> None:
         if value not in values:
             values.append(value)
+
+    @staticmethod
+    def _feature_plan_detail(
+        db_name: str,
+        feature_name: str,
+        dtype_label: str,
+        record_field_mappings: dict[str, str],
+        *,
+        index_feature_name: str | None = None,
+    ) -> str:
+        detail = f"{db_name} / {feature_name}: {dtype_label}"
+        mapped_targets: list[str] = []
+        if index_feature_name is not None and feature_name == index_feature_name:
+            mapped_targets.append("Schema.index")
+        mapped_field = record_field_mappings.get(feature_name)
+        if mapped_field is not None:
+            mapped_targets.append(f"Record.{mapped_field}")
+        if mapped_targets:
+            detail = f"{detail} -> {' / '.join(mapped_targets)}"
+        return detail
 
     def _plan_or_create_db_metadata(
         self,
@@ -1840,7 +1862,13 @@ class _NotionSyncer:
 
         if missing_specs:
             for name, dtype_label, _ in missing_specs:
-                detail = f"{db_name} / {name}: {dtype_label}"
+                detail = self._feature_plan_detail(
+                    db_name,
+                    name,
+                    dtype_label,
+                    record_field_mappings,
+                    index_feature_name=index_feature_name,
+                )
                 if apply:
                     self._append_unique(report.created_features, detail)
                 else:
@@ -1848,7 +1876,13 @@ class _NotionSyncer:
 
         if type_update_specs:
             for name, dtype_label, _, _ in type_update_specs:
-                detail = f"{db_name} / {name}: {dtype_label}"
+                detail = self._feature_plan_detail(
+                    db_name,
+                    name,
+                    dtype_label,
+                    record_field_mappings,
+                    index_feature_name=index_feature_name,
+                )
                 if apply:
                     self._append_unique(report.updated_features, detail)
                 else:

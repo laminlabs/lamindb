@@ -1167,6 +1167,51 @@ def test_update_features_report_existing_lamin_dtype_labels(syncer):
     assert report.create_features == ["Organizations / website: str"]
 
 
+def test_plan_metadata_highlights_record_field_mappings_in_feature_details(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [
+        ("Name", "str", str),
+        ("summary", "str", str),
+        ("created_at", "datetime64[ns, UTC]", datetime),
+    ]
+    schema = MagicMock()
+    schema.members.all.return_value = []
+    schema.members.filter.return_value = []
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = MagicMock()
+        Feature.filter.return_value = feature_type_qs
+
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            index_feature_name="Name",
+            record_field_mappings={
+                "Name": "name",
+                "summary": "description",
+                "created_at": "created_at",
+            },
+            apply=False,
+            report=report,
+        )
+
+    assert report.create_features == [
+        "Organizations / Name: str -> Schema.index / Record.name",
+        "Organizations / summary: str -> Record.description",
+        "Organizations / created_at: datetime64[ns, UTC] -> Record.created_at",
+    ]
+
+
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
@@ -1199,7 +1244,7 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
         "Website analytics",
         feature_plan,
         index_feature_name="Display name",
-        record_field_mappings={},
+        record_field_mappings={"Display name": "name"},
         apply=True,
         report=report,
     )
@@ -1224,6 +1269,7 @@ def test_record_field_mapping_is_derived_from_notion_type_and_property_name(sync
     }
     mappings = syncer._record_field_mappings_from_columns(columns)
     assert mappings == {
+        "Name": "name",
         "Created At": "created_at",
         "Edited At": "updated_at",
         "Creator": "created_by",
