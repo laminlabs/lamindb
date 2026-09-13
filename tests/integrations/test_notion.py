@@ -1817,6 +1817,44 @@ def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     assert syncer.reader.s.request.call_count == 2
 
 
+def test_collect_database_ids_page_parent_includes_ancestor_page(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    parent_page_id = "11111111111111111111111111111111"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response(
+        {
+            "object": "page",
+            "id": page_id,
+            "parent": {"type": "page_id", "page_id": parent_page_id},
+            "icon": {"type": "emoji", "emoji": "📄"},
+        }
+    )
+    ancestor_ok = _make_response(
+        {
+            "object": "page",
+            "id": parent_page_id,
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Knowledge"}]}
+            },
+            "icon": {"type": "emoji", "emoji": "🧭"},
+        }
+    )
+    syncer.reader.s.request.side_effect = [db_400, page_ok, ancestor_ok]
+
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+
+    assert db_ids == set()
+    assert parent_pages == {page_id: page_id, parent_page_id: "Knowledge"}
+    assert syncer._parent_page_emojis == {page_id: "📄", parent_page_id: "🧭"}
+
+
 def test_collect_database_ids_from_database_registers_its_parent_page(syncer):
     database_id = "b86daf142a544728bda2496c5760d863"
     parent_page_id = "11111111111111111111111111111111"
@@ -2229,6 +2267,36 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
     assert report.databases == []
     assert report.discovered == 0
     assert report.create_record_types == ["Parent"]
+
+
+def test_import_pages_apply_links_parent_page_hierarchy(syncer):
+    child_type = MagicMock()
+    child_type.name = "Child"
+    child_type.type = None
+    child_type.type_id = None
+    parent_type = MagicMock()
+    parent_type.name = "Parent"
+    parent_type.id = 7
+
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"child-id": "Child", "parent-id": "Parent"}),
+        ),
+        patch.object(
+            syncer,
+            "_resolve_or_create_type_by_name",
+            side_effect=[child_type, parent_type],
+        ),
+    ):
+        syncer._parent_page_parents = {"child-id": "parent-id"}
+        report = syncer.import_pages("parent", apply=True, limit=0)
+
+    assert report.discovered_pages == 2
+    child_type.save.assert_called_once_with(update_fields=["type"])
+    assert child_type.type is parent_type
+    assert report.updated_record_types == ["Child: <root> -> Parent"]
 
 
 def test_upsert_all_populates_created_and_updated_from_notion():

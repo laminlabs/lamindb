@@ -1138,6 +1138,7 @@ class _NotionSyncer:
         self.reader = _NotionReader(token=token)
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
+        self._parent_page_parents: dict[str, str] = {}
         self._formula_dtype_cache: dict[tuple[str, str], tuple[str, Any]] = {}
 
     @staticmethod
@@ -1289,6 +1290,7 @@ class _NotionSyncer:
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages = {}
+        self._parent_page_parents = {}
         seen_blocks: set[str] = set()
         discovered_children = [0]
         for parent in parents:
@@ -1339,6 +1341,19 @@ class _NotionSyncer:
             parent_id = _normalize_notion_id(parent) or parent
             parent_pages[parent_id] = parent_title
             parent_page_emojis[parent_id] = self._database_emoji(page_payload)
+            ancestor_page_id = self._database_parent_page_id(page_payload)
+            if ancestor_page_id is not None:
+                self._parent_page_parents[parent_id] = ancestor_page_id
+            if ancestor_page_id is not None and ancestor_page_id not in parent_pages:
+                ancestor_page_payload = self._safe_call(f"/pages/{ancestor_page_id}")
+                if ancestor_page_payload is not None:
+                    ancestor_title = _page_title(
+                        ancestor_page_payload
+                    ).strip() or _compact_uuid(ancestor_page_id)
+                    parent_pages[ancestor_page_id] = ancestor_title
+                    parent_page_emojis[ancestor_page_id] = self._database_emoji(
+                        ancestor_page_payload
+                    )
             if limit == 0:
                 continue
             reached_limit = self._collect_databases_from_block(
@@ -2379,7 +2394,7 @@ class _NotionSyncer:
             if changed:
                 rec_type.save()
         else:
-            _, _, schema = self._plan_or_create_db_metadata(
+            self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
                 index_feature_name=index_feature_name,
@@ -2472,6 +2487,24 @@ class _NotionSyncer:
             )
             if parent_type is not None:
                 parent_types_by_page_id[parent_id] = parent_type
+        for child_page_id, ancestor_page_id in sorted(
+            self._parent_page_parents.items()
+        ):
+            child_type = parent_types_by_page_id.get(child_page_id)
+            ancestor_type = parent_types_by_page_id.get(ancestor_page_id)
+            if child_type is None or ancestor_type is None:
+                continue
+            if getattr(child_type, "type_id", None) == getattr(
+                ancestor_type, "id", None
+            ):
+                continue
+            detail = self._record_type_move_detail(child_type, ancestor_type)
+            if apply:
+                child_type.type = ancestor_type
+                child_type.save(update_fields=["type"])
+                self._append_unique(report.updated_record_types, detail)
+            else:
+                self._append_unique(report.update_record_types, detail)
 
         if not db_ids:
             report.discovered_pages = len(parent_pages)
