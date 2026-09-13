@@ -1924,14 +1924,15 @@ class _NotionSyncer:
             )
         return len(property_tokens & target_tokens) > 0
 
-    def _infer_notion_backward_relation_feature(
+    def _infer_notion_backward_relation_features(
         self,
         schema_spec: dict[str, dict[str, Any]],
         features_by_name: dict[str, Any],
-    ) -> tuple[str | None, Any | None]:
-        """Infer (feature_name, source_feature) for a dual Notion relation pair."""
+        current_type_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Infer schema feature name -> source feature for dual Notion relation pairs."""
         logger.important(
-            "notion sync backward-debug: infer start "
+            "backward relation: infer start "
             f"relation_props={[name for name, spec in schema_spec.items() if spec.get('type') == 'relation']} "
             f"local_features={sorted(features_by_name.keys())}"
         )
@@ -1942,14 +1943,14 @@ class _NotionSyncer:
             local_feature = features_by_name.get(property_name)
             if local_feature is None:
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=local-feature-missing"
                 )
                 continue
             dual = property_spec.get("dual")
             if not isinstance(dual, dict):
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=dual-missing"
                 )
                 continue
@@ -1962,25 +1963,39 @@ class _NotionSyncer:
                 or not target.strip()
             ):
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=dual-or-target-invalid "
                     f"synced={synced_property_name!r} target={target!r}"
                 )
                 continue
             target_names = self._relation_target_name_candidates(target)
-            if not self._relation_property_matches_target_names(
-                property_name, target_names
+            is_self_referential_target = isinstance(current_type_name, str) and any(
+                isinstance(target_name, str)
+                and target_name.strip().lower() == current_type_name.strip().lower()
+                for target_name in target_names
+            )
+            if (
+                not self._relation_property_matches_target_names(
+                    property_name, target_names
+                )
+                and not is_self_referential_target
             ):
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=target-name-mismatch "
                     f"target_names={target_names}"
                 )
                 continue
+            if is_self_referential_target:
+                logger.important(
+                    "backward relation: self-referential target-name override "
+                    f"relation={property_name!r} current_type={current_type_name!r} "
+                    f"target_names={target_names}"
+                )
             target_type = self._resolve_record_type_by_name_candidates(target_names)
             if target_type is None:
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=target-type-unresolved "
                     f"target_names={target_names}"
                 )
@@ -1989,7 +2004,7 @@ class _NotionSyncer:
                 local_feature, target_type
             ):
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=local-feature-target-mismatch "
                     f"local_dtype={getattr(local_feature, '_dtype_str', None)!r} "
                     f"target_type={getattr(target_type, 'name', target_type)!r}"
@@ -2022,85 +2037,75 @@ class _NotionSyncer:
                 source_feature = self._pick_unique(source_candidates)
             if source_feature is None:
                 logger.important(
-                    "notion sync backward-debug: skip relation "
+                    "backward relation: skip relation "
                     f"{property_name!r} reason=source-feature-unresolved "
                     f"target_type={getattr(target_type, 'name', target_type)!r} "
                     f"synced_property={synced_property_name.strip()!r}"
                 )
                 continue
             logger.important(
-                "notion sync backward-debug: candidate relation "
+                "backward relation: candidate "
                 f"{property_name!r} -> source_feature={source_feature.name!r} "
                 f"uid={source_feature.uid!r}"
             )
             matches.append(
                 (property_name, source_feature, synced_property_name.strip())
             )
-        if len(matches) == 1:
+        if not matches:
             logger.important(
-                "notion sync backward-debug: infer success "
-                f"feature={matches[0][0]!r} source_uid={matches[0][1].uid!r}"
+                "backward relation: infer no-candidates "
+                f"matches={[(name, feature.uid) for name, feature, _ in matches]}"
             )
-            return matches[0][0], matches[0][1]
-        if len(matches) > 1:
-            if sys.stdin is None or not sys.stdin.isatty():
-                logger.warning(
-                    "notion sync backward relation: multiple candidates found in "
-                    "a non-interactive session; skipping auto-configuration"
-                )
-                logger.important(
-                    "notion sync backward-debug: infer ambiguous candidates "
-                    f"{[(name, feature.uid) for name, feature, _ in matches]}"
-                )
-                return None, None
-            RICH_CONSOLE.print(
-                "[bold yellow]notion backward relation[/] multiple candidates found; "
-                "choose the feature to configure as backward-derived:",
-                markup=True,
-                highlight=False,
+            return {}
+        if sys.stdin is None or not sys.stdin.isatty():
+            logger.warning(
+                "backward relation: unresolved candidates found in "
+                "a non-interactive session; skipping auto-configuration"
             )
-            for i, (property_name, source_feature, synced_property_name) in enumerate(
-                matches, start=1
-            ):
-                RICH_CONSOLE.print(
-                    f"  {i}. {property_name} <-- {synced_property_name} "
-                    f"(source uid: {source_feature.uid})",
-                    markup=True,
-                    highlight=False,
-                )
+            logger.important(
+                "backward relation: infer non-interactive candidates "
+                f"{[(name, feature.uid) for name, feature, _ in matches]}"
+            )
+            return {}
+
+        selected_mappings: dict[str, Any] = {}
+        RICH_CONSOLE.print(
+            "[bold yellow]notion backward relation[/] confirm backward-derived features:",
+            markup=True,
+            highlight=False,
+        )
+        for property_name, source_feature, synced_property_name in matches:
             while True:
                 selected = input(
-                    "Choose backward relation candidate [1-"
-                    f"{len(matches)}] (Enter to skip): "
+                    f"Mark '{property_name}' as backward-derived from "
+                    f"'{synced_property_name}' (source uid: {source_feature.uid})? [y/N]: "
                 ).strip()
-                if selected == "":
+                if selected == "" or selected.lower() in {"n", "no"}:
                     logger.important(
-                        "notion sync backward-debug: user skipped ambiguous candidate selection"
+                        "backward relation: user declined candidate "
+                        f"feature={property_name!r} source_uid={source_feature.uid!r}"
                     )
-                    return None, None
-                if selected.isdigit():
-                    idx = int(selected)
-                    if 1 <= idx <= len(matches):
-                        property_name, source_feature, _ = matches[idx - 1]
-                        logger.important(
-                            "notion sync backward-debug: user selected candidate "
-                            f"feature={property_name!r} source_uid={source_feature.uid!r}"
-                        )
-                        return property_name, source_feature
+                    break
+                if selected.lower() in {"y", "yes"}:
+                    selected_mappings[property_name] = source_feature
+                    logger.important(
+                        "backward relation: user accepted candidate "
+                        f"feature={property_name!r} source_uid={source_feature.uid!r}"
+                    )
+                    break
                 RICH_CONSOLE.print(
-                    f"[yellow]Invalid choice. Use 1-{len(matches)} or press Enter to skip.[/]",
+                    "[yellow]Invalid choice. Use y/yes, n/no, or Enter to skip.[/]",
                     markup=True,
                     highlight=False,
                 )
         logger.important(
-            "notion sync backward-debug: infer no-unique-match "
-            f"matches={[(name, feature.uid) for name, feature, _ in matches]}"
+            "backward relation: infer confirmed-candidates "
+            f"{[(name, feature.uid) for name, feature in selected_mappings.items()]}"
         )
-        return None, None
+        return selected_mappings
 
-    @staticmethod
     def _relation_feature_matches_target_type(
-        local_feature: Any, target_type: Any
+        self, local_feature: Any, target_type: Any
     ) -> bool:
         """Whether a local relation feature points to a specific target record type."""
         from lamindb.models.feature import parse_dtype
@@ -2110,19 +2115,65 @@ class _NotionSyncer:
             return True
         parsed = parse_dtype(dtype_str)
         if len(parsed) != 1:
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result=False reason=parsed-dtype-not-singular local_dtype={dtype_str!r}"
+            )
             return False
         parsed_dtype = parsed[0]
         if parsed_dtype.get("registry_str") != "Record":
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result=False reason=registry-not-record local_dtype={dtype_str!r} "
+                f"registry_str={parsed_dtype.get('registry_str')!r}"
+            )
             return False
+        parsed_type_uid = parsed_dtype.get("type_uid")
+        target_uid = getattr(target_type, "uid", None)
+        if isinstance(parsed_type_uid, str) and isinstance(target_uid, str):
+            matched = parsed_type_uid == target_uid
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=type-uid "
+                f"parsed_type_uid={parsed_type_uid!r} target_uid={target_uid!r}"
+            )
+            return matched
         registry = parsed_dtype.get("registry")
         registry_uid = getattr(registry, "uid", None)
-        target_uid = getattr(target_type, "uid", None)
-        if isinstance(registry_uid, str) and isinstance(target_uid, str):
-            return registry_uid == target_uid
         registry_name = getattr(registry, "name", None)
         target_name = getattr(target_type, "name", None)
+        if not isinstance(registry_name, str) and isinstance(registry_uid, str):
+            registry_record = ln.Record.filter(
+                uid=registry_uid, is_type=True
+            ).one_or_none()
+            registry_name = getattr(registry_record, "name", None)
+        if not isinstance(target_name, str) and isinstance(target_uid, str):
+            target_record = ln.Record.filter(uid=target_uid, is_type=True).one_or_none()
+            target_name = getattr(target_record, "name", None)
         if isinstance(registry_name, str) and isinstance(target_name, str):
-            return registry_name.lower() == target_name.lower()
+            matched = registry_name.lower() == target_name.lower()
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=exact-name "
+                f"registry_name={registry_name!r} target_name={target_name!r} "
+                f"registry_uid={registry_uid!r} target_uid={target_uid!r}"
+            )
+            return matched
+        if isinstance(registry_uid, str) and isinstance(target_uid, str):
+            matched = registry_uid == target_uid
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=uid-fallback "
+                f"registry_uid={registry_uid!r} target_uid={target_uid!r} "
+                f"registry_name={registry_name!r} target_name={target_name!r}"
+            )
+            return matched
+        logger.important(
+            "backward relation: relation-target-check "
+            f"result=False reason=insufficient-identity "
+            f"registry_uid={registry_uid!r} target_uid={target_uid!r} "
+            f"registry_name={registry_name!r} target_name={target_name!r}"
+        )
         return False
 
     @staticmethod
@@ -2376,14 +2427,12 @@ class _NotionSyncer:
         else:
             features = []
         features_by_name = {feature.name: feature for feature in features}
-        backward_feature_name: str | None = None
-        backward_source_feature: Any | None = None
+        backward_features_by_name: dict[str, Any] = {}
         if schema_spec:
-            (
-                backward_feature_name,
-                backward_source_feature,
-            ) = self._infer_notion_backward_relation_feature(
-                schema_spec, features_by_name
+            backward_features_by_name = self._infer_notion_backward_relation_features(
+                schema_spec,
+                features_by_name,
+                current_type_name=db_name,
             )
         if schema is None:
             if apply:
@@ -2406,11 +2455,10 @@ class _NotionSyncer:
                         # index feature is attached through the dedicated index field.
                         continue
                     mapped_field = record_field_mappings.get(feature.name)
-                    if (
-                        backward_feature_name is not None
-                        and feature.name == backward_feature_name
-                        and backward_source_feature is not None
-                    ):
+                    backward_source_feature = backward_features_by_name.get(
+                        feature.name
+                    )
+                    if backward_source_feature is not None:
                         schema_features.append(
                             feature.with_config(
                                 field=mapped_field, backward=backward_source_feature
@@ -2437,23 +2485,24 @@ class _NotionSyncer:
                 else:
                     self._append_unique(report.update_schemas, db_name)
             existing_backward_uids = dict(schema._backward_feature_uids)
-            target_feature = (
-                features_by_name.get(backward_feature_name)
-                if backward_feature_name is not None
-                else None
-            )
-            backward_mapping_needed = (
-                backward_source_feature is not None
-                and target_feature is not None
-                and existing_backward_uids.get(target_feature.uid)
-                != backward_source_feature.uid
+            inferred_backward_uids: dict[str, str] = {}
+            for (
+                target_feature_name,
+                source_feature,
+            ) in backward_features_by_name.items():
+                target_feature = features_by_name.get(target_feature_name)
+                source_uid = getattr(source_feature, "uid", None)
+                if target_feature is None or not isinstance(source_uid, str):
+                    continue
+                inferred_backward_uids[target_feature.uid] = source_uid
+            backward_mapping_needed = any(
+                existing_backward_uids.get(target_uid) != source_uid
+                for target_uid, source_uid in inferred_backward_uids.items()
             )
             logger.important(
-                "notion sync backward-debug: schema backward-eval "
-                f"db={db_name!r} inferred_feature={backward_feature_name!r} "
-                f"inferred_source_uid={getattr(backward_source_feature, 'uid', None)!r} "
+                "backward relation: schema backward-eval "
+                f"db={db_name!r} inferred_backward_uids={inferred_backward_uids!r} "
                 f"existing_backward_uids={existing_backward_uids!r} "
-                f"target_feature_uid={getattr(target_feature, 'uid', None)!r} "
                 f"needed={backward_mapping_needed}"
             )
             if backward_mapping_needed:
@@ -2478,9 +2527,9 @@ class _NotionSyncer:
                     logger.important(
                         f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
                     )
-            if apply and backward_mapping_needed and target_feature is not None:
+            if apply and backward_mapping_needed:
                 backward_mappings = dict(schema._backward_feature_uids)
-                backward_mappings[target_feature.uid] = backward_source_feature.uid
+                backward_mappings.update(inferred_backward_uids)
                 schema._backward_feature_uids = backward_mappings
                 schema.save(update_fields=["_aux"])
                 logger.important(
@@ -2581,7 +2630,7 @@ class _NotionSyncer:
                 if spec.get("type") == "relation"
             }
             logger.important(
-                "notion sync backward-debug: loaded schema spec "
+                "backward relation: loaded schema spec "
                 f"db={db_name!r} relation_props={relation_debug}"
             )
             columns = {k: v["type"] for k, v in schema_spec.items()}
@@ -2641,7 +2690,7 @@ class _NotionSyncer:
             if spec.get("type") == "relation"
         }
         logger.important(
-            "notion sync backward-debug: loaded schema spec "
+            "backward relation: loaded schema spec "
             f"db={db_name!r} relation_props={relation_debug}"
         )
         columns = {k: v["type"] for k, v in schema_spec.items()}

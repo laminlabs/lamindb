@@ -1506,7 +1506,10 @@ def test_infer_notion_backward_relation_feature_prefers_target_named_side(syncer
         patch.object(syncer, "_relation_target_name_candidates") as target_names,
         patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
         patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="y"),
     ):
+        stdin.isatty.return_value = True
         target_names.side_effect = [["Meetings"], ["People"]]
         resolve_type.side_effect = [meetings_type, None]
         feature_type_qs = MagicMock()
@@ -1515,13 +1518,12 @@ def test_infer_notion_backward_relation_feature_prefers_target_named_side(syncer
         source_feature_qs.one_or_none.return_value = external_attendees_feature
         Feature.filter.side_effect = [feature_type_qs, source_feature_qs]
 
-        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+        mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
             {"meetings": meetings_feature},
         )
 
-    assert feature_name == "meetings"
-    assert source_feature is external_attendees_feature
+    assert mapping == {"meetings": external_attendees_feature}
 
 
 def test_infer_notion_backward_relation_feature_skips_ambiguous_non_interactive(syncer):
@@ -1572,13 +1574,12 @@ def test_infer_notion_backward_relation_feature_skips_ambiguous_non_interactive(
             software_source_qs,
         ]
 
-        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+        mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
             {"meeting": meetings_feature, "software": software_feature},
         )
 
-    assert feature_name is None
-    assert source_feature is None
+    assert mapping == {}
 
 
 def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer):
@@ -1612,7 +1613,7 @@ def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer
         patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
         patch("lamindb.integrations.notion.ln.Feature") as Feature,
         patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", return_value="1"),
+        patch("builtins.input", side_effect=["y", "n"]) as input_mock,
     ):
         stdin.isatty.return_value = True
         target_names.side_effect = [["Meetings"], ["Software"]]
@@ -1632,13 +1633,72 @@ def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer
             software_source_qs,
         ]
 
-        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+        mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
             {"meeting": meetings_feature, "software": software_feature},
         )
 
-    assert feature_name == "meeting"
-    assert source_feature is external_attendees_feature
+    assert mapping == {"meeting": external_attendees_feature}
+    assert input_mock.call_count == 2
+
+
+def test_infer_notion_backward_relation_feature_self_referential_target(syncer):
+    people_type = type("PeopleType", (), {"name": "People"})()
+    people_feature_type = MagicMock()
+    manages_source_feature = MagicMock()
+    manages_source_feature.uid = "F_MANAGES"
+    reports_to_source_feature = MagicMock()
+    reports_to_source_feature.uid = "F_REPORTS_TO"
+    reports_to_feature = MagicMock()
+    reports_to_feature.name = "reports_to"
+    manages_feature = MagicMock()
+    manages_feature.name = "manages"
+    schema_spec = {
+        "reports_to": {
+            "type": "relation",
+            "target": "ds-people",
+            "dual": {"synced_property_name": "manages"},
+        },
+        "manages": {
+            "type": "relation",
+            "target": "ds-people",
+            "dual": {"synced_property_name": "reports_to"},
+        },
+    }
+
+    with (
+        patch.object(syncer, "_relation_target_name_candidates") as target_names,
+        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", side_effect=["y", "n"]) as input_mock,
+    ):
+        stdin.isatty.return_value = True
+        target_names.side_effect = [["People", "Peoples"], ["People", "Peoples"]]
+        resolve_type.side_effect = [people_type, people_type]
+        people_type_qs_1 = MagicMock()
+        people_type_qs_1.one_or_none.return_value = people_feature_type
+        reports_to_source_qs = MagicMock()
+        reports_to_source_qs.one_or_none.return_value = manages_source_feature
+        people_type_qs_2 = MagicMock()
+        people_type_qs_2.one_or_none.return_value = people_feature_type
+        manages_source_qs = MagicMock()
+        manages_source_qs.one_or_none.return_value = reports_to_source_feature
+        Feature.filter.side_effect = [
+            people_type_qs_1,
+            reports_to_source_qs,
+            people_type_qs_2,
+            manages_source_qs,
+        ]
+
+        mapping = syncer._infer_notion_backward_relation_features(
+            schema_spec,
+            {"reports_to": reports_to_feature, "manages": manages_feature},
+            current_type_name="People",
+        )
+
+    assert mapping == {"reports_to": manages_source_feature}
+    assert input_mock.call_count == 2
 
 
 def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
@@ -1676,7 +1736,10 @@ def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
             side_effect=[True, False],
         ),
         patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.sys.stdin") as stdin,
+        patch("builtins.input", return_value="y"),
     ):
+        stdin.isatty.return_value = True
         target_names.side_effect = [["Meetings"], ["Software"]]
         resolve_type.side_effect = [meetings_type, software_type]
         meetings_type_qs = MagicMock()
@@ -1694,13 +1757,92 @@ def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
             software_source_qs,
         ]
 
-        feature_name, source_feature = syncer._infer_notion_backward_relation_feature(
+        mapping = syncer._infer_notion_backward_relation_features(
             schema_spec,
             {"meeting": meetings_feature, "software": software_feature},
         )
 
-    assert feature_name == "meeting"
-    assert source_feature is external_attendees_feature
+    assert mapping == {"meeting": external_attendees_feature}
+
+
+def test_relation_feature_matches_target_type_requires_exact_name(syncer):
+    local_feature = MagicMock()
+    local_feature._dtype_str = "list[cat[Record[abc123]]]"
+    target_type = type("TargetType", (), {"name": "Meetings"})()
+    registry = type("RegistryType", (), {"name": "Meeting"})()
+
+    with patch(
+        "lamindb.models.feature.parse_dtype",
+        return_value=[{"registry_str": "Record", "registry": registry}],
+    ):
+        assert (
+            syncer._relation_feature_matches_target_type(local_feature, target_type)
+            is False
+        )
+
+
+def test_relation_feature_matches_target_type_prefers_exact_name_over_uid(syncer):
+    local_feature = MagicMock()
+    local_feature._dtype_str = "list[cat[Record[abc123]]]"
+    target_type = type("TargetType", (), {"name": "Meetings", "uid": "TARGET_UID"})()
+    registry = type("RegistryType", (), {"name": "Meetings", "uid": "OTHER_UID"})()
+
+    with patch(
+        "lamindb.models.feature.parse_dtype",
+        return_value=[{"registry_str": "Record", "registry": registry}],
+    ):
+        assert (
+            syncer._relation_feature_matches_target_type(local_feature, target_type)
+            is True
+        )
+
+
+def test_relation_feature_matches_target_type_resolves_registry_name_from_uid(syncer):
+    local_feature = MagicMock()
+    local_feature._dtype_str = "list[cat[Record[abc123]]]"
+    target_type = type("TargetType", (), {"name": "Meetings", "uid": "TARGET_UID"})()
+    registry = type("RegistryType", (), {"uid": "REG_UID"})()
+
+    with (
+        patch(
+            "lamindb.models.feature.parse_dtype",
+            return_value=[{"registry_str": "Record", "registry": registry}],
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        registry_qs = MagicMock()
+        registry_qs.one_or_none.return_value = type(
+            "RegistryRecord", (), {"name": "Meetings"}
+        )()
+        Record.filter.return_value = registry_qs
+        assert (
+            syncer._relation_feature_matches_target_type(local_feature, target_type)
+            is True
+        )
+
+
+def test_relation_feature_matches_target_type_uses_parsed_type_uid(syncer):
+    local_feature = MagicMock()
+    local_feature._dtype_str = "list[cat[Record[KjPxtgjgZtzuCwvl]]]"
+    target_type = type(
+        "TargetType", (), {"name": "Software", "uid": "KjPxtgjgZtzuCwvl"}
+    )()
+    registry = type("RegistryType", (), {"uid": "DIFFERENT", "name": "Wrong"})()
+
+    with patch(
+        "lamindb.models.feature.parse_dtype",
+        return_value=[
+            {
+                "registry_str": "Record",
+                "registry": registry,
+                "type_uid": "KjPxtgjgZtzuCwvl",
+            }
+        ],
+    ):
+        assert (
+            syncer._relation_feature_matches_target_type(local_feature, target_type)
+            is True
+        )
 
 
 def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
@@ -1722,8 +1864,8 @@ def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
         patch("lamindb.integrations.notion.ln.Schema") as Schema,
         patch.object(
             syncer,
-            "_infer_notion_backward_relation_feature",
-            return_value=("meetings", source_feature),
+            "_infer_notion_backward_relation_features",
+            return_value={"meetings": source_feature},
         ),
     ):
         feature_type = MagicMock()
@@ -1768,8 +1910,8 @@ def test_plan_metadata_dry_run_reports_backward_mapping_update(syncer):
         patch("lamindb.integrations.notion.ln.Schema") as Schema,
         patch.object(
             syncer,
-            "_infer_notion_backward_relation_feature",
-            return_value=("meetings", source_feature),
+            "_infer_notion_backward_relation_features",
+            return_value={"meetings": source_feature},
         ),
     ):
         feature_type = MagicMock()

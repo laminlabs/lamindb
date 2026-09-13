@@ -949,6 +949,57 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     books_feature.delete(permanent=True)
 
 
+def test_record_schema_backward_feature_mapping_self_referential_relation():
+    reports_to_feature = ln.Feature(name="reports_to", dtype=ln.Record).save()
+    manages_feature = ln.Feature(name="manages", dtype=list[ln.Record]).save()
+    people_schema = ln.Schema(
+        features=[
+            reports_to_feature,
+            manages_feature.with_config(optional=True, backward=reports_to_feature),
+        ],
+        name="backward-map-self-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="backward-map-self-people-sheet", is_type=True, schema=people_schema
+    ).save()
+
+    manager = ln.Record(name="backward-map-self-manager", type=people_sheet).save()
+    report_a = ln.Record(name="backward-map-self-report-a", type=people_sheet).save()
+    report_b = ln.Record(name="backward-map-self-report-b", type=people_sheet).save()
+
+    report_a.features.set_values({"reports_to": manager})
+    report_b.features.set_values({"reports_to": manager})
+
+    manager_values = manager.features.get_values()
+    report_a_values = report_a.features.get_values()
+
+    assert people_schema._aux["af"]["4"] == {
+        manages_feature.uid: reports_to_feature.uid
+    }
+    assert manager_values["manages"] == [
+        "backward-map-self-report-a",
+        "backward-map-self-report-b",
+    ]
+    assert report_a_values["manages"] == []
+    assert (
+        ln.models.RecordRecord.filter(record=manager, feature=manages_feature).count()
+        == 0
+    )
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+    ):
+        report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
+
+    report_a.delete(permanent=True)
+    report_b.delete(permanent=True)
+    manager.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    people_schema.delete(permanent=True)
+    reports_to_feature.delete(permanent=True)
+    manages_feature.delete(permanent=True)
+
+
 def test_record_schema_backward_feature_mapping_validation_no_symmetric_config():
     feature_a = ln.Feature(name="backward-a", dtype=list[ln.Record]).save()
     feature_b = ln.Feature(name="backward-b", dtype=list[ln.Record]).save()
