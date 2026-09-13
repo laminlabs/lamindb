@@ -1694,12 +1694,21 @@ class _NotionSyncer:
             return "created_by"
         return None
 
+    @staticmethod
+    def _record_field_mapping_for_property_name(property_name: str) -> str | None:
+        normalized = property_name.strip().lower().replace(" ", "_")
+        if normalized in {"summary", "description"}:
+            return "description"
+        return None
+
     def _record_field_mappings_from_columns(
         self, columns: dict[str, str]
     ) -> dict[str, str]:
         mappings: dict[str, str] = {}
         for feature_name, notion_type in columns.items():
-            record_field = self._record_field_mapping_for_notion_type(notion_type)
+            record_field = self._record_field_mapping_for_notion_type(
+                notion_type
+            ) or self._record_field_mapping_for_property_name(feature_name)
             if record_field is not None:
                 mappings[feature_name] = record_field
         return mappings

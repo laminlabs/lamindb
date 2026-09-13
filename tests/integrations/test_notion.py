@@ -1212,12 +1212,14 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
     )
 
 
-def test_record_field_mapping_is_derived_from_internal_notion_property_types(syncer):
+def test_record_field_mapping_is_derived_from_notion_type_and_property_name(syncer):
     columns = {
         "Created At": "created_time",
         "Edited At": "last_edited_time",
         "Creator": "created_by",
         "Reviewer": "last_edited_by",
+        "Summary": "rich_text",
+        "description": "rich_text",
         "Name": "title",
     }
     mappings = syncer._record_field_mappings_from_columns(columns)
@@ -1225,6 +1227,8 @@ def test_record_field_mapping_is_derived_from_internal_notion_property_types(syn
         "Created At": "created_at",
         "Edited At": "updated_at",
         "Creator": "created_by",
+        "Summary": "description",
+        "description": "description",
     }
 
 
