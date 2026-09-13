@@ -796,7 +796,7 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  notion  Notion integration commands.
+  notion  Sync from Notion.
 ```
 
 ## Auth
