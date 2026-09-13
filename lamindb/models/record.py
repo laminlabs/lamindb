@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
@@ -24,7 +24,7 @@ from ..errors import ValidationError
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature, parse_dtype
+from .feature import AllowedFields, Feature, parse_dtype
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
@@ -65,17 +65,7 @@ if TYPE_CHECKING:
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
-ALLOWED_RECORD_FEATURE_FIELDS = {
-    "created_at",
-    "created_by",
-    "description",
-    "name",
-    "updated_at",
-    "reference",
-    "reference_type",
-    "run",
-    "type",
-}
+ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(AllowedFields))
 
 
 def get_type_schema_index(record_type: Record | None) -> Feature | None:

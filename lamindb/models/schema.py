@@ -411,6 +411,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
         ]).save()
 
+    Map a feature to a field in :class:`~lamindb.Record`::
+
+        schema = ln.Schema([
+            ln.Feature(name="created_at", dtype=datetime).save().with_config(field="created_at"),
+            ln.Feature(name="external_id", dtype=str).save().with_config(field="reference"),
+        ]).save()
+
+    Setting :attr:`~lamindb.Schema.index` automatically maps the
+    index feature to the `name` field on :class:`~lamindb.Record` (equivalent to
+    `feature.with_config(field="name")` for that feature)::
+
+        sample_id = ln.Feature(name="sample_id", dtype=str).save()
+        schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
+
     Parse & validate feature identifier values::
 
         schema = ln.Schema.from_values(

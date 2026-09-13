@@ -71,6 +71,17 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
+AllowedFields = Literal[
+    "created_at",
+    "created_by",
+    "updated_at",
+    "reference",
+    "reference_type",
+    "run",
+    "type",
+    "name",
+    "description",
+]
 
 
 @dataclass(frozen=True)
@@ -1545,22 +1556,19 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         return self
 
     def with_config(
-        self, optional: bool | None = None, field: str | None = None
-    ) -> tuple[Feature, dict]:
+        self, optional: bool | None = None, field: AllowedFields | None = None
+    ) -> tuple[Feature, dict[str, bool | AllowedFields]]:
         """Pass additional configuration to :class:`~lamindb.Schema`.
 
         Args:
             optional: Whether this feature is optional in a schema.
-            field: For record-sheet schemas, map this feature to a concrete
-                :class:`~lamindb.Record` field (currently one of
-                ``"created_at"``, ``"created_by"``, ``"updated_at"``,
-                ``"reference"``, ``"reference_type"``, ``"run"``, ``"type"``,
-                ``"name"``, ``"description"``),
+            field: For record schemas, map this feature to a concrete
+                :class:`~lamindb.Record` field,
                 so values are stored on the record model rather than in feature
-                link tables. For sheet schemas, :attr:`~lamindb.Schema.index`
+                link tables. For record schemas, :attr:`~lamindb.Schema.index`
                 automatically targets :attr:`~lamindb.Record.name`.
         """
-        config: dict[str, bool | str] = {}
+        config: dict[str, bool | AllowedFields] = {}
         if optional is not None:
             config["optional"] = optional
         if field is not None:
