@@ -1016,6 +1016,92 @@ def test_resolve_record_type_dry_run_plans_missing_features_for_existing_schema(
     assert plan_or_create.call_args.kwargs["apply"] is False
 
 
+def test_plan_metadata_uses_schema_members_when_feature_type_missing(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [
+        ("summary", "str", str),
+        ("interaction", "list[str]", list[str]),
+        ("website", "str", str),
+    ]
+    schema = MagicMock()
+    summary_feature = type("Feature", (), {"name": "summary"})()
+    interaction_feature = type("Feature", (), {"name": "interaction"})()
+    schema.members.all.return_value = [summary_feature, interaction_feature]
+    schema.members.filter.return_value = [summary_feature, interaction_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 0
+        feature_type_qs.one_or_none.return_value = None
+        Feature.filter.return_value = feature_type_qs
+
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Schema.filter.return_value = schema_qs
+
+        feature_type, features, returned_schema = syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=False,
+            report=report,
+        )
+
+    assert feature_type is None
+    assert returned_schema is schema
+    assert {feature.name for feature in features} == {"summary", "interaction"}
+    assert report.create_feature_types == ["Organizations"]
+    assert report.update_schemas == ["Organizations"]
+    assert report.create_features == ["Organizations / website: str"]
+    assert report.update_features == [
+        "Organizations / summary: str",
+        "Organizations / interaction: list[str]",
+    ]
+
+
+def test_plan_metadata_apply_updates_existing_schema_features_to_feature_type(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("summary", "str", str)]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "summary"
+    existing_feature.type_id = None
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 42
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 0
+        feature_type_qs.one_or_none.return_value = None
+        Feature.filter.return_value = feature_type_qs
+        Feature.return_value.save.return_value = feature_type
+
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    Feature.assert_called_once_with(name="Organizations", is_type=True)
+    existing_feature.save.assert_called_once_with(update_fields=["type"])
+    assert existing_feature.type is feature_type
+    assert report.updated_features == ["Organizations / summary: str"]
+
+
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
@@ -1564,6 +1650,7 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
             "Website analytics / Name: str",
             "Website analytics / Score: num",
         ],
+        update_features=["Website analytics / Existing: str"],
         create_artifacts=[
             f"{_short_file_source('https://example.com/a.pdf')} <- row-1:Attachment",
             f"{_short_file_source('https://example.com/b.pdf')} <- row-1:Attachment",
@@ -1581,6 +1668,8 @@ def test_sync_report_pretty_text_groups_and_labels_metrics():
     assert "create_feature_types" in text
     assert "create_schemas" in text
     assert "update_schemas" in text
+    assert "update_features" in text
+    assert "create_features" in text
     assert "Website analytics / Score: num" in text
     assert "create_artifacts" in text
     assert (

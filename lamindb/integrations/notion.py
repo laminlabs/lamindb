@@ -81,6 +81,8 @@ class SyncReport:
     update_schemas: list[str] = field(default_factory=list)
     created_features: list[str] = field(default_factory=list)
     create_features: list[str] = field(default_factory=list)
+    updated_features: list[str] = field(default_factory=list)
+    update_features: list[str] = field(default_factory=list)
     created_artifacts: list[str] = field(default_factory=list)
     create_artifacts: list[str] = field(default_factory=list)
 
@@ -161,6 +163,14 @@ class SyncReport:
         if self.created_features:
             lines.append("[bold]created_features[/]:")
             lines.extend(f"  [green]{feature}[/]" for feature in self.created_features)
+        if self.update_features:
+            lines.append("[bold]update_features[/]:")
+            lines.extend(
+                f"  [{action_color}]{feature}[/]" for feature in self.update_features
+            )
+        if self.updated_features:
+            lines.append("[bold]updated_features[/]:")
+            lines.extend(f"  [green]{feature}[/]" for feature in self.updated_features)
         if self.create_artifacts:
             lines.append("[bold]create_artifacts[/]:")
             lines.extend(
@@ -1348,6 +1358,13 @@ class _NotionSyncer:
                 f"Ambiguous LaminDB feature type name {db_name!r}: found {feature_type_count} matches."
             )
         feature_type = feature_type_qs.one_or_none()
+        schema_qs = ln.Schema.filter(name=db_name)
+        schema_count = schema_qs.count()
+        if schema_count > 1:
+            raise ValueError(
+                f"Ambiguous LaminDB schema name {db_name!r}: found {schema_count} matches."
+            )
+        schema = schema_qs.one_or_none()
         logger.important(
             f"notion sync metadata: db={db_name!r}, apply={apply}, "
             f"feature_plan_size={len(feature_plan)}, feature_type_exists={feature_type is not None}"
@@ -1362,23 +1379,40 @@ class _NotionSyncer:
             else:
                 self._append_unique(report.create_feature_types, db_name)
 
-        missing_specs: list[tuple[str, str, Any]] = []
-        if feature_type is None:
-            missing_specs = feature_plan
-        else:
-            feature_names = [name for name, _, _ in feature_plan]
-            existing_names = set(
-                ln.Feature.filter(
-                    name__in=feature_names, type=feature_type
-                ).values_list("name", flat=True)
+        feature_names = [name for name, _, _ in feature_plan]
+        schema_members: list[Any] = []
+        schema_members_by_name: dict[str, Any] = {}
+        if schema is not None:
+            members = schema.members
+            schema_members = (
+                list(members.all()) if hasattr(members, "all") else list(members)
             )
-            missing_specs = [
-                spec for spec in feature_plan if spec[0] not in existing_names
-            ]
-            logger.important(
-                f"notion sync metadata: db={db_name!r}, existing_features={len(existing_names)}, "
-                f"missing_features={len(missing_specs)}"
-            )
+            schema_members_by_name = {
+                feature.name: feature for feature in schema_members
+            }
+
+        existing_names = set(schema_members_by_name)
+        missing_specs: list[tuple[str, str, Any]] = [
+            spec for spec in feature_plan if spec[0] not in existing_names
+        ]
+        logger.important(
+            f"notion sync metadata: db={db_name!r}, existing_features={len(existing_names)}, "
+            f"missing_features={len(missing_specs)}"
+        )
+
+        type_update_specs: list[tuple[str, str, Any]] = []
+        if schema is not None:
+            for name, dtype_label, dtype in feature_plan:
+                existing_feature = schema_members_by_name.get(name)
+                if existing_feature is None:
+                    continue
+                if feature_type is None:
+                    type_update_specs.append((name, dtype_label, dtype))
+                    continue
+                if getattr(existing_feature, "type_id", None) != getattr(
+                    feature_type, "id", None
+                ):
+                    type_update_specs.append((name, dtype_label, dtype))
 
         if missing_specs:
             for name, dtype_label, _ in missing_specs:
@@ -1388,6 +1422,14 @@ class _NotionSyncer:
                 else:
                     self._append_unique(report.create_features, detail)
 
+        if type_update_specs:
+            for name, dtype_label, _ in type_update_specs:
+                detail = f"{db_name} / {name}: {dtype_label}"
+                if apply:
+                    self._append_unique(report.updated_features, detail)
+                else:
+                    self._append_unique(report.update_features, detail)
+
         if apply and feature_type is not None and missing_specs:
             for name, _, dtype in missing_specs:
                 ln.Feature(name=name, dtype=dtype, type=feature_type).save()
@@ -1395,22 +1437,39 @@ class _NotionSyncer:
                 f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
             )
 
+        if (
+            apply
+            and feature_type is not None
+            and schema is not None
+            and type_update_specs
+        ):
+            for name, _, _ in type_update_specs:
+                feature = schema_members_by_name.get(name)
+                if feature is None:
+                    continue
+                if getattr(feature, "type_id", None) != getattr(
+                    feature_type, "id", None
+                ):
+                    feature.type = feature_type
+                    feature.save(update_fields=["type"])
+            logger.important(
+                f"notion sync metadata: updated {len(type_update_specs)} features to type {db_name!r}"
+            )
+
         if feature_type is not None:
             features = list(
-                ln.Feature.filter(
-                    name__in=[name for name, _, _ in feature_plan], type=feature_type
-                )
+                ln.Feature.filter(name__in=feature_names, type=feature_type)
             )
+        elif schema is not None:
+            members = schema.members
+            if hasattr(members, "filter"):
+                features = list(members.filter(name__in=feature_names))
+            else:
+                features = [
+                    feature for feature in members if feature.name in feature_names
+                ]
         else:
             features = []
-
-        schema_qs = ln.Schema.filter(name=db_name)
-        schema_count = schema_qs.count()
-        if schema_count > 1:
-            raise ValueError(
-                f"Ambiguous LaminDB schema name {db_name!r}: found {schema_count} matches."
-            )
-        schema = schema_qs.one_or_none()
         if schema is None:
             if apply:
                 index_feature = next(
