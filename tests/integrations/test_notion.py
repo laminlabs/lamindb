@@ -1820,6 +1820,14 @@ def test_schema_validation_dry_run_allows_missing_without_extra(syncer):
         syncer._validate_schema("db-1", rec_type, apply=False)
 
 
+def test_schema_validation_dry_run_allows_schemaless_record_type(syncer):
+    rec_type = MagicMock()
+    rec_type.name = "Meeting labels"
+    rec_type.schema = None
+    with patch.object(syncer.reader, "columns", return_value={"Name": "title"}):
+        syncer._validate_schema("db-1", rec_type, apply=False)
+
+
 def test_resolve_record_type_apply_assigns_parent_type(syncer):
     db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
     report = SyncReport()
@@ -1898,6 +1906,46 @@ def test_resolve_record_type_dry_run_reports_parent_type_move(syncer):
         )
 
     assert report.update_record_types == ["Website analytics: <root> -> General asset"]
+
+
+def test_resolve_record_type_dry_run_reports_schema_attachment(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport(apply=False)
+    rec_type = MagicMock()
+    rec_type.name = "Meeting labels"
+    rec_type.description = None
+    rec_type._aux = None
+    rec_type.schema = None
+    rec_type.type_id = None
+
+    with (
+        patch.object(syncer.reader, "columns", return_value={"name": "title"}),
+        patch.object(
+            syncer,
+            "_database_feature_plan",
+            return_value=[("name", "str", str)],
+        ),
+        patch.object(
+            syncer,
+            "_plan_or_create_db_metadata",
+            return_value=(object(), [], None),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        syncer._resolve_record_type(
+            db_id,
+            apply=False,
+            report=report,
+            payload={"title": [{"plain_text": "Meeting labels"}]},
+        )
+
+    assert report.update_record_types == [
+        "Meeting labels: attach schema Meeting labels"
+    ]
 
 
 def test_import_pages_dry_run_does_not_write(syncer):

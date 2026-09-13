@@ -1438,6 +1438,10 @@ class _NotionSyncer:
         return {feature.name for feature in schema.members}
 
     @staticmethod
+    def _record_type_schema_attach_detail(rec_type_name: str, schema_name: str) -> str:
+        return f"{rec_type_name}: attach schema {schema_name}"
+
+    @staticmethod
     def _feature_dtype_from_notion_type(notion_type: str):
         if notion_type == "number":
             return "num"
@@ -2365,7 +2369,7 @@ class _NotionSyncer:
             if changed:
                 rec_type.save()
         else:
-            self._plan_or_create_db_metadata(
+            _, _, schema = self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
                 index_feature_name=index_feature_name,
@@ -2373,6 +2377,11 @@ class _NotionSyncer:
                 apply=False,
                 report=report,
             )
+            if rec_type.schema is None:
+                self._append_unique(
+                    report.update_record_types,
+                    self._record_type_schema_attach_detail(rec_type.name, db_name),
+                )
             if record_type_move_detail is not None:
                 self._append_unique(report.update_record_types, record_type_move_detail)
         return rec_type
@@ -2381,6 +2390,12 @@ class _NotionSyncer:
         self, database_id: str, rec_type, *, apply: bool = True
     ) -> None:
         notion_props = set(self.reader.columns(database_id))
+        if rec_type.schema is None and not apply:
+            logger.important(
+                f"notion sync schema-check: discovered schemaless record type "
+                f"{rec_type.name!r}; dry run reports planned schema attachment"
+            )
+            return
         schema_features = self._schema_feature_names(rec_type)
         missing_features = sorted(notion_props - schema_features)
         extra_features = sorted(schema_features - notion_props)
