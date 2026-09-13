@@ -1618,6 +1618,15 @@ class _NotionSyncer:
         prefer_plural: bool = True,
     ) -> tuple[Any | None, str | None]:
         deduped = list(dict.fromkeys(names))
+        normalized = {
+            name.strip().lower().replace("_", " ")
+            for name in deduped
+            if isinstance(name, str) and name.strip()
+        }
+        if normalized & {"project", "projects"}:
+            return ln.Project, "Project"
+        if normalized & {"reference", "references"}:
+            return ln.Reference, "Reference"
         relation_type = self._resolve_record_type_by_name_candidates(deduped)
         if relation_type is not None:
             return relation_type, relation_type.name
@@ -1676,7 +1685,18 @@ class _NotionSyncer:
                     )
                 )
                 if relation_type is not None:
-                    return f"list[{relation_type.name}]", self._list_dtype_for(
+                    if relation_type in {ln.Project, ln.Reference}:
+                        logger.important(
+                            "notion sync metadata: "
+                            f"{db_name}.{property_name} relation maps to "
+                            f"LaminDB {relation_type.__name__} registry"
+                        )
+                    relation_type_name = getattr(relation_type, "name", None)
+                    if not isinstance(relation_type_name, str):
+                        relation_type_name = getattr(
+                            relation_type, "__name__", str(relation_type)
+                        )
+                    return f"list[{relation_type_name}]", self._list_dtype_for(
                         relation_type
                     )
                 if planned_name is not None:
@@ -1705,11 +1725,34 @@ class _NotionSyncer:
                 synced_name = dual.get("synced_property_name")
                 if isinstance(synced_name, str) and synced_name:
                     names.extend(self._name_candidates(synced_name))
+            special_relation_type, _ = self._resolve_or_plan_relation_record_type(
+                list(dict.fromkeys(names)),
+                apply=apply,
+                report=None,
+            )
+            if special_relation_type is not None and special_relation_type in {
+                ln.Project,
+                ln.Reference,
+            }:
+                logger.important(
+                    "notion sync metadata: "
+                    f"{db_name}.{property_name} relation maps to "
+                    f"LaminDB {special_relation_type.__name__} registry"
+                )
+                return (
+                    f"list[{special_relation_type.__name__}]",
+                    self._list_dtype_for(special_relation_type),
+                )
             relation_type = self._resolve_record_type_by_name_candidates(
                 list(dict.fromkeys(names))
             )
             if relation_type is not None:
-                return f"list[{relation_type.name}]", self._list_dtype_for(
+                relation_type_name = getattr(relation_type, "name", None)
+                if not isinstance(relation_type_name, str):
+                    relation_type_name = getattr(
+                        relation_type, "__name__", str(relation_type)
+                    )
+                return f"list[{relation_type_name}]", self._list_dtype_for(
                     relation_type
                 )
             return "list[str]", list[str]
@@ -1801,6 +1844,7 @@ class _NotionSyncer:
         db_name: str,
         feature_name: str,
         dtype_label: str,
+        dtype: Any,
         record_field_mappings: dict[str, str],
         *,
         index_feature_name: str | None = None,
@@ -1814,6 +1858,21 @@ class _NotionSyncer:
             mapped_targets.append(f"Record.{mapped_field}")
         if mapped_targets:
             detail = f"{detail} -> {' / '.join(mapped_targets)}"
+        registry_targets: list[str] = []
+        dtype_args = getattr(dtype, "__args__", ())
+        if getattr(dtype, "__origin__", None) is list and dtype_args:
+            registry_type = dtype_args[0]
+            if registry_type is ln.Project:
+                registry_targets.append("LaminDB.Project registry")
+            elif registry_type is ln.Reference:
+                registry_targets.append("LaminDB.Reference registry")
+        if registry_targets:
+            suffix = " / ".join(registry_targets)
+            detail = (
+                f"{detail} -> {suffix}"
+                if " -> " not in detail
+                else f"{detail} / {suffix}"
+            )
         return detail
 
     @staticmethod
@@ -1907,11 +1966,12 @@ class _NotionSyncer:
                     )
 
         if missing_specs:
-            for name, dtype_label, _ in missing_specs:
+            for name, dtype_label, dtype in missing_specs:
                 detail = self._feature_plan_detail(
                     db_name,
                     name,
                     dtype_label,
+                    dtype,
                     record_field_mappings,
                     index_feature_name=index_feature_name,
                 )
@@ -1921,11 +1981,12 @@ class _NotionSyncer:
                     self._append_unique(report.create_features, detail)
 
         if type_update_specs:
-            for name, dtype_label, _, _ in type_update_specs:
+            for name, dtype_label, dtype, _ in type_update_specs:
                 detail = self._feature_plan_detail(
                     db_name,
                     name,
                     dtype_label,
+                    dtype,
                     record_field_mappings,
                     index_feature_name=index_feature_name,
                 )

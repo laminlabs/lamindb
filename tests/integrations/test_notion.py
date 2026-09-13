@@ -1173,6 +1173,7 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
         ("Name", "str", str),
         ("summary", "str", str),
         ("created_at", "datetime64[ns, UTC]", datetime),
+        ("project", "list[Project]", list[ln.Project]),
     ]
     schema = MagicMock()
     schema.members.all.return_value = []
@@ -1209,6 +1210,7 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
         "Organizations / Name: str -> Schema.index / Record.name",
         "Organizations / summary: str -> Record.description",
         "Organizations / created_at: datetime64[ns, UTC] -> Record.created_at",
+        "Organizations / project: list[Project] -> LaminDB.Project registry",
     ]
 
 
@@ -1375,16 +1377,16 @@ def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
 
 
 def test_relation_dtype_with_target_falls_back_to_property_name_only(syncer):
-    reference_type = type("ReferenceType", (), {"name": "References"})
+    initiative_type = type("InitiativeType", (), {"name": "Initiatives"})
     with patch.object(
         syncer, "_resolve_record_type_by_name_candidates"
     ) as resolve_record:
-        resolve_record.side_effect = [None, reference_type]
+        resolve_record.side_effect = [None, initiative_type]
         with patch.object(syncer, "_relation_target_name_candidates") as target_names:
             target_names.return_value = []
             dtype_label, dtype = syncer._dtype_from_notion_property(
                 "Organizations",
-                "reference",
+                "initiative",
                 {
                     "type": "relation",
                     "target": "target-ds-id",
@@ -1392,12 +1394,12 @@ def test_relation_dtype_with_target_falls_back_to_property_name_only(syncer):
                 },
             )
 
-    assert dtype_label == "list[References]"
+    assert dtype_label == "list[Initiatives]"
     assert getattr(dtype, "__origin__", None) is list
-    assert dtype.__args__[0] is reference_type
+    assert dtype.__args__[0] is initiative_type
     assert resolve_record.call_args_list[0].args[0] == []
-    assert "reference" in resolve_record.call_args_list[1].args[0]
-    assert "Reference" in resolve_record.call_args_list[1].args[0]
+    assert "initiative" in resolve_record.call_args_list[1].args[0]
+    assert "Initiative" in resolve_record.call_args_list[1].args[0]
     assert "organization" not in resolve_record.call_args_list[1].args[0]
     assert "Organizations" not in resolve_record.call_args_list[1].args[0]
 
@@ -1412,7 +1414,7 @@ def test_relation_dtype_with_target_plans_missing_record_type(syncer):
             target_names.return_value = []
             dtype_label, dtype = syncer._dtype_from_notion_property(
                 "Organizations",
-                "reference",
+                "initiative",
                 {
                     "type": "relation",
                     "target": "target-ds-id",
@@ -1422,10 +1424,10 @@ def test_relation_dtype_with_target_plans_missing_record_type(syncer):
                 report=report,
             )
 
-    assert dtype_label == "list[References]"
+    assert dtype_label == "list[Initiatives]"
     assert getattr(dtype, "__origin__", None) is list
     assert dtype.__args__[0] is ln.Record
-    assert report.create_record_types == ["References"]
+    assert report.create_record_types == ["Initiatives"]
 
 
 def test_relation_dtype_with_target_prefers_notion_database_name(syncer):
@@ -1458,6 +1460,42 @@ def test_relation_dtype_with_target_prefers_notion_database_name(syncer):
     assert dtype.__args__[0] is ln.Record
     assert report.create_record_types == ["Software"]
     assert "Softwares" not in report.create_record_types
+
+
+def test_relation_dtype_with_target_maps_projects_to_project_registry(syncer):
+    report = SyncReport(apply=False)
+    with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+        target_names.return_value = ["projects", "Projects"]
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "Meetings",
+            "project",
+            {"type": "relation", "target": "target-ds-id", "dual": None},
+            apply=False,
+            report=report,
+        )
+
+    assert dtype_label == "list[Project]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.Project
+    assert report.create_record_types == []
+
+
+def test_relation_dtype_with_target_maps_references_to_reference_registry(syncer):
+    report = SyncReport(apply=False)
+    with patch.object(syncer, "_relation_target_name_candidates") as target_names:
+        target_names.return_value = ["references", "References"]
+        dtype_label, dtype = syncer._dtype_from_notion_property(
+            "People",
+            "reference",
+            {"type": "relation", "target": "target-ds-id", "dual": None},
+            apply=False,
+            report=report,
+        )
+
+    assert dtype_label == "list[Reference]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.Reference
+    assert report.create_record_types == []
 
 
 def test_multi_select_ulabel_type_candidates_include_hierarchical_child_name(syncer):
