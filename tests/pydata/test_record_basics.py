@@ -534,6 +534,29 @@ def test_record_schema_index_name_conflict_resolution():
     score.delete(permanent=True)
 
 
+def test_set_values_does_not_warn_for_schema_index_feature_on_record(ccaplog):
+    sample_id = ln.Feature(name="no_warn_sample_id", dtype=str).save()
+    score = ln.Feature(name="no_warn_score", dtype=float).save()
+    schema = ln.Schema(features=[score], index=sample_id, name="no-warn-schema").save()
+    sheet = ln.Record(name="no-warn-sheet", is_type=True, schema=schema).save()
+
+    record = ln.Record(
+        type=sheet,
+        features={"no_warn_sample_id": "S-001", "no_warn_score": 1.0},
+    ).save()
+    ccaplog.clear()
+    record.features.set_values({"no_warn_sample_id": "S-001", "no_warn_score": 2.0})
+    assert "no feature 'no_warn_sample_id' found on record" not in ccaplog.text
+    assert record.name == "S-001"
+    assert record.features["no_warn_score"] == 2.0
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
     """Export works for index-on-name schema with linked features."""
     sample_name = ln.Feature(name="sample_name", dtype=str).save()
@@ -1694,12 +1717,16 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
-    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
         sample.features.add_values({feature: record_b})
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
-    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
         sample.features.add_values({feature: [record_a, record_b]})
 
     # cleanup
@@ -1727,11 +1754,15 @@ def test_feature_rejects_builtin_scalar_for_record_dtype():
     sheet = ln.Record(name="FooSheet", is_type=True, schema=schema).save()
 
     # A raw int for a record-typed feature.
-    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="not validated in feature 'foo'"
+    ):
         ln.Record(name="row_int", type=sheet, features={"foo": 123}).save()
 
     # A raw str for a record-typed feature.
-    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="not validated in feature 'foo'"
+    ):
         ln.Record(name="row_str", type=sheet, features={"foo": "123"}).save()
 
     # cleanup — row_int / row_str are saved before the feature ValidationError fires,

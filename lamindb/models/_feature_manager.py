@@ -2077,6 +2077,16 @@ class FeatureManager:
                     feature_record = Feature.connect(self._host._state.db).get(
                         uid=feature_record.uid
                     )
+            if host_is_record and value is None:
+                from .record import get_type_schema_index
+
+                index_feature = get_type_schema_index(self._host.type)
+                if (
+                    index_feature is not None
+                    and feature_record.uid == index_feature.uid
+                ):
+                    # Record sheet index values persist on Record.name, not values_json.
+                    continue
             if host_is_artifact:
                 for schema in self.slots.values():
                     if feature_record in schema.members:
