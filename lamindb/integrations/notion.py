@@ -95,22 +95,6 @@ class SyncReport:
             lines.extend(f"[red]- {error}[/]" for error in self.errors)
         return "\n".join(lines)
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "apply": self.apply,
-            "message": self.message,
-            "discovered": self.discovered,
-            "created": self.created,
-            "updated": self.updated,
-            "unchanged": self.unchanged,
-            "pending_relations": self.pending_relations,
-            "failed": self.failed,
-            "errors": self.errors,
-            "databases": self.databases,
-            "created_record_types": self.created_record_types,
-            "create_record_types": self.create_record_types,
-        }
-
 
 def _flatten(prop: dict) -> Any:
     t = prop.get("type")
