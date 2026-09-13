@@ -32,7 +32,7 @@ from ._relations import (
     get_related_name,
 )
 from .can_curate import CanCurate
-from .feature import Feature, serialize_dtype, serialize_pandas_dtype
+from .feature import Feature, parse_dtype, serialize_dtype, serialize_pandas_dtype
 from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
@@ -425,6 +425,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         sample_id = ln.Feature(name="sample_id", dtype=str).save()
         schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
 
+    Configure a feature so that it draws its values from a backward-relationship among records::
+
+        author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
+        books = ln.Feature(name="books", dtype=list[ln.Record.get(name="Books")]).save()
+        # book.author  <-- the author of the book
+        # author.books <-- the books written by the author (backward relationship of Book.author)
+        ln.Schema([author]).save()
+        ln.Schema([books.with_config(backward=author)]).save()
+
     Parse & validate feature identifier values::
 
         schema = ln.Schema.from_values(
@@ -512,6 +521,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "1": ("optionals", list[str]),
         "2": ("record_fields", dict[str, str]),
         "3": ("index_feature_uid", str),
+        "4": ("backward_feature_uid", str),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -828,6 +838,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         suffix = validate_schema_suffix(suffix)
         optional_features = []
         record_fields: dict[str, str] = {}
+        backward_feature_uid: str | None = None
+        backward_target_feature_uid: str | None = None
         features_registry: Registry = None
         if itype is not None:
             # If a Feature instance with is_type=True is passed, encode as
@@ -870,37 +882,96 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
                 for configured_feature, config in configs:
                     field_name = config.get("field")
+                    backward_feature = config.get("backward")
                     if field_name is None:
+                        pass
+                    else:
+                        if not isinstance(field_name, str):
+                            raise TypeError(
+                                "feature.with_config(field=...) expects a string value"
+                            )
+                        validate_record_feature_field_mapping(
+                            configured_feature, field_name
+                        )
+                        if field_name == "name" and index is not None:
+                            raise ValueError(
+                                "Cannot map a feature to Record.name when schema.index is set: "
+                                "the index feature is already stored on Record.name automatically"
+                            )
+                        if field_name in record_fields.values():
+                            raise ValueError(
+                                f"Multiple features map to record field '{field_name}'. "
+                                "Only one feature can target a given record field."
+                            )
+                        if index is not None and configured_feature.uid == index.uid:
+                            raise ValueError(
+                                "A schema index feature cannot also map to a record field"
+                            )
+                        record_fields[configured_feature.uid] = field_name
+
+                    if backward_feature is None:
                         continue
-                    if not isinstance(field_name, str):
+                    if not isinstance(backward_feature, Feature):
                         raise TypeError(
-                            "feature.with_config(field=...) expects a string value"
+                            "feature.with_config(backward=...) expects a Feature value"
                         )
-                    validate_record_feature_field_mapping(
-                        configured_feature, field_name
+                    if backward_feature._state.adding:
+                        raise ValueError(
+                            "Can only create schema from validated features"
+                        )
+                    configured_dtype = parse_dtype(configured_feature._dtype_str)
+                    backward_dtype = parse_dtype(backward_feature._dtype_str)
+                    if (
+                        len(configured_dtype) != 1
+                        or len(backward_dtype) != 1
+                        or configured_dtype[0].get("registry_str") != "Record"
+                        or backward_dtype[0].get("registry_str") != "Record"
+                    ):
+                        raise ValueError(
+                            "feature.with_config(backward=...) requires both features "
+                            "to have categorical Record dtype"
+                        )
+                    if not configured_dtype[0].get("list", False):
+                        raise ValueError(
+                            "feature.with_config(backward=...) requires the configured "
+                            "feature to have list categorical Record dtype"
+                        )
+                    if (
+                        backward_feature_uid is not None
+                        and backward_feature.uid != backward_feature_uid
+                    ):
+                        raise ValueError(
+                            "feature.with_config(backward=...) currently supports a "
+                            "single backward source feature per schema"
+                        )
+                    backward_feature_uid = backward_feature.uid
+                    backward_target_feature_uid = configured_feature.uid
+                if backward_feature_uid is not None:
+                    non_index_features = (
+                        features
+                        if index is None
+                        else [f for f in features if f.uid != index.uid]
                     )
-                    if field_name == "name" and index is not None:
+                    if (
+                        len(non_index_features) != 1
+                        or backward_target_feature_uid is None
+                        or non_index_features[0].uid != backward_target_feature_uid
+                    ):
                         raise ValueError(
-                            "Cannot map a feature to Record.name when schema.index is set: "
-                            "the index feature is already stored on Record.name automatically"
+                            "feature.with_config(backward=...) currently supports "
+                            "schemas with exactly one non-index feature"
                         )
-                    if field_name in record_fields.values():
-                        raise ValueError(
-                            f"Multiple features map to record field '{field_name}'. "
-                            "Only one feature can target a given record field."
-                        )
-                    if index is not None and configured_feature.uid == index.uid:
-                        raise ValueError(
-                            "A schema index feature cannot also map to a record field"
-                        )
-                    record_fields[configured_feature.uid] = field_name
                 if optional_features:
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
                     optional_features = optional_features_manual
         # n_features stays None if no features passed (flexible schema)
         if dtype is None:
-            dtype = None if itype is not None and itype.startswith("Feature") else NUMBER_TYPE
+            dtype = (
+                None
+                if itype is not None and itype.startswith("Feature")
+                else NUMBER_TYPE
+            )
         else:
             dtype = get_type_str(dtype)
         if slots:
@@ -944,6 +1015,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             aux_dict.setdefault("af", {})["3"] = index.uid
         if record_fields:
             aux_dict.setdefault("af", {})["2"] = record_fields
+        if backward_feature_uid is not None:
+            aux_dict.setdefault("af", {})["4"] = backward_feature_uid
 
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
@@ -962,6 +1035,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "slots_hash": "l",
             "suffix": "m",
             "field": "n",
+            "backward": "o",
         }
         # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -1005,6 +1079,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 feature_list_for_hashing = sorted(feature_list_for_hashing)
             features_hash = hash_string(":".join(feature_list_for_hashing))
             list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
+        if backward_feature_uid is not None:
+            list_for_hashing.append(f"{HASH_CODE['backward']}={backward_feature_uid}")
         if slots:
             slots_list_for_hashing = sorted(
                 [f"{key}={component.hash}" for key, component in slots.items()]
@@ -1524,6 +1600,18 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ):
             return dict(self._aux["af"]["2"])
         return {}
+
+    @property
+    def _backward_feature_uid(self) -> str | None:
+        """Source feature uid for backward-derived values."""
+        if (
+            self._aux is not None
+            and "af" in self._aux
+            and "4" in self._aux["af"]
+            and isinstance(self._aux["af"]["4"], str)
+        ):
+            return self._aux["af"]["4"]
+        return None
 
     @property
     def slots(self) -> dict[str, Schema]:

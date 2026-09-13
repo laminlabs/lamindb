@@ -817,6 +817,136 @@ def test_record_schema_field_mappings_validation():
     duplicate_target_feature_2.delete(permanent=True)
 
 
+def test_record_schema_backward_feature_mapping_reads_reverse_links():
+    attendees_feature = ln.Feature(name="attendees", dtype=list[ln.Record]).save()
+    meetings_schema = ln.Schema(
+        features=[attendees_feature],
+        name="backward-map-meetings-schema",
+    ).save()
+    meetings_sheet = ln.Record(
+        name="backward-map-meetings-sheet", is_type=True, schema=meetings_schema
+    ).save()
+
+    attended_meetings_feature = ln.Feature(
+        name="attended_meetings", dtype=list[ln.Record]
+    ).save()
+    people_schema = ln.Schema(
+        features=[
+            attended_meetings_feature.with_config(backward=attendees_feature),
+        ],
+        name="backward-map-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="backward-map-people-sheet", is_type=True, schema=people_schema
+    ).save()
+
+    alice = ln.Record(name="backward-map-alice", type=people_sheet).save()
+    bob = ln.Record(name="backward-map-bob", type=people_sheet).save()
+    meeting_1 = ln.Record(name="backward-map-meeting-1", type=meetings_sheet).save()
+    meeting_2 = ln.Record(name="backward-map-meeting-2", type=meetings_sheet).save()
+
+    meeting_1.features.set_values({"attendees": [alice, bob]})
+    meeting_2.features.set_values({"attendees": [alice]})
+
+    alice_values = alice.features.get_values()
+    bob_values = bob.features.get_values()
+
+    assert people_schema._aux["af"]["4"] == attendees_feature.uid
+    assert alice_values["attended_meetings"] == [
+        "backward-map-meeting-1",
+        "backward-map-meeting-2",
+    ]
+    assert bob_values["attended_meetings"] == ["backward-map-meeting-1"]
+    assert (
+        ln.models.RecordRecord.filter(
+            record=alice, feature=attended_meetings_feature
+        ).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordRecord.filter(
+            record=bob, feature=attended_meetings_feature
+        ).count()
+        == 0
+    )
+
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+    ):
+        alice.features.set_values({"attended_meetings": [meeting_1]})
+
+    meeting_1.delete(permanent=True)
+    meeting_2.delete(permanent=True)
+    alice.delete(permanent=True)
+    bob.delete(permanent=True)
+    meetings_sheet.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    meetings_schema.delete(permanent=True)
+    people_schema.delete(permanent=True)
+    attendees_feature.delete(permanent=True)
+    attended_meetings_feature.delete(permanent=True)
+
+
+def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
+    author_feature = ln.Feature(name="author", dtype=ln.Record).save()
+    books_schema = ln.Schema(
+        features=[author_feature],
+        name="backward-map-books-schema",
+    ).save()
+    books_sheet = ln.Record(
+        name="backward-map-books-sheet", is_type=True, schema=books_schema
+    ).save()
+
+    books_feature = ln.Feature(name="books", dtype=list[ln.Record]).save()
+    authors_schema = ln.Schema(
+        features=[
+            books_feature.with_config(backward=author_feature),
+        ],
+        name="backward-map-authors-schema",
+    ).save()
+    authors_sheet = ln.Record(
+        name="backward-map-authors-sheet", is_type=True, schema=authors_schema
+    ).save()
+
+    author_a = ln.Record(name="backward-map-author-a", type=authors_sheet).save()
+    author_b = ln.Record(name="backward-map-author-b", type=authors_sheet).save()
+    book_1 = ln.Record(name="backward-map-book-1", type=books_sheet).save()
+    book_2 = ln.Record(name="backward-map-book-2", type=books_sheet).save()
+    book_3 = ln.Record(name="backward-map-book-3", type=books_sheet).save()
+
+    book_1.features.set_values({"author": author_a})
+    book_2.features.set_values({"author": author_a})
+    book_3.features.set_values({"author": author_b})
+
+    author_a_values = author_a.features.get_values()
+    author_b_values = author_b.features.get_values()
+
+    assert authors_schema._aux["af"]["4"] == author_feature.uid
+    assert author_a_values["books"] == ["backward-map-book-1", "backward-map-book-2"]
+    assert author_b_values["books"] == ["backward-map-book-3"]
+    assert (
+        ln.models.RecordRecord.filter(record=author_a, feature=books_feature).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordRecord.filter(record=author_b, feature=books_feature).count()
+        == 0
+    )
+
+    book_1.delete(permanent=True)
+    book_2.delete(permanent=True)
+    book_3.delete(permanent=True)
+    author_a.delete(permanent=True)
+    author_b.delete(permanent=True)
+    books_sheet.delete(permanent=True)
+    authors_sheet.delete(permanent=True)
+    books_schema.delete(permanent=True)
+    authors_schema.delete(permanent=True)
+    author_feature.delete(permanent=True)
+    books_feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()
