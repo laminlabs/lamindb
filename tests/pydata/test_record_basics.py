@@ -572,6 +572,228 @@ def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
     project_feature.delete(permanent=True)
 
 
+def test_record_schema_field_mappings_store_on_record_columns():
+    mapped_created_at = ln.Feature(
+        name="source_created_at", dtype="datetime64[ns, UTC]"
+    ).save()
+    mapped_created_by = ln.Feature(name="source_created_by", dtype=ln.User).save()
+    mapped_reference = ln.Feature(name="source_reference", dtype=str).save()
+    mapped_reference_type = ln.Feature(name="source_reference_type", dtype=str).save()
+    mapped_name = ln.Feature(name="source_name", dtype=str).save()
+    mapped_description = ln.Feature(name="source_description", dtype=str).save()
+    score = ln.Feature(name="field-map-score", dtype=float).save()
+    schema = ln.Schema(
+        features=[
+            score,
+            mapped_created_at.with_config(field="created_at"),
+            mapped_created_by.with_config(field="created_by"),
+            mapped_reference.with_config(field="reference"),
+            mapped_reference_type.with_config(field="reference_type"),
+            mapped_name.with_config(field="name"),
+            mapped_description.with_config(field="description"),
+        ],
+        name="field-map-schema",
+    ).save()
+    sheet = ln.Record(name="field-map-sheet", is_type=True, schema=schema).save()
+    current_user = ln.User.filter(id=ln.setup.settings.user.id).one()
+    ts = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
+
+    record = ln.Record(
+        type=sheet,
+        features={
+            "field-map-score": 7.5,
+            "source_created_at": ts,
+            "source_created_by": current_user,
+            "source_reference": "https://example.org/records/123",
+            "source_reference_type": "url",
+            "source_name": "sheet-row-1",
+            "source_description": "row description",
+        },
+    ).save()
+    record.refresh_from_db()
+
+    assert record.name == "sheet-row-1"
+    assert record.description == "row description"
+    assert record.created_by_id == current_user.id
+    assert record.created_at == ts
+    assert record.reference == "https://example.org/records/123"
+    assert record.reference_type == "url"
+    assert (
+        ln.models.RecordJson.filter(record=record, feature=mapped_created_at).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordUser.filter(record=record, feature=mapped_created_by).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordJson.filter(record=record, feature=mapped_reference).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordJson.filter(
+            record=record, feature=mapped_reference_type
+        ).count()
+        == 0
+    )
+
+    created_by_field = ln.models.feature.parse_dtype(mapped_created_by._dtype_str)[0][
+        "field_str"
+    ]
+    expected_created_by = getattr(current_user, created_by_field)
+    values = record.features.get_values()
+    assert values["source_created_at"] == ts
+    assert values["source_created_by"] == expected_created_by
+    assert values["source_reference"] == "https://example.org/records/123"
+    assert values["source_reference_type"] == "url"
+    assert values["source_name"] == "sheet-row-1"
+    assert values["source_description"] == "row description"
+    assert values["field-map-score"] == 7.5
+
+    ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=timezone.utc)
+    record.features.set_values(
+        {
+            "source_created_at": ts_2,
+            "source_created_by": current_user,
+            "source_reference": "doi:10.1000/demo",
+            "source_reference_type": "doi",
+            "source_name": "sheet-row-2",
+            "source_description": "updated description",
+            "field-map-score": 8.5,
+        }
+    )
+    record.refresh_from_db()
+    assert record.name == "sheet-row-2"
+    assert record.description == "updated description"
+    assert record.created_at == ts_2
+    assert record.created_by_id == current_user.id
+    assert record.reference == "doi:10.1000/demo"
+    assert record.reference_type == "doi"
+    assert ln.Record.filter(created_at=ts_2).one().id == record.id
+    assert record.features.get_values()["field-map-score"] == 8.5
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+    mapped_created_at.delete(permanent=True)
+    mapped_created_by.delete(permanent=True)
+    mapped_reference.delete(permanent=True)
+    mapped_reference_type.delete(permanent=True)
+    mapped_name.delete(permanent=True)
+    mapped_description.delete(permanent=True)
+
+
+def test_record_schema_field_mappings_store_run_and_type():
+    mapped_run = ln.Feature(name="source_run", dtype=ln.Run.uid).save()
+    run_schema = ln.Schema(
+        features=[mapped_run.with_config(field="run")],
+        name="field-map-run-schema",
+    ).save()
+    run_sheet = ln.Record(
+        name="field-map-run-sheet", is_type=True, schema=run_schema
+    ).save()
+    transform = ln.Transform(key="field-map-transform").save()
+    run = ln.Run(transform, name="field-map-run").save()
+    run_record = ln.Record(type=run_sheet, features={"source_run": run}).save()
+    run_record.refresh_from_db()
+    assert run_record.run_id == run.id
+    assert (
+        ln.models.RecordRun.filter(record=run_record, feature=mapped_run).count() == 0
+    )
+    run_field = ln.models.feature.parse_dtype(mapped_run._dtype_str)[0]["field_str"]
+    assert run_record.features.get_values()["source_run"] == getattr(run, run_field)
+
+    mapped_type = ln.Feature(name="source_type", dtype=ln.Record).save()
+    type_schema = ln.Schema(
+        features=[mapped_type.with_config(field="type")],
+        name="field-map-type-schema",
+    ).save()
+    source_type = ln.Record(name="field-map-source-type", is_type=True).save()
+    target_type = ln.Record(name="field-map-target-type", is_type=True).save()
+    type_record = ln.Record(name="field-map-type-record", type=source_type).save()
+
+    type_record.features.set_values(
+        {"source_type": target_type},
+        schema=type_schema,
+    )
+    type_record.refresh_from_db()
+    assert type_record.type_id == target_type.id
+    assert (
+        ln.models.RecordRecord.filter(record=type_record, feature=mapped_type).count()
+        == 0
+    )
+
+    run_record.delete(permanent=True)
+    type_record.delete(permanent=True)
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    run_sheet.delete(permanent=True)
+    run_schema.delete(permanent=True)
+    source_type.delete(permanent=True)
+    target_type.delete(permanent=True)
+    type_schema.delete(permanent=True)
+    mapped_run.delete(permanent=True)
+    mapped_type.delete(permanent=True)
+
+
+def test_record_schema_field_mappings_validation():
+    mapped_updated_at = ln.Feature(
+        name="source_updated_at", dtype="datetime64[ns, UTC]"
+    ).save()
+    ok_schema = ln.Schema(
+        features=[mapped_updated_at.with_config(field="updated_at")],
+        name="field-map-validation-ok",
+    ).save()
+    ok_schema.delete(permanent=True)
+
+    invalid_field_feature = ln.Feature(name="source_invalid_field", dtype=str).save()
+    with pytest.raises(
+        ValueError, match="Unsupported feature field mapping 'extra_data'"
+    ):
+        ln.Schema([invalid_field_feature.with_config(field="extra_data")]).save()
+
+    invalid_dtype_feature = ln.Feature(name="source_invalid_run", dtype=str).save()
+    with pytest.raises(
+        ValueError,
+        match="feature.with_config\\(field='run'\\) requires a non-list categorical dtype",
+    ):
+        ln.Schema([invalid_dtype_feature.with_config(field="run")]).save()
+
+    idx = ln.Feature(name="validation_index_name", dtype=str).save()
+    mapped_name = ln.Feature(name="validation_name_mapping", dtype=str).save()
+    with pytest.raises(
+        ValueError,
+        match="schema.index is set: the index feature is already stored on Record.name automatically",
+    ):
+        ln.Schema(
+            [idx, mapped_name.with_config(field="name")],
+            index=idx,
+            name="invalid-name-with-index",
+        ).save()
+
+    duplicate_target_feature_1 = ln.Feature(name="source_reference_a", dtype=str).save()
+    duplicate_target_feature_2 = ln.Feature(name="source_reference_b", dtype=str).save()
+    with pytest.raises(
+        ValueError,
+        match="Multiple features map to record field 'reference'",
+    ):
+        ln.Schema(
+            [
+                duplicate_target_feature_1.with_config(field="reference"),
+                duplicate_target_feature_2.with_config(field="reference"),
+            ]
+        ).save()
+
+    mapped_updated_at.delete(permanent=True)
+    invalid_field_feature.delete(permanent=True)
+    invalid_dtype_feature.delete(permanent=True)
+    idx.delete(permanent=True)
+    mapped_name.delete(permanent=True)
+    duplicate_target_feature_1.delete(permanent=True)
+    duplicate_target_feature_2.delete(permanent=True)
+
+
 def test_record_from_dataframe_requires_named_type():
     df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
     non_type_record = ln.Record(name="from-df-non-type").save()
@@ -1694,12 +1916,16 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
-    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
         sample.features.add_values({feature: record_b})
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
-    with pytest.raises(ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
         sample.features.add_values({feature: [record_a, record_b]})
 
     # cleanup
@@ -1727,11 +1953,15 @@ def test_feature_rejects_builtin_scalar_for_record_dtype():
     sheet = ln.Record(name="FooSheet", is_type=True, schema=schema).save()
 
     # A raw int for a record-typed feature.
-    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="not validated in feature 'foo'"
+    ):
         ln.Record(name="row_int", type=sheet, features={"foo": 123}).save()
 
     # A raw str for a record-typed feature.
-    with pytest.raises(ln.errors.ValidationError, match="not validated in feature 'foo'"):
+    with pytest.raises(
+        ln.errors.ValidationError, match="not validated in feature 'foo'"
+    ):
         ln.Record(name="row_str", type=sheet, features={"foo": "123"}).save()
 
     # cleanup — row_int / row_str are saved before the feature ValidationError fires,

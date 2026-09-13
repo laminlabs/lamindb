@@ -1730,9 +1730,15 @@ class FeatureManager:
             require_saved_schema=False,
             using=self._host._state.db,
         ).validate()
-        if host_is_record and schema.index is not None:
-            from .record import strip_index_for_record_persistence
+        if host_is_record:
+            from .record import (
+                schema_has_record_mapped_features,
+                strip_index_for_record_persistence,
+            )
 
+        if host_is_record and (
+            schema.index is not None or schema_has_record_mapped_features(schema)
+        ):
             dictionary, feature_objects = strip_index_for_record_persistence(
                 self._host,
                 schema,
@@ -1781,13 +1787,17 @@ class FeatureManager:
                     save(links, ignore_conflicts=False, using=host_db)
                 except Exception:
                     save(links, ignore_conflicts=True, using=host_db)
-            from .record import get_type_schema_index, persist_record_name
+            from .record import get_type_schema_index
 
-            if (
-                self._host.pk is not None
-                and get_type_schema_index(self._host.type) is not None  # type: ignore
-            ):
-                persist_record_name(self._host)
+            if self._host.pk is not None:
+                update_fields = set(
+                    getattr(self._host, "_mapped_feature_update_fields", set())
+                )
+                if get_type_schema_index(self._host.type) is not None:  # type: ignore
+                    update_fields.add("name")
+                if update_fields:
+                    SQLRecord.save(self._host, update_fields=sorted(update_fields))
+                    del self._host._mapped_feature_update_fields
             return None
 
         features_labels = defaultdict(list)
@@ -1965,9 +1975,15 @@ class FeatureManager:
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
             )
-            if host_is_record and schema.index is not None:
-                from .record import strip_index_for_record_persistence
+            if host_is_record:
+                from .record import (
+                    schema_has_record_mapped_features,
+                    strip_index_for_record_persistence,
+                )
 
+            if host_is_record and (
+                schema.index is not None or schema_has_record_mapped_features(schema)
+            ):
                 dictionary, feature_objects = strip_index_for_record_persistence(
                     self._host,
                     schema,
@@ -2431,9 +2447,14 @@ def bulk_set_features_in_records(
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        if batch_schema_index is not None:
-            from .record import strip_index_for_record_persistence
+        from .record import (
+            schema_has_record_mapped_features,
+            strip_index_for_record_persistence,
+        )
 
+        if batch_schema_index is not None or schema_has_record_mapped_features(
+            batch_schema
+        ):
             dictionary, feature_objects = strip_index_for_record_persistence(
                 record,
                 batch_schema,
@@ -2463,10 +2484,18 @@ def bulk_set_features_in_records(
             save(links, ignore_conflicts=True, using=using)
     from .save import bulk_update
 
+    update_fields = set()
     if batch_schema_index is not None:
-        # only `name` was modified (via strip_index_for_record_persistence)
-        # updating all fields generates a massive CASE WHEN SQL for large batches
-        bulk_update(records_with_features, update_fields=["name"], using=using)
+        update_fields.add("name")
     for record in records_with_features:
+        update_fields.update(getattr(record, "_mapped_feature_update_fields", set()))
+    if update_fields:
+        # keep bulk update narrow to fields touched through mapped schema features
+        bulk_update(
+            records_with_features, update_fields=sorted(update_fields), using=using
+        )
+    for record in records_with_features:
+        if hasattr(record, "_mapped_feature_update_fields"):
+            del record._mapped_feature_update_fields
         del record._features
     return None

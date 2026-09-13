@@ -1544,11 +1544,28 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         super().save(*args, **kwargs)
         return self
 
-    def with_config(self, optional: bool | None = None) -> tuple[Feature, dict]:
-        """Pass addtional configurations to the schema."""
+    def with_config(
+        self, optional: bool | None = None, field: str | None = None
+    ) -> tuple[Feature, dict]:
+        """Pass additional configuration to :class:`~lamindb.Schema`.
+
+        Args:
+            optional: Whether this feature is optional in a schema.
+            field: For record-sheet schemas, map this feature to a concrete
+                :class:`~lamindb.Record` field (currently one of
+                ``"created_at"``, ``"created_by"``, ``"updated_at"``,
+                ``"reference"``, ``"reference_type"``, ``"run"``, ``"type"``,
+                ``"name"``, ``"description"``),
+                so values are stored on the record model rather than in feature
+                link tables. For sheet schemas, :attr:`~lamindb.Schema.index`
+                automatically targets :attr:`~lamindb.Record.name`.
+        """
+        config: dict[str, bool | str] = {}
         if optional is not None:
-            return self, {"optional": optional}
-        return self, {}
+            config["optional"] = optional
+        if field is not None:
+            config["field"] = field
+        return self, config
 
     @property
     @deprecated("coerce")
