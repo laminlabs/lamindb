@@ -851,7 +851,9 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
     alice_values = alice.features.get_values()
     bob_values = bob.features.get_values()
 
-    assert people_schema._aux["af"]["4"] == attendees_feature.uid
+    assert people_schema._aux["af"]["4"] == {
+        attended_meetings_feature.uid: attendees_feature.uid
+    }
     assert alice_values["attended_meetings"] == [
         "backward-map-meeting-1",
         "backward-map-meeting-2",
@@ -922,7 +924,7 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     author_a_values = author_a.features.get_values()
     author_b_values = author_b.features.get_values()
 
-    assert authors_schema._aux["af"]["4"] == author_feature.uid
+    assert authors_schema._aux["af"]["4"] == {books_feature.uid: author_feature.uid}
     assert author_a_values["books"] == ["backward-map-book-1", "backward-map-book-2"]
     assert author_b_values["books"] == ["backward-map-book-3"]
     assert (
@@ -945,6 +947,39 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     authors_schema.delete(permanent=True)
     author_feature.delete(permanent=True)
     books_feature.delete(permanent=True)
+
+
+def test_record_schema_backward_feature_mapping_validation_no_symmetric_config():
+    feature_a = ln.Feature(name="backward-a", dtype=list[ln.Record]).save()
+    feature_b = ln.Feature(name="backward-b", dtype=list[ln.Record]).save()
+
+    schema_left = ln.Schema([feature_a.with_config(backward=feature_b)]).save()
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically across related schemas",
+    ):
+        ln.Schema([feature_b.with_config(backward=feature_a)]).save()
+    schema_left.delete(permanent=True)
+
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically in the same schema",
+    ):
+        ln.Schema(
+            [
+                feature_a.with_config(backward=feature_b),
+                feature_b.with_config(backward=feature_a),
+            ]
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="cannot point to itself",
+    ):
+        ln.Schema([feature_a.with_config(backward=feature_a)]).save()
+
+    feature_a.delete(permanent=True)
+    feature_b.delete(permanent=True)
 
 
 def test_record_from_dataframe_requires_named_type():

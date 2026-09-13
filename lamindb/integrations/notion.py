@@ -2436,18 +2436,24 @@ class _NotionSyncer:
                     self._append_unique(report.updated_schemas, db_name)
                 else:
                     self._append_unique(report.update_schemas, db_name)
+            existing_backward_uids = dict(schema._backward_feature_uids)
+            target_feature = (
+                features_by_name.get(backward_feature_name)
+                if backward_feature_name is not None
+                else None
+            )
             backward_mapping_needed = (
                 backward_source_feature is not None
-                and backward_feature_name is not None
-                and schema._backward_feature_uid is None
-                and features_by_name.get(backward_feature_name) is not None
+                and target_feature is not None
+                and existing_backward_uids.get(target_feature.uid)
+                != backward_source_feature.uid
             )
             logger.important(
                 "notion sync backward-debug: schema backward-eval "
                 f"db={db_name!r} inferred_feature={backward_feature_name!r} "
                 f"inferred_source_uid={getattr(backward_source_feature, 'uid', None)!r} "
-                f"existing_backward_uid={getattr(schema, '_backward_feature_uid', None)!r} "
-                f"target_feature_exists={features_by_name.get(backward_feature_name) is not None if backward_feature_name is not None else False} "
+                f"existing_backward_uids={existing_backward_uids!r} "
+                f"target_feature_uid={getattr(target_feature, 'uid', None)!r} "
                 f"needed={backward_mapping_needed}"
             )
             if backward_mapping_needed:
@@ -2472,16 +2478,16 @@ class _NotionSyncer:
                     logger.important(
                         f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
                     )
-            if apply and backward_mapping_needed:
-                target_feature = features_by_name.get(backward_feature_name)
-                if target_feature is not None:
-                    schema._aux = schema._aux or {}
-                    schema._aux.setdefault("af", {})["4"] = backward_source_feature.uid
-                    schema.save(update_fields=["_aux"])
-                    logger.important(
-                        "notion sync metadata: updated backward relation mapping "
-                        f"for schema {db_name!r}"
-                    )
+            if apply and backward_mapping_needed and target_feature is not None:
+                schema._aux = schema._aux or {}
+                backward_mappings = dict(schema._backward_feature_uids)
+                backward_mappings[target_feature.uid] = backward_source_feature.uid
+                schema._aux.setdefault("af", {})["4"] = backward_mappings
+                schema.save(update_fields=["_aux"])
+                logger.important(
+                    "notion sync metadata: updated backward relation mapping "
+                    f"for schema {db_name!r}"
+                )
         return feature_type, features, schema
 
     def _create_record_type(
