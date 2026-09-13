@@ -1009,6 +1009,7 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
         "Website analytics",
         feature_plan,
         index_feature_name="Display name",
+        record_field_mappings={},
         apply=True,
         report=report,
     )
@@ -1019,6 +1020,22 @@ def test_create_record_type_uses_title_property_as_schema_index(syncer):
         schema=schema,
         _aux={"ei": "🦆"},
     )
+
+
+def test_record_field_mapping_is_derived_from_internal_notion_property_types(syncer):
+    columns = {
+        "Created At": "created_time",
+        "Edited At": "last_edited_time",
+        "Creator": "created_by",
+        "Reviewer": "last_edited_by",
+        "Name": "title",
+    }
+    mappings = syncer._record_field_mappings_from_columns(columns)
+    assert mappings == {
+        "Created At": "created_at",
+        "Edited At": "updated_at",
+        "Creator": "created_by",
+    }
 
 
 def test_database_emoji_and_description_parsing(syncer):

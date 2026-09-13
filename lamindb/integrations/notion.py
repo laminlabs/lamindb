@@ -813,22 +813,37 @@ def _planned_missing_file_transfers(
 
 
 def _row_values(
-    row, rel, lab, file_props, feat, resolved, artifacts_by_url, prop_map, create_labels
+    row,
+    rel,
+    lab,
+    file_props,
+    feat,
+    resolved,
+    artifacts_by_url,
+    prop_map,
+    create_labels,
+    skip_props,
 ):
     """Build the full {Feature: value} dict for one row. Returns (values, pending)."""
     prop_map = prop_map or {}
     values: dict[Any, Any] = {}
     pending = 0
     for prop, val in row.items():
-        if prop in (
-            "notion_id",
-            "created_time",
-            "last_edited_time",
-            "__notion_emoji__",
-        ) or val in (
-            None,
-            [],
-            "",
+        if (
+            prop
+            in (
+                "notion_id",
+                "created_time",
+                "last_edited_time",
+                "__notion_emoji__",
+            )
+            or prop in skip_props
+            or val
+            in (
+                None,
+                [],
+                "",
+            )
         ):
             continue
         f = feat.get(prop_map.get(prop, prop))
@@ -872,6 +887,17 @@ def _write(
     """Materialize every row of one database. Schema, kinds and labels resolved once."""
     rel, lab, file_props = _kinds(spec)
     feat = _feat_map(rec_type.schema)
+    internal_property_types = {
+        "created_time",
+        "last_edited_time",
+        "created_by",
+        "last_edited_by",
+    }
+    skip_props = {
+        prop
+        for prop, metadata in spec.items()
+        if metadata["type"] in internal_property_types
+    }
 
     _batch_labels(rows, lab)  # every ULabel created in one call
     artifacts_by_url = _batch_artifacts(
@@ -902,6 +928,7 @@ def _write(
             artifacts_by_url,
             prop_map,
             create_labels=False,
+            skip_props=skip_props,
         )
         rec.features.set_values(values)
         notion_id = row.get("notion_id")
@@ -1217,6 +1244,10 @@ class _NotionSyncer:
             return "num"
         if notion_type == "checkbox":
             return bool
+        if notion_type in {"created_time", "last_edited_time"}:
+            return datetime
+        if notion_type in {"created_by", "last_edited_by"}:
+            return ln.User
         if notion_type in {"multi_select", "people", "relation"}:
             return list[str]
         if notion_type == "files":
@@ -1229,11 +1260,35 @@ class _NotionSyncer:
             return "num"
         if notion_type == "checkbox":
             return "bool"
+        if notion_type in {"created_time", "last_edited_time"}:
+            return "datetime64[ns, UTC]"
+        if notion_type in {"created_by", "last_edited_by"}:
+            return "User"
         if notion_type in {"multi_select", "people", "relation"}:
             return "list[str]"
         if notion_type == "files":
             return "list[Artifact]"
         return "str"
+
+    @staticmethod
+    def _record_field_mapping_for_notion_type(notion_type: str) -> str | None:
+        if notion_type == "created_time":
+            return "created_at"
+        if notion_type == "last_edited_time":
+            return "updated_at"
+        if notion_type == "created_by":
+            return "created_by"
+        return None
+
+    def _record_field_mappings_from_columns(
+        self, columns: dict[str, str]
+    ) -> dict[str, str]:
+        mappings: dict[str, str] = {}
+        for feature_name, notion_type in columns.items():
+            record_field = self._record_field_mapping_for_notion_type(notion_type)
+            if record_field is not None:
+                mappings[feature_name] = record_field
+        return mappings
 
     @staticmethod
     def _index_feature_name_from_columns(columns: dict[str, str]) -> str | None:
@@ -1270,10 +1325,12 @@ class _NotionSyncer:
         db_name: str,
         feature_plan: list[tuple[str, str, Any]],
         index_feature_name: str | None = None,
+        record_field_mappings: dict[str, str] | None = None,
         *,
         apply: bool,
         report: SyncReport,
     ) -> tuple[Any, list[Any], Any]:
+        record_field_mappings = record_field_mappings or {}
         feature_type_qs = ln.Feature.filter(name=db_name, is_type=True)
         feature_type_count = feature_type_qs.count()
         if feature_type_count > 1:
@@ -1358,8 +1415,15 @@ class _NotionSyncer:
                     f"notion sync metadata: creating schema {db_name!r} with "
                     f"{len(features)} features, index={index_feature_name!r}"
                 )
+                schema_features: list[Any] = []
+                for feature in features:
+                    mapped_field = record_field_mappings.get(feature.name)
+                    if mapped_field is None:
+                        schema_features.append(feature)
+                    else:
+                        schema_features.append(feature.with_config(field=mapped_field))
                 schema = ln.Schema(
-                    features,
+                    schema_features,
                     name=db_name,
                     index=index_feature,
                 ).save()
@@ -1369,6 +1433,23 @@ class _NotionSyncer:
                 self._append_unique(report.create_schemas, db_name)
         else:
             logger.important(f"notion sync metadata: schema {db_name!r} already exists")
+            if apply and record_field_mappings:
+                schema_record_fields = dict(schema._record_fields)
+                changed = False
+                for feature in features:
+                    mapped_field = record_field_mappings.get(feature.name)
+                    if mapped_field is None:
+                        continue
+                    if schema_record_fields.get(feature.uid) != mapped_field:
+                        schema_record_fields[feature.uid] = mapped_field
+                        changed = True
+                if changed:
+                    schema._aux = schema._aux or {}
+                    schema._aux.setdefault("af", {})["2"] = schema_record_fields
+                    schema.save(update_fields=["_aux"])
+                    logger.important(
+                        f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
+                    )
         return feature_type, features, schema
 
     def _create_record_type(
@@ -1383,10 +1464,12 @@ class _NotionSyncer:
         columns = self.reader.columns(database_id)
         feature_plan = self._database_feature_plan(database_id, columns=columns)
         index_feature_name = self._index_feature_name_from_columns(columns)
+        record_field_mappings = self._record_field_mappings_from_columns(columns)
         _, _, schema = self._plan_or_create_db_metadata(
             db_name,
             feature_plan,
             index_feature_name=index_feature_name,
+            record_field_mappings=record_field_mappings,
             apply=True,
             report=report,
         )
@@ -1441,12 +1524,14 @@ class _NotionSyncer:
             columns = self.reader.columns(database_id)
             feature_plan = self._database_feature_plan(database_id, columns=columns)
             index_feature_name = self._index_feature_name_from_columns(columns)
+            record_field_mappings = self._record_field_mappings_from_columns(columns)
             if not apply:
                 report.create_record_types.append(db_name)
                 self._plan_or_create_db_metadata(
                     db_name,
                     feature_plan,
                     index_feature_name=index_feature_name,
+                    record_field_mappings=record_field_mappings,
                     apply=False,
                     report=report,
                 )
@@ -1475,10 +1560,12 @@ class _NotionSyncer:
             columns = self.reader.columns(database_id)
             feature_plan = self._database_feature_plan(database_id, columns=columns)
             index_feature_name = self._index_feature_name_from_columns(columns)
+            record_field_mappings = self._record_field_mappings_from_columns(columns)
             _, features, schema = self._plan_or_create_db_metadata(
                 db_name,
                 feature_plan,
                 index_feature_name=index_feature_name,
+                record_field_mappings=record_field_mappings,
                 apply=True,
                 report=report,
             )
