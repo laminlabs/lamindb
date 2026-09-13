@@ -10,8 +10,25 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
+from django.db.models.deletion import ProtectedError
 from lamindb.core import datasets
-from lamindb.errors import InvalidArgument, ValidationError
+from lamindb.errors import IntegrityError, InvalidArgument, ValidationError
+
+
+def _delete_artifacts_prefer_storage():
+    """Delete managed-storage artifacts fully; fallback to metadata-only for external storage."""
+    for artifact in ln.Artifact.filter():
+        try:
+            artifact.delete(permanent=True)
+        except IntegrityError:
+            try:
+                artifact.delete(permanent=True, storage=False)
+            except ProtectedError:
+                # e.g. bionty Source.dataframe_artifact references shared registry artifacts
+                continue
+        except ProtectedError:
+            # Keep shared artifacts referenced by protected foreign keys.
+            continue
 
 
 @pytest.fixture(scope="module")
@@ -45,8 +62,7 @@ def mini_immuno_schema():
 
     yield schema
 
-    for af in ln.Artifact.filter():
-        af.delete(permanent=True)
+    _delete_artifacts_prefer_storage()
 
     from lamindb.models import SchemaComponent
 
@@ -133,8 +149,7 @@ def mudata_papalexi21_subset_schema():
 
     yield mudata_schema
 
-    for af in ln.Artifact.filter():
-        af.delete(permanent=True)
+    _delete_artifacts_prefer_storage()
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.models.SchemaGene.filter().delete()
@@ -150,6 +165,9 @@ def study_metadata_schema():
 
     yield study_metadata_schema
 
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter(component=study_metadata_schema).delete(permanent=True)
     study_metadata_schema.delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
 
@@ -160,6 +178,9 @@ def anndata_uns_schema():
 
     yield anndata_uns_schema
 
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
 
@@ -170,8 +191,7 @@ def spatialdata_blobs_schema():
 
     yield sdata_schema
 
-    for af in ln.Artifact.filter():
-        af.delete(permanent=True)
+    _delete_artifacts_prefer_storage()
 
     from lamindb.models import SchemaComponent
 

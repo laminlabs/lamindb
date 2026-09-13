@@ -681,7 +681,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Manage settings and schema & data migrations
+## Settings & migrations
 
 ### settings
 
@@ -781,6 +781,22 @@ Commands:
   exportdb  Export registry tables to parquet files.
   importdb  Import registry tables from parquet files.
   snapshot  Create a SQLite snapshot of the connected instance.
+```
+
+### integrations
+
+Run integration helpers.
+
+Options:
+
+```text
+lamin integrations [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  notion  Notion integration commands.
 ```
 
 ## Auth

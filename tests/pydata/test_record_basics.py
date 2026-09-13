@@ -534,6 +534,29 @@ def test_record_schema_index_name_conflict_resolution():
     score.delete(permanent=True)
 
 
+def test_set_values_does_not_warn_for_schema_index_feature_on_record(ccaplog):
+    sample_id = ln.Feature(name="no_warn_sample_id", dtype=str).save()
+    score = ln.Feature(name="no_warn_score", dtype=float).save()
+    schema = ln.Schema(features=[score], index=sample_id, name="no-warn-schema").save()
+    sheet = ln.Record(name="no-warn-sheet", is_type=True, schema=schema).save()
+
+    record = ln.Record(
+        type=sheet,
+        features={"no_warn_sample_id": "S-001", "no_warn_score": 1.0},
+    ).save()
+    ccaplog.clear()
+    record.features.set_values({"no_warn_sample_id": "S-001", "no_warn_score": 2.0})
+    assert "no feature 'no_warn_sample_id' found on record" not in ccaplog.text
+    assert record.name == "S-001"
+    assert record.features["no_warn_score"] == 2.0
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
     """Export works for index-on-name schema with linked features."""
     sample_name = ln.Feature(name="sample_name", dtype=str).save()
@@ -828,7 +851,9 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
     alice_values = alice.features.get_values()
     bob_values = bob.features.get_values()
 
-    assert people_schema._aux["af"]["4"] == attendees_feature.uid
+    assert people_schema._aux["af"]["4"] == {
+        attended_meetings_feature.uid: attendees_feature.uid
+    }
     assert alice_values["attended_meetings"] == [
         "backward-map-meeting-1",
         "backward-map-meeting-2",
@@ -899,7 +924,7 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     author_a_values = author_a.features.get_values()
     author_b_values = author_b.features.get_values()
 
-    assert authors_schema._aux["af"]["4"] == author_feature.uid
+    assert authors_schema._aux["af"]["4"] == {books_feature.uid: author_feature.uid}
     assert author_a_values["books"] == ["backward-map-book-1", "backward-map-book-2"]
     assert author_b_values["books"] == ["backward-map-book-3"]
     assert (
@@ -922,6 +947,102 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     authors_schema.delete(permanent=True)
     author_feature.delete(permanent=True)
     books_feature.delete(permanent=True)
+
+
+def test_record_schema_backward_feature_mapping_self_referential_relation():
+    reports_to_feature = ln.Feature(name="reports_to", dtype=ln.Record).save()
+    manages_feature = ln.Feature(name="manages", dtype=list[ln.Record]).save()
+    people_schema = ln.Schema(
+        features=[
+            reports_to_feature,
+            manages_feature.with_config(optional=True, backward=reports_to_feature),
+        ],
+        name="backward-map-self-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="backward-map-self-people-sheet", is_type=True, schema=people_schema
+    ).save()
+
+    manager = ln.Record(name="backward-map-self-manager", type=people_sheet).save()
+    report_a = ln.Record(name="backward-map-self-report-a", type=people_sheet).save()
+    report_b = ln.Record(name="backward-map-self-report-b", type=people_sheet).save()
+
+    report_a.features.set_values({"reports_to": manager})
+    report_b.features.set_values({"reports_to": manager})
+
+    manager_values = manager.features.get_values()
+    report_a_values = report_a.features.get_values()
+
+    assert people_schema._aux["af"]["4"] == {
+        manages_feature.uid: reports_to_feature.uid
+    }
+    assert manager_values["manages"] == [
+        "backward-map-self-report-a",
+        "backward-map-self-report-b",
+    ]
+    assert report_a_values["manages"] == []
+    assert (
+        ln.models.RecordRecord.filter(record=manager, feature=manages_feature).count()
+        == 0
+    )
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+    ):
+        report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
+
+    report_a.delete(permanent=True)
+    report_b.delete(permanent=True)
+    manager.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    people_schema.delete(permanent=True)
+    reports_to_feature.delete(permanent=True)
+    manages_feature.delete(permanent=True)
+
+
+def test_record_schema_backward_feature_mapping_validation_no_symmetric_config():
+    feature_a = ln.Feature(name="backward-a", dtype=list[ln.Record]).save()
+    feature_b = ln.Feature(name="backward-b", dtype=list[ln.Record]).save()
+
+    schema_left = ln.Schema([feature_a.with_config(backward=feature_b)]).save()
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically across related schemas",
+    ):
+        ln.Schema([feature_b.with_config(backward=feature_a)]).save()
+    schema_left.delete(permanent=True)
+
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically in the same schema",
+    ):
+        ln.Schema(
+            [
+                feature_a.with_config(backward=feature_b),
+                feature_b.with_config(backward=feature_a),
+            ]
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="cannot point to itself",
+    ):
+        ln.Schema([feature_a.with_config(backward=feature_a)]).save()
+
+    schema_a = ln.Schema([feature_a], name="setter-backward-schema-a").save()
+    schema_b = ln.Schema([feature_b], name="setter-backward-schema-b").save()
+    schema_a._backward_feature_uids = {feature_a.uid: feature_b.uid}
+    schema_a.save(update_fields=["_aux"])
+    with pytest.raises(
+        ValueError,
+        match="cannot be configured symmetrically across related schemas",
+    ):
+        schema_b._backward_feature_uids = {feature_b.uid: feature_a.uid}
+    schema_a.delete(permanent=True)
+    schema_b.delete(permanent=True)
+
+    feature_a.delete(permanent=True)
+    feature_b.delete(permanent=True)
 
 
 def test_record_from_dataframe_requires_named_type():
