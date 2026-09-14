@@ -114,6 +114,7 @@ class SyncReport:
     created_relation_stubs: list[str] = field(default_factory=list)
     create_relation_stubs: list[str] = field(default_factory=list)
     relation_value_links: list[str] = field(default_factory=list)
+    mapped_project_record_relations: list[str] = field(default_factory=list)
     created_projects: int = 0
     updated_projects: int = 0
     unchanged_projects: int = 0
@@ -280,6 +281,12 @@ class SyncReport:
             lines.extend(
                 f"  [{action_color}]{safe(summary)}[/]"
                 for summary in self.relation_value_links
+            )
+        if self.mapped_project_record_relations:
+            lines.append("[bold]mapped_project_record_relations[/]:")
+            lines.extend(
+                f"  [{action_color}]{safe(detail)}[/]"
+                for detail in self.mapped_project_record_relations
             )
         if self.unmapped_properties:
             lines.append("[bold]unmapped_properties[/]:")
@@ -4397,6 +4404,7 @@ class ProjectSyncer:
             "predecessors_rel": set(),
             "successors_rel": set(),
             "references_rel": set(),
+            "record_rel": {},
             "people_roles": {},
         }
         for property_name, property_spec in schema_spec.items():
@@ -4497,12 +4505,25 @@ class ProjectSyncer:
                 if any(self._is_reference_name(name) for name in target_names):
                     mapping["references_rel"].add(property_name)
                     continue
+                record_type = self._resolve_record_type_by_name_candidates(target_names)
+                if record_type is not None:
+                    mapping["record_rel"][property_name] = record_type
+                    target_name = getattr(record_type, "name", None)
+                    if not isinstance(target_name, str) or not target_name:
+                        target_name = getattr(record_type.__class__, "__name__", None)
+                    if not isinstance(target_name, str) or not target_name:
+                        target_name = str(record_type)
+                    _append_unique(
+                        report.mapped_project_record_relations,
+                        f"{db_name} / {property_name} -> ProjectRecord(feature={property_name}, target={target_name})",
+                    )
+                    continue
                 self._append_unmapped(
                     report=report,
                     db_name=db_name,
                     property_name=property_name,
                     notion_type=notion_type,
-                    reason="relation target does not map to Project/Reference",
+                    reason="relation target does not map to Project/Reference/Record type",
                 )
                 continue
             self._append_unmapped(
@@ -4548,6 +4569,27 @@ class ProjectSyncer:
             if error.response is not None and error.response.status_code == 400:
                 return None
             raise
+
+    @staticmethod
+    def _pick_unique(records: list[Any]) -> Any | None:
+        unique_by_id: dict[Any, Any] = {}
+        for record in records:
+            record_id = getattr(record, "id", None)
+            key = record_id if record_id is not None else id(record)
+            unique_by_id[key] = record
+        if len(unique_by_id) == 1:
+            return next(iter(unique_by_id.values()))
+        return None
+
+    def _resolve_record_type_by_name_candidates(self, names: list[str]) -> Any | None:
+        matches: list[Any] = []
+        for candidate in names:
+            if not isinstance(candidate, str) or not candidate.strip():
+                continue
+            qs = ln.Record.filter(name__iexact=candidate.strip(), is_type=True)
+            if qs.count() == 1:
+                matches.append(qs.one())
+        return self._pick_unique(matches)
 
     def validate_status_mapping(
         self,
@@ -4784,6 +4826,7 @@ class ProjectSyncer:
             | set(mapping["predecessors_rel"])
             | set(mapping["successors_rel"])
             | set(mapping["references_rel"])
+            | set(mapping["record_rel"].keys())
         )
         fake_features: dict[str, Any] = {}
         for prop in (
@@ -4798,6 +4841,15 @@ class ProjectSyncer:
         for prop in mapping["references_rel"]:
             fake_features[prop] = type(
                 "FeatureProxy", (), {"name": prop, "_dtype_str": "list[cat[Reference]]"}
+            )()
+        for prop, target_record_type in mapping["record_rel"].items():
+            target_uid = getattr(target_record_type, "uid", None)
+            if not isinstance(target_uid, str) or not target_uid:
+                continue
+            fake_features[prop] = type(
+                "FeatureProxy",
+                (),
+                {"name": prop, "_dtype_str": f"list[cat[Record[{target_uid}]]]"},
             )()
         if relation_props:
             resolved_relations, relation_pending = _resolve_relation_records_for_rows(
@@ -4833,6 +4885,24 @@ class ProjectSyncer:
         users_by_notion_id = _resolved_users_by_notion_id(
             self.reader, sorted(user_relation_ids)
         )
+        record_link_features: dict[str, Any] = {}
+        if mapping["record_rel"]:
+            feature_type = ln.Feature.filter(name=db_name, is_type=True).one_or_none()
+            if feature_type is None:
+                feature_type = ln.Feature(name=db_name, is_type=True).save()
+            for prop_name, target_record_type in mapping["record_rel"].items():
+                relation_dtype = _NotionSyncer._list_dtype_for(target_record_type)
+                feature = ln.Feature.filter(
+                    name__iexact=prop_name,
+                    type=feature_type,
+                ).one_or_none()
+                if feature is None:
+                    feature = ln.Feature(
+                        name=prop_name,
+                        dtype=relation_dtype,
+                        type=feature_type,
+                    ).save()
+                record_link_features[prop_name] = feature
 
         records = 0
         for row in rows:
@@ -4956,6 +5026,25 @@ class ProjectSyncer:
             project.references.set(
                 _resolved_values(row, mapping["references_rel"], "Reference")
             )
+            for prop_name, feature in record_link_features.items():
+                linked_records = _resolved_values(row, {prop_name}, "Record")
+                desired_ids = {getattr(record, "id", None) for record in linked_records}
+                desired_ids.discard(None)
+                existing_links = list(project.links_record.filter(feature=feature))
+                existing_by_record_id = {
+                    getattr(link, "record_id", None): link
+                    for link in existing_links
+                    if getattr(link, "record_id", None) is not None
+                }
+                for record_id, link in existing_by_record_id.items():
+                    if record_id not in desired_ids:
+                        link.delete()
+                existing_ids = set(existing_by_record_id)
+                for record in linked_records:
+                    record_id = getattr(record, "id", None)
+                    if record_id is None or record_id in existing_ids:
+                        continue
+                    project.links_record.create(record=record, feature=feature)
             for people_property, role in mapping["people_roles"].items():
                 user_ids = row.get(people_property)
                 raw_ids = user_ids if isinstance(user_ids, list) else [user_ids]

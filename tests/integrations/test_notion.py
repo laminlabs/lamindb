@@ -1236,7 +1236,12 @@ def test_project_syncer_reports_unmapped_properties():
         "Other relation": {"type": "relation", "target": "ds-unknown"},
     }
 
-    with patch.object(syncer, "_target_names", return_value=["Tasks"]):
+    with (
+        patch.object(syncer, "_target_names", return_value=["Tasks"]),
+        patch.object(
+            syncer, "_resolve_record_type_by_name_candidates", return_value=None
+        ),
+    ):
         mapping = syncer.build_mapping(
             db_name="Projects",
             schema_spec=schema_spec,
@@ -1251,8 +1256,37 @@ def test_project_syncer_reports_unmapped_properties():
         in report.unmapped_properties
     )
     assert (
-        "Projects / Other relation (relation): relation target does not map to Project/Reference"
+        "Projects / Other relation (relation): relation target does not map to Project/Reference/Record type"
         in report.unmapped_properties
+    )
+
+
+def test_project_syncer_maps_relation_target_record_type():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    target_record_type = type("RecordType", (), {"uid": "Ab12Cd34Ef56"})()
+    schema_spec = {
+        "external_responsible": {"type": "relation", "target": "ds-people"},
+    }
+    with (
+        patch.object(syncer, "_target_names", return_value=["People"]),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=target_record_type,
+        ),
+    ):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["record_rel"]["external_responsible"] is target_record_type
+    assert report.unmapped_properties == []
+    assert (
+        "Projects / external_responsible -> ProjectRecord(feature=external_responsible, target=RecordType)"
+        in report.mapped_project_record_relations
     )
 
 
