@@ -697,6 +697,25 @@ def test_delete_permanently_from_trash_folder(tmp_path):
     assert ln.Artifact.objects.filter(uid__startswith=artifact.stem_uid).count() == 0
 
 
+def test_delete_permanently_skips_storage_if_db_delete_is_noop():
+    # PostgreSQL RLS can return from DELETE without error while deleting 0 rows.
+    artifact = ln.Artifact(".gitignore", key="test-rls-noop-delete").save()
+    path = artifact.path
+    assert path.exists()
+
+    with patch(
+        "lamindb.models.artifact._delete_skip_storage",
+        return_value=False,
+    ):
+        artifact.delete(permanent=True, storage=True)
+
+    assert path.exists()
+    assert ln.Artifact.filter(uid=artifact.uid).one() == artifact
+
+    artifact.delete(permanent=True, storage=True)
+    assert not path.exists()
+
+
 def test_create_from_path_set_branch():
     branch = ln.Branch(name="contrib1").save()
     artifact1 = ln.Artifact(".gitignore", key="test", branch=branch).save()
