@@ -229,15 +229,16 @@ def test_planned_embedded_file_transfers_uses_notes_context():
         "before\n"
         "![chart](https://files.notion.site/a.png)\n"
         "[deck](https://files.notion.site/deck.pdf)\n"
+        '<img src="https://files.notion.site/other.png" />\n'
     )
     transfer_map, details = _planned_embedded_file_transfers(markdown, "row-1")
     assert set(transfer_map) == {
         "https://files.notion.site/a.png",
-        "https://files.notion.site/deck.pdf",
+        "https://files.notion.site/other.png",
     }
     assert details == [
         f'{_short_file_source("https://files.notion.site/a.png")} <- row-1:notes (key=None, kind="__easset__")',
-        f'{_short_file_source("https://files.notion.site/deck.pdf")} <- row-1:notes (key=None, kind="__easset__")',
+        f'{_short_file_source("https://files.notion.site/other.png")} <- row-1:notes (key=None, kind="__easset__")',
     ]
 
 
@@ -263,9 +264,6 @@ def test_rewrite_embedded_file_refs_replaces_with_storage_links():
                 "https://files.notion.site/a.png": type(
                     "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/abc.png"}
                 )(),
-                "https://files.notion.site/deck.pdf": type(
-                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/deck.pdf"}
-                )(),
                 "https://files.notion.site/other.png": type(
                     "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/other.png"}
                 )(),
@@ -279,7 +277,7 @@ def test_rewrite_embedded_file_refs_replaces_with_storage_links():
         '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />\n\n## Google Cloud'
         in rewritten
     )
-    assert "[slides](/storage/s3/bucket/prefix%2F/.lamindb/deck.pdf)" in rewritten
+    assert "[slides](https://files.notion.site/deck.pdf)" in rewritten
     assert '<img src="/storage/s3/bucket/prefix%2F/.lamindb/other.png" />' in rewritten
 
 

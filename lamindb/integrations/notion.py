@@ -33,7 +33,6 @@ UUID_DASHED_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 MARKDOWN_IMAGE_LINK_PATTERN = re.compile(r"!\[([^\]]*)\]\((https?://[^)\s]+)\)")
-MARKDOWN_LINK_PATTERN = re.compile(r"(?<!!)\[([^\]]+)\]\((https?://[^)\s]+)\)")
 HTML_IMAGE_SRC_PATTERN = re.compile(
     r'(<img\b[^>]*\bsrc=["\'])(https?://[^"\']+)(["\'][^>]*>)',
     flags=re.IGNORECASE,
@@ -1232,7 +1231,6 @@ def _iter_embedded_file_urls(content: str) -> set[str]:
     urls.update(
         match.group(2) for match in MARKDOWN_IMAGE_LINK_PATTERN.finditer(content)
     )
-    urls.update(match.group(2) for match in MARKDOWN_LINK_PATTERN.finditer(content))
     urls.update(match.group(2) for match in HTML_IMAGE_SRC_PATTERN.finditer(content))
     return {url for url in urls if isinstance(url, str) and url}
 
@@ -1308,16 +1306,10 @@ def _rewrite_embedded_file_refs(
         src = resolve(match.group(2))
         return f'\n\n<img width="{NOTION_EMBEDDED_IMAGE_WIDTH_PX}" src="{src}" />\n\n'
 
-    def replace_link(match: re.Match[str]) -> str:
-        label = match.group(1)
-        src = resolve(match.group(2))
-        return f"[{label}]({src})"
-
     def replace_html_image(match: re.Match[str]) -> str:
         return f"{match.group(1)}{resolve(match.group(2))}{match.group(3)}"
 
     content = MARKDOWN_IMAGE_LINK_PATTERN.sub(replace_image, markdown_content)
-    content = MARKDOWN_LINK_PATTERN.sub(replace_link, content)
     content = HTML_IMAGE_SRC_PATTERN.sub(replace_html_image, content)
     return _normalize_markdown_block_spacing(content)
 
