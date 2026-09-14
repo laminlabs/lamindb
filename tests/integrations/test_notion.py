@@ -18,9 +18,11 @@ import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
+    ProjectSyncer,
     SyncReport,
     _artifact_key_from_url,
     _attach_page_markdown,
+    _attach_project_markdown,
     _ensure_artifacts,
     _ensure_feature_itype_on_record_schema,
     _flatten,
@@ -1172,6 +1174,28 @@ def test_attach_page_markdown_adds_readme_only_when_changed():
     record.ablocks.add.assert_not_called()
 
 
+def test_attach_project_markdown_adds_readme_only_when_changed():
+    project = MagicMock()
+    project.notes = "old notes"
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+    with patch(
+        "lamindb.integrations.notion.ln.models.ProjectBlock", return_value=block_factory
+    ) as ProjectBlock:
+        _attach_project_markdown(project, "new notes")
+    ProjectBlock.assert_called_once_with(
+        project=project, content="new notes", kind="readme"
+    )
+    project.ablocks.add.assert_called_once_with(saved_block, bulk=False)
+
+    project.ablocks.add.reset_mock()
+    with patch("lamindb.integrations.notion.ln.models.ProjectBlock") as ProjectBlock:
+        _attach_project_markdown(project, "old notes")
+    ProjectBlock.assert_not_called()
+    project.ablocks.add.assert_not_called()
+
+
 def test_write_attaches_page_markdown_to_records():
     rec = MagicMock()
     rec.notes = None
@@ -1199,6 +1223,103 @@ def test_write_attaches_page_markdown_to_records():
     reader.page_markdown.assert_called_once_with("page-1")
     rec.ablocks.add.assert_called_once_with(saved_block, bulk=False)
     assert stats == {"records": 1, "pending": 0}
+
+
+def test_project_syncer_reports_unmapped_properties():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "Name": {"type": "title"},
+        "Status": {"type": "status", "choices": ["active"]},
+        "Timeline": {"type": "date"},
+        "Budget": {"type": "number"},
+        "Other relation": {"type": "relation", "target": "ds-unknown"},
+    }
+
+    with patch.object(syncer, "_target_names", return_value=["Tasks"]):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["title"] == "Name"
+    assert mapping["status"] == "Status"
+    assert mapping["timeline"] == "Timeline"
+    assert (
+        "Projects / Budget (number): unsupported Project field mapping"
+        in report.unmapped_properties
+    )
+    assert (
+        "Projects / Other relation (relation): relation target does not map to Project/Reference"
+        in report.unmapped_properties
+    )
+
+
+def test_project_syncer_recognizes_project_hierarchy_and_dependency_relations():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "Parents": {"type": "relation", "target": "ds-projects"},
+        "Children": {"type": "relation", "target": "ds-projects"},
+        "Predecessors": {"type": "relation", "target": "ds-projects"},
+        "Successors": {"type": "relation", "target": "ds-projects"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Projects"]):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["parents_rel"] == {"Parents"}
+    assert mapping["children_rel"] == {"Children"}
+    assert mapping["predecessors_rel"] == {"Predecessors"}
+    assert mapping["successors_rel"] == {"Successors"}
+    assert report.unmapped_properties == []
+
+
+def test_project_syncer_validate_status_mapping_raises_on_unknown_status():
+    syncer = ProjectSyncer(reader=MagicMock())
+    mapping = {"status": "Status"}
+    schema_spec = {"Status": {"type": "status", "choices": ["active", "in review"]}}
+    with pytest.raises(ValueError, match="Please update status names in Notion"):
+        syncer.validate_status_mapping(
+            db_name="Projects", schema_spec=schema_spec, mapping=mapping
+        )
+
+
+def test_project_syncer_validate_status_mapping_accepts_extended_statuses():
+    syncer = ProjectSyncer(reader=MagicMock())
+    mapping = {"status": "Status"}
+    schema_spec = {
+        "Status": {
+            "type": "status",
+            "choices": [
+                "planned",
+                "active",
+                "paused",
+                "done",
+                "archived",
+                "canceled",
+                "continued",
+                "up-next",
+            ],
+        }
+    }
+    rows = [
+        {"Status": "up-next"},
+        {"Status": "continued"},
+        {"Status": "canceled"},
+        {"Status": "cancelled"},
+        {"Status": "up next"},
+    ]
+    syncer.validate_status_mapping(
+        db_name="Projects",
+        schema_spec=schema_spec,
+        mapping=mapping,
+        rows=rows,
+    )
 
 
 def test_write_converts_date_string_to_date_object():
@@ -4227,7 +4348,7 @@ def test_upsert_all_normalizes_existing_dashed_notion_reference():
 def test_sync_from_notion_delegates_to_syncer_and_prints():
     sync_report = SyncReport(created=1, apply=False)
     with (
-        patch("lamindb.integrations.notion._NotionSyncer") as Syncer,
+        patch("lamindb.integrations.notion.NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report

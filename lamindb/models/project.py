@@ -17,7 +17,14 @@ from lamindb.base.fields import (
     TextField,
     URLField,
 )
+from lamindb.base.types import (
+    PROJECT_CODE_TO_STATUS,
+    PROJECT_STATUS_TO_CODE,
+    ProjectStatus,
+    Unset,
+)
 from lamindb.base.users import current_user_id
+from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_12
 from .artifact import Artifact
@@ -28,10 +35,6 @@ from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from lamindb.errors import FieldValidationError
-
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
@@ -268,7 +271,9 @@ class Reference(
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
-            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Reference)])
+            valid_keywords = ", ".join(
+                [val[0] for val in _get_record_kwargs(Reference)]
+            )
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
@@ -546,6 +551,52 @@ class Project(
             _aux=_aux,
             **space_branch_kwargs,
         )
+
+    @property
+    def status(self) -> ProjectStatus:
+        """Project status.
+
+        Get and set the status of the project.
+
+        ===========  =====  ==========================================================
+        status       code   description
+        ===========  =====  ==========================================================
+        `archived`   -1     The project is archived and no longer actively tracked.
+        `canceled`   -2     The project was canceled.
+        `done`       0      The project completed successfully.
+        `planned`    1      The project is planned but not yet started.
+        `active`     2      The project is currently active.
+        `paused`     3      The project is temporarily paused.
+        `up-next`    4      The project is queued as the next item to start.
+        `continued`  5      The project was resumed after being paused/stopped.
+        ===========  =====  ==========================================================
+
+        The database stores the project status as an integer code in field `_status_code`.
+
+        Example:
+
+            See the status of a project::
+
+                project.status
+                #> 'planned'
+
+            Update the status::
+
+                project.status = "active"
+                project.save()
+
+            Query by status::
+
+                ln.Project.filter(status="active").to_dataframe()
+        """
+        return PROJECT_CODE_TO_STATUS.get(self._status_code, "done")
+
+    @status.setter
+    def status(self, value: ProjectStatus) -> None:
+        if value not in PROJECT_STATUS_TO_CODE:
+            expected = ", ".join(f"'{status}'" for status in PROJECT_STATUS_TO_CODE)
+            raise ValueError(f"Invalid project status. Expected one of: {expected}.")
+        self._status_code = PROJECT_STATUS_TO_CODE[value]
 
     def query_projects(self) -> QuerySet:
         """Query projects of sub types.

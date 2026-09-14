@@ -316,6 +316,18 @@ def test_filter_status_field():
     project._status_code = 2
     project.save(update_fields=["_status_code"])
     assert ln.Project.filter(status=2).count() >= 1
+    assert ln.Project.filter(status="active").count() >= 1
+    assert ln.Project.filter(status__in=["active", "planned"]).count() >= 1
+    project.status = "up-next"
+    project.save(update_fields=["_status_code"])
+    assert project.status == "up-next"
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Invalid Project status 'not-a-status'. Expected one of: 'archived', 'canceled', 'done', 'planned', 'active', 'paused', 'up-next', 'continued'."
+        ),
+    ):
+        ln.Project.filter(status="not-a-status")
 
     run.delete(permanent=True)
     transform.delete(permanent=True)

@@ -12,6 +12,7 @@ Simple types
 .. autoclass:: TransformKind
 .. autoclass:: BlockKind
 .. autoclass:: BranchStatus
+.. autoclass:: ProjectStatus
 .. autoclass:: RunStatus
 .. autoclass:: SimpleDtype
 .. autoclass:: SimpleDtypeStr
@@ -75,6 +76,34 @@ status         code   description
 The database stores the branch status as an integer code in field `_status_code`.
 """
 
+ProjectStatus = Literal[
+    "archived",
+    "canceled",
+    "done",
+    "planned",
+    "active",
+    "paused",
+    "up-next",
+    "continued",
+]
+"""Project status.
+
+===========  =====  ==========================================================
+status       code   description
+===========  =====  ==========================================================
+`archived`   -1     The project is archived and no longer actively tracked.
+`canceled`   -2     The project was canceled.
+`done`       0      The project completed successfully.
+`planned`    1      The project is planned but not yet started.
+`active`     2      The project is currently active.
+`paused`     3      The project is temporarily paused.
+`up-next`    4      The project is queued as the next item to start.
+`continued`  5      The project was resumed after being paused/stopped.
+===========  =====  ==========================================================
+
+The database stores the project status as an integer code in field `_status_code`.
+"""
+
 RunStatus = Literal[
     "scheduled", "restarted", "started", "completed", "errored", "aborted"
 ]
@@ -115,6 +144,20 @@ BRANCH_STATUS_TO_CODE: dict[BranchStatus, int] = {
 }
 BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
     code: status for status, code in BRANCH_STATUS_TO_CODE.items()
+}
+
+PROJECT_STATUS_TO_CODE: dict[ProjectStatus, int] = {
+    "archived": -1,
+    "canceled": -2,
+    "done": 0,
+    "planned": 1,
+    "active": 2,
+    "paused": 3,
+    "up-next": 4,
+    "continued": 5,
+}
+PROJECT_CODE_TO_STATUS: dict[int, ProjectStatus] = {
+    code: status for status, code in PROJECT_STATUS_TO_CODE.items()
 }
 
 SimpleDvalue = int | float | str | bool | datetime.date | datetime.datetime | dict

@@ -27,6 +27,8 @@ from rich.markup import escape as rich_escape
 
 import lamindb as ln
 
+from ..base.types import PROJECT_STATUS_TO_CODE as LAMIN_PROJECT_STATUS_TO_CODE
+
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
 UUID_DASHED_PATTERN = re.compile(
@@ -112,6 +114,10 @@ class SyncReport:
     created_relation_stubs: list[str] = field(default_factory=list)
     create_relation_stubs: list[str] = field(default_factory=list)
     relation_value_links: list[str] = field(default_factory=list)
+    created_projects: int = 0
+    updated_projects: int = 0
+    unchanged_projects: int = 0
+    unmapped_properties: list[str] = field(default_factory=list)
 
     def to_pretty_text(self) -> str:
         """Render a concise human-readable sync report."""
@@ -275,11 +281,19 @@ class SyncReport:
                 f"  [{action_color}]{safe(summary)}[/]"
                 for summary in self.relation_value_links
             )
+        if self.unmapped_properties:
+            lines.append("[bold]unmapped_properties[/]:")
+            lines.extend(
+                f"  [yellow]{safe(detail)}[/]" for detail in self.unmapped_properties
+            )
         lines.extend(
             [
                 metric("create_records", self.created, action_color),
                 metric("update_records", self.updated, action_color),
                 metric("unchanged_records", self.unchanged, action_color),
+                metric("create_projects", self.created_projects, action_color),
+                metric("update_projects", self.updated_projects, action_color),
+                metric("unchanged_projects", self.unchanged_projects, action_color),
                 metric("pending_relations", self.pending_relations, action_color),
                 metric("failed_records", self.failed, action_color),
             ]
@@ -1905,6 +1919,20 @@ def _attach_page_markdown(record: Any, markdown_content: str) -> None:
         kind="readme",
     ).save()
     record.ablocks.add(recordblock, bulk=False)
+
+
+def _attach_project_markdown(project: Any, markdown_content: str) -> None:
+    content = markdown_content.strip()
+    if not content:
+        return
+    if getattr(project, "notes", None) == content:
+        return
+    projectblock = ln.models.ProjectBlock(
+        project=project,
+        content=content,
+        kind="readme",
+    ).save()
+    project.ablocks.add(projectblock, bulk=False)
 
 
 def _upsert_all(rec_type, rows) -> dict:
@@ -4219,6 +4247,1059 @@ class _NotionSyncer:
         return report
 
 
+class RecordSyncer(_NotionSyncer):
+    """Record-specific Notion sync utility."""
+
+
+class ProjectSyncer:
+    """Project-specific Notion sync utility."""
+
+    PROJECT_STATUS_TO_CODE: dict[str, int] = {
+        str(status): code for status, code in LAMIN_PROJECT_STATUS_TO_CODE.items()
+    }
+    PROJECT_STATUS_ALIASES: dict[str, str] = {
+        "on hold": "paused",
+        "on_hold": "paused",
+        "in progress": "active",
+        "in_progress": "active",
+        "up next": "up-next",
+        "up_next": "up-next",
+        "complete": "done",
+        "completed": "done",
+        "cancelled": "canceled",
+    }
+
+    def __init__(self, reader: _NotionReader) -> None:
+        self.reader = reader
+
+    @staticmethod
+    def _normalize_name(value: str) -> str:
+        return value.strip().lower().replace("-", " ").replace("_", " ")
+
+    def _normalize_status(self, value: str) -> str:
+        normalized = self._normalize_name(value)
+        return self.PROJECT_STATUS_ALIASES.get(normalized, normalized)
+
+    def _status_mapping_error(
+        self, db_name: str, unknown_statuses: list[str], known_statuses: list[str]
+    ) -> ValueError:
+        unknown = ", ".join(sorted(set(unknown_statuses)))
+        expected = ", ".join(sorted(set(known_statuses)))
+        return ValueError(
+            "Project status mapping mismatch for Notion database "
+            f"{db_name!r}. Unknown Notion status labels: {unknown}. "
+            "Please update status names in Notion to match LaminDB status names: "
+            f"{expected}."
+        )
+
+    @staticmethod
+    def _is_project_name(name: str) -> bool:
+        normalized = name.strip().lower()
+        return normalized in {"project", "projects"}
+
+    @staticmethod
+    def _is_reference_name(name: str) -> bool:
+        normalized = name.strip().lower()
+        return normalized in {"reference", "references"}
+
+    @staticmethod
+    def _is_parent_relation_name(name: str) -> bool:
+        normalized = name.strip().lower().replace("_", " ")
+        parent_tokens = {
+            "parent",
+            "parents",
+            "program",
+            "initiative",
+            "portfolio",
+            "owner project",
+            "superproject",
+        }
+        return any(token in normalized for token in parent_tokens)
+
+    @staticmethod
+    def _is_child_relation_name(name: str) -> bool:
+        normalized = name.strip().lower().replace("_", " ")
+        child_tokens = {
+            "child",
+            "children",
+            "subproject",
+            "sub project",
+            "sub-project",
+        }
+        return any(token in normalized for token in child_tokens)
+
+    @staticmethod
+    def _is_predecessor_relation_name(name: str) -> bool:
+        normalized = name.strip().lower().replace("_", " ")
+        predecessor_tokens = {
+            "predecessor",
+            "predecessors",
+            "dependency",
+            "dependencies",
+            "blocked by",
+            "depends on",
+            "requires",
+        }
+        return any(token in normalized for token in predecessor_tokens)
+
+    @staticmethod
+    def _is_successor_relation_name(name: str) -> bool:
+        normalized = name.strip().lower().replace("_", " ")
+        successor_tokens = {
+            "successor",
+            "successors",
+            "dependent",
+            "dependents",
+            "follow up",
+            "follow-up",
+            "follows",
+            "after",
+        }
+        return any(token in normalized for token in successor_tokens)
+
+    @staticmethod
+    def _notion_project_url(notion_id: str) -> str:
+        compact_id = _normalize_notion_id(notion_id) or notion_id
+        return f"notion:{compact_id}"
+
+    @staticmethod
+    def _append_unmapped(
+        *,
+        report: SyncReport,
+        db_name: str,
+        property_name: str,
+        notion_type: str,
+        reason: str,
+    ) -> None:
+        detail = f"{db_name} / {property_name} ({notion_type}): {reason}"
+        _append_unique(report.unmapped_properties, detail)
+        logger.warning(f"notion project sync unmapped property: {detail}")
+
+    def build_mapping(
+        self,
+        *,
+        db_name: str,
+        schema_spec: dict[str, dict[str, Any]],
+        report: SyncReport,
+    ) -> dict[str, Any]:
+        mapping: dict[str, Any] = {
+            "title": None,
+            "description": None,
+            "timeline": None,
+            "start_date": None,
+            "end_date": None,
+            "status": None,
+            "created_time": None,
+            "last_edited_time": None,
+            "created_by": None,
+            "parents_rel": set(),
+            "children_rel": set(),
+            "predecessors_rel": set(),
+            "successors_rel": set(),
+            "references_rel": set(),
+            "people_roles": {},
+        }
+        for property_name, property_spec in schema_spec.items():
+            notion_type = property_spec.get("type")
+            normalized = self._normalize_name(property_name)
+            if notion_type == "title":
+                if mapping["title"] is None:
+                    mapping["title"] = property_name
+                else:
+                    self._append_unmapped(
+                        report=report,
+                        db_name=db_name,
+                        property_name=property_name,
+                        notion_type=notion_type,
+                        reason="extra title field (only one title can map to Project.name)",
+                    )
+                continue
+            if notion_type == "rich_text" and normalized in {"summary", "description"}:
+                if mapping["description"] is None:
+                    mapping["description"] = property_name
+                else:
+                    self._append_unmapped(
+                        report=report,
+                        db_name=db_name,
+                        property_name=property_name,
+                        notion_type=notion_type,
+                        reason="duplicate description-like field",
+                    )
+                continue
+            if notion_type == "date":
+                if normalized == "timeline":
+                    mapping["timeline"] = property_name
+                    continue
+                if normalized in {"start", "start date", "start_date"}:
+                    mapping["start_date"] = property_name
+                    continue
+                if normalized in {
+                    "end",
+                    "end date",
+                    "end_date",
+                    "deadline",
+                    "due",
+                    "due date",
+                    "due_date",
+                }:
+                    mapping["end_date"] = property_name
+                    continue
+                self._append_unmapped(
+                    report=report,
+                    db_name=db_name,
+                    property_name=property_name,
+                    notion_type=notion_type,
+                    reason="ambiguous date field name for Project start/end mapping",
+                )
+                continue
+            if notion_type in {"status", "select"} and normalized == "status":
+                mapping["status"] = property_name
+                continue
+            if notion_type == "created_time":
+                mapping["created_time"] = property_name
+                continue
+            if notion_type == "last_edited_time":
+                mapping["last_edited_time"] = property_name
+                continue
+            if notion_type == "created_by":
+                mapping["created_by"] = property_name
+                continue
+            if notion_type == "people":
+                role = normalized.replace("_", " ").strip() or "member"
+                mapping["people_roles"][property_name] = role
+                continue
+            if notion_type == "relation":
+                target = property_spec.get("target")
+                target_names = []
+                if isinstance(target, str) and target:
+                    target_names = self._target_names(target)
+                if any(self._is_project_name(name) for name in target_names):
+                    if self._is_predecessor_relation_name(property_name):
+                        mapping["predecessors_rel"].add(property_name)
+                    elif self._is_successor_relation_name(property_name):
+                        mapping["successors_rel"].add(property_name)
+                    elif self._is_parent_relation_name(property_name):
+                        mapping["parents_rel"].add(property_name)
+                    elif self._is_child_relation_name(property_name):
+                        mapping["children_rel"].add(property_name)
+                    else:
+                        self._append_unmapped(
+                            report=report,
+                            db_name=db_name,
+                            property_name=property_name,
+                            notion_type=notion_type,
+                            reason=(
+                                "project relation has no recognized semantic "
+                                "(expected parent/child or predecessor/successor semantics)"
+                            ),
+                        )
+                    continue
+                if any(self._is_reference_name(name) for name in target_names):
+                    mapping["references_rel"].add(property_name)
+                    continue
+                self._append_unmapped(
+                    report=report,
+                    db_name=db_name,
+                    property_name=property_name,
+                    notion_type=notion_type,
+                    reason="relation target does not map to Project/Reference",
+                )
+                continue
+            self._append_unmapped(
+                report=report,
+                db_name=db_name,
+                property_name=property_name,
+                notion_type=str(notion_type),
+                reason="unsupported Project field mapping",
+            )
+        return mapping
+
+    def _target_names(self, target: str) -> list[str]:
+        db_payload = self._safe_call(f"/databases/{target}")
+        if db_payload is not None:
+            db_name = _NotionSyncer._database_title(db_payload, fallback=target)
+            return [db_name]
+        data_source_payload = self._safe_call(f"/data_sources/{target}")
+        if data_source_payload is None:
+            return []
+        names: list[str] = []
+        data_source_name = data_source_payload.get("name")
+        if isinstance(data_source_name, str) and data_source_name.strip():
+            names.append(data_source_name.strip())
+        parent = data_source_payload.get("parent")
+        if isinstance(parent, dict):
+            parent_db_id = parent.get("database_id")
+            if isinstance(parent_db_id, str) and parent_db_id.strip():
+                parent_db_payload = self._safe_call(f"/databases/{parent_db_id}")
+                if parent_db_payload is not None:
+                    names.append(
+                        _NotionSyncer._database_title(
+                            parent_db_payload, fallback=parent_db_id
+                        )
+                    )
+        return list(dict.fromkeys(names))
+
+    def _safe_call(self, path: str) -> dict | None:
+        try:
+            return self.reader._call("GET", path)
+        except LookupError:
+            return None
+        except httpx.HTTPStatusError as error:
+            if error.response is not None and error.response.status_code == 400:
+                return None
+            raise
+
+    def validate_status_mapping(
+        self,
+        *,
+        db_name: str,
+        schema_spec: dict[str, dict[str, Any]],
+        mapping: dict[str, Any],
+        rows: list[dict[str, Any]] | None = None,
+    ) -> None:
+        status_property = mapping.get("status")
+        if status_property is None:
+            return
+        known = list(self.PROJECT_STATUS_TO_CODE.keys())
+        status_spec = schema_spec.get(status_property, {})
+        choices = status_spec.get("choices")
+        unknown_from_schema: list[str] = []
+        if isinstance(choices, list):
+            for choice in choices:
+                if not isinstance(choice, str) or not choice.strip():
+                    continue
+                if self._normalize_status(choice) not in self.PROJECT_STATUS_TO_CODE:
+                    unknown_from_schema.append(choice)
+        if unknown_from_schema:
+            raise self._status_mapping_error(db_name, unknown_from_schema, known)
+        if rows:
+            unknown_from_rows: list[str] = []
+            for row in rows:
+                value = row.get(status_property)
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                if self._normalize_status(value) not in self.PROJECT_STATUS_TO_CODE:
+                    unknown_from_rows.append(value)
+            if unknown_from_rows:
+                raise self._status_mapping_error(db_name, unknown_from_rows, known)
+
+    @staticmethod
+    def _existing_edit_map(by_id: dict[str, Any]) -> dict[str, datetime | None]:
+        out: dict[str, datetime | None] = {}
+        for notion_id, project in by_id.items():
+            out[notion_id] = _normalized_timestamp(getattr(project, "updated_at", None))
+        return out
+
+    def existing_by_notion_id(self, rows: list[dict[str, Any]]) -> dict[str, Any]:
+        notion_ids = {
+            _normalize_notion_id(row.get("notion_id"))
+            for row in rows
+            if isinstance(row.get("notion_id"), str) and row.get("notion_id")
+        }
+        notion_ids = {notion_id for notion_id in notion_ids if notion_id is not None}
+        if not notion_ids:
+            return {}
+        url_to_id = {
+            self._notion_project_url(notion_id): notion_id for notion_id in notion_ids
+        }
+        by_id: dict[str, Any] = {}
+        for project in ln.Project.filter(url__in=list(url_to_id)):
+            notion_id = url_to_id.get(getattr(project, "url", None))
+            if notion_id is not None:
+                by_id[notion_id] = project
+        return by_id
+
+    def upsert_all(
+        self,
+        *,
+        rows: list[dict[str, Any]],
+        by_id: dict[str, Any],
+        title_property: str | None,
+    ) -> dict[str, Any]:
+        for row in rows:
+            raw_notion_id = row.get("notion_id")
+            if not isinstance(raw_notion_id, str) or not raw_notion_id:
+                continue
+            notion_id = _normalize_notion_id(raw_notion_id) or raw_notion_id
+            project_url = self._notion_project_url(notion_id)
+            row_emoji = row.get("__notion_emoji__")
+            created_at = _parse_notion_timestamp(row.get("created_time"))
+            updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
+            if created_at is None:
+                created_at = updated_at
+            if updated_at is None:
+                updated_at = created_at
+            row_name = row.get(title_property) if title_property else row.get("name")
+            project = by_id.get(notion_id)
+            if project is None:
+                project = ln.Project(
+                    name=row_name or _compact_uuid(notion_id), url=project_url
+                )
+                project._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
+                if created_at is not None:
+                    project.created_at = created_at
+                if updated_at is not None:
+                    project.updated_at = updated_at
+                by_id[notion_id] = project.save()
+                continue
+            changed_fields: list[str] = []
+            if getattr(project, "url", None) != project_url:
+                project.url = project_url
+                changed_fields.append("url")
+            if isinstance(row_name, str) and row_name and row_name != project.name:
+                project.name = row_name
+                changed_fields.append("name")
+            if created_at is not None and _normalized_timestamp(
+                project.created_at
+            ) != _normalized_timestamp(created_at):
+                project.created_at = created_at
+                changed_fields.append("created_at")
+            if updated_at is not None and _normalized_timestamp(
+                project.updated_at
+            ) != _normalized_timestamp(updated_at):
+                project.updated_at = updated_at
+                changed_fields.append("updated_at")
+            merged_aux = _NotionSyncer._merge_aux_with_emoji(
+                getattr(project, "_aux", None), row_emoji
+            )
+            if getattr(project, "_aux", None) != merged_aux:
+                project._aux = merged_aux
+                changed_fields.append("_aux")
+            if changed_fields:
+                project.save(update_fields=changed_fields)
+        return by_id
+
+    def _date_from_iso(self, value: Any) -> date | None:
+        if not isinstance(value, str) or not value:
+            return None
+        parsed = _parse_notion_timestamp(value)
+        if parsed is not None:
+            return parsed.date()
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+
+    def _date_range_from_page(
+        self, page_payload: dict[str, Any], property_name: str
+    ) -> tuple[date | None, date | None]:
+        properties = page_payload.get("properties")
+        if not isinstance(properties, dict):
+            return None, None
+        property_payload = properties.get(property_name)
+        if not isinstance(property_payload, dict):
+            return None, None
+        if property_payload.get("type") != "date":
+            return None, None
+        date_payload = property_payload.get("date")
+        if not isinstance(date_payload, dict):
+            return None, None
+        start_date = self._date_from_iso(date_payload.get("start"))
+        end_date = self._date_from_iso(date_payload.get("end"))
+        return start_date, end_date
+
+    def _status_code_from_row(
+        self, db_name: str, row: dict[str, Any], status_property: str | None
+    ) -> int | None:
+        if status_property is None:
+            return None
+        raw_value = row.get(status_property)
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            return None
+        normalized = self._normalize_status(raw_value)
+        if normalized not in self.PROJECT_STATUS_TO_CODE:
+            raise self._status_mapping_error(
+                db_name, [raw_value], list(self.PROJECT_STATUS_TO_CODE)
+            )
+        return self.PROJECT_STATUS_TO_CODE[normalized]
+
+    def _sync_project_user_role(
+        self, project: Any, role: str, users: list[Any]
+    ) -> None:
+        desired_ids = {getattr(user, "id", None) for user in users}
+        desired_ids.discard(None)
+        existing_links = list(project.links_user.filter(role=role))
+        existing_by_user_id = {
+            getattr(link, "user_id", None): link
+            for link in existing_links
+            if getattr(link, "user_id", None) is not None
+        }
+        for user_id, link in existing_by_user_id.items():
+            if user_id not in desired_ids:
+                link.delete()
+        existing_ids = set(existing_by_user_id)
+        for user in users:
+            user_id = getattr(user, "id", None)
+            if user_id is None or user_id in existing_ids:
+                continue
+            project.links_user.create(user=user, role=role)
+
+    def write_projects(
+        self,
+        *,
+        db_name: str,
+        rows: list[dict[str, Any]],
+        by_id: dict[str, Any],
+        mapping: dict[str, Any],
+        report: SyncReport | None = None,
+        transfer_details_by_url: dict[str, str] | None = None,
+    ) -> dict[str, int]:
+        artifacts_by_url = _batch_artifacts(
+            rows,
+            set(),
+            transfer_details_by_url=transfer_details_by_url,
+            report=report,
+        )
+        markdown_by_notion_id: dict[str, str] = {}
+        embedded_transfer_details_by_url: dict[str, str] = {}
+        embedded_file_urls: set[str] = set()
+        for row in rows:
+            notion_id = row.get("notion_id")
+            if not isinstance(notion_id, str) or not notion_id:
+                continue
+            markdown_content = self.reader.page_markdown(notion_id)
+            markdown_by_notion_id[notion_id] = markdown_content
+            per_page_transfer_map, _ = _planned_embedded_file_transfers(
+                markdown_content, notion_id
+            )
+            for url, detail in per_page_transfer_map.items():
+                embedded_file_urls.add(url)
+                embedded_transfer_details_by_url.setdefault(url, detail)
+        missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
+        if missing_embedded_urls:
+            artifacts_by_url.update(
+                _ensure_artifacts(
+                    missing_embedded_urls,
+                    transfer_details_by_url=embedded_transfer_details_by_url,
+                    report=report,
+                    with_key=False,
+                    kind="__easset__",
+                    description="imported from Notion",
+                )
+            )
+
+        relation_props = (
+            set(mapping["parents_rel"])
+            | set(mapping["children_rel"])
+            | set(mapping["predecessors_rel"])
+            | set(mapping["successors_rel"])
+            | set(mapping["references_rel"])
+        )
+        fake_features: dict[str, Any] = {}
+        for prop in (
+            mapping["parents_rel"]
+            | mapping["children_rel"]
+            | mapping["predecessors_rel"]
+            | mapping["successors_rel"]
+        ):
+            fake_features[prop] = type(
+                "FeatureProxy", (), {"name": prop, "_dtype_str": "list[cat[Project]]"}
+            )()
+        for prop in mapping["references_rel"]:
+            fake_features[prop] = type(
+                "FeatureProxy", (), {"name": prop, "_dtype_str": "list[cat[Reference]]"}
+            )()
+        if relation_props:
+            resolved_relations, relation_pending = _resolve_relation_records_for_rows(
+                self.reader,
+                rows,
+                relation_props,
+                fake_features,
+                None,
+                rec_type=type("ProjectRegistry", (), {"name": db_name})(),
+                apply=True,
+                report=report,
+            )
+        else:
+            resolved_relations, relation_pending = {}, 0
+
+        user_relation_ids: set[str] = set()
+        for people_property in mapping["people_roles"]:
+            for row in rows:
+                value = row.get(people_property)
+                values = value if isinstance(value, list) else [value]
+                for item in values:
+                    if isinstance(item, str) and item:
+                        user_relation_ids.add(_normalize_notion_id(item) or item)
+        created_by_property = mapping.get("created_by")
+        for row in rows:
+            created_by_value = (
+                row.get(created_by_property) if created_by_property else None
+            )
+            if isinstance(created_by_value, str) and created_by_value:
+                user_relation_ids.add(
+                    _normalize_notion_id(created_by_value) or created_by_value
+                )
+        users_by_notion_id = _resolved_users_by_notion_id(
+            self.reader, sorted(user_relation_ids)
+        )
+
+        records = 0
+        for row in rows:
+            raw_notion_id = row.get("notion_id")
+            if not isinstance(raw_notion_id, str) or not raw_notion_id:
+                continue
+            notion_id = _normalize_notion_id(raw_notion_id) or raw_notion_id
+            project = by_id.get(notion_id)
+            if project is None:
+                continue
+            changed_fields: list[str] = []
+            title_property = mapping.get("title")
+            if title_property:
+                title = row.get(title_property)
+                if isinstance(title, str) and title and title != project.name:
+                    project.name = title
+                    changed_fields.append("name")
+            description_property = mapping.get("description")
+            if description_property:
+                description = row.get(description_property)
+                if description != getattr(project, "description", None):
+                    project.description = description
+                    changed_fields.append("description")
+            status_code = self._status_code_from_row(
+                db_name, row, mapping.get("status")
+            )
+            if status_code is not None and status_code != getattr(
+                project, "_status_code", None
+            ):
+                project._status_code = status_code
+                changed_fields.append("_status_code")
+            created_by_property = mapping.get("created_by")
+            if created_by_property:
+                created_by_notion = row.get(created_by_property)
+                if isinstance(created_by_notion, str):
+                    normalized_user_id = (
+                        _normalize_notion_id(created_by_notion) or created_by_notion
+                    )
+                    resolved_user = users_by_notion_id.get(normalized_user_id)
+                    if resolved_user is not None and getattr(
+                        project, "created_by_id", None
+                    ) != getattr(resolved_user, "id", None):
+                        project.created_by = resolved_user
+                        changed_fields.append("created_by")
+            created_at = _parse_notion_timestamp(row.get("created_time"))
+            updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
+            if created_at is not None and _normalized_timestamp(
+                getattr(project, "created_at", None)
+            ) != _normalized_timestamp(created_at):
+                project.created_at = created_at
+                changed_fields.append("created_at")
+            if updated_at is not None and _normalized_timestamp(
+                getattr(project, "updated_at", None)
+            ) != _normalized_timestamp(updated_at):
+                project.updated_at = updated_at
+                changed_fields.append("updated_at")
+
+            start_date: date | None = None
+            end_date: date | None = None
+            start_property = mapping.get("start_date")
+            if start_property:
+                start_date = self._date_from_iso(row.get(start_property))
+            end_property = mapping.get("end_date")
+            if end_property:
+                end_date = self._date_from_iso(row.get(end_property))
+            timeline_property = mapping.get("timeline")
+            if timeline_property and (start_date is None or end_date is None):
+                page_payload = self.reader._call(
+                    "GET", f"/pages/{_notion_api_id(notion_id)}"
+                )
+                timeline_start, timeline_end = self._date_range_from_page(
+                    page_payload, timeline_property
+                )
+                if start_date is None:
+                    start_date = timeline_start
+                if end_date is None:
+                    end_date = timeline_end
+            if start_date != getattr(project, "start_date", None):
+                project.start_date = start_date
+                changed_fields.append("start_date")
+            if end_date != getattr(project, "end_date", None):
+                project.end_date = end_date
+                changed_fields.append("end_date")
+
+            if changed_fields:
+                project.save(update_fields=changed_fields)
+
+            def _resolved_values(
+                row_values: dict[str, Any], prop_names: set[str], model_name: str
+            ) -> list[Any]:
+                notion_ids: list[str] = []
+                for prop_name in prop_names:
+                    value = row_values.get(prop_name)
+                    raw_values = value if isinstance(value, list) else [value]
+                    for item in raw_values:
+                        if isinstance(item, str) and item:
+                            notion_ids.append(_normalize_notion_id(item) or item)
+                values = [
+                    resolved_relations[relation_id]
+                    for relation_id in notion_ids
+                    if relation_id in resolved_relations
+                ]
+                return [
+                    value
+                    for value in values
+                    if value.__class__.__name__.lower() == model_name.lower()
+                ]
+
+            project.parents.set(
+                _resolved_values(row, mapping["parents_rel"], "Project")
+            )
+            project.children.set(
+                _resolved_values(row, mapping["children_rel"], "Project")
+            )
+            project.predecessors.set(
+                _resolved_values(row, mapping["predecessors_rel"], "Project")
+            )
+            project.successors.set(
+                _resolved_values(row, mapping["successors_rel"], "Project")
+            )
+            project.references.set(
+                _resolved_values(row, mapping["references_rel"], "Reference")
+            )
+            for people_property, role in mapping["people_roles"].items():
+                user_ids = row.get(people_property)
+                raw_ids = user_ids if isinstance(user_ids, list) else [user_ids]
+                users: list[Any] = []
+                for user_id in raw_ids:
+                    if not isinstance(user_id, str) or not user_id:
+                        continue
+                    normalized_user_id = _normalize_notion_id(user_id) or user_id
+                    user = users_by_notion_id.get(normalized_user_id)
+                    if user is not None:
+                        users.append(user)
+                self._sync_project_user_role(project, role=role, users=users)
+
+            markdown_content = markdown_by_notion_id.get(notion_id)
+            if markdown_content is None:
+                markdown_content = self.reader.page_markdown(notion_id)
+            _attach_project_markdown(
+                project,
+                _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
+            )
+            records += 1
+        return {"records": records, "pending": relation_pending}
+
+
+class NotionSyncer(RecordSyncer):
+    """Dispatcher that routes Notion databases to record or project syncers."""
+
+    def __init__(self, token: str | None = None) -> None:
+        super().__init__(token=token)
+        self.project_syncer = ProjectSyncer(self.reader)
+
+    def _is_project_database(self, payload: dict[str, Any], database_id: str) -> bool:
+        db_name = self._database_title(payload, fallback=database_id)
+        resolved_type, _ = self._resolve_or_plan_relation_record_type(
+            [db_name], apply=False, report=None, prefer_plural=False
+        )
+        return resolved_type is ln.Project
+
+    def import_pages(
+        self,
+        parents: str | list[str],
+        *,
+        apply: bool = False,
+        limit: int | None = None,
+    ) -> SyncReport:
+        if isinstance(parents, str):
+            parent_ids = [parents]
+        else:
+            parent_ids = list(parents)
+        if not parent_ids:
+            raise ValueError("parents is required and must contain at least one ID.")
+
+        report = SyncReport(
+            apply=apply,
+            message="Dry run report -- nothing got created" if not apply else None,
+        )
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, limit=limit)
+        db_ids = sorted(db_id_set)
+        if not db_ids:
+            report.discovered_pages = len(parent_pages)
+            if limit == 0:
+                return report
+            raise ValueError(
+                "No child databases discovered under parents. In phase 1, sync operates "
+                "on page trees that include at least one Notion database."
+            )
+        report.databases = [_compact_uuid(db_id) for db_id in db_ids]
+
+        db_payloads: dict[str, dict[str, Any]] = {}
+        project_db_ids: set[str] = set()
+        record_db_ids: set[str] = set()
+        for db_id in db_ids:
+            payload = self.reader._call("GET", f"/databases/{db_id}")
+            db_payloads[db_id] = payload
+            if self._is_project_database(payload, db_id):
+                project_db_ids.add(db_id)
+            else:
+                record_db_ids.add(db_id)
+
+        parent_types_by_page_id: dict[str, Any] = {}
+        if record_db_ids:
+            for parent_id, parent_type_name in sorted(parent_pages.items()):
+                parent_type = self._resolve_or_create_type_by_name(
+                    parent_type_name,
+                    emoji=self._parent_page_emojis.get(parent_id),
+                    apply=apply,
+                    report=report,
+                )
+                if parent_type is not None:
+                    parent_types_by_page_id[parent_id] = parent_type
+            for child_page_id, ancestor_page_id in sorted(
+                self._parent_page_parents.items()
+            ):
+                child_type = parent_types_by_page_id.get(child_page_id)
+                ancestor_type = parent_types_by_page_id.get(ancestor_page_id)
+                if child_type is None or ancestor_type is None:
+                    continue
+                if getattr(child_type, "type_id", None) == getattr(
+                    ancestor_type, "id", None
+                ):
+                    continue
+                detail = self._record_type_move_detail(child_type, ancestor_type)
+                if apply:
+                    child_type.type = ancestor_type
+                    child_type.save(update_fields=["type"])
+                    self._append_unique(report.updated_record_types, detail)
+                else:
+                    self._append_unique(report.update_record_types, detail)
+
+        rec_types: dict[str, Any] = {}
+        db_specs: dict[str, dict[str, Any]] = {}
+        project_mappings: dict[str, dict[str, Any]] = {}
+        for db_id in db_ids:
+            schema_spec = self.reader.schema(db_id)
+            db_specs[db_id] = schema_spec
+            payload = db_payloads[db_id]
+            db_name = self._database_title(payload, fallback=db_id)
+            if db_id in project_db_ids:
+                mapping = self.project_syncer.build_mapping(
+                    db_name=db_name, schema_spec=schema_spec, report=report
+                )
+                project_mappings[db_id] = mapping
+                self.project_syncer.validate_status_mapping(
+                    db_name=db_name, schema_spec=schema_spec, mapping=mapping
+                )
+                rec_types[db_id] = None
+                continue
+            logger.important(
+                f"notion sync schema-check: resolving record type for db={_compact_uuid(db_id)}"
+            )
+            normalized_db_id = _normalize_notion_id(db_id) or db_id
+            seed_page_ids = self._seed_page_ids_by_database.get(normalized_db_id, set())
+            rec_type = self._resolve_record_type(
+                db_id,
+                apply=apply,
+                report=report,
+                plan_schema=not bool(seed_page_ids),
+                parent_types_by_page_id=parent_types_by_page_id,
+            )
+            if rec_type is not None:
+                self._validate_schema(db_id, rec_type, apply=apply)
+                logger.important(
+                    f"notion sync schema-check: validated db={_compact_uuid(db_id)} against "
+                    f"record_type={rec_type.name!r}"
+                )
+            rec_types[db_id] = rec_type
+
+        after_maps: dict[str, dict[str, Any]] = {}
+        to_write: dict[str, list[dict[str, Any]]] = {}
+        planned_transfers_by_db: dict[str, dict[str, str]] = {}
+
+        with _bulk_creation():
+            for db_id in db_ids:
+                normalized_db_id = _normalize_notion_id(db_id) or db_id
+                seed_page_ids = self._seed_page_ids_by_database.get(
+                    normalized_db_id, set()
+                )
+                if seed_page_ids:
+                    rows = self._rows_for_seed_pages(
+                        db_id, seed_page_ids, include_page_emoji=apply
+                    )
+                else:
+                    rows = self.reader.rows(
+                        db_id, limit=limit, include_page_emoji=apply
+                    )
+                report.discovered += len(rows)
+                if db_id in project_db_ids:
+                    db_name = self._database_title(db_payloads[db_id], fallback=db_id)
+                    mapping = project_mappings[db_id]
+                    self.project_syncer.validate_status_mapping(
+                        db_name=db_name,
+                        schema_spec=db_specs[db_id],
+                        mapping=mapping,
+                        rows=rows,
+                    )
+                    before = self.project_syncer.existing_by_notion_id(rows)
+                    before_edit = self.project_syncer._existing_edit_map(before)
+                    writes: list[dict[str, Any]] = []
+                    force_materialize_seed_rows = apply and bool(seed_page_ids)
+                    preview_seed_rows_in_dry_run = (not apply) and bool(seed_page_ids)
+                    for row in rows:
+                        notion_id = row["notion_id"]
+                        edited = _normalized_timestamp(
+                            _parse_notion_timestamp(row.get("last_edited_time"))
+                        )
+                        existing = before_edit.get(notion_id)
+                        if notion_id not in before:
+                            report.created_projects += 1
+                            writes.append(row)
+                        elif existing == edited:
+                            report.unchanged_projects += 1
+                            if force_materialize_seed_rows:
+                                writes.append(row)
+                        else:
+                            report.updated_projects += 1
+                            writes.append(row)
+                    to_write[db_id] = writes
+                    preview_rows = rows if preview_seed_rows_in_dry_run else writes
+                    transfer_map, transfer_details = (
+                        _planned_missing_embedded_transfers(self.reader, preview_rows)
+                        if not apply
+                        else ({}, [])
+                    )
+                    planned_transfers_by_db[db_id] = transfer_map
+                    if not apply:
+                        for detail in transfer_details:
+                            if detail not in report.create_artifacts:
+                                report.create_artifacts.append(detail)
+                    if apply:
+                        after_maps[db_id] = self.project_syncer.upsert_all(
+                            rows=rows,
+                            by_id=before,
+                            title_property=mapping.get("title"),
+                        )
+                    else:
+                        after_maps[db_id] = before
+                    continue
+
+                rec_type = rec_types[db_id]
+                if rec_type is None:
+                    report.created += len(rows)
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    _, _, file_props = _kinds(db_specs[db_id])
+                    transfer_map, transfer_details = _planned_missing_file_transfers(
+                        rows, file_props
+                    )
+                    note_transfer_map, note_transfer_details = (
+                        _planned_missing_embedded_transfers(self.reader, rows)
+                        if not apply
+                        else ({}, [])
+                    )
+                    transfer_map.update(note_transfer_map)
+                    transfer_details.extend(note_transfer_details)
+                    planned_transfers_by_db[db_id] = transfer_map
+                    for detail in transfer_details:
+                        if detail not in report.create_artifacts:
+                            report.create_artifacts.append(detail)
+                    continue
+
+                before = _existing_by_ref(rec_type)
+                before_edit = self._existing_edit_map(before)
+                writes = []
+                force_materialize_seed_rows = apply and bool(seed_page_ids)
+                preview_seed_rows_in_dry_run = (not apply) and bool(seed_page_ids)
+                for row in rows:
+                    notion_id = row["notion_id"]
+                    edited = _normalized_timestamp(
+                        _parse_notion_timestamp(row.get("last_edited_time"))
+                    )
+                    existing = before_edit.get(notion_id)
+                    if notion_id not in before:
+                        report.created += 1
+                        writes.append(row)
+                    elif existing == edited:
+                        report.unchanged += 1
+                        if force_materialize_seed_rows:
+                            writes.append(row)
+                    else:
+                        report.updated += 1
+                        writes.append(row)
+                to_write[db_id] = writes
+                preview_rows = rows if preview_seed_rows_in_dry_run else writes
+                _, _, file_props = _kinds(db_specs[db_id])
+                transfer_map, transfer_details = _planned_missing_file_transfers(
+                    preview_rows, file_props
+                )
+                if not apply:
+                    note_transfer_map, note_transfer_details = (
+                        _planned_missing_embedded_transfers(self.reader, preview_rows)
+                    )
+                    transfer_map.update(note_transfer_map)
+                    transfer_details.extend(note_transfer_details)
+                planned_transfers_by_db[db_id] = transfer_map
+                if not apply:
+                    for detail in transfer_details:
+                        if detail not in report.create_artifacts:
+                            report.create_artifacts.append(detail)
+                    rel, _, _ = _kinds(db_specs[db_id])
+                    if rel and preview_rows:
+                        feat = _feat_map(rec_type.schema)
+                        _, relation_pending = _resolve_relation_records_for_rows(
+                            self.reader,
+                            preview_rows,
+                            rel,
+                            feat,
+                            None,
+                            rec_type=rec_type,
+                            apply=False,
+                            report=report,
+                        )
+                        report.pending_relations += relation_pending
+                if apply:
+                    after_maps[db_id] = _upsert_all(rec_type, rows)
+                else:
+                    after_maps[db_id] = before
+
+            report.discovered_pages = (
+                len(parent_pages) + len(report.databases) + report.discovered
+            )
+            if not apply:
+                return report
+
+            for db_id in db_ids:
+                write_rows = to_write[db_id]
+                if not write_rows:
+                    continue
+                if db_id in project_db_ids:
+                    db_name = self._database_title(db_payloads[db_id], fallback=db_id)
+                    stats = self.project_syncer.write_projects(
+                        db_name=db_name,
+                        rows=write_rows,
+                        by_id=after_maps[db_id],
+                        mapping=project_mappings[db_id],
+                        transfer_details_by_url=planned_transfers_by_db.get(db_id, {}),
+                        report=report,
+                    )
+                    report.pending_relations += stats["pending"]
+                    continue
+                rec_type = rec_types[db_id]
+                spec = db_specs[db_id]
+                stats = _write(
+                    self.reader,
+                    write_rows,
+                    rec_type,
+                    spec,
+                    prop_map=None,
+                    by_id=after_maps[db_id],
+                    transfer_details_by_url=planned_transfers_by_db.get(db_id, {}),
+                    report=report,
+                )
+                report.pending_relations += stats["pending"]
+
+        logger.important(
+            "notion sync done: "
+            f"record_create={report.created}, record_update={report.updated}, "
+            f"record_unchanged={report.unchanged}, "
+            f"project_create={report.created_projects}, "
+            f"project_update={report.updated_projects}, "
+            f"project_unchanged={report.unchanged_projects}"
+        )
+        return report
+
+
 @ln.flow("Ofbk5ruuTiN2")
 def sync_from_notion(
     *,
@@ -4228,7 +5309,7 @@ def sync_from_notion(
     limit: int | None = None,
 ) -> SyncReport:
     """Sync Notion pages via the class-based sync API."""
-    syncer = _NotionSyncer(token=token)
+    syncer = NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
     elif isinstance(parents, list):
@@ -4243,4 +5324,7 @@ def sync_from_notion(
 __all__ = [
     "sync_from_notion",
     "SyncReport",
+    "NotionSyncer",
+    "RecordSyncer",
+    "ProjectSyncer",
 ]
