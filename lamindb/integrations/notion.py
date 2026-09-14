@@ -1138,6 +1138,7 @@ class _NotionSyncer:
         self.reader = _NotionReader(token=token)
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
+        self._seed_page_ids_by_database: dict[str, set[str]] = {}
         self._parent_page_parents: dict[str, str] = {}
         self._formula_dtype_cache: dict[tuple[str, str], tuple[str, Any]] = {}
 
@@ -1327,6 +1328,7 @@ class _NotionSyncer:
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages = {}
+        self._seed_page_ids_by_database = {}
         self._parent_page_parents = {}
         seen_blocks: set[str] = set()
         discovered_children = [0]
@@ -1374,8 +1376,38 @@ class _NotionSyncer:
                 raise LookupError(
                     f"Parent {_compact_uuid(parent)!r} is neither a readable database nor page."
                 )
-            parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
             parent_id = _normalize_notion_id(parent) or parent
+            parent_database_id = self._page_parent_database_id(page_payload)
+            if parent_database_id is not None:
+                normalized_db_id = (
+                    _normalize_notion_id(parent_database_id) or parent_database_id
+                )
+                database_ids.add(normalized_db_id)
+                self._seed_page_ids_by_database.setdefault(normalized_db_id, set()).add(
+                    parent_id
+                )
+                db_payload = self._safe_call(f"/databases/{parent_database_id}")
+                if db_payload is not None:
+                    db_parent_page_id = self._database_parent_page_id(db_payload)
+                    if db_parent_page_id is not None:
+                        self._database_parent_pages[normalized_db_id] = (
+                            db_parent_page_id
+                        )
+                if limit == 0:
+                    continue
+                reached_limit = self._collect_databases_from_block(
+                    parent,
+                    seen_blocks,
+                    database_ids,
+                    parent_page_id=None,
+                    limit=limit,
+                    discovered_children=discovered_children,
+                )
+                if reached_limit:
+                    break
+                continue
+
+            parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
             parent_pages[parent_id] = parent_title
             parent_page_emojis[parent_id] = self._database_emoji(page_payload)
             ancestor_page_id = self._database_parent_page_id(page_payload)
@@ -1405,6 +1437,34 @@ class _NotionSyncer:
                 break
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
+
+    def _rows_for_seed_pages(
+        self, database_id: str, page_ids: set[str], *, include_page_emoji: bool = False
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        normalized_database_id = _normalize_notion_id(database_id) or database_id
+        for page_id in sorted(page_ids):
+            page_payload = self._safe_call(f"/pages/{page_id}")
+            if page_payload is None:
+                continue
+            page_database_id = self._page_parent_database_id(page_payload)
+            if (page_database_id or "") != normalized_database_id:
+                continue
+            row: dict[str, Any] = {
+                "notion_id": page_payload.get("id"),
+                "created_time": page_payload.get("created_time"),
+                "last_edited_time": page_payload.get("last_edited_time"),
+            }
+            properties = page_payload.get("properties", {})
+            if isinstance(properties, dict):
+                for name, prop in properties.items():
+                    if isinstance(prop, dict):
+                        row[name] = _flatten(prop)
+            if include_page_emoji:
+                row["__notion_emoji__"] = _extract_emoji(page_payload)
+            if row["notion_id"]:
+                rows.append(row)
+        return rows
 
     def _resolve_or_create_type_by_name(
         self,
@@ -1452,6 +1512,28 @@ class _NotionSyncer:
             return None
         page_id = parent.get("page_id")
         return _normalize_notion_id(page_id)
+
+    def _page_parent_database_id(self, payload: dict) -> str | None:
+        parent = payload.get("parent")
+        if not isinstance(parent, dict):
+            return None
+        parent_type = parent.get("type")
+        if parent_type == "database_id":
+            return _normalize_notion_id(parent.get("database_id"))
+        if parent_type == "data_source_id":
+            data_source_id = parent.get("data_source_id")
+            if not isinstance(data_source_id, str) or not data_source_id.strip():
+                return None
+            data_source_payload = self._safe_call(f"/data_sources/{data_source_id}")
+            if data_source_payload is None:
+                return None
+            ds_parent = data_source_payload.get("parent")
+            if not isinstance(ds_parent, dict):
+                return None
+            if ds_parent.get("type") != "database_id":
+                return None
+            return _normalize_notion_id(ds_parent.get("database_id"))
+        return None
 
     @staticmethod
     def _database_title(payload: dict, fallback: str) -> str:
@@ -2652,6 +2734,7 @@ class _NotionSyncer:
         *,
         apply: bool,
         report: SyncReport,
+        plan_schema: bool = True,
         payload: dict | None = None,
         parent_type=None,
         parent_types_by_page_id: dict[str, Any] | None = None,
@@ -2679,6 +2762,55 @@ class _NotionSyncer:
                 db_emoji = parent_aux.get("ei")
         qs = ln.Record.filter(name=db_name, is_type=True)
         count = qs.count()
+        if not plan_schema:
+            if count == 0:
+                if not apply:
+                    report.create_record_types.append(db_name)
+                    return None
+                rec_type_kwargs: dict[str, Any] = {
+                    "name": db_name,
+                    "description": db_description,
+                    "is_type": True,
+                }
+                if parent_type is not None:
+                    rec_type_kwargs["type"] = parent_type
+                aux = self._merge_aux_with_emoji(None, db_emoji)
+                if aux is not None:
+                    rec_type_kwargs["_aux"] = aux
+                rec_type = ln.Record(**rec_type_kwargs).save()
+                report.created_record_types.append(db_name)
+                return rec_type
+            if count > 1:
+                raise ValueError(
+                    f"Ambiguous Lamin record type name {db_name!r}: found {count} matches."
+                )
+            rec_type = qs.one()
+            if apply:
+                changed = False
+                if rec_type.description != db_description:
+                    rec_type.description = db_description
+                    changed = True
+                merged_aux = self._merge_aux_with_emoji(
+                    getattr(rec_type, "_aux", None), db_emoji
+                )
+                if getattr(rec_type, "_aux", None) != merged_aux:
+                    rec_type._aux = merged_aux
+                    changed = True
+                if parent_type is not None and getattr(
+                    rec_type, "type_id", None
+                ) != getattr(parent_type, "id", None):
+                    rec_type.type = parent_type
+                    changed = True
+                    detail = self._record_type_move_detail(rec_type, parent_type)
+                    self._append_unique(report.updated_record_types, detail)
+                if changed:
+                    rec_type.save()
+            elif parent_type is not None and getattr(
+                rec_type, "type_id", None
+            ) != getattr(parent_type, "id", None):
+                detail = self._record_type_move_detail(rec_type, parent_type)
+                self._append_unique(report.update_record_types, detail)
+            return rec_type
         if count == 0:
             schema_spec = self.reader.schema(database_id)
             relation_debug = {
@@ -2951,10 +3083,13 @@ class _NotionSyncer:
             logger.important(
                 f"notion sync schema-check: resolving record type for db={_compact_uuid(db_id)}"
             )
+            normalized_db_id = _normalize_notion_id(db_id) or db_id
+            seed_page_ids = self._seed_page_ids_by_database.get(normalized_db_id, set())
             rec_type = self._resolve_record_type(
                 db_id,
                 apply=apply,
                 report=report,
+                plan_schema=not bool(seed_page_ids),
                 parent_types_by_page_id=parent_types_by_page_id,
             )
             if rec_type is not None:
@@ -2974,7 +3109,18 @@ class _NotionSyncer:
             # Phase A: discover + upsert identity rows.
             for db_id in db_ids:
                 rec_type = rec_types[db_id]
-                rows = self.reader.rows(db_id, limit=limit, include_page_emoji=apply)
+                normalized_db_id = _normalize_notion_id(db_id) or db_id
+                seed_page_ids = self._seed_page_ids_by_database.get(
+                    normalized_db_id, set()
+                )
+                if seed_page_ids:
+                    rows = self._rows_for_seed_pages(
+                        db_id, seed_page_ids, include_page_emoji=apply
+                    )
+                else:
+                    rows = self.reader.rows(
+                        db_id, limit=limit, include_page_emoji=apply
+                    )
                 report.discovered += len(rows)
                 logger.important(
                     f"notion sync phase A: db={_compact_uuid(db_id)}, discovered_rows={len(rows)}"
