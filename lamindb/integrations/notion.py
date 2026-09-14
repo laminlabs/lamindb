@@ -629,7 +629,11 @@ class _NotionReader:
             marker = "x" if checked else " "
             lines.append(f"{indent}- [{marker}] {text}".rstrip())
         elif block_type == "quote":
-            lines.append(f"{indent}> {text}".rstrip())
+            # Notion quote rich_text can contain embedded newlines; markdown
+            # requires each line to be prefixed with ">" to stay in the quote.
+            quote_lines = text.splitlines() or [""]
+            for quote_line in quote_lines:
+                lines.append(f"{indent}> {quote_line}".rstrip())
         elif block_type == "code":
             language = payload.get("language") if isinstance(payload, dict) else None
             fence = f"```{language}" if language else "```"

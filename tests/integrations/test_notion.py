@@ -879,6 +879,37 @@ def test_page_markdown_exports_nested_blocks(reader):
     assert "  v1 in October" in markdown
 
 
+def test_page_markdown_exports_multiline_quote_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "quote-1",
+                        "type": "quote",
+                        "has_children": False,
+                        "quote": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Translational research\n"
+                                        "Analysis of the relevant DNA sequences"
+                                    )
+                                }
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "> Translational research\n> Analysis of the relevant DNA sequences"
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
