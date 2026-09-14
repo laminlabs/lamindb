@@ -1792,6 +1792,94 @@ def test_update_features_report_existing_lamin_dtype_labels(syncer):
     assert report.create_features == ["Organizations / website: str"]
 
 
+def test_plan_metadata_reports_dtype_updates_for_typed_ulabel_upgrade(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [
+        (
+            "interaction",
+            "list[interactions]",
+            "list[cat[ULabel[AWnzLKRo]]]",
+        )
+    ]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "interaction"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[ULabel]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=False,
+            report=report,
+        )
+
+    assert report.update_features == ["Organizations / interaction: list[interactions]"]
+
+
+def test_plan_metadata_apply_upgrades_untyped_ulabel_dtype(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [
+        (
+            "interaction",
+            "list[interactions]",
+            "list[cat[ULabel[AWnzLKRo]]]",
+        )
+    ]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "interaction"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[ULabel]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[ULabel[AWnzLKRo]]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == [
+        "Organizations / interaction: list[interactions]"
+    ]
+
+
 def test_plan_metadata_highlights_record_field_mappings_in_feature_details(syncer):
     report = SyncReport(apply=False)
     feature_plan = [

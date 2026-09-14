@@ -3063,6 +3063,45 @@ class _NotionSyncer:
         return detail
 
     @staticmethod
+    def _serialize_feature_dtype(dtype: Any) -> str | None:
+        from lamindb.models.feature import serialize_dtype
+
+        if isinstance(dtype, str):
+            return dtype
+        try:
+            return serialize_dtype(dtype)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _can_safely_upgrade_feature_dtype(
+        current_dtype_str: str, planned_dtype_str: str
+    ) -> bool:
+        from lamindb.models.feature import parse_dtype
+
+        try:
+            current = parse_dtype(current_dtype_str)
+            planned = parse_dtype(planned_dtype_str)
+        except Exception:
+            return False
+        if len(current) != 1 or len(planned) != 1:
+            return False
+        current_component = current[0]
+        planned_component = planned[0]
+        if bool(current_component.get("list")) != bool(planned_component.get("list")):
+            return False
+        if current_component.get("registry_str") != planned_component.get(
+            "registry_str"
+        ):
+            return False
+        if current_component.get("filter_str") not in {"", None}:
+            return False
+        return (
+            current_component.get("type_uid") is None
+            and planned_component.get("type_uid") is not None
+        )
+
+    @staticmethod
     def _record_type_move_detail(rec_type: Any, parent_type: Any) -> str:
         previous_parent_raw = getattr(getattr(rec_type, "type", None), "name", None)
         previous_parent = (
@@ -3142,11 +3181,16 @@ class _NotionSyncer:
         )
 
         type_update_specs: list[tuple[str, str, Any, Any]] = []
+        dtype_update_specs: list[tuple[str, str, Any, Any, str]] = []
         if schema is not None:
             for name, dtype_label, dtype in feature_plan:
                 existing_feature = schema_members_by_name.get(name)
                 if existing_feature is None:
                     continue
+                existing_dtype = getattr(
+                    existing_feature, "_dtype_str", None
+                ) or getattr(existing_feature, "dtype_as_str", None)
+                planned_dtype_str = self._serialize_feature_dtype(dtype)
                 if feature_type is None:
                     type_update_specs.append(
                         (name, dtype_label, dtype, existing_feature)
@@ -3157,6 +3201,20 @@ class _NotionSyncer:
                 ):
                     type_update_specs.append(
                         (name, dtype_label, dtype, existing_feature)
+                    )
+                if (
+                    isinstance(existing_dtype, str)
+                    and isinstance(planned_dtype_str, str)
+                    and existing_dtype != planned_dtype_str
+                ):
+                    dtype_update_specs.append(
+                        (
+                            name,
+                            dtype_label,
+                            dtype,
+                            existing_feature,
+                            planned_dtype_str,
+                        )
                     )
 
         if missing_specs:
@@ -3174,8 +3232,14 @@ class _NotionSyncer:
                 else:
                     self._append_unique(report.create_features, detail)
 
-        if type_update_specs:
-            for name, dtype_label, dtype, _ in type_update_specs:
+        feature_update_specs: dict[str, tuple[str, str, Any]] = {}
+        for name, dtype_label, dtype, _ in type_update_specs:
+            feature_update_specs[name] = (name, dtype_label, dtype)
+        for name, dtype_label, dtype, _, _ in dtype_update_specs:
+            feature_update_specs[name] = (name, dtype_label, dtype)
+
+        if feature_update_specs:
+            for name, dtype_label, dtype in feature_update_specs.values():
                 detail = self._feature_plan_detail(
                     db_name,
                     name,
@@ -3214,6 +3278,31 @@ class _NotionSyncer:
             logger.important(
                 f"notion sync metadata: updated {len(type_update_specs)} features to type {db_name!r}"
             )
+
+        if apply and schema is not None and dtype_update_specs:
+            dtype_updates_applied = 0
+            for name, _, _, feature, planned_dtype_str in dtype_update_specs:
+                current_dtype = getattr(feature, "_dtype_str", None)
+                if not isinstance(current_dtype, str):
+                    continue
+                if current_dtype == planned_dtype_str:
+                    continue
+                if not self._can_safely_upgrade_feature_dtype(
+                    current_dtype, planned_dtype_str
+                ):
+                    logger.warning(
+                        "notion sync metadata: skipped dtype update "
+                        f"for feature {name!r} in {db_name!r}; "
+                        f"current={current_dtype!r}, planned={planned_dtype_str!r}"
+                    )
+                    continue
+                feature._dtype_str = planned_dtype_str
+                feature.save(update_fields=["_dtype_str"])
+                dtype_updates_applied += 1
+            if dtype_updates_applied > 0:
+                logger.important(
+                    f"notion sync metadata: updated {dtype_updates_applied} feature dtypes for {db_name!r}"
+                )
 
         if feature_type is not None:
             features = list(
