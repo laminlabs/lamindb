@@ -932,13 +932,9 @@ def _feat_map(schema) -> dict:
 
 def _existing_by_ref(rec_type) -> dict:
     """{notion_uuid: ln.Record} for a type — ONE query, reused for upsert + write."""
-    out: dict[str, Any] = {}
-    for record in ln.Record.filter(type=rec_type, reference_type="notion"):
-        reference = getattr(record, "reference", None)
-        if not isinstance(reference, str) or not reference:
-            continue
-        out[_normalize_notion_id(reference) or reference] = record
-    return out
+    return {
+        r.reference: r for r in ln.Record.filter(type=rec_type, reference_type="notion")
+    }
 
 
 def _resolved_map(uuids) -> dict:
@@ -946,21 +942,9 @@ def _resolved_map(uuids) -> dict:
     uuids = list(uuids)
     if not uuids:
         return {}
-    query_ids = {
-        variant
-        for uuid_value in uuids
-        for variant in {
-            uuid_value,
-            _normalize_notion_id(uuid_value) or uuid_value,
-            _notion_api_id(_normalize_notion_id(uuid_value) or uuid_value),
-        }
-    }
     return {
-        _normalize_notion_id(r.reference) or r.reference: r
-        for r in ln.Record.filter(
-            reference__in=list(query_ids), reference_type="notion"
-        )
-        if isinstance(getattr(r, "reference", None), str)
+        r.reference: r
+        for r in ln.Record.filter(reference__in=uuids, reference_type="notion")
     }
 
 
