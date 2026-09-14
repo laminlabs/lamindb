@@ -602,6 +602,53 @@ class _NotionReader:
             return ""
         return self._rich_text_to_markdown(caption).strip()
 
+    @staticmethod
+    def _table_cell_markdown(cell: Any) -> str:
+        if not isinstance(cell, list):
+            return ""
+        text = _NotionReader._rich_text_to_markdown(cell).strip()
+        text = text.replace("|", r"\|")
+        # Preserve line breaks in markdown table cells.
+        return "<br>".join(text.splitlines()) if text else ""
+
+    def _table_to_markdown_lines(
+        self, table_payload: dict | None, table_rows: list[dict], indent: str
+    ) -> list[str]:
+        if not table_rows:
+            return []
+
+        parsed_rows: list[list[str]] = []
+        max_cols = 0
+        for row in table_rows:
+            row_payload = row.get("table_row", {}) if isinstance(row, dict) else {}
+            cells = (
+                row_payload.get("cells", []) if isinstance(row_payload, dict) else []
+            )
+            rendered = [self._table_cell_markdown(cell) for cell in cells]
+            parsed_rows.append(rendered)
+            max_cols = max(max_cols, len(rendered))
+
+        if max_cols == 0:
+            return []
+
+        normalized_rows = [row + [""] * (max_cols - len(row)) for row in parsed_rows]
+        has_header = bool(
+            isinstance(table_payload, dict) and table_payload.get("has_column_header")
+        )
+        if has_header:
+            header = normalized_rows[0]
+            body = normalized_rows[1:]
+        else:
+            header = normalized_rows[0]
+            body = normalized_rows[1:]
+
+        def render_row(values: list[str]) -> str:
+            return f"{indent}| " + " | ".join(values) + " |"
+
+        lines = [render_row(header), render_row(["---"] * max_cols)]
+        lines.extend(render_row(values) for values in body)
+        return lines
+
     def _block_to_markdown_lines(
         self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
     ) -> list[str]:
@@ -675,6 +722,15 @@ class _NotionReader:
                     )
             lines.append(f"{indent}</p>")
             lines.append(f"{indent}</details>")
+            return lines
+
+        if block_type == "table":
+            table_rows = (
+                self._iter_block_children(block["id"])
+                if block.get("has_children") and block.get("id")
+                else []
+            )
+            lines.extend(self._table_to_markdown_lines(payload, table_rows, indent))
             return lines
 
         if block.get("has_children") and block.get("id"):

@@ -1003,6 +1003,57 @@ def test_page_markdown_exports_table_of_contents_marker(reader):
     assert markdown == "<!-- display-table-of-contents -->"
 
 
+def test_page_markdown_exports_simple_table(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "table-1",
+                        "type": "table",
+                        "has_children": True,
+                        "table": {"table_width": 2, "has_column_header": True},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "row-1",
+                        "type": "table_row",
+                        "has_children": False,
+                        "table_row": {
+                            "cells": [
+                                [{"plain_text": "Field"}],
+                                [{"plain_text": "What We Store"}],
+                            ]
+                        },
+                    },
+                    {
+                        "id": "row-2",
+                        "type": "table_row",
+                        "has_children": False,
+                        "table_row": {
+                            "cells": [
+                                [{"plain_text": "reference"}],
+                                [{"plain_text": "Claude session ID"}],
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "| Field | What We Store |\n| --- | --- |\n| reference | Claude session ID |"
+    )
+
+
 # ---------------------------------------------------------------------------
 # _NotionSyncer
 # ---------------------------------------------------------------------------
