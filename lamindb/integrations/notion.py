@@ -3073,9 +3073,8 @@ class _NotionSyncer:
         except Exception:
             return None
 
-    @staticmethod
     def _can_safely_upgrade_feature_dtype(
-        current_dtype_str: str, planned_dtype_str: str
+        self, feature: Any, current_dtype_str: str, planned_dtype_str: str
     ) -> bool:
         from lamindb.models.feature import parse_dtype
 
@@ -3088,18 +3087,38 @@ class _NotionSyncer:
             return False
         current_component = current[0]
         planned_component = planned[0]
+        current_registry = current_component.get("registry_str")
+        planned_registry = planned_component.get("registry_str")
         if bool(current_component.get("list")) != bool(planned_component.get("list")):
-            return False
-        if current_component.get("registry_str") != planned_component.get(
-            "registry_str"
-        ):
             return False
         if current_component.get("filter_str") not in {"", None}:
             return False
-        return (
-            current_component.get("type_uid") is None
-            and planned_component.get("type_uid") is not None
-        )
+        if current_registry == planned_registry:
+            return (
+                current_component.get("type_uid") is None
+                and planned_component.get("type_uid") is not None
+            )
+        if (
+            current_registry == "Record"
+            and planned_registry in {"Reference", "Project"}
+            and isinstance(current_component.get("type_uid"), str)
+            and planned_component.get("type_uid") in {None, ""}
+            and planned_component.get("filter_str") in {"", None}
+        ):
+            if ln.models.RecordRecord.filter(feature=feature).exists():
+                return False
+            source_type = ln.Record.filter(
+                uid=current_component["type_uid"], is_type=True
+            ).one_or_none()
+            if source_type is None:
+                # Stale typed-Record dtype with no stored values: safe to retarget.
+                return True
+            source_name = (source_type.name or "").strip().lower()
+            target_name = planned_registry.lower()
+            if source_name not in {target_name, f"{target_name}s"}:
+                return False
+            return True
+        return False
 
     @staticmethod
     def _record_type_move_detail(rec_type: Any, parent_type: Any) -> str:
@@ -3238,7 +3257,7 @@ class _NotionSyncer:
         for name, dtype_label, dtype, _, _ in dtype_update_specs:
             feature_update_specs[name] = (name, dtype_label, dtype)
 
-        if feature_update_specs:
+        if not apply and feature_update_specs:
             for name, dtype_label, dtype in feature_update_specs.values():
                 detail = self._feature_plan_detail(
                     db_name,
@@ -3248,10 +3267,7 @@ class _NotionSyncer:
                     record_field_mappings,
                     index_feature_name=index_feature_name,
                 )
-                if apply:
-                    self._append_unique(report.updated_features, detail)
-                else:
-                    self._append_unique(report.update_features, detail)
+                self._append_unique(report.update_features, detail)
 
         if apply and feature_type is not None and missing_specs:
             for name, _, dtype in missing_specs:
@@ -3260,6 +3276,7 @@ class _NotionSyncer:
                 f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
             )
 
+        type_updates_applied_features: set[str] = set()
         if (
             apply
             and feature_type is not None
@@ -3275,10 +3292,12 @@ class _NotionSyncer:
                 ):
                     feature.type = feature_type
                     feature.save(update_fields=["type"])
+                    type_updates_applied_features.add(name)
             logger.important(
                 f"notion sync metadata: updated {len(type_update_specs)} features to type {db_name!r}"
             )
 
+        dtype_updates_applied_features: set[str] = set()
         if apply and schema is not None and dtype_update_specs:
             dtype_updates_applied = 0
             for name, _, _, feature, planned_dtype_str in dtype_update_specs:
@@ -3288,7 +3307,7 @@ class _NotionSyncer:
                 if current_dtype == planned_dtype_str:
                     continue
                 if not self._can_safely_upgrade_feature_dtype(
-                    current_dtype, planned_dtype_str
+                    feature, current_dtype, planned_dtype_str
                 ):
                     logger.warning(
                         "notion sync metadata: skipped dtype update "
@@ -3299,10 +3318,27 @@ class _NotionSyncer:
                 feature._dtype_str = planned_dtype_str
                 feature.save(update_fields=["_dtype_str"])
                 dtype_updates_applied += 1
+                dtype_updates_applied_features.add(name)
             if dtype_updates_applied > 0:
                 logger.important(
                     f"notion sync metadata: updated {dtype_updates_applied} feature dtypes for {db_name!r}"
                 )
+        if apply:
+            applied_updates = (
+                type_updates_applied_features | dtype_updates_applied_features
+            )
+            for name, dtype_label, dtype in feature_update_specs.values():
+                if name not in applied_updates:
+                    continue
+                detail = self._feature_plan_detail(
+                    db_name,
+                    name,
+                    dtype_label,
+                    dtype,
+                    record_field_mappings,
+                    index_feature_name=index_feature_name,
+                )
+                self._append_unique(report.updated_features, detail)
 
         if feature_type is not None:
             features = list(

@@ -1880,6 +1880,87 @@ def test_plan_metadata_apply_upgrades_untyped_ulabel_dtype(syncer):
     ]
 
 
+def test_plan_metadata_apply_upgrades_stale_record_reference_dtype(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "reference"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[Record[mPiRL19eLoioHSla]]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch("lamindb.integrations.notion.ln.models.RecordRecord") as RecordRecord,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+        RecordRecord.filter.return_value.exists.return_value = False
+        Record.filter.return_value.one_or_none.return_value = None
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[Reference]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == ["Organizations / reference: list[Reference]"]
+
+
+def test_plan_metadata_apply_skipped_dtype_update_not_reported(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "reference"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[Record[mPiRL19eLoioHSla]]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch("lamindb.integrations.notion.ln.models.RecordRecord") as RecordRecord,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+        RecordRecord.filter.return_value.exists.return_value = True
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    existing_feature.save.assert_not_called()
+    assert report.updated_features == []
+
+
 def test_plan_metadata_highlights_record_field_mappings_in_feature_details(syncer):
     report = SyncReport(apply=False)
     feature_plan = [
