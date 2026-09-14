@@ -15,7 +15,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
@@ -99,6 +99,9 @@ class SyncReport:
     update_features: list[str] = field(default_factory=list)
     created_artifacts: list[str] = field(default_factory=list)
     create_artifacts: list[str] = field(default_factory=list)
+    created_relation_stubs: list[str] = field(default_factory=list)
+    create_relation_stubs: list[str] = field(default_factory=list)
+    relation_value_links: list[str] = field(default_factory=list)
 
     def to_pretty_text(self) -> str:
         """Render a concise human-readable sync report."""
@@ -244,6 +247,23 @@ class SyncReport:
             lines.append("[bold]created_artifacts[/]:")
             lines.extend(
                 f"  [green]{safe(artifact)}[/]" for artifact in self.created_artifacts
+            )
+        if self.create_relation_stubs:
+            lines.append("[bold]create_relation_stubs[/]:")
+            lines.extend(
+                f"  [{action_color}]{safe(stub)}[/]"
+                for stub in self.create_relation_stubs
+            )
+        if self.created_relation_stubs:
+            lines.append("[bold]created_relation_stubs[/]:")
+            lines.extend(
+                f"  [green]{safe(stub)}[/]" for stub in self.created_relation_stubs
+            )
+        if self.relation_value_links:
+            lines.append("[bold]relation_value_links[/]:")
+            lines.extend(
+                f"  [{action_color}]{safe(summary)}[/]"
+                for summary in self.relation_value_links
             )
         lines.extend(
             [
@@ -832,6 +852,321 @@ def _resolved_map(uuids) -> dict:
     }
 
 
+def _append_unique(values: list[str], value: str) -> None:
+    if value not in values:
+        values.append(value)
+
+
+def _relation_target_from_feature(
+    feature: Any,
+    *,
+    record_type_name: str,
+    property_name: str,
+) -> tuple[str, Any | None, str]:
+    from lamindb.models.feature import parse_dtype
+
+    dtype_str = getattr(feature, "_dtype_str", None)
+    if not isinstance(dtype_str, str) or not dtype_str:
+        raise ValueError(
+            "Cannot sync relation values: feature "
+            f"{record_type_name!r}.{property_name!r} has no dtype."
+        )
+    parsed = parse_dtype(dtype_str, check_exists=False)
+    if len(parsed) != 1 or not parsed[0].get("list", False):
+        raise ValueError(
+            "Cannot sync relation values: feature "
+            f"{record_type_name!r}.{property_name!r} must be typed as list[Record[type]] "
+            f"or list[User]. "
+            f"Got dtype={dtype_str!r}."
+        )
+    parsed_dtype = parsed[0]
+    registry_str = parsed_dtype.get("registry_str")
+    if registry_str == "User":
+        return "user", None, "User"
+    if registry_str != "Record":
+        registry = parsed_dtype.get("registry")
+        if registry is None:
+            raise ValueError(
+                "Cannot sync relation values: feature "
+                f"{record_type_name!r}.{property_name!r} must target Record, User, or a Lamin registry type. "
+                f"Got dtype={dtype_str!r}."
+            )
+        registry_name = getattr(registry, "__name__", str(registry))
+        return "registry", registry, registry_name
+    type_uid = parsed_dtype.get("type_uid")
+    if not isinstance(type_uid, str) or not type_uid:
+        raise ValueError(
+            "Cannot sync relation values: feature "
+            f"{record_type_name!r}.{property_name!r} must be a typed Record relation "
+            "(e.g. list[Record[<type_uid>]]). Sync the source database metadata first."
+        )
+    qs = ln.Record.filter(uid=type_uid, is_type=True)
+    count = qs.count()
+    if count != 1:
+        raise ValueError(
+            "Cannot sync relation values: feature "
+            f"{record_type_name!r}.{property_name!r} references type uid={type_uid!r} "
+            f"but resolved {count} matching Record types."
+        )
+    target_type = qs.one()
+    return "record", target_type, getattr(target_type, "name", "Record")
+
+
+def _matches_target_type(record: Any, target_type: Any) -> bool:
+    target_id = getattr(target_type, "id", None)
+    if target_id is None:
+        return True
+    return getattr(record, "type_id", None) == target_id
+
+
+def _relation_stub_name(reader: _NotionReader, notion_id: str) -> str:
+    fallback = _compact_uuid(notion_id)
+    try:
+        payload = reader._call("GET", f"/pages/{notion_id}")
+    except Exception:
+        return fallback
+    name = _page_title(payload).strip()
+    return name or fallback
+
+
+def _relation_stub_detail(
+    *,
+    record_type_name: str,
+    feature_name: str,
+    target_type_name: str,
+    stub_name: str,
+    notion_id: str,
+) -> str:
+    return (
+        f"{record_type_name} / {feature_name} -> {target_type_name}: "
+        f"{stub_name} <- {_compact_uuid(notion_id)}"
+    )
+
+
+def _notion_user_name(reader: _NotionReader, notion_user_id: str) -> str | None:
+    try:
+        payload = reader._call("GET", f"/users/{notion_user_id}")
+    except Exception:
+        return None
+    name = payload.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    return None
+
+
+def _notion_page_title(reader: _NotionReader, notion_page_id: str) -> str | None:
+    try:
+        payload = reader._call("GET", f"/pages/{notion_page_id}")
+    except Exception:
+        return None
+    title = _page_title(payload).strip()
+    return title or None
+
+
+def _resolved_users_by_notion_id(
+    reader: _NotionReader, notion_user_ids: list[str]
+) -> dict[str, Any]:
+    names_by_id: dict[str, str] = {}
+    for notion_user_id in notion_user_ids:
+        name = _notion_user_name(reader, notion_user_id)
+        if name is not None:
+            names_by_id[notion_user_id] = name
+    if not names_by_id:
+        return {}
+
+    users_by_lower_name: dict[str, Any] = {}
+    for name in sorted(set(names_by_id.values())):
+        qs = ln.User.filter(name__iexact=name)
+        count = qs.count()
+        if count > 1:
+            raise ValueError(
+                f"Cannot sync relation values: ambiguous Lamin users for name {name!r}."
+            )
+        if count == 1:
+            users_by_lower_name[name.lower()] = qs.one()
+
+    return {
+        notion_user_id: users_by_lower_name[name.lower()]
+        for notion_user_id, name in names_by_id.items()
+        if name.lower() in users_by_lower_name
+    }
+
+
+def _resolved_registry_records_by_notion_id(
+    reader: _NotionReader, notion_page_ids: list[str], registry: Any
+) -> dict[str, Any]:
+    names_by_id: dict[str, str] = {}
+    for notion_page_id in notion_page_ids:
+        title = _notion_page_title(reader, notion_page_id)
+        if title is not None:
+            names_by_id[notion_page_id] = title
+    if not names_by_id:
+        return {}
+
+    field_name = getattr(registry, "_name_field", "name")
+    records_by_lower_name: dict[str, Any] = {}
+    for name in sorted(set(names_by_id.values())):
+        qs = registry.filter(**{f"{field_name}__iexact": name})
+        count = qs.count()
+        if count > 1:
+            raise ValueError(
+                "Cannot sync relation values: ambiguous Lamin records for "
+                f"{registry.__name__}.{field_name}={name!r}."
+            )
+        if count == 1:
+            records_by_lower_name[name.lower()] = qs.one()
+
+    return {
+        notion_page_id: records_by_lower_name[name.lower()]
+        for notion_page_id, name in names_by_id.items()
+        if name.lower() in records_by_lower_name
+    }
+
+
+def _resolve_relation_records_for_rows(
+    reader: _NotionReader,
+    rows: list[dict[str, Any]],
+    rel: set[str],
+    feat: dict[str, Any],
+    prop_map: dict[str, str] | None,
+    *,
+    rec_type: Any,
+    apply: bool,
+    report: SyncReport | None,
+) -> tuple[dict[str, Any], int]:
+    prop_map = prop_map or {}
+    relation_ids_by_prop: dict[str, set[str]] = {}
+    for row in rows:
+        for prop in rel:
+            value = row.get(prop)
+            if isinstance(value, list):
+                ids = [item for item in value if isinstance(item, str) and item]
+            elif isinstance(value, str) and value:
+                ids = [value]
+            else:
+                ids = []
+            if not ids:
+                continue
+            relation_ids_by_prop.setdefault(prop, set()).update(ids)
+
+    resolved: dict[str, Any] = {}
+
+    pending = 0
+    record_type_name = getattr(rec_type, "name", str(rec_type))
+    for prop in sorted(relation_ids_by_prop):
+        feature_name = prop_map.get(prop, prop)
+        feature = feat.get(feature_name)
+        if feature is None:
+            raise ValueError(
+                f"Cannot sync relation values: missing feature mapping for property {prop!r}."
+            )
+        relation_target_kind, target_type, target_type_name = (
+            _relation_target_from_feature(
+                feature,
+                record_type_name=record_type_name,
+                property_name=feature_name,
+            )
+        )
+        notion_ids = sorted(relation_ids_by_prop[prop])
+        if relation_target_kind == "user":
+            resolved_now = _resolved_users_by_notion_id(reader, notion_ids)
+            for notion_id, user in resolved_now.items():
+                resolved[notion_id] = user
+            missing = [
+                notion_id for notion_id in notion_ids if notion_id not in resolved_now
+            ]
+            existing_count = len(resolved_now)
+            stub_create = 0
+            unresolved_after = missing
+        elif relation_target_kind == "registry":
+            resolved_now = _resolved_registry_records_by_notion_id(
+                reader, notion_ids, target_type
+            )
+            for notion_id, registry_record in resolved_now.items():
+                resolved[notion_id] = registry_record
+            missing = [
+                notion_id for notion_id in notion_ids if notion_id not in resolved_now
+            ]
+            existing_count = len(resolved_now)
+            stub_create = 0
+            unresolved_after = missing
+        else:
+            resolved_now = _resolved_map(notion_ids)
+            for notion_id, record in resolved_now.items():
+                resolved[notion_id] = record
+            existing_count = len(resolved_now)
+            missing = [
+                notion_id for notion_id in notion_ids if notion_id not in resolved_now
+            ]
+
+            for notion_id, existing_record in resolved_now.items():
+                if target_type is None:
+                    continue
+                if not _matches_target_type(existing_record, target_type):
+                    raise ValueError(
+                        "Cannot sync relation values: relation id "
+                        f"{_compact_uuid(notion_id)!r} for {record_type_name!r}.{prop!r} "
+                        f"resolves to record type {getattr(getattr(existing_record, 'type', None), 'name', None)!r} "
+                        f"but expected {target_type_name!r}."
+                    )
+
+            stub_create = 0
+            if missing:
+                if apply:
+                    for notion_id in missing:
+                        stub_name = _relation_stub_name(reader, notion_id)
+                        stub = ln.Record(
+                            name=stub_name,
+                            type=target_type,
+                            reference=notion_id,
+                            reference_type="notion",
+                        ).save()
+                        resolved[notion_id] = stub
+                        stub_create += 1
+                        if report is not None:
+                            _append_unique(
+                                report.created_relation_stubs,
+                                _relation_stub_detail(
+                                    record_type_name=record_type_name,
+                                    feature_name=feature_name,
+                                    target_type_name=target_type_name,
+                                    stub_name=stub_name,
+                                    notion_id=notion_id,
+                                ),
+                            )
+                else:
+                    stub_create = len(missing)
+                    if report is not None:
+                        for notion_id in missing:
+                            stub_name = _relation_stub_name(reader, notion_id)
+                            _append_unique(
+                                report.create_relation_stubs,
+                                _relation_stub_detail(
+                                    record_type_name=record_type_name,
+                                    feature_name=feature_name,
+                                    target_type_name=target_type_name,
+                                    stub_name=stub_name,
+                                    notion_id=notion_id,
+                                ),
+                            )
+            unresolved_after = (
+                [notion_id for notion_id in notion_ids if notion_id not in resolved]
+                if apply
+                else []
+            )
+        pending += len(unresolved_after)
+        if report is not None:
+            _append_unique(
+                report.relation_value_links,
+                f"{record_type_name} / {prop}: "
+                f"resolved_existing={existing_count}, "
+                f"stub_create={stub_create}, "
+                f"pending_unresolved={len(unresolved_after)}",
+            )
+
+    return resolved, pending
+
+
 def _ensure_labels(names) -> None:
     """Create only the ULabels that don't already exist (exact-name match).
 
@@ -1166,8 +1501,27 @@ def _row_values(
             if hits:
                 values[f] = hits if isinstance(val, list) else hits[0]
         else:
-            values[f] = val
+            values[f] = _normalize_feature_value(f, val)
     return values, pending
+
+
+def _normalize_feature_value(feature: Any, value: Any) -> Any:
+    dtype = getattr(feature, "_dtype_str", None)
+    if not isinstance(dtype, str):
+        return value
+    if dtype == "date" and isinstance(value, str):
+        parsed_ts = _parse_notion_timestamp(value)
+        if parsed_ts is not None:
+            return parsed_ts.date()
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return value
+    if dtype in {"datetime", "datetime64[ns, UTC]"} and isinstance(value, str):
+        parsed_ts = _parse_notion_timestamp(value)
+        if parsed_ts is not None:
+            return parsed_ts
+    return value
 
 
 def _write(
@@ -1183,6 +1537,7 @@ def _write(
 ) -> dict:
     """Materialize every row of one database. Schema, kinds and labels resolved once."""
     rel, lab, file_props = _kinds(spec)
+    _ensure_feature_itype_on_record_schema(rec_type)
     feat = _feat_map(rec_type.schema)
     internal_property_types = {
         "created_time",
@@ -1231,18 +1586,30 @@ def _write(
             )
         )
 
-    targets = {u for row in rows for p in rel for u in (row.get(p) or [])}
-    resolved = _resolved_map(targets)  # one query for all relation targets
+    relation_pending = 0
+    if rel:
+        resolved, relation_pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            rel,
+            feat,
+            prop_map,
+            rec_type=rec_type,
+            apply=True,
+            report=report,
+        )
+    else:
+        resolved = {}
 
     if by_id is None:
         by_id = _existing_by_ref(rec_type)
 
-    records = pending = 0
+    records = 0
     for row in rows:
         rec = by_id.get(row["notion_id"])
         if rec is None:  # not imported yet — nothing to write
             continue
-        values, p = _row_values(
+        values, _ = _row_values(
             row,
             rel,
             lab,
@@ -1264,9 +1631,36 @@ def _write(
                 rec,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
-        pending += p
         records += 1
-    return {"records": records, "pending": pending}
+    return {"records": records, "pending": relation_pending}
+
+
+def _ensure_feature_itype_on_record_schema(rec_type: Any) -> None:
+    schema = getattr(rec_type, "schema", None)
+    if schema is None:
+        return
+    if getattr(schema, "itype", None) is not None:
+        return
+    members = getattr(schema, "members", None)
+    if members is None:
+        return
+    first_member = None
+    if hasattr(members, "all"):
+        first_member = members.all().first()
+    elif isinstance(members, list) and members:
+        first_member = members[0]
+    if first_member is None:
+        return
+    if first_member.__class__.__name__ != "Feature":
+        return
+    schema.itype = "Feature"
+    save_fn = getattr(schema, "save", None)
+    if callable(save_fn):
+        save_fn(update_fields=["itype"])
+        logger.warning(
+            "notion sync metadata: repaired schema itype to 'Feature' "
+            f"for record type {getattr(rec_type, 'name', rec_type)!r}"
+        )
 
 
 def _attach_page_markdown(record: Any, markdown_content: str) -> None:
@@ -3363,6 +3757,8 @@ class _NotionSyncer:
                 before_edit = self._existing_edit_map(before)
 
                 writes: list[dict[str, Any]] = []
+                force_materialize_seed_rows = apply and bool(seed_page_ids)
+                preview_seed_rows_in_dry_run = (not apply) and bool(seed_page_ids)
                 for row in rows:
                     notion_id = row["notion_id"]
                     edited = _normalized_timestamp(
@@ -3374,21 +3770,26 @@ class _NotionSyncer:
                         writes.append(row)
                     elif existing == edited:
                         report.unchanged += 1
+                        if force_materialize_seed_rows:
+                            # Seed-page sync needs idempotent feature/notes backfill
+                            # even when timestamps are unchanged (e.g. prior partial runs).
+                            writes.append(row)
                     else:
                         report.updated += 1
                         writes.append(row)
                 to_write[db_id] = writes
+                preview_rows = rows if preview_seed_rows_in_dry_run else writes
                 logger.important(
                     f"notion sync phase A: db={_compact_uuid(db_id)}, create={sum(1 for row in writes if row['notion_id'] not in before)}, "
                     f"update={sum(1 for row in writes if row['notion_id'] in before)}, unchanged={len(rows) - len(writes)}"
                 )
                 _, _, file_props = _kinds(db_specs[db_id])
                 transfer_map, transfer_details = _planned_missing_file_transfers(
-                    writes, file_props
+                    preview_rows, file_props
                 )
                 if not apply:
                     note_transfer_map, note_transfer_details = (
-                        _planned_missing_embedded_transfers(self.reader, writes)
+                        _planned_missing_embedded_transfers(self.reader, preview_rows)
                     )
                     transfer_map.update(note_transfer_map)
                     transfer_details.extend(note_transfer_details)
@@ -3397,6 +3798,20 @@ class _NotionSyncer:
                     for detail in transfer_details:
                         if detail not in report.create_artifacts:
                             report.create_artifacts.append(detail)
+                    rel, _, _ = _kinds(db_specs[db_id])
+                    if rel and preview_rows:
+                        feat = _feat_map(rec_type.schema)
+                        _, relation_pending = _resolve_relation_records_for_rows(
+                            self.reader,
+                            preview_rows,
+                            rel,
+                            feat,
+                            None,
+                            rec_type=rec_type,
+                            apply=False,
+                            report=report,
+                        )
+                        report.pending_relations += relation_pending
 
                 if apply:
                     logger.important(

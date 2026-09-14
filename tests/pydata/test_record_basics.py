@@ -2188,6 +2188,31 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b.delete(permanent=True)
 
 
+def test_set_values_accepts_user_records_for_user_dtype():
+    user_feature = ln.Feature(
+        name="feature_user_record_input", dtype=list[ln.User]
+    ).save()
+    schema = ln.Schema([user_feature], name="schema_user_record_input").save()
+    record_type = ln.Record(
+        name="RecordTypeUserRecordInput",
+        is_type=True,
+        schema=schema,
+    ).save()
+    record = ln.Record(name="record_user_record_input", type=record_type).save()
+    current_user = ln.User.get(id=ln.setup.settings.user.id)
+
+    record.features.set_values({user_feature: [current_user]})
+
+    links = ln.models.RecordUser.filter(record=record, feature=user_feature)
+    assert links.count() == 1
+    assert links.one().value_id == current_user.id
+
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
+    schema.delete(permanent=True)
+    user_feature.delete(permanent=True)
+
+
 def test_feature_rejects_builtin_scalar_for_record_dtype():
     """Assigning a raw int/str to a cat[Record[...]] feature.
 
