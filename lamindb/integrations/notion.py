@@ -39,6 +39,7 @@ HTML_IMAGE_SRC_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 RICH_CONSOLE = Console(force_terminal=True, no_color=False)
+NOTION_EMBEDDED_IMAGE_WIDTH_PX = 500
 
 
 def _compact_uuid(value: str) -> str:
@@ -1305,7 +1306,7 @@ def _rewrite_embedded_file_refs(
 
     def replace_image(match: re.Match[str]) -> str:
         src = resolve(match.group(2))
-        return f'<img width="200" src="{src}" />'
+        return f'\n\n<img width="{NOTION_EMBEDDED_IMAGE_WIDTH_PX}" src="{src}" />\n\n'
 
     def replace_link(match: re.Match[str]) -> str:
         label = match.group(1)
@@ -1318,7 +1319,75 @@ def _rewrite_embedded_file_refs(
     content = MARKDOWN_IMAGE_LINK_PATTERN.sub(replace_image, markdown_content)
     content = MARKDOWN_LINK_PATTERN.sub(replace_link, content)
     content = HTML_IMAGE_SRC_PATTERN.sub(replace_html_image, content)
-    return content
+    return _normalize_markdown_block_spacing(content)
+
+
+def _normalize_markdown_block_spacing(markdown_content: str) -> str:
+    if not markdown_content:
+        return markdown_content
+
+    def classify(line: str, *, in_code_block: bool) -> str:
+        stripped = line.strip()
+        if stripped == "":
+            return "blank"
+        if re.match(r"^\s*```", line):
+            return "code_fence"
+        if in_code_block:
+            return "code"
+        if re.match(r"^\s{0,3}#{1,6}\s+", line):
+            return "heading"
+        if re.match(r"^\s*(?:[-+*]\s+|\d+\.\s+)", line):
+            return "list"
+        if re.match(r"^\s*(?:---|\*\*\*|___)\s*$", line):
+            return "divider"
+        if re.match(r"^\s*<img\b[^>]*>\s*$", line):
+            return "html_img"
+        return "paragraph"
+
+    out: list[str] = []
+    in_code_block = False
+    prev_nonblank_kind: str | None = None
+
+    for line in markdown_content.splitlines():
+        kind = classify(line, in_code_block=in_code_block)
+
+        needs_separator = False
+        if kind != "blank":
+            if prev_nonblank_kind in {"list"} and kind in {
+                "heading",
+                "paragraph",
+                "html_img",
+                "divider",
+            }:
+                needs_separator = True
+            if kind in {"heading", "html_img", "divider"} and prev_nonblank_kind in {
+                "paragraph",
+                "list",
+                "heading",
+                "html_img",
+                "divider",
+            }:
+                needs_separator = True
+            if prev_nonblank_kind in {"heading", "html_img", "divider"} and kind in {
+                "paragraph",
+                "list",
+            }:
+                needs_separator = True
+
+        if needs_separator and out and out[-1].strip() != "":
+            out.append("")
+
+        if kind == "blank":
+            if out and out[-1].strip() != "":
+                out.append("")
+            continue
+
+        out.append(line.rstrip())
+        if kind == "code_fence":
+            in_code_block = not in_code_block
+        prev_nonblank_kind = kind if kind != "code_fence" else "code"
+
+    return "\n".join(out).strip()
 
 
 def _download_file_to_temp_path(url: str) -> str:

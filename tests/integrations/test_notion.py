@@ -244,6 +244,7 @@ def test_planned_embedded_file_transfers_uses_notes_context():
 def test_rewrite_embedded_file_refs_replaces_with_storage_links():
     markdown = (
         "![img](https://files.notion.site/a.png)\n"
+        "## Google Cloud\n"
         "[slides](https://files.notion.site/deck.pdf)\n"
         '<img src="https://files.notion.site/other.png" />\n'
     )
@@ -271,7 +272,11 @@ def test_rewrite_embedded_file_refs_replaces_with_storage_links():
             },
         )
     assert (
-        '<img width="200" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />'
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />'
+        in rewritten
+    )
+    assert (
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />\n\n## Google Cloud'
         in rewritten
     )
     assert "[slides](/storage/s3/bucket/prefix%2F/.lamindb/deck.pdf)" in rewritten
@@ -1132,7 +1137,7 @@ def test_write_notes_embedded_files_reuse_artifact_transfer_logic():
     )
     content = RecordBlock.call_args.kwargs["content"]
     assert (
-        '<img width="200" src="/storage/s3/bucket/prefix%2F/.lamindb/a.png" />'
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/a.png" />'
         in content
     )
 
