@@ -707,12 +707,12 @@ def test_delete_permanently_skips_storage_if_db_delete_is_noop():
         "lamindb.models.artifact._delete_skip_storage",
         return_value=False,
     ):
-        artifact.delete(permanent=True, storage=True)
+        artifact.delete(permanent=True)
 
     assert path.exists()
     assert ln.Artifact.filter(uid=artifact.uid).one() == artifact
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
     assert not path.exists()
 
 
