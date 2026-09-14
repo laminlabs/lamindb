@@ -1116,11 +1116,16 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         versions = Artifact.objects.using(artifact._state.db).filter(
             uid__startswith=artifact.stem_uid
         )
-        deleted_ok: list[bool] = []
         for version in versions:
-            deleted_ok.append(_delete_skip_storage(version))
-        db_deleted = bool(deleted_ok) and all(deleted_ok)
+            if not _delete_skip_storage(version):
+                db_deleted = False
+        # Empty queryset: metadata is already gone (e.g. retry after storage
+        # deletion failed). Keep db_deleted True so the shared store can still
+        # be cleaned up.
     else:
+        # A non-overwrite_versions artifact whose metadata is already gone
+        # (retry after a failed storage delete) will not get through: the
+        # DELETE count is 0 and storage cleanup is skipped.
         db_deleted = _delete_skip_storage(artifact)
     if not db_deleted:
         logger.warning(
