@@ -1027,6 +1027,11 @@ def _resolved_registry_records_by_notion_id(
     }
 
 
+def _registry_supports_relation_stubs(registry: Any) -> bool:
+    registry_name = getattr(registry, "__name__", "")
+    return registry_name in {"Project", "Reference"}
+
+
 def _resolve_relation_records_for_rows(
     reader: _NotionReader,
     rows: list[dict[str, Any]],
@@ -1093,7 +1098,49 @@ def _resolve_relation_records_for_rows(
             ]
             existing_count = len(resolved_now)
             stub_create = 0
-            unresolved_after = missing
+            if target_type is not None and _registry_supports_relation_stubs(
+                target_type
+            ):
+                field_name = getattr(target_type, "_name_field", "name")
+                if apply:
+                    for notion_id in missing:
+                        stub_name = _relation_stub_name(reader, notion_id)
+                        stub = target_type(**{field_name: stub_name}).save()
+                        resolved[notion_id] = stub
+                        stub_create += 1
+                        if report is not None:
+                            _append_unique(
+                                report.created_relation_stubs,
+                                _relation_stub_detail(
+                                    record_type_name=record_type_name,
+                                    feature_name=feature_name,
+                                    target_type_name=target_type_name,
+                                    stub_name=stub_name,
+                                    notion_id=notion_id,
+                                ),
+                            )
+                else:
+                    stub_create = len(missing)
+                    if report is not None:
+                        for notion_id in missing:
+                            stub_name = _relation_stub_name(reader, notion_id)
+                            _append_unique(
+                                report.create_relation_stubs,
+                                _relation_stub_detail(
+                                    record_type_name=record_type_name,
+                                    feature_name=feature_name,
+                                    target_type_name=target_type_name,
+                                    stub_name=stub_name,
+                                    notion_id=notion_id,
+                                ),
+                            )
+                unresolved_after = (
+                    [notion_id for notion_id in notion_ids if notion_id not in resolved]
+                    if apply
+                    else []
+                )
+            else:
+                unresolved_after = missing
         else:
             resolved_now = _resolved_map(notion_ids)
             for notion_id, record in resolved_now.items():

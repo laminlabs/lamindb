@@ -1520,6 +1520,111 @@ def test_relation_resolution_registry_dtype_matches_by_page_title():
     )
 
 
+def test_relation_resolution_project_registry_dry_run_plans_stub_creation():
+    rows = [{"notion_id": "page-1", "project": ["proj-page-1"]}]
+    project_feature = _fake_feature("project", "list[cat[Project]]")
+    feat = {"project": project_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=False)
+
+    Project = MagicMock()
+    project_qs = MagicMock()
+    project_qs.count.return_value = 0
+    Project.filter.return_value = project_qs
+    Project.__name__ = "Project"
+    Project._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Project, "Project"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
+            }
+        }
+        _, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"project"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 0
+    assert (
+        "Meetings / project -> Project: Pfizer <- proj-page-1"
+        in report.create_relation_stubs
+    )
+    assert (
+        "Meetings / project: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
+def test_relation_resolution_reference_registry_apply_creates_stub():
+    rows = [{"notion_id": "page-1", "reference": ["ref-page-1"]}]
+    reference_feature = _fake_feature("reference", "list[cat[Reference]]")
+    feat = {"reference": reference_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=True)
+
+    stub_record = object()
+    stub_factory = MagicMock()
+    stub_factory.save.return_value = stub_record
+
+    Reference = MagicMock()
+    reference_qs = MagicMock()
+    reference_qs.count.return_value = 0
+    Reference.filter.return_value = reference_qs
+    Reference.return_value = stub_factory
+    Reference.__name__ = "Reference"
+    Reference._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Reference, "Reference"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Nature paper"}]}
+            }
+        }
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"reference"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=True,
+            report=report,
+        )
+
+    Reference.assert_called_once_with(name="Nature paper")
+    assert resolved["ref-page-1"] is stub_record
+    assert pending == 0
+    assert (
+        "Meetings / reference -> Reference: Nature paper <- ref-page-1"
+        in report.created_relation_stubs
+    )
+    assert (
+        "Meetings / reference: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
 def test_syncer_init_raises_without_token(monkeypatch):
     monkeypatch.delenv("NOTION_TOKEN", raising=False)
     with pytest.raises(ValueError, match="NOTION_TOKEN"):
