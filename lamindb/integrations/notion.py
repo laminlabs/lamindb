@@ -312,7 +312,7 @@ class SyncReport:
         return "\n".join(lines)
 
 
-def _flatten(prop: dict) -> Any:
+def _flatten(prop: dict, *, people_name_cache: dict[str, str] | None = None) -> Any:
     t = prop.get("type")
     if t in ("title", "rich_text"):
         return "".join(s.get("plain_text", "") for s in (prop.get(t) or []))
@@ -339,7 +339,14 @@ def _flatten(prop: dict) -> Any:
         for item in prop.get(t) or []:
             raw_id = item.get("id")
             if isinstance(raw_id, str) and raw_id:
-                ids.append(_normalize_notion_id(raw_id) or raw_id)
+                normalized_id = _normalize_notion_id(raw_id) or raw_id
+                ids.append(normalized_id)
+                if t == "people" and people_name_cache is not None:
+                    raw_name = item.get("name")
+                    if isinstance(raw_name, str):
+                        person_name = raw_name.strip()
+                        if person_name:
+                            people_name_cache[normalized_id] = person_name
         return ids
     if t in ("created_by", "last_edited_by"):
         u = prop.get(t)
@@ -414,6 +421,7 @@ class _NotionReader:
         self._ds: dict[str, str] = {}
         self._schema: dict[str, dict] = {}
         self._titles: dict[str, dict[str, str]] = {}
+        self._notion_people_names_by_id: dict[str, str] = {}
 
     def _call(
         self,
@@ -585,7 +593,9 @@ class _NotionReader:
             for name, prop in page.get("properties", {}).items():
                 if name in drop or prop.get("type") in drop:
                     continue
-                row[name] = _flatten(prop)
+                row[name] = _flatten(
+                    prop, people_name_cache=self._notion_people_names_by_id
+                )
             # page-level fields win over any same-named user property
             page_id = page.get("id")
             row["notion_id"] = (
@@ -744,6 +754,13 @@ class _NotionReader:
                 caption = self._block_caption_markdown(payload)
                 label = caption or _short_file_source(file_url)
                 lines.append(f"{indent}[{label}]({file_url})")
+        elif block_type in {"bookmark", "embed", "link_preview"}:
+            # Keep external previews (e.g. Slack URLs) as plain links in markdown.
+            preview_url = payload.get("url") if isinstance(payload, dict) else None
+            if isinstance(preview_url, str):
+                preview_url = preview_url.strip()
+                if preview_url:
+                    lines.append(f"{indent}{preview_url}")
         elif block_type == "table_of_contents":
             lines.append(f"{indent}<!-- display-table-of-contents -->")
         elif block_type == "divider":
@@ -911,7 +928,9 @@ class _NotionReader:
         for name, prop in raw.get("properties", {}).items():
             if name in drop or prop.get("type") in drop:
                 continue
-            row[name] = _flatten(prop)
+            row[name] = _flatten(
+                prop, people_name_cache=self._notion_people_names_by_id
+            )
         raw_id = raw.get("id")
         row["notion_id"] = (
             _normalize_notion_id(raw_id) if isinstance(raw_id, str) else raw_id
@@ -1080,12 +1099,55 @@ def _notion_page_title(reader: _NotionReader, notion_page_id: str) -> str | None
     return title or None
 
 
+def _notion_user_or_page_lookup(
+    reader: _NotionReader, notion_id: str
+) -> tuple[str | None, str]:
+    cached_people_names = getattr(reader, "_notion_people_names_by_id", None)
+    if isinstance(cached_people_names, dict):
+        cached_name = cached_people_names.get(notion_id)
+        if isinstance(cached_name, str) and cached_name.strip():
+            return cached_name.strip(), "people_property_cache"
+
+    notion_api_id = _notion_api_id(notion_id)
+
+    user_reason = "no_user_name"
+    try:
+        user_payload = reader._call("GET", f"/users/{notion_api_id}")
+        user_name = user_payload.get("name")
+        if isinstance(user_name, str) and user_name.strip():
+            return user_name.strip(), "user"
+    except Exception as error:  # noqa: BLE001
+        user_reason = type(error).__name__
+
+    page_reason = "no_page_title"
+    try:
+        page_payload = reader._call("GET", f"/pages/{notion_api_id}")
+        page_title = _page_title(page_payload).strip()
+        if page_title:
+            return page_title, "page"
+    except Exception as error:  # noqa: BLE001
+        page_reason = type(error).__name__
+
+    return None, f"user:{user_reason};page:{page_reason}"
+
+
+def _notion_user_or_page_name(reader: _NotionReader, notion_id: str) -> str | None:
+    name, _ = _notion_user_or_page_lookup(reader, notion_id)
+    return name
+
+
 def _resolved_users_by_notion_id(
     reader: _NotionReader, notion_user_ids: list[str]
 ) -> dict[str, Any]:
     names_by_id: dict[str, str] = {}
+    cached_people_names = getattr(reader, "_notion_people_names_by_id", None)
     for notion_user_id in notion_user_ids:
-        name = _notion_user_name(reader, notion_user_id)
+        if isinstance(cached_people_names, dict):
+            cached_name = cached_people_names.get(notion_user_id)
+            if isinstance(cached_name, str) and cached_name.strip():
+                names_by_id[notion_user_id] = cached_name.strip()
+                continue
+        name = _notion_user_or_page_name(reader, notion_user_id)
         if name is not None:
             names_by_id[notion_user_id] = name
     if not names_by_id:
@@ -1093,14 +1155,19 @@ def _resolved_users_by_notion_id(
 
     users_by_lower_name: dict[str, Any] = {}
     for name in sorted(set(names_by_id.values())):
-        qs = ln.User.filter(name__iexact=name)
-        count = qs.count()
-        if count > 1:
+        normalized_name = name.strip()
+        normalized_key = normalized_name.lower()
+        if not normalized_name:
+            continue
+
+        qs = ln.User.filter(name__iexact=normalized_name)
+        name_count = qs.count()
+        if name_count > 1:
             raise ValueError(
                 f"Cannot sync relation values: ambiguous Lamin users for name {name!r}."
             )
-        if count == 1:
-            users_by_lower_name[name.lower()] = qs.one()
+        if name_count == 1:
+            users_by_lower_name[normalized_key] = qs.one()
 
     return {
         notion_user_id: users_by_lower_name[name.lower()]
@@ -2336,7 +2403,10 @@ class _NotionSyncer:
             if isinstance(properties, dict):
                 for name, prop in properties.items():
                     if isinstance(prop, dict):
-                        row[name] = _flatten(prop)
+                        row[name] = _flatten(
+                            prop,
+                            people_name_cache=self.reader._notion_people_names_by_id,
+                        )
             if include_page_emoji:
                 row["__notion_emoji__"] = _extract_emoji(page_payload)
             if row["notion_id"]:
@@ -4313,11 +4383,24 @@ class ProjectSyncer:
         return normalized in {"reference", "references"}
 
     @staticmethod
+    def _is_user_directory_name(name: str) -> bool:
+        normalized = name.strip().lower()
+        return normalized in {
+            "user",
+            "users",
+            "person",
+            "people",
+            "members",
+            "team members",
+        }
+
+    @staticmethod
     def _is_parent_relation_name(name: str) -> bool:
         normalized = name.strip().lower().replace("_", " ")
         parent_tokens = {
             "parent",
             "parents",
+            "project",
             "program",
             "initiative",
             "portfolio",
@@ -4486,6 +4569,9 @@ class ProjectSyncer:
                 target_names = []
                 if isinstance(target, str) and target:
                     target_names = self._target_names(target)
+                if normalized == "responsible":
+                    mapping["people_roles"][property_name] = "responsible"
+                    continue
                 if any(self._is_project_name(name) for name in target_names):
                     if self._is_predecessor_relation_name(property_name):
                         mapping["predecessors_rel"].add(property_name)
@@ -4895,6 +4981,10 @@ class ProjectSyncer:
         else:
             resolved_relations, relation_pending = {}, 0
 
+        people_link_stats: dict[str, dict[str, set[str]]] = {
+            prop: {"resolved": set(), "unresolved": set()}
+            for prop in mapping["people_roles"]
+        }
         user_relation_ids: set[str] = set()
         for people_property in mapping["people_roles"]:
             for row in rows:
@@ -5079,13 +5169,17 @@ class ProjectSyncer:
                 user_ids = row.get(people_property)
                 raw_ids = user_ids if isinstance(user_ids, list) else [user_ids]
                 users: list[Any] = []
+                stats = people_link_stats[people_property]
                 for user_id in raw_ids:
                     if not isinstance(user_id, str) or not user_id:
                         continue
                     normalized_user_id = _normalize_notion_id(user_id) or user_id
                     user = users_by_notion_id.get(normalized_user_id)
                     if user is not None:
+                        stats["resolved"].add(normalized_user_id)
                         users.append(user)
+                    else:
+                        stats["unresolved"].add(normalized_user_id)
                 self._sync_project_user_role(project, role=role, users=users)
 
             markdown_content = markdown_by_notion_id.get(notion_id)
@@ -5096,6 +5190,34 @@ class ProjectSyncer:
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
             records += 1
+        if report is not None:
+            for people_property, stats in sorted(people_link_stats.items()):
+                resolved_count = len(stats["resolved"])
+                pending_count = len(stats["unresolved"])
+                relation_pending += pending_count
+                unresolved_names: list[str] = []
+                unresolved_lookup: list[str] = []
+                for notion_id in sorted(stats["unresolved"]):
+                    name, lookup_source = _notion_user_or_page_lookup(
+                        self.reader, notion_id
+                    )
+                    display_name = name or (_compact_uuid(notion_id) or notion_id)
+                    unresolved_names.append(display_name)
+                    unresolved_lookup.append(f"{display_name} [{lookup_source}]")
+                pending_name_note = (
+                    f", pending_names={unresolved_names}" if unresolved_names else ""
+                )
+                pending_lookup_note = (
+                    f", pending_lookup={unresolved_lookup}" if unresolved_lookup else ""
+                )
+                _append_unique(
+                    report.relation_value_links,
+                    f"{db_name} / {people_property}: "
+                    f"resolved_existing={resolved_count}, "
+                    "stub_create=0, "
+                    f"pending_unresolved={pending_count}{pending_name_note}"
+                    f"{pending_lookup_note}",
+                )
         return {"records": records, "pending": relation_pending}
 
 
@@ -5121,6 +5243,8 @@ class NotionSyncer(RecordSyncer):
         normalized_name = db_name.strip().lower()
         if normalized_name in {"task", "tasks"}:
             return "Tasks"
+        if normalized_name in {"project", "projects"}:
+            return "Work packages"
         return None
 
     @staticmethod

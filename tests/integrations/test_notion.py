@@ -27,11 +27,13 @@ from lamindb.integrations.notion import (
     _ensure_artifacts,
     _ensure_feature_itype_on_record_schema,
     _flatten,
+    _notion_user_or_page_name,
     _NotionReader,
     _NotionSyncer,
     _planned_embedded_file_transfers,
     _planned_missing_file_transfers,
     _resolve_relation_records_for_rows,
+    _resolved_users_by_notion_id,
     _rewrite_embedded_file_refs,
     _short_file_source,
     _storage_src_for_artifact,
@@ -176,6 +178,16 @@ def test_flatten_date_null():
 
 def test_flatten_people(page_props):
     assert _flatten(page_props["Owner"]) == ["user-id-abc"]
+
+
+def test_flatten_people_caches_person_name():
+    cache: dict[str, str] = {}
+    prop = {
+        "type": "people",
+        "people": [{"id": "user-id-abc", "name": "Bernardo Penteado"}],
+    }
+    assert _flatten(prop, people_name_cache=cache) == ["user-id-abc"]
+    assert cache == {"user-id-abc": "Bernardo Penteado"}
 
 
 def test_flatten_relation_returns_page_ids(page_props):
@@ -1046,6 +1058,37 @@ def test_page_markdown_exports_image_and_file_blocks(reader):
     assert "[Slides](https://files.notion.site/deck.pdf)" in markdown
 
 
+def test_page_markdown_exports_link_preview_style_blocks_as_urls(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "preview-1",
+                        "type": "link_preview",
+                        "has_children": False,
+                        "link_preview": {
+                            "url": "https://lamin.ai/slack-preview-post",
+                        },
+                    },
+                    {
+                        "id": "bookmark-1",
+                        "type": "bookmark",
+                        "has_children": False,
+                        "bookmark": {
+                            "url": "https://lamin.ai/docs",
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "https://lamin.ai/slack-preview-post" in markdown
+    assert "https://lamin.ai/docs" in markdown
+
+
 def test_page_markdown_exports_table_of_contents_marker(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -1343,6 +1386,41 @@ def test_project_syncer_maps_task_relation_to_children():
     assert report.unmapped_properties == []
 
 
+def test_project_syncer_maps_project_relation_to_parents():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "project": {"type": "relation", "target": "ds-projects"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Projects"]):
+        mapping = syncer.build_mapping(
+            db_name="Tasks",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["parents_rel"] == {"project"}
+    assert report.unmapped_properties == []
+
+
+def test_project_syncer_maps_responsible_relation_to_people_role():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "responsible": {"type": "relation", "target": "ds-people"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Teams"]):
+        mapping = syncer.build_mapping(
+            db_name="Tasks",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["people_roles"] == {"responsible": "responsible"}
+    assert mapping["record_rel"] == {}
+    assert report.unmapped_properties == []
+
+
 def test_notion_syncer_recognizes_tasks_database_as_project_database(monkeypatch):
     monkeypatch.setenv("NOTION_TOKEN", "env-token")
     with patch("httpx.Client") as MockSession:
@@ -1350,6 +1428,12 @@ def test_notion_syncer_recognizes_tasks_database_as_project_database(monkeypatch
         syncer = NotionSyncer()
     payload = {"title": [{"plain_text": "Tasks"}]}
     assert syncer._is_project_database(payload, "db-tasks") is True
+
+
+def test_notion_syncer_project_type_name_for_database_defaults():
+    assert NotionSyncer._project_type_name_for_database("Tasks") == "Tasks"
+    assert NotionSyncer._project_type_name_for_database("Projects") == "Work packages"
+    assert NotionSyncer._project_type_name_for_database("Other DB") is None
 
 
 def test_project_syncer_upsert_all_assigns_tasks_type():
@@ -1372,6 +1456,31 @@ def test_project_syncer_upsert_all_assigns_tasks_type():
         type=project_type,
     )
     assert out["3922aeaa55e1808d9725d314fb7bc388"] == "saved-task"
+
+
+def test_project_syncer_upsert_all_updates_existing_type():
+    rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
+    project_type = type("ProjectType", (), {"id": 77})()
+    existing = MagicMock()
+    existing.url = "https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388"
+    existing.name = "Task A"
+    existing.type_id = None
+    existing.created_at = None
+    existing.updated_at = None
+    existing._aux = None
+
+    syncer = ProjectSyncer(reader=MagicMock())
+    out = syncer.upsert_all(
+        rows=rows,
+        by_id={"3922aeaa55e1808d9725d314fb7bc388": existing},
+        title_property="Name",
+        project_type=project_type,
+    )
+    assert out["3922aeaa55e1808d9725d314fb7bc388"] is existing
+    assert existing.type is project_type
+    assert existing.save.call_count == 1
+    update_fields = existing.save.call_args.kwargs["update_fields"]
+    assert "type" in update_fields
 
 
 def test_project_syncer_recognizes_project_hierarchy_and_dependency_relations():
@@ -1795,6 +1904,160 @@ def test_relation_resolution_user_dtype_counts_pending_when_no_name_match():
     assert pending == 1
     assert (
         "Meetings / internal_attendees: resolved_existing=0, stub_create=0, pending_unresolved=1"
+        in report.relation_value_links
+    )
+
+
+def test_resolved_users_by_notion_id_falls_back_to_page_title():
+    User = MagicMock()
+    user_qs = MagicMock()
+    resolved_user = type("User", (), {"name": "Alex Wolf"})()
+    user_qs.count.return_value = 1
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    reader = MagicMock()
+
+    def _call_side_effect(method, path, **kwargs):
+        if path == "/users/11111111-2222-3333-4444-555555555555":
+            raise LookupError("not a Notion user id")
+        if path == "/pages/11111111-2222-3333-4444-555555555555":
+            return {
+                "properties": {
+                    "Name": {
+                        "type": "title",
+                        "title": [{"plain_text": "Alex Wolf"}],
+                    }
+                }
+            }
+        raise AssertionError(path)
+
+    reader._call.side_effect = _call_side_effect
+    with patch("lamindb.integrations.notion.ln.User", User):
+        resolved = _resolved_users_by_notion_id(
+            reader, ["11111111222233334444555555555555"]
+        )
+
+    assert resolved["11111111222233334444555555555555"] is resolved_user
+
+
+def test_resolved_users_by_notion_id_uses_people_property_name_cache():
+    User = MagicMock()
+    user_qs = MagicMock()
+    resolved_user = type("User", (), {"name": "Bernardo Penteado"})()
+    user_qs.count.return_value = 1
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    reader = MagicMock()
+    reader._notion_people_names_by_id = {
+        "11111111222233334444555555555555": "Bernardo Penteado"
+    }
+    with patch("lamindb.integrations.notion.ln.User", User):
+        resolved = _resolved_users_by_notion_id(
+            reader, ["11111111222233334444555555555555"]
+        )
+
+    assert resolved["11111111222233334444555555555555"] is resolved_user
+    reader._call.assert_not_called()
+
+
+def test_notion_user_or_page_name_prefers_notion_user_name():
+    reader = MagicMock()
+    reader._call.return_value = {"name": "Alex Wolf"}
+
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Alex Wolf"
+
+
+def test_notion_user_or_page_name_uses_people_property_cache():
+    reader = MagicMock()
+    reader._notion_people_names_by_id = {
+        "11111111222233334444555555555555": "Bernardo Penteado"
+    }
+
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Bernardo Penteado"
+    reader._call.assert_not_called()
+
+
+def test_notion_user_or_page_name_falls_back_to_page_title():
+    reader = MagicMock()
+
+    def _call_side_effect(method, path, **kwargs):
+        if path == "/users/11111111-2222-3333-4444-555555555555":
+            raise LookupError("not a Notion user id")
+        if path == "/pages/11111111-2222-3333-4444-555555555555":
+            return {
+                "properties": {
+                    "Name": {
+                        "type": "title",
+                        "title": [{"plain_text": "Alex Wolf"}],
+                    }
+                }
+            }
+        raise AssertionError(path)
+
+    reader._call.side_effect = _call_side_effect
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Alex Wolf"
+
+
+def test_write_projects_reports_unresolved_people_names():
+    syncer = ProjectSyncer(reader=MagicMock())
+    syncer.reader.page_markdown.return_value = ""
+    report = SyncReport(apply=True)
+    project = MagicMock()
+    project.parents = MagicMock()
+    project.children = MagicMock()
+    project.predecessors = MagicMock()
+    project.successors = MagicMock()
+    project.references = MagicMock()
+    project.links_record.filter.return_value = []
+    rows = [
+        {"notion_id": "page-1", "responsible": ["11111111222233334444555555555555"]}
+    ]
+    mapping = {
+        "title": None,
+        "description": None,
+        "timeline": None,
+        "start_date": None,
+        "end_date": None,
+        "status": None,
+        "created_time": None,
+        "last_edited_time": None,
+        "created_by": None,
+        "parents_rel": set(),
+        "children_rel": set(),
+        "predecessors_rel": set(),
+        "successors_rel": set(),
+        "references_rel": set(),
+        "record_rel": {},
+        "people_roles": {"responsible": "responsible"},
+    }
+    with (
+        patch("lamindb.integrations.notion._batch_artifacts", return_value={}),
+        patch(
+            "lamindb.integrations.notion._resolved_users_by_notion_id", return_value={}
+        ),
+        patch(
+            "lamindb.integrations.notion._notion_user_or_page_lookup",
+            return_value=("Alex Wolf", "user"),
+        ),
+    ):
+        syncer.write_projects(
+            db_name="Tasks",
+            rows=rows,
+            by_id={"page-1": project},
+            mapping=mapping,
+            report=report,
+        )
+
+    assert (
+        "Tasks / responsible: resolved_existing=0, stub_create=0, pending_unresolved=1, pending_names=['Alex Wolf'], pending_lookup=['Alex Wolf [user]']"
         in report.relation_value_links
     )
 
@@ -3756,6 +4019,37 @@ def test_collect_database_ids_page_parent_in_data_source_seeds_database_rows(syn
     assert db_ids == {database_id}
     assert parent_pages == {}
     assert syncer._seed_page_ids_by_database == {database_id: {page_id}}
+
+
+def test_rows_for_seed_pages_caches_people_names_on_reader(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    database_id = "b86daf142a544728bda2496c5760d863"
+    page_payload = {
+        "id": page_id,
+        "created_time": "2024-01-10T08:00:00.000Z",
+        "last_edited_time": "2024-01-15T10:30:00.000Z",
+        "properties": {
+            "responsible": {
+                "type": "people",
+                "people": [
+                    {
+                        "id": "0c3d426d8bdd4ca3b9b3c502d4f5d330",
+                        "name": "Bernardo Penteado",
+                    }
+                ],
+            }
+        },
+    }
+    with (
+        patch.object(syncer, "_safe_call", return_value=page_payload),
+        patch.object(syncer, "_page_parent_database_id", return_value=database_id),
+    ):
+        rows = syncer._rows_for_seed_pages(database_id, {page_id})
+
+    assert rows[0]["responsible"] == ["0c3d426d8bdd4ca3b9b3c502d4f5d330"]
+    assert syncer.reader._notion_people_names_by_id == {
+        "0c3d426d8bdd4ca3b9b3c502d4f5d330": "Bernardo Penteado"
+    }
 
 
 def test_collect_database_ids_page_parent_includes_ancestor_page(syncer):
