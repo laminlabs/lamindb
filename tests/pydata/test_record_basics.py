@@ -129,6 +129,11 @@ def test_record_lazy_features_on_save():
     score_feature.delete(permanent=True)
 
 
+def test_project_initialization_accepts_description():
+    project = ln.Project(name="project-with-description", description="hello")
+    assert project.description == "hello"
+
+
 def test_record_from_dataframe_partial_null_bool_int():
     """Partial-null bool/int features survive the from_dataframe save round-trip.
 

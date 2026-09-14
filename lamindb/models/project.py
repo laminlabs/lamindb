@@ -313,6 +313,7 @@ class Project(
         is_type: `bool = False` Whether this project is a type.
         abbr: `str | None = None` An abbreviation.
         url: `str | None = None` A URL.
+        description: `str | None = None` A description.
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
@@ -507,6 +508,7 @@ class Project(
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
+        description: str | None = None,
         start_date: DateType | None = None,
         end_date: DateType | None = None,
         branch: Branch | None = None,
@@ -529,6 +531,7 @@ class Project(
         is_type: bool = kwargs.pop("is_type", False)
         abbr: str | None = kwargs.pop("abbr", None)
         url: str | None = kwargs.pop("url", None)
+        description: str | None = kwargs.pop("description", None)
         start_date: DateType | None = kwargs.pop("start_date", None)
         end_date: DateType | None = kwargs.pop("end_date", None)
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
@@ -545,6 +548,7 @@ class Project(
             is_type=is_type,
             abbr=abbr,
             url=url,
+            description=description,
             start_date=start_date,
             end_date=end_date,
             _skip_validation=_skip_validation,
@@ -561,14 +565,14 @@ class Project(
         ===========  =====  ==========================================================
         status       code   description
         ===========  =====  ==========================================================
-        `archived`   -1     The project is archived and no longer actively tracked.
-        `canceled`   -2     The project was canceled.
-        `done`       0      The project completed successfully.
-        `planned`    1      The project is planned but not yet started.
-        `active`     2      The project is currently active.
-        `paused`     3      The project is temporarily paused.
-        `up-next`    4      The project is queued as the next item to start.
-        `continued`  5      The project was resumed after being paused/stopped.
+        `planned`    -3     The project is planned but not yet started.
+        `up-next`    -2     The project is queued as the next item to start.
+        `active`     -1     The project is currently active.
+        `completed`  0      The project completed successfully.
+        `paused`     1      The project is temporarily paused.
+        `background` 2      The project is being worked on in the background.
+        `canceled`   3      The project was canceled.
+        `archived`   4      The project is archived and no longer actively tracked.
         ===========  =====  ==========================================================
 
         The database stores the project status as an integer code in field `_status_code`.
@@ -589,7 +593,7 @@ class Project(
 
                 ln.Project.filter(status="active").to_dataframe()
         """
-        return PROJECT_CODE_TO_STATUS.get(self._status_code, "done")
+        return PROJECT_CODE_TO_STATUS.get(self._status_code, "completed")
 
     @status.setter
     def status(self, value: ProjectStatus) -> None:

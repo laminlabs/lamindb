@@ -18,6 +18,7 @@ import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
+    NotionSyncer,
     ProjectSyncer,
     SyncReport,
     _artifact_key_from_url,
@@ -1237,7 +1238,7 @@ def test_project_syncer_reports_unmapped_properties():
     }
 
     with (
-        patch.object(syncer, "_target_names", return_value=["Tasks"]),
+        patch.object(syncer, "_target_names", return_value=["Organizations"]),
         patch.object(
             syncer, "_resolve_record_type_by_name_candidates", return_value=None
         ),
@@ -1290,6 +1291,89 @@ def test_project_syncer_maps_relation_target_record_type():
     )
 
 
+def test_project_syncer_skips_hardcoded_project_record_properties():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    target_record_type = type("RecordType", (), {"uid": "Ab12Cd34Ef56"})()
+    schema_spec = {
+        "presentations": {"type": "relation", "target": "ds-presentations"},
+        "meetings": {"type": "relation", "target": "ds-meetings"},
+    }
+    with (
+        patch.object(syncer, "_target_names", return_value=["Presentations"]),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=target_record_type,
+        ),
+    ):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert "presentations" not in mapping["record_rel"]
+    assert "meetings" not in mapping["record_rel"]
+    assert report.mapped_project_record_relations == []
+    assert (
+        "Projects / presentations (relation): intentionally skipped ProjectRecord mapping (populate from Record side)"
+        in report.unmapped_properties
+    )
+    assert (
+        "Projects / meetings (relation): intentionally skipped ProjectRecord mapping (populate from Record side)"
+        in report.unmapped_properties
+    )
+
+
+def test_project_syncer_maps_task_relation_to_children():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "task": {"type": "relation", "target": "ds-tasks"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Tasks"]):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["children_rel"] == {"task"}
+    assert report.unmapped_properties == []
+
+
+def test_notion_syncer_recognizes_tasks_database_as_project_database(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    payload = {"title": [{"plain_text": "Tasks"}]}
+    assert syncer._is_project_database(payload, "db-tasks") is True
+
+
+def test_project_syncer_upsert_all_assigns_tasks_type():
+    rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
+    project_type = type("ProjectType", (), {"id": 77})()
+    with patch("lamindb.integrations.notion.ln.Project") as Project:
+        project_factory = MagicMock()
+        project_factory.save.return_value = "saved-task"
+        Project.return_value = project_factory
+        syncer = ProjectSyncer(reader=MagicMock())
+        out = syncer.upsert_all(
+            rows=rows,
+            by_id={},
+            title_property="Name",
+            project_type=project_type,
+        )
+    Project.assert_called_once_with(
+        name="Task A",
+        url="https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388",
+        type=project_type,
+    )
+    assert out["3922aeaa55e1808d9725d314fb7bc388"] == "saved-task"
+
+
 def test_project_syncer_recognizes_project_hierarchy_and_dependency_relations():
     syncer = ProjectSyncer(reader=MagicMock())
     report = SyncReport(apply=False)
@@ -1331,22 +1415,24 @@ def test_project_syncer_validate_status_mapping_accepts_extended_statuses():
             "type": "status",
             "choices": [
                 "planned",
-                "active",
-                "paused",
-                "done",
-                "archived",
-                "canceled",
-                "continued",
                 "up-next",
+                "active",
+                "completed",
+                "paused",
+                "background",
+                "canceled",
+                "archived",
             ],
         }
     }
     rows = [
         {"Status": "up-next"},
+        {"Status": "background"},
         {"Status": "continued"},
         {"Status": "canceled"},
         {"Status": "cancelled"},
         {"Status": "up next"},
+        {"Status": "completed"},
     ]
     syncer.validate_status_mapping(
         db_name="Projects",
@@ -1911,7 +1997,7 @@ def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url
 
     Project.assert_called_once_with(
         name="Pfizer",
-        url="notion:3922aeaa55e1808d9725d314fb7bc388",
+        url="https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388",
     )
     assert resolved["3922aeaa55e1808d9725d314fb7bc388"] is stub_project
     assert pending == 0

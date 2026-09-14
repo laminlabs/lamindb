@@ -77,28 +77,28 @@ The database stores the branch status as an integer code in field `_status_code`
 """
 
 ProjectStatus = Literal[
-    "archived",
-    "canceled",
-    "done",
     "planned",
-    "active",
-    "paused",
     "up-next",
-    "continued",
+    "active",
+    "completed",
+    "paused",
+    "background",
+    "canceled",
+    "archived",
 ]
 """Project status.
 
 ===========  =====  ==========================================================
 status       code   description
 ===========  =====  ==========================================================
-`archived`   -1     The project is archived and no longer actively tracked.
-`canceled`   -2     The project was canceled.
-`done`       0      The project completed successfully.
-`planned`    1      The project is planned but not yet started.
-`active`     2      The project is currently active.
-`paused`     3      The project is temporarily paused.
-`up-next`    4      The project is queued as the next item to start.
-`continued`  5      The project was resumed after being paused/stopped.
+`planned`    -3     The project is planned but not yet started.
+`up-next`    -2     The project is queued as the next item to start.
+`active`     -1     The project is currently active.
+`completed`  0      The project completed successfully.
+`paused`     1      The project is temporarily paused.
+`background` 2      The project is being worked on in the background.
+`canceled`   3      The project was canceled.
+`archived`   4      The project is archived and no longer actively tracked.
 ===========  =====  ==========================================================
 
 The database stores the project status as an integer code in field `_status_code`.
@@ -147,14 +147,14 @@ BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
 }
 
 PROJECT_STATUS_TO_CODE: dict[ProjectStatus, int] = {
-    "archived": -1,
-    "canceled": -2,
-    "done": 0,
-    "planned": 1,
-    "active": 2,
-    "paused": 3,
-    "up-next": 4,
-    "continued": 5,
+    "planned": -3,
+    "up-next": -2,
+    "active": -1,
+    "completed": 0,
+    "paused": 1,
+    "background": 2,
+    "canceled": 3,
+    "archived": 4,
 }
 PROJECT_CODE_TO_STATUS: dict[int, ProjectStatus] = {
     code: status for status, code in PROJECT_STATUS_TO_CODE.items()

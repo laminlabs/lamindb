@@ -1151,7 +1151,7 @@ def _registry_stub_kwargs(
     kwargs: dict[str, str] = {field_name: stub_name}
     if getattr(registry, "__name__", "") == "Project":
         compact_notion_id = _normalize_notion_id(notion_id) or notion_id
-        kwargs["url"] = f"notion:{compact_notion_id}"
+        kwargs["url"] = f"https://notion.so/laminlabs/{compact_notion_id}"
     return kwargs
 
 
@@ -4261,6 +4261,8 @@ class RecordSyncer(_NotionSyncer):
 class ProjectSyncer:
     """Project-specific Notion sync utility."""
 
+    SKIP_PROJECT_RECORD_PROPERTIES: set[str] = {"presentations", "meetings"}
+
     PROJECT_STATUS_TO_CODE: dict[str, int] = {
         str(status): code for status, code in LAMIN_PROJECT_STATUS_TO_CODE.items()
     }
@@ -4271,8 +4273,9 @@ class ProjectSyncer:
         "in_progress": "active",
         "up next": "up-next",
         "up_next": "up-next",
-        "complete": "done",
-        "completed": "done",
+        "complete": "completed",
+        "completed": "completed",
+        "continued": "background",
         "cancelled": "canceled",
     }
 
@@ -4302,7 +4305,7 @@ class ProjectSyncer:
     @staticmethod
     def _is_project_name(name: str) -> bool:
         normalized = name.strip().lower()
-        return normalized in {"project", "projects"}
+        return normalized in {"project", "projects", "task", "tasks"}
 
     @staticmethod
     def _is_reference_name(name: str) -> bool:
@@ -4329,6 +4332,8 @@ class ProjectSyncer:
         child_tokens = {
             "child",
             "children",
+            "task",
+            "tasks",
             "subproject",
             "sub project",
             "sub-project",
@@ -4367,7 +4372,7 @@ class ProjectSyncer:
     @staticmethod
     def _notion_project_url(notion_id: str) -> str:
         compact_id = _normalize_notion_id(notion_id) or notion_id
-        return f"notion:{compact_id}"
+        return f"https://notion.so/laminlabs/{compact_id}"
 
     @staticmethod
     def _append_unmapped(
@@ -4507,6 +4512,21 @@ class ProjectSyncer:
                     continue
                 record_type = self._resolve_record_type_by_name_candidates(target_names)
                 if record_type is not None:
+                    normalized_property_name = (
+                        property_name.strip().lower().replace(" ", "_")
+                    )
+                    if normalized_property_name in self.SKIP_PROJECT_RECORD_PROPERTIES:
+                        self._append_unmapped(
+                            report=report,
+                            db_name=db_name,
+                            property_name=property_name,
+                            notion_type=notion_type,
+                            reason=(
+                                "intentionally skipped ProjectRecord mapping "
+                                "(populate from Record side)"
+                            ),
+                        )
+                        continue
                     mapping["record_rel"][property_name] = record_type
                     target_name = getattr(record_type, "name", None)
                     if not isinstance(target_name, str) or not target_name:
@@ -4647,7 +4667,7 @@ class ProjectSyncer:
         by_id: dict[str, Any] = {}
         for project in ln.Project.filter(url__in=list(url_to_id)):
             notion_id = url_to_id.get(getattr(project, "url", None))
-            if notion_id is not None:
+            if notion_id is not None and notion_id in notion_ids:
                 by_id[notion_id] = project
         return by_id
 
@@ -4657,6 +4677,7 @@ class ProjectSyncer:
         rows: list[dict[str, Any]],
         by_id: dict[str, Any],
         title_property: str | None,
+        project_type: Any | None = None,
     ) -> dict[str, Any]:
         for row in rows:
             raw_notion_id = row.get("notion_id")
@@ -4674,9 +4695,13 @@ class ProjectSyncer:
             row_name = row.get(title_property) if title_property else row.get("name")
             project = by_id.get(notion_id)
             if project is None:
-                project = ln.Project(
-                    name=row_name or _compact_uuid(notion_id), url=project_url
-                )
+                project_kwargs: dict[str, Any] = {
+                    "name": row_name or _compact_uuid(notion_id),
+                    "url": project_url,
+                }
+                if project_type is not None:
+                    project_kwargs["type"] = project_type
+                project = ln.Project(**project_kwargs)
                 project._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
                 if created_at is not None:
                     project.created_at = created_at
@@ -4691,6 +4716,11 @@ class ProjectSyncer:
             if isinstance(row_name, str) and row_name and row_name != project.name:
                 project.name = row_name
                 changed_fields.append("name")
+            if project_type is not None and getattr(
+                project, "type_id", None
+            ) != getattr(project_type, "id", None):
+                project.type = project_type
+                changed_fields.append("type")
             if created_at is not None and _normalized_timestamp(
                 project.created_at
             ) != _normalized_timestamp(created_at):
@@ -5078,10 +5108,34 @@ class NotionSyncer(RecordSyncer):
 
     def _is_project_database(self, payload: dict[str, Any], database_id: str) -> bool:
         db_name = self._database_title(payload, fallback=database_id)
+        normalized_name = db_name.strip().lower()
+        if normalized_name in {"task", "tasks"}:
+            return True
         resolved_type, _ = self._resolve_or_plan_relation_record_type(
             [db_name], apply=False, report=None, prefer_plural=False
         )
         return resolved_type is ln.Project
+
+    @staticmethod
+    def _project_type_name_for_database(db_name: str) -> str | None:
+        normalized_name = db_name.strip().lower()
+        if normalized_name in {"task", "tasks"}:
+            return "Tasks"
+        return None
+
+    @staticmethod
+    def _resolve_or_create_project_type(type_name: str, *, apply: bool) -> Any | None:
+        qs = ln.Project.filter(name=type_name, is_type=True)
+        count = qs.count()
+        if count > 1:
+            raise ValueError(
+                f"Ambiguous LaminDB project type name {type_name!r}: found {count} matches."
+            )
+        if count == 1:
+            return qs.one()
+        if not apply:
+            return None
+        return ln.Project(name=type_name, is_type=True).save()
 
     def import_pages(
         self,
@@ -5116,11 +5170,20 @@ class NotionSyncer(RecordSyncer):
         db_payloads: dict[str, dict[str, Any]] = {}
         project_db_ids: set[str] = set()
         record_db_ids: set[str] = set()
+        project_type_by_db_id: dict[str, Any | None] = {}
         for db_id in db_ids:
             payload = self.reader._call("GET", f"/databases/{db_id}")
             db_payloads[db_id] = payload
             if self._is_project_database(payload, db_id):
                 project_db_ids.add(db_id)
+                db_name = self._database_title(payload, fallback=db_id)
+                project_type_name = self._project_type_name_for_database(db_name)
+                if project_type_name is not None:
+                    project_type_by_db_id[db_id] = self._resolve_or_create_project_type(
+                        project_type_name, apply=apply
+                    )
+                else:
+                    project_type_by_db_id[db_id] = None
             else:
                 record_db_ids.add(db_id)
 
@@ -5258,6 +5321,7 @@ class NotionSyncer(RecordSyncer):
                             rows=rows,
                             by_id=before,
                             title_property=mapping.get("title"),
+                            project_type=project_type_by_db_id.get(db_id),
                         )
                     else:
                         after_maps[db_id] = before
