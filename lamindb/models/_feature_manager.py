@@ -1286,11 +1286,14 @@ class FeatureManager:
                     feature_values_qs.append(value)
             else:
                 # determine links name once per registry
-                links_value_name = (
-                    "links_value"
-                    if registry_name == host_name
-                    else f"links_{host_name.lower()}"
-                )
+                if registry_name == host_name and host_name == "Record":
+                    links_value_name = "links_record"
+                else:
+                    links_value_name = (
+                        "links_value"
+                        if registry_name == host_name
+                        else f"links_{host_name.lower()}"
+                    )
 
                 filters = {
                     f"{links_value_name}__feature_id__in": feature_ids,
