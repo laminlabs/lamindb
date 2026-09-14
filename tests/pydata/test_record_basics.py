@@ -2213,6 +2213,25 @@ def test_set_values_accepts_user_records_for_user_dtype():
     user_feature.delete(permanent=True)
 
 
+def test_set_values_with_duplicate_feature_names_does_not_crash_remove_phase():
+    duplicate_type = ln.Feature(name="dup_feature_scope", is_type=True).save()
+    global_feature = ln.Feature(name="dup_feature_value", dtype=str).save()
+    typed_feature = ln.Feature(
+        name="dup_feature_value", dtype=str, type=duplicate_type
+    ).save()
+    record = ln.Record(name="dup_feature_record").save()
+
+    record.features.set_values({typed_feature: "first"})
+    record.features.set_values({typed_feature: "second"})
+
+    assert record.features.get_values() == {"dup_feature_value": "second"}
+
+    record.delete(permanent=True)
+    typed_feature.delete(permanent=True)
+    global_feature.delete(permanent=True)
+    duplicate_type.delete(permanent=True)
+
+
 def test_feature_rejects_builtin_scalar_for_record_dtype():
     """Assigning a raw int/str to a cat[Record[...]] feature.
 

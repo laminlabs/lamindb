@@ -231,6 +231,28 @@ def _normalize_user_records_for_field_value(
     return _normalize_one(value)
 
 
+def _record_feature_objects_from_links(record: Any) -> list[Feature]:
+    host_db = record._state.db
+    host_id = record.id
+    if host_id is None:
+        return []
+    feature_ids: set[int] = set()
+    for rel in record._meta.related_objects:
+        link_model = rel.related_model
+        if not hasattr(link_model, "feature_id") or not hasattr(
+            link_model, "record_id"
+        ):
+            continue
+        feature_ids.update(
+            link_model.objects.using(host_db)
+            .filter(record_id=host_id)
+            .values_list("feature_id", flat=True)
+        )
+    if not feature_ids:
+        return []
+    return list(Feature.objects.using(host_db).filter(id__in=feature_ids))
+
+
 def format_dtype_for_display(dtype_str: str) -> str:
     """Format dtype string for display, replacing Record[uid] or ULabel[uid] with Record[TypeName] or ULabel[TypeName]."""
     from .feature import parse_dtype
@@ -2150,18 +2172,25 @@ class FeatureManager:
                 self._remove_values(one_feature, value=one_value)
             return
         if feature is None:
-            features = get_features_data(
-                self._host, to_dict=True, external_only=True
-            ).keys()
-        elif not isinstance(feature, list):
-            features = [feature]
-        else:
-            features = feature
-        for feature in features:
-            if isinstance(feature, str):
-                feature_record = Feature.get(name=feature)
+            if host_is_record:
+                feature_inputs: list[str | Feature] = list(
+                    _record_feature_objects_from_links(self._host)
+                )
             else:
-                feature_record = feature
+                feature_inputs = list(
+                    get_features_data(
+                        self._host, to_dict=True, external_only=True
+                    ).keys()
+                )
+        elif not isinstance(feature, list):
+            feature_inputs = [feature]
+        else:
+            feature_inputs = feature
+        for feature_input in feature_inputs:
+            if isinstance(feature_input, str):
+                feature_record = Feature.get(name=feature_input)
+            else:
+                feature_record = feature_input
                 if feature_record._state.adding:
                     raise ValidationError(
                         f"Please save feature '{feature_record.name}' before annotation."
