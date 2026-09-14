@@ -649,6 +649,8 @@ class _NotionReader:
                 caption = self._block_caption_markdown(payload)
                 label = caption or _short_file_source(file_url)
                 lines.append(f"{indent}[{label}]({file_url})")
+        elif block_type == "table_of_contents":
+            lines.append(f"{indent}<!-- display-table-of-contents -->")
         elif block_type == "divider":
             lines.append(f"{indent}---")
         else:

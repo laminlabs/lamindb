@@ -983,6 +983,26 @@ def test_page_markdown_exports_image_and_file_blocks(reader):
     assert "[Slides](https://files.notion.site/deck.pdf)" in markdown
 
 
+def test_page_markdown_exports_table_of_contents_marker(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toc-1",
+                        "type": "table_of_contents",
+                        "has_children": False,
+                        "table_of_contents": {},
+                    }
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == "<!-- display-table-of-contents -->"
+
+
 # ---------------------------------------------------------------------------
 # _NotionSyncer
 # ---------------------------------------------------------------------------
