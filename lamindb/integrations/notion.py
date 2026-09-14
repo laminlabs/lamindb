@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import httpx
 from lamin_utils import logger
@@ -31,6 +31,12 @@ API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
 UUID_DASHED_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+MARKDOWN_IMAGE_LINK_PATTERN = re.compile(r"!\[([^\]]*)\]\((https?://[^)\s]+)\)")
+MARKDOWN_LINK_PATTERN = re.compile(r"(?<!!)\[([^\]]+)\]\((https?://[^)\s]+)\)")
+HTML_IMAGE_SRC_PATTERN = re.compile(
+    r'(<img\b[^>]*\bsrc=["\'])(https?://[^"\']+)(["\'][^>]*>)',
+    flags=re.IGNORECASE,
 )
 RICH_CONSOLE = Console(force_terminal=True, no_color=False)
 
@@ -552,6 +558,30 @@ class _NotionReader:
             chunks.append(text)
         return "".join(chunks)
 
+    @staticmethod
+    def _block_file_url(payload: dict | None) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        source_type = payload.get("type")
+        if not isinstance(source_type, str):
+            return None
+        source_payload = payload.get(source_type)
+        if not isinstance(source_payload, dict):
+            return None
+        url = source_payload.get("url")
+        if not isinstance(url, str):
+            return None
+        url = url.strip()
+        return url or None
+
+    def _block_caption_markdown(self, payload: dict | None) -> str:
+        if not isinstance(payload, dict):
+            return ""
+        caption = payload.get("caption") or []
+        if not isinstance(caption, list):
+            return ""
+        return self._rich_text_to_markdown(caption).strip()
+
     def _block_to_markdown_lines(
         self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
     ) -> list[str]:
@@ -584,6 +614,17 @@ class _NotionReader:
             language = payload.get("language") if isinstance(payload, dict) else None
             fence = f"```{language}" if language else "```"
             lines.extend([f"{indent}{fence}", f"{indent}{text}", f"{indent}```"])
+        elif block_type == "image":
+            image_url = self._block_file_url(payload)
+            if image_url is not None:
+                caption = self._block_caption_markdown(payload) or "image"
+                lines.append(f"{indent}![{caption}]({image_url})")
+        elif block_type in {"file", "pdf", "video", "audio"}:
+            file_url = self._block_file_url(payload)
+            if file_url is not None:
+                caption = self._block_caption_markdown(payload)
+                label = caption or _short_file_source(file_url)
+                lines.append(f"{indent}[{label}]({file_url})")
         elif block_type == "divider":
             lines.append(f"{indent}---")
         else:
@@ -848,6 +889,103 @@ def _artifact_key_from_url(url: str) -> str:
     return f"notion_sync/{filename}"
 
 
+def _iter_embedded_file_urls(content: str) -> set[str]:
+    if not content:
+        return set()
+    urls: set[str] = set()
+    urls.update(
+        match.group(2) for match in MARKDOWN_IMAGE_LINK_PATTERN.finditer(content)
+    )
+    urls.update(match.group(2) for match in MARKDOWN_LINK_PATTERN.finditer(content))
+    urls.update(match.group(2) for match in HTML_IMAGE_SRC_PATTERN.finditer(content))
+    return {url for url in urls if isinstance(url, str) and url}
+
+
+def _planned_embedded_file_transfers(
+    markdown_content: str, notion_id: str
+) -> tuple[dict[str, str], list[str]]:
+    by_url: dict[str, str] = {}
+    details: list[str] = []
+    for url in sorted(_iter_embedded_file_urls(markdown_content)):
+        detail = (
+            f"{_short_file_source(url)} <- {_compact_uuid(notion_id)}:notes "
+            '(key=None, kind="__easset__")'
+        )
+        details.append(detail)
+        by_url.setdefault(url, detail)
+    return by_url, details
+
+
+def _storage_src_for_artifact(artifact: Any) -> str | None:
+    protocol = None
+    root_without_scheme = None
+    root = getattr(getattr(ln.settings, "storage", None), "root", None)
+    if root is not None:
+        protocol = getattr(root, "protocol", None)
+        root_str = str(root).strip()
+        if protocol and root_str.startswith(f"{protocol}://"):
+            root_without_scheme = root_str[len(protocol) + 3 :].rstrip("/")
+        elif root_str:
+            root_without_scheme = root_str.rstrip("/")
+    artifact_path = getattr(artifact, "path", None)
+    if artifact_path is None:
+        return None
+    path_str = str(artifact_path).strip()
+    if not path_str:
+        return None
+    parsed = urlparse(path_str)
+    artifact_protocol = parsed.scheme or protocol
+    if not artifact_protocol:
+        return None
+    artifact_without_scheme = parsed.netloc + parsed.path
+    artifact_without_scheme = artifact_without_scheme.strip("/")
+    if not artifact_without_scheme:
+        return None
+    if (
+        artifact_protocol == "s3"
+        and root_without_scheme
+        and artifact_without_scheme.startswith(root_without_scheme)
+    ):
+        rel = artifact_without_scheme[len(root_without_scheme) :]
+        return f"/storage/s3/{root_without_scheme}%2F{rel}"
+    if root_without_scheme and artifact_without_scheme.startswith(root_without_scheme):
+        rel = artifact_without_scheme[len(root_without_scheme) :]
+        encoded_rel = quote(rel, safe="/")
+        return f"/storage/{artifact_protocol}/{root_without_scheme}{encoded_rel}"
+    return f"/storage/{artifact_protocol}/{artifact_without_scheme}"
+
+
+def _rewrite_embedded_file_refs(
+    markdown_content: str, artifacts_by_url: dict[str, Any]
+) -> str:
+    if not markdown_content:
+        return markdown_content
+
+    def resolve(url: str) -> str:
+        artifact = artifacts_by_url.get(url)
+        if artifact is None:
+            return url
+        storage_src = _storage_src_for_artifact(artifact)
+        return storage_src or url
+
+    def replace_image(match: re.Match[str]) -> str:
+        src = resolve(match.group(2))
+        return f'<img width="200" src="{src}" />'
+
+    def replace_link(match: re.Match[str]) -> str:
+        label = match.group(1)
+        src = resolve(match.group(2))
+        return f"[{label}]({src})"
+
+    def replace_html_image(match: re.Match[str]) -> str:
+        return f"{match.group(1)}{resolve(match.group(2))}{match.group(3)}"
+
+    content = MARKDOWN_IMAGE_LINK_PATTERN.sub(replace_image, markdown_content)
+    content = MARKDOWN_LINK_PATTERN.sub(replace_link, content)
+    content = HTML_IMAGE_SRC_PATTERN.sub(replace_html_image, content)
+    return content
+
+
 def _download_file_to_temp_path(url: str) -> str:
     parsed = urlparse(url)
     suffix = Path(parsed.path).suffix
@@ -871,6 +1009,9 @@ def _ensure_artifacts(
     *,
     transfer_details_by_url: dict[str, str] | None = None,
     report: SyncReport | None = None,
+    with_key: bool = True,
+    kind: str | None = None,
+    description: str | None = None,
 ) -> dict[str, Any]:
     """Create artifacts for Notion file URLs by downloading first."""
     urls = sorted({url for url in file_urls if isinstance(url, str) and url})
@@ -881,9 +1022,14 @@ def _ensure_artifacts(
         tmp_path = None
         try:
             tmp_path = _download_file_to_temp_path(url)
-            artifacts[url] = ln.Artifact(
-                tmp_path, key=_artifact_key_from_url(url)
-            ).save()
+            artifact_kwargs: dict[str, Any] = {}
+            if with_key:
+                artifact_kwargs["key"] = _artifact_key_from_url(url)
+            if kind is not None:
+                artifact_kwargs["kind"] = kind
+            if description is not None:
+                artifact_kwargs["description"] = description
+            artifacts[url] = ln.Artifact(tmp_path, **artifact_kwargs).save()
             if report is not None and transfer_details_by_url is not None:
                 detail = transfer_details_by_url.get(url, _short_file_source(url))
                 if detail not in report.created_artifacts:
@@ -909,12 +1055,18 @@ def _batch_artifacts(
     *,
     transfer_details_by_url: dict[str, str] | None = None,
     report: SyncReport | None = None,
+    with_key: bool = True,
+    kind: str | None = None,
+    description: str | None = None,
 ) -> dict[str, Any]:
     urls = {url for _, _, url in _iter_file_urls(rows, file_props)}
     return _ensure_artifacts(
         urls,
         transfer_details_by_url=transfer_details_by_url,
         report=report,
+        with_key=with_key,
+        kind=kind,
+        description=description,
     )
 
 
@@ -927,6 +1079,33 @@ def _planned_missing_file_transfers(
         detail = f"{_short_file_source(url)} <- {_compact_uuid(notion_id)}:{prop}"
         details.append(detail)
         by_url.setdefault(url, detail)
+    return by_url, details
+
+
+def _planned_missing_embedded_transfers(
+    reader: _NotionReader, rows: list[dict]
+) -> tuple[dict[str, str], list[str]]:
+    by_url: dict[str, str] = {}
+    details: list[str] = []
+    for row in rows:
+        notion_id = row.get("notion_id")
+        if not isinstance(notion_id, str) or not notion_id:
+            continue
+        try:
+            markdown_content = reader.page_markdown(notion_id)
+        except (
+            Exception
+        ) as error:  # pragma: no cover - defensive for API/network issues
+            logger.warning(
+                f"Could not inspect Notion page notes for embedded files: {notion_id} ({error})"
+            )
+            continue
+        transfer_map, transfer_details = _planned_embedded_file_transfers(
+            markdown_content, notion_id
+        )
+        for url, detail in transfer_map.items():
+            by_url.setdefault(url, detail)
+        details.extend(transfer_details)
     return by_url, details
 
 
@@ -1024,6 +1203,33 @@ def _write(
         transfer_details_by_url=transfer_details_by_url,
         report=report,
     )
+    markdown_by_notion_id: dict[str, str] = {}
+    embedded_transfer_details_by_url: dict[str, str] = {}
+    embedded_file_urls: set[str] = set()
+    for row in rows:
+        notion_id = row.get("notion_id")
+        if not isinstance(notion_id, str) or not notion_id:
+            continue
+        markdown_content = reader.page_markdown(notion_id)
+        markdown_by_notion_id[notion_id] = markdown_content
+        per_page_transfer_map, _ = _planned_embedded_file_transfers(
+            markdown_content, notion_id
+        )
+        for url, detail in per_page_transfer_map.items():
+            embedded_file_urls.add(url)
+            embedded_transfer_details_by_url.setdefault(url, detail)
+    missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
+    if missing_embedded_urls:
+        artifacts_by_url.update(
+            _ensure_artifacts(
+                missing_embedded_urls,
+                transfer_details_by_url=embedded_transfer_details_by_url,
+                report=report,
+                with_key=False,
+                kind="__easset__",
+                description="imported from Notion",
+            )
+        )
 
     targets = {u for row in rows for p in rel for u in (row.get(p) or [])}
     resolved = _resolved_map(targets)  # one query for all relation targets
@@ -1051,7 +1257,13 @@ def _write(
         rec.features.set_values(values)
         notion_id = row.get("notion_id")
         if isinstance(notion_id, str) and notion_id:
-            _attach_page_markdown(rec, reader.page_markdown(notion_id))
+            markdown_content = markdown_by_notion_id.get(notion_id)
+            if markdown_content is None:
+                markdown_content = reader.page_markdown(notion_id)
+            _attach_page_markdown(
+                rec,
+                _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
+            )
         pending += p
         records += 1
     return {"records": records, "pending": pending}
@@ -3134,6 +3346,13 @@ class _NotionSyncer:
                     transfer_map, transfer_details = _planned_missing_file_transfers(
                         rows, file_props
                     )
+                    note_transfer_map, note_transfer_details = (
+                        _planned_missing_embedded_transfers(self.reader, rows)
+                        if not apply
+                        else ({}, [])
+                    )
+                    transfer_map.update(note_transfer_map)
+                    transfer_details.extend(note_transfer_details)
                     planned_transfers_by_db[db_id] = transfer_map
                     for detail in transfer_details:
                         if detail not in report.create_artifacts:
@@ -3167,6 +3386,12 @@ class _NotionSyncer:
                 transfer_map, transfer_details = _planned_missing_file_transfers(
                     writes, file_props
                 )
+                if not apply:
+                    note_transfer_map, note_transfer_details = (
+                        _planned_missing_embedded_transfers(self.reader, writes)
+                    )
+                    transfer_map.update(note_transfer_map)
+                    transfer_details.extend(note_transfer_details)
                 planned_transfers_by_db[db_id] = transfer_map
                 if not apply:
                     for detail in transfer_details:

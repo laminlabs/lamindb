@@ -25,8 +25,11 @@ from lamindb.integrations.notion import (
     _flatten,
     _NotionReader,
     _NotionSyncer,
+    _planned_embedded_file_transfers,
     _planned_missing_file_transfers,
+    _rewrite_embedded_file_refs,
     _short_file_source,
+    _storage_src_for_artifact,
     _upsert_all,
     _write,
     sync_from_notion,
@@ -219,6 +222,77 @@ def test_planned_missing_file_transfers_lists_each_missing_file():
     ]
 
 
+def test_planned_embedded_file_transfers_uses_notes_context():
+    markdown = (
+        "before\n"
+        "![chart](https://files.notion.site/a.png)\n"
+        "[deck](https://files.notion.site/deck.pdf)\n"
+    )
+    transfer_map, details = _planned_embedded_file_transfers(markdown, "row-1")
+    assert set(transfer_map) == {
+        "https://files.notion.site/a.png",
+        "https://files.notion.site/deck.pdf",
+    }
+    assert details == [
+        f'{_short_file_source("https://files.notion.site/a.png")} <- row-1:notes (key=None, kind="__easset__")',
+        f'{_short_file_source("https://files.notion.site/deck.pdf")} <- row-1:notes (key=None, kind="__easset__")',
+    ]
+
+
+def test_rewrite_embedded_file_refs_replaces_with_storage_links():
+    markdown = (
+        "![img](https://files.notion.site/a.png)\n"
+        "[slides](https://files.notion.site/deck.pdf)\n"
+        '<img src="https://files.notion.site/other.png" />\n'
+    )
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+    with patch("lamindb.integrations.notion.ln.settings", settings_stub):
+        rewritten = _rewrite_embedded_file_refs(
+            markdown,
+            {
+                "https://files.notion.site/a.png": type(
+                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/abc.png"}
+                )(),
+                "https://files.notion.site/deck.pdf": type(
+                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/deck.pdf"}
+                )(),
+                "https://files.notion.site/other.png": type(
+                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/other.png"}
+                )(),
+            },
+        )
+    assert (
+        '<img width="200" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />'
+        in rewritten
+    )
+    assert "[slides](/storage/s3/bucket/prefix%2F/.lamindb/deck.pdf)" in rewritten
+    assert '<img src="/storage/s3/bucket/prefix%2F/.lamindb/other.png" />' in rewritten
+
+
+def test_storage_src_for_artifact_uses_default_storage_root():
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    artifact = type("Artifact", (), {"path": "s3://bucket/prefix/.lamindb/abc.png"})()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+    with patch("lamindb.integrations.notion.ln.settings", settings_stub):
+        assert (
+            _storage_src_for_artifact(artifact)
+            == "/storage/s3/bucket/prefix%2F/.lamindb/abc.png"
+        )
+
+
 def test_ensure_artifacts_downloads_then_saves_local_file():
     report = SyncReport(apply=True)
     created_artifact = type("ArtifactStub", (), {"uid": "abc"})()
@@ -247,6 +321,34 @@ def test_ensure_artifacts_downloads_then_saves_local_file():
     )
     assert out["https://example.com/a.pdf"] is created_artifact
     assert report.created_artifacts == [detail]
+
+
+def test_ensure_embedded_artifacts_omit_key_and_set_kind():
+    record = MagicMock()
+    created_artifact = type("ArtifactStub", (), {"uid": "abc"})()
+    record.save.return_value = created_artifact
+    with (
+        patch(
+            "lamindb.integrations.notion._download_file_to_temp_path",
+            return_value="mock-notion-a.png",
+        ),
+        patch(
+            "lamindb.integrations.notion.ln.Artifact", return_value=record
+        ) as Artifact,
+        patch("lamindb.integrations.notion.os.remove"),
+    ):
+        out = _ensure_artifacts(
+            {"https://files.notion.site/a.png"},
+            with_key=False,
+            kind="__easset__",
+            description="imported from Notion",
+        )
+    Artifact.assert_called_once_with(
+        "mock-notion-a.png",
+        kind="__easset__",
+        description="imported from Notion",
+    )
+    assert out["https://files.notion.site/a.png"] is created_artifact
 
 
 def test_flatten_created_time(page_props):
@@ -810,6 +912,41 @@ def test_page_markdown_exports_toggle_as_details_html(reader):
     assert "</details>" in markdown
 
 
+def test_page_markdown_exports_image_and_file_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "img-1",
+                        "type": "image",
+                        "has_children": False,
+                        "image": {
+                            "type": "file",
+                            "file": {"url": "https://files.notion.site/a.png"},
+                            "caption": [{"plain_text": "Meeting photo"}],
+                        },
+                    },
+                    {
+                        "id": "file-1",
+                        "type": "file",
+                        "has_children": False,
+                        "file": {
+                            "type": "external",
+                            "external": {"url": "https://files.notion.site/deck.pdf"},
+                            "caption": [{"plain_text": "Slides"}],
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "![Meeting photo](https://files.notion.site/a.png)" in markdown
+    assert "[Slides](https://files.notion.site/deck.pdf)" in markdown
+
+
 # ---------------------------------------------------------------------------
 # _NotionSyncer
 # ---------------------------------------------------------------------------
@@ -888,6 +1025,75 @@ def test_write_attaches_page_markdown_to_records():
     reader.page_markdown.assert_called_once_with("page-1")
     rec.ablocks.add.assert_called_once_with(saved_block, bulk=False)
     assert stats == {"records": 1, "pending": 0}
+
+
+def test_write_notes_embedded_files_reuse_artifact_transfer_logic():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [{"notion_id": "page-1", "Name": "A"}]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = "![img](https://files.notion.site/a.png)"
+    rec_type = _fake_rec_type("People", ["Name"])
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+    artifact_stub = type(
+        "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/a.png"}
+    )()
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+
+    def ensure_artifacts_side_effect(file_urls, **kwargs):
+        if file_urls:
+            return {"https://files.notion.site/a.png": artifact_stub}
+        return {}
+
+    with (
+        patch("lamindb.integrations.notion.ln.settings", settings_stub),
+        patch(
+            "lamindb.integrations.notion.ln.models.RecordBlock",
+            return_value=block_factory,
+        ) as RecordBlock,
+        patch(
+            "lamindb.integrations.notion._ensure_artifacts",
+            side_effect=ensure_artifacts_side_effect,
+        ) as ensure_artifacts,
+    ):
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}},
+            by_id=by_id,
+        )
+
+    assert ensure_artifacts.call_count >= 1
+    assert any(
+        (call.kwargs.get("transfer_details_by_url") or {}).get(
+            "https://files.notion.site/a.png"
+        )
+        == (
+            f"{_short_file_source('https://files.notion.site/a.png')} <- page-1:notes "
+            '(key=None, kind="__easset__")'
+        )
+        for call in ensure_artifacts.call_args_list
+    )
+    assert any(
+        call.kwargs.get("with_key") is False and call.kwargs.get("kind") == "__easset__"
+        for call in ensure_artifacts.call_args_list
+    )
+    content = RecordBlock.call_args.kwargs["content"]
+    assert (
+        '<img width="200" src="/storage/s3/bucket/prefix%2F/.lamindb/a.png" />'
+        in content
+    )
 
 
 def test_syncer_init_raises_without_token(monkeypatch):
@@ -2757,6 +2963,36 @@ def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
         report = syncer.import_pages("parent", apply=False)
     assert report.create_artifacts == [
         f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
+    ]
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
+def test_import_pages_dry_run_reports_pending_embedded_note_file_transfers(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(
+            syncer.reader,
+            "page_markdown",
+            return_value="![img](https://files.notion.site/a.png)",
+        ),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_pages("parent", apply=False)
+    assert report.create_artifacts == [
+        f'{_short_file_source("https://files.notion.site/a.png")} <- a:notes (key=None, kind="__easset__")'
     ]
     upsert_all.assert_not_called()
     write.assert_not_called()
