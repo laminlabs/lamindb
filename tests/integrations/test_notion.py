@@ -1706,6 +1706,66 @@ def test_relation_resolution_project_registry_dry_run_plans_stub_creation():
     )
 
 
+def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url():
+    rows = [
+        {
+            "notion_id": "page-1",
+            "project": ["3922aeaa-55e1-808d-9725-d314fb7bc388"],
+        }
+    ]
+    project_feature = _fake_feature("project", "list[cat[Project]]")
+    feat = {"project": project_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=True)
+
+    stub_project = object()
+    stub_factory = MagicMock()
+    stub_factory.save.return_value = stub_project
+
+    Project = MagicMock()
+    project_qs = MagicMock()
+    project_qs.count.return_value = 0
+    Project.filter.return_value = project_qs
+    Project.return_value = stub_factory
+    Project.__name__ = "Project"
+    Project._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Project, "Project"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
+            }
+        }
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"project"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=True,
+            report=report,
+        )
+
+    Project.assert_called_once_with(
+        name="Pfizer",
+        url="notion:3922aeaa55e1808d9725d314fb7bc388",
+    )
+    assert resolved["3922aeaa55e1808d9725d314fb7bc388"] is stub_project
+    assert pending == 0
+    assert (
+        "Meetings / project -> Project: Pfizer <- 3922aeaa55e1808d9725d314fb7bc388"
+        in report.created_relation_stubs
+    )
+
+
 def test_relation_resolution_reference_registry_apply_creates_stub():
     rows = [{"notion_id": "page-1", "reference": ["ref-page-1"]}]
     reference_feature = _fake_feature("reference", "list[cat[Reference]]")

@@ -1124,6 +1124,16 @@ def _registry_supports_relation_stubs(registry: Any) -> bool:
     return registry_name in {"Project", "Reference"}
 
 
+def _registry_stub_kwargs(
+    registry: Any, field_name: str, stub_name: str, notion_id: str
+) -> dict[str, str]:
+    kwargs: dict[str, str] = {field_name: stub_name}
+    if getattr(registry, "__name__", "") == "Project":
+        compact_notion_id = _normalize_notion_id(notion_id) or notion_id
+        kwargs["url"] = f"notion:{compact_notion_id}"
+    return kwargs
+
+
 def _resolve_relation_records_for_rows(
     reader: _NotionReader,
     rows: list[dict[str, Any]],
@@ -1201,7 +1211,14 @@ def _resolve_relation_records_for_rows(
                 if apply:
                     for notion_id in missing:
                         stub_name = _relation_stub_name(reader, notion_id)
-                        stub = target_type(**{field_name: stub_name}).save()
+                        stub = target_type(
+                            **_registry_stub_kwargs(
+                                target_type,
+                                field_name,
+                                stub_name,
+                                notion_id,
+                            )
+                        ).save()
                         resolved[notion_id] = stub
                         stub_create += 1
                         if report is not None:
