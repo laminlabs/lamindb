@@ -32,6 +32,7 @@ BASE = "https://api.notion.com/v1"
 UUID_DASHED_PATTERN = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
+UUID_COMPACT_PATTERN = re.compile(r"^[0-9a-fA-F]{32}$")
 MARKDOWN_IMAGE_LINK_PATTERN = re.compile(r"!\[([^\]]*)\]\((https?://[^)\s]+)\)")
 HTML_IMAGE_SRC_PATTERN = re.compile(
     r'(<img\b[^>]*\bsrc=["\'])(https?://[^"\']+)(["\'][^>]*>)',
@@ -53,6 +54,15 @@ def _normalize_notion_id(value: str | None) -> str | None:
     if not value:
         return None
     return _compact_uuid(value)
+
+
+def _notion_api_id(value: str) -> str:
+    """Canonical dashed UUID form for Notion API path parameters."""
+    if UUID_COMPACT_PATTERN.match(value):
+        return (
+            f"{value[0:8]}-{value[8:12]}-{value[12:16]}-{value[16:20]}-{value[20:32]}"
+        )
+    return value
 
 
 def _extract_emoji(payload: dict) -> str | None:
@@ -304,10 +314,18 @@ def _flatten(prop: dict) -> Any:
         d = prop.get("date")
         return d["start"] if d else None
     if t in ("people", "relation"):
-        return [x["id"] for x in (prop.get(t) or [])]
+        ids: list[str] = []
+        for item in prop.get(t) or []:
+            raw_id = item.get("id")
+            if isinstance(raw_id, str) and raw_id:
+                ids.append(_normalize_notion_id(raw_id) or raw_id)
+        return ids
     if t in ("created_by", "last_edited_by"):
         u = prop.get(t)
-        return u["id"] if u else None
+        user_id = u.get("id") if isinstance(u, dict) else None
+        if not isinstance(user_id, str) or not user_id:
+            return None
+        return _normalize_notion_id(user_id) or user_id
     if t == "files":
         out = []
         for f in prop.get("files") or []:
@@ -548,7 +566,10 @@ class _NotionReader:
                     continue
                 row[name] = _flatten(prop)
             # page-level fields win over any same-named user property
-            row["notion_id"] = page.get("id")
+            page_id = page.get("id")
+            row["notion_id"] = (
+                _normalize_notion_id(page_id) if isinstance(page_id, str) else page_id
+            )
             row["created_time"] = page.get("created_time")
             row["last_edited_time"] = page.get("last_edited_time")
             if include_page_emoji:
@@ -665,6 +686,12 @@ class _NotionReader:
             lines.append(f"{indent}## {text}".rstrip())
         elif block_type == "heading_3":
             lines.append(f"{indent}### {text}".rstrip())
+        elif block_type == "paragraph":
+            if text:
+                lines.append(f"{indent}{text}".rstrip())
+                # Notion paragraph blocks map to separate markdown paragraphs.
+                # Keep a blank line separator so adjacent paragraph blocks don't collapse.
+                lines.append("")
         elif block_type == "bulleted_list_item":
             lines.append(f"{indent}- {text}".rstrip())
         elif block_type == "numbered_list_item":
@@ -752,7 +779,9 @@ class _NotionReader:
             params: dict[str, Any] = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
-            payload = self._call("GET", f"/blocks/{block_id}/children", params=params)
+            payload = self._call(
+                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
+            )
             children.extend(payload.get("results", []))
             if not payload.get("has_more"):
                 return children
@@ -821,7 +850,9 @@ class _NotionReader:
             params: dict[str, Any] = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
-            payload = self._call("GET", f"/blocks/{page_id}/children", params=params)
+            payload = self._call(
+                "GET", f"/blocks/{_notion_api_id(page_id)}/children", params=params
+            )
             for block in payload.get("results", []):
                 t = block.get("type")
                 data = block.get(t)
@@ -850,7 +881,7 @@ class _NotionReader:
             join key.
         """
         drop = drop or set()
-        raw = self._call("GET", f"/pages/{page_id}")
+        raw = self._call("GET", f"/pages/{_notion_api_id(page_id)}")
         row: dict[str, Any] = {
             "notion_id": None,
             "created_time": None,
@@ -860,7 +891,10 @@ class _NotionReader:
             if name in drop or prop.get("type") in drop:
                 continue
             row[name] = _flatten(prop)
-        row["notion_id"] = raw.get("id")
+        raw_id = raw.get("id")
+        row["notion_id"] = (
+            _normalize_notion_id(raw_id) if isinstance(raw_id, str) else raw_id
+        )
         row["created_time"] = raw.get("created_time")
         row["last_edited_time"] = raw.get("last_edited_time")
         return row
@@ -898,9 +932,13 @@ def _feat_map(schema) -> dict:
 
 def _existing_by_ref(rec_type) -> dict:
     """{notion_uuid: ln.Record} for a type — ONE query, reused for upsert + write."""
-    return {
-        r.reference: r for r in ln.Record.filter(type=rec_type, reference_type="notion")
-    }
+    out: dict[str, Any] = {}
+    for record in ln.Record.filter(type=rec_type, reference_type="notion"):
+        reference = getattr(record, "reference", None)
+        if not isinstance(reference, str) or not reference:
+            continue
+        out[_normalize_notion_id(reference) or reference] = record
+    return out
 
 
 def _resolved_map(uuids) -> dict:
@@ -908,9 +946,21 @@ def _resolved_map(uuids) -> dict:
     uuids = list(uuids)
     if not uuids:
         return {}
+    query_ids = {
+        variant
+        for uuid_value in uuids
+        for variant in {
+            uuid_value,
+            _normalize_notion_id(uuid_value) or uuid_value,
+            _notion_api_id(_normalize_notion_id(uuid_value) or uuid_value),
+        }
+    }
     return {
-        r.reference: r
-        for r in ln.Record.filter(reference__in=uuids, reference_type="notion")
+        _normalize_notion_id(r.reference) or r.reference: r
+        for r in ln.Record.filter(
+            reference__in=list(query_ids), reference_type="notion"
+        )
+        if isinstance(getattr(r, "reference", None), str)
     }
 
 
@@ -984,7 +1034,7 @@ def _matches_target_type(record: Any, target_type: Any) -> bool:
 def _relation_stub_name(reader: _NotionReader, notion_id: str) -> str:
     fallback = _compact_uuid(notion_id)
     try:
-        payload = reader._call("GET", f"/pages/{notion_id}")
+        payload = reader._call("GET", f"/pages/{_notion_api_id(notion_id)}")
     except Exception:
         return fallback
     name = _page_title(payload).strip()
@@ -1007,7 +1057,7 @@ def _relation_stub_detail(
 
 def _notion_user_name(reader: _NotionReader, notion_user_id: str) -> str | None:
     try:
-        payload = reader._call("GET", f"/users/{notion_user_id}")
+        payload = reader._call("GET", f"/users/{_notion_api_id(notion_user_id)}")
     except Exception:
         return None
     name = payload.get("name")
@@ -1018,7 +1068,7 @@ def _notion_user_name(reader: _NotionReader, notion_user_id: str) -> str | None:
 
 def _notion_page_title(reader: _NotionReader, notion_page_id: str) -> str | None:
     try:
-        payload = reader._call("GET", f"/pages/{notion_page_id}")
+        payload = reader._call("GET", f"/pages/{_notion_api_id(notion_page_id)}")
     except Exception:
         return None
     title = _page_title(payload).strip()
@@ -1107,9 +1157,13 @@ def _resolve_relation_records_for_rows(
         for prop in rel:
             value = row.get(prop)
             if isinstance(value, list):
-                ids = [item for item in value if isinstance(item, str) and item]
+                ids = [
+                    _normalize_notion_id(item) or item
+                    for item in value
+                    if isinstance(item, str) and item
+                ]
             elif isinstance(value, str) and value:
-                ids = [value]
+                ids = [_normalize_notion_id(value) or value]
             else:
                 ids = []
             if not ids:
@@ -1227,7 +1281,7 @@ def _resolve_relation_records_for_rows(
                         stub = ln.Record(
                             name=stub_name,
                             type=target_type,
-                            reference=notion_id,
+                            reference=_normalize_notion_id(notion_id) or notion_id,
                             reference_type="notion",
                         ).save()
                         resolved[notion_id] = stub
@@ -1652,7 +1706,12 @@ def _row_values(
         if f is None:
             continue
         if prop in rel:
-            uuids = val if isinstance(val, list) else [val]
+            raw_uuids = val if isinstance(val, list) else [val]
+            uuids = [
+                _normalize_notion_id(uuid_value) or uuid_value
+                for uuid_value in raw_uuids
+                if isinstance(uuid_value, str) and uuid_value
+            ]
             hits = [resolved[u] for u in uuids if u in resolved]
             pending += sum(u not in resolved for u in uuids)
             if hits:
@@ -1855,7 +1914,10 @@ def _upsert_all(rec_type, rows) -> dict:
     """
     by_id = _existing_by_ref(rec_type)  # ONE query, not one per row
     for row in rows:
-        nid, name = row["notion_id"], row.get("name")
+        raw_nid, name = row["notion_id"], row.get("name")
+        if not isinstance(raw_nid, str) or not raw_nid:
+            continue
+        nid = _normalize_notion_id(raw_nid) or raw_nid
         row_emoji = row.get("__notion_emoji__")
         created_at = _parse_notion_timestamp(row.get("created_time"))
         updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
@@ -1880,6 +1942,9 @@ def _upsert_all(rec_type, rows) -> dict:
             continue
 
         changed_fields: list[str] = []
+        if getattr(rec, "reference", None) != nid:
+            rec.reference = nid
+            changed_fields.append("reference")
         if name and rec.name != name:
             rec.name = name
             changed_fields.append("name")
@@ -2039,7 +2104,7 @@ class _NotionSyncer:
             if cursor:
                 params["start_cursor"] = cursor
             payload = self.reader._call(
-                "GET", f"/blocks/{block_id}/children", params=params
+                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
             )
             children.extend(payload.get("results", []))
             if not payload.get("has_more"):
@@ -2220,14 +2285,14 @@ class _NotionSyncer:
         rows: list[dict[str, Any]] = []
         normalized_database_id = _normalize_notion_id(database_id) or database_id
         for page_id in sorted(page_ids):
-            page_payload = self._safe_call(f"/pages/{page_id}")
+            page_payload = self._safe_call(f"/pages/{_notion_api_id(page_id)}")
             if page_payload is None:
                 continue
             page_database_id = self._page_parent_database_id(page_payload)
             if (page_database_id or "") != normalized_database_id:
                 continue
             row: dict[str, Any] = {
-                "notion_id": page_payload.get("id"),
+                "notion_id": _normalize_notion_id(page_payload.get("id")),
                 "created_time": page_payload.get("created_time"),
                 "last_edited_time": page_payload.get("last_edited_time"),
             }

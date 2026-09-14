@@ -179,6 +179,15 @@ def test_flatten_relation_returns_page_ids(page_props):
     assert _flatten(page_props["Related"]) == ["related-page-id-111"]
 
 
+def test_flatten_relation_normalizes_dashed_uuid_ids():
+    dashed_uuid = "3922aeaa-55e1-808d-9725-d314fb7bc388"
+    prop = {
+        "type": "relation",
+        "relation": [{"id": dashed_uuid}],
+    }
+    assert _flatten(prop) == ["3922aeaa55e1808d9725d314fb7bc388"]
+
+
 def test_flatten_created_by(page_props):
     assert _flatten(page_props["Author"]) == "user-created-1"
 
@@ -910,6 +919,57 @@ def test_page_markdown_exports_multiline_quote_blocks(reader):
     )
 
 
+def test_page_markdown_keeps_blank_lines_between_paragraph_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "h1",
+                        "type": "heading_1",
+                        "has_children": False,
+                        "heading_1": {"rich_text": [{"plain_text": "Preparation"}]},
+                    },
+                    {
+                        "id": "p1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "Ebad"}]},
+                    },
+                    {
+                        "id": "p2",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": "Starting with Claude Code to establish the pattern."
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "p3",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [{"plain_text": "Works via a Stop hook."}]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "# Preparation\n"
+        "Ebad\n\n"
+        "Starting with Claude Code to establish the pattern.\n\n"
+        "Works via a Stop hook."
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -1274,7 +1334,13 @@ def test_ensure_feature_itype_skips_non_feature_schemas():
 def test_write_creates_relation_stubs_and_sets_typed_feature_values():
     rec = MagicMock()
     rec.notes = None
-    rows = [{"notion_id": "page-1", "Name": "Meeting", "Related": ["rel-1"]}]
+    rows = [
+        {
+            "notion_id": "page-1",
+            "Name": "Meeting",
+            "Related": ["3922aeaa-55e1-808d-9725-d314fb7bc388"],
+        }
+    ]
     by_id = {"page-1": rec}
     reader = MagicMock()
     reader.page_markdown.return_value = ""
@@ -1331,13 +1397,13 @@ def test_write_creates_relation_stubs_and_sets_typed_feature_values():
     Record.assert_any_call(
         name="Deepmind",
         type=target_type,
-        reference="rel-1",
+        reference="3922aeaa55e1808d9725d314fb7bc388",
         reference_type="notion",
     )
     values = rec.features.set_values.call_args.args[0]
     assert values[related_feature] == [stub_record]
     assert (
-        "Meetings / Related -> Organizations: Deepmind <- rel-1"
+        "Meetings / Related -> Organizations: Deepmind <- 3922aeaa55e1808d9725d314fb7bc388"
         in report.created_relation_stubs
     )
     assert (
@@ -4075,6 +4141,27 @@ def test_upsert_all_populates_created_and_updated_from_notion():
     assert out["page-1"] is rec
     assert rec.created_at == _ts("2024-01-01T08:00:00Z")
     assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
+
+
+def test_upsert_all_normalizes_existing_dashed_notion_reference():
+    compact_id = "3922aeaa55e1808d9725d314fb7bc388"
+    dashed_id = "3922aeaa-55e1-808d-9725-d314fb7bc388"
+    rows = [{"notion_id": compact_id, "name": "A"}]
+    rec = MagicMock()
+    rec.reference = dashed_id
+    rec.name = "A"
+    rec.created_at = None
+    rec.updated_at = None
+    rec._aux = None
+
+    with patch(
+        "lamindb.integrations.notion._existing_by_ref", return_value={compact_id: rec}
+    ):
+        out = _upsert_all(rec_type=object(), rows=rows)
+
+    assert out[compact_id] is rec
+    rec.save.assert_called_once_with(update_fields=["reference"])
+    assert rec.reference == compact_id
 
 
 def test_sync_from_notion_delegates_to_syncer_and_prints():
