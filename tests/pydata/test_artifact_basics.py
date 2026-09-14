@@ -716,6 +716,25 @@ def test_delete_permanently_skips_storage_if_db_delete_is_noop():
     assert not path.exists()
 
 
+def test_delete_skip_storage_restores_pk_when_db_delete_is_noop():
+    # Django clears instance.pk even when DELETE removes 0 rows (e.g. RLS).
+    artifact = ln.Artifact(".gitignore", key="test-rls-preserve-pk").save()
+    original_pk = artifact.pk
+
+    def clear_pk_and_report_zero(self, *args, **kwargs):
+        self.pk = None
+        return (0, {self._meta.label: 0})
+
+    from django.db.models import Model
+    from lamindb.models.artifact import _delete_skip_storage
+
+    with patch.object(Model, "delete", clear_pk_and_report_zero):
+        assert _delete_skip_storage(artifact) is False
+
+    assert artifact.pk == original_pk
+    artifact.delete(permanent=True)
+
+
 def test_create_from_path_set_branch():
     branch = ln.Branch(name="contrib1").save()
     artifact1 = ln.Artifact(".gitignore", key="test", branch=branch).save()
