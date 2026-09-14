@@ -1116,12 +1116,21 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         versions = Artifact.objects.using(artifact._state.db).filter(
             uid__startswith=artifact.stem_uid
         )
+        saw_version = False
         for version in versions:
+            saw_version = True
             if not _delete_skip_storage(version):
                 db_deleted = False
-        # Empty queryset: metadata is already gone (e.g. retry after storage
-        # deletion failed). Keep db_deleted True so the shared store can still
-        # be cleaned up.
+        if not saw_version:
+            # Empty queryset with pk still set is suspicious: the rows may
+            # still exist but be hidden (permissions changed after load).
+            # Only treat as already-deleted when pk was cleared by a prior
+            # successful delete (retry after storage deletion failed).
+            db_deleted = artifact.pk is None
+        elif db_deleted:
+            # Queryset instances are not `artifact`; clear pk so a later retry
+            # can tell metadata is already gone.
+            artifact.pk = None
     else:
         # After a successful DB delete Django clears pk. If storage then
         # failed, retry sees pk is None and can still clean up storage.
