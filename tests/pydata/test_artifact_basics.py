@@ -735,6 +735,48 @@ def test_delete_skip_storage_restores_pk_when_db_delete_is_noop():
     artifact.delete(permanent=True)
 
 
+def test_delete_permanently_skips_storage_if_version_db_delete_fails(tmp_path):
+    folder_path = tmp_path / "folder-rls-noop-delete"
+    folder_path.mkdir()
+    (folder_path / "v1.txt").write_text("v1")
+    key = f"{tmp_path.name}/folder-rls-noop-delete"
+
+    artifact = ln.Artifact(folder_path, key=key).save()
+    assert artifact.overwrite_versions
+    path = artifact.path
+    assert path.exists()
+
+    with patch(
+        "lamindb.models.artifact._delete_skip_storage",
+        return_value=False,
+    ):
+        artifact.delete(permanent=True)
+
+    assert path.exists()
+    assert ln.Artifact.filter(uid=artifact.uid).one() == artifact
+
+    artifact.delete(permanent=True)
+    assert not path.exists()
+
+
+def test_delete_skip_storage_restores_pk_when_delete_returns_nothing():
+    artifact = ln.Artifact(".gitignore", key="test-rls-delete-none").save()
+    original_pk = artifact.pk
+
+    def clear_pk_and_return_none(self, *args, **kwargs):
+        self.pk = None
+        return None
+
+    from django.db.models import Model
+    from lamindb.models.artifact import _delete_skip_storage
+
+    with patch.object(Model, "delete", clear_pk_and_return_none):
+        assert _delete_skip_storage(artifact) is False
+
+    assert artifact.pk == original_pk
+    artifact.delete(permanent=True)
+
+
 def test_create_from_path_set_branch():
     branch = ln.Branch(name="contrib1").save()
     artifact1 = ln.Artifact(".gitignore", key="test", branch=branch).save()
