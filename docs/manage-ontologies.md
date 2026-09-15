@@ -15,7 +15,7 @@ This guide shows how to manage ontologies for basic biological entities.
 If instead you're interested in
 
 - accessing public ontologies, see {doc}`docs:public-ontologies`
-- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
+- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:manage-records`
 
 Let's create a database in the current directory:
 
