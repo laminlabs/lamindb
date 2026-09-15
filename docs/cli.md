@@ -634,6 +634,7 @@ The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the 
 
 ```
 lamin track claude   # or: lamin track copilot
+lamin track cursor
 # work with the agent
 lamin finish
 ```
@@ -660,6 +661,7 @@ Options:
 Commands:
   claude   Start tracking a Claude Code session in LaminDB.
   copilot  Start tracking a GitHub Copilot session in LaminDB.
+  cursor   Start or resume tracking a Cursor IDE Agent session in LaminDB.
 ```
 
 → Python/R alternative: {func}`~lamindb.track` and {func}`~lamindb.finish` for (non-shell) scripts or notebooks
@@ -668,7 +670,7 @@ Commands:
 
 Finish a tracked session.
 
-This can be a shell script run, a Claude Code session, or a Copilot session.
+This can be a shell script run, a Claude Code, Copilot, or Cursor session.
 
 Options:
 
