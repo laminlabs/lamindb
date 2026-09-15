@@ -562,18 +562,18 @@ class Project(
 
         Get and set the status of the project.
 
-        ===========  =====  ==========================================================
-        status       code   description
-        ===========  =====  ==========================================================
-        `planned`    -3     The project is planned but not yet started.
-        `up-next`    -2     The project is queued as the next item to start.
-        `active`     -1     The project is currently active.
-        `completed`  0      The project completed successfully.
-        `paused`     1      The project is temporarily paused.
-        `background` 2      The project is being worked on in the background.
-        `canceled`   3      The project was canceled.
-        `archived`   4      The project is archived and no longer actively tracked.
-        ===========  =====  ==========================================================
+        ============  =====  ==========================================================
+        status        code   description
+        ============  =====  ==========================================================
+        `planned`     -3     The project is planned but not yet started.
+        `up-next`     -2     The project is queued as the next item to start.
+        `active`      -1     The project is currently active.
+        `completed`   0      The project completed successfully.
+        `paused`      2      The project is temporarily paused.
+        `background`  1      The project is still being worked on in the background.
+        `canceled`    3      The project was canceled.
+        `archived`    4      The project is archived and no longer actively tracked.
+        ============  =====  ==========================================================
 
         The database stores the project status as an integer code in field `_status_code`.
 
