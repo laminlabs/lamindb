@@ -200,6 +200,59 @@ def strip_cat(feature_dtype: str) -> str:
     return dtype_stripped_cat
 
 
+def _normalize_user_records_for_field_value(
+    value: Any,
+    *,
+    field_name: str,
+    feature_name: str,
+) -> Any:
+    from .run import User
+
+    def _normalize_one(item: Any) -> Any:
+        if isinstance(item, User):
+            field_value = getattr(item, field_name, None)
+            if field_value is None or (
+                isinstance(field_value, str) and field_value.strip() == ""
+            ):
+                raise ValidationError(
+                    f"Cannot annotate feature '{feature_name}' with User lacking "
+                    f"a non-empty '{field_name}' value."
+                )
+            return field_value
+        return item
+
+    if isinstance(value, (list, tuple, set)):
+        normalized = [_normalize_one(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(normalized)
+        if isinstance(value, set):
+            return set(normalized)
+        return normalized
+    return _normalize_one(value)
+
+
+def _record_feature_objects_from_links(record: Any) -> list[Feature]:
+    host_db = record._state.db
+    host_id = record.id
+    if host_id is None:
+        return []
+    feature_ids: set[int] = set()
+    for rel in record._meta.related_objects:
+        link_model = rel.related_model
+        if not hasattr(link_model, "feature_id") or not hasattr(
+            link_model, "record_id"
+        ):
+            continue
+        feature_ids.update(
+            link_model.objects.using(host_db)
+            .filter(record_id=host_id)
+            .values_list("feature_id", flat=True)
+        )
+    if not feature_ids:
+        return []
+    return list(Feature.objects.using(host_db).filter(id__in=feature_ids))
+
+
 def format_dtype_for_display(dtype_str: str) -> str:
     """Format dtype string for display, replacing Record[uid] or ULabel[uid] with Record[TypeName] or ULabel[TypeName]."""
     from .feature import parse_dtype
@@ -1233,11 +1286,14 @@ class FeatureManager:
                     feature_values_qs.append(value)
             else:
                 # determine links name once per registry
-                links_value_name = (
-                    "links_value"
-                    if registry_name == host_name
-                    else f"links_{host_name.lower()}"
-                )
+                if registry_name == host_name and host_name == "Record":
+                    links_value_name = "links_record"
+                else:
+                    links_value_name = (
+                        "links_value"
+                        if registry_name == host_name
+                        else f"links_{host_name.lower()}"
+                    )
 
                 filters = {
                     f"{links_value_name}__feature_id__in": feature_ids,
@@ -1416,6 +1472,40 @@ class FeatureManager:
             explicit_features,
             values_by_feature_uid,
         )
+
+    @staticmethod
+    def _normalize_user_feature_values(
+        feature_objects: list[Feature],
+        dictionary: dict[str, Any],
+        values_by_feature_uid: dict[str, Any],
+    ) -> None:
+        for feature in feature_objects:
+            dtype = getattr(feature, "_dtype_str", None)
+            if not isinstance(dtype, str) or "User" not in dtype:
+                continue
+            parsed = parse_dtype(dtype)
+            if len(parsed) != 1 or parsed[0].get("registry_str") != "User":
+                continue
+            field_name = parsed[0].get("field_str") or "name"
+            value_set = False
+            if feature.uid in values_by_feature_uid:
+                raw_value = values_by_feature_uid[feature.uid]
+                value_set = True
+            elif feature.name in dictionary:
+                raw_value = dictionary[feature.name]
+                value_set = True
+            else:
+                continue
+            if not value_set:
+                continue
+            normalized_value = _normalize_user_records_for_field_value(
+                raw_value,
+                field_name=field_name,
+                feature_name=feature.name,
+            )
+            dictionary[feature.name] = normalized_value
+            if feature.uid in values_by_feature_uid:
+                values_by_feature_uid[feature.uid] = normalized_value
 
     @staticmethod
     def _merge_feature_objects(
@@ -1724,6 +1814,11 @@ class FeatureManager:
                 explicit_features, looked_up_features
             )
             schema = Schema(feature_objects)
+        self._normalize_user_feature_values(
+            feature_objects,
+            dictionary,
+            values_by_feature_uid,
+        )
         ExperimentalDictCurator(
             dictionary,
             schema,
@@ -1957,6 +2052,15 @@ class FeatureManager:
         if host_is_artifact:
             schema = self._get_external_schema()
         if schema is not None:
+            looked_up_features = schema.members.filter(name__in=keys)
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
+            self._normalize_user_feature_values(
+                feature_objects,
+                dictionary,
+                values_by_feature_uid,
+            )
             ExperimentalDictCurator(
                 dictionary, schema, using=self._host._state.db
             ).validate()
@@ -1971,10 +2075,6 @@ class FeatureManager:
                     "These feature keys are not in the provided schema: "
                     f"{features_not_in_schema}"
                 )
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
             if host_is_record:
                 from .record import (
                     schema_has_record_mapped_features,
@@ -2000,6 +2100,11 @@ class FeatureManager:
                 looked_up_features = Feature.objects.none()
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
+            )
+            self._normalize_user_feature_values(
+                feature_objects,
+                dictionary,
+                values_by_feature_uid,
             )
         self._remove_values()
         self._add_values(
@@ -2070,18 +2175,25 @@ class FeatureManager:
                 self._remove_values(one_feature, value=one_value)
             return
         if feature is None:
-            features = get_features_data(
-                self._host, to_dict=True, external_only=True
-            ).keys()
-        elif not isinstance(feature, list):
-            features = [feature]
-        else:
-            features = feature
-        for feature in features:
-            if isinstance(feature, str):
-                feature_record = Feature.get(name=feature)
+            if host_is_record:
+                feature_inputs: list[str | Feature] = list(
+                    _record_feature_objects_from_links(self._host)
+                )
             else:
-                feature_record = feature
+                feature_inputs = list(
+                    get_features_data(
+                        self._host, to_dict=True, external_only=True
+                    ).keys()
+                )
+        elif not isinstance(feature, list):
+            feature_inputs = [feature]
+        else:
+            feature_inputs = feature
+        for feature_input in feature_inputs:
+            if isinstance(feature_input, str):
+                feature_record = Feature.get(name=feature_input)
+            else:
+                feature_record = feature_input
                 if feature_record._state.adding:
                     raise ValidationError(
                         f"Please save feature '{feature_record.name}' before annotation."
