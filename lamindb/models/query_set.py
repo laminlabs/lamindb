@@ -648,7 +648,14 @@ def get_feature_annotate_kwargs(
         if (
             obj.related_model.__get_name_with_module__() in link_models_on_models
             and (
-                not obj.related_name.startswith("links_record")
+                (
+                    # RecordRecord.value also reverse-relates as links_record.
+                    not obj.related_name.startswith("links_record")
+                    # RecordX value tables have `value`; XRecord tagging tables do not
+                    # (`links_reference`, `links_project`, ...). Joining those as
+                    # `links_*__value` raises FilteredRelation lookup errors.
+                    and hasattr(obj.related_model, "value_id")
+                )
                 if registry is Record
                 else True
             )
@@ -660,9 +667,6 @@ def get_feature_annotate_kwargs(
 
     for link_attr, feature_type_model in link_attributes_on_models.items():
         feature_type = feature_type_model.__get_name_with_module__()
-        if link_attr == "links_project" and registry is Record:
-            # we're only interested in _values_project when "annotating" records
-            continue
 
         # Determine field name
         if registry in {Artifact, Run}:
