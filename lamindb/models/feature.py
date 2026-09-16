@@ -1282,7 +1282,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         self.default_value = default_value
         self.nullable = nullable
         self.coerce = coerce
-        self._values_from_input = values_from
         dtype_str = kwargs.pop("_dtype_str", None)
         if dtype_str == "cat":
             warnings.warn(
@@ -1386,8 +1385,14 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
-        if values_from is not UNSET:
+        if isinstance(values_from, Feature):
             self._validate_values_from(values_from)
+            self._values_from_input = values_from
+        elif values_from is None:
+            # Preserve explicit `None` so save() can clear an existing relation.
+            self._values_from_input = None
+        elif values_from is not UNSET:
+            raise TypeError("Feature(..., values_from=...) expects a Feature value")
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1650,6 +1655,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     @property
     def _values_from_uid(self) -> str | None:
+        """Return the persisted source feature UID from `_aux["vf"]`.
+
+        The stored shape is JSON, so `_aux["vf"]` can be absent or malformed on
+        stale rows (for instance if data was inserted manually or if a prior
+        migration left partial metadata). We therefore require an exact string
+        and treat anything else as "no persisted mapping".
+        """
         if self._aux is None or not isinstance(self._aux, dict):
             return None
         values_feature_uid = self._aux.get("vf")
@@ -1659,6 +1671,18 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     @property
     def values_from(self) -> Feature | None:
+        """Resolve the feature that provides values for this feature.
+
+        Resolution happens in two stages:
+
+        1. In-memory override (`_values_from_input`): used when callers assign
+           `feature.values_from = ...` but have not saved yet. This keeps reads
+           consistent inside one transaction/request.
+        2. Persisted mapping (`_aux["vf"]`): used for reloaded records.
+
+        Returns:
+            The source :class:`Feature` if configured, else `None`.
+        """
         pending_value = getattr(self, "_values_from_input", UNSET)
         if isinstance(pending_value, Feature):
             return pending_value
@@ -1688,6 +1712,16 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     @property
     def related_feature(self) -> Feature | None:
+        """Return the paired feature in the values_from relationship.
+
+        For a derived feature (`books.values_from = author`) this returns the
+        source (`author`). For a source feature (`author`) this returns the first
+        derived feature that references it via `_aux["vf"]`.
+
+        Unsaved features cannot be reverse-resolved from the database, so an
+        unsaved source feature returns `None` unless it already has an in-memory
+        `values_from` assignment.
+        """
         values_from = self.values_from
         if values_from is not None:
             return values_from
