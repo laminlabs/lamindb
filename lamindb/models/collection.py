@@ -562,7 +562,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         track_run_inputs(self, is_run_input)
         return ds
 
-    def cache(self, is_run_input: bool | None = None) -> list[UPath]:
+    def cache(
+        self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
+    ) -> list[UPath]:
         """Download cloud artifacts in collection to local cache.
 
         Follows syncing logic: only downloads outdated artifacts.
@@ -570,12 +572,13 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Returns ordered paths to locally cached on-disk artifacts via `.ordered_artifacts.all()`:
 
         Args:
+            mute: Silence logging of caching progress.
             is_run_input: Whether to track this collection as run input.
         """
         path_list = []
         for artifact in self.ordered_artifacts.all():
             # do not want to track data lineage on the artifact level
-            path_list.append(artifact.cache(is_run_input=False))
+            path_list.append(artifact.cache(is_run_input=False, mute=mute, **kwargs))
         track_run_inputs(self, is_run_input)
         return path_list
 
