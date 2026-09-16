@@ -3116,6 +3116,96 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert resolve_record.called
 
 
+def test_plan_metadata_apply_sets_values_from_on_existing_feature(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    meetings_feature.uid = "F_MEETINGS"
+    meetings_feature._aux = {}
+    schema = MagicMock()
+    schema.members.all.return_value = [meetings_feature]
+    schema.members.filter.return_value = [meetings_feature]
+    source_feature = MagicMock()
+    source_feature.uid = "F_EXT_ATT"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch.object(
+            syncer,
+            "_infer_notion_backward_relation_features",
+            return_value={"meetings": source_feature},
+        ),
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 7
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [meetings_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "People",
+            feature_plan,
+            schema_spec={"meetings": {"type": "relation"}},
+            apply=True,
+            report=report,
+        )
+
+    assert meetings_feature.values_from == source_feature
+    meetings_feature.save.assert_any_call()
+    assert any("People / meetings" in detail for detail in report.updated_features)
+
+
+def test_plan_metadata_dry_run_reports_values_from_update(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
+    meetings_feature = MagicMock()
+    meetings_feature.name = "meetings"
+    meetings_feature.uid = "F_MEETINGS"
+    meetings_feature._aux = {}
+    schema = MagicMock()
+    schema.members.all.return_value = [meetings_feature]
+    schema.members.filter.return_value = [meetings_feature]
+    source_feature = MagicMock()
+    source_feature.uid = "F_EXT_ATT"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch.object(
+            syncer,
+            "_infer_notion_backward_relation_features",
+            return_value={"meetings": source_feature},
+        ),
+    ):
+        feature_type = MagicMock()
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [meetings_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "People",
+            feature_plan,
+            schema_spec={"meetings": {"type": "relation"}},
+            apply=False,
+            report=report,
+        )
+
+    meetings_feature.save.assert_not_called()
+    assert any("People / meetings" in detail for detail in report.update_features)
+
+
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
     with patch.object(
         syncer, "_resolve_record_type_by_name_candidates"

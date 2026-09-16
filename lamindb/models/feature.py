@@ -1649,14 +1649,21 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             )
 
     @property
-    def values_from(self) -> Feature | None:
-        pending_value = getattr(self, "_values_from_input", UNSET)
-        if isinstance(pending_value, Feature):
-            return pending_value
+    def _values_from_uid(self) -> str | None:
         if self._aux is None or not isinstance(self._aux, dict):
             return None
         values_feature_uid = self._aux.get("vf")
         if not isinstance(values_feature_uid, str):
+            return None
+        return values_feature_uid
+
+    @property
+    def values_from(self) -> Feature | None:
+        pending_value = getattr(self, "_values_from_input", UNSET)
+        if isinstance(pending_value, Feature):
+            return pending_value
+        values_feature_uid = self._values_from_uid
+        if values_feature_uid is None:
             return None
         return (
             Feature.objects.using(self._state.db).filter(uid=values_feature_uid).first()
@@ -1664,6 +1671,19 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     @values_from.setter
     def values_from(self, value: Feature | None) -> None:
+        if value is not None:
+            self._validate_values_from(value)
+        if not self._state.adding and self.id is not None:
+            from .record import RecordRecord
+
+            if (
+                RecordRecord.objects.using(self._state.db)
+                .filter(feature_id=self.id)
+                .exists()
+            ):
+                raise ValueError(
+                    "Feature.values_from can only be set when no RecordRecord links exist for this feature"
+                )
         self._values_from_input = value
 
     @property

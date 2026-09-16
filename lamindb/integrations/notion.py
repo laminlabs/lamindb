@@ -2999,6 +2999,266 @@ class _NotionSyncer:
             )
         return len(property_tokens & target_tokens) > 0
 
+    def _infer_notion_backward_relation_features(
+        self,
+        schema_spec: dict[str, dict[str, Any]],
+        features_by_name: dict[str, Any],
+        current_type_name: str | None = None,
+        locked_feature_names: set[str] | None = None,
+    ) -> dict[str, Any]:
+        """Infer schema feature name -> source feature for dual Notion relation pairs."""
+        locked_feature_names = locked_feature_names or set()
+        logger.important(
+            "backward relation: infer start "
+            f"relation_props={[name for name, spec in schema_spec.items() if spec.get('type') == 'relation']} "
+            f"local_features={sorted(features_by_name.keys())}"
+        )
+        matches: list[tuple[str, Any, str]] = []
+        for property_name, property_spec in schema_spec.items():
+            if property_spec.get("type") != "relation":
+                continue
+            if property_name in locked_feature_names:
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-configured"
+                )
+                continue
+            local_feature = features_by_name.get(property_name)
+            if local_feature is None:
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=local-feature-missing"
+                )
+                continue
+            dual = property_spec.get("dual")
+            if not isinstance(dual, dict):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=dual-missing"
+                )
+                continue
+            synced_property_name = dual.get("synced_property_name")
+            target = property_spec.get("target")
+            if (
+                not isinstance(synced_property_name, str)
+                or not synced_property_name.strip()
+                or not isinstance(target, str)
+                or not target.strip()
+            ):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=dual-or-target-invalid "
+                    f"synced={synced_property_name!r} target={target!r}"
+                )
+                continue
+            target_names = self._relation_target_name_candidates(target)
+            is_self_referential_target = isinstance(current_type_name, str) and any(
+                isinstance(target_name, str)
+                and target_name.strip().lower() == current_type_name.strip().lower()
+                for target_name in target_names
+            )
+            if (
+                not self._relation_property_matches_target_names(
+                    property_name, target_names
+                )
+                and not is_self_referential_target
+            ):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=target-name-mismatch "
+                    f"target_names={target_names}"
+                )
+                continue
+            if is_self_referential_target:
+                logger.important(
+                    "backward relation: self-referential target-name override "
+                    f"relation={property_name!r} current_type={current_type_name!r} "
+                    f"target_names={target_names}"
+                )
+            target_type = self._resolve_record_type_by_name_candidates(target_names)
+            if target_type is None:
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=target-type-unresolved "
+                    f"target_names={target_names}"
+                )
+                continue
+            if not self._relation_feature_matches_target_type(
+                local_feature, target_type
+            ):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=local-feature-target-mismatch "
+                    f"local_dtype={getattr(local_feature, '_dtype_str', None)!r} "
+                    f"target_type={getattr(target_type, 'name', target_type)!r}"
+                )
+                continue
+            source_feature = None
+            target_feature_type = ln.Feature.filter(
+                name=target_type.name, is_type=True
+            ).one_or_none()
+            if target_feature_type is not None:
+                source_feature = ln.Feature.filter(
+                    name__iexact=synced_property_name.strip(),
+                    type=target_feature_type,
+                ).one_or_none()
+            if (
+                source_feature is None
+                and getattr(target_type, "schema", None) is not None
+            ):
+                members = target_type.schema.members
+                if hasattr(members, "filter"):
+                    source_candidates = list(
+                        members.filter(name__iexact=synced_property_name.strip())
+                    )
+                else:
+                    source_candidates = [
+                        feature
+                        for feature in members
+                        if feature.name.lower() == synced_property_name.strip().lower()
+                    ]
+                source_feature = self._pick_unique(source_candidates)
+            if source_feature is None:
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=source-feature-unresolved "
+                    f"target_type={getattr(target_type, 'name', target_type)!r} "
+                    f"synced_property={synced_property_name.strip()!r}"
+                )
+                continue
+            logger.important(
+                "backward relation: candidate "
+                f"{property_name!r} -> source_feature={source_feature.name!r} "
+                f"uid={source_feature.uid!r}"
+            )
+            matches.append(
+                (property_name, source_feature, synced_property_name.strip())
+            )
+        if not matches:
+            logger.important(
+                "backward relation: infer no-candidates "
+                f"matches={[(name, feature.uid) for name, feature, _ in matches]}"
+            )
+            return {}
+        if sys.stdin is None or not sys.stdin.isatty():
+            logger.warning(
+                "backward relation: unresolved candidates found in "
+                "a non-interactive session; skipping auto-configuration"
+            )
+            logger.important(
+                "backward relation: infer non-interactive candidates "
+                f"{[(name, feature.uid) for name, feature, _ in matches]}"
+            )
+            return {}
+
+        selected_mappings: dict[str, Any] = {}
+        RICH_CONSOLE.print(
+            "[bold yellow]notion backward relation[/] confirm backward-derived features:",
+            markup=True,
+            highlight=False,
+        )
+        for property_name, source_feature, synced_property_name in matches:
+            while True:
+                selected = input(
+                    f"Mark '{property_name}' as backward-derived from "
+                    f"'{synced_property_name}' (source uid: {source_feature.uid})? [y/N]: "
+                ).strip()
+                if selected == "" or selected.lower() in {"n", "no"}:
+                    logger.important(
+                        "backward relation: user declined candidate "
+                        f"feature={property_name!r} source_uid={source_feature.uid!r}"
+                    )
+                    break
+                if selected.lower() in {"y", "yes"}:
+                    selected_mappings[property_name] = source_feature
+                    logger.important(
+                        "backward relation: user accepted candidate "
+                        f"feature={property_name!r} source_uid={source_feature.uid!r}"
+                    )
+                    break
+                RICH_CONSOLE.print(
+                    "[yellow]Invalid choice. Use y/yes, n/no, or Enter to skip.[/]",
+                    markup=True,
+                    highlight=False,
+                )
+        logger.important(
+            "backward relation: infer confirmed-candidates "
+            f"{[(name, feature.uid) for name, feature in selected_mappings.items()]}"
+        )
+        return selected_mappings
+
+    def _relation_feature_matches_target_type(
+        self, local_feature: Any, target_type: Any
+    ) -> bool:
+        """Whether a local relation feature points to a specific target record type."""
+        from lamindb.models.feature import parse_dtype
+
+        dtype_str = getattr(local_feature, "_dtype_str", None)
+        if not isinstance(dtype_str, str) or not dtype_str:
+            return True
+        parsed = parse_dtype(dtype_str)
+        if len(parsed) != 1:
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result=False reason=parsed-dtype-not-singular local_dtype={dtype_str!r}"
+            )
+            return False
+        parsed_dtype = parsed[0]
+        if parsed_dtype.get("registry_str") != "Record":
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result=False reason=registry-not-record local_dtype={dtype_str!r} "
+                f"registry_str={parsed_dtype.get('registry_str')!r}"
+            )
+            return False
+        parsed_type_uid = parsed_dtype.get("type_uid")
+        target_uid = getattr(target_type, "uid", None)
+        if isinstance(parsed_type_uid, str) and isinstance(target_uid, str):
+            matched = parsed_type_uid == target_uid
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=type-uid "
+                f"parsed_type_uid={parsed_type_uid!r} target_uid={target_uid!r}"
+            )
+            return matched
+        registry = parsed_dtype.get("registry")
+        registry_uid = getattr(registry, "uid", None)
+        registry_name = getattr(registry, "name", None)
+        target_name = getattr(target_type, "name", None)
+        if not isinstance(registry_name, str) and isinstance(registry_uid, str):
+            registry_record = ln.Record.filter(
+                uid=registry_uid, is_type=True
+            ).one_or_none()
+            registry_name = getattr(registry_record, "name", None)
+        if not isinstance(target_name, str) and isinstance(target_uid, str):
+            target_record = ln.Record.filter(uid=target_uid, is_type=True).one_or_none()
+            target_name = getattr(target_record, "name", None)
+        if isinstance(registry_name, str) and isinstance(target_name, str):
+            matched = registry_name.lower() == target_name.lower()
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=exact-name "
+                f"registry_name={registry_name!r} target_name={target_name!r} "
+                f"registry_uid={registry_uid!r} target_uid={target_uid!r}"
+            )
+            return matched
+        if isinstance(registry_uid, str) and isinstance(target_uid, str):
+            matched = registry_uid == target_uid
+            logger.important(
+                "backward relation: relation-target-check "
+                f"result={matched} reason=uid-fallback "
+                f"registry_uid={registry_uid!r} target_uid={target_uid!r} "
+                f"registry_name={registry_name!r} target_name={target_name!r}"
+            )
+            return matched
+        logger.important(
+            "backward relation: relation-target-check "
+            f"result=False reason=insufficient-identity "
+            f"registry_uid={registry_uid!r} target_uid={target_uid!r} "
+            f"registry_name={registry_name!r} target_name={target_name!r}"
+        )
+        return False
+
     @staticmethod
     def _index_feature_name_from_columns(columns: dict[str, str]) -> str | None:
         for name, notion_type in columns.items():
@@ -3199,6 +3459,9 @@ class _NotionSyncer:
                 self._append_unique(report.create_feature_types, db_name)
 
         feature_names = [name for name, _, _ in feature_plan]
+        feature_plan_by_name = {
+            name: (dtype_label, dtype) for name, dtype_label, dtype in feature_plan
+        }
         schema_members: list[Any] = []
         schema_members_by_name: dict[str, Any] = {}
         if schema is not None:
@@ -3374,7 +3637,77 @@ class _NotionSyncer:
                 ]
         else:
             features = []
-        {feature.name: feature for feature in features}
+        features_by_name = {feature.name: feature for feature in features}
+        locked_feature_names: set[str] = set()
+        if schema is not None:
+            for feature_name, feature in features_by_name.items():
+                source_uid = None
+                values_from_feature = getattr(feature, "values_from", None)
+                values_from_uid = getattr(values_from_feature, "uid", None)
+                if isinstance(values_from_uid, str):
+                    source_uid = values_from_uid
+                else:
+                    aux = getattr(feature, "_aux", None)
+                    if isinstance(aux, dict):
+                        aux_source_uid = aux.get("vf")
+                        if isinstance(aux_source_uid, str):
+                            source_uid = aux_source_uid
+                if source_uid is not None:
+                    locked_feature_names.add(feature_name)
+
+        backward_features_by_name: dict[str, Any] = {}
+        if schema_spec:
+            backward_features_by_name = self._infer_notion_backward_relation_features(
+                schema_spec,
+                features_by_name,
+                current_type_name=db_name,
+                locked_feature_names=locked_feature_names,
+            )
+        backward_feature_updates: dict[str, Any] = {}
+        for target_feature_name, source_feature in backward_features_by_name.items():
+            target_feature = features_by_name.get(target_feature_name)
+            source_uid = getattr(source_feature, "uid", None)
+            if target_feature is None or not isinstance(source_uid, str):
+                continue
+            existing_source_uid = None
+            existing_values_from = getattr(target_feature, "values_from", None)
+            existing_values_from_uid = getattr(existing_values_from, "uid", None)
+            if isinstance(existing_values_from_uid, str):
+                existing_source_uid = existing_values_from_uid
+            else:
+                target_aux = getattr(target_feature, "_aux", None)
+                if isinstance(target_aux, dict):
+                    aux_source_uid = target_aux.get("vf")
+                    if isinstance(aux_source_uid, str):
+                        existing_source_uid = aux_source_uid
+            if existing_source_uid != source_uid:
+                backward_feature_updates[target_feature_name] = source_feature
+
+        if backward_feature_updates:
+            for target_feature_name in sorted(backward_feature_updates):
+                target_feature = features_by_name[target_feature_name]
+                dtype_label, dtype = feature_plan_by_name.get(
+                    target_feature.name,
+                    (str(getattr(target_feature, "dtype_as_str", "unknown")), str),
+                )
+                detail = self._feature_plan_detail(
+                    db_name,
+                    target_feature.name,
+                    dtype_label,
+                    dtype,
+                    record_field_mappings,
+                    index_feature_name=index_feature_name,
+                )
+                if apply:
+                    self._append_unique(report.updated_features, detail)
+                else:
+                    self._append_unique(report.update_features, detail)
+        if apply:
+            for target_feature_name, source_feature in backward_feature_updates.items():
+                target_feature = features_by_name[target_feature_name]
+                target_feature.values_from = source_feature
+                target_feature.save()
+
         if schema is None:
             if apply:
                 index_feature = next(

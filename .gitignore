@@ -17,6 +17,7 @@ docs/scripts/define_valid_features.py
 docs/scripts/save_mini_immuno_datasets.py
 profile_output*
 .coveragerc
+uv.lock
 *.db
 *.lndb
 *.jpg

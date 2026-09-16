@@ -116,6 +116,31 @@ def test_feature_values_from_requires_saved_source():
         )
 
 
+def test_feature_values_from_setter_requires_no_existing_links():
+    target = ln.Feature(name="values-from-setter-target", dtype=list[ln.Record]).save()
+    source = ln.Feature(name="values-from-setter-source", dtype=ln.Record).save()
+    schema = ln.Schema(features=[target], name="values-from-setter-schema").save()
+    sheet = ln.Record(
+        name="values-from-setter-sheet", is_type=True, schema=schema
+    ).save()
+    record_a = ln.Record(name="values-from-setter-a", type=sheet).save()
+    record_b = ln.Record(name="values-from-setter-b", type=sheet).save()
+    try:
+        record_a.features.set_values({"values-from-setter-target": [record_b]})
+        with pytest.raises(
+            ValueError,
+            match="can only be set when no RecordRecord links exist",
+        ):
+            target.values_from = source
+    finally:
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        target.delete(permanent=True)
+        source.delete(permanent=True)
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )
