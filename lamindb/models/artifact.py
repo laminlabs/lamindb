@@ -3345,7 +3345,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def save(
         self,
         upload: bool | None = None,
-        transfer: Literal["record", "annotations"] = "record",
+        transfer: Literal["sqlrecord", "notes", "annotations", "record"] = "sqlrecord",
         **kwargs,
     ) -> Artifact:
         """Save to database & storage.
@@ -3353,8 +3353,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
             transfer: In case artifact was queried on a different instance, dictates behavior of sync.
-                If "record", only the artifact record is synced to the current instance.
-                If "annotations", also the annotations linked in the source instance are synced.
+                ``sqlrecord`` (default; alias ``record`` until v3): only the SQL row and its foreign keys.
+                ``notes``: also transfer the latest readme block.
+                ``annotations``: also transfer feature & label annotations.
 
         See Also:
             :doc:`transfer`
@@ -3537,12 +3538,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not _handle_suffix_change_on_save(self):
                 return None
 
-        if transfer not in {"record", "annotations"}:
-            raise ValueError(
-                f"transfer should be either 'record' or 'annotations', not {transfer}"
-            )
-        else:
-            kwargs["transfer"] = transfer
+        from .sqlrecord import normalize_transfer_config
+
+        kwargs["transfer"] = normalize_transfer_config(transfer)
         state_was_adding = self._state.adding
         store_kwargs = kwargs.pop(
             "store_kwargs", {}

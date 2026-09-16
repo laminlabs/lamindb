@@ -1230,6 +1230,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         super().__init__(**super_kwargs)
 
     def save(self, *args, **kwargs) -> Record:
+        """Save.
+
+        Args:
+            transfer: If this record was queried on another instance:
+                ``sqlrecord`` (default; alias ``record`` until v3) copies the row
+                and foreign keys only; ``notes`` also copies the readme;
+                ``annotations`` also copies feature values.
+        """
         if self.is_type:
             validate_record_type_schema_index(self.schema)
         super().save(*args, **kwargs)
