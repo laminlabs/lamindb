@@ -196,25 +196,33 @@ def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
     return {uid: field for uid, field in mappings.items() if field in allowed_fields}
 
 
-def get_schema_backward_feature_uids(schema: Schema | None) -> dict[str, str]:
-    """Return schema feature uid -> source feature uid for backward-derived features."""
+def get_schema_values_feature_uids(schema: Schema | None) -> dict[str, str]:
+    """Return schema feature uid -> source feature uid for values_from-derived features."""
     if schema is None:
         return {}
-    backward_feature_uids = schema._backward_feature_uids
-    if not isinstance(backward_feature_uids, dict):
+    cached = getattr(schema, "_values_feature_uids_cache", None)
+    if isinstance(cached, dict):
+        return cached
+    members = schema.members
+    if members is None:
         return {}
-    return {
-        feature_uid: source_uid
-        for feature_uid, source_uid in backward_feature_uids.items()
-        if isinstance(feature_uid, str) and isinstance(source_uid, str)
-    }
+    values_feature_uids: dict[str, str] = {}
+    iterable = members.all().only("uid", "_aux") if hasattr(members, "all") else members
+    for feature in iterable:
+        if not isinstance(feature._aux, dict):
+            continue
+        source_uid = feature._aux.get("vf")
+        if isinstance(source_uid, str):
+            values_feature_uids[feature.uid] = source_uid
+    schema._values_feature_uids_cache = values_feature_uids
+    return values_feature_uids
 
 
 def schema_has_record_mapped_features(schema: Schema | None) -> bool:
-    """Whether schema has field-mapped or backward-derived record features."""
+    """Whether schema has field-mapped or values_from-derived record features."""
     return (
         len(get_schema_record_fields(schema)) > 0
-        or len(get_schema_backward_feature_uids(schema)) > 0
+        or len(get_schema_values_feature_uids(schema)) > 0
     )
 
 
@@ -310,10 +318,10 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
         )
     schema = record.type.schema if record.type is not None else None  # type: ignore
     mapped_fields = get_schema_record_fields(schema)
-    backward_feature_uids = get_schema_backward_feature_uids(schema)
+    values_feature_uids = get_schema_values_feature_uids(schema)
     mapped_feature_uids = set(mapped_fields.keys())
-    if backward_feature_uids:
-        mapped_feature_uids.update(backward_feature_uids.keys())
+    if values_feature_uids:
+        mapped_feature_uids.update(values_feature_uids.keys())
     if mapped_feature_uids:
         features = {
             feature.uid: feature
@@ -326,15 +334,15 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
             value = _feature_value_from_mapped_record_field(record, feature, field_name)
             if value is not None:
                 dictionary[feature.name] = value
-        if backward_feature_uids:
-            source_feature_uids = list(set(backward_feature_uids.values()))
+        if values_feature_uids:
+            source_feature_uids = list(set(values_feature_uids.values()))
             source_features = {
                 feature.uid: feature
                 for feature in Feature.objects.using(record._state.db).filter(
                     uid__in=source_feature_uids
                 )
             }
-            for target_uid, source_uid in backward_feature_uids.items():
+            for target_uid, source_uid in values_feature_uids.items():
                 target_feature = features.get(target_uid)
                 source_feature = source_features.get(source_uid)
                 if target_feature is None or source_feature is None:
@@ -459,12 +467,8 @@ def strip_index_for_record_persistence(
     if index_feature is None:
         index_feature = schema.index
     record_field_mappings = get_schema_record_fields(schema)
-    backward_feature_uids = get_schema_backward_feature_uids(schema)
-    if (
-        index_feature is None
-        and not record_field_mappings
-        and not backward_feature_uids
-    ):
+    values_feature_uids = get_schema_values_feature_uids(schema)
+    if index_feature is None and not record_field_mappings and not values_feature_uids:
         return dictionary, feature_objects
 
     index_value = None
@@ -518,11 +522,11 @@ def strip_index_for_record_persistence(
                 update_fields.add(field_name)
             dictionary.pop(feature.name, None)
         feature_objects = filtered_features
-    if backward_feature_uids:
-        backward_target_feature_uids = set(backward_feature_uids.keys())
+    if values_feature_uids:
+        values_target_feature_uids = set(values_feature_uids.keys())
         filtered_features = []
         for feature in feature_objects:
-            if feature.uid not in backward_target_feature_uids:
+            if feature.uid not in values_target_feature_uids:
                 filtered_features.append(feature)
                 continue
             has_explicit_value = (
@@ -533,7 +537,7 @@ def strip_index_for_record_persistence(
             if has_explicit_value or has_named_value:
                 raise ValidationError(
                     f"feature '{feature.name}' is configured with "
-                    "feature.with_config(backward=...) and is read-only"
+                    "Feature(..., values_from=...) and is read-only"
                 )
             dictionary.pop(feature.name, None)
         feature_objects = filtered_features

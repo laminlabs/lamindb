@@ -86,6 +86,36 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
+def test_feature_values_from_roundtrip():
+    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record).save()
+    books_feature = ln.Feature(
+        name="values-from-books",
+        dtype=list[ln.Record],
+        values_from=author_feature,
+    ).save()
+    try:
+        assert books_feature._aux["vf"] == author_feature.uid
+        assert books_feature.values_from.uid == author_feature.uid
+        assert books_feature.related_feature.uid == author_feature.uid
+        assert author_feature.related_feature.uid == books_feature.uid
+    finally:
+        books_feature.delete(permanent=True)
+        author_feature.delete(permanent=True)
+
+
+def test_feature_values_from_requires_saved_source():
+    unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
+    with pytest.raises(
+        ValueError,
+        match="requires a saved source feature",
+    ):
+        ln.Feature(
+            name="values-from-unsaved-target",
+            dtype=list[ln.Record],
+            values_from=unsaved_source,
+        )
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )

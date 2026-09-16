@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError as DjangoIntegrityError
@@ -878,6 +878,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
+        values_from: `Feature | None = None` For reverse record relations, points to the
+            source feature that provides values for this feature.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
@@ -1229,6 +1231,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
+        values_from: Feature | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
@@ -1273,11 +1276,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             coerce = kwargs.pop("coerce_dtype")
         else:
             coerce = kwargs.pop("coerce", None)
+        values_from = kwargs.pop("values_from", UNSET)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
         self.coerce = coerce
+        self._values_from_input = values_from
         dtype_str = kwargs.pop("_dtype_str", None)
         if dtype_str == "cat":
             warnings.warn(
@@ -1381,6 +1386,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
+        if values_from is not UNSET:
+            self._validate_values_from(values_from)
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1552,15 +1559,47 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature to the instance."""
-        super().save(*args, **kwargs)
+        values_from_input: Feature | None | Unset = getattr(
+            self, "_values_from_input", UNSET
+        )
+        with transaction.atomic(using=self._state.db):
+            super().save(*args, **kwargs)
+            if isinstance(values_from_input, Feature):
+                values_from = values_from_input
+                self._validate_values_from(values_from)
+                if values_from._state.adding:
+                    raise ValueError(
+                        "Feature(..., values_from=...) requires a saved source feature"
+                    )
+                existing_for_source = (
+                    Feature.objects.using(self._state.db)
+                    .filter(_aux__vf=values_from.uid)
+                    .exclude(id=self.id)
+                    .only("uid")
+                    .first()
+                )
+                if existing_for_source is not None:
+                    raise ValueError(
+                        "Feature(..., values_from=...) requires a one-to-one relationship; "
+                        "the source feature already has a related feature"
+                    )
+                self._aux = self._aux or {}
+                self._aux["vf"] = values_from.uid
+                super().save(update_fields=["_aux"])
+            elif values_from_input is None and (
+                self._aux is not None
+                and isinstance(self._aux, dict)
+                and isinstance(self._aux.get("vf"), str)
+            ):
+                self._aux.pop("vf", None)
+                super().save(update_fields=["_aux"])
         return self
 
     def with_config(
         self,
         optional: bool | None = None,
         field: AllowedFields | None = None,
-        backward: Feature | None = None,
-    ) -> tuple[Feature, dict[str, bool | AllowedFields | Feature]]:
+    ) -> tuple[Feature, dict[str, bool | AllowedFields]]:
         """Pass additional configuration to :class:`~lamindb.Schema`.
 
         Args:
@@ -1570,17 +1609,76 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 so values are stored on the record model rather than in feature
                 link tables. For record schemas, :attr:`~lamindb.Schema.index`
                 automatically targets :attr:`~lamindb.Record.name`.
-            backward: For record schemas, mark this feature as derived from the
-                reverse links of another feature on a related sheet.
         """
-        config: dict[str, bool | AllowedFields | Feature] = {}
+        config: dict[str, bool | AllowedFields] = {}
         if optional is not None:
             config["optional"] = optional
         if field is not None:
             config["field"] = field
-        if backward is not None:
-            config["backward"] = backward
         return self, config
+
+    def _validate_values_from(self, values_from: Feature) -> None:
+        if not isinstance(values_from, Feature):
+            raise TypeError("Feature(..., values_from=...) expects a Feature value")
+        if self.uid == values_from.uid and not self._state.adding:
+            raise ValueError("Feature(..., values_from=...) cannot point to itself")
+        if values_from._state.adding:
+            raise ValueError(
+                "Feature(..., values_from=...) requires a saved source feature"
+            )
+        configured_dtype = parse_dtype(self._dtype_str)
+        source_dtype = parse_dtype(values_from._dtype_str)
+        if (
+            len(configured_dtype) != 1
+            or len(source_dtype) != 1
+            or configured_dtype[0].get("registry_str") != "Record"
+            or source_dtype[0].get("registry_str") != "Record"
+        ):
+            raise ValueError(
+                "Feature(..., values_from=...) requires both features "
+                "to have categorical Record dtype"
+            )
+        if not configured_dtype[0].get("list", False):
+            raise ValueError(
+                "Feature(..., values_from=...) requires the configured feature "
+                "to have list categorical Record dtype"
+            )
+        if values_from.values_from is not None:
+            raise ValueError(
+                "Feature(..., values_from=...) cannot create a symmetric relationship"
+            )
+
+    @property
+    def values_from(self) -> Feature | None:
+        pending_value = getattr(self, "_values_from_input", UNSET)
+        if isinstance(pending_value, Feature):
+            return pending_value
+        if self._aux is None or not isinstance(self._aux, dict):
+            return None
+        values_feature_uid = self._aux.get("vf")
+        if not isinstance(values_feature_uid, str):
+            return None
+        return (
+            Feature.objects.using(self._state.db).filter(uid=values_feature_uid).first()
+        )
+
+    @values_from.setter
+    def values_from(self, value: Feature | None) -> None:
+        self._values_from_input = value
+
+    @property
+    def related_feature(self) -> Feature | None:
+        values_from = self.values_from
+        if values_from is not None:
+            return values_from
+        if self._state.adding:
+            return None
+        return (
+            Feature.objects.using(self._state.db)
+            .filter(_aux__vf=self.uid)
+            .exclude(id=self.id)
+            .first()
+        )
 
     @property
     @deprecated("coerce")
