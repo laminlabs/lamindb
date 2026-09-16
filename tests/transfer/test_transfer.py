@@ -106,3 +106,43 @@ def test_schema_transfer_feature_uid_conflict_by_name():
     transferred_tissue = transferred.members.get(name="tissue")
     assert transferred_tissue.uid == source_feature_uid
     assert transferred_tissue.uid != local_tissue.uid
+
+
+def test_record_transfer_keeps_features_by_default():
+    user_handle = ln.setup.settings.user.handle
+    sheet_name = "transfer_ci_runs"
+    feat_name = "package_version"
+    rec_name = "transfer-ci-run-1"
+
+    ln.connect("testdb1")
+    sheet = ln.Record(name=sheet_name, is_type=True).save()
+    feat = ln.Feature(name=feat_name, dtype=str).save()
+    schema = ln.Schema(name=f"{sheet_name}_schema", features=[feat]).save()
+    sheet.schema = schema
+    sheet.save()
+    source = ln.Record(
+        name=rec_name,
+        type=sheet,
+        features={feat_name: "2.10.0"},
+    ).save()
+    rec_uid = source.uid
+    assert source.features.get_values()[feat_name] == "2.10.0"
+
+    ln.connect("testdb2")
+    db1 = ln.DB(f"{user_handle}/testdb1")
+
+    for qs in (
+        ln.Record.filter(name=rec_name),
+        ln.Record.filter(name=sheet_name, is_type=True),
+        ln.Schema.filter(name=f"{sheet_name}_schema"),
+        ln.Feature.filter(name=feat_name),
+    ):
+        if qs.exists():
+            qs.delete(permanent=True)
+
+    transferred = db1.Record.get(uid=rec_uid).save()
+    assert transferred.features.get_values().get(feat_name) == "2.10.0"
+
+    transferred.delete(permanent=True)
+    skipped = db1.Record.get(uid=rec_uid).save(transfer="record")
+    assert skipped.features.get_values().get(feat_name) is None

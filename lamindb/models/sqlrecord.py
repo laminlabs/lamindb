@@ -1408,7 +1408,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         db = self._state.db
         pk_on_db = self.pk
         if (
-            self.__class__.__name__ == "Schema"
+            self.__class__.__name__ in {"Schema", "Record"}
             and transfer_config is None
             and db is not None
             and db != "default"
@@ -1635,6 +1635,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
+            if self.__class__.__name__ == "Record" and transfer_config == "annotations":
+                transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
@@ -2624,6 +2626,40 @@ def get_transfer_run(record) -> Run:
         ).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
+
+
+def transfer_record_feature_values(
+    record_on_default, source_db, source_pk, using, transfer_logs
+):
+    from copy import copy
+
+    from .feature import Feature
+
+    if source_pk is None:
+        return
+    # Re-load from the source DB. `record_on_default` already has remapped FK ids
+    # (type, schema, …) that do not exist on the source instance.
+    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    values = source.features.get_values()
+    if not values:
+        return
+
+    def _prepare(value):
+        if isinstance(value, (list, tuple)):
+            return [_prepare(v) for v in value]
+        if isinstance(value, SQLRecord) and value._state.db not in (None, "default"):
+            return value.save()
+        return value
+
+    prepared = {}
+    for key, value in values.items():
+        src_feature = Feature.objects.using(source_db).filter(name=key).first()
+        if src_feature is not None:
+            transfer_to_default_db(
+                copy(src_feature), using, save=True, transfer_logs=transfer_logs
+            )
+        prepared[key] = _prepare(value)
+    record_on_default.features.set_values(prepared)
 
 
 def transfer_to_default_db(
