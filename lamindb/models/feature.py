@@ -1570,10 +1570,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             if isinstance(values_from_input, Feature):
                 values_from = values_from_input
                 self._validate_values_from(values_from)
-                if values_from._state.adding:
-                    raise ValueError(
-                        "Feature(..., values_from=...) requires a saved source feature"
-                    )
                 existing_for_source = (
                     Feature.objects.using(self._state.db)
                     .filter(_aux__vf=values_from.uid)
