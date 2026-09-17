@@ -237,7 +237,8 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     if key in branch_fields or key.startswith(branch_prefixes):
                         return True
                 elif isinstance(child, Q):
-                    # Nested Q object
+                    # Q(branch=...) | Q(key=...) stores nested Q children; skip
+                    # that and the default branch_id filter would hide other branches
                     if check_q_object(child):
                         return True
             return False

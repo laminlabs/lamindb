@@ -481,6 +481,8 @@ def test_get_filter_branch():
         ln.Artifact.filter(ln.Q(branch_id=branch.id), key="df_test_get.parquet").count()
         == 1
     )
+    # Q(branch=...) | Q(key=...) nests Q children; without walking them the
+    # default branch_id filter would hide this feature-branch artifact
     assert (
         ln.Artifact.filter(
             ln.Q(branch=branch) | ln.Q(key="df_test_get.parquet")
