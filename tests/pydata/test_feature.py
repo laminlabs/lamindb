@@ -15,7 +15,10 @@ from lamindb.models.feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
-from lamindb.models.record import get_feature_sqlrecord_field
+from lamindb.models.record import (
+    get_feature_sqlrecord_field,
+    get_feature_values_through_source_uid,
+)
 from pandas.api.types import is_string_dtype
 
 
@@ -138,7 +141,9 @@ def test_feature_values_through_roundtrip():
         name="values-from-books",
         dtype=list[ln.Record],
         values_through=author_feature,
-    ).save()
+    )
+    assert get_feature_values_through_source_uid(books_feature) == author_feature.uid
+    books_feature.save()
     try:
         assert books_feature._aux["vf"] == author_feature.uid
         assert books_feature.values_through.uid == author_feature.uid
