@@ -98,6 +98,8 @@ def test_feature_values_from_roundtrip():
         assert books_feature.values_from.uid == author_feature.uid
         assert books_feature.related_feature.uid == author_feature.uid
         assert author_feature.related_feature.uid == books_feature.uid
+        reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
+        assert reloaded_books_feature.values_from.uid == author_feature.uid
 
         # Clearing values_from should remove both forward and reverse relation metadata.
         books_feature.values_from = None
