@@ -683,13 +683,57 @@ def get_features_data(
             }
         else:
             return dictionary
-    else:
-        return (
-            internal_feature_labels,
-            feature_data,
-            schema_data,
-            internal_feature_names,
-            external_data,
+    if self.__class__.__name__ == "Record":
+        _append_values_through_describe_rows(
+            self, external_data, internal_feature_labels
+        )
+    return (
+        internal_feature_labels,
+        feature_data,
+        schema_data,
+        internal_feature_names,
+        external_data,
+    )
+
+
+def _append_values_through_describe_rows(
+    record: Record,
+    external_data: list,
+    internal_feature_labels: dict,
+) -> None:
+    """Add `values_through` features to describe rows.
+
+    `get_values()` already calls `inject_index_into_feature_dict` for both reverse
+    relations and Record-field mappings. Describe used the same `get_features_data`
+    function but skipped that injection.
+    """
+    from .record import inject_index_into_feature_dict, load_values_through_features
+
+    derived: dict[str, Any] = {}
+    inject_index_into_feature_dict(record, derived)
+    already = {row[0] for row in external_data} | set(internal_feature_labels)
+    features_by_name = {
+        feature.name: feature
+        for feature in load_values_through_features(using=record._state.db)
+    }
+    for name, value in derived.items():
+        if name in already or name not in features_by_name:
+            continue
+        if value is None or value == [] or value == set():
+            continue
+        feature = features_by_name[name]
+        display_dtype = format_dtype_for_display(feature._dtype_str or "")
+        printed_values = (
+            _format_values(sorted(value), n=10, quotes=False)
+            if isinstance(value, set)
+            else str(value)
+        )
+        external_data.append(
+            (
+                name,
+                Text(strip_cat(display_dtype), style="dim"),
+                printed_values,
+            )
         )
 
 

@@ -720,6 +720,16 @@ def test_record_feature_values_through_store_on_record_columns():
     assert record.features["source_description"] == "row description"
     assert record.features["field-map-score"] == 7.5
 
+    describe_str = record.describe(return_str=True)
+    assert "source_created_at" in describe_str
+    assert "source_created_by" in describe_str
+    assert "source_reference" in describe_str
+    assert "source_name" in describe_str
+    assert "source_description" in describe_str
+    assert "mapped-record-1" in describe_str
+    assert "row description" in describe_str
+    assert str(expected_created_by) in describe_str
+
     ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=timezone.utc)
     record.features.set_values(
         {
@@ -964,6 +974,12 @@ def test_record_feature_values_through_reads_reverse_links():
     assert bob_values["attended_meetings"] == ["values-from-meeting-1"]
     assert alice.features["attended_meetings"] == alice_values["attended_meetings"]
     assert bob.features["attended_meetings"] == bob_values["attended_meetings"]
+    alice_describe = alice.describe(return_str=True)
+    assert "attended_meetings" in alice_describe
+    assert "values-from-meeting-1" in alice_describe
+    bob_describe = bob.describe(return_str=True)
+    assert "attended_meetings" in bob_describe
+    assert "values-from-meeting-1" in bob_describe
     assert (
         ln.models.RecordRecord.filter(
             record=alice, feature=attended_meetings_feature
