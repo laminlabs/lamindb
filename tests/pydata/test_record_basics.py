@@ -2259,7 +2259,7 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species_type = ln.Record(name="SpeciesTypeForJsonGuard", is_type=True).save()
     human = ln.Record(name="HumanForJsonGuard", type=species_type).save()
     species = ln.Feature(name="species_json_guard", dtype=species_type).save()
-    assert species.dtype.startswith("cat[Record[")
+    assert species.dtype_as_str.startswith("cat[Record[")
 
     sample = ln.Record(name="SampleForJsonGuard").save()
 
