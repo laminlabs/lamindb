@@ -557,6 +557,33 @@ def test_cat_filters_conflicting_type_selectors():
     assert "Conflicting typed dtype and cat_filters type selector" in str(
         exc_info.value
     )
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature_type_and_type_uid",
+            dtype=ln.Record,
+            cat_filters={
+                "type": first_record.uid,
+                "type__uid": second_record.uid,
+            },
+        )
+    assert "Conflicting type selectors in cat_filters: 'type' and 'type__uid'" in str(
+        exc_info.value
+    )
+    feature = ln.Feature(
+        name="test_feature_type_shorthand",
+        dtype=ln.Record,
+        cat_filters={"type": first_record.uid},
+    )
+    assert feature._dtype_str == f"cat[Record[{first_record.uid}]]"
+    agreeing = ln.Feature(
+        name="test_feature_type_and_type_uid_agree",
+        dtype=ln.Record,
+        cat_filters={
+            "type": first_record.uid,
+            "type__uid": first_record.uid,
+        },
+    )
+    assert agreeing._dtype_str == f"cat[Record[{first_record.uid}]]"
     first_record.delete(permanent=True)
     second_record.delete(permanent=True)
 
