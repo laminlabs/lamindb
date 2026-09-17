@@ -1276,7 +1276,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             coerce = kwargs.pop("coerce_dtype")
         else:
             coerce = kwargs.pop("coerce", None)
-        values_from = kwargs.pop("values_from", UNSET)
+        values_from = kwargs.pop("values_from", None)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
@@ -1385,14 +1385,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
-        if isinstance(values_from, Feature):
+        self._values_from_input = values_from
+        if self._values_from_input is not None:
             self._validate_values_from(values_from)
-            self._values_from_input = values_from
-        elif values_from is None:
-            # Preserve explicit `None` so save() can clear an existing relation.
-            self._values_from_input = None
-        elif values_from is not UNSET:
-            raise TypeError("Feature(..., values_from=...) expects a Feature value")
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1624,7 +1619,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     def _validate_values_from(self, values_from: Feature) -> None:
         if not isinstance(values_from, Feature):
-            raise TypeError("Feature(..., values_from=...) expects a Feature value")
+            raise TypeError("Feature(..., values_from=...) expects a Feature object")
         if self.uid == values_from.uid and not self._state.adding:
             raise ValueError("Feature(..., values_from=...) cannot point to itself")
         if values_from._state.adding:
