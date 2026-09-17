@@ -49,6 +49,7 @@ from .ulabel import ULabel
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Iterable
     from datetime import datetime
 
     import pandas as pd
@@ -371,6 +372,119 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
             )
             if value is not None:
                 dictionary[target_feature.name] = value
+
+
+def _export_row_records(
+    df: pd.DataFrame,
+    records: list[Record],
+    *,
+    encoded_id: str,
+    encoded_name: str,
+) -> list[Record | None]:
+    records_by_id = {record.id: record for record in records}
+    records_by_name = {
+        record.name: record for record in records if record.name is not None
+    }
+    if df.index.name in {encoded_id, "id"}:
+        return [records_by_id.get(record_id) for record_id in df.index]
+    if encoded_id in df.columns:
+        return [records_by_id.get(record_id) for record_id in df[encoded_id]]
+    if "id" in df.columns:
+        return [records_by_id.get(record_id) for record_id in df["id"]]
+    if "name" in df.columns:
+        return [records_by_name.get(name) for name in df["name"]]
+    if encoded_name in df.columns:
+        return [records_by_name.get(name) for name in df[encoded_name]]
+    if df.index.name == "name":
+        return [records_by_name.get(name) for name in df.index]
+    return [records_by_name.get(name) for name in df.index]
+
+
+def fill_values_through_in_export_dataframe(
+    df: pd.DataFrame,
+    records: Iterable[Record],
+    features: Iterable[Feature],
+    *,
+    encoded_id: str,
+    encoded_name: str,
+) -> pd.DataFrame:
+    """Fill `values_through` columns from Record fields and reverse links."""
+    import pandas as pd
+
+    feature_list = list(features)
+    field_features = [
+        (feature, field_name)
+        for feature in feature_list
+        if (field_name := get_feature_sqlrecord_field(feature)) is not None
+    ]
+    reverse_features = [
+        (feature, source_uid)
+        for feature in feature_list
+        if (source_uid := get_feature_values_through_source_uid(feature)) is not None
+    ]
+    if not field_features and not reverse_features:
+        return df
+    if df.empty:
+        for feature, _ in (*field_features, *reverse_features):
+            if feature.name not in df.columns:
+                df[feature.name] = pd.Series(dtype="object")
+        return df
+
+    records_list = list(records)
+    row_records = _export_row_records(
+        df, records_list, encoded_id=encoded_id, encoded_name=encoded_name
+    )
+    for feature, field_name in field_features:
+        values = [
+            (
+                _feature_value_from_mapped_record_field(record, feature, field_name)
+                if record is not None
+                else None
+            )
+            for record in row_records
+        ]
+        _assign_export_feature_column(df, feature.name, values)
+
+    if reverse_features:
+        source_uids = list({source_uid for _, source_uid in reverse_features})
+        source_features = {
+            feature.uid: feature
+            for feature in Feature.objects.filter(uid__in=source_uids)
+        }
+        for feature, source_uid in reverse_features:
+            source_feature = source_features.get(source_uid)
+            values = []
+            for record in row_records:
+                if record is None or source_feature is None:
+                    values.append(None)
+                    continue
+                value = _feature_value_from_backward_record_links(
+                    record, feature, source_feature
+                )
+                values.append(value)
+            _assign_export_feature_column(df, feature.name, values)
+
+    return df
+
+
+def _assign_export_feature_column(
+    df: pd.DataFrame, column: str, values: list[Any]
+) -> None:
+    import pandas as pd
+
+    series = pd.Series(
+        [value if value is not None else pd.NA for value in values],
+        index=df.index,
+    )
+    if column in df.columns:
+        target_dtype = df[column].dtype
+        try:
+            df[column] = series.astype(target_dtype, copy=False)
+            return
+        except (TypeError, ValueError):
+            df[column] = series
+            return
+    df[column] = series
 
 
 def pop_index_from_feature_dictionary(

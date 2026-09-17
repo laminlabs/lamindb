@@ -986,8 +986,14 @@ def test_record_feature_values_through_with_index_exports_contract():
     books_feature = ln.Feature(
         name="values-index-books", dtype=list[ln.Record], values_through=author_feature
     ).save()
+    author_url_feature = ln.Feature(
+        name="values-index-url", dtype=str, values_through="reference"
+    ).save()
     authors_schema = ln.Schema(
-        features=[books_feature],
+        features=[
+            books_feature.with_config(optional=True),
+            author_url_feature.with_config(optional=True),
+        ],
         index=author_id_feature,
         name="values-index-authors-schema",
     ).save()
@@ -997,6 +1003,18 @@ def test_record_feature_values_through_with_index_exports_contract():
 
     author_a = ln.Record(name="AUTHOR-A", type=authors_sheet).save()
     author_b = ln.Record(name="AUTHOR-B", type=authors_sheet).save()
+    author_a.features.set_values(
+        {
+            "author_id": "AUTHOR-A",
+            "values-index-url": "https://authors.example/a",
+        }
+    )
+    author_b.features.set_values(
+        {
+            "author_id": "AUTHOR-B",
+            "values-index-url": "https://authors.example/b",
+        }
+    )
     book_1 = ln.Record(name="values-index-book-1", type=books_sheet).save()
     book_2 = ln.Record(name="values-index-book-2", type=books_sheet).save()
     book_3 = ln.Record(name="values-index-book-3", type=books_sheet).save()
@@ -1020,13 +1038,36 @@ def test_record_feature_values_through_with_index_exports_contract():
         == book_3.features.get_values()["values-index-author"]
     )
 
-    authors_df = authors_sheet.to_dataframe(features=["values-index-books"])
+    authors_df = authors_sheet.to_dataframe(
+        features=["values-index-books", "values-index-url"]
+    )
     assert authors_df.index.name == "author_id"
     assert "author_id" not in authors_df.columns
     assert "__lamindb_record_name__" not in authors_df.columns
     assert "__lamindb_record_uid__" not in authors_df.columns
     assert "values-index-books" in authors_df.columns
-    assert authors_df["values-index-books"].isna().all()
+    assert "values-index-url" in authors_df.columns
+    assert authors_df.loc["AUTHOR-A", "values-index-url"] == "https://authors.example/a"
+    assert authors_df.loc["AUTHOR-B", "values-index-url"] == "https://authors.example/b"
+    assert set(authors_df.loc["AUTHOR-A", "values-index-books"]) == {
+        "values-index-book-1",
+        "values-index-book-2",
+    }
+    assert set(authors_df.loc["AUTHOR-B", "values-index-books"]) == {
+        "values-index-book-3"
+    }
+
+    authors_qs_df = ln.Record.filter(type=authors_sheet).to_dataframe(
+        include="features", features=["values-index-books", "values-index-url"]
+    )
+    assert authors_qs_df.index.name == "author_id"
+    assert authors_qs_df.loc["AUTHOR-A", "values-index-url"] == (
+        "https://authors.example/a"
+    )
+    assert set(authors_qs_df.loc["AUTHOR-A", "values-index-books"]) == {
+        "values-index-book-1",
+        "values-index-book-2",
+    }
 
     books_df = books_sheet.to_dataframe(features=["values-index-author"])
     assert "__lamindb_record_name__" in books_df.columns
@@ -1047,6 +1088,7 @@ def test_record_feature_values_through_with_index_exports_contract():
     authors_schema.delete(permanent=True)
     author_feature.delete(permanent=True)
     books_feature.delete(permanent=True)
+    author_url_feature.delete(permanent=True)
     author_id_feature.delete(permanent=True)
 
 
@@ -1478,6 +1520,12 @@ def test_record_features_add_remove_values():
         name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
     ).save()
     feature_gene = ln.Feature(name="feature_gene", dtype=bt.Gene).save()
+    feature_reference = ln.Feature(
+        name="feature_reference", dtype=str, values_through="reference"
+    ).save()
+    feature_description = ln.Feature(
+        name="feature_description", dtype=str, values_through="description"
+    ).save()
 
     test_record = ln.Record(name="test_record").save()
     test_project = ln.Project(name="test_project").save()
@@ -1539,6 +1587,8 @@ def test_record_features_add_remove_values():
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
+        "feature_reference": "https://lamin.ai/docs/records/test",
+        "feature_description": "row stored on Record.description",
     }
 
     test_record.features.add_values(test_values)
@@ -1667,6 +1717,8 @@ def test_record_features_add_remove_values():
             feature_artifact,
             feature_collection,
             feature_run,
+            feature_reference,
+            feature_description,
         ],
         name="test_schema",
     ).save()
@@ -1718,6 +1770,10 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_collection"].dtype.name == "category"
     assert df_empty["feature_run"].isnull().all()
     assert df_empty["feature_run"].dtype.name == "category"
+    assert df_empty["feature_reference"].isnull().all()
+    assert df_empty["feature_reference"].dtype.name == "string"
+    assert df_empty["feature_description"].isnull().all()
+    assert df_empty["feature_description"].dtype.name == "string"
 
     # remove empty record from sheet
     empty_record.type = None
@@ -1752,6 +1808,8 @@ def test_record_features_add_remove_values():
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
+        "feature_reference": "https://lamin.ai/docs/records/test",
+        "feature_description": "row stored on Record.description",
         "__lamindb_record_uid__": test_record.uid,
         "__lamindb_record_name__": "test_record",
     }
@@ -1765,6 +1823,15 @@ def test_record_features_add_remove_values():
     assert set(result_feature_cell_lines) == {"HEK293", "A-549"}
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
+    queryset_df = ln.Record.filter(type=sheet).to_dataframe(include="features")
+    queryset_result = queryset_df.to_dict(orient="records")[0]
+    queryset_result.pop("feature_type1s")
+    queryset_result.pop("feature_cell_lines")
+    assert queryset_result["feature_reference"] == target_result["feature_reference"]
+    assert (
+        queryset_result["feature_description"] == target_result["feature_description"]
+    )
+    assert queryset_result["feature_str"] == target_result["feature_str"]
 
     # export to artifact to trigger validation -- this will raise many errors if anything is inconsistent
 
@@ -1959,6 +2026,8 @@ def test_record_features_add_remove_values():
     transform.delete(permanent=True)
     feature_num.delete(permanent=True)
     feature_url.delete(permanent=True)
+    feature_reference.delete(permanent=True)
+    feature_description.delete(permanent=True)
 
 
 def test_date_and_datetime_corruption():
