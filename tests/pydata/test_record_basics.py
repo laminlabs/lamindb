@@ -711,6 +711,11 @@ def test_record_feature_values_through_store_on_record_columns():
     assert record.features["source_description"] == "updated description"
     assert record.features["field-map-score"] == 8.5
 
+    unset_record = ln.Record(name="mapped-record-unset").save()
+    assert unset_record.description is None
+    assert unset_record.features["source_description"] == {}
+    unset_record.delete(permanent=True)
+
     record.delete(permanent=True)
     score.delete(permanent=True)
     mapped_created_at.delete(permanent=True)
@@ -913,6 +918,8 @@ def test_record_feature_values_through_reads_reverse_links():
         "values-from-meeting-2",
     ]
     assert bob_values["attended_meetings"] == ["values-from-meeting-1"]
+    assert alice.features["attended_meetings"] == alice_values["attended_meetings"]
+    assert bob.features["attended_meetings"] == bob_values["attended_meetings"]
     assert (
         ln.models.RecordRecord.filter(
             record=alice, feature=attended_meetings_feature
@@ -1011,6 +1018,8 @@ def test_record_feature_values_through_scalar_to_list_relation():
     assert author_feature.related_feature.uid == books_feature.uid
     assert author_a_values["books"] == ["values-from-book-1", "values-from-book-2"]
     assert author_b_values["books"] == ["values-from-book-3"]
+    assert author_a.features["books"] == author_a_values["books"]
+    assert author_b.features["books"] == author_b_values["books"]
     assert book_1.features["author"].name == book_1.features.get_values()["author"]
     assert book_2.features["author"].name == book_2.features.get_values()["author"]
     assert book_3.features["author"].name == book_3.features.get_values()["author"]
@@ -1113,6 +1122,11 @@ def test_record_feature_values_through_with_index_exports_contract():
 
     assert author_a.features.get_values()["author_id"] == "AUTHOR-A"
     assert author_b.features.get_values()["author_id"] == "AUTHOR-B"
+    assert author_a.features["values-index-url"] == "https://authors.example/a"
+    assert set(author_a.features["values-index-books"]) == {
+        "values-index-book-1",
+        "values-index-book-2",
+    }
     assert (
         book_1.features["values-index-author"].name
         == book_1.features.get_values()["values-index-author"]
@@ -1213,6 +1227,9 @@ def test_record_feature_values_through_self_referential_relation():
         "values-from-self-report-b",
     ]
     assert report_a_values["manages"] == []
+    assert manager.features["manages"] == manager_values["manages"]
+    assert report_a.features["manages"] == []
+    assert report_a.features["reports_to"].name == "values-from-self-manager"
     assert (
         ln.models.RecordRecord.filter(record=manager, feature=manages_feature).count()
         == 0
