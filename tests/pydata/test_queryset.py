@@ -73,6 +73,9 @@ def test_to_dataframe():
     # raise error for non many-to-many
     df = ln.Record.filter(name="Project 0").to_dataframe(include="created_by__name")
     assert df["created_by__name"].iloc[0] == ln.setup.settings.user.name
+    with pytest.warns(DeprecationWarning, match="to_dataframe"):
+        df = ln.Record.filter(name="Project 0").df(include="created_by__name")
+    assert df["created_by__name"].iloc[0] == ln.setup.settings.user.name
 
     # do not return fields with no data in the registry
     # does not make sense in Alex's opinion
