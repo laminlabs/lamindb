@@ -161,6 +161,22 @@ def test_feature_values_through_sqlrecord_field_roundtrip():
         feature.refresh_from_db()
         assert feature.values_through is None
         assert feature._aux is None or "sf" not in feature._aux
+
+        with pytest.raises(
+            TypeError,
+            match="Feature.values_through expects a Feature, SQLRecordFieldName, or None",
+        ):
+            feature.values_through = 1
+        with pytest.raises(
+            ValueError, match="Unsupported feature field mapping 'extra_data'"
+        ):
+            feature.values_through = "extra_data"
+
+        feature.values_through = "created_at"
+        feature.save()
+        feature.refresh_from_db()
+        assert feature.values_through == "created_at"
+        assert feature._aux["sf"] == "created_at"
     finally:
         feature.delete(permanent=True)
 
