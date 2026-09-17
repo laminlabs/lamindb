@@ -1714,6 +1714,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         if self.values_from is not None:
             return self.values_from
         else:
+            if self._related_feature_uid is None:
+                return None
             return (
                 Feature.objects.using(self._state.db)
                 .filter(uid=self._related_feature_uid)

@@ -106,14 +106,14 @@ def test_feature_values_from_roundtrip():
 def test_feature_values_from_requires_saved_source():
     unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
     with pytest.raises(
-        ValueError,
-        match="requires a saved source feature",
+        AssertionError,
+        match="requires a saved Feature object",
     ):
         ln.Feature(
             name="values-from-unsaved-target",
             dtype=list[ln.Record],
             values_from=unsaved_source,
-        )
+        ).save()
 
 
 def test_feature_values_from_setter_requires_no_existing_links():

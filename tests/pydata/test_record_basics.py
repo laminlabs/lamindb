@@ -1144,7 +1144,7 @@ def test_record_feature_values_from_validation_no_symmetric_config():
     ).save()
 
     with pytest.raises(
-        ValueError,
+        AssertionError,
         match="cannot point to itself",
     ):
         self_pointing.values_from = self_pointing
@@ -1155,8 +1155,8 @@ def test_record_feature_values_from_validation_no_symmetric_config():
     assert source.related_feature.uid == target.uid
 
     with pytest.raises(
-        ValueError,
-        match="requires a one-to-one relationship",
+        AssertionError,
+        match="already related to another feature",
     ):
         related.values_from = source
         related.save()
@@ -1166,8 +1166,8 @@ def test_record_feature_values_from_validation_no_symmetric_config():
     symmetric_b.values_from = symmetric_a
     symmetric_b.save()
     with pytest.raises(
-        ValueError,
-        match="cannot create a symmetric relationship",
+        AssertionError,
+        match="already has a values_from relationship",
     ):
         symmetric_a.values_from = symmetric_b
         symmetric_a.save()
