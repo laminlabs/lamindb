@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import numpy as np
 import pytest
 
@@ -184,7 +186,6 @@ def _source_on_testdb1() -> tuple[str, str]:
         ln.Feature(name=FEAT_TAGS, dtype=list[qc_type]).save(),
         ln.Feature(name=FEAT_USER, dtype=ln.User).save(),
         ln.Feature(name=FEAT_SAMPLE, dtype=sample_type).save(),
-        ln.Feature(name=FEAT_SKIP, dtype=str).save(),
     ]
     schema = ln.Schema(name=f"{SHEET_NAME}_schema", features=features).save()
     sheet = ln.Record(name=SHEET_NAME, is_type=True, schema=schema).save()
@@ -198,12 +199,9 @@ def _source_on_testdb1() -> tuple[str, str]:
             FEAT_TAGS: [pass_label, fail_label],
             FEAT_USER: user,
             FEAT_SAMPLE: sample,
-            FEAT_SKIP: "ACTB",
         },
     ).save()
     ln.models.RecordBlock(record=source, content=README, kind="readme").save()
-    skip = ln.Feature.filter(name=FEAT_SKIP).one()
-    type(skip).objects.filter(pk=skip.pk).update(_dtype_str="cat[bionty.Gene]")
     empty = ln.Record(name=EMPTY_NAME, type=sheet).save()
     assert source.features.get_values()[FEAT_VERSION] == "2.10.0"
     return source.uid, empty.uid
@@ -252,7 +250,6 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         assert getattr(operator, "handle", operator) == user_handle
         sample = values.get(FEAT_SAMPLE)
         assert getattr(sample, "name", sample) == SAMPLE_NAME
-        assert FEAT_SKIP not in values
         empty = db1.Record.get(uid=empty_uid).save(transfer="annotations")
         assert not empty.features.get_values().get(FEAT_VERSION)
         db1.Feature.get(name=FEAT_VERSION).save(transfer="notes")
@@ -304,13 +301,17 @@ def test_record_transfer_internal_branches():
         return values
 
     source.features.get_values = _as_array  # type: ignore[method-assign]
+    logs = {"mapped": [], "transferred": [], "run": None}
     transfer_record_feature_values(
-        transferred,
-        f"{user_handle}/testdb1",
-        source.pk,
-        None,
-        {"mapped": [], "transferred": [], "run": None},
+        transferred, f"{user_handle}/testdb1", source.pk, None, logs
     )
+    with patch(
+        "lamindb.models.feature.parse_dtype",
+        side_effect=ValueError("missing schema module"),
+    ):
+        transfer_record_feature_values(
+            transferred, f"{user_handle}/testdb1", source.pk, None, logs
+        )
     assert "alpha" in set(
         ln.Record.get(uid=rec_uid).features.get_values().get(FEAT_ALIASES) or []
     )
