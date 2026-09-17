@@ -55,6 +55,7 @@ from lamindb.models.sqlrecord import HasType
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
 from ..models.feature import get_record_type_from_uid
+from ._zarr import ZARR_AUX_KEY, validate_zarr_conventions
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1518,6 +1519,14 @@ class SpatialDataCurator(SlotsCurator):
             )
 
         self._columns_field = self._var_fields
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        # cheap structural checks short-circuit the slot validation
+        if ZARR_AUX_KEY in (self._schema._aux or {}):
+            validate_zarr_conventions(self, self._schema._aux[ZARR_AUX_KEY])
+        super().validate()
 
 
 @doc_args(SLOTS_DETAILS_DOCSTRING)
