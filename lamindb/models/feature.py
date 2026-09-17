@@ -668,16 +668,14 @@ def _strip_matching_quotes(value: str) -> str:
 
     quote_char = trimmed[0]
     if quote_char in ("'", '"'):
-        if len(trimmed) < 2 or not trimmed.endswith(quote_char):
-            raise ValueError(
-                f"Invalid filter expression value: '{value}' (mismatched quotes)"
-            )
-        return trimmed[1:-1]
-
-    if trimmed.endswith("'") or trimmed.endswith('"'):
-        raise ValueError(
+        assert len(trimmed) >= 2 and trimmed.endswith(quote_char), (
             f"Invalid filter expression value: '{value}' (mismatched quotes)"
         )
+        return trimmed[1:-1]
+
+    assert not (trimmed.endswith("'") or trimmed.endswith('"')), (
+        f"Invalid filter expression value: '{value}' (mismatched quotes)"
+    )
 
     return trimmed
 
