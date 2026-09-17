@@ -108,7 +108,7 @@ def test_schema_transfer_feature_uid_conflict_by_name():
     assert transferred_tissue.uid != local_tissue.uid
 
 
-def test_record_transfer_keeps_features_by_default():
+def test_record_transfer_features_opt_in():
     user_handle = ln.setup.settings.user.handle
     sheet_name = "transfer_ci_runs"
     feat_name = "package_version"
@@ -140,9 +140,13 @@ def test_record_transfer_keeps_features_by_default():
         if qs.exists():
             qs.delete(permanent=True)
 
-    transferred = db1.Record.get(uid=rec_uid).save()
+    row_only = db1.Record.get(uid=rec_uid).save()
+    assert row_only.features.get_values().get(feat_name) is None
+
+    row_only.delete(permanent=True)
+    transferred = db1.Record.get(uid=rec_uid).save(transfer="annotations")
     assert transferred.features.get_values().get(feat_name) == "2.10.0"
 
     transferred.delete(permanent=True)
-    skipped = db1.Record.get(uid=rec_uid).save(transfer="record")
+    skipped = db1.Record.get(uid=rec_uid).save(transfer="sqlrecord")
     assert skipped.features.get_values().get(feat_name) is None
