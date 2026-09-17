@@ -219,6 +219,8 @@ def test_transform_versioning_across_branches_preserves_main_latest():
         assert not transform_v2.is_latest
         assert transform_v3.is_latest
         assert transform_v1.is_latest
+        fetched = ln.Transform.get(transform_v1.uid[:-4])
+        assert fetched in {transform_v1, transform_v3}
     finally:
         ln.setup.switch(main_branch.name)
         for uid in (transform_v1.uid[:-4],):

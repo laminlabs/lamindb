@@ -9,7 +9,11 @@ from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
-from lamindb.models.query_set import SQLRecordList, get_feature_annotate_kwargs
+from lamindb.models.query_set import (
+    SQLRecordList,
+    get_default_branch_ids,
+    get_feature_annotate_kwargs,
+)
 
 
 # please also see the test_curate_df.py tests
@@ -496,6 +500,9 @@ def test_get_filter_branch():
 
     ln.Artifact.get(hash=artifact.hash)
     ln.Artifact.get(hash__in=[artifact.hash])
+
+    assert get_default_branch_ids(branch) == [branch.id, 1]
+    assert get_default_branch_ids(ln.Branch.get(name="main")) == [1]
 
     artifact.delete(permanent=True)
     branch.delete()
