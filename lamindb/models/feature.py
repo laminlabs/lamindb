@@ -1558,7 +1558,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 logger.set_verbosity(original_verbosity)
 
     def save(self, *args, **kwargs) -> Feature:
-        """Save the feature to the instance."""
+        """Save the feature in the database."""
+        # distinguish between explicit None and UNSET
+        # if the user wants to clear the values_from relationship, they can pass None
+        # via the Feature.values_from setter
         values_from_input: Feature | None | Unset = getattr(
             self, "_values_from_input", UNSET
         )
