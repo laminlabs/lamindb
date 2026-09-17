@@ -1625,21 +1625,16 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         )
         configured_dtype = parse_dtype(self._dtype_str)
         source_dtype = parse_dtype(values_from._dtype_str)
-        if (
-            len(configured_dtype) != 1
-            or len(source_dtype) != 1
-            or configured_dtype[0].get("registry_str") != "Record"
-            or source_dtype[0].get("registry_str") != "Record"
-        ):
-            raise ValueError(
-                "Feature(..., values_from=...) requires both features "
-                "to have a Record dtype"
-            )
-        if not configured_dtype[0].get("list", False):
-            raise ValueError(
-                "Feature(..., values_from=...) requires the configured feature "
-                "to have a list[Record] dtype"
-            )
+        assert (
+            len(configured_dtype) == 1
+            and len(source_dtype) == 1
+            and configured_dtype[0].get("registry_str") == "Record"
+            and source_dtype[0].get("registry_str") == "Record"
+        ), "Feature(..., values_from=...) requires both features to have a Record dtype"
+        assert configured_dtype[0].get("list", False), (
+            "Feature(..., values_from=...) requires the configured feature "
+            "to have a list[Record] dtype"
+        )
 
     @property
     def _values_feature_uid(self) -> str | None:
