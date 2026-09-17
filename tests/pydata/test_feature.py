@@ -48,6 +48,17 @@ def test_feature_init():
     # categorical dtype must specify valid types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
+    # deprecated `coerce_dtype` should warn and still set coerce
+    with pytest.warns(
+        DeprecationWarning,
+        match="`coerce_dtype` argument was renamed to `coerce`",
+    ):
+        feature = ln.Feature(
+            name="feat-coerce-deprecated",
+            dtype="str",
+            coerce_dtype=True,
+        )
+    assert feature.coerce is True
     # unknown keyword args should raise a field validation error
     with pytest.raises(FieldValidationError):
         ln.Feature(name="feat", dtype="str", not_a_valid_kwarg=True)
