@@ -1385,9 +1385,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
+        # validation happens in save()
         self._values_from_input = values_from
-        if self._values_from_input is not None:
-            self._validate_values_from(values_from)
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1566,22 +1565,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             self, "_values_from_input", UNSET
         )
         with transaction.atomic(using=self._state.db):
-            super().save(*args, **kwargs)
             if isinstance(values_from_input, Feature):
                 values_from = values_from_input
                 self._validate_values_from(values_from)
-                existing_for_source = (
-                    Feature.objects.using(self._state.db)
-                    .filter(_aux__vf=values_from.uid)
-                    .exclude(id=self.id)
-                    .only("uid")
-                    .first()
-                )
-                if existing_for_source is not None:
-                    raise ValueError(
-                        "Feature(..., values_from=...) requires a one-to-one relationship; "
-                        "the source feature already has a related feature"
-                    )
                 self._aux = self._aux or {}
                 self._aux["vf"] = values_from.uid
                 super().save(update_fields=["_aux"])
@@ -1592,6 +1578,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             ):
                 self._aux.pop("vf", None)
                 super().save(update_fields=["_aux"])
+            else:
+                super().save(*args, **kwargs)
         return self
 
     def with_config(
@@ -1617,14 +1605,22 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         return self, config
 
     def _validate_values_from(self, values_from: Feature) -> None:
-        if not isinstance(values_from, Feature):
-            raise TypeError("Feature(..., values_from=...) expects a Feature object")
-        if self.uid == values_from.uid and not self._state.adding:
-            raise ValueError("Feature(..., values_from=...) cannot point to itself")
-        if values_from._state.adding:
-            raise ValueError(
-                "Feature(..., values_from=...) requires a saved source feature"
-            )
+        assert isinstance(values_from, Feature), (
+            "Feature(..., values_from=...) expects a Feature object"
+        )
+        assert self.uid != values_from.uid, (
+            "Feature(..., values_from=...) cannot point to itself"
+        )
+        assert not values_from._state.adding, (
+            "Feature(..., values_from=...) requires a saved Feature object"
+        )
+        assert (
+            values_from.related_feature is None
+            or values_from.related_feature.uid == self.uid
+        ), "Feature object passed to values_from is already related to another feature"
+        assert values_from.values_from is None, (
+            "Feature object passed to values_from already has a values_from relationship"
+        )
         configured_dtype = parse_dtype(self._dtype_str)
         source_dtype = parse_dtype(values_from._dtype_str)
         if (
@@ -1635,16 +1631,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         ):
             raise ValueError(
                 "Feature(..., values_from=...) requires both features "
-                "to have categorical Record dtype"
+                "to have a Record dtype"
             )
         if not configured_dtype[0].get("list", False):
             raise ValueError(
                 "Feature(..., values_from=...) requires the configured feature "
-                "to have list categorical Record dtype"
-            )
-        if values_from.values_from is not None:
-            raise ValueError(
-                "Feature(..., values_from=...) cannot create a symmetric relationship"
+                "to have a list[Record] dtype"
             )
 
     @property
