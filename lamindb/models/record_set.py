@@ -67,6 +67,8 @@ class RecordSet(Iterable):
             apply_schema_index_to_export_dataframe,
             drop_record_metadata_columns,
             export_includes_record_metadata,
+            fill_values_through_in_export_dataframe,
+            load_values_through_features,
         )
 
         qs = cast(BasicQuerySet, self)
@@ -189,6 +191,17 @@ class RecordSet(Iterable):
         else:
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
+        if record_type.schema is not None:
+            fill_features = list(record_type.schema.members.all())
+        else:
+            fill_features = load_values_through_features(using=qs.db)
+        df = fill_values_through_in_export_dataframe(
+            df,
+            qs,
+            fill_features,
+            encoded_id=encoded_id,
+            encoded_name=encoded_name,
+        )
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
 
         record_type._set_export_run(
