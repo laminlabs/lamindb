@@ -690,7 +690,6 @@ def get_feature_annotate_kwargs(
     return annotate_kwargs, feature_qs, filtered_relations
 
 
-# https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
 def analyze_lookup_cardinality(
     model_class: SQLRecord, lookup_paths: list[str] | None
 ) -> dict[str, str]:
