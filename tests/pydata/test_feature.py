@@ -345,6 +345,22 @@ def test_feature_from_dataframe_mute_restores_logger_verbosity():
         logger.set_verbosity(original_verbosity)
 
 
+def test_feature_from_df_deprecation_warning():
+    df = pd.DataFrame({"feature_from_df_deprecated": [1, 2]})
+    with pytest.warns(DeprecationWarning, match="from_dataframe"):
+        features = ln.Feature.from_df(df, mute=True)
+    assert len(features) == 1
+
+
+def test_feature_from_dict_mute_restores_logger_verbosity(dict_data):
+    original_verbosity = logger._verbosity
+    try:
+        ln.Feature.from_dict(dict_data, mute=True)
+        assert logger._verbosity == original_verbosity
+    finally:
+        logger.set_verbosity(original_verbosity)
+
+
 def test_feature_from_dict(dict_data):
     # defaults to str for ambiguous types
     features = ln.Feature.from_dict(dict_data)

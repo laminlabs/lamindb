@@ -1532,19 +1532,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 dtype = "list[str]"
             dtypes[key] = dtype
 
-        if mute:
-            original_verbosity = logger._verbosity
-            logger.set_verbosity(0)
-        try:
+        with logger.mute() if mute else nullcontext():
             features = [
                 Feature(name=key, dtype=dtype, type=type)
                 for key, dtype in dtypes.items()
             ]  # type: ignore
             assert len(features) == len(dictionary)  # noqa: S101
             return SQLRecordList(features)
-        finally:
-            if mute:
-                logger.set_verbosity(original_verbosity)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature in the database."""
