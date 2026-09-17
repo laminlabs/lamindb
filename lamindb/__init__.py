@@ -1,8 +1,4 @@
-"""Data management for biology.
-
-Installation::
-
-   pip install lamindb
+"""Data management for traceable, multimodal AI.
 
 If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.DB`::
 
@@ -10,27 +6,29 @@ If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.DB
 
    db = ln.DB("laminlabs/cellxgene")
 
-To *write* data, connect to a writable instance::
+To *write* data, connect to a writable instance in a development directory::
 
    lamin login
-   lamin connect account/name
+   cd myproject
+   lamin connect --here account/myproject
 
 You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
 If you prefer to work with a local database (no login required), run::
 
-    mkdir quickstart-data && cd quickstart-data && lamin init --modules bionty
+    mkdir myproject && cd myproject && lamin init
 
-LaminDB will then auto-connect upon import and you can then create & save objects like this::
+LaminDB will then auto-connect upon import and you can create & save objects like this::
 
    import lamindb as ln
    # → connected lamindb: account/instance
 
-   ln.Artifact("./my_dataset.parquet", key="datasets/my_dataset.parquet").save()
+   ln.Artifact("./my_dataset.csv", key="datasets/my_dataset.csv").save()
 
 Lineage
 =======
 
-Track inputs, outputs, parameters, and environments of notebooks, scripts, and functions.
+Track inputs, outputs, parameters, and environments of scripts, notebooks, and workflows.
+For tracking agents, see the CLI command `lamin track`.
 
 .. autosummary::
    :toctree: .
@@ -71,7 +69,7 @@ Data transformations and their executions.
 Records, labels, features & schemas
 ===================================
 
-Create labels and manage flexible records, e.g., for samples or donors.
+Manage flexible records, e.g., for samples or donors, and create simple labels.
 
 .. autosummary::
    :toctree: .

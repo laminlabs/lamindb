@@ -15,6 +15,10 @@ from lamindb.models.feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
+from lamindb.models.record import (
+    get_feature_sqlrecord_field,
+    get_feature_values_through_source_uid,
+)
 from pandas.api.types import is_string_dtype
 
 
@@ -41,7 +45,12 @@ def test_feature_init():
         ln.Feature(name="feat")
 
     # is OK if also is_type is passed
-    ln.Feature(name="Feat", is_type=True)
+    type_feat = ln.Feature(name="Feat", is_type=True)
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert type_feat.dtype is None
 
     # invalid dtype string
     with pytest.raises(ValueError):
@@ -61,6 +70,18 @@ def test_feature_init():
             coerce_dtype=True,
         )
     assert feature.coerce is True
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use coerce instead of coerce_dtype",
+    ):
+        assert feature.coerce_dtype is True
+    feature.coerce_dtype = False
+    assert feature.coerce is False
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert feature.dtype == "str"
     # unknown keyword args should raise a field validation error
     with pytest.raises(FieldValidationError):
         ln.Feature(name="feat", dtype="str", not_a_valid_kwarg=True)
@@ -111,27 +132,32 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
-def test_feature_values_from_roundtrip():
-    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record).save()
+def test_feature_values_through_roundtrip():
+    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record)
+    assert author_feature._aux is None
+    assert author_feature._related_feature_uid is None
+    author_feature.save()
     books_feature = ln.Feature(
         name="values-from-books",
         dtype=list[ln.Record],
-        values_from=author_feature,
-    ).save()
+        values_through=author_feature,
+    )
+    assert get_feature_values_through_source_uid(books_feature) == author_feature.uid
+    books_feature.save()
     try:
         assert books_feature._aux["vf"] == author_feature.uid
-        assert books_feature.values_from.uid == author_feature.uid
+        assert books_feature.values_through.uid == author_feature.uid
         assert books_feature.related_feature.uid == author_feature.uid
         assert author_feature.related_feature.uid == books_feature.uid
         reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
-        assert reloaded_books_feature.values_from.uid == author_feature.uid
+        assert reloaded_books_feature.values_through.uid == author_feature.uid
 
-        # Clearing values_from should remove both forward and reverse relation metadata.
-        books_feature.values_from = None
+        # Clearing values_through should remove both forward and reverse relation metadata.
+        books_feature.values_through = None
         books_feature.save()
         books_feature.refresh_from_db()
         author_feature.refresh_from_db()
-        assert books_feature.values_from is None
+        assert books_feature.values_through is None
         assert books_feature.related_feature is None
         assert books_feature._aux is None or "vf" not in books_feature._aux
         assert author_feature.related_feature is None
@@ -141,7 +167,50 @@ def test_feature_values_from_roundtrip():
         author_feature.delete(permanent=True)
 
 
-def test_feature_values_from_requires_saved_source():
+def test_feature_values_through_sqlrecord_field_roundtrip():
+    feature = ln.Feature(
+        name="values-from-created-at",
+        dtype="datetime64[ns, UTC]",
+        values_through="created_at",
+    ).save()
+    try:
+        assert feature._aux["sf"] == "created_at"
+        assert feature._aux.get("vf") is None
+        assert feature.values_through == "created_at"
+        assert feature.related_feature is None
+        reloaded = ln.Feature.get(uid=feature.uid)
+        assert reloaded.values_through == "created_at"
+        assert reloaded._aux["sf"] == "created_at"
+        assert get_feature_sqlrecord_field(reloaded) == "created_at"
+
+        feature.values_through = None
+        feature.save()
+        feature.refresh_from_db()
+        assert feature.values_through is None
+        assert feature._aux is None or "sf" not in feature._aux
+        feature._aux = None
+        assert feature._sqlrecord_field is None
+
+        with pytest.raises(
+            TypeError,
+            match="Feature.values_through expects a Feature, SQLRecordFieldName, or None",
+        ):
+            feature.values_through = 1
+        with pytest.raises(
+            ValueError, match="Unsupported feature field mapping 'extra_data'"
+        ):
+            feature.values_through = "extra_data"
+
+        feature.values_through = "created_at"
+        feature.save()
+        feature.refresh_from_db()
+        assert feature.values_through == "created_at"
+        assert feature._aux["sf"] == "created_at"
+    finally:
+        feature.delete(permanent=True)
+
+
+def test_feature_values_through_requires_saved_source():
     unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
     with pytest.raises(
         AssertionError,
@@ -150,31 +219,30 @@ def test_feature_values_from_requires_saved_source():
         ln.Feature(
             name="values-from-unsaved-target",
             dtype=list[ln.Record],
-            values_from=unsaved_source,
+            values_through=unsaved_source,
         ).save()
 
 
-def test_feature_values_from_setter_requires_no_existing_links():
+def test_feature_values_through_setter_requires_no_existing_links():
     target = ln.Feature(name="values-from-setter-target", dtype=list[ln.Record]).save()
     source = ln.Feature(name="values-from-setter-source", dtype=ln.Record).save()
-    schema = ln.Schema(features=[target], name="values-from-setter-schema").save()
-    sheet = ln.Record(
-        name="values-from-setter-sheet", is_type=True, schema=schema
-    ).save()
-    record_a = ln.Record(name="values-from-setter-a", type=sheet).save()
-    record_b = ln.Record(name="values-from-setter-b", type=sheet).save()
+    record_a = ln.Record(name="values-from-setter-a").save()
+    record_b = ln.Record(name="values-from-setter-b").save()
     try:
         record_a.features.set_values({"values-from-setter-target": [record_b]})
         with pytest.raises(
-            ValueError,
-            match="can only be set when no RecordRecord links exist",
-        ):
-            target.values_from = source
+            ValueError, match="can only be set when no RecordRecord"
+        ) as error:
+            target.values_through = source
+        message = str(error.value)
+        assert f"feature: {target.name!r} (uid={target.uid})" in message
+        assert (
+            f"record={record_a.name!r} (uid={record_a.uid}) -> "
+            f"value={record_b.name!r} (uid={record_b.uid})"
+        ) in message
     finally:
         record_a.delete(permanent=True)
         record_b.delete(permanent=True)
-        sheet.delete(permanent=True)
-        schema.delete(permanent=True)
         target.delete(permanent=True)
         source.delete(permanent=True)
 
@@ -425,9 +493,11 @@ def test_feature_query_by_dtype():
 def test_serialize_pandas_datetime_dtypes():
     datetime_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00")])
     datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
+    string_cat_series = pd.Series(["a", "b", "a"], dtype="category")
 
     assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+    assert serialize_pandas_dtype(string_cat_series.dtype) == "cat[ULabel]"
 
 
 def test_dtype_as_object_covers_simple_fallbacks():

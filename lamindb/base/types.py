@@ -5,8 +5,8 @@ Classes
 
 .. autoclass:: CanonicalSuffix
 
-Simple types
-------------
+Basic types
+-----------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
@@ -18,18 +18,11 @@ Simple types
 .. autoclass:: SimpleDtypeStr
 .. autoclass:: SimpleDvalue
 .. autoclass:: DtypeStr
-
-Basic types
------------
-
+.. autoclass:: SQLRecordFieldName
 .. autoclass:: AnyPathStr
 .. autoclass:: StrField
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
-
-Auxiliary types
----------------
-
 .. autoclass:: Unset
 """
 
@@ -192,6 +185,27 @@ SimpleDtypeStr = Literal[
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
 """String-serialized representations for :class:`~lamindb.base.types.SimpleDtype`."""
+
+SQLRecordFieldName = Literal[
+    "created_at",
+    "created_by",
+    "updated_at",
+    "reference",
+    "reference_type",
+    "run",
+    "type",
+    "name",
+    "description",
+]
+"""Name of a SQLRecord field that can store feature values.
+
+Use with :class:`~lamindb.Feature` `values_through` to persist values on the
+record model instead of a feature link table, e.g.
+`Feature(name="created_at", dtype=datetime, values_through="created_at")`.
+
+Currently these names refer to :class:`~lamindb.Record` columns. Artifact and
+Run fields may be added later.
+"""
 DtypeStr = SimpleDtypeStr  # backward compat
 Dtype = DtypeStr  # backward compat
 DtypeObject = SimpleDvalue  # backward compat
