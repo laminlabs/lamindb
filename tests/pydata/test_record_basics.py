@@ -878,11 +878,25 @@ def test_record_feature_values_through_reads_reverse_links():
         dtype=list[ln.Record],
         values_through=attendees_feature,
     ).save()
+    meetings_schema = ln.Schema(
+        features=[attendees_feature],
+        name="values-from-meetings-schema",
+    ).save()
+    meetings_sheet = ln.Record(
+        name="values-from-meetings-sheet", is_type=True, schema=meetings_schema
+    ).save()
+    people_schema = ln.Schema(
+        features=[attended_meetings_feature.with_config(optional=True)],
+        name="values-from-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="values-from-people-sheet", is_type=True, schema=people_schema
+    ).save()
 
-    alice = ln.Record(name="values-from-alice").save()
-    bob = ln.Record(name="values-from-bob").save()
-    meeting_1 = ln.Record(name="values-from-meeting-1").save()
-    meeting_2 = ln.Record(name="values-from-meeting-2").save()
+    alice = ln.Record(name="values-from-alice", type=people_sheet).save()
+    bob = ln.Record(name="values-from-bob", type=people_sheet).save()
+    meeting_1 = ln.Record(name="values-from-meeting-1", type=meetings_sheet).save()
+    meeting_2 = ln.Record(name="values-from-meeting-2", type=meetings_sheet).save()
 
     meeting_1.features.set_values({"attendees": [alice, bob]})
     meeting_2.features.set_values({"attendees": [alice]})
@@ -918,10 +932,42 @@ def test_record_feature_values_through_reads_reverse_links():
     ):
         alice.features.set_values({"attended_meetings": [meeting_1]})
 
+    people_df = people_sheet.to_dataframe(features=["attended_meetings"])
+    people_by_name = people_df.set_index("__lamindb_record_name__")
+    assert set(people_by_name.loc["values-from-alice", "attended_meetings"]) == {
+        "values-from-meeting-1",
+        "values-from-meeting-2",
+    }
+    assert people_by_name.loc["values-from-bob", "attended_meetings"] == [
+        "values-from-meeting-1"
+    ]
+    people_qs_df = ln.Record.filter(type=people_sheet).to_dataframe(
+        include="features", features=["attended_meetings"]
+    )
+    people_qs_by_name = people_qs_df.set_index("__lamindb_record_name__")
+    assert set(people_qs_by_name.loc["values-from-alice", "attended_meetings"]) == {
+        "values-from-meeting-1",
+        "values-from-meeting-2",
+    }
+
+    meetings_df = meetings_sheet.to_dataframe(features=["attendees"])
+    meetings_by_name = meetings_df.set_index("__lamindb_record_name__")
+    assert set(meetings_by_name.loc["values-from-meeting-1", "attendees"]) == {
+        "values-from-alice",
+        "values-from-bob",
+    }
+    assert meetings_by_name.loc["values-from-meeting-2", "attendees"] == [
+        "values-from-alice"
+    ]
+
     meeting_1.delete(permanent=True)
     meeting_2.delete(permanent=True)
     alice.delete(permanent=True)
     bob.delete(permanent=True)
+    meetings_sheet.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    meetings_schema.delete(permanent=True)
+    people_schema.delete(permanent=True)
     attendees_feature.delete(permanent=True)
     attended_meetings_feature.delete(permanent=True)
 
@@ -931,12 +977,26 @@ def test_record_feature_values_through_scalar_to_list_relation():
     books_feature = ln.Feature(
         name="books", dtype=list[ln.Record], values_through=author_feature
     ).save()
+    books_schema = ln.Schema(
+        features=[author_feature],
+        name="values-from-books-schema",
+    ).save()
+    books_sheet = ln.Record(
+        name="values-from-books-sheet", is_type=True, schema=books_schema
+    ).save()
+    authors_schema = ln.Schema(
+        features=[books_feature.with_config(optional=True)],
+        name="values-from-authors-schema",
+    ).save()
+    authors_sheet = ln.Record(
+        name="values-from-authors-sheet", is_type=True, schema=authors_schema
+    ).save()
 
-    author_a = ln.Record(name="values-from-author-a").save()
-    author_b = ln.Record(name="values-from-author-b").save()
-    book_1 = ln.Record(name="values-from-book-1").save()
-    book_2 = ln.Record(name="values-from-book-2").save()
-    book_3 = ln.Record(name="values-from-book-3").save()
+    author_a = ln.Record(name="values-from-author-a", type=authors_sheet).save()
+    author_b = ln.Record(name="values-from-author-b", type=authors_sheet).save()
+    book_1 = ln.Record(name="values-from-book-1", type=books_sheet).save()
+    book_2 = ln.Record(name="values-from-book-2", type=books_sheet).save()
+    book_3 = ln.Record(name="values-from-book-3", type=books_sheet).save()
 
     book_1.features.set_values({"author": author_a})
     book_2.features.set_values({"author": author_a})
@@ -963,11 +1023,39 @@ def test_record_feature_values_through_scalar_to_list_relation():
         == 0
     )
 
+    authors_df = authors_sheet.to_dataframe(features=["books"])
+    authors_by_name = authors_df.set_index("__lamindb_record_name__")
+    assert set(authors_by_name.loc["values-from-author-a", "books"]) == {
+        "values-from-book-1",
+        "values-from-book-2",
+    }
+    assert authors_by_name.loc["values-from-author-b", "books"] == [
+        "values-from-book-3"
+    ]
+    authors_qs_df = ln.Record.filter(type=authors_sheet).to_dataframe(
+        include="features", features=["books"]
+    )
+    authors_qs_by_name = authors_qs_df.set_index("__lamindb_record_name__")
+    assert set(authors_qs_by_name.loc["values-from-author-a", "books"]) == {
+        "values-from-book-1",
+        "values-from-book-2",
+    }
+
+    books_df = books_sheet.to_dataframe(features=["author"])
+    books_by_name = books_df.set_index("__lamindb_record_name__")
+    assert books_by_name.loc["values-from-book-1", "author"] == "values-from-author-a"
+    assert books_by_name.loc["values-from-book-2", "author"] == "values-from-author-a"
+    assert books_by_name.loc["values-from-book-3", "author"] == "values-from-author-b"
+
     book_1.delete(permanent=True)
     book_2.delete(permanent=True)
     book_3.delete(permanent=True)
     author_a.delete(permanent=True)
     author_b.delete(permanent=True)
+    books_sheet.delete(permanent=True)
+    authors_sheet.delete(permanent=True)
+    books_schema.delete(permanent=True)
+    authors_schema.delete(permanent=True)
     author_feature.delete(permanent=True)
     books_feature.delete(permanent=True)
 
@@ -1097,10 +1185,20 @@ def test_record_feature_values_through_self_referential_relation():
     manages_feature = ln.Feature(
         name="manages", dtype=list[ln.Record], values_through=reports_to_feature
     ).save()
+    people_schema = ln.Schema(
+        features=[
+            reports_to_feature.with_config(optional=True),
+            manages_feature.with_config(optional=True),
+        ],
+        name="values-from-self-people-schema",
+    ).save()
+    people_sheet = ln.Record(
+        name="values-from-self-people-sheet", is_type=True, schema=people_schema
+    ).save()
 
-    manager = ln.Record(name="values-from-self-manager").save()
-    report_a = ln.Record(name="values-from-self-report-a").save()
-    report_b = ln.Record(name="values-from-self-report-b").save()
+    manager = ln.Record(name="values-from-self-manager", type=people_sheet).save()
+    report_a = ln.Record(name="values-from-self-report-a", type=people_sheet).save()
+    report_b = ln.Record(name="values-from-self-report-b", type=people_sheet).save()
 
     report_a.features.set_values({"reports_to": manager})
     report_b.features.set_values({"reports_to": manager})
@@ -1125,9 +1223,31 @@ def test_record_feature_values_through_self_referential_relation():
     ):
         report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
 
+    people_df = people_sheet.to_dataframe(features=["reports_to", "manages"])
+    people_by_name = people_df.set_index("__lamindb_record_name__")
+    assert set(people_by_name.loc["values-from-self-manager", "manages"]) == {
+        "values-from-self-report-a",
+        "values-from-self-report-b",
+    }
+    assert people_by_name.loc["values-from-self-report-a", "manages"] == []
+    assert (
+        people_by_name.loc["values-from-self-report-a", "reports_to"]
+        == "values-from-self-manager"
+    )
+    people_qs_df = ln.Record.filter(type=people_sheet).to_dataframe(
+        include="features", features=["reports_to", "manages"]
+    )
+    people_qs_by_name = people_qs_df.set_index("__lamindb_record_name__")
+    assert set(people_qs_by_name.loc["values-from-self-manager", "manages"]) == {
+        "values-from-self-report-a",
+        "values-from-self-report-b",
+    }
+
     report_a.delete(permanent=True)
     report_b.delete(permanent=True)
     manager.delete(permanent=True)
+    people_sheet.delete(permanent=True)
+    people_schema.delete(permanent=True)
     reports_to_feature.delete(permanent=True)
     manages_feature.delete(permanent=True)
 
