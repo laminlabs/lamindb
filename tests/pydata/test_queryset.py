@@ -355,6 +355,16 @@ def test_filter_unknown_field():
         ln.User.filter(nonexistent="value")
     assert "Unknown field 'nonexistent'. Available fields:" in str(e)
 
+    feature = ln.Feature(name="filter_predicate_on_user", dtype=str).save()
+    try:
+        with pytest.raises(
+            FieldError,
+            match="Feature predicates are only supported for Artifact, Run, and Record, not User.",
+        ):
+            ln.User.filter(feature == "hello")
+    finally:
+        feature.delete(permanent=True)
+
 
 def test_filter_status_field():
     transform = ln.Transform(key="test_filter_status_field").save()
