@@ -6,6 +6,8 @@ import pandas as pd
 import pytest
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
+    _split_filter_parts,
+    convert_to_pandas_dtype,
     dtype_as_object,
     serialize_dtype,
     serialize_pandas_dtype,
@@ -362,3 +364,12 @@ def test_serialize_dtype_dict_and_invalid_type():
         match="dtype has to be a registry, a ulabel subtype, a registry field",
     ):
         serialize_dtype(object())
+
+
+def test_convert_to_pandas_dtype_unknown_roundtrip():
+    assert convert_to_pandas_dtype("custom_dtype") == "custom_dtype"
+
+
+def test_split_filter_parts_handles_escaped_commas():
+    parts = _split_filter_parts(r"name='a\,b',status=active")
+    assert parts == [r"name='a\,b'", "status=active"]
