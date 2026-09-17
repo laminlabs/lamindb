@@ -238,7 +238,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/examples/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
+omit = ["**/examples/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/integrations/notion.py"]
 
 [tool.flit.sdist]
 exclude = [
