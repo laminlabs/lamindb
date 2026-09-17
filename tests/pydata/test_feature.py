@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
+    _format_cat_filter_value,
     _split_filter_parts,
     convert_to_pandas_dtype,
     dtype_as_object,
@@ -373,3 +374,13 @@ def test_convert_to_pandas_dtype_unknown_roundtrip():
 def test_split_filter_parts_handles_escaped_commas():
     parts = _split_filter_parts(r"name='a\,b',status=active")
     assert parts == [r"name='a\,b'", "status=active"]
+
+
+def test_format_cat_filter_value_edge_cases():
+    assert _format_cat_filter_value(3.14) == "3.14"
+    assert _format_cat_filter_value('a,"b') == "'a,\"b'"
+    with pytest.raises(
+        ValidationError,
+        match="Cannot serialize categorical filter value containing comma and both quote types",
+    ):
+        _format_cat_filter_value("a,\"b'c")
