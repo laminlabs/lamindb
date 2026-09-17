@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import warnings
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
@@ -1484,18 +1485,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 dtype_str = serialize_pandas_dtype(col.dtype)
                 dtypes[name] = dtype_as_object(dtype_str)
 
-        if mute:
-            original_verbosity = logger._verbosity
-            logger.set_verbosity(0)
-        try:
+        with logger.mute() if mute else nullcontext():
             features = [
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
             assert len(features) == len(df.columns)  # noqa: S101
             return SQLRecordList(features)
-        finally:
-            if mute:
-                logger.set_verbosity(original_verbosity)
 
     @classmethod
     @deprecated("from_dataframe")

@@ -4,6 +4,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamin_utils import logger
 from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models.feature import (
     FeaturePredicate,
@@ -332,6 +333,16 @@ def test_feature_from_dataframe():
     ln.Schema.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+def test_feature_from_dataframe_mute_restores_logger_verbosity():
+    df = pd.DataFrame({"feature_mute_restore": [1, 2]})
+    original_verbosity = logger._verbosity
+    try:
+        ln.Feature.from_dataframe(df, mute=True)
+        assert logger._verbosity == original_verbosity
+    finally:
+        logger.set_verbosity(original_verbosity)
 
 
 def test_feature_from_dict(dict_data):
