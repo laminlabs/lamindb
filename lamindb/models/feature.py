@@ -1473,8 +1473,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
-        if registry != Feature:
-            raise ValueError("field must be a Feature FieldAttr!")
+        assert registry == Feature, "field must be a Feature FieldAttr!"
 
         categoricals = categoricals_from_df(df)
         dtypes: dict[str, type | SQLRecord | FieldAttr] = {}

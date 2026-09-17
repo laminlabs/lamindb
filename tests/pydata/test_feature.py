@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models.feature import (
+    FeaturePredicate,
     _format_cat_filter_value,
     _split_filter_parts,
     convert_to_pandas_dtype,
@@ -191,6 +192,22 @@ def test_should_build_model_predicate_returns_false_for_type_features():
     feature_type = ln.Feature(name="predicate-type-feature", is_type=True)
     other_model = ln.Feature(name="predicate-other-model", dtype="str")
     assert feature_type._should_build_model_predicate(other_model) is False
+
+
+def test_feature_predicate_model_ne_and_ordering_comparators():
+    feature = ln.Feature(name="predicate-model-ne", dtype=ln.Record)
+    record = ln.Record(name="predicate-model-ne-record")
+    model_predicate = feature != record
+    assert isinstance(model_predicate, FeaturePredicate)
+    assert model_predicate.comparator == "__ne"
+    assert model_predicate.value is record
+
+    ge_predicate = feature >= 1
+    lt_predicate = feature < 1
+    assert isinstance(ge_predicate, FeaturePredicate)
+    assert isinstance(lt_predicate, FeaturePredicate)
+    assert ge_predicate.comparator == "__gte"
+    assert lt_predicate.comparator == "__lt"
 
 
 # @pytest.mark.skipif(
