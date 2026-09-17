@@ -244,6 +244,7 @@ def test_record_from_dataframe_bulk_save_paths():
 def test_record_schema_index_stored_on_name():
     """Schema.index is stored on Record.name and surfaced on df.index / get_values."""
     from lamindb.models.record import (
+        _export_row_records,
         apply_schema_index_to_export_dataframe,
         coerce_index_value_to_record_name,
         pop_index_from_feature_dictionary,
@@ -348,6 +349,40 @@ def test_record_schema_index_stored_on_name():
     )
     assert exported.index.tolist() == ["S-001"]
     assert exported.loc["S-001", "score"] == 1.5
+
+    encoded_id = "__lamindb_record_id__"
+    encoded_name = "__lamindb_record_name__"
+    export_records = [record]
+    assert _export_row_records(
+        pd.DataFrame({encoded_id: [record.id]}),
+        export_records,
+        encoded_id=encoded_id,
+        encoded_name=encoded_name,
+    ) == [record]
+    assert _export_row_records(
+        pd.DataFrame({"id": [record.id]}),
+        export_records,
+        encoded_id=encoded_id,
+        encoded_name=encoded_name,
+    ) == [record]
+    assert _export_row_records(
+        pd.DataFrame({"name": [record.name]}),
+        export_records,
+        encoded_id=encoded_id,
+        encoded_name=encoded_name,
+    ) == [record]
+    assert _export_row_records(
+        pd.DataFrame({encoded_name: [record.name]}),
+        export_records,
+        encoded_id=encoded_id,
+        encoded_name=encoded_name,
+    ) == [record]
+    assert _export_row_records(
+        pd.DataFrame({"score": [1.5]}, index=pd.Index([record.name], name="name")),
+        export_records,
+        encoded_id=encoded_id,
+        encoded_name=encoded_name,
+    ) == [record]
 
     # artifact export/load round-trip with index in CSV
     artifact = sheet.to_artifact()
