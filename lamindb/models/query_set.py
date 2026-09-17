@@ -151,8 +151,6 @@ def map_query_kwargs(queryset, expressions):
         status_mapping = PROJECT_STATUS_TO_CODE
 
     def _map_status_value(value):
-        if status_mapping is None:
-            return value
         if isinstance(value, str):
             if value not in status_mapping:
                 expected = ", ".join(f"'{status}'" for status in status_mapping)
