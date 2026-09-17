@@ -751,6 +751,12 @@ def test_record_feature_values_through_store_on_record_columns():
     assert unset_record.features["source_description"] == {}
     unset_record.delete(permanent=True)
 
+    empty_registry = ln.Record(name="mapped-empty-registry", is_type=True).save()
+    empty_df = empty_registry.to_dataframe()
+    assert empty_df.empty
+    assert "source_description" in empty_df.columns
+    empty_registry.delete(permanent=True)
+
     record.delete(permanent=True)
     score.delete(permanent=True)
     mapped_created_at.delete(permanent=True)
@@ -932,6 +938,9 @@ def test_record_feature_values_through_reads_reverse_links():
     people_sheet = ln.Record(
         name="values-from-people-sheet", is_type=True, schema=people_schema
     ).save()
+    empty_people_df = people_sheet.to_dataframe(features=["attended_meetings"])
+    assert empty_people_df.empty
+    assert "attended_meetings" in empty_people_df.columns
 
     alice = ln.Record(name="values-from-alice", type=people_sheet).save()
     bob = ln.Record(name="values-from-bob", type=people_sheet).save()
@@ -1950,6 +1959,12 @@ def test_record_features_add_remove_values():
     # remove empty record from sheet
     empty_record.type = None
     empty_record.save()
+    empty_sheet_df = sheet.to_dataframe()
+    assert empty_sheet_df.empty
+    assert "feature_reference" in empty_sheet_df.columns
+    assert empty_sheet_df["feature_reference"].dtype.name == "string"
+    assert "feature_description" in empty_sheet_df.columns
+    assert empty_sheet_df["feature_description"].dtype.name == "string"
 
     # sheet with values
 

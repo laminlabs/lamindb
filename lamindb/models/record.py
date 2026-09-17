@@ -429,32 +429,26 @@ def fill_values_through_in_export_dataframe(
     )
     for feature, field_name in field_features:
         values = [
-            (
-                _feature_value_from_mapped_record_field(record, feature, field_name)
-                if record is not None
-                else None
-            )
+            _feature_value_from_mapped_record_field(record, feature, field_name)
             for record in row_records
         ]
         _assign_export_feature_column(df, feature.name, values)
 
     if reverse_features:
-        source_uids = list({source_uid for _, source_uid in reverse_features})
         source_features = {
             feature.uid: feature
-            for feature in Feature.objects.filter(uid__in=source_uids)
+            for feature in Feature.objects.filter(
+                uid__in={source_uid for _, source_uid in reverse_features}
+            )
         }
         for feature, source_uid in reverse_features:
-            source_feature = source_features.get(source_uid)
-            values = []
-            for record in row_records:
-                if record is None or source_feature is None:
-                    values.append(None)
-                    continue
-                value = _feature_value_from_backward_record_links(
+            source_feature = source_features[source_uid]
+            values = [
+                _feature_value_from_backward_record_links(
                     record, feature, source_feature
                 )
-                values.append(value)
+                for record in row_records
+            ]
             _assign_export_feature_column(df, feature.name, values)
 
     return df
@@ -470,13 +464,8 @@ def _assign_export_feature_column(
         index=df.index,
     )
     if column in df.columns:
-        target_dtype = df[column].dtype
-        try:
-            df[column] = series.astype(target_dtype, copy=False)
-            return
-        except (TypeError, ValueError):
-            df[column] = series
-            return
+        df[column] = series.astype(df[column].dtype, copy=False)
+        return
     df[column] = series
 
 
