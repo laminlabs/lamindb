@@ -1,9 +1,20 @@
+from datetime import datetime
+
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.errors import ValidationError
-from lamindb.models.feature import serialize_pandas_dtype
+from lamin_utils import logger
+from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.models.feature import (
+    FeaturePredicate,
+    _format_cat_filter_value,
+    _split_filter_parts,
+    convert_to_pandas_dtype,
+    dtype_as_object,
+    serialize_dtype,
+    serialize_pandas_dtype,
+)
 from pandas.api.types import is_string_dtype
 
 
@@ -39,6 +50,20 @@ def test_feature_init():
     # categorical dtype must specify valid types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
+    # deprecated `coerce_dtype` should warn and still set coerce
+    with pytest.warns(
+        DeprecationWarning,
+        match="`coerce_dtype` argument was renamed to `coerce`",
+    ):
+        feature = ln.Feature(
+            name="feat-coerce-deprecated",
+            dtype="str",
+            coerce_dtype=True,
+        )
+    assert feature.coerce is True
+    # unknown keyword args should raise a field validation error
+    with pytest.raises(FieldValidationError):
+        ln.Feature(name="feat", dtype="str", not_a_valid_kwarg=True)
 
     # ensure feat1 does not exist
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
@@ -86,6 +111,106 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
+def test_feature_values_from_roundtrip():
+    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record).save()
+    books_feature = ln.Feature(
+        name="values-from-books",
+        dtype=list[ln.Record],
+        values_from=author_feature,
+    ).save()
+    try:
+        assert books_feature._aux["vf"] == author_feature.uid
+        assert books_feature.values_from.uid == author_feature.uid
+        assert books_feature.related_feature.uid == author_feature.uid
+        assert author_feature.related_feature.uid == books_feature.uid
+        reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
+        assert reloaded_books_feature.values_from.uid == author_feature.uid
+
+        # Clearing values_from should remove both forward and reverse relation metadata.
+        books_feature.values_from = None
+        books_feature.save()
+        books_feature.refresh_from_db()
+        author_feature.refresh_from_db()
+        assert books_feature.values_from is None
+        assert books_feature.related_feature is None
+        assert books_feature._aux is None or "vf" not in books_feature._aux
+        assert author_feature.related_feature is None
+        assert author_feature._aux is None or "rf" not in author_feature._aux
+    finally:
+        books_feature.delete(permanent=True)
+        author_feature.delete(permanent=True)
+
+
+def test_feature_values_from_requires_saved_source():
+    unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
+    with pytest.raises(
+        AssertionError,
+        match="requires a saved Feature object",
+    ):
+        ln.Feature(
+            name="values-from-unsaved-target",
+            dtype=list[ln.Record],
+            values_from=unsaved_source,
+        ).save()
+
+
+def test_feature_values_from_setter_requires_no_existing_links():
+    target = ln.Feature(name="values-from-setter-target", dtype=list[ln.Record]).save()
+    source = ln.Feature(name="values-from-setter-source", dtype=ln.Record).save()
+    schema = ln.Schema(features=[target], name="values-from-setter-schema").save()
+    sheet = ln.Record(
+        name="values-from-setter-sheet", is_type=True, schema=schema
+    ).save()
+    record_a = ln.Record(name="values-from-setter-a", type=sheet).save()
+    record_b = ln.Record(name="values-from-setter-b", type=sheet).save()
+    try:
+        record_a.features.set_values({"values-from-setter-target": [record_b]})
+        with pytest.raises(
+            ValueError,
+            match="can only be set when no RecordRecord links exist",
+        ):
+            target.values_from = source
+    finally:
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        target.delete(permanent=True)
+        source.delete(permanent=True)
+
+
+def test_feature_predicate_cannot_cast_to_bool():
+    feature = ln.Feature(name="predicate-bool-guard", dtype="str")
+    predicate = feature == "x"
+    with pytest.raises(
+        TypeError,
+        match="Feature predicates cannot be used as booleans",
+    ):
+        bool(predicate)
+
+
+def test_should_build_model_predicate_returns_false_for_type_features():
+    feature_type = ln.Feature(name="predicate-type-feature", is_type=True)
+    other_model = ln.Feature(name="predicate-other-model", dtype="str")
+    assert feature_type._should_build_model_predicate(other_model) is False
+
+
+def test_feature_predicate_model_ne_and_ordering_comparators():
+    feature = ln.Feature(name="predicate-model-ne", dtype=ln.Record)
+    record = ln.Record(name="predicate-model-ne-record")
+    model_predicate = feature != record
+    assert isinstance(model_predicate, FeaturePredicate)
+    assert model_predicate.comparator == "__ne"
+    assert model_predicate.value is record
+
+    ge_predicate = feature >= 1
+    lt_predicate = feature < 1
+    assert isinstance(ge_predicate, FeaturePredicate)
+    assert isinstance(lt_predicate, FeaturePredicate)
+    assert ge_predicate.comparator == "__gte"
+    assert lt_predicate.comparator == "__lt"
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )
@@ -112,12 +237,27 @@ def test_feature_init():
 #     feature.delete(permanent=True)
 
 
-def test_cat_filters_empty_filter():
+@pytest.mark.parametrize("filter_value", [None, "", [], 0])
+def test_cat_filters_empty_filter(filter_value):
     # empty filter values should be rejected
     with pytest.raises(ValidationError) as error:
-        ln.Feature(name="feat_empty", dtype=bt.Disease, cat_filters={"source__uid": ""})
+        ln.Feature(
+            name="feat_empty",
+            dtype=bt.Disease,
+            cat_filters={"source__uid": filter_value},
+        )
+    assert "Empty value in filter source__uid" in error.exconly()
+
+
+def test_cat_filters_incompatible_with_nested_dtype():
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(
+            name="feat_nested",
+            dtype=list[ln.Record],
+            cat_filters={"source__uid": "abc"},
+        )
     assert (
-        "lamindb.errors.ValidationError: Empty value in filter source__uid"
+        "lamindb.errors.ValidationError: cat_filters are incompatible with nested dtypes:"
         in error.exconly()
     )
 
@@ -140,7 +280,7 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_feature_from_df():
+def test_feature_from_dataframe():
     df = pd.DataFrame(
         {
             "feat1": [1, 2, 3],
@@ -193,6 +333,32 @@ def test_feature_from_df():
     ln.Schema.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+def test_feature_from_dataframe_mute_restores_logger_verbosity():
+    df = pd.DataFrame({"feature_mute_restore": [1, 2]})
+    original_verbosity = logger._verbosity
+    try:
+        ln.Feature.from_dataframe(df, mute=True)
+        assert logger._verbosity == original_verbosity
+    finally:
+        logger.set_verbosity(original_verbosity)
+
+
+def test_feature_from_df_deprecation_warning():
+    df = pd.DataFrame({"feature_from_df_deprecated": [1, 2]})
+    with pytest.warns(DeprecationWarning, match="from_dataframe"):
+        features = ln.Feature.from_df(df, mute=True)
+    assert len(features) == 1
+
+
+def test_feature_from_dict_mute_restores_logger_verbosity(dict_data):
+    original_verbosity = logger._verbosity
+    try:
+        ln.Feature.from_dict(dict_data, mute=True)
+        assert logger._verbosity == original_verbosity
+    finally:
+        logger.set_verbosity(original_verbosity)
 
 
 def test_feature_from_dict(dict_data):
@@ -262,3 +428,38 @@ def test_serialize_pandas_datetime_dtypes():
 
     assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+
+
+def test_dtype_as_object_covers_simple_fallbacks():
+    assert dtype_as_object("datetime64[ns, UTC]") is datetime
+    assert dtype_as_object("dict") is dict
+    assert dtype_as_object("cat") is None
+    assert dtype_as_object(None) is None  # type: ignore[arg-type]
+
+
+def test_serialize_dtype_dict_and_invalid_type():
+    assert serialize_dtype(dict) == "dict"
+    with pytest.raises(
+        ValueError,
+        match="dtype has to be a registry, a ulabel subtype, a registry field",
+    ):
+        serialize_dtype(object())
+
+
+def test_convert_to_pandas_dtype_unknown_roundtrip():
+    assert convert_to_pandas_dtype("custom_dtype") == "custom_dtype"
+
+
+def test_split_filter_parts_handles_escaped_commas():
+    parts = _split_filter_parts(r"name='a\,b',status=active")
+    assert parts == [r"name='a\,b'", "status=active"]
+
+
+def test_format_cat_filter_value_edge_cases():
+    assert _format_cat_filter_value(3.14) == "3.14"
+    assert _format_cat_filter_value('a,"b') == "'a,\"b'"
+    with pytest.raises(
+        ValidationError,
+        match="Cannot serialize categorical filter value containing comma and both quote types",
+    ):
+        _format_cat_filter_value("a,\"b'c")

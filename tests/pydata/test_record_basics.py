@@ -129,6 +129,11 @@ def test_record_lazy_features_on_save():
     score_feature.delete(permanent=True)
 
 
+def test_project_initialization_accepts_description():
+    project = ln.Project(name="project-with-description", description="hello")
+    assert project.description == "hello"
+
+
 def test_record_from_dataframe_partial_null_bool_int():
     """Partial-null bool/int features survive the from_dataframe save round-trip.
 
@@ -672,6 +677,21 @@ def test_record_schema_field_mappings_store_on_record_columns():
     assert values["source_name"] == "sheet-row-1"
     assert values["source_description"] == "row description"
     assert values["field-map-score"] == 7.5
+    assert record.features["source_created_at"] == {}
+    assert record.features["source_created_by"] == {}
+    assert record.features["source_reference"] == {}
+    assert record.features["source_reference_type"] == {}
+    assert record.features["source_name"] == {}
+    assert record.features["source_description"] == {}
+    assert record.features["field-map-score"] == 7.5
+
+    exported = sheet.to_dataframe(
+        features=["field-map-score", "source_name", "source_description"]
+    )
+    exported_by_name = exported.set_index("__lamindb_record_name__")
+    assert exported_by_name.loc["sheet-row-1", "field-map-score"] == 7.5
+    assert exported_by_name["source_name"].isna().all()
+    assert exported_by_name["source_description"].isna().all()
 
     ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=timezone.utc)
     record.features.set_values(
@@ -694,6 +714,20 @@ def test_record_schema_field_mappings_store_on_record_columns():
     assert record.reference_type == "doi"
     assert ln.Record.filter(created_at=ts_2).one().id == record.id
     assert record.features.get_values()["field-map-score"] == 8.5
+    assert record.features["source_created_at"] == {}
+    assert record.features["source_name"] == {}
+    assert record.features["source_description"] == {}
+    assert record.features["field-map-score"] == 8.5
+
+    exported_after_update = sheet.to_dataframe(
+        features=["field-map-score", "source_name", "source_description"]
+    )
+    exported_after_update_by_name = exported_after_update.set_index(
+        "__lamindb_record_name__"
+    )
+    assert exported_after_update_by_name.loc["sheet-row-2", "field-map-score"] == 8.5
+    assert exported_after_update_by_name["source_name"].isna().all()
+    assert exported_after_update_by_name["source_description"].isna().all()
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)
@@ -817,33 +851,35 @@ def test_record_schema_field_mappings_validation():
     duplicate_target_feature_2.delete(permanent=True)
 
 
-def test_record_schema_backward_feature_mapping_reads_reverse_links():
+def test_record_feature_values_from_reads_reverse_links():
     attendees_feature = ln.Feature(name="attendees", dtype=list[ln.Record]).save()
     meetings_schema = ln.Schema(
         features=[attendees_feature],
-        name="backward-map-meetings-schema",
+        name="values-from-meetings-schema",
     ).save()
     meetings_sheet = ln.Record(
-        name="backward-map-meetings-sheet", is_type=True, schema=meetings_schema
+        name="values-from-meetings-sheet", is_type=True, schema=meetings_schema
     ).save()
 
     attended_meetings_feature = ln.Feature(
-        name="attended_meetings", dtype=list[ln.Record]
+        name="attended_meetings",
+        dtype=list[ln.Record],
+        values_from=attendees_feature,
     ).save()
     people_schema = ln.Schema(
         features=[
-            attended_meetings_feature.with_config(backward=attendees_feature),
+            attended_meetings_feature,
         ],
-        name="backward-map-people-schema",
+        name="values-from-people-schema",
     ).save()
     people_sheet = ln.Record(
-        name="backward-map-people-sheet", is_type=True, schema=people_schema
+        name="values-from-people-sheet", is_type=True, schema=people_schema
     ).save()
 
-    alice = ln.Record(name="backward-map-alice", type=people_sheet).save()
-    bob = ln.Record(name="backward-map-bob", type=people_sheet).save()
-    meeting_1 = ln.Record(name="backward-map-meeting-1", type=meetings_sheet).save()
-    meeting_2 = ln.Record(name="backward-map-meeting-2", type=meetings_sheet).save()
+    alice = ln.Record(name="values-from-alice", type=people_sheet).save()
+    bob = ln.Record(name="values-from-bob", type=people_sheet).save()
+    meeting_1 = ln.Record(name="values-from-meeting-1", type=meetings_sheet).save()
+    meeting_2 = ln.Record(name="values-from-meeting-2", type=meetings_sheet).save()
 
     meeting_1.features.set_values({"attendees": [alice, bob]})
     meeting_2.features.set_values({"attendees": [alice]})
@@ -851,14 +887,15 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
     alice_values = alice.features.get_values()
     bob_values = bob.features.get_values()
 
-    assert people_schema._aux["af"]["4"] == {
-        attended_meetings_feature.uid: attendees_feature.uid
-    }
+    assert attended_meetings_feature._aux["vf"] == attendees_feature.uid
+    assert attended_meetings_feature.values_from.uid == attendees_feature.uid
+    assert attended_meetings_feature.related_feature.uid == attendees_feature.uid
+    assert attendees_feature.related_feature.uid == attended_meetings_feature.uid
     assert alice_values["attended_meetings"] == [
-        "backward-map-meeting-1",
-        "backward-map-meeting-2",
+        "values-from-meeting-1",
+        "values-from-meeting-2",
     ]
-    assert bob_values["attended_meetings"] == ["backward-map-meeting-1"]
+    assert bob_values["attended_meetings"] == ["values-from-meeting-1"]
     assert (
         ln.models.RecordRecord.filter(
             record=alice, feature=attended_meetings_feature
@@ -874,7 +911,7 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
 
     with pytest.raises(
         ln.errors.ValidationError,
-        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+        match="is configured with Feature\\(\\.\\.\\., values_from=\\.\\.\\.\\) and is read-only",
     ):
         alice.features.set_values({"attended_meetings": [meeting_1]})
 
@@ -890,32 +927,34 @@ def test_record_schema_backward_feature_mapping_reads_reverse_links():
     attended_meetings_feature.delete(permanent=True)
 
 
-def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
+def test_record_feature_values_from_scalar_to_list_relation():
     author_feature = ln.Feature(name="author", dtype=ln.Record).save()
     books_schema = ln.Schema(
         features=[author_feature],
-        name="backward-map-books-schema",
+        name="values-from-books-schema",
     ).save()
     books_sheet = ln.Record(
-        name="backward-map-books-sheet", is_type=True, schema=books_schema
+        name="values-from-books-sheet", is_type=True, schema=books_schema
     ).save()
 
-    books_feature = ln.Feature(name="books", dtype=list[ln.Record]).save()
+    books_feature = ln.Feature(
+        name="books", dtype=list[ln.Record], values_from=author_feature
+    ).save()
     authors_schema = ln.Schema(
         features=[
-            books_feature.with_config(backward=author_feature),
+            books_feature,
         ],
-        name="backward-map-authors-schema",
+        name="values-from-authors-schema",
     ).save()
     authors_sheet = ln.Record(
-        name="backward-map-authors-sheet", is_type=True, schema=authors_schema
+        name="values-from-authors-sheet", is_type=True, schema=authors_schema
     ).save()
 
-    author_a = ln.Record(name="backward-map-author-a", type=authors_sheet).save()
-    author_b = ln.Record(name="backward-map-author-b", type=authors_sheet).save()
-    book_1 = ln.Record(name="backward-map-book-1", type=books_sheet).save()
-    book_2 = ln.Record(name="backward-map-book-2", type=books_sheet).save()
-    book_3 = ln.Record(name="backward-map-book-3", type=books_sheet).save()
+    author_a = ln.Record(name="values-from-author-a", type=authors_sheet).save()
+    author_b = ln.Record(name="values-from-author-b", type=authors_sheet).save()
+    book_1 = ln.Record(name="values-from-book-1", type=books_sheet).save()
+    book_2 = ln.Record(name="values-from-book-2", type=books_sheet).save()
+    book_3 = ln.Record(name="values-from-book-3", type=books_sheet).save()
 
     book_1.features.set_values({"author": author_a})
     book_2.features.set_values({"author": author_a})
@@ -924,9 +963,26 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     author_a_values = author_a.features.get_values()
     author_b_values = author_b.features.get_values()
 
-    assert authors_schema._aux["af"]["4"] == {books_feature.uid: author_feature.uid}
-    assert author_a_values["books"] == ["backward-map-book-1", "backward-map-book-2"]
-    assert author_b_values["books"] == ["backward-map-book-3"]
+    assert books_feature._aux["vf"] == author_feature.uid
+    assert books_feature.values_from.uid == author_feature.uid
+    assert books_feature.related_feature.uid == author_feature.uid
+    assert author_feature.related_feature.uid == books_feature.uid
+    assert author_a_values["books"] == ["values-from-book-1", "values-from-book-2"]
+    assert author_b_values["books"] == ["values-from-book-3"]
+    assert book_1.features["author"].name == book_1.features.get_values()["author"]
+    assert book_2.features["author"].name == book_2.features.get_values()["author"]
+    assert book_3.features["author"].name == book_3.features.get_values()["author"]
+
+    authors_df = authors_sheet.to_dataframe(features=["books"])
+    authors_by_name = authors_df.set_index("__lamindb_record_name__")
+    assert "books" in authors_by_name.columns
+    assert authors_by_name["books"].isna().all()
+
+    books_df = books_sheet.to_dataframe(features=["author"])
+    books_by_name = books_df.set_index("__lamindb_record_name__")
+    assert books_by_name.loc["values-from-book-1", "author"] == "values-from-author-a"
+    assert books_by_name.loc["values-from-book-2", "author"] == "values-from-author-a"
+    assert books_by_name.loc["values-from-book-3", "author"] == "values-from-author-b"
     assert (
         ln.models.RecordRecord.filter(record=author_a, feature=books_feature).count()
         == 0
@@ -949,23 +1005,103 @@ def test_record_schema_backward_feature_mapping_scalar_to_list_relation():
     books_feature.delete(permanent=True)
 
 
-def test_record_schema_backward_feature_mapping_self_referential_relation():
+def test_record_feature_values_from_with_index_exports_contract():
+    author_feature = ln.Feature(name="values-index-author", dtype=ln.Record).save()
+    books_schema = ln.Schema(
+        features=[author_feature],
+        name="values-index-books-schema",
+    ).save()
+    books_sheet = ln.Record(
+        name="values-index-books-sheet", is_type=True, schema=books_schema
+    ).save()
+
+    author_id_feature = ln.Feature(name="author_id", dtype=str).save()
+    books_feature = ln.Feature(
+        name="values-index-books", dtype=list[ln.Record], values_from=author_feature
+    ).save()
+    authors_schema = ln.Schema(
+        features=[books_feature],
+        index=author_id_feature,
+        name="values-index-authors-schema",
+    ).save()
+    authors_sheet = ln.Record(
+        name="values-index-authors-sheet", is_type=True, schema=authors_schema
+    ).save()
+
+    author_a = ln.Record(name="AUTHOR-A", type=authors_sheet).save()
+    author_b = ln.Record(name="AUTHOR-B", type=authors_sheet).save()
+    book_1 = ln.Record(name="values-index-book-1", type=books_sheet).save()
+    book_2 = ln.Record(name="values-index-book-2", type=books_sheet).save()
+    book_3 = ln.Record(name="values-index-book-3", type=books_sheet).save()
+
+    book_1.features.set_values({"values-index-author": author_a})
+    book_2.features.set_values({"values-index-author": author_a})
+    book_3.features.set_values({"values-index-author": author_b})
+
+    assert author_a.features.get_values()["author_id"] == "AUTHOR-A"
+    assert author_b.features.get_values()["author_id"] == "AUTHOR-B"
+    assert (
+        book_1.features["values-index-author"].name
+        == book_1.features.get_values()["values-index-author"]
+    )
+    assert (
+        book_2.features["values-index-author"].name
+        == book_2.features.get_values()["values-index-author"]
+    )
+    assert (
+        book_3.features["values-index-author"].name
+        == book_3.features.get_values()["values-index-author"]
+    )
+
+    authors_df = authors_sheet.to_dataframe(features=["values-index-books"])
+    assert authors_df.index.name == "author_id"
+    assert "author_id" not in authors_df.columns
+    assert "__lamindb_record_name__" not in authors_df.columns
+    assert "__lamindb_record_uid__" not in authors_df.columns
+    assert "values-index-books" in authors_df.columns
+    assert authors_df["values-index-books"].isna().all()
+
+    books_df = books_sheet.to_dataframe(features=["values-index-author"])
+    assert "__lamindb_record_name__" in books_df.columns
+    assert "__lamindb_record_uid__" in books_df.columns
+    books_by_name = books_df.set_index("__lamindb_record_name__")
+    assert books_by_name.loc["values-index-book-1", "values-index-author"] == "AUTHOR-A"
+    assert books_by_name.loc["values-index-book-2", "values-index-author"] == "AUTHOR-A"
+    assert books_by_name.loc["values-index-book-3", "values-index-author"] == "AUTHOR-B"
+
+    book_1.delete(permanent=True)
+    book_2.delete(permanent=True)
+    book_3.delete(permanent=True)
+    author_a.delete(permanent=True)
+    author_b.delete(permanent=True)
+    books_sheet.delete(permanent=True)
+    authors_sheet.delete(permanent=True)
+    books_schema.delete(permanent=True)
+    authors_schema.delete(permanent=True)
+    author_feature.delete(permanent=True)
+    books_feature.delete(permanent=True)
+    author_id_feature.delete(permanent=True)
+
+
+def test_record_feature_values_from_self_referential_relation():
     reports_to_feature = ln.Feature(name="reports_to", dtype=ln.Record).save()
-    manages_feature = ln.Feature(name="manages", dtype=list[ln.Record]).save()
+    manages_feature = ln.Feature(
+        name="manages", dtype=list[ln.Record], values_from=reports_to_feature
+    ).save()
     people_schema = ln.Schema(
         features=[
             reports_to_feature,
-            manages_feature.with_config(optional=True, backward=reports_to_feature),
+            manages_feature.with_config(optional=True),
         ],
-        name="backward-map-self-people-schema",
+        name="values-from-self-people-schema",
     ).save()
     people_sheet = ln.Record(
-        name="backward-map-self-people-sheet", is_type=True, schema=people_schema
+        name="values-from-self-people-sheet", is_type=True, schema=people_schema
     ).save()
 
-    manager = ln.Record(name="backward-map-self-manager", type=people_sheet).save()
-    report_a = ln.Record(name="backward-map-self-report-a", type=people_sheet).save()
-    report_b = ln.Record(name="backward-map-self-report-b", type=people_sheet).save()
+    manager = ln.Record(name="values-from-self-manager", type=people_sheet).save()
+    report_a = ln.Record(name="values-from-self-report-a", type=people_sheet).save()
+    report_b = ln.Record(name="values-from-self-report-b", type=people_sheet).save()
 
     report_a.features.set_values({"reports_to": manager})
     report_b.features.set_values({"reports_to": manager})
@@ -973,12 +1109,11 @@ def test_record_schema_backward_feature_mapping_self_referential_relation():
     manager_values = manager.features.get_values()
     report_a_values = report_a.features.get_values()
 
-    assert people_schema._aux["af"]["4"] == {
-        manages_feature.uid: reports_to_feature.uid
-    }
+    assert manages_feature._aux["vf"] == reports_to_feature.uid
+    assert reports_to_feature.related_feature.uid == manages_feature.uid
     assert manager_values["manages"] == [
-        "backward-map-self-report-a",
-        "backward-map-self-report-b",
+        "values-from-self-report-a",
+        "values-from-self-report-b",
     ]
     assert report_a_values["manages"] == []
     assert (
@@ -987,7 +1122,7 @@ def test_record_schema_backward_feature_mapping_self_referential_relation():
     )
     with pytest.raises(
         ln.errors.ValidationError,
-        match="is configured with feature.with_config\\(backward=...\\) and is read-only",
+        match="is configured with Feature\\(\\.\\.\\., values_from=\\.\\.\\.\\) and is read-only",
     ):
         report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
 
@@ -1000,49 +1135,49 @@ def test_record_schema_backward_feature_mapping_self_referential_relation():
     manages_feature.delete(permanent=True)
 
 
-def test_record_schema_backward_feature_mapping_validation_no_symmetric_config():
-    feature_a = ln.Feature(name="backward-a", dtype=list[ln.Record]).save()
-    feature_b = ln.Feature(name="backward-b", dtype=list[ln.Record]).save()
-
-    schema_left = ln.Schema([feature_a.with_config(backward=feature_b)]).save()
-    with pytest.raises(
-        ValueError,
-        match="cannot be configured symmetrically across related schemas",
-    ):
-        ln.Schema([feature_b.with_config(backward=feature_a)]).save()
-    schema_left.delete(permanent=True)
+def test_record_feature_values_from_validation_no_symmetric_config():
+    source = ln.Feature(name="values-source", dtype=ln.Record).save()
+    target = ln.Feature(name="values-target", dtype=list[ln.Record]).save()
+    related = ln.Feature(name="values-related", dtype=list[ln.Record]).save()
+    self_pointing = ln.Feature(
+        name="values-self-pointing", dtype=list[ln.Record]
+    ).save()
 
     with pytest.raises(
-        ValueError,
-        match="cannot be configured symmetrically in the same schema",
-    ):
-        ln.Schema(
-            [
-                feature_a.with_config(backward=feature_b),
-                feature_b.with_config(backward=feature_a),
-            ]
-        ).save()
-
-    with pytest.raises(
-        ValueError,
+        AssertionError,
         match="cannot point to itself",
     ):
-        ln.Schema([feature_a.with_config(backward=feature_a)]).save()
+        self_pointing.values_from = self_pointing
+        self_pointing.save()
 
-    schema_a = ln.Schema([feature_a], name="setter-backward-schema-a").save()
-    schema_b = ln.Schema([feature_b], name="setter-backward-schema-b").save()
-    schema_a._backward_feature_uids = {feature_a.uid: feature_b.uid}
-    schema_a.save(update_fields=["_aux"])
+    target.values_from = source
+    target.save()
+    assert source.related_feature.uid == target.uid
+
     with pytest.raises(
-        ValueError,
-        match="cannot be configured symmetrically across related schemas",
+        AssertionError,
+        match="already related to another feature",
     ):
-        schema_b._backward_feature_uids = {feature_b.uid: feature_a.uid}
-    schema_a.delete(permanent=True)
-    schema_b.delete(permanent=True)
+        related.values_from = source
+        related.save()
 
-    feature_a.delete(permanent=True)
-    feature_b.delete(permanent=True)
+    symmetric_a = ln.Feature(name="values-symmetric-a", dtype=list[ln.Record]).save()
+    symmetric_b = ln.Feature(name="values-symmetric-b", dtype=list[ln.Record]).save()
+    symmetric_b.values_from = symmetric_a
+    symmetric_b.save()
+    with pytest.raises(
+        AssertionError,
+        match="already has a values_from relationship",
+    ):
+        symmetric_a.values_from = symmetric_b
+        symmetric_a.save()
+
+    symmetric_b.delete(permanent=True)
+    symmetric_a.delete(permanent=True)
+    self_pointing.delete(permanent=True)
+    related.delete(permanent=True)
+    target.delete(permanent=True)
+    source.delete(permanent=True)
 
 
 def test_record_from_dataframe_requires_named_type():
@@ -2124,7 +2259,7 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species_type = ln.Record(name="SpeciesTypeForJsonGuard", is_type=True).save()
     human = ln.Record(name="HumanForJsonGuard", type=species_type).save()
     species = ln.Feature(name="species_json_guard", dtype=species_type).save()
-    assert species.dtype.startswith("cat[Record[")
+    assert species.dtype_as_str.startswith("cat[Record[")
 
     sample = ln.Record(name="SampleForJsonGuard").save()
 
@@ -2186,6 +2321,68 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
+
+
+def test_set_values_accepts_user_records_for_user_dtype():
+    user_feature = ln.Feature(
+        name="feature_user_record_input", dtype=list[ln.User]
+    ).save()
+    schema = ln.Schema([user_feature], name="schema_user_record_input").save()
+    record_type = ln.Record(
+        name="RecordTypeUserRecordInput",
+        is_type=True,
+        schema=schema,
+    ).save()
+    record = ln.Record(name="record_user_record_input", type=record_type).save()
+    current_user = ln.User.get(id=ln.setup.settings.user.id)
+
+    record.features.set_values({user_feature: [current_user]})
+
+    links = ln.models.RecordUser.filter(record=record, feature=user_feature)
+    assert links.count() == 1
+    assert links.one().value_id == current_user.id
+
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
+    schema.delete(permanent=True)
+    user_feature.delete(permanent=True)
+
+
+def test_set_values_with_duplicate_feature_names_does_not_crash_remove_phase():
+    duplicate_type = ln.Feature(name="dup_feature_scope", is_type=True).save()
+    global_feature = ln.Feature(name="dup_feature_value", dtype=str).save()
+    typed_feature = ln.Feature(
+        name="dup_feature_value", dtype=str, type=duplicate_type
+    ).save()
+    record = ln.Record(name="dup_feature_record").save()
+
+    record.features.set_values({typed_feature: "first"})
+    record.features.set_values({typed_feature: "second"})
+
+    assert record.features.get_values() == {"dup_feature_value": "second"}
+    assert record.features["dup_feature_value"] == "second"
+
+    record.delete(permanent=True)
+    typed_feature.delete(permanent=True)
+    global_feature.delete(permanent=True)
+    duplicate_type.delete(permanent=True)
+
+
+def test_record_features_getitem_missing_and_empty_values():
+    missing_feature_name = "record-feature-getitem-missing"
+    existing_feature = ln.Feature(name="record-feature-getitem-empty", dtype=str).save()
+    record = ln.Record(name="record-feature-getitem-empty-record").save()
+
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match=f"Feature with name {missing_feature_name} not found",
+    ):
+        record.features[missing_feature_name]
+
+    assert record.features["record-feature-getitem-empty"] == {}
+
+    record.delete(permanent=True)
+    existing_feature.delete(permanent=True)
 
 
 def test_feature_rejects_builtin_scalar_for_record_dtype():

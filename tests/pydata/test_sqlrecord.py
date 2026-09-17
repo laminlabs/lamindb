@@ -415,6 +415,7 @@ def test_get_record_kwargs():
             "Any | None",
         ),
         ("coerce", "bool | None"),
+        ("values_from", "Feature | None"),
         (
             "cat_filters",
             "dict[str",

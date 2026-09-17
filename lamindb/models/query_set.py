@@ -27,7 +27,11 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
-from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
+from ..base.types import (
+    BRANCH_STATUS_TO_CODE,
+    PROJECT_STATUS_TO_CODE,
+    RUN_STATUS_TO_CODE,
+)
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
@@ -165,6 +169,8 @@ def map_query_kwargs(queryset, expressions):
         status_mapping = RUN_STATUS_TO_CODE
     elif queryset.model is Branch:
         status_mapping = BRANCH_STATUS_TO_CODE
+    elif queryset.model is Project:
+        status_mapping = PROJECT_STATUS_TO_CODE
 
     def _map_status_value(value):
         if status_mapping is None:
@@ -642,7 +648,14 @@ def get_feature_annotate_kwargs(
         if (
             obj.related_model.__get_name_with_module__() in link_models_on_models
             and (
-                not obj.related_name.startswith("links_record")
+                (
+                    # RecordRecord.value also reverse-relates as links_record.
+                    not obj.related_name.startswith("links_record")
+                    # RecordX value tables have `value`; XRecord tagging tables do not
+                    # (`links_reference`, `links_project`, ...). Joining those as
+                    # `links_*__value` raises FilteredRelation lookup errors.
+                    and hasattr(obj.related_model, "value_id")
+                )
                 if registry is Record
                 else True
             )
@@ -654,9 +667,6 @@ def get_feature_annotate_kwargs(
 
     for link_attr, feature_type_model in link_attributes_on_models.items():
         feature_type = feature_type_model.__get_name_with_module__()
-        if link_attr == "links_project" and registry is Record:
-            # we're only interested in _values_project when "annotating" records
-            continue
 
         # Determine field name
         if registry in {Artifact, Run}:

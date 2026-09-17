@@ -17,8 +17,8 @@ classifiers = [
 ]
 dependencies = [
     "lamin_utils==0.16.4",  # no dependencies
-    "lamin_cli==1.19.3",  # no dependencies
-    "lamindb_setup[aws]==1.25.7",  # dependencies like Django & fsspec
+    "lamin_cli==1.20a1",  # no dependencies
+    "lamindb_setup[aws]==1.26a1",  # dependencies like Django & fsspec
     "psycopg2-binary",
 ]
 
@@ -238,7 +238,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/examples/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
+omit = ["**/examples/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/integrations/notion.py"]
 
 [tool.flit.sdist]
 exclude = [

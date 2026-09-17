@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -18,15 +18,25 @@ import pytest
 from lamindb.integrations.notion import (
     API_VERSION,
     BASE,
+    NotionSyncer,
+    ProjectSyncer,
     SyncReport,
     _artifact_key_from_url,
     _attach_page_markdown,
+    _attach_project_markdown,
     _ensure_artifacts,
+    _ensure_feature_itype_on_record_schema,
     _flatten,
+    _notion_user_or_page_name,
     _NotionReader,
     _NotionSyncer,
+    _planned_embedded_file_transfers,
     _planned_missing_file_transfers,
+    _resolve_relation_records_for_rows,
+    _resolved_users_by_notion_id,
+    _rewrite_embedded_file_refs,
     _short_file_source,
+    _storage_src_for_artifact,
     _upsert_all,
     _write,
     sync_from_notion,
@@ -170,8 +180,27 @@ def test_flatten_people(page_props):
     assert _flatten(page_props["Owner"]) == ["user-id-abc"]
 
 
+def test_flatten_people_caches_person_name():
+    cache: dict[str, str] = {}
+    prop = {
+        "type": "people",
+        "people": [{"id": "user-id-abc", "name": "Bernardo Penteado"}],
+    }
+    assert _flatten(prop, people_name_cache=cache) == ["user-id-abc"]
+    assert cache == {"user-id-abc": "Bernardo Penteado"}
+
+
 def test_flatten_relation_returns_page_ids(page_props):
     assert _flatten(page_props["Related"]) == ["related-page-id-111"]
+
+
+def test_flatten_relation_normalizes_dashed_uuid_ids():
+    dashed_uuid = "3922aeaa-55e1-808d-9725-d314fb7bc388"
+    prop = {
+        "type": "relation",
+        "relation": [{"id": dashed_uuid}],
+    }
+    assert _flatten(prop) == ["3922aeaa55e1808d9725d314fb7bc388"]
 
 
 def test_flatten_created_by(page_props):
@@ -219,6 +248,80 @@ def test_planned_missing_file_transfers_lists_each_missing_file():
     ]
 
 
+def test_planned_embedded_file_transfers_uses_notes_context():
+    markdown = (
+        "before\n"
+        "![chart](https://files.notion.site/a.png)\n"
+        "[deck](https://files.notion.site/deck.pdf)\n"
+        '<img src="https://files.notion.site/other.png" />\n'
+    )
+    transfer_map, details = _planned_embedded_file_transfers(markdown, "row-1")
+    assert set(transfer_map) == {
+        "https://files.notion.site/a.png",
+        "https://files.notion.site/other.png",
+    }
+    assert details == [
+        f'{_short_file_source("https://files.notion.site/a.png")} <- row-1:notes (key=None, kind="__easset__")',
+        f'{_short_file_source("https://files.notion.site/other.png")} <- row-1:notes (key=None, kind="__easset__")',
+    ]
+
+
+def test_rewrite_embedded_file_refs_replaces_with_storage_links():
+    markdown = (
+        "![img](https://files.notion.site/a.png)\n"
+        "## Google Cloud\n"
+        "[slides](https://files.notion.site/deck.pdf)\n"
+        '<img src="https://files.notion.site/other.png" />\n'
+    )
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+    with patch("lamindb.integrations.notion.ln.settings", settings_stub):
+        rewritten = _rewrite_embedded_file_refs(
+            markdown,
+            {
+                "https://files.notion.site/a.png": type(
+                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/abc.png"}
+                )(),
+                "https://files.notion.site/other.png": type(
+                    "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/other.png"}
+                )(),
+            },
+        )
+    assert (
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />'
+        in rewritten
+    )
+    assert (
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/abc.png" />\n\n## Google Cloud'
+        in rewritten
+    )
+    assert "[slides](https://files.notion.site/deck.pdf)" in rewritten
+    assert '<img src="/storage/s3/bucket/prefix%2F/.lamindb/other.png" />' in rewritten
+
+
+def test_storage_src_for_artifact_uses_default_storage_root():
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    artifact = type("Artifact", (), {"path": "s3://bucket/prefix/.lamindb/abc.png"})()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+    with patch("lamindb.integrations.notion.ln.settings", settings_stub):
+        assert (
+            _storage_src_for_artifact(artifact)
+            == "/storage/s3/bucket/prefix%2F/.lamindb/abc.png"
+        )
+
+
 def test_ensure_artifacts_downloads_then_saves_local_file():
     report = SyncReport(apply=True)
     created_artifact = type("ArtifactStub", (), {"uid": "abc"})()
@@ -247,6 +350,34 @@ def test_ensure_artifacts_downloads_then_saves_local_file():
     )
     assert out["https://example.com/a.pdf"] is created_artifact
     assert report.created_artifacts == [detail]
+
+
+def test_ensure_embedded_artifacts_omit_key_and_set_kind():
+    record = MagicMock()
+    created_artifact = type("ArtifactStub", (), {"uid": "abc"})()
+    record.save.return_value = created_artifact
+    with (
+        patch(
+            "lamindb.integrations.notion._download_file_to_temp_path",
+            return_value="mock-notion-a.png",
+        ),
+        patch(
+            "lamindb.integrations.notion.ln.Artifact", return_value=record
+        ) as Artifact,
+        patch("lamindb.integrations.notion.os.remove"),
+    ):
+        out = _ensure_artifacts(
+            {"https://files.notion.site/a.png"},
+            with_key=False,
+            kind="__easset__",
+            description="imported from Notion",
+        )
+    Artifact.assert_called_once_with(
+        "mock-notion-a.png",
+        kind="__easset__",
+        description="imported from Notion",
+    )
+    assert out["https://files.notion.site/a.png"] is created_artifact
 
 
 def test_flatten_created_time(page_props):
@@ -772,6 +903,88 @@ def test_page_markdown_exports_nested_blocks(reader):
     assert "  v1 in October" in markdown
 
 
+def test_page_markdown_exports_multiline_quote_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "quote-1",
+                        "type": "quote",
+                        "has_children": False,
+                        "quote": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Translational research\n"
+                                        "Analysis of the relevant DNA sequences"
+                                    )
+                                }
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "> Translational research\n> Analysis of the relevant DNA sequences"
+    )
+
+
+def test_page_markdown_keeps_blank_lines_between_paragraph_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "h1",
+                        "type": "heading_1",
+                        "has_children": False,
+                        "heading_1": {"rich_text": [{"plain_text": "Preparation"}]},
+                    },
+                    {
+                        "id": "p1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "Ebad"}]},
+                    },
+                    {
+                        "id": "p2",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": "Starting with Claude Code to establish the pattern."
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "p3",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [{"plain_text": "Works via a Stop hook."}]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "# Preparation\n"
+        "Ebad\n\n"
+        "Starting with Claude Code to establish the pattern.\n\n"
+        "Works via a Stop hook."
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -810,6 +1023,143 @@ def test_page_markdown_exports_toggle_as_details_html(reader):
     assert "</details>" in markdown
 
 
+def test_page_markdown_exports_image_and_file_blocks(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "img-1",
+                        "type": "image",
+                        "has_children": False,
+                        "image": {
+                            "type": "file",
+                            "file": {"url": "https://files.notion.site/a.png"},
+                            "caption": [{"plain_text": "Meeting photo"}],
+                        },
+                    },
+                    {
+                        "id": "file-1",
+                        "type": "file",
+                        "has_children": False,
+                        "file": {
+                            "type": "external",
+                            "external": {"url": "https://files.notion.site/deck.pdf"},
+                            "caption": [{"plain_text": "Slides"}],
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "![Meeting photo](https://files.notion.site/a.png)" in markdown
+    assert "[Slides](https://files.notion.site/deck.pdf)" in markdown
+
+
+def test_page_markdown_exports_link_preview_style_blocks_as_urls(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "preview-1",
+                        "type": "link_preview",
+                        "has_children": False,
+                        "link_preview": {
+                            "url": "https://lamin.ai/slack-preview-post",
+                        },
+                    },
+                    {
+                        "id": "bookmark-1",
+                        "type": "bookmark",
+                        "has_children": False,
+                        "bookmark": {
+                            "url": "https://lamin.ai/docs",
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert "https://lamin.ai/slack-preview-post" in markdown
+    assert "https://lamin.ai/docs" in markdown
+
+
+def test_page_markdown_exports_table_of_contents_marker(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toc-1",
+                        "type": "table_of_contents",
+                        "has_children": False,
+                        "table_of_contents": {},
+                    }
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == "<!-- display-table-of-contents -->"
+
+
+def test_page_markdown_exports_simple_table(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "table-1",
+                        "type": "table",
+                        "has_children": True,
+                        "table": {"table_width": 2, "has_column_header": True},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "row-1",
+                        "type": "table_row",
+                        "has_children": False,
+                        "table_row": {
+                            "cells": [
+                                [{"plain_text": "Field"}],
+                                [{"plain_text": "What We Store"}],
+                            ]
+                        },
+                    },
+                    {
+                        "id": "row-2",
+                        "type": "table_row",
+                        "has_children": False,
+                        "table_row": {
+                            "cells": [
+                                [{"plain_text": "reference"}],
+                                [{"plain_text": "Claude session ID"}],
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "| Field | What We Store |\n| --- | --- |\n| reference | Claude session ID |"
+    )
+
+
 # ---------------------------------------------------------------------------
 # _NotionSyncer
 # ---------------------------------------------------------------------------
@@ -828,6 +1178,13 @@ def _fake_rec_type(name: str, features: list[str]):
         "Schema", (), {"members": [type("F", (), {"name": f}) for f in features]}
     )
     return type("RecordType", (), {"name": name, "schema": schema})()
+
+
+def _fake_feature(name: str, dtype: str | None = None):
+    payload: dict[str, object] = {"name": name}
+    if dtype is not None:
+        payload["_dtype_str"] = dtype
+    return type("F", (), payload)()
 
 
 def _ts(value: str) -> datetime:
@@ -861,6 +1218,28 @@ def test_attach_page_markdown_adds_readme_only_when_changed():
     record.ablocks.add.assert_not_called()
 
 
+def test_attach_project_markdown_adds_readme_only_when_changed():
+    project = MagicMock()
+    project.notes = "old notes"
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+    with patch(
+        "lamindb.integrations.notion.ln.models.ProjectBlock", return_value=block_factory
+    ) as ProjectBlock:
+        _attach_project_markdown(project, "new notes")
+    ProjectBlock.assert_called_once_with(
+        project=project, content="new notes", kind="readme"
+    )
+    project.ablocks.add.assert_called_once_with(saved_block, bulk=False)
+
+    project.ablocks.add.reset_mock()
+    with patch("lamindb.integrations.notion.ln.models.ProjectBlock") as ProjectBlock:
+        _attach_project_markdown(project, "old notes")
+    ProjectBlock.assert_not_called()
+    project.ablocks.add.assert_not_called()
+
+
 def test_write_attaches_page_markdown_to_records():
     rec = MagicMock()
     rec.notes = None
@@ -888,6 +1267,1063 @@ def test_write_attaches_page_markdown_to_records():
     reader.page_markdown.assert_called_once_with("page-1")
     rec.ablocks.add.assert_called_once_with(saved_block, bulk=False)
     assert stats == {"records": 1, "pending": 0}
+
+
+def test_project_syncer_reports_unmapped_properties():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "Name": {"type": "title"},
+        "Status": {"type": "status", "choices": ["active"]},
+        "Timeline": {"type": "date"},
+        "Budget": {"type": "number"},
+        "Other relation": {"type": "relation", "target": "ds-unknown"},
+    }
+
+    with (
+        patch.object(syncer, "_target_names", return_value=["Organizations"]),
+        patch.object(
+            syncer, "_resolve_record_type_by_name_candidates", return_value=None
+        ),
+    ):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["title"] == "Name"
+    assert mapping["status"] == "Status"
+    assert mapping["timeline"] == "Timeline"
+    assert (
+        "Projects / Budget (number): unsupported Project field mapping"
+        in report.unmapped_properties
+    )
+    assert (
+        "Projects / Other relation (relation): relation target does not map to Project/Reference/Record type"
+        in report.unmapped_properties
+    )
+
+
+def test_project_syncer_maps_relation_target_record_type():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    target_record_type = type("RecordType", (), {"uid": "Ab12Cd34Ef56"})()
+    schema_spec = {
+        "external_responsible": {"type": "relation", "target": "ds-people"},
+    }
+    with (
+        patch.object(syncer, "_target_names", return_value=["People"]),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=target_record_type,
+        ),
+    ):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["record_rel"]["external_responsible"] is target_record_type
+    assert report.unmapped_properties == []
+    assert (
+        "Projects / external_responsible -> ProjectRecord(feature=external_responsible, target=RecordType)"
+        in report.mapped_project_record_relations
+    )
+
+
+def test_project_syncer_skips_hardcoded_project_record_properties():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    target_record_type = type("RecordType", (), {"uid": "Ab12Cd34Ef56"})()
+    schema_spec = {
+        "presentations": {"type": "relation", "target": "ds-presentations"},
+        "meetings": {"type": "relation", "target": "ds-meetings"},
+    }
+    with (
+        patch.object(syncer, "_target_names", return_value=["Presentations"]),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=target_record_type,
+        ),
+    ):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert "presentations" not in mapping["record_rel"]
+    assert "meetings" not in mapping["record_rel"]
+    assert report.mapped_project_record_relations == []
+    assert (
+        "Projects / presentations (relation): intentionally skipped ProjectRecord mapping (populate from Record side)"
+        in report.unmapped_properties
+    )
+    assert (
+        "Projects / meetings (relation): intentionally skipped ProjectRecord mapping (populate from Record side)"
+        in report.unmapped_properties
+    )
+
+
+def test_project_syncer_maps_task_relation_to_children():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "task": {"type": "relation", "target": "ds-tasks"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Tasks"]):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["children_rel"] == {"task"}
+    assert report.unmapped_properties == []
+
+
+def test_project_syncer_maps_project_relation_to_parents():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "project": {"type": "relation", "target": "ds-projects"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Projects"]):
+        mapping = syncer.build_mapping(
+            db_name="Tasks",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["parents_rel"] == {"project"}
+    assert report.unmapped_properties == []
+
+
+def test_project_syncer_maps_responsible_relation_to_people_role():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "responsible": {"type": "relation", "target": "ds-people"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Teams"]):
+        mapping = syncer.build_mapping(
+            db_name="Tasks",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["people_roles"] == {"responsible": "responsible"}
+    assert mapping["record_rel"] == {}
+    assert report.unmapped_properties == []
+
+
+def test_notion_syncer_recognizes_tasks_database_as_project_database(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    payload = {"title": [{"plain_text": "Tasks"}]}
+    assert syncer._is_project_database(payload, "db-tasks") is True
+
+
+def test_notion_syncer_project_type_name_for_database_defaults():
+    assert NotionSyncer._project_type_name_for_database("Tasks") == "Tasks"
+    assert NotionSyncer._project_type_name_for_database("Projects") == "Work packages"
+    assert NotionSyncer._project_type_name_for_database("Other DB") is None
+
+
+def test_project_syncer_upsert_all_assigns_tasks_type():
+    rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
+    project_type = type("ProjectType", (), {"id": 77})()
+    with patch("lamindb.integrations.notion.ln.Project") as Project:
+        project_factory = MagicMock()
+        project_factory.save.return_value = "saved-task"
+        Project.return_value = project_factory
+        syncer = ProjectSyncer(reader=MagicMock())
+        out = syncer.upsert_all(
+            rows=rows,
+            by_id={},
+            title_property="Name",
+            project_type=project_type,
+        )
+    Project.assert_called_once_with(
+        name="Task A",
+        url="https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388",
+        type=project_type,
+    )
+    assert out["3922aeaa55e1808d9725d314fb7bc388"] == "saved-task"
+
+
+def test_project_syncer_upsert_all_updates_existing_type():
+    rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
+    project_type = type("ProjectType", (), {"id": 77})()
+    existing = MagicMock()
+    existing.url = "https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388"
+    existing.name = "Task A"
+    existing.type_id = None
+    existing.created_at = None
+    existing.updated_at = None
+    existing._aux = None
+
+    syncer = ProjectSyncer(reader=MagicMock())
+    out = syncer.upsert_all(
+        rows=rows,
+        by_id={"3922aeaa55e1808d9725d314fb7bc388": existing},
+        title_property="Name",
+        project_type=project_type,
+    )
+    assert out["3922aeaa55e1808d9725d314fb7bc388"] is existing
+    assert existing.type is project_type
+    assert existing.save.call_count == 1
+    update_fields = existing.save.call_args.kwargs["update_fields"]
+    assert "type" in update_fields
+
+
+def test_project_syncer_recognizes_project_hierarchy_and_dependency_relations():
+    syncer = ProjectSyncer(reader=MagicMock())
+    report = SyncReport(apply=False)
+    schema_spec = {
+        "Parents": {"type": "relation", "target": "ds-projects"},
+        "Children": {"type": "relation", "target": "ds-projects"},
+        "Predecessors": {"type": "relation", "target": "ds-projects"},
+        "Successors": {"type": "relation", "target": "ds-projects"},
+    }
+    with patch.object(syncer, "_target_names", return_value=["Projects"]):
+        mapping = syncer.build_mapping(
+            db_name="Projects",
+            schema_spec=schema_spec,
+            report=report,
+        )
+
+    assert mapping["parents_rel"] == {"Parents"}
+    assert mapping["children_rel"] == {"Children"}
+    assert mapping["predecessors_rel"] == {"Predecessors"}
+    assert mapping["successors_rel"] == {"Successors"}
+    assert report.unmapped_properties == []
+
+
+def test_project_syncer_validate_status_mapping_raises_on_unknown_status():
+    syncer = ProjectSyncer(reader=MagicMock())
+    mapping = {"status": "Status"}
+    schema_spec = {"Status": {"type": "status", "choices": ["active", "in review"]}}
+    with pytest.raises(ValueError, match="Please update status names in Notion"):
+        syncer.validate_status_mapping(
+            db_name="Projects", schema_spec=schema_spec, mapping=mapping
+        )
+
+
+def test_project_syncer_validate_status_mapping_accepts_extended_statuses():
+    syncer = ProjectSyncer(reader=MagicMock())
+    mapping = {"status": "Status"}
+    schema_spec = {
+        "Status": {
+            "type": "status",
+            "choices": [
+                "planned",
+                "up-next",
+                "active",
+                "completed",
+                "paused",
+                "background",
+                "canceled",
+                "archived",
+            ],
+        }
+    }
+    rows = [
+        {"Status": "up-next"},
+        {"Status": "background"},
+        {"Status": "continued"},
+        {"Status": "canceled"},
+        {"Status": "cancelled"},
+        {"Status": "up next"},
+        {"Status": "completed"},
+    ]
+    syncer.validate_status_mapping(
+        db_name="Projects",
+        schema_spec=schema_spec,
+        mapping=mapping,
+        rows=rows,
+    )
+
+
+def test_write_converts_date_string_to_date_object():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [{"notion_id": "page-1", "Name": "A", "date": "2026-09-08"}]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+    date_feature = _fake_feature("date", "date")
+    rec_type = type(
+        "RecordType",
+        (),
+        {
+            "name": "Meetings",
+            "schema": type(
+                "Schema",
+                (),
+                {"members": [_fake_feature("Name"), date_feature]},
+            )(),
+        },
+    )()
+    with patch("lamindb.integrations.notion.ln.models.RecordBlock"):
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}, "date": {"type": "date"}},
+            by_id=by_id,
+        )
+    values = rec.features.set_values.call_args.args[0]
+    assert values[date_feature] == date(2026, 9, 8)
+
+
+def test_write_notes_embedded_files_reuse_artifact_transfer_logic():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [{"notion_id": "page-1", "Name": "A"}]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = "![img](https://files.notion.site/a.png)"
+    rec_type = _fake_rec_type("People", ["Name"])
+    saved_block = MagicMock()
+    block_factory = MagicMock()
+    block_factory.save.return_value = saved_block
+    artifact_stub = type(
+        "Artifact", (), {"path": "s3://bucket/prefix/.lamindb/a.png"}
+    )()
+    root = type(
+        "Root", (), {"protocol": "s3", "__str__": lambda self: "s3://bucket/prefix"}
+    )()
+    settings_stub = type(
+        "SettingsStub",
+        (),
+        {"storage": type("StorageStub", (), {"root": root})()},
+    )()
+
+    def ensure_artifacts_side_effect(file_urls, **kwargs):
+        if file_urls:
+            return {"https://files.notion.site/a.png": artifact_stub}
+        return {}
+
+    with (
+        patch("lamindb.integrations.notion.ln.settings", settings_stub),
+        patch(
+            "lamindb.integrations.notion.ln.models.RecordBlock",
+            return_value=block_factory,
+        ) as RecordBlock,
+        patch(
+            "lamindb.integrations.notion._ensure_artifacts",
+            side_effect=ensure_artifacts_side_effect,
+        ) as ensure_artifacts,
+    ):
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}},
+            by_id=by_id,
+        )
+
+    assert ensure_artifacts.call_count >= 1
+    assert any(
+        (call.kwargs.get("transfer_details_by_url") or {}).get(
+            "https://files.notion.site/a.png"
+        )
+        == (
+            f"{_short_file_source('https://files.notion.site/a.png')} <- page-1:notes "
+            '(key=None, kind="__easset__")'
+        )
+        for call in ensure_artifacts.call_args_list
+    )
+    assert any(
+        call.kwargs.get("with_key") is False and call.kwargs.get("kind") == "__easset__"
+        for call in ensure_artifacts.call_args_list
+    )
+    content = RecordBlock.call_args.kwargs["content"]
+    assert (
+        '<img width="500" src="/storage/s3/bucket/prefix%2F/.lamindb/a.png" />'
+        in content
+    )
+
+
+def test_ensure_feature_itype_repairs_schema_with_feature_members():
+    feature_member = type("Feature", (), {})()
+    members = MagicMock()
+    members.all.return_value.first.return_value = feature_member
+    schema = MagicMock()
+    schema.itype = None
+    schema.members = members
+    rec_type = type("RecordType", (), {"name": "Meetings", "schema": schema})()
+
+    _ensure_feature_itype_on_record_schema(rec_type)
+
+    assert schema.itype == "Feature"
+    schema.save.assert_called_once_with(update_fields=["itype"])
+
+
+def test_ensure_feature_itype_skips_non_feature_schemas():
+    non_feature_member = type("Project", (), {})()
+    members = MagicMock()
+    members.all.return_value.first.return_value = non_feature_member
+    schema = MagicMock()
+    schema.itype = None
+    schema.members = members
+    rec_type = type("RecordType", (), {"name": "Meetings", "schema": schema})()
+
+    _ensure_feature_itype_on_record_schema(rec_type)
+
+    schema.save.assert_not_called()
+
+
+def test_write_creates_relation_stubs_and_sets_typed_feature_values():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [
+        {
+            "notion_id": "page-1",
+            "Name": "Meeting",
+            "Related": ["3922aeaa-55e1-808d-9725-d314fb7bc388"],
+        }
+    ]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+    reader._call.return_value = {
+        "properties": {"Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}}
+    }
+    related_feature = _fake_feature("Related", "list[cat[Record[Ab12Cd34Ef56]]]")
+    rec_type = type(
+        "RecordType",
+        (),
+        {
+            "name": "Meetings",
+            "schema": type(
+                "Schema",
+                (),
+                {"members": [_fake_feature("Name"), related_feature]},
+            )(),
+        },
+    )()
+    target_type = type("Type", (), {"id": 7, "name": "Organizations"})()
+    stub_record = type("Stub", (), {"type_id": 7})()
+    stub_factory = MagicMock()
+    stub_factory.save.return_value = stub_record
+    report = SyncReport(apply=True)
+
+    Record = MagicMock()
+
+    def filter_side_effect(**kwargs):
+        if "reference__in" in kwargs:
+            return []
+        if kwargs.get("uid") == "Ab12Cd34Ef56":
+            qs = MagicMock()
+            qs.count.return_value = 1
+            qs.one.return_value = target_type
+            return qs
+        raise AssertionError(f"unexpected filter kwargs: {kwargs}")
+
+    Record.filter.side_effect = filter_side_effect
+    Record.return_value = stub_factory
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record", Record),
+        patch("lamindb.integrations.notion.ln.models.RecordBlock"),
+    ):
+        stats = _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}, "Related": {"type": "relation"}},
+            by_id=by_id,
+            report=report,
+        )
+
+    Record.assert_any_call(
+        name="Deepmind",
+        type=target_type,
+        reference="3922aeaa55e1808d9725d314fb7bc388",
+        reference_type="notion",
+    )
+    values = rec.features.set_values.call_args.args[0]
+    assert values[related_feature] == [stub_record]
+    assert (
+        "Meetings / Related -> Organizations: Deepmind <- 3922aeaa55e1808d9725d314fb7bc388"
+        in report.created_relation_stubs
+    )
+    assert (
+        "Meetings / Related: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
+    assert stats == {"records": 1, "pending": 0}
+
+
+def test_relation_resolution_dry_run_reports_planned_stub_creation():
+    rows = [{"notion_id": "page-1", "Related": ["rel-1"]}]
+    related_feature = _fake_feature("Related", "list[cat[Record[Ab12Cd34Ef56]]]")
+    feat = {"Related": related_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    target_type = type("Type", (), {"id": 7, "name": "Organizations"})()
+    report = SyncReport(apply=False)
+
+    Record = MagicMock()
+
+    def filter_side_effect(**kwargs):
+        if "reference__in" in kwargs:
+            return []
+        if kwargs.get("uid") == "Ab12Cd34Ef56":
+            qs = MagicMock()
+            qs.count.return_value = 1
+            qs.one.return_value = target_type
+            return qs
+        raise AssertionError(f"unexpected filter kwargs: {kwargs}")
+
+    Record.filter.side_effect = filter_side_effect
+
+    with patch("lamindb.integrations.notion.ln.Record", Record):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}
+            }
+        }
+        _, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"Related"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 0
+    assert (
+        "Meetings / Related -> Organizations: Deepmind <- rel-1"
+        in report.create_relation_stubs
+    )
+    assert (
+        "Meetings / Related: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
+def test_relation_resolution_errors_for_untyped_record_relation_feature():
+    rows = [{"notion_id": "page-1", "Related": ["rel-1"]}]
+    related_feature = _fake_feature("Related", "list[cat[Record]]")
+    feat = {"Related": related_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+
+    with pytest.raises(ValueError, match="must be a typed Record relation"):
+        _resolve_relation_records_for_rows(
+            MagicMock(),
+            rows,
+            {"Related"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=SyncReport(apply=False),
+        )
+
+
+def test_relation_resolution_user_dtype_matches_lamin_users_by_name():
+    rows = [{"notion_id": "page-1", "internal_attendees": ["notion-user-1"]}]
+    attendees_feature = _fake_feature("internal_attendees", "list[cat[User]]")
+    feat = {"internal_attendees": attendees_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=False)
+    resolved_user = type("User", (), {"name": "Alex Wolf"})()
+
+    User = MagicMock()
+    user_qs = MagicMock()
+    user_qs.count.return_value = 1
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch("lamindb.integrations.notion.ln.User", User),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {"name": "Alex Wolf"}
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"internal_attendees"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 0
+    assert resolved["notion-user-1"] is resolved_user
+    assert (
+        "Meetings / internal_attendees: resolved_existing=1, stub_create=0, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
+def test_relation_resolution_user_dtype_counts_pending_when_no_name_match():
+    rows = [{"notion_id": "page-1", "internal_attendees": ["notion-user-1"]}]
+    attendees_feature = _fake_feature("internal_attendees", "list[cat[User]]")
+    feat = {"internal_attendees": attendees_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=False)
+
+    User = MagicMock()
+    user_qs = MagicMock()
+    user_qs.count.return_value = 0
+    User.filter.return_value = user_qs
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch("lamindb.integrations.notion.ln.User", User),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {"name": "Unknown Person"}
+        _, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"internal_attendees"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 1
+    assert (
+        "Meetings / internal_attendees: resolved_existing=0, stub_create=0, pending_unresolved=1"
+        in report.relation_value_links
+    )
+
+
+def test_resolved_users_by_notion_id_falls_back_to_page_title():
+    User = MagicMock()
+    user_qs = MagicMock()
+    resolved_user = type("User", (), {"name": "Alex Wolf"})()
+    user_qs.count.return_value = 1
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    reader = MagicMock()
+
+    def _call_side_effect(method, path, **kwargs):
+        if path == "/users/11111111-2222-3333-4444-555555555555":
+            raise LookupError("not a Notion user id")
+        if path == "/pages/11111111-2222-3333-4444-555555555555":
+            return {
+                "properties": {
+                    "Name": {
+                        "type": "title",
+                        "title": [{"plain_text": "Alex Wolf"}],
+                    }
+                }
+            }
+        raise AssertionError(path)
+
+    reader._call.side_effect = _call_side_effect
+    with patch("lamindb.integrations.notion.ln.User", User):
+        resolved = _resolved_users_by_notion_id(
+            reader, ["11111111222233334444555555555555"]
+        )
+
+    assert resolved["11111111222233334444555555555555"] is resolved_user
+
+
+def test_resolved_users_by_notion_id_uses_people_property_name_cache():
+    User = MagicMock()
+    user_qs = MagicMock()
+    resolved_user = type("User", (), {"name": "Bernardo Penteado"})()
+    user_qs.count.return_value = 1
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    reader = MagicMock()
+    reader._notion_people_names_by_id = {
+        "11111111222233334444555555555555": "Bernardo Penteado"
+    }
+    with patch("lamindb.integrations.notion.ln.User", User):
+        resolved = _resolved_users_by_notion_id(
+            reader, ["11111111222233334444555555555555"]
+        )
+
+    assert resolved["11111111222233334444555555555555"] is resolved_user
+    reader._call.assert_not_called()
+
+
+def test_notion_user_or_page_name_prefers_notion_user_name():
+    reader = MagicMock()
+    reader._call.return_value = {"name": "Alex Wolf"}
+
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Alex Wolf"
+
+
+def test_notion_user_or_page_name_uses_people_property_cache():
+    reader = MagicMock()
+    reader._notion_people_names_by_id = {
+        "11111111222233334444555555555555": "Bernardo Penteado"
+    }
+
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Bernardo Penteado"
+    reader._call.assert_not_called()
+
+
+def test_notion_user_or_page_name_falls_back_to_page_title():
+    reader = MagicMock()
+
+    def _call_side_effect(method, path, **kwargs):
+        if path == "/users/11111111-2222-3333-4444-555555555555":
+            raise LookupError("not a Notion user id")
+        if path == "/pages/11111111-2222-3333-4444-555555555555":
+            return {
+                "properties": {
+                    "Name": {
+                        "type": "title",
+                        "title": [{"plain_text": "Alex Wolf"}],
+                    }
+                }
+            }
+        raise AssertionError(path)
+
+    reader._call.side_effect = _call_side_effect
+    resolved = _notion_user_or_page_name(reader, "11111111222233334444555555555555")
+
+    assert resolved == "Alex Wolf"
+
+
+def test_write_projects_reports_unresolved_people_names():
+    syncer = ProjectSyncer(reader=MagicMock())
+    syncer.reader.page_markdown.return_value = ""
+    report = SyncReport(apply=True)
+    project = MagicMock()
+    project.parents = MagicMock()
+    project.children = MagicMock()
+    project.predecessors = MagicMock()
+    project.successors = MagicMock()
+    project.references = MagicMock()
+    project.links_record.filter.return_value = []
+    rows = [
+        {"notion_id": "page-1", "responsible": ["11111111222233334444555555555555"]}
+    ]
+    mapping = {
+        "title": None,
+        "description": None,
+        "timeline": None,
+        "start_date": None,
+        "end_date": None,
+        "status": None,
+        "created_time": None,
+        "last_edited_time": None,
+        "created_by": None,
+        "parents_rel": set(),
+        "children_rel": set(),
+        "predecessors_rel": set(),
+        "successors_rel": set(),
+        "references_rel": set(),
+        "record_rel": {},
+        "people_roles": {"responsible": "responsible"},
+    }
+    with (
+        patch("lamindb.integrations.notion._batch_artifacts", return_value={}),
+        patch(
+            "lamindb.integrations.notion._resolved_users_by_notion_id", return_value={}
+        ),
+        patch(
+            "lamindb.integrations.notion._notion_user_or_page_lookup",
+            return_value=("Alex Wolf", "user"),
+        ),
+    ):
+        syncer.write_projects(
+            db_name="Tasks",
+            rows=rows,
+            by_id={"page-1": project},
+            mapping=mapping,
+            report=report,
+        )
+
+    assert (
+        "Tasks / responsible: resolved_existing=0, stub_create=0, pending_unresolved=1, pending_names=['Alex Wolf'], pending_lookup=['Alex Wolf [user]']"
+        in report.relation_value_links
+    )
+
+
+def test_write_passes_user_relation_values_as_user_records():
+    rec = MagicMock()
+    rec.notes = None
+    rows = [
+        {"notion_id": "page-1", "Name": "A", "internal_attendees": ["notion-user-1"]}
+    ]
+    by_id = {"page-1": rec}
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+    reader._call.return_value = {"name": "Alex Wolf"}
+    attendees_feature = _fake_feature("internal_attendees", "list[cat[User]]")
+    rec_type = type(
+        "RecordType",
+        (),
+        {
+            "name": "Meetings",
+            "schema": type(
+                "Schema",
+                (),
+                {"members": [_fake_feature("Name"), attendees_feature]},
+            )(),
+        },
+    )()
+
+    User = MagicMock()
+    user_qs = MagicMock()
+    user_qs.count.return_value = 1
+    resolved_user = type("User", (), {"name": "Alex Wolf"})()
+    user_qs.one.return_value = resolved_user
+    User.filter.return_value = user_qs
+
+    with (
+        patch("lamindb.integrations.notion.ln.User", User),
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch("lamindb.integrations.notion.ln.models.RecordBlock"),
+    ):
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={
+                "Name": {"type": "title"},
+                "internal_attendees": {"type": "people"},
+            },
+            by_id=by_id,
+        )
+
+    values = rec.features.set_values.call_args.args[0]
+    assert values[attendees_feature] == [resolved_user]
+
+
+def test_relation_resolution_registry_dtype_matches_by_page_title():
+    rows = [{"notion_id": "page-1", "project": ["proj-page-1"]}]
+    project_feature = _fake_feature("project", "list[cat[Project]]")
+    feat = {"project": project_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=False)
+    project_record = type("Project", (), {"name": "Pfizer"})()
+
+    Project = MagicMock()
+    project_qs = MagicMock()
+    project_qs.count.return_value = 1
+    project_qs.one.return_value = project_record
+    Project.filter.return_value = project_qs
+    Project.__name__ = "Project"
+    Project._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Project, "Project"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
+            }
+        }
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"project"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 0
+    assert resolved["proj-page-1"] is project_record
+    assert (
+        "Meetings / project: resolved_existing=1, stub_create=0, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
+def test_relation_resolution_project_registry_dry_run_plans_stub_creation():
+    rows = [{"notion_id": "page-1", "project": ["proj-page-1"]}]
+    project_feature = _fake_feature("project", "list[cat[Project]]")
+    feat = {"project": project_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=False)
+
+    Project = MagicMock()
+    project_qs = MagicMock()
+    project_qs.count.return_value = 0
+    Project.filter.return_value = project_qs
+    Project.__name__ = "Project"
+    Project._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Project, "Project"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
+            }
+        }
+        _, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"project"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=False,
+            report=report,
+        )
+
+    assert pending == 0
+    assert (
+        "Meetings / project -> Project: Pfizer <- proj-page-1"
+        in report.create_relation_stubs
+    )
+    assert (
+        "Meetings / project: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
+
+
+def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url():
+    rows = [
+        {
+            "notion_id": "page-1",
+            "project": ["3922aeaa-55e1-808d-9725-d314fb7bc388"],
+        }
+    ]
+    project_feature = _fake_feature("project", "list[cat[Project]]")
+    feat = {"project": project_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=True)
+
+    stub_project = object()
+    stub_factory = MagicMock()
+    stub_factory.save.return_value = stub_project
+
+    Project = MagicMock()
+    project_qs = MagicMock()
+    project_qs.count.return_value = 0
+    Project.filter.return_value = project_qs
+    Project.return_value = stub_factory
+    Project.__name__ = "Project"
+    Project._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Project, "Project"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
+            }
+        }
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"project"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=True,
+            report=report,
+        )
+
+    Project.assert_called_once_with(
+        name="Pfizer",
+        url="https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388",
+    )
+    assert resolved["3922aeaa55e1808d9725d314fb7bc388"] is stub_project
+    assert pending == 0
+    assert (
+        "Meetings / project -> Project: Pfizer <- 3922aeaa55e1808d9725d314fb7bc388"
+        in report.created_relation_stubs
+    )
+
+
+def test_relation_resolution_reference_registry_apply_creates_stub():
+    rows = [{"notion_id": "page-1", "reference": ["ref-page-1"]}]
+    reference_feature = _fake_feature("reference", "list[cat[Reference]]")
+    feat = {"reference": reference_feature}
+    rec_type = type("RecordType", (), {"name": "Meetings"})()
+    report = SyncReport(apply=True)
+
+    stub_record = object()
+    stub_factory = MagicMock()
+    stub_factory.save.return_value = stub_record
+
+    Reference = MagicMock()
+    reference_qs = MagicMock()
+    reference_qs.count.return_value = 0
+    Reference.filter.return_value = reference_qs
+    Reference.return_value = stub_factory
+    Reference.__name__ = "Reference"
+    Reference._name_field = "name"
+
+    with (
+        patch("lamindb.integrations.notion.ln.Record.filter", return_value=[]),
+        patch(
+            "lamindb.integrations.notion._relation_target_from_feature",
+            return_value=("registry", Reference, "Reference"),
+        ),
+    ):
+        reader = MagicMock()
+        reader._call.return_value = {
+            "properties": {
+                "Name": {"type": "title", "title": [{"plain_text": "Nature paper"}]}
+            }
+        }
+        resolved, pending = _resolve_relation_records_for_rows(
+            reader,
+            rows,
+            {"reference"},
+            feat,
+            None,
+            rec_type=rec_type,
+            apply=True,
+            report=report,
+        )
+
+    Reference.assert_called_once_with(name="Nature paper")
+    assert resolved["ref-page-1"] is stub_record
+    assert pending == 0
+    assert (
+        "Meetings / reference -> Reference: Nature paper <- ref-page-1"
+        in report.created_relation_stubs
+    )
+    assert (
+        "Meetings / reference: resolved_existing=0, stub_create=1, pending_unresolved=0"
+        in report.relation_value_links
+    )
 
 
 def test_syncer_init_raises_without_token(monkeypatch):
@@ -1191,6 +2627,175 @@ def test_update_features_report_existing_lamin_dtype_labels(syncer):
         "Organizations / interaction: list[str]",
     ]
     assert report.create_features == ["Organizations / website: str"]
+
+
+def test_plan_metadata_reports_dtype_updates_for_typed_ulabel_upgrade(syncer):
+    report = SyncReport(apply=False)
+    feature_plan = [
+        (
+            "interaction",
+            "list[interactions]",
+            "list[cat[ULabel[AWnzLKRo]]]",
+        )
+    ]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "interaction"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[ULabel]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=False,
+            report=report,
+        )
+
+    assert report.update_features == ["Organizations / interaction: list[interactions]"]
+
+
+def test_plan_metadata_apply_upgrades_untyped_ulabel_dtype(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [
+        (
+            "interaction",
+            "list[interactions]",
+            "list[cat[ULabel[AWnzLKRo]]]",
+        )
+    ]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "interaction"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[ULabel]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[ULabel[AWnzLKRo]]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == [
+        "Organizations / interaction: list[interactions]"
+    ]
+
+
+def test_plan_metadata_apply_upgrades_stale_record_reference_dtype(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "reference"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[Record[mPiRL19eLoioHSla]]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch("lamindb.integrations.notion.ln.models.RecordRecord") as RecordRecord,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+        RecordRecord.filter.return_value.exists.return_value = False
+        Record.filter.return_value.one_or_none.return_value = None
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[Reference]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == ["Organizations / reference: list[Reference]"]
+
+
+def test_plan_metadata_apply_skipped_dtype_update_not_reported(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "reference"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[cat[Record[mPiRL19eLoioHSla]]]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+        patch("lamindb.integrations.notion.ln.models.RecordRecord") as RecordRecord,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+        RecordRecord.filter.return_value.exists.return_value = True
+
+        syncer._plan_or_create_db_metadata(
+            "Organizations",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    existing_feature.save.assert_not_called()
+    assert report.updated_features == []
 
 
 def test_plan_metadata_highlights_record_field_mappings_in_feature_details(syncer):
@@ -1511,433 +3116,16 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert resolve_record.called
 
 
-def test_infer_notion_backward_relation_feature_prefers_target_named_side(syncer):
-    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
-    meetings_feature_type = MagicMock()
-    external_attendees_feature = MagicMock()
-    external_attendees_feature.uid = "F_EXT_ATT"
-    meetings_feature = MagicMock()
-    meetings_feature.name = "meetings"
-    schema_spec = {
-        "meetings": {
-            "type": "relation",
-            "target": "ds-meetings",
-            "dual": {"synced_property_name": "external_attendees"},
-        },
-        "external_attendees": {
-            "type": "relation",
-            "target": "ds-people",
-            "dual": {"synced_property_name": "meetings"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-        patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", return_value="y"),
-    ):
-        stdin.isatty.return_value = True
-        target_names.side_effect = [["Meetings"], ["People"]]
-        resolve_type.side_effect = [meetings_type, None]
-        feature_type_qs = MagicMock()
-        feature_type_qs.one_or_none.return_value = meetings_feature_type
-        source_feature_qs = MagicMock()
-        source_feature_qs.one_or_none.return_value = external_attendees_feature
-        Feature.filter.side_effect = [feature_type_qs, source_feature_qs]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"meetings": meetings_feature},
-        )
-
-    assert mapping == {"meetings": external_attendees_feature}
-
-
-def test_infer_notion_backward_relation_feature_skips_ambiguous_non_interactive(syncer):
-    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
-    software_type = type("SoftwareType", (), {"name": "Software"})()
-    meetings_feature_type = MagicMock()
-    software_feature_type = MagicMock()
-    external_attendees_feature = MagicMock()
-    external_attendees_feature.uid = "F_EXT_ATT"
-    person_feature = MagicMock()
-    person_feature.uid = "F_PERSON"
-    meetings_feature = MagicMock()
-    meetings_feature.name = "meetings"
-    software_feature = MagicMock()
-    software_feature.name = "software"
-    schema_spec = {
-        "meetings": {
-            "type": "relation",
-            "target": "ds-meetings",
-            "dual": {"synced_property_name": "external_attendees"},
-        },
-        "software": {
-            "type": "relation",
-            "target": "ds-software",
-            "dual": {"synced_property_name": "person"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-    ):
-        target_names.side_effect = [["Meetings"], ["Software"]]
-        resolve_type.side_effect = [meetings_type, software_type]
-        meetings_type_qs = MagicMock()
-        meetings_type_qs.one_or_none.return_value = meetings_feature_type
-        meetings_source_qs = MagicMock()
-        meetings_source_qs.one_or_none.return_value = external_attendees_feature
-        software_type_qs = MagicMock()
-        software_type_qs.one_or_none.return_value = software_feature_type
-        software_source_qs = MagicMock()
-        software_source_qs.one_or_none.return_value = person_feature
-        Feature.filter.side_effect = [
-            meetings_type_qs,
-            meetings_source_qs,
-            software_type_qs,
-            software_source_qs,
-        ]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"meeting": meetings_feature, "software": software_feature},
-        )
-
-    assert mapping == {}
-
-
-def test_infer_notion_backward_relation_feature_prompts_user_on_ambiguous(syncer):
-    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
-    software_type = type("SoftwareType", (), {"name": "Software"})()
-    meetings_feature_type = MagicMock()
-    software_feature_type = MagicMock()
-    external_attendees_feature = MagicMock()
-    external_attendees_feature.uid = "F_EXT_ATT"
-    person_feature = MagicMock()
-    person_feature.uid = "F_PERSON"
-    meetings_feature = MagicMock()
-    meetings_feature.name = "meetings"
-    software_feature = MagicMock()
-    software_feature.name = "software"
-    schema_spec = {
-        "meetings": {
-            "type": "relation",
-            "target": "ds-meetings",
-            "dual": {"synced_property_name": "external_attendees"},
-        },
-        "software": {
-            "type": "relation",
-            "target": "ds-software",
-            "dual": {"synced_property_name": "person"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-        patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", side_effect=["y", "n"]) as input_mock,
-    ):
-        stdin.isatty.return_value = True
-        target_names.side_effect = [["Meetings"], ["Software"]]
-        resolve_type.side_effect = [meetings_type, software_type]
-        meetings_type_qs = MagicMock()
-        meetings_type_qs.one_or_none.return_value = meetings_feature_type
-        meetings_source_qs = MagicMock()
-        meetings_source_qs.one_or_none.return_value = external_attendees_feature
-        software_type_qs = MagicMock()
-        software_type_qs.one_or_none.return_value = software_feature_type
-        software_source_qs = MagicMock()
-        software_source_qs.one_or_none.return_value = person_feature
-        Feature.filter.side_effect = [
-            meetings_type_qs,
-            meetings_source_qs,
-            software_type_qs,
-            software_source_qs,
-        ]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"meetings": meetings_feature, "software": software_feature},
-        )
-
-    assert mapping == {"meetings": external_attendees_feature}
-    assert input_mock.call_count == 2
-
-
-def test_infer_notion_backward_relation_feature_skips_already_configured(syncer):
-    software_type = type("SoftwareType", (), {"name": "Software"})()
-    software_feature_type = MagicMock()
-    person_feature = MagicMock()
-    person_feature.uid = "F_PERSON"
-    meetings_feature = MagicMock()
-    meetings_feature.name = "meetings"
-    software_feature = MagicMock()
-    software_feature.name = "software"
-    schema_spec = {
-        "meetings": {
-            "type": "relation",
-            "target": "ds-meetings",
-            "dual": {"synced_property_name": "external_attendees"},
-        },
-        "software": {
-            "type": "relation",
-            "target": "ds-software",
-            "dual": {"synced_property_name": "person"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-        patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", return_value="y") as input_mock,
-    ):
-        stdin.isatty.return_value = True
-        target_names.side_effect = lambda target: (
-            ["Software"] if target == "ds-software" else ["Meetings"]
-        )
-        resolve_type.side_effect = [software_type]
-        software_type_qs = MagicMock()
-        software_type_qs.one_or_none.return_value = software_feature_type
-        software_source_qs = MagicMock()
-        software_source_qs.one_or_none.return_value = person_feature
-        Feature.filter.side_effect = [
-            software_type_qs,
-            software_source_qs,
-        ]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"meetings": meetings_feature, "software": software_feature},
-            locked_feature_names={"meetings"},
-        )
-
-    assert mapping == {"software": person_feature}
-    assert input_mock.call_count == 1
-
-
-def test_infer_notion_backward_relation_feature_self_referential_target(syncer):
-    people_type = type("PeopleType", (), {"name": "People"})()
-    people_feature_type = MagicMock()
-    manages_source_feature = MagicMock()
-    manages_source_feature.uid = "F_MANAGES"
-    reports_to_source_feature = MagicMock()
-    reports_to_source_feature.uid = "F_REPORTS_TO"
-    reports_to_feature = MagicMock()
-    reports_to_feature.name = "reports_to"
-    manages_feature = MagicMock()
-    manages_feature.name = "manages"
-    schema_spec = {
-        "reports_to": {
-            "type": "relation",
-            "target": "ds-people",
-            "dual": {"synced_property_name": "manages"},
-        },
-        "manages": {
-            "type": "relation",
-            "target": "ds-people",
-            "dual": {"synced_property_name": "reports_to"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-        patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", side_effect=["y", "n"]) as input_mock,
-    ):
-        stdin.isatty.return_value = True
-        target_names.side_effect = [["People"], ["People"]]
-        resolve_type.side_effect = [people_type, people_type]
-        people_type_qs_1 = MagicMock()
-        people_type_qs_1.one_or_none.return_value = people_feature_type
-        reports_to_source_qs = MagicMock()
-        reports_to_source_qs.one_or_none.return_value = manages_source_feature
-        people_type_qs_2 = MagicMock()
-        people_type_qs_2.one_or_none.return_value = people_feature_type
-        manages_source_qs = MagicMock()
-        manages_source_qs.one_or_none.return_value = reports_to_source_feature
-        Feature.filter.side_effect = [
-            people_type_qs_1,
-            reports_to_source_qs,
-            people_type_qs_2,
-            manages_source_qs,
-        ]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"reports_to": reports_to_feature, "manages": manages_feature},
-            current_type_name="People",
-        )
-
-    assert mapping == {"reports_to": manages_source_feature}
-    assert input_mock.call_count == 2
-
-
-def test_infer_notion_backward_relation_feature_uses_type_filter(syncer):
-    meetings_type = type("MeetingsType", (), {"name": "Meetings"})()
-    software_type = type("SoftwareType", (), {"name": "Software"})()
-    meetings_feature_type = MagicMock()
-    software_feature_type = MagicMock()
-    external_attendees_feature = MagicMock()
-    external_attendees_feature.uid = "F_EXT_ATT"
-    person_feature = MagicMock()
-    person_feature.uid = "F_PERSON"
-    meetings_feature = MagicMock()
-    meetings_feature.name = "meetings"
-    software_feature = MagicMock()
-    software_feature.name = "software"
-    schema_spec = {
-        "meetings": {
-            "type": "relation",
-            "target": "ds-meetings",
-            "dual": {"synced_property_name": "external_attendees"},
-        },
-        "software": {
-            "type": "relation",
-            "target": "ds-software",
-            "dual": {"synced_property_name": "person"},
-        },
-    }
-
-    with (
-        patch.object(syncer, "_relation_target_name_candidates") as target_names,
-        patch.object(syncer, "_resolve_record_type_by_name_candidates") as resolve_type,
-        patch.object(
-            syncer,
-            "_relation_feature_matches_target_type",
-            side_effect=[True, False],
-        ),
-        patch("lamindb.integrations.notion.ln.Feature") as Feature,
-        patch("lamindb.integrations.notion.sys.stdin") as stdin,
-        patch("builtins.input", return_value="y"),
-    ):
-        stdin.isatty.return_value = True
-        target_names.side_effect = [["Meetings"], ["Software"]]
-        resolve_type.side_effect = [meetings_type, software_type]
-        meetings_type_qs = MagicMock()
-        meetings_type_qs.one_or_none.return_value = meetings_feature_type
-        meetings_source_qs = MagicMock()
-        meetings_source_qs.one_or_none.return_value = external_attendees_feature
-        software_type_qs = MagicMock()
-        software_type_qs.one_or_none.return_value = software_feature_type
-        software_source_qs = MagicMock()
-        software_source_qs.one_or_none.return_value = person_feature
-        Feature.filter.side_effect = [
-            meetings_type_qs,
-            meetings_source_qs,
-            software_type_qs,
-            software_source_qs,
-        ]
-
-        mapping = syncer._infer_notion_backward_relation_features(
-            schema_spec,
-            {"meetings": meetings_feature, "software": software_feature},
-        )
-
-    assert mapping == {"meetings": external_attendees_feature}
-
-
-def test_relation_feature_matches_target_type_requires_exact_name(syncer):
-    local_feature = MagicMock()
-    local_feature._dtype_str = "list[cat[Record[abc123]]]"
-    target_type = type("TargetType", (), {"name": "Meetings"})()
-    registry = type("RegistryType", (), {"name": "Meeting"})()
-
-    with patch(
-        "lamindb.models.feature.parse_dtype",
-        return_value=[{"registry_str": "Record", "registry": registry}],
-    ):
-        assert (
-            syncer._relation_feature_matches_target_type(local_feature, target_type)
-            is False
-        )
-
-
-def test_relation_feature_matches_target_type_prefers_exact_name_over_uid(syncer):
-    local_feature = MagicMock()
-    local_feature._dtype_str = "list[cat[Record[abc123]]]"
-    target_type = type("TargetType", (), {"name": "Meetings", "uid": "TARGET_UID"})()
-    registry = type("RegistryType", (), {"name": "Meetings", "uid": "OTHER_UID"})()
-
-    with patch(
-        "lamindb.models.feature.parse_dtype",
-        return_value=[{"registry_str": "Record", "registry": registry}],
-    ):
-        assert (
-            syncer._relation_feature_matches_target_type(local_feature, target_type)
-            is True
-        )
-
-
-def test_relation_feature_matches_target_type_resolves_registry_name_from_uid(syncer):
-    local_feature = MagicMock()
-    local_feature._dtype_str = "list[cat[Record[abc123]]]"
-    target_type = type("TargetType", (), {"name": "Meetings", "uid": "TARGET_UID"})()
-    registry = type("RegistryType", (), {"uid": "REG_UID"})()
-
-    with (
-        patch(
-            "lamindb.models.feature.parse_dtype",
-            return_value=[{"registry_str": "Record", "registry": registry}],
-        ),
-        patch("lamindb.integrations.notion.ln.Record") as Record,
-    ):
-        registry_qs = MagicMock()
-        registry_qs.one_or_none.return_value = type(
-            "RegistryRecord", (), {"name": "Meetings"}
-        )()
-        Record.filter.return_value = registry_qs
-        assert (
-            syncer._relation_feature_matches_target_type(local_feature, target_type)
-            is True
-        )
-
-
-def test_relation_feature_matches_target_type_uses_parsed_type_uid(syncer):
-    local_feature = MagicMock()
-    local_feature._dtype_str = "list[cat[Record[KjPxtgjgZtzuCwvl]]]"
-    target_type = type(
-        "TargetType", (), {"name": "Software", "uid": "KjPxtgjgZtzuCwvl"}
-    )()
-    registry = type("RegistryType", (), {"uid": "DIFFERENT", "name": "Wrong"})()
-
-    with patch(
-        "lamindb.models.feature.parse_dtype",
-        return_value=[
-            {
-                "registry_str": "Record",
-                "registry": registry,
-                "type_uid": "KjPxtgjgZtzuCwvl",
-            }
-        ],
-    ):
-        assert (
-            syncer._relation_feature_matches_target_type(local_feature, target_type)
-            is True
-        )
-
-
-def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
+def test_plan_metadata_apply_sets_values_from_on_existing_feature(syncer):
     report = SyncReport(apply=True)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()
     meetings_feature.name = "meetings"
     meetings_feature.uid = "F_MEETINGS"
+    meetings_feature._aux = {}
     schema = MagicMock()
     schema.members.all.return_value = [meetings_feature]
     schema.members.filter.return_value = [meetings_feature]
-    schema._backward_feature_uids = {}
-    schema._aux = {}
     source_feature = MagicMock()
     source_feature.uid = "F_EXT_ATT"
 
@@ -1969,21 +3157,21 @@ def test_plan_metadata_apply_sets_backward_mapping_on_existing_schema(syncer):
             report=report,
         )
 
-    assert report.updated_schemas == ["People"]
-    assert schema._backward_feature_uids == {"F_MEETINGS": "F_EXT_ATT"}
-    schema.save.assert_called_once_with(update_fields=["_aux"])
+    assert meetings_feature.values_from == source_feature
+    meetings_feature.save.assert_any_call()
+    assert any("People / meetings" in detail for detail in report.updated_features)
 
 
-def test_plan_metadata_dry_run_reports_backward_mapping_update(syncer):
+def test_plan_metadata_dry_run_reports_values_from_update(syncer):
     report = SyncReport(apply=False)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()
     meetings_feature.name = "meetings"
     meetings_feature.uid = "F_MEETINGS"
+    meetings_feature._aux = {}
     schema = MagicMock()
     schema.members.all.return_value = [meetings_feature]
     schema.members.filter.return_value = [meetings_feature]
-    schema._backward_feature_uids = {}
     source_feature = MagicMock()
     source_feature.uid = "F_EXT_ATT"
 
@@ -2014,8 +3202,8 @@ def test_plan_metadata_dry_run_reports_backward_mapping_update(syncer):
             report=report,
         )
 
-    assert report.update_schemas == ["People"]
-    schema.save.assert_not_called()
+    meetings_feature.save.assert_not_called()
+    assert any("People / meetings" in detail for detail in report.update_features)
 
 
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
@@ -2353,6 +3541,100 @@ def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     assert syncer.reader.s.request.call_count == 2
 
 
+def test_collect_database_ids_page_parent_in_database_seeds_database_rows(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    database_id = "b86daf142a544728bda2496c5760d863"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response(
+        {
+            "object": "page",
+            "id": page_id,
+            "parent": {"type": "database_id", "database_id": database_id},
+        }
+    )
+    db_ok = _make_response({"id": database_id})
+    syncer.reader.s.request.side_effect = [db_400, page_ok, db_ok]
+
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+
+    assert db_ids == {database_id}
+    assert parent_pages == {}
+    assert syncer._seed_page_ids_by_database == {database_id: {page_id}}
+
+
+def test_collect_database_ids_page_parent_in_data_source_seeds_database_rows(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    database_id = "b86daf142a544728bda2496c5760d863"
+    data_source_id = "7f170f81-f677-8ed2-000c-f8f0b2ef98ea"
+    request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
+    response = httpx.Response(400, request=request)
+    db_400 = _make_response({}, 400)
+    db_400.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "bad request",
+        request=request,
+        response=response,
+    )
+    page_ok = _make_response(
+        {
+            "object": "page",
+            "id": page_id,
+            "parent": {"type": "data_source_id", "data_source_id": data_source_id},
+        }
+    )
+    data_source_ok = _make_response(
+        {
+            "id": data_source_id,
+            "parent": {"type": "database_id", "database_id": database_id},
+        }
+    )
+    db_ok = _make_response({"id": database_id})
+    syncer.reader.s.request.side_effect = [db_400, page_ok, data_source_ok, db_ok]
+
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+
+    assert db_ids == {database_id}
+    assert parent_pages == {}
+    assert syncer._seed_page_ids_by_database == {database_id: {page_id}}
+
+
+def test_rows_for_seed_pages_caches_people_names_on_reader(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    database_id = "b86daf142a544728bda2496c5760d863"
+    page_payload = {
+        "id": page_id,
+        "created_time": "2024-01-10T08:00:00.000Z",
+        "last_edited_time": "2024-01-15T10:30:00.000Z",
+        "properties": {
+            "responsible": {
+                "type": "people",
+                "people": [
+                    {
+                        "id": "0c3d426d8bdd4ca3b9b3c502d4f5d330",
+                        "name": "Bernardo Penteado",
+                    }
+                ],
+            }
+        },
+    }
+    with (
+        patch.object(syncer, "_safe_call", return_value=page_payload),
+        patch.object(syncer, "_page_parent_database_id", return_value=database_id),
+    ):
+        rows = syncer._rows_for_seed_pages(database_id, {page_id})
+
+    assert rows[0]["responsible"] == ["0c3d426d8bdd4ca3b9b3c502d4f5d330"]
+    assert syncer.reader._notion_people_names_by_id == {
+        "0c3d426d8bdd4ca3b9b3c502d4f5d330": "Bernardo Penteado"
+    }
+
+
 def test_collect_database_ids_page_parent_includes_ancestor_page(syncer):
     page_id = "7283894209c44522a7c79620795d0409"
     parent_page_id = "11111111111111111111111111111111"
@@ -2574,6 +3856,38 @@ def test_resolve_record_type_dry_run_reports_schema_attachment(syncer):
     ]
 
 
+def test_resolve_record_type_without_schema_planning_skips_metadata_inference(syncer):
+    db_id = "3b2d2040-857e-4feb-bb68-d2bec9d6ba09"
+    report = SyncReport(apply=False)
+    rec_type = MagicMock()
+    rec_type.name = "Meetings"
+    rec_type.description = "desc"
+    rec_type._aux = {"ei": "🗓️"}
+    rec_type.type_id = None
+    with (
+        patch.object(syncer, "_database_feature_plan") as feature_plan,
+        patch.object(syncer, "_plan_or_create_db_metadata") as plan_metadata,
+        patch.object(syncer.reader, "schema") as read_schema,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 1
+        qs.one.return_value = rec_type
+        Record.filter.return_value = qs
+        resolved = syncer._resolve_record_type(
+            db_id,
+            apply=False,
+            report=report,
+            plan_schema=False,
+            payload={"title": [{"plain_text": "Meetings"}]},
+        )
+
+    assert resolved is rec_type
+    feature_plan.assert_not_called()
+    plan_metadata.assert_not_called()
+    read_schema.assert_not_called()
+
+
 def test_import_pages_dry_run_does_not_write(syncer):
     rec_type = _fake_rec_type("People", ["Name"])
     rows = [
@@ -2662,6 +3976,36 @@ def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
         report = syncer.import_pages("parent", apply=False)
     assert report.create_artifacts == [
         f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
+    ]
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+
+
+def test_import_pages_dry_run_reports_pending_embedded_note_file_transfers(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {"parent-id": "Parent"}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(
+            syncer.reader,
+            "page_markdown",
+            return_value="![img](https://files.notion.site/a.png)",
+        ),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_pages("parent", apply=False)
+    assert report.create_artifacts == [
+        f'{_short_file_source("https://files.notion.site/a.png")} <- a:notes (key=None, kind="__easset__")'
     ]
     upsert_all.assert_not_called()
     write.assert_not_called()
@@ -2788,6 +4132,124 @@ def test_import_pages_passes_limit_to_database_discovery(syncer):
     collect_ids.assert_called_once_with(["parent"], limit=1)
 
 
+def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer, "_rows_for_seed_pages", return_value=rows) as seed_rows,
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion._upsert_all", return_value={}),
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 0, "pending": 0},
+        ),
+    ):
+        syncer._seed_page_ids_by_database = {"db-1": {"a"}}
+        report = syncer.import_pages("parent", apply=True, limit=0)
+
+    seed_rows.assert_called_once_with("db-1", {"a"}, include_page_emoji=True)
+    database_rows.assert_not_called()
+    assert report.discovered == 1
+
+
+def test_import_pages_apply_seed_rows_materialize_even_when_unchanged(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+    existing = {"a": _fake_record("2024-01-01T00:00:00Z")}
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer, "_rows_for_seed_pages", return_value=rows),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value=existing),
+        patch("lamindb.integrations.notion._upsert_all", return_value=existing),
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 1, "pending": 0},
+        ) as write,
+    ):
+        syncer._seed_page_ids_by_database = {"db-1": {"a"}}
+        report = syncer.import_pages("parent", apply=True, limit=0)
+
+    write_rows = write.call_args[0][1]
+    assert [r["notion_id"] for r in write_rows] == ["a"]
+    assert report.created == 0
+    assert report.updated == 0
+    assert report.unchanged == 1
+
+
+def test_import_pages_dry_run_seed_rows_preview_even_when_unchanged(syncer):
+    rec_type = _fake_rec_type("People", ["Name", "Related"])
+    rows = [
+        {
+            "notion_id": "a",
+            "last_edited_time": "2024-01-01T00:00:00Z",
+            "Name": "A",
+            "Related": ["r-1"],
+        }
+    ]
+    existing = {"a": _fake_record("2024-01-01T00:00:00Z")}
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer, "_rows_for_seed_pages", return_value=rows),
+        patch.object(
+            syncer.reader,
+            "schema",
+            return_value={"Related": {"type": "relation"}, "Name": {"type": "title"}},
+        ),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value=existing),
+        patch("lamindb.integrations.notion._upsert_all", return_value=existing),
+        patch(
+            "lamindb.integrations.notion._planned_missing_embedded_transfers",
+            return_value=(
+                {
+                    "https://files.notion.site/a.png": 'image.png <- a:notes (key=None, kind="__easset__")'
+                },
+                ['image.png <- a:notes (key=None, kind="__easset__")'],
+            ),
+        ),
+        patch(
+            "lamindb.integrations.notion._resolve_relation_records_for_rows",
+            return_value=({}, 0),
+        ) as resolve_rel,
+        patch(
+            "lamindb.integrations.notion._write",
+            return_value={"records": 0, "pending": 0},
+        ),
+    ):
+        syncer._seed_page_ids_by_database = {"db-1": {"a"}}
+        report = syncer.import_pages("parent", apply=False, limit=0)
+
+    preview_rows = resolve_rel.call_args.args[1]
+    assert [r["notion_id"] for r in preview_rows] == ["a"]
+    assert (
+        'image.png <- a:notes (key=None, kind="__easset__")' in report.create_artifacts
+    )
+    assert report.created == 0
+    assert report.updated == 0
+    assert report.unchanged == 1
+
+
 def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
     with (
         patch.object(
@@ -2859,10 +4321,31 @@ def test_upsert_all_populates_created_and_updated_from_notion():
     assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
 
 
+def test_upsert_all_normalizes_existing_dashed_notion_reference():
+    compact_id = "3922aeaa55e1808d9725d314fb7bc388"
+    dashed_id = "3922aeaa-55e1-808d-9725-d314fb7bc388"
+    rows = [{"notion_id": compact_id, "name": "A"}]
+    rec = MagicMock()
+    rec.reference = dashed_id
+    rec.name = "A"
+    rec.created_at = None
+    rec.updated_at = None
+    rec._aux = None
+
+    with patch(
+        "lamindb.integrations.notion._existing_by_ref", return_value={compact_id: rec}
+    ):
+        out = _upsert_all(rec_type=object(), rows=rows)
+
+    assert out[compact_id] is rec
+    rec.save.assert_called_once_with(update_fields=["reference"])
+    assert rec.reference == compact_id
+
+
 def test_sync_from_notion_delegates_to_syncer_and_prints():
     sync_report = SyncReport(created=1, apply=False)
     with (
-        patch("lamindb.integrations.notion._NotionSyncer") as Syncer,
+        patch("lamindb.integrations.notion.NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
