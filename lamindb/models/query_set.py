@@ -293,7 +293,7 @@ def get(
     **expressions,
 ) -> SQLRecord:
     # QuerySet.get() always converts to BasicQuerySet before calling this
-    assert not isinstance(queryset, QuerySet)  # noqa: S101
+    assert not isinstance(queryset, QuerySet)
     qs = queryset
     registry = qs.model
 
@@ -325,7 +325,7 @@ def get(
             qs = qs.filter(uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
-        assert idlike is None  # noqa: S101
+        assert idlike is None
         expressions = process_expressions(qs, [], expressions)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
@@ -467,10 +467,9 @@ def get_feature_annotate_kwargs(
     )
     from lamindb.models.feature import parse_dtype
 
-    if registry not in {Artifact, Record, Run}:
-        raise ValueError(
-            f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
-        )
+    assert registry in {Artifact, Record, Run}, (
+        f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
+    )
 
     feature_ids = []
     if features == "queryset":
