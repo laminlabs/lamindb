@@ -1568,18 +1568,19 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             if isinstance(values_from_input, Feature):
                 values_from = values_from_input
                 self._validate_values_from(values_from)
-                self._aux = self._aux or {}
-                self._aux["vf"] = values_from.uid
-                super().save(update_fields=["_aux"])
+                self._values_feature_uid = values_from.uid
+                values_from._related_feature_uid = self.uid
+                values_from.save()
             elif values_from_input is None and (
                 self._aux is not None
                 and isinstance(self._aux, dict)
                 and isinstance(self._aux.get("vf"), str)
             ):
-                self._aux.pop("vf", None)
-                super().save(update_fields=["_aux"])
-            else:
-                super().save(*args, **kwargs)
+                if self._values_feature_uid is not None:
+                    self.values_from._related_feature_uid = None
+                    self.values_from.save()
+                    self._values_feature_uid = None
+            super().save(*args, **kwargs)
         return self
 
     def with_config(
@@ -1640,31 +1641,36 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             )
 
     @property
-    def _values_from_uid(self) -> str | None:
-        """Return the persisted source feature UID from `_aux["vf"]`.
-
-        The stored shape is JSON, so `_aux["vf"]` can be absent or malformed on
-        stale rows (for instance if data was inserted manually or if a prior
-        migration left partial metadata). We therefore require an exact string
-        and treat anything else as "no persisted mapping".
-        """
+    def _values_feature_uid(self) -> str | None:
         if self._aux is None or not isinstance(self._aux, dict):
             return None
-        values_feature_uid = self._aux.get("vf")
-        if not isinstance(values_feature_uid, str):
+        return self._aux.get("vf")
+
+    @_values_feature_uid.setter
+    def _values_feature_uid(self, value: str | None) -> None:
+        self._aux = self._aux or {}
+        if value is None:
+            self._aux.pop("vf")
+        else:
+            self._aux["vf"] = value
+
+    @property
+    def _related_feature_uid(self) -> str | None:
+        if self._aux is None or not isinstance(self._aux, dict):
             return None
-        return values_feature_uid
+        return self._aux.get("rf")
+
+    @_related_feature_uid.setter
+    def _related_feature_uid(self, value: str) -> None:
+        self._aux = self._aux or {}
+        if value is None:
+            self._aux.pop("rf")
+        else:
+            self._aux["rf"] = value
 
     @property
     def values_from(self) -> Feature | None:
-        """Resolve the feature that provides values for this feature.
-
-        Resolution happens in two stages:
-
-        1. In-memory override (`_values_from_input`): used when callers assign
-           `feature.values_from = ...` but have not saved yet. This keeps reads
-           consistent inside one transaction/request.
-        2. Persisted mapping (`_aux["vf"]`): used for reloaded records.
+        """Resolve the object that provides values for this feature.
 
         Returns:
             The source :class:`Feature` if configured, else `None`.
@@ -1672,12 +1678,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         pending_value = getattr(self, "_values_from_input", UNSET)
         if isinstance(pending_value, Feature):
             return pending_value
-        values_feature_uid = self._values_from_uid
-        if values_feature_uid is None:
+        if self._values_feature_uid is None:
             return None
-        return (
-            Feature.objects.using(self._state.db).filter(uid=values_feature_uid).first()
-        )
+        return Feature.objects.using(self._state.db).get(uid=self._values_feature_uid)
 
     @values_from.setter
     def values_from(self, value: Feature | None) -> None:
@@ -1708,17 +1711,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         unsaved source feature returns `None` unless it already has an in-memory
         `values_from` assignment.
         """
-        values_from = self.values_from
-        if values_from is not None:
-            return values_from
-        if self._state.adding:
-            return None
-        return (
-            Feature.objects.using(self._state.db)
-            .filter(_aux__vf=self.uid)
-            .exclude(id=self.id)
-            .first()
-        )
+        if self.values_from is not None:
+            return self.values_from
+        else:
+            return Feature.objects.using(self._state.db).get(
+                uid=self._related_feature_uid
+            )
 
     @property
     @deprecated("coerce")
