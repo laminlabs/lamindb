@@ -259,16 +259,25 @@ lamin load artifact --uid e2G7k9EVul4JbfsE
 lamin load transform --uid Vul4JbfsEYAy5
 ```
 
+Pass `--store-kwargs` as a JSON object for fine-grained artifact or collection download settings (normally not needed):
+
+```
+lamin load --key mydatasets/mytable.parquet --store-kwargs '{"batch_size": 20}'
+```
+
 Options:
 
 ```text
 lamin load [OPTIONS] [ENTITY]
 
 Options:
-  --uid TEXT  The uid for the entity.
-  --key TEXT  The key for the entity.
-  --with-env  Also return the environment for a tranform.
-  --help      Show this message and exit.
+  --uid TEXT           The uid for the entity.
+  --key TEXT           The key for the entity.
+  --with-env           Also return the environment for a tranform.
+  --store-kwargs TEXT  Fine-grained settings for artifact or collection
+                       downloads as a JSON object (normally not needed), e.g.
+                       '{"batch_size": 20}'.
+  --help               Show this message and exit.
 ```
 
 → Python/R alternative: {func}`~lamindb.Artifact.load`, no equivalent for transforms
@@ -637,6 +646,8 @@ lamin track claude   # or: lamin track copilot, or: lamin track cursor
 # work with the agent
 lamin finish
 ```
+
+The report includes thinking when the agent stored it as readable text; encoded thoughts are omitted.
 
 :::{dropdown} `lamin track copilot` says it can't find the active session?
 
