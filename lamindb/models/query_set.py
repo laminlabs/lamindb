@@ -486,14 +486,7 @@ def get_feature_annotate_kwargs(
                 continue
             filter_field = registry.__name__.lower()
             if not hasattr(link_model, filter_field):
-                potential_fields = []
-                for field in link_model._meta.get_fields():
-                    if field.is_relation and field.related_model is registry:
-                        potential_fields.append(field.name)
-                if len(potential_fields) == 1:
-                    filter_field = potential_fields[0]
-                else:
-                    continue
+                continue
             links = link_model.objects.using(qs.db).filter(
                 **{filter_field + "_id__in": ids_list}
             )
