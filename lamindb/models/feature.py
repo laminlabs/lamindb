@@ -1062,9 +1062,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     """
 
     # Anticipated `_aux` keys:
-    #   vf: values_feature_uid (str) — source Feature UID for reverse relations
-    #   rf: related_feature_uid (str) — paired Feature UID
-    #   sf: sqlrecord_field (SQLRecordFieldName) — concrete SQLRecord field
+    #   vf: values_feature_uid (str) — UID of feature that provides values through the backward relationship
+    #   rf: related_feature_uid (str) — UID of the related feature that draws its values from the current feature
+    #   sf: sqlrecord_field (SQLRecordFieldName) — concrete SQLRecord field (currently only supports Record)
     #   ss: single_space (int | str) — type single-space policy
     #   renamed: dict — name-change history from update_feature_on_name_change
 
