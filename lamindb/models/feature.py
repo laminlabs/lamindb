@@ -995,6 +995,17 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
         ).save()
 
+    Define a feature that draws its values from a related feature::
+
+        author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
+        books = ln.Feature(
+            name="books",
+            dtype=list[ln.Record.get(name="Books")],
+            values_from=author,
+        ).save()
+        # book.author  <-- the author of the book
+        # author.books <-- the books written by the author (reverse relation of Book.author)
+
     Notes
     -----
 

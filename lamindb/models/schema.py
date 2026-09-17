@@ -425,18 +425,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         sample_id = ln.Feature(name="sample_id", dtype=str).save()
         schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
 
-    Define reverse-record values directly on the feature::
-
-        author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
-        books = ln.Feature(
-            name="books",
-            dtype=list[ln.Record.get(name="Books")],
-            values_from=author,
-        ).save()
-        # book.author  <-- the author of the book
-        # author.books <-- the books written by the author (reverse relation of Book.author)
-        ln.Schema([author]).save()
-        ln.Schema([books]).save()
 
     Parse & validate feature identifier values::
 
