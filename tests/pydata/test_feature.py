@@ -231,10 +231,15 @@ def test_feature_values_through_setter_requires_no_existing_links():
     try:
         record_a.features.set_values({"values-from-setter-target": [record_b]})
         with pytest.raises(
-            ValueError,
-            match="can only be set when no RecordRecord links exist",
-        ):
+            ValueError, match="can only be set when no RecordRecord"
+        ) as error:
             target.values_through = source
+        message = str(error.value)
+        assert f"feature: {target.name!r} (uid={target.uid})" in message
+        assert (
+            f"record={record_a.name!r} (uid={record_a.uid}) -> "
+            f"value={record_b.name!r} (uid={record_b.uid})"
+        ) in message
     finally:
         record_a.delete(permanent=True)
         record_b.delete(permanent=True)

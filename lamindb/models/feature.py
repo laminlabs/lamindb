@@ -1734,13 +1734,32 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         if not self._state.adding and self.id is not None:
             from .record import RecordRecord
 
-            if (
+            links = list(
                 RecordRecord.objects.using(self._state.db)
                 .filter(feature_id=self.id)
-                .exists()
-            ):
+                .select_related("record", "value")
+            )
+            if links:
+
+                def _fmt(record) -> str:
+                    name = getattr(record, "name", None)
+                    uid = getattr(record, "uid", None)
+                    if name:
+                        return f"{name!r} (uid={uid})"
+                    return f"uid={uid}"
+
+                max_links = 20
+                link_lines = [
+                    f"    - record={_fmt(link.record)} -> value={_fmt(link.value)}"
+                    for link in links[:max_links]
+                ]
+                if len(links) > max_links:
+                    link_lines.append(f"    - ... and {len(links) - max_links} more")
                 raise ValueError(
-                    "Feature.values_through can only be set when no RecordRecord links exist for this feature"
+                    "Feature.values_through can only be set when no RecordRecord "
+                    f"links exist for this feature.\n"
+                    f"  feature: {self.name!r} (uid={self.uid})\n"
+                    f"  RecordRecord links ({len(links)}):\n" + "\n".join(link_lines)
                 )
         self._values_through_input = value
 
