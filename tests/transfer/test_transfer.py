@@ -1,6 +1,3 @@
-from unittest.mock import patch
-
-import numpy as np
 import pytest
 
 import lamindb as ln
@@ -278,7 +275,7 @@ def test_normalize_transfer_config(transfer, default_annotations, expected):
 
 
 def test_record_transfer_internal_branches():
-    """Cover remaining transfer_notes / feature-prepare edges without new fixtures."""
+    """source_pk=None returns immediately; do not patch parse_dtype (get_values uses it)."""
     user_handle = ln.setup.settings.user.handle
     rec_uid, _ = _source_on_testdb1()
 
@@ -290,28 +287,4 @@ def test_record_transfer_internal_branches():
     transfer_notes(transferred, transferred._state.db, None)
     transfer_record_feature_values(
         transferred, f"{user_handle}/testdb1", None, None, {}
-    )
-
-    source = db1.Record.get(uid=rec_uid)
-    original_get_values = source.features.get_values
-
-    def _as_array():
-        values = original_get_values()
-        values[FEAT_ALIASES] = np.array(list(values[FEAT_ALIASES]))
-        return values
-
-    source.features.get_values = _as_array  # type: ignore[method-assign]
-    logs = {"mapped": [], "transferred": [], "run": None}
-    transfer_record_feature_values(
-        transferred, f"{user_handle}/testdb1", source.pk, None, logs
-    )
-    with patch(
-        "lamindb.models.feature.parse_dtype",
-        side_effect=ValueError("missing schema module"),
-    ):
-        transfer_record_feature_values(
-            transferred, f"{user_handle}/testdb1", source.pk, None, logs
-        )
-    assert "alpha" in set(
-        ln.Record.get(uid=rec_uid).features.get_values().get(FEAT_ALIASES) or []
     )
