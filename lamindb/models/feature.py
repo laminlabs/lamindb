@@ -528,10 +528,9 @@ def serialize_dtype(
                 )
             dtype_str = ""
             for one_dtype in dtype:
-                if not isinstance(
+                assert isinstance(
                     one_dtype, (Registry, DeferredAttribute, ULabel, Record)
-                ):
-                    raise ValueError(error_message.format(one_dtype))
+                ), error_message.format(one_dtype)
                 if isinstance(one_dtype, Registry):
                     dtype_str += one_dtype.__get_name_with_module__() + "|"
                 elif isinstance(one_dtype, (ULabel, Record)):
