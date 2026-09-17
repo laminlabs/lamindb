@@ -129,7 +129,10 @@ def test_feature_init():
 
 
 def test_feature_values_through_roundtrip():
-    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record).save()
+    author_feature = ln.Feature(name="values-from-author", dtype=ln.Record)
+    assert author_feature._aux is None
+    assert author_feature._related_feature_uid is None
+    author_feature.save()
     books_feature = ln.Feature(
         name="values-from-books",
         dtype=list[ln.Record],
@@ -178,6 +181,8 @@ def test_feature_values_through_sqlrecord_field_roundtrip():
         feature.refresh_from_db()
         assert feature.values_through is None
         assert feature._aux is None or "sf" not in feature._aux
+        feature._aux = None
+        assert feature._sqlrecord_field is None
 
         with pytest.raises(
             TypeError,
@@ -482,9 +487,11 @@ def test_feature_query_by_dtype():
 def test_serialize_pandas_datetime_dtypes():
     datetime_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00")])
     datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
+    string_cat_series = pd.Series(["a", "b", "a"], dtype="category")
 
     assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+    assert serialize_pandas_dtype(string_cat_series.dtype) == "cat[ULabel]"
 
 
 def test_dtype_as_object_covers_simple_fallbacks():
