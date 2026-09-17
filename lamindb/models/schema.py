@@ -336,7 +336,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices.
+            When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -411,19 +412,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
         ]).save()
 
-    Map a feature to a field in :class:`~lamindb.Record`::
-
-        schema = ln.Schema([
-            ln.Feature(name="created_at", dtype=datetime, values_from="created_at").save(),
-            ln.Feature(name="external_id", dtype=str, values_from="reference").save(),
-        ]).save()
-
     Setting :attr:`~lamindb.Schema.index` stores the
     index feature on the `name` field of :class:`~lamindb.Record`::
 
         sample_id = ln.Feature(name="sample_id", dtype=str).save()
         schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
-
 
     Parse & validate feature identifier values::
 

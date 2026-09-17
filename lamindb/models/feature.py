@@ -1006,6 +1006,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     Store values on a :class:`~lamindb.Record` field::
 
         ln.Feature(name="created_at", dtype=datetime, values_from="created_at").save()
+        ln.Feature(name="external_id", dtype=str, values_from="reference").save()
 
     Notes
     -----
@@ -1700,7 +1701,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         Returns:
             The source :class:`Feature` for a reverse record relation, a
             :class:`~lamindb.base.types.SQLRecordFieldName` if values are stored
-            on a SQLRecord field, else `None`.
+            on a `SQLRecord` field, else `None`.
         """
         pending_value = getattr(self, "_values_from_input", UNSET)
         if isinstance(pending_value, Feature):
