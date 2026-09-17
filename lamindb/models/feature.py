@@ -871,9 +871,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         values_from: `Feature | SQLRecordFieldName | None = None` Source of values
-            for this feature. A :class:`~lamindb.Feature` defines a reverse record
-            relation. A :class:`~lamindb.base.types.SQLRecordFieldName` stores values
-            on that SQLRecord field instead of a feature link table.
+            for this feature. Pass a related :class:`~lamindb.Feature` to load values from the backward relationship.
+            Pass a :class:`~lamindb.base.types.SQLRecordFieldName` to store values
+            in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
@@ -1003,7 +1003,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         # book.author  <-- the author of the book
         # author.books <-- the books written by the author (reverse relation of Book.author)
 
-    Store values on a :class:`~lamindb.Record` field instead of a link table::
+    Store values on a :class:`~lamindb.Record` field::
 
         ln.Feature(name="created_at", dtype=datetime, values_from="created_at").save()
 
