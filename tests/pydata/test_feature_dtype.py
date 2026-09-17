@@ -82,7 +82,19 @@ def test_serialize_record_objects():
     serialized_str = f"cat[Record[{sample_type.uid}]]"
     feature = ln.Feature(name="sample_feature", dtype=sample_type).save()
     assert feature._dtype_str == serialized_str
-    assert feature.dtype == "cat[Record[InstituteA[LabB[Sample]]]]"
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert feature.dtype == "cat[Record[InstituteA[LabB[Sample]]]]"
+    list_feature = ln.Feature(name="sample_features", dtype=list[sample_type]).save()
+    assert list_feature._dtype_str == f"list[{serialized_str}]"
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert list_feature.dtype == "list[cat[Record[InstituteA[LabB[Sample]]]]]"
+    list_feature.delete(permanent=True)
     feature.delete(permanent=True)
     assert serialize_dtype(sample_type) == serialized_str
     sample = ln.Record(name="sample").save()

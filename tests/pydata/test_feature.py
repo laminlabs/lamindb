@@ -41,7 +41,12 @@ def test_feature_init():
         ln.Feature(name="feat")
 
     # is OK if also is_type is passed
-    ln.Feature(name="Feat", is_type=True)
+    type_feat = ln.Feature(name="Feat", is_type=True)
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert type_feat.dtype is None
 
     # invalid dtype string
     with pytest.raises(ValueError):
@@ -61,6 +66,18 @@ def test_feature_init():
             coerce_dtype=True,
         )
     assert feature.coerce is True
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use coerce instead of coerce_dtype",
+    ):
+        assert feature.coerce_dtype is True
+    feature.coerce_dtype = False
+    assert feature.coerce is False
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert feature.dtype == "str"
     # unknown keyword args should raise a field validation error
     with pytest.raises(FieldValidationError):
         ln.Feature(name="feat", dtype="str", not_a_valid_kwarg=True)
