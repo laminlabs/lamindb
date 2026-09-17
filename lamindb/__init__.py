@@ -27,7 +27,8 @@ LaminDB will then auto-connect upon import and you can create & save objects lik
 Lineage
 =======
 
-Track inputs, outputs, parameters, and environments of notebooks, scripts, and functions.
+Track inputs, outputs, parameters, and environments of scripts, notebooks, and workflows.
+For tracking agents, see the CLI command `lamin track`.
 
 .. autosummary::
    :toctree: .
