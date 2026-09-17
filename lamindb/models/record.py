@@ -346,27 +346,20 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
     values_feature_uids = get_feature_values_through_uids(features)
     features_by_uid = {feature.uid: feature for feature in features}
     for feature_uid, field_name in mapped_fields.items():
-        feature = features_by_uid.get(feature_uid)
-        if feature is None:
-            continue
+        feature = features_by_uid[feature_uid]
         value = _feature_value_from_mapped_record_field(record, feature, field_name)
         if value is not None:
             dictionary[feature.name] = value
     if values_feature_uids:
-        source_feature_uids = list(set(values_feature_uids.values()))
         source_features = {
             feature.uid: feature
             for feature in Feature.objects.using(record._state.db).filter(
-                uid__in=source_feature_uids
+                uid__in=set(values_feature_uids.values())
             )
         }
         for target_uid, source_uid in values_feature_uids.items():
-            target_feature = features_by_uid.get(target_uid)
-            source_feature = source_features.get(source_uid)
-            if target_feature is None or source_feature is None:
-                continue
-            if target_feature.name in dictionary:
-                continue
+            target_feature = features_by_uid[target_uid]
+            source_feature = source_features[source_uid]
             value = _feature_value_from_backward_record_links(
                 record, target_feature, source_feature
             )
