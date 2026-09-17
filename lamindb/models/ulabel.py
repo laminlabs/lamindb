@@ -79,13 +79,13 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Organize ulabels in a type hierarchy, based on the `type` field::
 
         split_type = ln.ULabel(name="Split", is_type=True).save()
-        train_split = ln.ULabel(name="train", type="split_type").save()
+        train_split = ln.ULabel(name="train", type=split_type).save()
 
     The `type` hierarchy gives rise to a tree. If you need to model a full DAG-like **ontology**, use the `parents`/`children` fields::
 
-        cell_type = ln.Record(name="CellType", is_type=True).save()
-        t_cell = ln.Record(name="T Cell", type=cell_type).save()
-        cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
+        cell_type = ln.ULabel(name="CellType", is_type=True).save()
+        t_cell = ln.ULabel(name="T Cell", type=cell_type).save()
+        cd4_t_cell = ln.ULabel(name="CD4+ T Cell", type=cell_type).save()
         t_cell.children.add(cd4_t_cell)
 
     If you work with basic biological entities like cell lines, cell types, tissues,

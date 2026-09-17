@@ -200,57 +200,52 @@ def get_feature_sqlrecord_field(feature: Feature) -> str | None:
     return None
 
 
-def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
-    """Return schema feature uid -> concrete Record field for field-mapped features."""
-    if schema is None:
-        return {}
-    cached = getattr(schema, "_record_fields_cache", None)
-    if isinstance(cached, dict):
-        return cached
-    members = schema.members
-    if members is None:
-        return {}
-    allowed_fields = get_mappable_record_feature_fields()
+def get_feature_values_through_source_uid(feature: Feature) -> str | None:
+    """Return the source feature uid for a reverse `values_through` feature."""
+    pending = getattr(feature, "_values_through_input", UNSET)
+    if isinstance(pending, Feature):
+        return pending.uid
+    if isinstance(feature._aux, dict):
+        source_uid = feature._aux.get("vf")
+        if isinstance(source_uid, str):
+            return source_uid
+    return None
+
+
+def get_feature_record_field_mappings(features: list[Feature]) -> dict[str, str]:
+    """Return feature uid -> concrete Record field for field-mapped features."""
     mappings: dict[str, str] = {}
-    iterable = members.all().only("uid", "_aux") if hasattr(members, "all") else members
-    for feature in iterable:
-        if not isinstance(feature._aux, dict):
-            continue
-        field_name = feature._aux.get("sf")
-        if isinstance(field_name, str) and field_name in allowed_fields:
+    for feature in features:
+        field_name = get_feature_sqlrecord_field(feature)
+        if field_name is not None:
             mappings[feature.uid] = field_name
-    schema._record_fields_cache = mappings
     return mappings
 
 
-def get_schema_values_feature_uids(schema: Schema | None) -> dict[str, str]:
-    """Return schema feature uid -> source feature uid for values_through-derived features."""
-    if schema is None:
-        return {}
-    cached = getattr(schema, "_values_feature_uids_cache", None)
-    if isinstance(cached, dict):
-        return cached
-    members = schema.members
-    if members is None:
-        return {}
+def get_feature_values_through_uids(features: list[Feature]) -> dict[str, str]:
+    """Return derived feature uid -> source feature uid."""
     values_feature_uids: dict[str, str] = {}
-    iterable = members.all().only("uid", "_aux") if hasattr(members, "all") else members
-    for feature in iterable:
-        if not isinstance(feature._aux, dict):
-            continue
-        source_uid = feature._aux.get("vf")
-        if isinstance(source_uid, str):
+    for feature in features:
+        source_uid = get_feature_values_through_source_uid(feature)
+        if source_uid is not None:
             values_feature_uids[feature.uid] = source_uid
-    schema._values_feature_uids_cache = values_feature_uids
     return values_feature_uids
 
 
-def schema_has_record_mapped_features(schema: Schema | None) -> bool:
-    """Whether schema has field-mapped or values_through-derived record features."""
-    return (
-        len(get_schema_record_fields(schema)) > 0
-        or len(get_schema_values_feature_uids(schema)) > 0
+def load_values_through_features(*, using: str | None = None) -> list[Feature]:
+    """Load features that store or read values through a Record field or relation."""
+    features: list[Feature] = []
+    queryset = (
+        Feature.objects.using(using)
+        .exclude(_aux=None)
+        .only("id", "uid", "name", "_aux", "_dtype_str")
     )
+    for feature in queryset:
+        if get_feature_sqlrecord_field(feature) is not None:
+            features.append(feature)
+        elif get_feature_values_through_source_uid(feature) is not None:
+            features.append(feature)
+    return features
 
 
 def _coerce_feature_value_for_record_field(
@@ -335,7 +330,7 @@ def _feature_value_from_backward_record_links(
 
 
 def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
-    """Expose index + field-mapped features in `get_values()` dictionaries."""
+    """Expose index + `values_through` features in `get_values()` dictionaries."""
     index_feature = get_type_schema_index(record.type)
     if index_feature is None or record.name is None:
         pass
@@ -343,44 +338,39 @@ def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -
         dictionary[index_feature.name] = index_value_from_record_name(
             record.name, index_feature
         )
-    schema = record.type.schema if record.type is not None else None  # type: ignore
-    mapped_fields = get_schema_record_fields(schema)
-    values_feature_uids = get_schema_values_feature_uids(schema)
-    mapped_feature_uids = set(mapped_fields.keys())
+    features = load_values_through_features(using=record._state.db)
+    if not features:
+        return
+    mapped_fields = get_feature_record_field_mappings(features)
+    values_feature_uids = get_feature_values_through_uids(features)
+    features_by_uid = {feature.uid: feature for feature in features}
+    for feature_uid, field_name in mapped_fields.items():
+        feature = features_by_uid.get(feature_uid)
+        if feature is None:
+            continue
+        value = _feature_value_from_mapped_record_field(record, feature, field_name)
+        if value is not None:
+            dictionary[feature.name] = value
     if values_feature_uids:
-        mapped_feature_uids.update(values_feature_uids.keys())
-    if mapped_feature_uids:
-        features = {
+        source_feature_uids = list(set(values_feature_uids.values()))
+        source_features = {
             feature.uid: feature
-            for feature in schema.members.filter(uid__in=list(mapped_feature_uids))  # type: ignore
+            for feature in Feature.objects.using(record._state.db).filter(
+                uid__in=source_feature_uids
+            )
         }
-        for feature_uid, field_name in mapped_fields.items():
-            feature = features.get(feature_uid)
-            if feature is None:
+        for target_uid, source_uid in values_feature_uids.items():
+            target_feature = features_by_uid.get(target_uid)
+            source_feature = source_features.get(source_uid)
+            if target_feature is None or source_feature is None:
                 continue
-            value = _feature_value_from_mapped_record_field(record, feature, field_name)
+            if target_feature.name in dictionary:
+                continue
+            value = _feature_value_from_backward_record_links(
+                record, target_feature, source_feature
+            )
             if value is not None:
-                dictionary[feature.name] = value
-        if values_feature_uids:
-            source_feature_uids = list(set(values_feature_uids.values()))
-            source_features = {
-                feature.uid: feature
-                for feature in Feature.objects.using(record._state.db).filter(
-                    uid__in=source_feature_uids
-                )
-            }
-            for target_uid, source_uid in values_feature_uids.items():
-                target_feature = features.get(target_uid)
-                source_feature = source_features.get(source_uid)
-                if target_feature is None or source_feature is None:
-                    continue
-                if target_feature.name in dictionary:
-                    continue
-                value = _feature_value_from_backward_record_links(
-                    record, target_feature, source_feature
-                )
-                if value is not None:
-                    dictionary[target_feature.name] = value
+                dictionary[target_feature.name] = value
 
 
 def pop_index_from_feature_dictionary(
@@ -483,18 +473,18 @@ def move_schema_index_column_to_dataframe_index(
 
 def strip_index_for_record_persistence(
     record: Record,
-    schema: Schema,
+    schema: Schema | None,
     dictionary: dict[str, Any],
     feature_objects: list[Feature],
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
     index_feature: Feature | None = None,
 ) -> tuple[dict[str, Any], list[Feature]]:
-    """Move schema-mapped values to `Record` fields, drop from link-table writes."""
-    if index_feature is None:
+    """Move `values_through` and schema-index values to `Record` fields."""
+    if index_feature is None and schema is not None:
         index_feature = schema.index
-    record_field_mappings = get_schema_record_fields(schema)
-    values_feature_uids = get_schema_values_feature_uids(schema)
+    record_field_mappings = get_feature_record_field_mappings(feature_objects)
+    values_feature_uids = get_feature_values_through_uids(feature_objects)
     if index_feature is None and not record_field_mappings and not values_feature_uids:
         return dictionary, feature_objects
 
