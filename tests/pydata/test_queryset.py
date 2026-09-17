@@ -25,6 +25,9 @@ def test_to_dataframe():
     assert "_state" not in labels_df.columns
     assert set(labels_df["name"]) == set(project_names)
     assert SQLRecordList([]).to_dataframe().empty
+    assert SQLRecordList([labels[0]]).one() == labels[0]
+    with pytest.warns(DeprecationWarning, match="to_dataframe"):
+        assert set(labels.df()["name"]) == set(project_names)
     project_label.children.add(*labels)
     df = ln.Record.to_dataframe(include="parents__name")
     assert df.columns[2] == "parents__name"
@@ -38,6 +41,13 @@ def test_to_dataframe():
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, dtype=int) for name in feature_names]
     ln.save(features)
+    feature_df = ln.Feature.filter(name__in=feature_names).to_dataframe()
+    assert "_dtype_str" in feature_df.columns
+    assert "_ounit_str" not in feature_df.columns
+    feature_privates_df = ln.Feature.filter(name__in=feature_names).to_dataframe(
+        include="privates"
+    )
+    assert "_ounit_str" in feature_privates_df.columns
     schema = ln.Schema(features, name="my schema").save()
     schema.features.set(features)
 
