@@ -1234,9 +1234,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Args:
             transfer: If this record was queried on another instance:
-                ``sqlrecord`` (default; alias ``record`` until v3) copies the row
-                and foreign keys only; ``notes`` also copies the readme;
-                ``annotations`` also copies feature values.
+                "sqlrecord" (default; alias "record" until v3) copies the row
+                and foreign keys only; "notes" also copies the readme;
+                "annotations" also copies feature values.
         """
         if self.is_type:
             validate_record_type_schema_index(self.schema)
