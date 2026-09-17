@@ -837,6 +837,32 @@ def test_record_schema_field_mappings_validation():
     ):
         ln.Feature(name="source_invalid_run", dtype=str, values_through="run").save()
 
+    with pytest.raises(
+        ValueError,
+        match="Feature\\(\\.\\.\\., values_through='run'\\) requires a categorical dtype pointing to Run",
+    ):
+        ln.Feature(
+            name="source_run_wrong_registry", dtype=ln.User, values_through="run"
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime' or 'datetime64\\[ns, UTC\\]'",
+    ):
+        ln.Feature(
+            name="source_created_at_wrong_dtype",
+            dtype=str,
+            values_through="created_at",
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="Feature\\(\\.\\.\\., values_through='name'\\) requires feature dtype 'str'",
+    ):
+        ln.Feature(
+            name="source_name_wrong_dtype", dtype=int, values_through="name"
+        ).save()
+
     idx = ln.Feature(name="validation_index_name", dtype=str).save()
     mapped_name = ln.Feature(
         name="validation_name_mapping", dtype=str, values_through="name"

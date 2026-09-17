@@ -15,6 +15,7 @@ from lamindb.models.feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
+from lamindb.models.record import get_feature_sqlrecord_field
 from pandas.api.types import is_string_dtype
 
 
@@ -175,6 +176,7 @@ def test_feature_values_through_sqlrecord_field_roundtrip():
         reloaded = ln.Feature.get(uid=feature.uid)
         assert reloaded.values_through == "created_at"
         assert reloaded._aux["sf"] == "created_at"
+        assert get_feature_sqlrecord_field(reloaded) == "created_at"
 
         feature.values_through = None
         feature.save()
