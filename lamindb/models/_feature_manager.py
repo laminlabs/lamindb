@@ -1255,20 +1255,15 @@ class FeatureManager:
                     )
                     if value is not None:
                         return value
-                    continue
-                source_uid = get_feature_values_through_source_uid(feature_record)
-                if source_uid is None:
-                    continue
-                source_feature = (
-                    Feature.objects.using(host_db).filter(uid=source_uid).first()
-                )
-                if source_feature is None:
-                    continue
-                value = _feature_value_from_backward_record_links(
-                    self._host, feature_record, source_feature
-                )
-                if value is not None:
-                    return value
+                elif (
+                    source_uid := get_feature_values_through_source_uid(feature_record)
+                ) is not None:
+                    source_feature = Feature.objects.using(host_db).get(uid=source_uid)
+                    value = _feature_value_from_backward_record_links(
+                        self._host, feature_record, source_feature
+                    )
+                    if value is not None:
+                        return value
 
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)

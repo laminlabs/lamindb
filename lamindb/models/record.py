@@ -652,7 +652,6 @@ def strip_index_for_record_persistence(
                     f"feature '{feature.name}' is configured with "
                     "Feature(..., values_through=...) and is read-only"
                 )
-            dictionary.pop(feature.name, None)
         feature_objects = filtered_features
     if update_fields:
         record._mapped_feature_update_fields = update_fields
