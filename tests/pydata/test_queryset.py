@@ -132,16 +132,30 @@ def test_run_to_dataframe_includes_json_features():
     transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
     run = ln.Run(transform=transform).save()
     feature = ln.Feature(name="run_json_feature", dtype=str).save()
+    dict_feature = ln.Feature(name="run_json_dict_feature", dtype=dict).save()
+    dict_as_string_feature = ln.Feature(
+        name="run_json_dict_as_string_feature", dtype=dict
+    ).save()
 
-    run.features.set_values({"run_json_feature": "hello"})
+    run.features.set_values(
+        {
+            "run_json_feature": "hello",
+            dict_feature: {"key": "value"},
+            dict_as_string_feature: "{'external': True}",
+        }
+    )
     df = ln.Run.filter(id=run.id).to_dataframe(include="features")
 
     assert "run_json_feature" in df.columns
     assert df["run_json_feature"].iloc[0] == "hello"
+    assert df[dict_feature.name].iloc[0] == {"key": "value"}
+    assert df[dict_as_string_feature.name].iloc[0] == {"external": True}
 
     run.delete(permanent=True)
     transform.delete(permanent=True)
     feature.delete(permanent=True)
+    dict_feature.delete(permanent=True)
+    dict_as_string_feature.delete(permanent=True)
 
 
 def test_to_dataframe_include_features_uses_queryset_measured_features():

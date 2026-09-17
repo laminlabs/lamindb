@@ -960,6 +960,11 @@ def reshape_annotate_result(
         if dtype_str == "dict":
             # this is the case when a dict is stored as a string; won't happen
             # within lamindb but might for external data
+            first = result_encoded[feature.name].iloc[0]
+            if isinstance(first, set) and len(first) == 1:
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: next(iter(x)) if isinstance(x, set) and len(x) == 1 else x
+                )
             if isinstance(result_encoded[feature.name].iloc[0], str):
                 result_encoded[feature.name] = result_encoded[feature.name].apply(
                     lambda x: ast.literal_eval(x) if isinstance(x, str) else x
