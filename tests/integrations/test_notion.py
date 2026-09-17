@@ -2855,8 +2855,6 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
     name_feature.name = "Name"
     summary_feature = MagicMock()
     summary_feature.name = "summary"
-    summary_mapped = MagicMock()
-    summary_feature.with_config.return_value = summary_mapped
     feature_type = MagicMock()
     feature_type.id = 1
     schema = MagicMock()
@@ -2887,10 +2885,11 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
         )
 
     name_feature.with_config.assert_not_called()
-    summary_feature.with_config.assert_called_once_with(field="description")
+    assert summary_feature.values_from == "description"
+    summary_feature.save.assert_called()
     Schema.assert_called_once()
     schema_features = Schema.call_args.args[0]
-    assert schema_features == [summary_mapped]
+    assert schema_features == [summary_feature]
     assert Schema.call_args.kwargs["index"] is name_feature
 
 

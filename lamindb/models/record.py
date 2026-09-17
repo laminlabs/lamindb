@@ -16,6 +16,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
+from lamindb.base.types import SQLRecordFieldName
 from lamindb.base.utils import class_and_instance_method, strict_classmethod
 from lamindb.errors import FieldValidationError, InvalidArgument
 
@@ -24,7 +25,7 @@ from ..errors import ValidationError
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import AllowedFields, Feature, parse_dtype
+from .feature import Feature, parse_dtype
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
-ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(AllowedFields))
+ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(SQLRecordFieldName))
 
 
 def get_type_schema_index(record_type: Record | None) -> Feature | None:
@@ -139,7 +140,7 @@ def persist_record_name(record: Record) -> None:
 
 
 def get_mappable_record_feature_fields() -> dict[str, models.Field]:
-    """Record fields that can be targets for `feature.with_config(field=...)`."""
+    """Record fields that can be targets for `Feature(..., values_from=...)`."""
     fields = {field.name: field for field in Record._meta.concrete_fields}
     return {
         name: fields[name]
@@ -149,7 +150,7 @@ def get_mappable_record_feature_fields() -> dict[str, models.Field]:
 
 
 def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> None:
-    """Validate feature<->Record-field compatibility for schema field mapping."""
+    """Validate feature<->Record-field compatibility for `values_from` field mapping."""
     fields = get_mappable_record_feature_fields()
     if field_name not in fields:
         allowed = ", ".join(sorted(fields))
@@ -164,36 +165,62 @@ def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> 
         parsed = parse_dtype(feature._dtype_str)
         if len(parsed) != 1 or parsed[0].get("list", False):
             raise ValueError(
-                f"feature.with_config(field='{field_name}') requires a "
+                f"Feature(..., values_from='{field_name}') requires a "
                 "non-list categorical dtype"
             )
         registry = parsed[0]["registry"]
         remote_model = record_field.remote_field.model
         if registry is not remote_model:
             raise ValueError(
-                f"feature.with_config(field='{field_name}') requires a categorical "
+                f"Feature(..., values_from='{field_name}') requires a categorical "
                 f"dtype pointing to {remote_model.__name__}"
             )
     elif isinstance(record_field, models.DateTimeField):
         if dtype not in {"datetime", "datetime64[ns, UTC]"}:
             raise ValueError(
-                f"feature.with_config(field='{field_name}') requires feature dtype "
+                f"Feature(..., values_from='{field_name}') requires feature dtype "
                 "'datetime' or 'datetime64[ns, UTC]'"
             )
     elif isinstance(record_field, (models.CharField, models.TextField)):
         if dtype != "str":
             raise ValueError(
-                f"feature.with_config(field='{field_name}') requires feature dtype 'str'"
+                f"Feature(..., values_from='{field_name}') requires feature dtype 'str'"
             )
+
+
+def get_feature_sqlrecord_field(feature: Feature) -> str | None:
+    """Return the SQLRecord field name configured on a feature, if any."""
+    pending = getattr(feature, "_values_from_input", UNSET)
+    if isinstance(pending, str):
+        return pending
+    if isinstance(feature._aux, dict):
+        stored = feature._aux.get("sf")
+        if isinstance(stored, str) and stored in ALLOWED_RECORD_FEATURE_FIELDS:
+            return stored
+    return None
 
 
 def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
     """Return schema feature uid -> concrete Record field for field-mapped features."""
     if schema is None:
         return {}
-    mappings = schema._record_fields
+    cached = getattr(schema, "_record_fields_cache", None)
+    if isinstance(cached, dict):
+        return cached
+    members = schema.members
+    if members is None:
+        return {}
     allowed_fields = get_mappable_record_feature_fields()
-    return {uid: field for uid, field in mappings.items() if field in allowed_fields}
+    mappings: dict[str, str] = {}
+    iterable = members.all().only("uid", "_aux") if hasattr(members, "all") else members
+    for feature in iterable:
+        if not isinstance(feature._aux, dict):
+            continue
+        field_name = feature._aux.get("sf")
+        if isinstance(field_name, str) and field_name in allowed_fields:
+            mappings[feature.uid] = field_name
+    schema._record_fields_cache = mappings
+    return mappings
 
 
 def get_schema_values_feature_uids(schema: Schema | None) -> dict[str, str]:

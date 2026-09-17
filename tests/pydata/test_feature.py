@@ -141,6 +141,30 @@ def test_feature_values_from_roundtrip():
         author_feature.delete(permanent=True)
 
 
+def test_feature_values_from_sqlrecord_field_roundtrip():
+    feature = ln.Feature(
+        name="values-from-created-at",
+        dtype="datetime64[ns, UTC]",
+        values_from="created_at",
+    ).save()
+    try:
+        assert feature._aux["sf"] == "created_at"
+        assert feature._aux.get("vf") is None
+        assert feature.values_from == "created_at"
+        assert feature.related_feature is None
+        reloaded = ln.Feature.get(uid=feature.uid)
+        assert reloaded.values_from == "created_at"
+        assert reloaded._aux["sf"] == "created_at"
+
+        feature.values_from = None
+        feature.save()
+        feature.refresh_from_db()
+        assert feature.values_from is None
+        assert feature._aux is None or "sf" not in feature._aux
+    finally:
+        feature.delete(permanent=True)
+
+
 def test_feature_values_from_requires_saved_source():
     unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
     with pytest.raises(

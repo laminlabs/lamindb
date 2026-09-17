@@ -602,23 +602,35 @@ def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
 
 def test_record_schema_field_mappings_store_on_record_columns():
     mapped_created_at = ln.Feature(
-        name="source_created_at", dtype="datetime64[ns, UTC]"
+        name="source_created_at",
+        dtype="datetime64[ns, UTC]",
+        values_from="created_at",
     ).save()
-    mapped_created_by = ln.Feature(name="source_created_by", dtype=ln.User).save()
-    mapped_reference = ln.Feature(name="source_reference", dtype=str).save()
-    mapped_reference_type = ln.Feature(name="source_reference_type", dtype=str).save()
-    mapped_name = ln.Feature(name="source_name", dtype=str).save()
-    mapped_description = ln.Feature(name="source_description", dtype=str).save()
+    mapped_created_by = ln.Feature(
+        name="source_created_by", dtype=ln.User, values_from="created_by"
+    ).save()
+    mapped_reference = ln.Feature(
+        name="source_reference", dtype=str, values_from="reference"
+    ).save()
+    mapped_reference_type = ln.Feature(
+        name="source_reference_type", dtype=str, values_from="reference_type"
+    ).save()
+    mapped_name = ln.Feature(name="source_name", dtype=str, values_from="name").save()
+    mapped_description = ln.Feature(
+        name="source_description", dtype=str, values_from="description"
+    ).save()
     score = ln.Feature(name="field-map-score", dtype=float).save()
+    assert mapped_created_at._aux["sf"] == "created_at"
+    assert mapped_created_at._aux.get("vf") is None
     schema = ln.Schema(
         features=[
             score,
-            mapped_created_at.with_config(field="created_at"),
-            mapped_created_by.with_config(field="created_by"),
-            mapped_reference.with_config(field="reference"),
-            mapped_reference_type.with_config(field="reference_type"),
-            mapped_name.with_config(field="name"),
-            mapped_description.with_config(field="description"),
+            mapped_created_at,
+            mapped_created_by,
+            mapped_reference,
+            mapped_reference_type,
+            mapped_name,
+            mapped_description,
         ],
         name="field-map-schema",
     ).save()
@@ -742,9 +754,11 @@ def test_record_schema_field_mappings_store_on_record_columns():
 
 
 def test_record_schema_field_mappings_store_run_and_type():
-    mapped_run = ln.Feature(name="source_run", dtype=ln.Run.uid).save()
+    mapped_run = ln.Feature(
+        name="source_run", dtype=ln.Run.uid, values_from="run"
+    ).save()
     run_schema = ln.Schema(
-        features=[mapped_run.with_config(field="run")],
+        features=[mapped_run],
         name="field-map-run-schema",
     ).save()
     run_sheet = ln.Record(
@@ -761,9 +775,11 @@ def test_record_schema_field_mappings_store_run_and_type():
     run_field = ln.models.feature.parse_dtype(mapped_run._dtype_str)[0]["field_str"]
     assert run_record.features.get_values()["source_run"] == getattr(run, run_field)
 
-    mapped_type = ln.Feature(name="source_type", dtype=ln.Record).save()
+    mapped_type = ln.Feature(
+        name="source_type", dtype=ln.Record, values_from="type"
+    ).save()
     type_schema = ln.Schema(
-        features=[mapped_type.with_config(field="type")],
+        features=[mapped_type],
         name="field-map-type-schema",
     ).save()
     source_type = ln.Record(name="field-map-source-type", is_type=True).save()
@@ -796,57 +812,90 @@ def test_record_schema_field_mappings_store_run_and_type():
 
 def test_record_schema_field_mappings_validation():
     mapped_updated_at = ln.Feature(
-        name="source_updated_at", dtype="datetime64[ns, UTC]"
+        name="source_updated_at",
+        dtype="datetime64[ns, UTC]",
+        values_from="updated_at",
     ).save()
     ok_schema = ln.Schema(
-        features=[mapped_updated_at.with_config(field="updated_at")],
+        features=[mapped_updated_at],
         name="field-map-validation-ok",
     ).save()
     ok_schema.delete(permanent=True)
 
-    invalid_field_feature = ln.Feature(name="source_invalid_field", dtype=str).save()
     with pytest.raises(
         ValueError, match="Unsupported feature field mapping 'extra_data'"
     ):
-        ln.Schema([invalid_field_feature.with_config(field="extra_data")]).save()
+        ln.Feature(
+            name="source_invalid_field", dtype=str, values_from="extra_data"
+        ).save()
 
-    invalid_dtype_feature = ln.Feature(name="source_invalid_run", dtype=str).save()
     with pytest.raises(
         ValueError,
-        match="feature.with_config\\(field='run'\\) requires a non-list categorical dtype",
+        match="Feature\\(\\.\\.\\., values_from='run'\\) requires a non-list categorical dtype",
     ):
-        ln.Schema([invalid_dtype_feature.with_config(field="run")]).save()
+        ln.Feature(name="source_invalid_run", dtype=str, values_from="run").save()
 
     idx = ln.Feature(name="validation_index_name", dtype=str).save()
-    mapped_name = ln.Feature(name="validation_name_mapping", dtype=str).save()
+    mapped_name = ln.Feature(
+        name="validation_name_mapping", dtype=str, values_from="name"
+    ).save()
     with pytest.raises(
         ValueError,
         match="schema.index is set: the index feature is already stored on Record.name automatically",
     ):
         ln.Schema(
-            [idx, mapped_name.with_config(field="name")],
+            [idx, mapped_name],
             index=idx,
             name="invalid-name-with-index",
         ).save()
 
-    duplicate_target_feature_1 = ln.Feature(name="source_reference_a", dtype=str).save()
-    duplicate_target_feature_2 = ln.Feature(name="source_reference_b", dtype=str).save()
+    index_with_name = ln.Feature(
+        name="validation_index_values_from_name", dtype=str, values_from="name"
+    ).save()
+    compatible_schema = ln.Schema(
+        features=[],
+        index=index_with_name,
+        name="valid-index-values-from-name",
+    ).save()
+    compatible_schema.delete(permanent=True)
+
+    index_with_description = ln.Feature(
+        name="validation_index_other_field",
+        dtype=str,
+        values_from="description",
+    ).save()
+    with pytest.raises(
+        ValueError,
+        match="A schema index feature cannot map to a record field other than 'name'",
+    ):
+        ln.Schema(
+            features=[],
+            index=index_with_description,
+            name="invalid-index-other-field",
+        ).save()
+
+    duplicate_target_feature_1 = ln.Feature(
+        name="source_reference_a", dtype=str, values_from="reference"
+    ).save()
+    duplicate_target_feature_2 = ln.Feature(
+        name="source_reference_b", dtype=str, values_from="reference"
+    ).save()
     with pytest.raises(
         ValueError,
         match="Multiple features map to record field 'reference'",
     ):
         ln.Schema(
             [
-                duplicate_target_feature_1.with_config(field="reference"),
-                duplicate_target_feature_2.with_config(field="reference"),
+                duplicate_target_feature_1,
+                duplicate_target_feature_2,
             ]
         ).save()
 
     mapped_updated_at.delete(permanent=True)
-    invalid_field_feature.delete(permanent=True)
-    invalid_dtype_feature.delete(permanent=True)
     idx.delete(permanent=True)
     mapped_name.delete(permanent=True)
+    index_with_name.delete(permanent=True)
+    index_with_description.delete(permanent=True)
     duplicate_target_feature_1.delete(permanent=True)
     duplicate_target_feature_2.delete(permanent=True)
 
