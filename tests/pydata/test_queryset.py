@@ -351,6 +351,10 @@ def test_filter_unknown_field():
         ln.Artifact.filter(nonexistent="value")
     assert "You can query either by available fields" in str(e)
 
+    with pytest.raises(FieldError) as e:
+        ln.User.filter(nonexistent="value")
+    assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
 
 def test_filter_status_field():
     transform = ln.Transform(key="test_filter_status_field").save()
@@ -413,6 +417,13 @@ def test_get_unknown_field():
     with pytest.raises(FieldError) as e:
         ln.Artifact.get(nonexistent="value")
     assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
+    with pytest.raises(FieldError) as e:
+        ln.User.get(nonexistent="value")
+    assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
+    with pytest.raises(ValueError, match="only possible for artifacts"):
+        ln.User.get(path="some/path")
 
 
 def test_search():
@@ -557,10 +568,21 @@ def test_get_filter_branch():
     ln.Artifact.get(hash=artifact.hash)
     ln.Artifact.get(hash__in=[artifact.hash])
 
+    assert ln.Artifact.get(path=artifact.path, branch=branch) == artifact
+
+    transform = ln.Transform(key="test_get_filter_branch_is_run_input").save()
+    run = ln.Run(transform).save()
+    tracked = ln.Artifact.get(
+        key="df_test_get.parquet", branch=branch, is_run_input=run
+    )
+    assert tracked in run.input_artifacts.all()
+
     assert get_default_branch_ids(branch) == [branch.id, 1]
     assert get_default_branch_ids(ln.Branch.get(name="main")) == [1]
 
     artifact.delete(permanent=True)
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
     branch.delete()
 
 
