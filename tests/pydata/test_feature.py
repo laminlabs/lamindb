@@ -98,6 +98,17 @@ def test_feature_values_from_roundtrip():
         assert books_feature.values_from.uid == author_feature.uid
         assert books_feature.related_feature.uid == author_feature.uid
         assert author_feature.related_feature.uid == books_feature.uid
+
+        # Clearing values_from should remove both forward and reverse relation metadata.
+        books_feature.values_from = None
+        books_feature.save()
+        books_feature.refresh_from_db()
+        author_feature.refresh_from_db()
+        assert books_feature.values_from is None
+        assert books_feature.related_feature is None
+        assert books_feature._aux is None or "vf" not in books_feature._aux
+        assert author_feature.related_feature is None
+        assert author_feature._aux is None or "rf" not in author_feature._aux
     finally:
         books_feature.delete(permanent=True)
         author_feature.delete(permanent=True)

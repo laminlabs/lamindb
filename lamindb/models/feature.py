@@ -1576,9 +1576,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 and isinstance(self._aux, dict)
                 and isinstance(self._aux.get("vf"), str)
             ):
-                if self._values_feature_uid is not None:
-                    self.values_from._related_feature_uid = None
-                    self.values_from.save()
+                source_feature = self.values_from
+                if source_feature is not None:
+                    source_feature._related_feature_uid = None
+                    source_feature.save()
                     self._values_feature_uid = None
             super().save(*args, **kwargs)
         return self
