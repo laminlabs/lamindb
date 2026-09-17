@@ -600,7 +600,7 @@ def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
     project_feature.delete(permanent=True)
 
 
-def test_record_schema_field_mappings_store_on_record_columns():
+def test_record_feature_values_through_store_on_record_columns():
     mapped_created_at = ln.Feature(
         name="source_created_at",
         dtype="datetime64[ns, UTC]",
@@ -624,37 +624,23 @@ def test_record_schema_field_mappings_store_on_record_columns():
     score = ln.Feature(name="field-map-score", dtype=float).save()
     assert mapped_created_at._aux["sf"] == "created_at"
     assert mapped_created_at._aux.get("vf") is None
-    schema = ln.Schema(
-        features=[
-            score,
-            mapped_created_at,
-            mapped_created_by,
-            mapped_reference,
-            mapped_reference_type,
-            mapped_name,
-            mapped_description,
-        ],
-        name="field-map-schema",
-    ).save()
-    sheet = ln.Record(name="field-map-sheet", is_type=True, schema=schema).save()
     current_user = ln.User.filter(id=ln.setup.settings.user.id).one()
     ts = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
 
     record = ln.Record(
-        type=sheet,
         features={
             "field-map-score": 7.5,
             "source_created_at": ts,
             "source_created_by": current_user,
             "source_reference": "https://example.org/records/123",
             "source_reference_type": "url",
-            "source_name": "sheet-row-1",
+            "source_name": "mapped-record-1",
             "source_description": "row description",
         },
     ).save()
     record.refresh_from_db()
 
-    assert record.name == "sheet-row-1"
+    assert record.name == "mapped-record-1"
     assert record.description == "row description"
     assert record.created_by_id == current_user.id
     assert record.created_at == ts
@@ -688,24 +674,16 @@ def test_record_schema_field_mappings_store_on_record_columns():
     assert values["source_created_by"] == expected_created_by
     assert values["source_reference"] == "https://example.org/records/123"
     assert values["source_reference_type"] == "url"
-    assert values["source_name"] == "sheet-row-1"
+    assert values["source_name"] == "mapped-record-1"
     assert values["source_description"] == "row description"
     assert values["field-map-score"] == 7.5
-    assert record.features["source_created_at"] == {}
-    assert record.features["source_created_by"] == {}
-    assert record.features["source_reference"] == {}
-    assert record.features["source_reference_type"] == {}
-    assert record.features["source_name"] == {}
-    assert record.features["source_description"] == {}
+    assert record.features["source_created_at"] == ts
+    assert record.features["source_created_by"] == expected_created_by
+    assert record.features["source_reference"] == "https://example.org/records/123"
+    assert record.features["source_reference_type"] == "url"
+    assert record.features["source_name"] == "mapped-record-1"
+    assert record.features["source_description"] == "row description"
     assert record.features["field-map-score"] == 7.5
-
-    exported = sheet.to_dataframe(
-        features=["field-map-score", "source_name", "source_description"]
-    )
-    exported_by_name = exported.set_index("__lamindb_record_name__")
-    assert exported_by_name.loc["sheet-row-1", "field-map-score"] == 7.5
-    assert exported_by_name["source_name"].isna().all()
-    assert exported_by_name["source_description"].isna().all()
 
     ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=timezone.utc)
     record.features.set_values(
@@ -714,13 +692,13 @@ def test_record_schema_field_mappings_store_on_record_columns():
             "source_created_by": current_user,
             "source_reference": "doi:10.1000/demo",
             "source_reference_type": "doi",
-            "source_name": "sheet-row-2",
+            "source_name": "mapped-record-2",
             "source_description": "updated description",
             "field-map-score": 8.5,
         }
     )
     record.refresh_from_db()
-    assert record.name == "sheet-row-2"
+    assert record.name == "mapped-record-2"
     assert record.description == "updated description"
     assert record.created_at == ts_2
     assert record.created_by_id == current_user.id
@@ -728,24 +706,12 @@ def test_record_schema_field_mappings_store_on_record_columns():
     assert record.reference_type == "doi"
     assert ln.Record.filter(created_at=ts_2).one().id == record.id
     assert record.features.get_values()["field-map-score"] == 8.5
-    assert record.features["source_created_at"] == {}
-    assert record.features["source_name"] == {}
-    assert record.features["source_description"] == {}
+    assert record.features["source_created_at"] == ts_2
+    assert record.features["source_name"] == "mapped-record-2"
+    assert record.features["source_description"] == "updated description"
     assert record.features["field-map-score"] == 8.5
 
-    exported_after_update = sheet.to_dataframe(
-        features=["field-map-score", "source_name", "source_description"]
-    )
-    exported_after_update_by_name = exported_after_update.set_index(
-        "__lamindb_record_name__"
-    )
-    assert exported_after_update_by_name.loc["sheet-row-2", "field-map-score"] == 8.5
-    assert exported_after_update_by_name["source_name"].isna().all()
-    assert exported_after_update_by_name["source_description"].isna().all()
-
-    ln.Record.filter(type=sheet).delete(permanent=True)
-    sheet.delete(permanent=True)
-    schema.delete(permanent=True)
+    record.delete(permanent=True)
     score.delete(permanent=True)
     mapped_created_at.delete(permanent=True)
     mapped_created_by.delete(permanent=True)
@@ -755,20 +721,13 @@ def test_record_schema_field_mappings_store_on_record_columns():
     mapped_description.delete(permanent=True)
 
 
-def test_record_schema_field_mappings_store_run_and_type():
+def test_record_feature_values_through_store_run_and_type():
     mapped_run = ln.Feature(
         name="source_run", dtype=ln.Run.uid, values_through="run"
     ).save()
-    run_schema = ln.Schema(
-        features=[mapped_run],
-        name="field-map-run-schema",
-    ).save()
-    run_sheet = ln.Record(
-        name="field-map-run-sheet", is_type=True, schema=run_schema
-    ).save()
     transform = ln.Transform(key="field-map-transform").save()
     run = ln.Run(transform, name="field-map-run").save()
-    run_record = ln.Record(type=run_sheet, features={"source_run": run}).save()
+    run_record = ln.Record(features={"source_run": run}).save()
     run_record.refresh_from_db()
     assert run_record.run_id == run.id
     assert (
@@ -776,54 +735,39 @@ def test_record_schema_field_mappings_store_run_and_type():
     )
     run_field = ln.models.feature.parse_dtype(mapped_run._dtype_str)[0]["field_str"]
     assert run_record.features.get_values()["source_run"] == getattr(run, run_field)
+    assert run_record.features["source_run"] == getattr(run, run_field)
 
     mapped_type = ln.Feature(
         name="source_type", dtype=ln.Record, values_through="type"
-    ).save()
-    type_schema = ln.Schema(
-        features=[mapped_type],
-        name="field-map-type-schema",
     ).save()
     source_type = ln.Record(name="field-map-source-type", is_type=True).save()
     target_type = ln.Record(name="field-map-target-type", is_type=True).save()
     type_record = ln.Record(name="field-map-type-record", type=source_type).save()
 
-    type_record.features.set_values(
-        {"source_type": target_type},
-        schema=type_schema,
-    )
+    type_record.features.set_values({"source_type": target_type})
     type_record.refresh_from_db()
     assert type_record.type_id == target_type.id
     assert (
         ln.models.RecordRecord.filter(record=type_record, feature=mapped_type).count()
         == 0
     )
+    type_field = ln.models.feature.parse_dtype(mapped_type._dtype_str)[0]["field_str"]
+    assert type_record.features.get_values()["source_type"] == getattr(
+        target_type, type_field
+    )
+    assert type_record.features["source_type"] == getattr(target_type, type_field)
 
     run_record.delete(permanent=True)
     type_record.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
-    run_sheet.delete(permanent=True)
-    run_schema.delete(permanent=True)
     source_type.delete(permanent=True)
     target_type.delete(permanent=True)
-    type_schema.delete(permanent=True)
     mapped_run.delete(permanent=True)
     mapped_type.delete(permanent=True)
 
 
-def test_record_schema_field_mappings_validation():
-    mapped_updated_at = ln.Feature(
-        name="source_updated_at",
-        dtype="datetime64[ns, UTC]",
-        values_through="updated_at",
-    ).save()
-    ok_schema = ln.Schema(
-        features=[mapped_updated_at],
-        name="field-map-validation-ok",
-    ).save()
-    ok_schema.delete(permanent=True)
-
+def test_record_feature_values_through_validation():
     with pytest.raises(
         ValueError, match="Unsupported feature field mapping 'extra_data'"
     ):
@@ -919,7 +863,6 @@ def test_record_schema_field_mappings_validation():
             ]
         ).save()
 
-    mapped_updated_at.delete(permanent=True)
     idx.delete(permanent=True)
     mapped_name.delete(permanent=True)
     index_with_name.delete(permanent=True)
@@ -930,33 +873,16 @@ def test_record_schema_field_mappings_validation():
 
 def test_record_feature_values_through_reads_reverse_links():
     attendees_feature = ln.Feature(name="attendees", dtype=list[ln.Record]).save()
-    meetings_schema = ln.Schema(
-        features=[attendees_feature],
-        name="values-from-meetings-schema",
-    ).save()
-    meetings_sheet = ln.Record(
-        name="values-from-meetings-sheet", is_type=True, schema=meetings_schema
-    ).save()
-
     attended_meetings_feature = ln.Feature(
         name="attended_meetings",
         dtype=list[ln.Record],
         values_through=attendees_feature,
     ).save()
-    people_schema = ln.Schema(
-        features=[
-            attended_meetings_feature,
-        ],
-        name="values-from-people-schema",
-    ).save()
-    people_sheet = ln.Record(
-        name="values-from-people-sheet", is_type=True, schema=people_schema
-    ).save()
 
-    alice = ln.Record(name="values-from-alice", type=people_sheet).save()
-    bob = ln.Record(name="values-from-bob", type=people_sheet).save()
-    meeting_1 = ln.Record(name="values-from-meeting-1", type=meetings_sheet).save()
-    meeting_2 = ln.Record(name="values-from-meeting-2", type=meetings_sheet).save()
+    alice = ln.Record(name="values-from-alice").save()
+    bob = ln.Record(name="values-from-bob").save()
+    meeting_1 = ln.Record(name="values-from-meeting-1").save()
+    meeting_2 = ln.Record(name="values-from-meeting-2").save()
 
     meeting_1.features.set_values({"attendees": [alice, bob]})
     meeting_2.features.set_values({"attendees": [alice]})
@@ -996,42 +922,21 @@ def test_record_feature_values_through_reads_reverse_links():
     meeting_2.delete(permanent=True)
     alice.delete(permanent=True)
     bob.delete(permanent=True)
-    meetings_sheet.delete(permanent=True)
-    people_sheet.delete(permanent=True)
-    meetings_schema.delete(permanent=True)
-    people_schema.delete(permanent=True)
     attendees_feature.delete(permanent=True)
     attended_meetings_feature.delete(permanent=True)
 
 
 def test_record_feature_values_through_scalar_to_list_relation():
     author_feature = ln.Feature(name="author", dtype=ln.Record).save()
-    books_schema = ln.Schema(
-        features=[author_feature],
-        name="values-from-books-schema",
-    ).save()
-    books_sheet = ln.Record(
-        name="values-from-books-sheet", is_type=True, schema=books_schema
-    ).save()
-
     books_feature = ln.Feature(
         name="books", dtype=list[ln.Record], values_through=author_feature
     ).save()
-    authors_schema = ln.Schema(
-        features=[
-            books_feature,
-        ],
-        name="values-from-authors-schema",
-    ).save()
-    authors_sheet = ln.Record(
-        name="values-from-authors-sheet", is_type=True, schema=authors_schema
-    ).save()
 
-    author_a = ln.Record(name="values-from-author-a", type=authors_sheet).save()
-    author_b = ln.Record(name="values-from-author-b", type=authors_sheet).save()
-    book_1 = ln.Record(name="values-from-book-1", type=books_sheet).save()
-    book_2 = ln.Record(name="values-from-book-2", type=books_sheet).save()
-    book_3 = ln.Record(name="values-from-book-3", type=books_sheet).save()
+    author_a = ln.Record(name="values-from-author-a").save()
+    author_b = ln.Record(name="values-from-author-b").save()
+    book_1 = ln.Record(name="values-from-book-1").save()
+    book_2 = ln.Record(name="values-from-book-2").save()
+    book_3 = ln.Record(name="values-from-book-3").save()
 
     book_1.features.set_values({"author": author_a})
     book_2.features.set_values({"author": author_a})
@@ -1049,17 +954,6 @@ def test_record_feature_values_through_scalar_to_list_relation():
     assert book_1.features["author"].name == book_1.features.get_values()["author"]
     assert book_2.features["author"].name == book_2.features.get_values()["author"]
     assert book_3.features["author"].name == book_3.features.get_values()["author"]
-
-    authors_df = authors_sheet.to_dataframe(features=["books"])
-    authors_by_name = authors_df.set_index("__lamindb_record_name__")
-    assert "books" in authors_by_name.columns
-    assert authors_by_name["books"].isna().all()
-
-    books_df = books_sheet.to_dataframe(features=["author"])
-    books_by_name = books_df.set_index("__lamindb_record_name__")
-    assert books_by_name.loc["values-from-book-1", "author"] == "values-from-author-a"
-    assert books_by_name.loc["values-from-book-2", "author"] == "values-from-author-a"
-    assert books_by_name.loc["values-from-book-3", "author"] == "values-from-author-b"
     assert (
         ln.models.RecordRecord.filter(record=author_a, feature=books_feature).count()
         == 0
@@ -1074,10 +968,6 @@ def test_record_feature_values_through_scalar_to_list_relation():
     book_3.delete(permanent=True)
     author_a.delete(permanent=True)
     author_b.delete(permanent=True)
-    books_sheet.delete(permanent=True)
-    authors_sheet.delete(permanent=True)
-    books_schema.delete(permanent=True)
-    authors_schema.delete(permanent=True)
     author_feature.delete(permanent=True)
     books_feature.delete(permanent=True)
 
@@ -1165,20 +1055,10 @@ def test_record_feature_values_through_self_referential_relation():
     manages_feature = ln.Feature(
         name="manages", dtype=list[ln.Record], values_through=reports_to_feature
     ).save()
-    people_schema = ln.Schema(
-        features=[
-            reports_to_feature,
-            manages_feature.with_config(optional=True),
-        ],
-        name="values-from-self-people-schema",
-    ).save()
-    people_sheet = ln.Record(
-        name="values-from-self-people-sheet", is_type=True, schema=people_schema
-    ).save()
 
-    manager = ln.Record(name="values-from-self-manager", type=people_sheet).save()
-    report_a = ln.Record(name="values-from-self-report-a", type=people_sheet).save()
-    report_b = ln.Record(name="values-from-self-report-b", type=people_sheet).save()
+    manager = ln.Record(name="values-from-self-manager").save()
+    report_a = ln.Record(name="values-from-self-report-a").save()
+    report_b = ln.Record(name="values-from-self-report-b").save()
 
     report_a.features.set_values({"reports_to": manager})
     report_b.features.set_values({"reports_to": manager})
@@ -1206,8 +1086,6 @@ def test_record_feature_values_through_self_referential_relation():
     report_a.delete(permanent=True)
     report_b.delete(permanent=True)
     manager.delete(permanent=True)
-    people_sheet.delete(permanent=True)
-    people_schema.delete(permanent=True)
     reports_to_feature.delete(permanent=True)
     manages_feature.delete(permanent=True)
 
