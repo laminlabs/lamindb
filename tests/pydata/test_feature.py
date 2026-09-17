@@ -195,7 +195,7 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_feature_from_df():
+def test_feature_from_dataframe():
     df = pd.DataFrame(
         {
             "feat1": [1, 2, 3],
