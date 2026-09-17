@@ -401,8 +401,7 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
                 closing_bracket_pos = i
                 break
 
-    if closing_bracket_pos == -1:
-        raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
+    assert closing_bracket_pos != -1, f"Unmatched brackets in dtype string: {dtype_str}"
 
     # Extract content between brackets
     bracket_content = dtype_str[first_bracket + 1 : closing_bracket_pos]

@@ -1,9 +1,11 @@
+from datetime import datetime
+
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import ValidationError
-from lamindb.models.feature import serialize_pandas_dtype
+from lamindb.models.feature import dtype_as_object, serialize_pandas_dtype
 from pandas.api.types import is_string_dtype
 
 
@@ -340,3 +342,10 @@ def test_serialize_pandas_datetime_dtypes():
 
     assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+
+
+def test_dtype_as_object_covers_simple_fallbacks():
+    assert dtype_as_object("datetime64[ns, UTC]") is datetime
+    assert dtype_as_object("dict") is dict
+    assert dtype_as_object("cat") is None
+    assert dtype_as_object(None) is None  # type: ignore[arg-type]
