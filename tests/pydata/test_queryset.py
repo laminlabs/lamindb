@@ -257,20 +257,41 @@ def test_to_dataframe_include_features_prefers_relational_duplicates():
     feature_cat = ln.Feature(
         name=feature_name, dtype=ln.ULabel, type=feature_type_b
     ).save()
+    str_only_name = "to_dataframe_duplicate_name_str_only"
+    feature_str_a = ln.Feature(
+        name=str_only_name, dtype=str, type=feature_type_a
+    ).save()
+    feature_str_b = ln.Feature(
+        name=str_only_name, dtype=str, type=feature_type_b
+    ).save()
+    unique_feature = ln.Feature(
+        name="to_dataframe_unique_name_alongside_duplicates", dtype=str
+    ).save()
     artifact = ln.Artifact(
         ".gitignore", key="test_to_dataframe_relational_priority"
     ).save()
     label = ln.ULabel(name="to_dataframe_duplicate_relational_label").save()
 
     artifact.features.set_values({feature_cat: label.name})
+    artifact.features.add_values({feature_str: "plain-text"})
+    artifact.features.add_values({feature_str_a: "first-str"})
+    artifact.features.add_values({feature_str_b: "second-str"})
+    artifact.features.add_values({unique_feature: "unique-value"})
     df = ln.Artifact.filter(id=artifact.id).to_dataframe(include="features")
 
     assert feature_name in df.columns
     assert df[feature_name].iloc[0] == label.name
+    assert str_only_name in df.columns
+    assert df[str_only_name].iloc[0] == "first-str"
+    assert unique_feature.name in df.columns
+    assert df[unique_feature.name].iloc[0] == "unique-value"
 
     artifact.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_cat.delete(permanent=True)
+    feature_str_a.delete(permanent=True)
+    feature_str_b.delete(permanent=True)
+    unique_feature.delete(permanent=True)
     feature_type_a.delete(permanent=True)
     feature_type_b.delete(permanent=True)
     label.delete(permanent=True)

@@ -525,10 +525,9 @@ def get_feature_annotate_kwargs(
             logger.warning(
                 f"found features and passed features differ:\n - passed: {explicit_feature_names}\n - found: {feature_qs.to_list('name')}"
             )
-    elif features == "queryset":
-        feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
-        feature_qs = feature_qs.none()
+        assert features == "queryset"
+        feature_qs = feature_qs.filter(id__in=feature_ids)
 
     # Duplicate feature names map to ambiguous dataframe columns.
     # - for explicit user-provided lists, fail fast and ask for disambiguation
@@ -683,6 +682,9 @@ def get_feature_annotate_kwargs(
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
+    annotate_kwargs[f"{json_values_attribute}__feature_id"] = F(
+        f"{json_values_attribute}__feature_id"
+    )
     annotate_kwargs[f"{json_values_attribute}__value"] = F(
         f"{json_values_attribute}__value"
     )
@@ -772,7 +774,6 @@ def encode_lamindb_fields_as_columns(
 
 
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
-# https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
     registry: Registry,
     df: pd.DataFrame,
@@ -829,33 +830,41 @@ def reshape_annotate_result(
     feature_value_col = f"{json_values_attribute}__value"
 
     if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
-        # Separate dict and non-dict values for different aggregation strategies
-        is_dict_or_list = df_encoded[feature_value_col].apply(
-            lambda x: isinstance(x, (dict, list))
-        )
-        dict_or_list_df = df_encoded[is_dict_or_list]
-        non_dict_or_list_df = df_encoded[~is_dict_or_list]
-
-        # Aggregate: sets for non-dict values, first for dict values
-        groupby_cols = [pk_name_encoded, feature_name_col]
-        non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
-            feature_value_col
-        ].agg(set)
-        dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
-            feature_value_col
-        ].agg("first")
-
-        # Combine and pivot to wide format
-        combined_features = pd.concat(
-            [non_dict_or_list_features, dict_or_list_features]
-        )
-        feature_values = combined_features.unstack().reset_index()
-
-        if not feature_values.empty:
-            result_encoded = result_encoded.join(
-                feature_values.set_index(pk_name_encoded),
-                on=pk_name_encoded,
+        json_feature_id_col = f"{json_values_attribute}__feature_id"
+        df_json = df_encoded
+        if json_feature_id_col in df_encoded.columns:
+            selected_feature_ids = set(feature_qs.values_list("id", flat=True))
+            df_json = df_encoded[
+                df_encoded[json_feature_id_col].isin(selected_feature_ids)
+            ]
+        if not df_json.empty:
+            # Separate dict and non-dict values for different aggregation strategies
+            is_dict_or_list = df_json[feature_value_col].apply(
+                lambda x: isinstance(x, (dict, list))
             )
+            dict_or_list_df = df_json[is_dict_or_list]
+            non_dict_or_list_df = df_json[~is_dict_or_list]
+
+            # Aggregate: sets for non-dict values, first for dict values
+            groupby_cols = [pk_name_encoded, feature_name_col]
+            non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
+                feature_value_col
+            ].agg(set)
+            dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
+                feature_value_col
+            ].agg("first")
+
+            # Combine and pivot to wide format
+            combined_features = pd.concat(
+                [non_dict_or_list_features, dict_or_list_features]
+            )
+            feature_values = combined_features.unstack().reset_index()
+
+            if not feature_values.empty:
+                result_encoded = result_encoded.join(
+                    feature_values.set_index(pk_name_encoded),
+                    on=pk_name_encoded,
+                )
 
     # --- Process categorical/linked features ---
     links_prefix = "links_" if registry in {Artifact, Run} else ("links_", "values_")
