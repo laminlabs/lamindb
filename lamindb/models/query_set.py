@@ -50,28 +50,6 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
-    if len(data) > 0:
-        if isinstance(data[0], dict):
-            keys = list(data[0].keys())
-        else:
-            keys = list(data[0].__dict__.keys())
-            if "_state" in keys:
-                keys.remove("_state")
-    else:
-        keys = [
-            field.name
-            for field in registry._meta.fields
-            if not isinstance(field, models.ForeignKey)
-        ]
-        keys += [
-            f"{field.name}_id"
-            for field in registry._meta.fields
-            if isinstance(field, models.ForeignKey)
-        ]
-    return keys
-
-
 def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
     """Return branch IDs to include in default queries.
 
@@ -383,7 +361,9 @@ class SQLRecordList(UserList, Generic[T]):
     def to_dataframe(self) -> pd.DataFrame:
         import pandas as pd
 
-        keys = get_keys_from_df(self.data, self.data[0].__class__)
+        if not self.data:
+            return pd.DataFrame()
+        keys = [key for key in self.data[0].__dict__ if key != "_state"]
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 

@@ -9,7 +9,7 @@ from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
-from lamindb.models.query_set import get_feature_annotate_kwargs
+from lamindb.models.query_set import SQLRecordList, get_feature_annotate_kwargs
 
 
 # please also see the test_curate_df.py tests
@@ -17,6 +17,10 @@ def test_to_dataframe():
     project_label = ln.Record(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
     labels = ln.Record.from_values(project_names, create=True).save()
+    labels_df = labels.to_dataframe()
+    assert "_state" not in labels_df.columns
+    assert set(labels_df["name"]) == set(project_names)
+    assert SQLRecordList([]).to_dataframe().empty
     project_label.children.add(*labels)
     df = ln.Record.to_dataframe(include="parents__name")
     assert df.columns[2] == "parents__name"
