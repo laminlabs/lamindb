@@ -69,7 +69,7 @@ Data transformations and their executions.
 Records, labels, features & schemas
 ===================================
 
-Create labels and manage flexible records, e.g., for samples or donors.
+Manage flexible records, e.g., for samples or donors, and create simple labels.
 
 .. autosummary::
    :toctree: .

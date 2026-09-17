@@ -13,7 +13,6 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.types import Unset
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_8
@@ -22,11 +21,11 @@ from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     HasType,
     IsLink,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -34,6 +33,8 @@ from .transform import Transform
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from lamindb.base.types import Unset
 
     from .artifact import Artifact
     from .block import ULabelBlock
@@ -46,9 +47,9 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Simple universal labels.
+    """Simple user-defined labels.
 
-    It behaves like `Record`, just without the ability to link features.
+    Is similar to :class:`~lamindb.Record`, but has no ability to store features.
 
     Args:
         name: `str` A name.
@@ -61,7 +62,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     See Also:
         :class:`~lamindb.Record`
-            Like `ULabel`, but with the ability to link features.
+            Similar to `ULabel`, but with the ability to store features.
 
     Examples
     --------
