@@ -5,8 +5,8 @@ Classes
 
 .. autoclass:: CanonicalSuffix
 
-Simple types
-------------
+Basic types
+-----------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
@@ -19,18 +19,10 @@ Simple types
 .. autoclass:: SimpleDvalue
 .. autoclass:: DtypeStr
 .. autoclass:: SQLRecordFieldName
-
-Basic types
------------
-
 .. autoclass:: AnyPathStr
 .. autoclass:: StrField
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
-
-Auxiliary types
----------------
-
 .. autoclass:: Unset
 """
 
