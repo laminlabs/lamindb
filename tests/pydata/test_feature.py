@@ -154,6 +154,16 @@ def test_feature_values_from_setter_requires_no_existing_links():
         source.delete(permanent=True)
 
 
+def test_feature_predicate_cannot_cast_to_bool():
+    feature = ln.Feature(name="predicate-bool-guard", dtype="str")
+    predicate = feature == "x"
+    with pytest.raises(
+        TypeError,
+        match="Feature predicates cannot be used as booleans",
+    ):
+        bool(predicate)
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )
