@@ -187,6 +187,12 @@ def test_feature_predicate_cannot_cast_to_bool():
         bool(predicate)
 
 
+def test_should_build_model_predicate_returns_false_for_type_features():
+    feature_type = ln.Feature(name="predicate-type-feature", is_type=True)
+    other_model = ln.Feature(name="predicate-other-model", dtype="str")
+    assert feature_type._should_build_model_predicate(other_model) is False
+
+
 # @pytest.mark.skipif(
 #     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 # )
@@ -213,12 +219,27 @@ def test_feature_predicate_cannot_cast_to_bool():
 #     feature.delete(permanent=True)
 
 
-def test_cat_filters_empty_filter():
+@pytest.mark.parametrize("filter_value", [None, "", [], 0])
+def test_cat_filters_empty_filter(filter_value):
     # empty filter values should be rejected
     with pytest.raises(ValidationError) as error:
-        ln.Feature(name="feat_empty", dtype=bt.Disease, cat_filters={"source__uid": ""})
+        ln.Feature(
+            name="feat_empty",
+            dtype=bt.Disease,
+            cat_filters={"source__uid": filter_value},
+        )
+    assert "Empty value in filter source__uid" in error.exconly()
+
+
+def test_cat_filters_incompatible_with_nested_dtype():
+    with pytest.raises(ValidationError) as error:
+        ln.Feature(
+            name="feat_nested",
+            dtype=list[ln.Record],
+            cat_filters={"source__uid": "abc"},
+        )
     assert (
-        "lamindb.errors.ValidationError: Empty value in filter source__uid"
+        "lamindb.errors.ValidationError: cat_filters are incompatible with nested dtypes:"
         in error.exconly()
     )
 
