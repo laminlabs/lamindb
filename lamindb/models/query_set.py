@@ -1057,8 +1057,6 @@ def process_cols_from_include(
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
     for col, col_type in extra_columns.items():
-        if col not in df.columns:
-            continue
         if col in result.columns:
             continue
 
