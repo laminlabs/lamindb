@@ -870,7 +870,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        values_from: `Feature | SQLRecordFieldName | None = None` Source of values
+        maps_to: `Feature | SQLRecordFieldName | None = None` Source of values
             for this feature. Pass a related :class:`~lamindb.Feature` to load values from the backward relationship.
             Pass a :class:`~lamindb.base.types.SQLRecordFieldName` to store values
             in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
@@ -998,15 +998,15 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         books = ln.Feature(
             name="books",
             dtype=list[ln.Record.get(name="Books")],
-            values_from=author,
+            maps_to=author,
         ).save()
         # book.author  <-- the author of the book
         # author.books <-- the books written by the author (reverse relation of Book.author)
 
     Store values on a :class:`~lamindb.Record` field::
 
-        ln.Feature(name="created_at", dtype=datetime, values_from="created_at").save()
-        ln.Feature(name="external_id", dtype=str, values_from="reference").save()
+        ln.Feature(name="created_at", dtype=datetime, maps_to="created_at").save()
+        ln.Feature(name="external_id", dtype=str, maps_to="reference").save()
 
     Notes
     -----
@@ -1248,7 +1248,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
-        values_from: Feature | SQLRecordFieldName | None = None,
+        maps_to: Feature | SQLRecordFieldName | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
@@ -1293,7 +1293,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             coerce = kwargs.pop("coerce_dtype")
         else:
             coerce = kwargs.pop("coerce", None)
-        values_from = kwargs.pop("values_from", None)
+        maps_to = kwargs.pop("maps_to", None)
         kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
@@ -1403,7 +1403,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
         # validation happens in save()
-        self._values_from_input = values_from
+        self._maps_to_input = maps_to
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1563,14 +1563,14 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature in the database."""
         # distinguish between explicit None and UNSET
-        # if the user wants to clear the values_from relationship, they can pass None
-        # via the Feature.values_from setter
-        values_from_input: Feature | SQLRecordFieldName | None | Unset = getattr(
-            self, "_values_from_input", UNSET
+        # if the user wants to clear the maps_to relationship, they can pass None
+        # via the Feature.maps_to setter
+        maps_to_input: Feature | SQLRecordFieldName | None | Unset = getattr(
+            self, "_maps_to_input", UNSET
         )
         with transaction.atomic(using=self._state.db):
-            if not isinstance(values_from_input, Unset):
-                self._apply_values_from_input(values_from_input)
+            if not isinstance(maps_to_input, Unset):
+                self._apply_maps_to_input(maps_to_input)
             super().save(*args, **kwargs)
         return self
 
@@ -1588,33 +1588,32 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             config["optional"] = optional
         return self, config
 
-    def _validate_values_from(self, values_from: Feature) -> None:
-        assert isinstance(values_from, Feature), (
-            "Feature(..., values_from=...) expects a Feature object"
+    def _validate_maps_to(self, maps_to: Feature) -> None:
+        assert isinstance(maps_to, Feature), (
+            "Feature(..., maps_to=...) expects a Feature object"
         )
-        assert self.uid != values_from.uid, (
-            "Feature(..., values_from=...) cannot point to itself"
+        assert self.uid != maps_to.uid, (
+            "Feature(..., maps_to=...) cannot point to itself"
         )
-        assert not values_from._state.adding, (
-            "Feature(..., values_from=...) requires a saved Feature object"
+        assert not maps_to._state.adding, (
+            "Feature(..., maps_to=...) requires a saved Feature object"
         )
         assert (
-            values_from.related_feature is None
-            or values_from.related_feature.uid == self.uid
-        ), "Feature object passed to values_from is already related to another feature"
-        assert values_from.values_from is None, (
-            "Feature object passed to values_from already has a values_from relationship"
+            maps_to.related_feature is None or maps_to.related_feature.uid == self.uid
+        ), "Feature object passed to maps_to is already related to another feature"
+        assert maps_to.maps_to is None, (
+            "Feature object passed to maps_to already has a maps_to relationship"
         )
         configured_dtype = parse_dtype(self._dtype_str)
-        source_dtype = parse_dtype(values_from._dtype_str)
+        source_dtype = parse_dtype(maps_to._dtype_str)
         assert (
             len(configured_dtype) == 1
             and len(source_dtype) == 1
             and configured_dtype[0].get("registry_str") == "Record"
             and source_dtype[0].get("registry_str") == "Record"
-        ), "Feature(..., values_from=...) requires both features to have a Record dtype"
+        ), "Feature(..., maps_to=...) requires both features to have a Record dtype"
         assert configured_dtype[0].get("list", False), (
-            "Feature(..., values_from=...) requires the configured feature "
+            "Feature(..., maps_to=...) requires the configured feature "
             "to have a list[Record] dtype"
         )
 
@@ -1630,21 +1629,21 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             source_feature.save()
         self._values_feature_uid = None
 
-    def _apply_values_from_input(
-        self, values_from_input: Feature | SQLRecordFieldName | None
+    def _apply_maps_to_input(
+        self, maps_to_input: Feature | SQLRecordFieldName | None
     ) -> None:
         from .record import validate_record_feature_field_mapping
 
-        if isinstance(values_from_input, Feature):
-            self._validate_values_from(values_from_input)
+        if isinstance(maps_to_input, Feature):
+            self._validate_maps_to(maps_to_input)
             self._sqlrecord_field = None
-            self._values_feature_uid = values_from_input.uid
-            values_from_input._related_feature_uid = self.uid
-            values_from_input.save()
-        elif isinstance(values_from_input, str):
-            validate_record_feature_field_mapping(self, values_from_input)
+            self._values_feature_uid = maps_to_input.uid
+            maps_to_input._related_feature_uid = self.uid
+            maps_to_input.save()
+        elif isinstance(maps_to_input, str):
+            validate_record_feature_field_mapping(self, maps_to_input)
             self._clear_values_feature_pair()
-            self._sqlrecord_field = values_from_input
+            self._sqlrecord_field = maps_to_input
         else:
             self._clear_values_feature_pair()
             self._sqlrecord_field = None
@@ -1695,7 +1694,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             self._aux["sf"] = value
 
     @property
-    def values_from(self) -> Feature | SQLRecordFieldName | None:
+    def maps_to(self) -> Feature | SQLRecordFieldName | None:
         """Resolve the object that provides values for this feature.
 
         Returns:
@@ -1703,7 +1702,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             :class:`~lamindb.base.types.SQLRecordFieldName` if values are stored
             on a `SQLRecord` field, else `None`.
         """
-        pending_value = getattr(self, "_values_from_input", UNSET)
+        pending_value = getattr(self, "_maps_to_input", UNSET)
         if isinstance(pending_value, Feature):
             return pending_value
         if isinstance(pending_value, str):
@@ -1715,17 +1714,17 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             return None
         return Feature.objects.using(self._state.db).get(uid=self._values_feature_uid)
 
-    @values_from.setter
-    def values_from(self, value: Feature | SQLRecordFieldName | None) -> None:
+    @maps_to.setter
+    def maps_to(self, value: Feature | SQLRecordFieldName | None) -> None:
         if isinstance(value, Feature):
-            self._validate_values_from(value)
+            self._validate_maps_to(value)
         elif isinstance(value, str):
             from .record import validate_record_feature_field_mapping
 
             validate_record_feature_field_mapping(self, value)
         elif value is not None:
             raise TypeError(
-                "Feature.values_from expects a Feature, SQLRecordFieldName, or None"
+                "Feature.maps_to expects a Feature, SQLRecordFieldName, or None"
             )
         if not self._state.adding and self.id is not None:
             from .record import RecordRecord
@@ -1736,23 +1735,23 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 .exists()
             ):
                 raise ValueError(
-                    "Feature.values_from can only be set when no RecordRecord links exist for this feature"
+                    "Feature.maps_to can only be set when no RecordRecord links exist for this feature"
                 )
-        self._values_from_input = value
+        self._maps_to_input = value
 
     @property
     def related_feature(self) -> Feature | None:
-        """Return the paired feature in the values_from relationship.
+        """Return the paired feature in the maps_to relationship.
 
-        For a derived feature (`books.values_from = author`) this returns the
+        For a derived feature (`books.maps_to = author`) this returns the
         source (`author`). For a source feature (`author`) this returns the first
         derived feature that references it via `_aux["vf"]`.
 
         Unsaved features cannot be reverse-resolved from the database, so an
         unsaved source feature returns `None` unless it already has an in-memory
-        `values_from` assignment.
+        `maps_to` assignment.
         """
-        source = self.values_from
+        source = self.maps_to
         if isinstance(source, Feature):
             return source
         if self._related_feature_uid is None:

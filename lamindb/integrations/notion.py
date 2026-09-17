@@ -3561,7 +3561,7 @@ class _NotionSyncer:
                     "type": feature_type,
                 }
                 if mapped_field is not None:
-                    feature_kwargs["values_from"] = mapped_field
+                    feature_kwargs["maps_to"] = mapped_field
                 ln.Feature(**feature_kwargs).save()
             logger.important(
                 f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
@@ -3650,10 +3650,10 @@ class _NotionSyncer:
         if schema is not None:
             for feature_name, feature in features_by_name.items():
                 source_uid = None
-                values_from_feature = getattr(feature, "values_from", None)
-                values_from_uid = getattr(values_from_feature, "uid", None)
-                if isinstance(values_from_uid, str):
-                    source_uid = values_from_uid
+                maps_to_feature = getattr(feature, "maps_to", None)
+                maps_to_uid = getattr(maps_to_feature, "uid", None)
+                if isinstance(maps_to_uid, str):
+                    source_uid = maps_to_uid
                 else:
                     aux = getattr(feature, "_aux", None)
                     if isinstance(aux, dict):
@@ -3678,10 +3678,10 @@ class _NotionSyncer:
             if target_feature is None or not isinstance(source_uid, str):
                 continue
             existing_source_uid = None
-            existing_values_from = getattr(target_feature, "values_from", None)
-            existing_values_from_uid = getattr(existing_values_from, "uid", None)
-            if isinstance(existing_values_from_uid, str):
-                existing_source_uid = existing_values_from_uid
+            existing_maps_to = getattr(target_feature, "maps_to", None)
+            existing_maps_to_uid = getattr(existing_maps_to, "uid", None)
+            if isinstance(existing_maps_to_uid, str):
+                existing_source_uid = existing_maps_to_uid
             else:
                 target_aux = getattr(target_feature, "_aux", None)
                 if isinstance(target_aux, dict):
@@ -3713,7 +3713,7 @@ class _NotionSyncer:
         if apply:
             for target_feature_name, source_feature in backward_feature_updates.items():
                 target_feature = features_by_name[target_feature_name]
-                target_feature.values_from = source_feature
+                target_feature.maps_to = source_feature
                 target_feature.save()
 
         if schema is None:
@@ -3739,9 +3739,9 @@ class _NotionSyncer:
                     mapped_field = record_field_mappings.get(feature.name)
                     if (
                         mapped_field is not None
-                        and getattr(feature, "values_from", None) != mapped_field
+                        and getattr(feature, "maps_to", None) != mapped_field
                     ):
-                        feature.values_from = mapped_field
+                        feature.maps_to = mapped_field
                         feature.save()
                     schema_features.append(feature)
                 schema = ln.Schema(
@@ -3765,11 +3765,11 @@ class _NotionSyncer:
                     mapped_field = record_field_mappings.get(feature.name)
                     if mapped_field is None:
                         continue
-                    if getattr(feature, "values_from", None) != mapped_field:
-                        feature.values_from = mapped_field
+                    if getattr(feature, "maps_to", None) != mapped_field:
+                        feature.maps_to = mapped_field
                         feature.save()
                         logger.important(
-                            "notion sync metadata: set values_from="
+                            "notion sync metadata: set maps_to="
                             f"{mapped_field!r} on feature {feature.name!r}"
                         )
         return feature_type, features, schema

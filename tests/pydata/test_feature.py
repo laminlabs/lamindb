@@ -111,27 +111,27 @@ def test_feature_init():
     assert "organism='human'" in feature._dtype_str
 
 
-def test_feature_values_from_roundtrip():
+def test_feature_maps_to_roundtrip():
     author_feature = ln.Feature(name="values-from-author", dtype=ln.Record).save()
     books_feature = ln.Feature(
         name="values-from-books",
         dtype=list[ln.Record],
-        values_from=author_feature,
+        maps_to=author_feature,
     ).save()
     try:
         assert books_feature._aux["vf"] == author_feature.uid
-        assert books_feature.values_from.uid == author_feature.uid
+        assert books_feature.maps_to.uid == author_feature.uid
         assert books_feature.related_feature.uid == author_feature.uid
         assert author_feature.related_feature.uid == books_feature.uid
         reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
-        assert reloaded_books_feature.values_from.uid == author_feature.uid
+        assert reloaded_books_feature.maps_to.uid == author_feature.uid
 
-        # Clearing values_from should remove both forward and reverse relation metadata.
-        books_feature.values_from = None
+        # Clearing maps_to should remove both forward and reverse relation metadata.
+        books_feature.maps_to = None
         books_feature.save()
         books_feature.refresh_from_db()
         author_feature.refresh_from_db()
-        assert books_feature.values_from is None
+        assert books_feature.maps_to is None
         assert books_feature.related_feature is None
         assert books_feature._aux is None or "vf" not in books_feature._aux
         assert author_feature.related_feature is None
@@ -141,31 +141,31 @@ def test_feature_values_from_roundtrip():
         author_feature.delete(permanent=True)
 
 
-def test_feature_values_from_sqlrecord_field_roundtrip():
+def test_feature_maps_to_sqlrecord_field_roundtrip():
     feature = ln.Feature(
         name="values-from-created-at",
         dtype="datetime64[ns, UTC]",
-        values_from="created_at",
+        maps_to="created_at",
     ).save()
     try:
         assert feature._aux["sf"] == "created_at"
         assert feature._aux.get("vf") is None
-        assert feature.values_from == "created_at"
+        assert feature.maps_to == "created_at"
         assert feature.related_feature is None
         reloaded = ln.Feature.get(uid=feature.uid)
-        assert reloaded.values_from == "created_at"
+        assert reloaded.maps_to == "created_at"
         assert reloaded._aux["sf"] == "created_at"
 
-        feature.values_from = None
+        feature.maps_to = None
         feature.save()
         feature.refresh_from_db()
-        assert feature.values_from is None
+        assert feature.maps_to is None
         assert feature._aux is None or "sf" not in feature._aux
     finally:
         feature.delete(permanent=True)
 
 
-def test_feature_values_from_requires_saved_source():
+def test_feature_maps_to_requires_saved_source():
     unsaved_source = ln.Feature(name="values-from-unsaved-source", dtype=ln.Record)
     with pytest.raises(
         AssertionError,
@@ -174,11 +174,11 @@ def test_feature_values_from_requires_saved_source():
         ln.Feature(
             name="values-from-unsaved-target",
             dtype=list[ln.Record],
-            values_from=unsaved_source,
+            maps_to=unsaved_source,
         ).save()
 
 
-def test_feature_values_from_setter_requires_no_existing_links():
+def test_feature_maps_to_setter_requires_no_existing_links():
     target = ln.Feature(name="values-from-setter-target", dtype=list[ln.Record]).save()
     source = ln.Feature(name="values-from-setter-source", dtype=ln.Record).save()
     schema = ln.Schema(features=[target], name="values-from-setter-schema").save()
@@ -193,7 +193,7 @@ def test_feature_values_from_setter_requires_no_existing_links():
             ValueError,
             match="can only be set when no RecordRecord links exist",
         ):
-            target.values_from = source
+            target.maps_to = source
     finally:
         record_a.delete(permanent=True)
         record_b.delete(permanent=True)

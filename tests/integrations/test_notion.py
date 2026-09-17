@@ -2885,7 +2885,7 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
         )
 
     name_feature.with_config.assert_not_called()
-    assert summary_feature.values_from == "description"
+    assert summary_feature.maps_to == "description"
     summary_feature.save.assert_called()
     Schema.assert_called_once()
     schema_features = Schema.call_args.args[0]
@@ -3115,7 +3115,7 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert resolve_record.called
 
 
-def test_plan_metadata_apply_sets_values_from_on_existing_feature(syncer):
+def test_plan_metadata_apply_sets_maps_to_on_existing_feature(syncer):
     report = SyncReport(apply=True)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()
@@ -3156,12 +3156,12 @@ def test_plan_metadata_apply_sets_values_from_on_existing_feature(syncer):
             report=report,
         )
 
-    assert meetings_feature.values_from == source_feature
+    assert meetings_feature.maps_to == source_feature
     meetings_feature.save.assert_any_call()
     assert any("People / meetings" in detail for detail in report.updated_features)
 
 
-def test_plan_metadata_dry_run_reports_values_from_update(syncer):
+def test_plan_metadata_dry_run_reports_maps_to_update(syncer):
     report = SyncReport(apply=False)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()

@@ -140,7 +140,7 @@ def persist_record_name(record: Record) -> None:
 
 
 def get_mappable_record_feature_fields() -> dict[str, models.Field]:
-    """Record fields that can be targets for `Feature(..., values_from=...)`."""
+    """Record fields that can be targets for `Feature(..., maps_to=...)`."""
     fields = {field.name: field for field in Record._meta.concrete_fields}
     return {
         name: fields[name]
@@ -150,7 +150,7 @@ def get_mappable_record_feature_fields() -> dict[str, models.Field]:
 
 
 def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> None:
-    """Validate feature<->Record-field compatibility for `values_from` field mapping."""
+    """Validate feature<->Record-field compatibility for `maps_to` field mapping."""
     fields = get_mappable_record_feature_fields()
     if field_name not in fields:
         allowed = ", ".join(sorted(fields))
@@ -165,32 +165,32 @@ def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> 
         parsed = parse_dtype(feature._dtype_str)
         if len(parsed) != 1 or parsed[0].get("list", False):
             raise ValueError(
-                f"Feature(..., values_from='{field_name}') requires a "
+                f"Feature(..., maps_to='{field_name}') requires a "
                 "non-list categorical dtype"
             )
         registry = parsed[0]["registry"]
         remote_model = record_field.remote_field.model
         if registry is not remote_model:
             raise ValueError(
-                f"Feature(..., values_from='{field_name}') requires a categorical "
+                f"Feature(..., maps_to='{field_name}') requires a categorical "
                 f"dtype pointing to {remote_model.__name__}"
             )
     elif isinstance(record_field, models.DateTimeField):
         if dtype not in {"datetime", "datetime64[ns, UTC]"}:
             raise ValueError(
-                f"Feature(..., values_from='{field_name}') requires feature dtype "
+                f"Feature(..., maps_to='{field_name}') requires feature dtype "
                 "'datetime' or 'datetime64[ns, UTC]'"
             )
     elif isinstance(record_field, (models.CharField, models.TextField)):
         if dtype != "str":
             raise ValueError(
-                f"Feature(..., values_from='{field_name}') requires feature dtype 'str'"
+                f"Feature(..., maps_to='{field_name}') requires feature dtype 'str'"
             )
 
 
 def get_feature_sqlrecord_field(feature: Feature) -> str | None:
     """Return the SQLRecord field name configured on a feature, if any."""
-    pending = getattr(feature, "_values_from_input", UNSET)
+    pending = getattr(feature, "_maps_to_input", UNSET)
     if isinstance(pending, str):
         return pending
     if isinstance(feature._aux, dict):
@@ -224,7 +224,7 @@ def get_schema_record_fields(schema: Schema | None) -> dict[str, str]:
 
 
 def get_schema_values_feature_uids(schema: Schema | None) -> dict[str, str]:
-    """Return schema feature uid -> source feature uid for values_from-derived features."""
+    """Return schema feature uid -> source feature uid for maps_to-derived features."""
     if schema is None:
         return {}
     cached = getattr(schema, "_values_feature_uids_cache", None)
@@ -246,7 +246,7 @@ def get_schema_values_feature_uids(schema: Schema | None) -> dict[str, str]:
 
 
 def schema_has_record_mapped_features(schema: Schema | None) -> bool:
-    """Whether schema has field-mapped or values_from-derived record features."""
+    """Whether schema has field-mapped or maps_to-derived record features."""
     return (
         len(get_schema_record_fields(schema)) > 0
         or len(get_schema_values_feature_uids(schema)) > 0
@@ -564,7 +564,7 @@ def strip_index_for_record_persistence(
             if has_explicit_value or has_named_value:
                 raise ValidationError(
                     f"feature '{feature.name}' is configured with "
-                    "Feature(..., values_from=...) and is read-only"
+                    "Feature(..., maps_to=...) and is read-only"
                 )
             dictionary.pop(feature.name, None)
         feature_objects = filtered_features

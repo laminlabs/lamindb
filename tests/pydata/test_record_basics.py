@@ -604,20 +604,20 @@ def test_record_schema_field_mappings_store_on_record_columns():
     mapped_created_at = ln.Feature(
         name="source_created_at",
         dtype="datetime64[ns, UTC]",
-        values_from="created_at",
+        maps_to="created_at",
     ).save()
     mapped_created_by = ln.Feature(
-        name="source_created_by", dtype=ln.User, values_from="created_by"
+        name="source_created_by", dtype=ln.User, maps_to="created_by"
     ).save()
     mapped_reference = ln.Feature(
-        name="source_reference", dtype=str, values_from="reference"
+        name="source_reference", dtype=str, maps_to="reference"
     ).save()
     mapped_reference_type = ln.Feature(
-        name="source_reference_type", dtype=str, values_from="reference_type"
+        name="source_reference_type", dtype=str, maps_to="reference_type"
     ).save()
-    mapped_name = ln.Feature(name="source_name", dtype=str, values_from="name").save()
+    mapped_name = ln.Feature(name="source_name", dtype=str, maps_to="name").save()
     mapped_description = ln.Feature(
-        name="source_description", dtype=str, values_from="description"
+        name="source_description", dtype=str, maps_to="description"
     ).save()
     score = ln.Feature(name="field-map-score", dtype=float).save()
     assert mapped_created_at._aux["sf"] == "created_at"
@@ -754,9 +754,7 @@ def test_record_schema_field_mappings_store_on_record_columns():
 
 
 def test_record_schema_field_mappings_store_run_and_type():
-    mapped_run = ln.Feature(
-        name="source_run", dtype=ln.Run.uid, values_from="run"
-    ).save()
+    mapped_run = ln.Feature(name="source_run", dtype=ln.Run.uid, maps_to="run").save()
     run_schema = ln.Schema(
         features=[mapped_run],
         name="field-map-run-schema",
@@ -775,9 +773,7 @@ def test_record_schema_field_mappings_store_run_and_type():
     run_field = ln.models.feature.parse_dtype(mapped_run._dtype_str)[0]["field_str"]
     assert run_record.features.get_values()["source_run"] == getattr(run, run_field)
 
-    mapped_type = ln.Feature(
-        name="source_type", dtype=ln.Record, values_from="type"
-    ).save()
+    mapped_type = ln.Feature(name="source_type", dtype=ln.Record, maps_to="type").save()
     type_schema = ln.Schema(
         features=[mapped_type],
         name="field-map-type-schema",
@@ -814,7 +810,7 @@ def test_record_schema_field_mappings_validation():
     mapped_updated_at = ln.Feature(
         name="source_updated_at",
         dtype="datetime64[ns, UTC]",
-        values_from="updated_at",
+        maps_to="updated_at",
     ).save()
     ok_schema = ln.Schema(
         features=[mapped_updated_at],
@@ -825,19 +821,17 @@ def test_record_schema_field_mappings_validation():
     with pytest.raises(
         ValueError, match="Unsupported feature field mapping 'extra_data'"
     ):
-        ln.Feature(
-            name="source_invalid_field", dtype=str, values_from="extra_data"
-        ).save()
+        ln.Feature(name="source_invalid_field", dtype=str, maps_to="extra_data").save()
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_from='run'\\) requires a non-list categorical dtype",
+        match="Feature\\(\\.\\.\\., maps_to='run'\\) requires a non-list categorical dtype",
     ):
-        ln.Feature(name="source_invalid_run", dtype=str, values_from="run").save()
+        ln.Feature(name="source_invalid_run", dtype=str, maps_to="run").save()
 
     idx = ln.Feature(name="validation_index_name", dtype=str).save()
     mapped_name = ln.Feature(
-        name="validation_name_mapping", dtype=str, values_from="name"
+        name="validation_name_mapping", dtype=str, maps_to="name"
     ).save()
     with pytest.raises(
         ValueError,
@@ -850,7 +844,7 @@ def test_record_schema_field_mappings_validation():
         ).save()
 
     index_with_name = ln.Feature(
-        name="validation_index_values_from_name", dtype=str, values_from="name"
+        name="validation_index_maps_to_name", dtype=str, maps_to="name"
     ).save()
     compatible_schema = ln.Schema(
         features=[],
@@ -862,7 +856,7 @@ def test_record_schema_field_mappings_validation():
     index_with_description = ln.Feature(
         name="validation_index_other_field",
         dtype=str,
-        values_from="description",
+        maps_to="description",
     ).save()
     with pytest.raises(
         ValueError,
@@ -875,10 +869,10 @@ def test_record_schema_field_mappings_validation():
         ).save()
 
     duplicate_target_feature_1 = ln.Feature(
-        name="source_reference_a", dtype=str, values_from="reference"
+        name="source_reference_a", dtype=str, maps_to="reference"
     ).save()
     duplicate_target_feature_2 = ln.Feature(
-        name="source_reference_b", dtype=str, values_from="reference"
+        name="source_reference_b", dtype=str, maps_to="reference"
     ).save()
     with pytest.raises(
         ValueError,
@@ -900,7 +894,7 @@ def test_record_schema_field_mappings_validation():
     duplicate_target_feature_2.delete(permanent=True)
 
 
-def test_record_feature_values_from_reads_reverse_links():
+def test_record_feature_maps_to_reads_reverse_links():
     attendees_feature = ln.Feature(name="attendees", dtype=list[ln.Record]).save()
     meetings_schema = ln.Schema(
         features=[attendees_feature],
@@ -913,7 +907,7 @@ def test_record_feature_values_from_reads_reverse_links():
     attended_meetings_feature = ln.Feature(
         name="attended_meetings",
         dtype=list[ln.Record],
-        values_from=attendees_feature,
+        maps_to=attendees_feature,
     ).save()
     people_schema = ln.Schema(
         features=[
@@ -937,7 +931,7 @@ def test_record_feature_values_from_reads_reverse_links():
     bob_values = bob.features.get_values()
 
     assert attended_meetings_feature._aux["vf"] == attendees_feature.uid
-    assert attended_meetings_feature.values_from.uid == attendees_feature.uid
+    assert attended_meetings_feature.maps_to.uid == attendees_feature.uid
     assert attended_meetings_feature.related_feature.uid == attendees_feature.uid
     assert attendees_feature.related_feature.uid == attended_meetings_feature.uid
     assert alice_values["attended_meetings"] == [
@@ -960,7 +954,7 @@ def test_record_feature_values_from_reads_reverse_links():
 
     with pytest.raises(
         ln.errors.ValidationError,
-        match="is configured with Feature\\(\\.\\.\\., values_from=\\.\\.\\.\\) and is read-only",
+        match="is configured with Feature\\(\\.\\.\\., maps_to=\\.\\.\\.\\) and is read-only",
     ):
         alice.features.set_values({"attended_meetings": [meeting_1]})
 
@@ -976,7 +970,7 @@ def test_record_feature_values_from_reads_reverse_links():
     attended_meetings_feature.delete(permanent=True)
 
 
-def test_record_feature_values_from_scalar_to_list_relation():
+def test_record_feature_maps_to_scalar_to_list_relation():
     author_feature = ln.Feature(name="author", dtype=ln.Record).save()
     books_schema = ln.Schema(
         features=[author_feature],
@@ -987,7 +981,7 @@ def test_record_feature_values_from_scalar_to_list_relation():
     ).save()
 
     books_feature = ln.Feature(
-        name="books", dtype=list[ln.Record], values_from=author_feature
+        name="books", dtype=list[ln.Record], maps_to=author_feature
     ).save()
     authors_schema = ln.Schema(
         features=[
@@ -1013,7 +1007,7 @@ def test_record_feature_values_from_scalar_to_list_relation():
     author_b_values = author_b.features.get_values()
 
     assert books_feature._aux["vf"] == author_feature.uid
-    assert books_feature.values_from.uid == author_feature.uid
+    assert books_feature.maps_to.uid == author_feature.uid
     assert books_feature.related_feature.uid == author_feature.uid
     assert author_feature.related_feature.uid == books_feature.uid
     assert author_a_values["books"] == ["values-from-book-1", "values-from-book-2"]
@@ -1054,7 +1048,7 @@ def test_record_feature_values_from_scalar_to_list_relation():
     books_feature.delete(permanent=True)
 
 
-def test_record_feature_values_from_with_index_exports_contract():
+def test_record_feature_maps_to_with_index_exports_contract():
     author_feature = ln.Feature(name="values-index-author", dtype=ln.Record).save()
     books_schema = ln.Schema(
         features=[author_feature],
@@ -1066,7 +1060,7 @@ def test_record_feature_values_from_with_index_exports_contract():
 
     author_id_feature = ln.Feature(name="author_id", dtype=str).save()
     books_feature = ln.Feature(
-        name="values-index-books", dtype=list[ln.Record], values_from=author_feature
+        name="values-index-books", dtype=list[ln.Record], maps_to=author_feature
     ).save()
     authors_schema = ln.Schema(
         features=[books_feature],
@@ -1132,10 +1126,10 @@ def test_record_feature_values_from_with_index_exports_contract():
     author_id_feature.delete(permanent=True)
 
 
-def test_record_feature_values_from_self_referential_relation():
+def test_record_feature_maps_to_self_referential_relation():
     reports_to_feature = ln.Feature(name="reports_to", dtype=ln.Record).save()
     manages_feature = ln.Feature(
-        name="manages", dtype=list[ln.Record], values_from=reports_to_feature
+        name="manages", dtype=list[ln.Record], maps_to=reports_to_feature
     ).save()
     people_schema = ln.Schema(
         features=[
@@ -1171,7 +1165,7 @@ def test_record_feature_values_from_self_referential_relation():
     )
     with pytest.raises(
         ln.errors.ValidationError,
-        match="is configured with Feature\\(\\.\\.\\., values_from=\\.\\.\\.\\) and is read-only",
+        match="is configured with Feature\\(\\.\\.\\., maps_to=\\.\\.\\.\\) and is read-only",
     ):
         report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
 
@@ -1184,7 +1178,7 @@ def test_record_feature_values_from_self_referential_relation():
     manages_feature.delete(permanent=True)
 
 
-def test_record_feature_values_from_validation_no_symmetric_config():
+def test_record_feature_maps_to_validation_no_symmetric_config():
     source = ln.Feature(name="values-source", dtype=ln.Record).save()
     target = ln.Feature(name="values-target", dtype=list[ln.Record]).save()
     related = ln.Feature(name="values-related", dtype=list[ln.Record]).save()
@@ -1196,10 +1190,10 @@ def test_record_feature_values_from_validation_no_symmetric_config():
         AssertionError,
         match="cannot point to itself",
     ):
-        self_pointing.values_from = self_pointing
+        self_pointing.maps_to = self_pointing
         self_pointing.save()
 
-    target.values_from = source
+    target.maps_to = source
     target.save()
     assert source.related_feature.uid == target.uid
 
@@ -1207,18 +1201,18 @@ def test_record_feature_values_from_validation_no_symmetric_config():
         AssertionError,
         match="already related to another feature",
     ):
-        related.values_from = source
+        related.maps_to = source
         related.save()
 
     symmetric_a = ln.Feature(name="values-symmetric-a", dtype=list[ln.Record]).save()
     symmetric_b = ln.Feature(name="values-symmetric-b", dtype=list[ln.Record]).save()
-    symmetric_b.values_from = symmetric_a
+    symmetric_b.maps_to = symmetric_a
     symmetric_b.save()
     with pytest.raises(
         AssertionError,
-        match="already has a values_from relationship",
+        match="already has a maps_to relationship",
     ):
-        symmetric_a.values_from = symmetric_b
+        symmetric_a.maps_to = symmetric_b
         symmetric_a.save()
 
     symmetric_b.delete(permanent=True)
