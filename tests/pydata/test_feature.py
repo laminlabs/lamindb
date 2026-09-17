@@ -4,7 +4,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.errors import ValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models.feature import (
     _format_cat_filter_value,
     _split_filter_parts,
@@ -48,6 +48,9 @@ def test_feature_init():
     # categorical dtype must specify valid types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
+    # unknown keyword args should raise a field validation error
+    with pytest.raises(FieldValidationError):
+        ln.Feature(name="feat", dtype="str", not_a_valid_kwarg=True)
 
     # ensure feat1 does not exist
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:

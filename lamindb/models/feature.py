@@ -774,7 +774,7 @@ def resolve_relation_filters(
     return resolved
 
 
-def process_init_feature_param(args, kwargs):
+def process_init_feature_arguments(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -1273,7 +1273,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         else:
             coerce = kwargs.pop("coerce", None)
         values_from = kwargs.pop("values_from", None)
-        kwargs = process_init_feature_param(args, kwargs)
+        kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
