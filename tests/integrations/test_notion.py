@@ -2885,7 +2885,7 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
         )
 
     name_feature.with_config.assert_not_called()
-    assert summary_feature.maps_to == "description"
+    assert summary_feature.values_through == "description"
     summary_feature.save.assert_called()
     Schema.assert_called_once()
     schema_features = Schema.call_args.args[0]
@@ -2981,14 +2981,14 @@ def test_merge_aux_with_emoji_uses_frontend_convention(syncer):
     assert syncer._merge_aux_with_emoji({"ss": 1, "ei": "🦆"}, None) == {"ss": 1}
 
 
-def test_feature_dtype_for_files_maps_to_artifact_list(syncer):
+def test_feature_dtype_for_files_values_through_artifact_list(syncer):
     dtype = syncer._feature_dtype_from_notion_type("files")
     assert syncer._feature_dtype_label_from_notion_type("files") == "list[Artifact]"
     assert getattr(dtype, "__origin__", None) is list
     assert dtype.__args__[0] is ln.Artifact
 
 
-def test_feature_dtype_for_url_maps_to_lamindb_url(syncer):
+def test_feature_dtype_for_url_values_through_lamindb_url(syncer):
     dtype = syncer._feature_dtype_from_notion_type("url")
     assert syncer._feature_dtype_label_from_notion_type("url") == "url"
     assert dtype == "url"
@@ -3115,7 +3115,7 @@ def test_database_feature_plan_inferrs_multi_select_and_relation_semantics(synce
     assert resolve_record.called
 
 
-def test_plan_metadata_apply_sets_maps_to_on_existing_feature(syncer):
+def test_plan_metadata_apply_sets_values_through_on_existing_feature(syncer):
     report = SyncReport(apply=True)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()
@@ -3156,12 +3156,12 @@ def test_plan_metadata_apply_sets_maps_to_on_existing_feature(syncer):
             report=report,
         )
 
-    assert meetings_feature.maps_to == source_feature
+    assert meetings_feature.values_through == source_feature
     meetings_feature.save.assert_any_call()
     assert any("People / meetings" in detail for detail in report.updated_features)
 
 
-def test_plan_metadata_dry_run_reports_maps_to_update(syncer):
+def test_plan_metadata_dry_run_reports_values_through_update(syncer):
     report = SyncReport(apply=False)
     feature_plan = [("meetings", "list[Meetings]", list[ln.Record])]
     meetings_feature = MagicMock()
