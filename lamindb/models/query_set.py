@@ -288,19 +288,14 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
 
 
 def get(
-    registry_or_queryset: Registry | BasicQuerySet,
+    queryset: BasicQuerySet,
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    if isinstance(registry_or_queryset, BasicQuerySet):
-        # not QuerySet but only BasicQuerySet
-        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
-
-        qs = registry_or_queryset
-        registry = qs.model
-    else:
-        qs = BasicQuerySet(model=registry_or_queryset)
-        registry = registry_or_queryset
+    # QuerySet.get() always converts to BasicQuerySet before calling this
+    assert not isinstance(queryset, QuerySet)  # noqa: S101
+    qs = queryset
+    registry = qs.model
 
     if isinstance(idlike, int):
         return qs.get(id=idlike)
