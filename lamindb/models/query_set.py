@@ -834,9 +834,15 @@ def reshape_annotate_result(
         df_json = df_encoded
         if json_feature_id_col in df_encoded.columns:
             selected_feature_ids = set(feature_qs.values_list("id", flat=True))
-            df_json = df_encoded[
-                df_encoded[json_feature_id_col].isin(selected_feature_ids)
-            ]
+            selected_names = set(feature_qs.values_list("name", flat=True))
+            # Keep JSON for the selected feature IDs, and also JSON whose name
+            # was not requested (explicit `features=[...]` still surfaces other
+            # measured JSON columns). Drop JSON for a requested name whose
+            # feature_id lost implicit duplicate-name resolution.
+            has_feature_id = df_encoded[json_feature_id_col].notna()
+            keep_selected = df_encoded[json_feature_id_col].isin(selected_feature_ids)
+            keep_unrequested = ~df_encoded[feature_name_col].isin(selected_names)
+            df_json = df_encoded[has_feature_id & (keep_selected | keep_unrequested)]
         if not df_json.empty:
             # Separate dict and non-dict values for different aggregation strategies
             is_dict_or_list = df_json[feature_value_col].apply(
