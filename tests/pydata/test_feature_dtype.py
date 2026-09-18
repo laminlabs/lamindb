@@ -82,7 +82,19 @@ def test_serialize_record_objects():
     serialized_str = f"cat[Record[{sample_type.uid}]]"
     feature = ln.Feature(name="sample_feature", dtype=sample_type).save()
     assert feature._dtype_str == serialized_str
-    assert feature.dtype == "cat[Record[InstituteA[LabB[Sample]]]]"
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert feature.dtype == "cat[Record[InstituteA[LabB[Sample]]]]"
+    list_feature = ln.Feature(name="sample_features", dtype=list[sample_type]).save()
+    assert list_feature._dtype_str == f"list[{serialized_str}]"
+    with pytest.warns(
+        DeprecationWarning,
+        match="Use dtype_as_str instead of dtype",
+    ):
+        assert list_feature.dtype == "list[cat[Record[InstituteA[LabB[Sample]]]]]"
+    list_feature.delete(permanent=True)
     feature.delete(permanent=True)
     assert serialize_dtype(sample_type) == serialized_str
     sample = ln.Record(name="sample").save()
@@ -557,6 +569,33 @@ def test_cat_filters_conflicting_type_selectors():
     assert "Conflicting typed dtype and cat_filters type selector" in str(
         exc_info.value
     )
+    with pytest.raises(ValidationError) as exc_info:
+        ln.Feature(
+            name="test_feature_type_and_type_uid",
+            dtype=ln.Record,
+            cat_filters={
+                "type": first_record.uid,
+                "type__uid": second_record.uid,
+            },
+        )
+    assert "Conflicting type selectors in cat_filters: 'type' and 'type__uid'" in str(
+        exc_info.value
+    )
+    feature = ln.Feature(
+        name="test_feature_type_shorthand",
+        dtype=ln.Record,
+        cat_filters={"type": first_record.uid},
+    )
+    assert feature._dtype_str == f"cat[Record[{first_record.uid}]]"
+    agreeing = ln.Feature(
+        name="test_feature_type_and_type_uid_agree",
+        dtype=ln.Record,
+        cat_filters={
+            "type": first_record.uid,
+            "type__uid": first_record.uid,
+        },
+    )
+    assert agreeing._dtype_str == f"cat[Record[{first_record.uid}]]"
     first_record.delete(permanent=True)
     second_record.delete(permanent=True)
 

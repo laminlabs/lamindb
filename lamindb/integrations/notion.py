@@ -3554,7 +3554,15 @@ class _NotionSyncer:
 
         if apply and feature_type is not None and missing_specs:
             for name, _, dtype in missing_specs:
-                ln.Feature(name=name, dtype=dtype, type=feature_type).save()
+                mapped_field = record_field_mappings.get(name)
+                feature_kwargs: dict[str, Any] = {
+                    "name": name,
+                    "dtype": dtype,
+                    "type": feature_type,
+                }
+                if mapped_field is not None:
+                    feature_kwargs["values_through"] = mapped_field
+                ln.Feature(**feature_kwargs).save()
             logger.important(
                 f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
             )
@@ -3642,10 +3650,10 @@ class _NotionSyncer:
         if schema is not None:
             for feature_name, feature in features_by_name.items():
                 source_uid = None
-                values_from_feature = getattr(feature, "values_from", None)
-                values_from_uid = getattr(values_from_feature, "uid", None)
-                if isinstance(values_from_uid, str):
-                    source_uid = values_from_uid
+                values_through_feature = getattr(feature, "values_through", None)
+                values_through_uid = getattr(values_through_feature, "uid", None)
+                if isinstance(values_through_uid, str):
+                    source_uid = values_through_uid
                 else:
                     aux = getattr(feature, "_aux", None)
                     if isinstance(aux, dict):
@@ -3670,10 +3678,10 @@ class _NotionSyncer:
             if target_feature is None or not isinstance(source_uid, str):
                 continue
             existing_source_uid = None
-            existing_values_from = getattr(target_feature, "values_from", None)
-            existing_values_from_uid = getattr(existing_values_from, "uid", None)
-            if isinstance(existing_values_from_uid, str):
-                existing_source_uid = existing_values_from_uid
+            existing_values_through = getattr(target_feature, "values_through", None)
+            existing_values_through_uid = getattr(existing_values_through, "uid", None)
+            if isinstance(existing_values_through_uid, str):
+                existing_source_uid = existing_values_through_uid
             else:
                 target_aux = getattr(target_feature, "_aux", None)
                 if isinstance(target_aux, dict):
@@ -3705,7 +3713,7 @@ class _NotionSyncer:
         if apply:
             for target_feature_name, source_feature in backward_feature_updates.items():
                 target_feature = features_by_name[target_feature_name]
-                target_feature.values_from = source_feature
+                target_feature.values_through = source_feature
                 target_feature.save()
 
         if schema is None:
@@ -3729,10 +3737,13 @@ class _NotionSyncer:
                         # index feature is attached through the dedicated index field.
                         continue
                     mapped_field = record_field_mappings.get(feature.name)
-                    if mapped_field is None:
-                        schema_features.append(feature)
-                    else:
-                        schema_features.append(feature.with_config(field=mapped_field))
+                    if (
+                        mapped_field is not None
+                        and getattr(feature, "values_through", None) != mapped_field
+                    ):
+                        feature.values_through = mapped_field
+                        feature.save()
+                    schema_features.append(feature)
                 schema = ln.Schema(
                     schema_features,
                     name=db_name,
@@ -3750,22 +3761,17 @@ class _NotionSyncer:
                 else:
                     self._append_unique(report.update_schemas, db_name)
             if apply and record_field_mappings:
-                schema_record_fields = dict(schema._record_fields)
-                changed = False
                 for feature in features:
                     mapped_field = record_field_mappings.get(feature.name)
                     if mapped_field is None:
                         continue
-                    if schema_record_fields.get(feature.uid) != mapped_field:
-                        schema_record_fields[feature.uid] = mapped_field
-                        changed = True
-                if changed:
-                    schema._aux = schema._aux or {}
-                    schema._aux.setdefault("af", {})["2"] = schema_record_fields
-                    schema.save(update_fields=["_aux"])
-                    logger.important(
-                        f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
-                    )
+                    if getattr(feature, "values_through", None) != mapped_field:
+                        feature.values_through = mapped_field
+                        feature.save()
+                        logger.important(
+                            "notion sync metadata: set values_through="
+                            f"{mapped_field!r} on feature {feature.name!r}"
+                        )
         return feature_type, features, schema
 
     def _create_record_type(

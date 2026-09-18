@@ -184,6 +184,19 @@ def test_transform_versioning_based_on_revises():
     assert transform_v3.branch_id == -1
     transform_v3.delete(permanent=True)
 
+    # stem uid falls back to is_latest=False when the latest was hard-deleted
+    # on main and only a trashed previous version remains
+    leftover_v1 = ln.Transform(key="Introduction leftover").save()
+    leftover_v2 = ln.Transform(
+        revises=leftover_v1, key="Introduction leftover v2"
+    ).save()
+    leftover_v2.delete()
+    leftover_v1.delete(permanent=True)
+    leftover_v2.refresh_from_db()
+    assert not leftover_v2.is_latest
+    assert ln.Transform.get(leftover_v1.uid[:-4]) == leftover_v2
+    leftover_v2.delete(permanent=True)
+
 
 def test_transform_versioning_across_branches_preserves_main_latest():
     main_branch = ln.Branch.get(name="main")
@@ -219,6 +232,8 @@ def test_transform_versioning_across_branches_preserves_main_latest():
         assert not transform_v2.is_latest
         assert transform_v3.is_latest
         assert transform_v1.is_latest
+        fetched = ln.Transform.get(transform_v1.uid[:-4])
+        assert fetched in {transform_v1, transform_v3}
     finally:
         ln.setup.switch(main_branch.name)
         for uid in (transform_v1.uid[:-4],):
