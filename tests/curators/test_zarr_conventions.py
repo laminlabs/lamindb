@@ -12,8 +12,9 @@ RNG = np.random.default_rng(0)
 
 @pytest.fixture
 def schema() -> ln.Schema:
+    # otype is not hashed, so the suffix is what keeps this schema its own record
     return ln.Schema(
-        name="zarr_conventions", otype="SpatialData", itype="Feature"
+        name="zarr_conventions", otype="SpatialData", itype="Feature", suffix=".zarr"
     ).save()
 
 
