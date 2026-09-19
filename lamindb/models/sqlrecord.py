@@ -1389,6 +1389,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             using: Optional database slug for a target database that differs from the default database.
+            transfer: If this object was queried on another instance:
+                "sqlrecord" (default; alias "record" until v3) copies the row
+                and foreign keys only; "notes" also copies the latest readme;
+                "annotations" also copies M2M annotations. Schema still defaults
+                to "annotations" when transfer is omitted.
         """
         using = None
         if "using" in kwargs:
@@ -1404,17 +1409,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             ):
                 self.run = None
                 self.run_id = None
-        transfer_config = kwargs.pop("transfer", None)
+        transfer_config = normalize_transfer_config(
+            kwargs.pop("transfer", None),
+            default_annotations=self.__class__.__name__ == "Schema",
+        )
         db = self._state.db
         pk_on_db = self.pk
-        if (
-            self.__class__.__name__ == "Schema"
-            and transfer_config is None
-            and db is not None
-            and db != "default"
-            and using is None
-        ):
-            transfer_config = "annotations"
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
@@ -1629,12 +1629,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
+            if transfer_config in {"notes", "annotations"}:
+                transfer_notes(self, db, pk_on_db)
             if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
+            if (
+                self.__class__.__name__ in {"Record", "Run"}
+                and transfer_config == "annotations"
+            ):
+                transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
@@ -2624,6 +2631,149 @@ def get_transfer_run(record) -> Run:
         ).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
+
+
+TRANSFER_MODES = {"sqlrecord", "notes", "annotations"}
+
+
+def normalize_transfer_config(
+    transfer_config: str | None, *, default_annotations: bool = False
+) -> str:
+    """Map transfer= to sqlrecord | notes | annotations.
+
+    ``transfer="record"`` is kept as an alias for ``sqlrecord`` until LaminDB v3.
+    Schema still defaults to ``annotations`` when ``transfer`` is omitted.
+    """
+    if transfer_config is None:
+        return "annotations" if default_annotations else "sqlrecord"
+    if transfer_config == "record":
+        logger.warning(
+            "transfer='record' is deprecated; use transfer='sqlrecord'. "
+            "The alias will be removed in LaminDB v3."
+        )
+        return "sqlrecord"
+    if transfer_config not in TRANSFER_MODES:
+        raise ValueError(
+            "transfer should be one of 'sqlrecord', 'notes', 'annotations' "
+            f"(or deprecated 'record'), not {transfer_config!r}"
+        )
+    return transfer_config
+
+
+def transfer_notes(record_on_default, source_db, source_pk) -> None:
+    """Copy the latest readme block from the source SQLRecord."""
+    if source_pk is None or not hasattr(record_on_default, "ablocks"):
+        return
+    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    if not hasattr(source, "ablocks"):
+        return
+    src_block = source.ablocks.filter(kind="readme", is_latest=True).first()
+    if src_block is None or not src_block.content:
+        return
+    existing = record_on_default.ablocks.filter(kind="readme", is_latest=True).first()
+    if existing is not None and existing.content == src_block.content:
+        return
+    fk_name = record_on_default.__class__.__name__.lower()
+    record_on_default.ablocks.model(
+        **{fk_name: record_on_default, "kind": "readme", "content": src_block.content}
+    ).save()
+
+
+def transfer_record_feature_values(
+    record_on_default, source_db, source_pk, using, transfer_logs
+):
+    from copy import copy
+
+    from .feature import Feature, parse_dtype
+
+    if source_pk is None:
+        return
+    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    values = source.features.get_values()
+    if not values:
+        return
+
+    def _transfer_entity(value):
+        if type(value).__name__ == "User":
+            # Same as created_by: do not create Users on the target; remap to
+            # the person running the transfer. Return the handle string so
+            # _add_values can validate it (User is BaseSQLRecord, not SQLRecord).
+            current = type(value).filter(id=ln_setup.settings.user.id).one()
+            if getattr(value, "handle", None) != current.handle:
+                logger.info(
+                    f"mapping User {value.handle!r} → {current.handle!r} (current user)"
+                )
+            return current.handle
+        return value.save(transfer="annotations")
+
+    def _prepare(value, feature=None):
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [
+                prepared
+                for v in value
+                if (prepared := _prepare(v, feature)) is not None
+            ]
+        if isinstance(value, (SQLRecord, BaseSQLRecord)) and value._state.db not in (
+            None,
+            "default",
+        ):
+            return _transfer_entity(value)
+        if feature is None or not isinstance(value, str):
+            return value
+        dtype = feature._dtype_str or ""
+        if not (dtype.startswith("cat") or dtype.startswith("list[cat")):
+            return value
+        try:
+            parsed = parse_dtype(dtype)[0]
+        except Exception:
+            return value
+        registry = parsed["registry"]
+        field = parsed["field_str"]
+        src_obj = registry.objects.using(source_db).filter(**{field: value}).first()
+        if src_obj is None and field != "name" and hasattr(registry, "name"):
+            src_obj = registry.objects.using(source_db).filter(name=value).first()
+        if src_obj is not None:
+            return _transfer_entity(src_obj)
+        return registry.filter(**{field: value}).first() or value
+
+    prepared = {}
+    feature_objects = []
+    for key, value in values.items():
+        src_feature = Feature.objects.using(source_db).filter(name=key).first()
+        if src_feature is not None:
+            transfer_to_default_db(
+                copy(src_feature), using, save=True, transfer_logs=transfer_logs
+            )
+        local_feature = Feature.filter(name=key).first()
+        dtype = getattr(local_feature, "_dtype_str", "") or ""
+        if local_feature is not None and (
+            dtype.startswith("cat") or dtype.startswith("list[cat")
+        ):
+            try:
+                parse_dtype(dtype)
+            except Exception:
+                logger.warning(
+                    f"skipping feature {key!r} ({dtype}) during transfer: "
+                    "the target instance does not have the required schema module loaded "
+                    "(e.g. run: lamin settings modules set bionty)"
+                )
+                continue
+        prepared[key] = _prepare(value, local_feature)
+        if local_feature is not None:
+            feature_objects.append(local_feature)
+
+    if not prepared:
+        return
+    # Do not run ExperimentalDictCurator: source values are already valid, and
+    # the target session may not have every module (e.g. bionty) imported.
+    # set so _add_values can `del` it (normal set_values always sets this attr)
+    record_on_default._mapped_feature_update_fields = set()
+    record_on_default.features._remove_values()
+    record_on_default.features._add_values(feature_objects, prepared)
 
 
 def transfer_to_default_db(
