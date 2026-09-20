@@ -1,3 +1,3 @@
 # Access public ontologies
 
-<!-- see lamin-usecases/docs for the production source -->
+<!-- see bionty/docs for the production source -->
