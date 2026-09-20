@@ -50,28 +50,6 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
-    if len(data) > 0:
-        if isinstance(data[0], dict):
-            keys = list(data[0].keys())
-        else:
-            keys = list(data[0].__dict__.keys())
-            if "_state" in keys:
-                keys.remove("_state")
-    else:
-        keys = [
-            field.name
-            for field in registry._meta.fields
-            if not isinstance(field, models.ForeignKey)
-        ]
-        keys += [
-            f"{field.name}_id"
-            for field in registry._meta.fields
-            if isinstance(field, models.ForeignKey)
-        ]
-    return keys
-
-
 def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
     """Return branch IDs to include in default queries.
 
@@ -173,8 +151,6 @@ def map_query_kwargs(queryset, expressions):
         status_mapping = PROJECT_STATUS_TO_CODE
 
     def _map_status_value(value):
-        if status_mapping is None:
-            return value
         if isinstance(value, str):
             if value not in status_mapping:
                 expected = ", ".join(f"'{status}'" for status in status_mapping)
@@ -261,7 +237,8 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     if key in branch_fields or key.startswith(branch_prefixes):
                         return True
                 elif isinstance(child, Q):
-                    # Nested Q object
+                    # Q(branch=...) | Q(key=...) stores nested Q children; skip
+                    # that and the default branch_id filter would hide other branches
                     if check_q_object(child):
                         return True
             return False
@@ -311,19 +288,14 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
 
 
 def get(
-    registry_or_queryset: Registry | BasicQuerySet,
+    queryset: BasicQuerySet,
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    if isinstance(registry_or_queryset, BasicQuerySet):
-        # not QuerySet but only BasicQuerySet
-        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
-
-        qs = registry_or_queryset
-        registry = qs.model
-    else:
-        qs = BasicQuerySet(model=registry_or_queryset)
-        registry = registry_or_queryset
+    # QuerySet.get() always converts to BasicQuerySet before calling this
+    assert not isinstance(queryset, QuerySet)
+    qs = queryset
+    registry = qs.model
 
     if isinstance(idlike, int):
         return qs.get(id=idlike)
@@ -353,7 +325,7 @@ def get(
             qs = qs.filter(uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
-        assert idlike is None  # noqa: S101
+        assert idlike is None
         expressions = process_expressions(qs, [], expressions)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
@@ -383,7 +355,9 @@ class SQLRecordList(UserList, Generic[T]):
     def to_dataframe(self) -> pd.DataFrame:
         import pandas as pd
 
-        keys = get_keys_from_df(self.data, self.data[0].__class__)
+        if not self.data:
+            return pd.DataFrame()
+        keys = [key for key in self.data[0].__dict__ if key != "_state"]
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
@@ -493,10 +467,9 @@ def get_feature_annotate_kwargs(
     )
     from lamindb.models.feature import parse_dtype
 
-    if registry not in {Artifact, Record, Run}:
-        raise ValueError(
-            f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
-        )
+    assert registry in {Artifact, Record, Run}, (
+        f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
+    )
 
     feature_ids = []
     if features == "queryset":
@@ -513,14 +486,7 @@ def get_feature_annotate_kwargs(
                 continue
             filter_field = registry.__name__.lower()
             if not hasattr(link_model, filter_field):
-                potential_fields = []
-                for field in link_model._meta.get_fields():
-                    if field.is_relation and field.related_model is registry:
-                        potential_fields.append(field.name)
-                if len(potential_fields) == 1:
-                    filter_field = potential_fields[0]
-                else:
-                    continue
+                continue
             links = link_model.objects.using(qs.db).filter(
                 **{filter_field + "_id__in": ids_list}
             )
@@ -559,10 +525,9 @@ def get_feature_annotate_kwargs(
             logger.warning(
                 f"found features and passed features differ:\n - passed: {explicit_feature_names}\n - found: {feature_qs.to_list('name')}"
             )
-    elif features == "queryset":
-        feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
-        feature_qs = feature_qs.none()
+        assert features == "queryset"
+        feature_qs = feature_qs.filter(id__in=feature_ids)
 
     # Duplicate feature names map to ambiguous dataframe columns.
     # - for explicit user-provided lists, fail fast and ask for disambiguation
@@ -717,6 +682,9 @@ def get_feature_annotate_kwargs(
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
+    annotate_kwargs[f"{json_values_attribute}__feature_id"] = F(
+        f"{json_values_attribute}__feature_id"
+    )
     annotate_kwargs[f"{json_values_attribute}__value"] = F(
         f"{json_values_attribute}__value"
     )
@@ -724,7 +692,6 @@ def get_feature_annotate_kwargs(
     return annotate_kwargs, feature_qs, filtered_relations
 
 
-# https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
 def analyze_lookup_cardinality(
     model_class: SQLRecord, lookup_paths: list[str] | None
 ) -> dict[str, str]:
@@ -807,7 +774,6 @@ def encode_lamindb_fields_as_columns(
 
 
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
-# https://claude.ai/chat/6ea2498c-944d-4e7a-af08-29e5ddf637d2
 def reshape_annotate_result(
     registry: Registry,
     df: pd.DataFrame,
@@ -864,33 +830,47 @@ def reshape_annotate_result(
     feature_value_col = f"{json_values_attribute}__value"
 
     if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
-        # Separate dict and non-dict values for different aggregation strategies
-        is_dict_or_list = df_encoded[feature_value_col].apply(
-            lambda x: isinstance(x, (dict, list))
-        )
-        dict_or_list_df = df_encoded[is_dict_or_list]
-        non_dict_or_list_df = df_encoded[~is_dict_or_list]
-
-        # Aggregate: sets for non-dict values, first for dict values
-        groupby_cols = [pk_name_encoded, feature_name_col]
-        non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
-            feature_value_col
-        ].agg(set)
-        dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
-            feature_value_col
-        ].agg("first")
-
-        # Combine and pivot to wide format
-        combined_features = pd.concat(
-            [non_dict_or_list_features, dict_or_list_features]
-        )
-        feature_values = combined_features.unstack().reset_index()
-
-        if not feature_values.empty:
-            result_encoded = result_encoded.join(
-                feature_values.set_index(pk_name_encoded),
-                on=pk_name_encoded,
+        json_feature_id_col = f"{json_values_attribute}__feature_id"
+        df_json = df_encoded
+        if json_feature_id_col in df_encoded.columns:
+            selected_feature_ids = set(feature_qs.values_list("id", flat=True))
+            selected_names = set(feature_qs.values_list("name", flat=True))
+            # Keep JSON for the selected feature IDs, and also JSON whose name
+            # was not requested (explicit `features=[...]` still surfaces other
+            # measured JSON columns). Drop JSON for a requested name whose
+            # feature_id lost implicit duplicate-name resolution.
+            has_feature_id = df_encoded[json_feature_id_col].notna()
+            keep_selected = df_encoded[json_feature_id_col].isin(selected_feature_ids)
+            keep_unrequested = ~df_encoded[feature_name_col].isin(selected_names)
+            df_json = df_encoded[has_feature_id & (keep_selected | keep_unrequested)]
+        if not df_json.empty:
+            # Separate dict and non-dict values for different aggregation strategies
+            is_dict_or_list = df_json[feature_value_col].apply(
+                lambda x: isinstance(x, (dict, list))
             )
+            dict_or_list_df = df_json[is_dict_or_list]
+            non_dict_or_list_df = df_json[~is_dict_or_list]
+
+            # Aggregate: sets for non-dict values, first for dict values
+            groupby_cols = [pk_name_encoded, feature_name_col]
+            non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
+                feature_value_col
+            ].agg(set)
+            dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
+                feature_value_col
+            ].agg("first")
+
+            # Combine and pivot to wide format
+            combined_features = pd.concat(
+                [non_dict_or_list_features, dict_or_list_features]
+            )
+            feature_values = combined_features.unstack().reset_index()
+
+            if not feature_values.empty:
+                result_encoded = result_encoded.join(
+                    feature_values.set_index(pk_name_encoded),
+                    on=pk_name_encoded,
+                )
 
     # --- Process categorical/linked features ---
     links_prefix = "links_" if registry in {Artifact, Run} else ("links_", "values_")
@@ -986,6 +966,11 @@ def reshape_annotate_result(
         if dtype_str == "dict":
             # this is the case when a dict is stored as a string; won't happen
             # within lamindb but might for external data
+            first = result_encoded[feature.name].iloc[0]
+            if isinstance(first, set) and len(first) == 1:
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: next(iter(x)) if isinstance(x, set) and len(x) == 1 else x
+                )
             if isinstance(result_encoded[feature.name].iloc[0], str):
                 result_encoded[feature.name] = result_encoded[feature.name].apply(
                     lambda x: ast.literal_eval(x) if isinstance(x, str) else x
@@ -1078,8 +1063,6 @@ def process_cols_from_include(
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
     for col, col_type in extra_columns.items():
-        if col not in df.columns:
-            continue
         if col in result.columns:
             continue
 

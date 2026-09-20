@@ -3459,6 +3459,9 @@ class _NotionSyncer:
                 self._append_unique(report.create_feature_types, db_name)
 
         feature_names = [name for name, _, _ in feature_plan]
+        feature_plan_by_name = {
+            name: (dtype_label, dtype) for name, dtype_label, dtype in feature_plan
+        }
         schema_members: list[Any] = []
         schema_members_by_name: dict[str, Any] = {}
         if schema is not None:
@@ -3551,7 +3554,15 @@ class _NotionSyncer:
 
         if apply and feature_type is not None and missing_specs:
             for name, _, dtype in missing_specs:
-                ln.Feature(name=name, dtype=dtype, type=feature_type).save()
+                mapped_field = record_field_mappings.get(name)
+                feature_kwargs: dict[str, Any] = {
+                    "name": name,
+                    "dtype": dtype,
+                    "type": feature_type,
+                }
+                if mapped_field is not None:
+                    feature_kwargs["values_through"] = mapped_field
+                ln.Feature(**feature_kwargs).save()
             logger.important(
                 f"notion sync metadata: created {len(missing_specs)} features for {db_name!r}"
             )
@@ -3637,13 +3648,21 @@ class _NotionSyncer:
         features_by_name = {feature.name: feature for feature in features}
         locked_feature_names: set[str] = set()
         if schema is not None:
-            existing_backward_uids = dict(schema._backward_feature_uids)
-            locked_feature_names = {
-                feature_name
-                for feature_name, feature in features_by_name.items()
-                if isinstance(getattr(feature, "uid", None), str)
-                and feature.uid in existing_backward_uids
-            }
+            for feature_name, feature in features_by_name.items():
+                source_uid = None
+                values_through_feature = getattr(feature, "values_through", None)
+                values_through_uid = getattr(values_through_feature, "uid", None)
+                if isinstance(values_through_uid, str):
+                    source_uid = values_through_uid
+                else:
+                    aux = getattr(feature, "_aux", None)
+                    if isinstance(aux, dict):
+                        aux_source_uid = aux.get("vf")
+                        if isinstance(aux_source_uid, str):
+                            source_uid = aux_source_uid
+                if source_uid is not None:
+                    locked_feature_names.add(feature_name)
+
         backward_features_by_name: dict[str, Any] = {}
         if schema_spec:
             backward_features_by_name = self._infer_notion_backward_relation_features(
@@ -3652,6 +3671,51 @@ class _NotionSyncer:
                 current_type_name=db_name,
                 locked_feature_names=locked_feature_names,
             )
+        backward_feature_updates: dict[str, Any] = {}
+        for target_feature_name, source_feature in backward_features_by_name.items():
+            target_feature = features_by_name.get(target_feature_name)
+            source_uid = getattr(source_feature, "uid", None)
+            if target_feature is None or not isinstance(source_uid, str):
+                continue
+            existing_source_uid = None
+            existing_values_through = getattr(target_feature, "values_through", None)
+            existing_values_through_uid = getattr(existing_values_through, "uid", None)
+            if isinstance(existing_values_through_uid, str):
+                existing_source_uid = existing_values_through_uid
+            else:
+                target_aux = getattr(target_feature, "_aux", None)
+                if isinstance(target_aux, dict):
+                    aux_source_uid = target_aux.get("vf")
+                    if isinstance(aux_source_uid, str):
+                        existing_source_uid = aux_source_uid
+            if existing_source_uid != source_uid:
+                backward_feature_updates[target_feature_name] = source_feature
+
+        if backward_feature_updates:
+            for target_feature_name in sorted(backward_feature_updates):
+                target_feature = features_by_name[target_feature_name]
+                dtype_label, dtype = feature_plan_by_name.get(
+                    target_feature.name,
+                    (str(getattr(target_feature, "dtype_as_str", "unknown")), str),
+                )
+                detail = self._feature_plan_detail(
+                    db_name,
+                    target_feature.name,
+                    dtype_label,
+                    dtype,
+                    record_field_mappings,
+                    index_feature_name=index_feature_name,
+                )
+                if apply:
+                    self._append_unique(report.updated_features, detail)
+                else:
+                    self._append_unique(report.update_features, detail)
+        if apply:
+            for target_feature_name, source_feature in backward_feature_updates.items():
+                target_feature = features_by_name[target_feature_name]
+                target_feature.values_through = source_feature
+                target_feature.save()
+
         if schema is None:
             if apply:
                 index_feature = next(
@@ -3673,19 +3737,13 @@ class _NotionSyncer:
                         # index feature is attached through the dedicated index field.
                         continue
                     mapped_field = record_field_mappings.get(feature.name)
-                    backward_source_feature = backward_features_by_name.get(
-                        feature.name
-                    )
-                    if backward_source_feature is not None:
-                        schema_features.append(
-                            feature.with_config(
-                                field=mapped_field, backward=backward_source_feature
-                            )
-                        )
-                    elif mapped_field is None:
-                        schema_features.append(feature)
-                    else:
-                        schema_features.append(feature.with_config(field=mapped_field))
+                    if (
+                        mapped_field is not None
+                        and getattr(feature, "values_through", None) != mapped_field
+                    ):
+                        feature.values_through = mapped_field
+                        feature.save()
+                    schema_features.append(feature)
                 schema = ln.Schema(
                     schema_features,
                     name=db_name,
@@ -3702,58 +3760,18 @@ class _NotionSyncer:
                     self._append_unique(report.updated_schemas, db_name)
                 else:
                     self._append_unique(report.update_schemas, db_name)
-            existing_backward_uids = dict(schema._backward_feature_uids)
-            inferred_backward_uids: dict[str, str] = {}
-            for (
-                target_feature_name,
-                source_feature,
-            ) in backward_features_by_name.items():
-                target_feature = features_by_name.get(target_feature_name)
-                source_uid = getattr(source_feature, "uid", None)
-                if target_feature is None or not isinstance(source_uid, str):
-                    continue
-                inferred_backward_uids[target_feature.uid] = source_uid
-            backward_mapping_needed = any(
-                existing_backward_uids.get(target_uid) != source_uid
-                for target_uid, source_uid in inferred_backward_uids.items()
-            )
-            logger.important(
-                "backward relation: schema backward-eval "
-                f"db={db_name!r} inferred_backward_uids={inferred_backward_uids!r} "
-                f"existing_backward_uids={existing_backward_uids!r} "
-                f"needed={backward_mapping_needed}"
-            )
-            if backward_mapping_needed:
-                if apply:
-                    self._append_unique(report.updated_schemas, db_name)
-                else:
-                    self._append_unique(report.update_schemas, db_name)
             if apply and record_field_mappings:
-                schema_record_fields = dict(schema._record_fields)
-                changed = False
                 for feature in features:
                     mapped_field = record_field_mappings.get(feature.name)
                     if mapped_field is None:
                         continue
-                    if schema_record_fields.get(feature.uid) != mapped_field:
-                        schema_record_fields[feature.uid] = mapped_field
-                        changed = True
-                if changed:
-                    schema._aux = schema._aux or {}
-                    schema._aux.setdefault("af", {})["2"] = schema_record_fields
-                    schema.save(update_fields=["_aux"])
-                    logger.important(
-                        f"notion sync metadata: updated record-field mappings for schema {db_name!r}"
-                    )
-            if apply and backward_mapping_needed:
-                backward_mappings = dict(schema._backward_feature_uids)
-                backward_mappings.update(inferred_backward_uids)
-                schema._backward_feature_uids = backward_mappings
-                schema.save(update_fields=["_aux"])
-                logger.important(
-                    "notion sync metadata: updated backward relation mapping "
-                    f"for schema {db_name!r}"
-                )
+                    if getattr(feature, "values_through", None) != mapped_field:
+                        feature.values_through = mapped_field
+                        feature.save()
+                        logger.important(
+                            "notion sync metadata: set values_through="
+                            f"{mapped_field!r} on feature {feature.name!r}"
+                        )
         return feature_type, features, schema
 
     def _create_record_type(
@@ -3898,7 +3916,7 @@ class _NotionSyncer:
                 if spec.get("type") == "relation"
             }
             logger.important(
-                "backward relation: loaded schema spec "
+                "relation sync: loaded schema spec "
                 f"db={db_name!r} relation_props={relation_debug}"
             )
             columns = {k: v["type"] for k, v in schema_spec.items()}
@@ -3958,7 +3976,7 @@ class _NotionSyncer:
             if spec.get("type") == "relation"
         }
         logger.important(
-            "backward relation: loaded schema spec "
+            "relation sync: loaded schema spec "
             f"db={db_name!r} relation_props={relation_debug}"
         )
         columns = {k: v["type"] for k, v in schema_spec.items()}

@@ -683,13 +683,57 @@ def get_features_data(
             }
         else:
             return dictionary
-    else:
-        return (
-            internal_feature_labels,
-            feature_data,
-            schema_data,
-            internal_feature_names,
-            external_data,
+    if self.__class__.__name__ == "Record":
+        _append_values_through_describe_rows(
+            self, external_data, internal_feature_labels
+        )
+    return (
+        internal_feature_labels,
+        feature_data,
+        schema_data,
+        internal_feature_names,
+        external_data,
+    )
+
+
+def _append_values_through_describe_rows(
+    record: Record,
+    external_data: list,
+    internal_feature_labels: dict,
+) -> None:
+    """Add `values_through` features to describe rows.
+
+    `get_values()` already calls `inject_index_into_feature_dict` for both reverse
+    relations and Record-field mappings. Describe used the same `get_features_data`
+    function but skipped that injection.
+    """
+    from .record import inject_index_into_feature_dict, load_values_through_features
+
+    derived: dict[str, Any] = {}
+    inject_index_into_feature_dict(record, derived)
+    already = {row[0] for row in external_data} | set(internal_feature_labels)
+    features_by_name = {
+        feature.name: feature
+        for feature in load_values_through_features(using=record._state.db)
+    }
+    for name, value in derived.items():
+        if name in already or name not in features_by_name:
+            continue
+        if value is None or value == [] or value == set():
+            continue
+        feature = features_by_name[name]
+        display_dtype = format_dtype_for_display(feature._dtype_str or "")
+        printed_values = (
+            _format_values(sorted(value), n=10, quotes=False)
+            if isinstance(value, set)
+            else str(value)
+        )
+        external_data.append(
+            (
+                name,
+                Text(strip_cat(display_dtype), style="dim"),
+                printed_values,
+            )
         )
 
 
@@ -1238,6 +1282,32 @@ class FeatureManager:
         feature_records = list(Feature.objects.using(host_db).filter(name=feature))
         if not feature_records:
             raise ValidationError(f"Feature with name {feature} not found")
+
+        if host_name == "Record":
+            from .record import (
+                _feature_value_from_backward_record_links,
+                _feature_value_from_mapped_record_field,
+                get_feature_sqlrecord_field,
+                get_feature_values_through_source_uid,
+            )
+
+            for feature_record in feature_records:
+                field_name = get_feature_sqlrecord_field(feature_record)
+                if field_name is not None:
+                    value = _feature_value_from_mapped_record_field(
+                        self._host, feature_record, field_name
+                    )
+                    if value is not None:
+                        return value
+                elif (
+                    source_uid := get_feature_values_through_source_uid(feature_record)
+                ) is not None:
+                    source_feature = Feature.objects.using(host_db).get(uid=source_uid)
+                    value = _feature_value_from_backward_record_links(
+                        self._host, feature_record, source_feature
+                    )
+                    if value is not None:
+                        return value
 
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
@@ -1826,14 +1896,8 @@ class FeatureManager:
             using=self._host._state.db,
         ).validate()
         if host_is_record:
-            from .record import (
-                schema_has_record_mapped_features,
-                strip_index_for_record_persistence,
-            )
+            from .record import strip_index_for_record_persistence
 
-        if host_is_record and (
-            schema.index is not None or schema_has_record_mapped_features(schema)
-        ):
             dictionary, feature_objects = strip_index_for_record_persistence(
                 self._host,
                 schema,
@@ -2075,22 +2139,6 @@ class FeatureManager:
                     "These feature keys are not in the provided schema: "
                     f"{features_not_in_schema}"
                 )
-            if host_is_record:
-                from .record import (
-                    schema_has_record_mapped_features,
-                    strip_index_for_record_persistence,
-                )
-
-            if host_is_record and (
-                schema.index is not None or schema_has_record_mapped_features(schema)
-            ):
-                dictionary, feature_objects = strip_index_for_record_persistence(
-                    self._host,
-                    schema,
-                    dictionary,
-                    feature_objects,
-                    values_by_feature_uid=values_by_feature_uid,
-                )
         else:
             if string_key_values:
                 looked_up_features = self._get_feature_objects(
@@ -2105,6 +2153,16 @@ class FeatureManager:
                 feature_objects,
                 dictionary,
                 values_by_feature_uid,
+            )
+        if host_is_record:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                self._host,
+                schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
             )
         self._remove_values()
         self._add_values(
@@ -2569,22 +2627,16 @@ def bulk_set_features_in_records(
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        from .record import (
-            schema_has_record_mapped_features,
-            strip_index_for_record_persistence,
-        )
+        from .record import strip_index_for_record_persistence
 
-        if batch_schema_index is not None or schema_has_record_mapped_features(
-            batch_schema
-        ):
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                record,
-                batch_schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
-                index_feature=batch_schema_index,
-            )
+        dictionary, feature_objects = strip_index_for_record_persistence(
+            record,
+            batch_schema,
+            dictionary,
+            feature_objects,
+            values_by_feature_uid=values_by_feature_uid,
+            index_feature=batch_schema_index,
+        )
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import importlib
 import warnings
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError as DjangoIntegrityError
@@ -27,7 +28,13 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr, Unset
+from lamindb.base.types import (
+    FieldAttr,
+    SimpleDtype,
+    SimpleDtypeStr,
+    SQLRecordFieldName,
+    Unset,
+)
 from lamindb.errors import (
     FieldValidationError,
     InvalidArgument,
@@ -71,17 +78,6 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
-AllowedFields = Literal[
-    "created_at",
-    "created_by",
-    "updated_at",
-    "reference",
-    "reference_type",
-    "run",
-    "type",
-    "name",
-    "description",
-]
 
 
 @dataclass(frozen=True)
@@ -401,8 +397,7 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
                 closing_bracket_pos = i
                 break
 
-    if closing_bracket_pos == -1:
-        raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
+    assert closing_bracket_pos != -1, f"Unmatched brackets in dtype string: {dtype_str}"
 
     # Extract content between brackets
     bracket_content = dtype_str[first_bracket + 1 : closing_bracket_pos]
@@ -529,10 +524,9 @@ def serialize_dtype(
                 )
             dtype_str = ""
             for one_dtype in dtype:
-                if not isinstance(
+                assert isinstance(
                     one_dtype, (Registry, DeferredAttribute, ULabel, Record)
-                ):
-                    raise ValueError(error_message.format(one_dtype))
+                ), error_message.format(one_dtype)
                 if isinstance(one_dtype, Registry):
                     dtype_str += one_dtype.__get_name_with_module__() + "|"
                 elif isinstance(one_dtype, (ULabel, Record)):
@@ -670,16 +664,14 @@ def _strip_matching_quotes(value: str) -> str:
 
     quote_char = trimmed[0]
     if quote_char in ("'", '"'):
-        if len(trimmed) < 2 or not trimmed.endswith(quote_char):
-            raise ValueError(
-                f"Invalid filter expression value: '{value}' (mismatched quotes)"
-            )
-        return trimmed[1:-1]
-
-    if trimmed.endswith("'") or trimmed.endswith('"'):
-        raise ValueError(
+        assert len(trimmed) >= 2 and trimmed.endswith(quote_char), (
             f"Invalid filter expression value: '{value}' (mismatched quotes)"
         )
+        return trimmed[1:-1]
+
+    assert not (trimmed.endswith("'") or trimmed.endswith('"')), (
+        f"Invalid filter expression value: '{value}' (mismatched quotes)"
+    )
 
     return trimmed
 
@@ -778,7 +770,7 @@ def resolve_relation_filters(
     return resolved
 
 
-def process_init_feature_param(args, kwargs):
+def process_init_feature_arguments(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -878,7 +870,11 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, SQLRecord | bool | str] | None = None` Subset a registry by additional filters to define valid categories.
+        cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
+        values_through: `Feature | SQLRecordFieldName | None = None` Source of values
+            for this feature. Pass a related :class:`~lamindb.Feature` to load values from the backward relationship.
+            Pass a :class:`~lamindb.base.types.SQLRecordFieldName` to store values
+            in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
 
@@ -996,6 +992,22 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
         ).save()
 
+    Define a feature that draws its values from a related feature::
+
+        author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
+        books = ln.Feature(
+            name="books",
+            dtype=list[ln.Record.get(name="Books")],
+            values_through=author,
+        ).save()
+        # book.author  <-- the author of the book
+        # author.books <-- the books written by the author (reverse relation of Book.author)
+
+    Store values on a :class:`~lamindb.Record` field::
+
+        ln.Feature(name="created_at", dtype=datetime, values_through="created_at").save()
+        ln.Feature(name="external_id", dtype=str, values_through="reference").save()
+
     Notes
     -----
 
@@ -1049,6 +1061,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     See :mod:`~lamindb.base.dtypes`.
 
     """
+
+    # Anticipated `_aux` keys:
+    #   vf: values_feature_uid (str) — UID of feature that provides values through the backward relationship
+    #   rf: related_feature_uid (str) — UID of the related feature that draws its values from the current feature
+    #   sf: sqlrecord_field (SQLRecordFieldName) — concrete SQLRecord field (currently only supports Record)
+    #   ss: single_space (int | str) — type single-space policy
+    #   renamed: dict — name-change history from update_feature_on_name_change
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
@@ -1230,6 +1249,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+        values_through: Feature | SQLRecordFieldName | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
     ): ...
@@ -1273,7 +1293,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             coerce = kwargs.pop("coerce_dtype")
         else:
             coerce = kwargs.pop("coerce", None)
-        kwargs = process_init_feature_param(args, kwargs)
+        values_through = kwargs.pop("values_through", None)
+        kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
@@ -1381,6 +1402,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
+        # validation happens in save()
+        self._values_through_input = values_through
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1471,8 +1494,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
-        if registry != Feature:
-            raise ValueError("field must be a Feature FieldAttr!")
+        assert registry == Feature, "field must be a Feature FieldAttr!"
 
         categoricals = categoricals_from_df(df)
         dtypes: dict[str, type | SQLRecord | FieldAttr] = {}
@@ -1483,18 +1505,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 dtype_str = serialize_pandas_dtype(col.dtype)
                 dtypes[name] = dtype_as_object(dtype_str)
 
-        if mute:
-            original_verbosity = logger._verbosity
-            logger.set_verbosity(0)
-        try:
+        with logger.mute() if mute else nullcontext():
             features = [
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
             assert len(features) == len(df.columns)  # noqa: S101
             return SQLRecordList(features)
-        finally:
-            if mute:
-                logger.set_verbosity(original_verbosity)
 
     @classmethod
     @deprecated("from_dataframe")
@@ -1536,51 +1552,239 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 dtype = "list[str]"
             dtypes[key] = dtype
 
-        if mute:
-            original_verbosity = logger._verbosity
-            logger.set_verbosity(0)
-        try:
+        with logger.mute() if mute else nullcontext():
             features = [
                 Feature(name=key, dtype=dtype, type=type)
                 for key, dtype in dtypes.items()
             ]  # type: ignore
             assert len(features) == len(dictionary)  # noqa: S101
             return SQLRecordList(features)
-        finally:
-            if mute:
-                logger.set_verbosity(original_verbosity)
 
     def save(self, *args, **kwargs) -> Feature:
-        """Save the feature to the instance."""
-        super().save(*args, **kwargs)
+        """Save the feature in the database."""
+        # distinguish between explicit None and UNSET
+        # if the user wants to clear the values_through relationship, they can pass None
+        # via the Feature.values_through setter
+        values_through_input: Feature | SQLRecordFieldName | None | Unset = getattr(
+            self, "_values_through_input", UNSET
+        )
+        with transaction.atomic(using=self._state.db):
+            if not isinstance(values_through_input, Unset):
+                self._apply_values_through_input(values_through_input)
+            super().save(*args, **kwargs)
         return self
 
     def with_config(
         self,
         optional: bool | None = None,
-        field: AllowedFields | None = None,
-        backward: Feature | None = None,
-    ) -> tuple[Feature, dict[str, bool | AllowedFields | Feature]]:
+    ) -> tuple[Feature, dict[str, bool]]:
         """Pass additional configuration to :class:`~lamindb.Schema`.
 
         Args:
             optional: Whether this feature is optional in a schema.
-            field: For record schemas, map this feature to a concrete
-                :class:`~lamindb.Record` field,
-                so values are stored on the record model rather than in feature
-                link tables. For record schemas, :attr:`~lamindb.Schema.index`
-                automatically targets :attr:`~lamindb.Record.name`.
-            backward: For record schemas, mark this feature as derived from the
-                reverse links of another feature on a related sheet.
         """
-        config: dict[str, bool | AllowedFields | Feature] = {}
+        config: dict[str, bool] = {}
         if optional is not None:
             config["optional"] = optional
-        if field is not None:
-            config["field"] = field
-        if backward is not None:
-            config["backward"] = backward
         return self, config
+
+    def _validate_values_through(self, values_through: Feature) -> None:
+        assert isinstance(values_through, Feature), (
+            "Feature(..., values_through=...) expects a Feature object"
+        )
+        assert self.uid != values_through.uid, (
+            "Feature(..., values_through=...) cannot point to itself"
+        )
+        assert not values_through._state.adding, (
+            "Feature(..., values_through=...) requires a saved Feature object"
+        )
+        assert (
+            values_through.related_feature is None
+            or values_through.related_feature.uid == self.uid
+        ), (
+            "Feature object passed to values_through is already related to another feature"
+        )
+        assert values_through.values_through is None, (
+            "Feature object passed to values_through already has a values_through relationship"
+        )
+        configured_dtype = parse_dtype(self._dtype_str)
+        source_dtype = parse_dtype(values_through._dtype_str)
+        assert (
+            len(configured_dtype) == 1
+            and len(source_dtype) == 1
+            and configured_dtype[0].get("registry_str") == "Record"
+            and source_dtype[0].get("registry_str") == "Record"
+        ), (
+            "Feature(..., values_through=...) requires both features to have a Record dtype"
+        )
+        assert configured_dtype[0].get("list", False), (
+            "Feature(..., values_through=...) requires the configured feature "
+            "to have a list[Record] dtype"
+        )
+
+    def _clear_values_feature_pair(self) -> None:
+        source_uid = self._values_feature_uid
+        if source_uid is None:
+            return
+        source_feature = (
+            Feature.objects.using(self._state.db).filter(uid=source_uid).first()
+        )
+        if source_feature is not None:
+            source_feature._related_feature_uid = None
+            source_feature.save()
+        self._values_feature_uid = None
+
+    def _apply_values_through_input(
+        self, values_through_input: Feature | SQLRecordFieldName | None
+    ) -> None:
+        from .record import validate_record_feature_field_mapping
+
+        if isinstance(values_through_input, Feature):
+            self._validate_values_through(values_through_input)
+            self._sqlrecord_field = None
+            self._values_feature_uid = values_through_input.uid
+            values_through_input._related_feature_uid = self.uid
+            values_through_input.save()
+        elif isinstance(values_through_input, str):
+            validate_record_feature_field_mapping(self, values_through_input)
+            self._clear_values_feature_pair()
+            self._sqlrecord_field = values_through_input
+        else:
+            self._clear_values_feature_pair()
+            self._sqlrecord_field = None
+
+    @property
+    def _values_feature_uid(self) -> str | None:
+        if self._aux is None or not isinstance(self._aux, dict):
+            return None
+        return self._aux.get("vf")
+
+    @_values_feature_uid.setter
+    def _values_feature_uid(self, value: str | None) -> None:
+        self._aux = self._aux or {}
+        if value is None:
+            self._aux.pop("vf", None)
+        else:
+            self._aux["vf"] = value
+
+    @property
+    def _related_feature_uid(self) -> str | None:
+        if self._aux is None or not isinstance(self._aux, dict):
+            return None
+        return self._aux.get("rf")
+
+    @_related_feature_uid.setter
+    def _related_feature_uid(self, value: str | None) -> None:
+        self._aux = self._aux or {}
+        if value is None:
+            self._aux.pop("rf", None)
+        else:
+            self._aux["rf"] = value
+
+    @property
+    def _sqlrecord_field(self) -> SQLRecordFieldName | None:
+        if self._aux is None or not isinstance(self._aux, dict):
+            return None
+        value = self._aux.get("sf")
+        if isinstance(value, str):
+            return value  # type: ignore[return-value]
+        return None
+
+    @_sqlrecord_field.setter
+    def _sqlrecord_field(self, value: SQLRecordFieldName | None) -> None:
+        self._aux = self._aux or {}
+        if value is None:
+            self._aux.pop("sf", None)
+        else:
+            self._aux["sf"] = value
+
+    @property
+    def values_through(self) -> Feature | SQLRecordFieldName | None:
+        """Resolve the object that provides values for this feature.
+
+        Returns:
+            The source :class:`Feature` for a reverse record relation, a
+            :class:`~lamindb.base.types.SQLRecordFieldName` if values are stored
+            on a `SQLRecord` field, else `None`.
+        """
+        pending_value = getattr(self, "_values_through_input", UNSET)
+        if isinstance(pending_value, Feature):
+            return pending_value
+        if isinstance(pending_value, str):
+            return pending_value  # type: ignore[return-value]
+        field_name = self._sqlrecord_field
+        if field_name is not None:
+            return field_name
+        if self._values_feature_uid is None:
+            return None
+        return Feature.objects.using(self._state.db).get(uid=self._values_feature_uid)
+
+    @values_through.setter
+    def values_through(self, value: Feature | SQLRecordFieldName | None) -> None:
+        if isinstance(value, Feature):
+            self._validate_values_through(value)
+        elif isinstance(value, str):
+            from .record import validate_record_feature_field_mapping
+
+            validate_record_feature_field_mapping(self, value)
+        elif value is not None:
+            raise TypeError(
+                "Feature.values_through expects a Feature, SQLRecordFieldName, or None"
+            )
+        if not self._state.adding and self.id is not None:
+            from .record import RecordRecord
+
+            links = list(
+                RecordRecord.objects.using(self._state.db)
+                .filter(feature_id=self.id)
+                .select_related("record", "value")
+            )
+            if links:
+
+                def _fmt(record) -> str:
+                    name = getattr(record, "name", None)
+                    uid = getattr(record, "uid", None)
+                    if name:
+                        return f"{name!r} (uid={uid})"
+                    return f"uid={uid}"
+
+                max_links = 20
+                link_lines = [
+                    f"    - record={_fmt(link.record)} -> value={_fmt(link.value)}"
+                    for link in links[:max_links]
+                ]
+                if len(links) > max_links:
+                    link_lines.append(f"    - ... and {len(links) - max_links} more")
+                raise ValueError(
+                    "Feature.values_through can only be set when no RecordRecord "
+                    f"links exist for this feature.\n"
+                    f"  feature: {self.name!r} (uid={self.uid})\n"
+                    f"  RecordRecord links ({len(links)}):\n" + "\n".join(link_lines)
+                )
+        self._values_through_input = value
+
+    @property
+    def related_feature(self) -> Feature | None:
+        """Return the paired feature in the values_through relationship.
+
+        For a derived feature (`books.values_through = author`) this returns the
+        source (`author`). For a source feature (`author`) this returns the first
+        derived feature that references it via `_aux["vf"]`.
+
+        Unsaved features cannot be reverse-resolved from the database, so an
+        unsaved source feature returns `None` unless it already has an in-memory
+        `values_through` assignment.
+        """
+        source = self.values_through
+        if isinstance(source, Feature):
+            return source
+        if self._related_feature_uid is None:
+            return None
+        return (
+            Feature.objects.using(self._state.db)
+            .filter(uid=self._related_feature_uid)
+            .first()
+        )
 
     @property
     @deprecated("coerce")
