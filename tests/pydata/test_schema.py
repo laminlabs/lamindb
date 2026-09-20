@@ -870,12 +870,14 @@ def test_schema_itype_scoped_to_feature_type():
 
     # Curator must pick up features from type_a1 AND type_a2 (recursive),
     # but exclude feat_b which belongs to the unrelated type_b.
-    df = pd.DataFrame({
-        "feat_a1_1": [1.0],
-        "feat_a1_2": [2.0],
-        "feat_a2_1": [3.0],
-        "feat_b": [4.0],
-    })
+    df = pd.DataFrame(
+        {
+            "feat_a1_1": [1.0],
+            "feat_a1_2": [2.0],
+            "feat_a2_1": [3.0],
+            "feat_b": [4.0],
+        }
+    )
     curator = DataFrameCurator(df, schema)
     pandera_cols = set(curator._atomic_curator._pandera_schema.columns.keys())
     assert "feat_a1_1" in pandera_cols
@@ -893,3 +895,43 @@ def test_schema_itype_scoped_to_feature_type():
     type_a2.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
+
+
+def test_schema_formats_zarr():
+    required = ln.Feature(name="formats_zarr_required", dtype=str).save()
+    optional = ln.Feature(name="formats_zarr_optional", dtype=str).save()
+    spec = {"zarr_format": 3, "multiscales": {"scale": 2}}
+    schema = ln.Schema(
+        [required, optional.with_config(optional=True)],
+        suffix=".zarr",
+    ).save()
+    initial_hash = schema.hash
+
+    schema.formats.zarr = spec
+    schema.save()
+    schema = ln.Schema.get(id=schema.id)
+    assert schema.formats.zarr == spec
+    assert schema.hash == initial_hash
+    assert optional.uid in schema.optionals.get_uids()
+
+    # same structural hash returns the existing record and keeps zarr
+    schema2 = ln.Schema(
+        [required, optional.with_config(optional=True)],
+        suffix=".zarr",
+    ).save()
+    assert schema2.uid == schema.uid
+    assert schema2.formats.zarr == spec
+    assert optional.uid in schema2.optionals.get_uids()
+
+    schema.formats.zarr = None
+    schema.save()
+    schema = ln.Schema.get(id=schema.id)
+    assert schema.formats.zarr is None
+    assert optional.uid in schema.optionals.get_uids()
+
+    with pytest.raises(TypeError, match="zarr constraints must be a dict or None"):
+        schema.formats.zarr = "zarr"  # type: ignore[assignment]
+
+    schema.delete(permanent=True)
+    required.delete(permanent=True)
+    optional.delete(permanent=True)
