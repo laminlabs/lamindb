@@ -979,7 +979,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         sample_type = ln.Record.get(name="Samples")
         schema = ln.Schema.get(name="my_sample_schema")
         ln.Feature(
-            name="sample_frame",
+            name="samplesheet",
             dtype=sample_type,
             cat_filters={"is_type": True, "schema": schema},
         ).save()
