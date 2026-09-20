@@ -166,7 +166,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s prepare
-        if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') }}
+        if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') && matrix.group != 'minimal' }}
       - run: nox -s "test(group='${{ matrix.group }}')"
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
