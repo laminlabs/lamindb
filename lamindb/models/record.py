@@ -943,20 +943,24 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Records that support record pages, record frames, and markdown notes.
-
-    A **record page** is a type without a schema (`is_page`).
-    A **record frame** is a type constrained by a schema (`is_frame`).
-    A **data record** is a record that is not a type (`is_data`).
+    """Structured records with support for notes.
 
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
     and other custom entities.
 
+    A record is one of three kinds:
+
+    - **Record page** — a notes page in a hierarchy, which can act like a folder for other records (`record.is_page`)
+    - **Record frame** — a schema-validated collection of data records (`record.is_frame`)
+    - **Data record** — a simple data record (`record.is_data`)
+
+    Record pages and frames are record types, in analogy to all other entities that inherit from :class:`~lamindb.HasType`.
+
     Args:
         name: `str | None = None` A name.
         description: `str | None = None` A description.
-        type: `Record | None = None` The type of this record (a record page or record frame).
-        is_type: `bool = False` Whether this record is a type (a record page or record frame).
+        type: `Record | None = None` The type of this record.
+        is_type: `bool = False` Whether this record is a type.
         features: `dict[str | Feature, Any] | None = None` Feature annotations.
         schema: `Schema | None = None` A schema defining allowed features for data records of this type. Only applicable when `is_type=True`; turns the type into a record frame.
         reference: `str | None = None` For instance, an external ID or a URL.
@@ -964,14 +968,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
 
-
     See Also:
         :class:`~lamindb.Feature`
-            Measurable properties such as columns of a record frame.
+            Measurable properties.
         :class:`~lamindb.Schema`
-            Constrain record frame columns; :attr:`~lamindb.Schema.index` defines row keys.
+            Constrain record frame features; :attr:`~lamindb.Schema.index` defines row keys.
         :class:`~lamindb.ULabel`
-            Simple universal labels.
+            Simple labels.
 
     Examples
     --------
@@ -989,7 +992,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the data record
         sample1.describe()
 
-    Group data records under a **record page**, optionally turning it into a **record frame** with a :class:`~lamindb.Schema`::
+    Group data records under a **record type**, optionally turning it into a **record frame** with a :class:`~lamindb.Schema`::
 
         # create an Experiments record page
         experiments = ln.Record(name="Experiments", is_type=True).save()
@@ -1011,14 +1014,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all data records of a type to a dataframe::
+    Export all data records of a type to a `DataFrame`::
 
         experiments.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
 
-    Use :attr:`~lamindb.Schema.index` on a record frame schema to define row keys::
+    Use :attr:`~lamindb.Schema.index` on a schema to define row keys::
 
         sample_id = ln.Feature(name="sample_id", dtype=str).save()
         score = ln.Feature(name="score", dtype=float).save()
