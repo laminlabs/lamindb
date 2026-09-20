@@ -254,7 +254,7 @@ def configure_coverage(session) -> None:
 def prepare(session):
     """Create executable files to run during a test session.
 
-    Is not needed for unit tests!
+    Not needed for unit tests or the `minimal` runner (no docs notebooks, no jupytext).
     """
     content = open("README.md").read()
     # cannot execute the flow after ln.track() was called
