@@ -1,4 +1,4 @@
-# also see the transfer.md guide and the tests/transfer directory for more tests
+# also see the transfer.md guide (golden artifact + record) and tests/transfer
 
 from unittest.mock import patch
 
@@ -6,38 +6,6 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.models._django import get_artifact_or_run_with_related
-
-
-def test_transfer_guide():
-    db = ln.DB("laminlabs/lamindata")
-    key = "example_datasets/mini_immuno/dataset1.h5ad"
-
-    existing_local = ln.Artifact.filter(key=key).one_or_none()
-    if existing_local is not None:
-        existing_local.delete(storage=False, permanent=True)
-
-    artifact = db.Artifact.get(key=key)
-    artifact.save()
-
-    artifact = db.Artifact.get(key=key)
-    artifact.save(transfer="annotations")
-
-    assert artifact.features.slots
-    for schema in artifact.features.slots.values():
-        # accessing schema.index should not fail after transfer
-        _ = schema.index
-
-    existing_local = ln.Artifact.filter(
-        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
-    )
-    if existing_local.exists():
-        existing_local.delete(storage=False, permanent=True)
-
-    dataset = db.Artifact.filter(
-        key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
-    ).open()
-    assert dataset is not None
-    assert dataset.count_rows() > 0
 
 
 def test_schema_transfer_defaults_to_annotations():

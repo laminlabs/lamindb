@@ -465,8 +465,11 @@ def get_non_categoricals(
                     f"    record.features.set_values({{{feature_name!r}: <value>}})"
                 )
 
-            if connections[self._state.db].vendor == "sqlite":
-                # undo GROUP_CONCAT
+            if (
+                not isinstance(self, Record)
+                and connections[self._state.db].vendor == "sqlite"
+            ):
+                # undo GROUP_CONCAT (Artifact/Run only; Record stores one JSON value)
                 if isinstance(values, str):
                     values = {value.strip('"') for value in values.split(", ")}
 
