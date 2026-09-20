@@ -899,15 +899,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-    Restrict a categorical feature to a specific ULabel type, here a perturbations registry::
+    Restrict a categorical feature to a specific `ULabel` or `Record` type::
 
-        perturbation_registry = ln.ULabel(name="Perturbations", is_type=True).save()
-        ln.Feature(name="perturbation", dtype=perturbation_registry).save()
-
-    Restrict a categorical feature to a record page, here an experiments registry::
-
-        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-        ln.Feature(name="experiment", dtype=experiments_registry).save()
+        perturbations = ln.Record.get(name="Perturbations", is_type=True)
+        ln.Feature(name="perturbation", dtype=perturbations).save()
+        experiments = ln.Record.get(name="Experiments", is_type=True)
+        ln.Feature(name="experiment", dtype=experiments).save()
 
     Restrict a categorical feature to the `bt.CellType` registry::
 
