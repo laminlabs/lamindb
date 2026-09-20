@@ -18,6 +18,8 @@ To run examples, if you don't have a `lamindb` instance, create one:
 lamin init
 ```
 
+(track-agent-runs)=
+
 ## Track agent runs
 
 ### Sessions
