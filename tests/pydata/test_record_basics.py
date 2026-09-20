@@ -32,10 +32,10 @@ def test_record_docstring_examples():
     schema = ln.Schema(
         [experiment, gc_content.with_config(optional=True)], name="sample_schema"
     ).save()
-    sample_frame = ln.Record(name="Samples", is_type=True, schema=schema).save()
+    samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
     # move the data record into the record frame
-    sample1.type = sample_frame
+    sample1.type = samplesheet
     sample1.save()
 
     # reset the feature values for the data record including the experiment
@@ -73,14 +73,14 @@ def test_record_docstring_examples():
     assert len(records) == 2
 
     # If you try to set incomplete features on a data record in a record frame, you'll get a validation error
-    sample2 = ln.Record(name="Sample 2", type=sample_frame).save()
+    sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
     with pytest.raises(ln.errors.ValidationError):
         sample2.features.set_values({"gc_content": 0.6})
 
     # Query data records by features
     assert ln.Record.filter(gc_content == 0.5).one() == sample1
     assert ln.Record.filter(gc_content > 0.5).one_or_none() is None
-    assert ln.Record.filter(type=sample_frame).count() >= 1
+    assert ln.Record.filter(type=samplesheet).count() >= 1
 
     # Clean up
     my_df_type = ln.Record.filter(name="my_df", is_type=True).one()
@@ -92,7 +92,7 @@ def test_record_docstring_examples():
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
     experiment1.delete(permanent=True)
-    sample_frame.delete(permanent=True)
+    samplesheet.delete(permanent=True)
     schema.delete(permanent=True)
     experiments_registry.delete(permanent=True)
     gc_content.delete(permanent=True)
@@ -121,7 +121,7 @@ def test_record_initialization():
 def test_record_page_frame_data_properties():
     page = ln.Record(name="KindTestExperiments", is_type=True).save()
     score = ln.Feature(name="kind_test_score", dtype=float).save()
-    schema = ln.Schema([score], name="kind_test_sample_frame_schema").save()
+    schema = ln.Schema([score], name="kind_test_samplesheet_schema").save()
     frame = ln.Record(name="KindTestSamples", is_type=True, schema=schema).save()
     data = ln.Record(name="KindTestSample1", type=frame).save()
 

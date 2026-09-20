@@ -1003,10 +1003,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         # create a record frame by constraining a record page with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
-        sample_frame = ln.Record(name="Samples", is_type=True, schema=schema).save()
+        samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
         # move the data record into the record frame
-        sample1.type = sample_frame
+        sample1.type = samplesheet
         sample1.save()
 
         # reset the feature values for the data record including the experiment
@@ -1041,7 +1041,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     If you try to set incomplete features on a data record in a record frame, you'll get a validation error::
 
-        sample2 = ln.Record(name="Sample 2", type=sample_frame).save()
+        sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
         sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
     Query data records by features:
@@ -1053,7 +1053,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Query data records by field::
 
-        ln.Record.filter(type=sample_frame)   # just the data records in the record frame
+        ln.Record.filter(type=samplesheet)   # just the data records in the record frame
 
     Notes
     -----
@@ -1083,7 +1083,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are static: you need to define them in code and then migrate the underlying database.
 
-        In complete analogy to this: A **record page** or **record frame** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
+        In complete analogy to this: A **record type** can model a registry dynamically, whereas a :class:`~lamindb.models.Registry` has to be
         defined as a static Python class together with its SQL database migration:  `lamin migrate create` and `lamin migrate deploy`.
 
         See :class:`~lamindb.models.SQLRecord` or the glossary for more information: :term:`docs:record`.
@@ -1169,12 +1169,12 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     name: str = CharField(max_length=150, db_index=True, null=True)
     """Name or title of record (optional)."""
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
-    """Type of record, e.g., a record page or record frame such as `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
+    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group data records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
     records: RelatedManager[Record]
-    """If a record page or record frame (`is_type=True`), the data records of this type."""
+    """If a record type (`is_type=True`), the data records of this type."""
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1186,11 +1186,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a record frame ← :attr:`~lamindb.Schema.records`.
+    """A schema to enforce for a record type ← :attr:`~lamindb.Schema.records`.
 
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True` and a schema is set, this record is a record frame and the schema
-    is used to enforce features for each data record of this type.
+    is used to validate the features of each data record of this type.
     """
     linked_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
@@ -1399,7 +1399,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
             Import data records into an existing record frame::
 
-                records = ln.Record.from_dataframe(df, type=sample_frame).save()
+                records = ln.Record.from_dataframe(df, type=samplesheet).save()
 
         """
         import pandas as pd
@@ -1598,7 +1598,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
             Export all data records in a record frame::
 
-                sample_frame.to_dataframe()
+                samplesheet.to_dataframe()
 
         Args:
             recurse: Whether to include data records of sub-types recursively.
@@ -1647,7 +1647,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
 
-        The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
+        The `key` defaults to `lamindb_record_exports/{self.name}{suffix}` unless a `key` is passed.
 
         When the record frame schema defines :attr:`~lamindb.Schema.index`, the CSV is written
         with `index=True` so the index feature is preserved on export.
@@ -1656,7 +1656,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
             Export all data records in a record frame to an artifact::
 
-                sample_frame.to_artifact()
+                recordframe.to_artifact()
 
         Args:
             key: The artifact key.
@@ -1670,7 +1670,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
             suffix = ".csv" if suffix is None else suffix
-            key = f"sheet_exports/{self.name}{suffix}"
+            key = f"lamindb_record_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
@@ -1680,7 +1680,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 **kwargs,
             ),
             key=key,
-            description=f"Export of record frame {self.uid}{description}",
+            description=f"Export of record type {self.uid}{description}",
             schema=self.schema,
             csv_kwargs={
                 "index": self.schema is not None and self.schema.index is not None

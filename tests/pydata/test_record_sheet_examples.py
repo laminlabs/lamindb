@@ -169,7 +169,7 @@ def test_record_example_compound_treatment(
     assert artifact.path.read_text().startswith("""\
 name,id,uid,treatment,cell_line,preparation_date,project
 Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
-    assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
+    assert artifact.key == f"lamindb_record_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(
         f"Export of record frame {sample_sheet1.uid}"
     )
