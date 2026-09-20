@@ -193,19 +193,19 @@ def _resolve_record_categorical_from_sheet_export(
     cat_vector: CatVector,
     str_values: list[str],
 ) -> tuple[list[str], SQLRecordList, list[str]] | None:
-    """Resolve linked ``Record`` categoricals during record frame export round-trips.
+    """Resolve linked `Record` categoricals during record frame export round-trips.
 
     Background
     ----------
     Data records can link to other :class:`~lamindb.Record` objects through features
-    with dtypes like ``cat[Record[BioSample].name]``. On export, only the linked
-    record's *display field* (usually ``name``) is written into the dataframe column
+    with dtypes like `cat[Record[BioSample].name]`. On export, only the linked
+    record's *display field* (usually `name`) is written into the dataframe column
     — not the linked record's uid.
 
-    When validating that export dataframe again (e.g. ``frame.to_artifact()``), the
+    When validating that export dataframe again (e.g. `frame.to_artifact()`), the
     default categorical resolver looks up registry values **globally by name**. If two
     different linked records share the same display name (e.g. two BioSamples both
-    named ``poolsample1``), that lookup is ambiguous and raises
+    named `poolsample1`), that lookup is ambiguous and raises
     :class:`~lamindb.errors.ValidationError`.
 
     This helper avoids global name matching when the dataframe still carries enough
@@ -221,19 +221,19 @@ def _resolve_record_categorical_from_sheet_export(
         sample,fastq_1,...,__lamindb_record_uid__
         poolsample1,read_a,...,L2iXQt4UoivWTSut
 
-    Record frames **with** ``Schema.index`` omit ``__lamindb_record_*`` columns; the index
-    feature becomes ``df.index`` (values are stored on ``Record.name``)::
+    Record frames **with** `Schema.index` omit `__lamindb_record_*` columns; the index
+    feature becomes `df.index` (values are stored on `Record.name`)::
 
         name,treatment,cell_line
         Sample 1,treatment1,HEK293T
 
-    This function detects which shape applies and queries ``RecordRecord`` with the
+    This function detects which shape applies and queries `RecordRecord` with the
     matching row key:
 
-    - **No index**: ``record__uid__in`` from ``__lamindb_record_uid__``.
-    - **With index**: ``record__name__in`` from ``df.index`` (or the index column),
+    - **No index**: `record__uid__in` from `__lamindb_record_uid__`.
+    - **With index**: `record__name__in` from `df.index` (or the index column),
       scoped to sheet types registered on the validating schema
-      (``Record.filter(is_type=True, schema_id=...)``). Index names are only unique
+      (`Record.filter(is_type=True, schema_id=...)`). Index names are only unique
       within a sheet, so the type filter is required.
 
     What this does *not* do
@@ -241,16 +241,16 @@ def _resolve_record_categorical_from_sheet_export(
     - Does not add uid columns to exports; row keys come from the existing export
       layout.
     - Does not replace dtype-based validation — dtype still defines *what* to validate.
-    - Returns ``None`` for external dataframes without row keys, so normal global name
+    - Returns `None` for external dataframes without row keys, so normal global name
       lookup proceeds unchanged.
 
     Args:
-        cat_vector: Categorical being validated; must be a ``Record`` registry feature.
+        cat_vector: Categorical being validated; must be a `Record` registry feature.
         str_values: Distinct string values observed in the dataframe column.
 
     Returns:
-        ``(validated_values, linked_records, non_validated_values)`` when row keys are
-        present and matching DB links exist; otherwise ``None`` (fall back to default
+        `(validated_values, linked_records, non_validated_values)` when row keys are
+        present and matching DB links exist; otherwise `None` (fall back to default
         validation).
     """
     if cat_vector.feature is None or cat_vector._cat_manager is None:
