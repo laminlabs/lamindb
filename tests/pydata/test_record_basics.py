@@ -22,11 +22,11 @@ def test_record_docstring_examples():
     sample1.describe()
 
     # create an Experiments record page
-    experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-    experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
+    experiments = ln.Record(name="Experiments", is_type=True).save()
+    experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
     # create a feature to link experiments
-    experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+    experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
     # create a record frame by constraining a record page with a schema
     schema = ln.Schema(
@@ -47,7 +47,7 @@ def test_record_docstring_examples():
     )
 
     # Export all data records under a type to a dataframe
-    df = experiments_registry.to_dataframe()
+    df = experiments.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
     # Use Schema.index on a record frame schema to define row keys
@@ -94,7 +94,7 @@ def test_record_docstring_examples():
     experiment1.delete(permanent=True)
     samplesheet.delete(permanent=True)
     schema.delete(permanent=True)
-    experiments_registry.delete(permanent=True)
+    experiments.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
     indexed_record.delete(permanent=True)
