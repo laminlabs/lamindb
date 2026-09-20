@@ -17,7 +17,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import SQLRecordFieldName
-from lamindb.base.utils import class_and_instance_method, strict_classmethod
+from lamindb.base.utils import class_and_instance_method, deprecated, strict_classmethod
 from lamindb.errors import FieldValidationError, InvalidArgument
 
 from ..base.uids import base62_16
@@ -71,7 +71,7 @@ ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(SQLRecordFieldName))
 
 
 def get_type_schema_index(record_type: Record | None) -> Feature | None:
-    """Return the index feature for a record type sheet, if configured."""
+    """Return the index feature for a record frame, if configured."""
     if record_type is None or not record_type.is_type:
         return None
     schema = record_type.schema
@@ -88,7 +88,7 @@ def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
 
 
 def validate_record_sheet_index_feature(index_feature: Feature) -> None:
-    """Ensure a record-sheet index feature can be stored on `Record.name`."""
+    """Ensure a record frame index feature can be stored on `Record.name`."""
     if index_feature.dtype_as_str != "str":
         raise ValueError(
             f"schema index feature '{index_feature.name}' must have dtype str "
@@ -487,7 +487,7 @@ def pop_index_from_feature_dictionary(
 
 
 def export_includes_record_metadata(schema: Schema | None) -> bool:
-    """Whether sheet export includes encoded ``__lamindb_record_*`` columns."""
+    """Whether record frame export includes encoded `__lamindb_record_*` columns."""
     return schema is None or schema.index is None
 
 
@@ -663,7 +663,7 @@ IndexNameConflict = Literal["keep_name", "keep_feature"]
 
 def _record_sheet_label(record: Record) -> str:
     if record.type_id is None:
-        return "unknown sheet"
+        return "unknown record frame"
     sheet = record.type
     if sheet is None:
         return f"type_id={record.type_id}"
@@ -705,13 +705,13 @@ def _resolve_index_name_conflict(
     feature_name = feature.name
     n = len(conflicts)
     example_lines = "\n".join(
-        f"  sheet {sheet_label}, record {record_id}: Record.name={name!r}, {feature_name}={feature_value!r}"
+        f"  record frame {sheet_label}, data record {record_id}: Record.name={name!r}, {feature_name}={feature_value!r}"
         for record_id, sheet_label, name, feature_value in conflicts[:3]
     )
     if n > 3:
         example_lines += f"\n  ... and {n - 3} more"
     response = input(
-        f"{n} sheet row(s) have both Record.name and '{feature_name}' values that differ.\n"
+        f"{n} data record(s) have both Record.name and '{feature_name}' values that differ.\n"
         f"{example_lines}\n"
         "Keep Record.name (y) or use feature values (n)? "
     )
@@ -730,7 +730,7 @@ def migrate_record_sheet_index_on_schema_save(
     using: str | None = None,
     index_name_conflict: IndexNameConflict | None = None,
 ) -> None:
-    """Migrate sheet row keys when ``schema.index`` changes on save."""
+    """Migrate data-record row keys when ``schema.index`` changes on save."""
     if (
         old_index_uid == new_index_uid
         or schema.is_type
@@ -943,10 +943,18 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Records that support sheets and markdown notes.
+    """Structured records with support for notes.
 
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
     and other custom entities.
+
+    A record is one of three kinds:
+
+    - **Record page** — a notes page in a hierarchy, which can act like a folder for other records (`record.is_page`)
+    - **Record frame** — a schema-validated collection of data records (`record.is_frame`)
+    - **Data record** — a simple data record (`record.is_data`)
+
+    Record pages and frames are record types, in analogy to all other entities that inherit from :class:`~lamindb.models.HasType`.
 
     Args:
         name: `str | None = None` A name.
@@ -954,106 +962,105 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type.
         features: `dict[str | Feature, Any] | None = None` Feature annotations.
-        schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
+        schema: `Schema | None = None` A schema defining allowed features for data records of this type. Only applicable when `is_type=True`; turns the type into a record frame.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
 
-
     See Also:
         :class:`~lamindb.Feature`
-            Measurable properties such as columns of a sheet.
+            Measurable properties.
         :class:`~lamindb.Schema`
-            Constrain sheet columns; :attr:`~lamindb.Schema.index` defines row keys.
+            Constrain record frame features; :attr:`~lamindb.Schema.index` defines row keys.
         :class:`~lamindb.ULabel`
-            Simple universal labels.
+            Simple labels.
 
     Examples
     --------
 
     Also see the guide: :doc:`/manage-records`.
 
-    Create a **record** with a single feature::
+    Create a **data record** with a single feature::
 
         # create a feature if you don't yet have one
         gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-        # create a record to track a sample
+        # create a data record to track a sample
         sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
-        # describe the record
+        # describe the data record
         sample1.describe()
 
-    Group records by creating a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group data records under a **record type**, optionally turning it into a **record frame** with a :class:`~lamindb.Schema`::
 
-        # create an Experiments type
+        # create an Experiments record page
         experiments = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
         # create a feature to link experiments
         experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-        # create a Sample Sheet by constraining a record type with a schema
+        # create a record frame by constraining a record page with a schema
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
-        sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
+        samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
-        # move the sample1 record into the sample sheet
-        sample1.type = sample_sheet
+        # move the data record into the record frame
+        sample1.type = samplesheet
         sample1.save()
 
-        # reset the feature values for the record including the experiment
+        # reset the feature values for the data record including the experiment
         sample1.features.set_values({gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
-    Export all records of a type to a dataframe::
+    Export all data records of a type to a `DataFrame`::
 
         experiments.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
 
-    Use :attr:`~lamindb.Schema.index` on a sheet schema to define row keys::
+    Use :attr:`~lamindb.Schema.index` on a schema to define row keys::
 
         sample_id = ln.Feature(name="sample_id", dtype=str).save()
         score = ln.Feature(name="score", dtype=float).save()
         schema = ln.Schema(features=[score], index=sample_id).save()
-        sheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
+        indexed_frame = ln.Record(name="Indexed samples", is_type=True, schema=schema).save()
 
-        record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+        record = ln.Record(type=indexed_frame, features={"sample_id": "S-001", "score": 1.5}).save()
         assert record.name == "S-001"
 
-        df = sheet.to_dataframe()
+        df = indexed_frame.to_dataframe()
         assert df.index.name == "sample_id"
         assert "sample_id" not in df.columns
 
-    Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
+    Import data records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
 
-        records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
+        records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a record frame my_df with inferred schema
 
-    If you try to set incomplete features in a record in a sheet, you'll get a validation error::
+    If you try to set incomplete features on a data record in a record frame, you'll get a validation error::
 
-        sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
+        sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
         sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
-    Query records by features:
+    Query data records by features:
 
     .. code-block:: python
 
         ln.Record.filter(gc_content == 0.55)  # exact match
         ln.Record.filter(gc_content > 0.5)    # greater than
 
-    Query records by field::
+    Query data records by field::
 
-        ln.Record.filter(type=sample_sheet)   # just the record on the sheet
+        ln.Record.filter(type=samplesheet)   # just the data records in the record frame
 
     Notes
     -----
 
-    .. dropdown:: An index feature maps onto the name field of a record.
+    .. dropdown:: An index feature maps onto the name field of a data record.
 
-        When a sheet schema defines :attr:`~lamindb.Schema.index`, the
+        When a record frame schema defines :attr:`~lamindb.Schema.index`, the
         index feature acts as the row key and maps to the `index` in a `DataFrame` and to the
         :attr:`~lamindb.Record.name` field of a `Record`:
 
@@ -1064,7 +1071,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
           (named after the index feature) and omits encoded metadata columns
           (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
-          Sheets without `index` keep the previous export behavior.
+          Record frames without `index` keep the previous export behavior.
         - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
           matches the schema index feature (or the index feature as a column).
         - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
@@ -1164,10 +1171,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
-    Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
+    Allows to group data records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
     records: RelatedManager[Record]
-    """If a `type` (`is_type=True`), records of this `type`."""
+    """If a record type (`is_type=True`), the data records of this type."""
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -1179,10 +1186,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type ← :attr:`~lamindb.Schema.records`.
+    """A schema to enforce for a record type ← :attr:`~lamindb.Schema.records`.
 
     This is analogous to the `schema` attribute of an `Artifact`.
-    If `is_type` is `True`, the schema is used to enforce features for each record of this type.
+    If `is_type` is `True` and a schema is set, this record is a record frame and the schema
+    is used to validate the features of each data record of this type.
     """
     linked_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
@@ -1375,31 +1383,31 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
 
-        When the target sheet schema defines :attr:`~lamindb.Schema.index`, the index
+        When the target record frame schema defines :attr:`~lamindb.Schema.index`, the index
         feature may be passed on `df.index` (named after the feature) or as a column.
 
         Args:
-            df: A dataframe where rows represent records.
-            type: Record type for all rows as either a `Record` object or a
-                string. If passing a string, a new type with that name is created
+            df: A dataframe where rows represent data records.
+            type: Record page or record frame for all rows as either a `Record` object or a
+                string. If passing a string, a new record frame with that name is created
                 under `Imports` with an inferred schema from the dataframe.
                 If that type name already exists, raise an error and pass an
                 existing `Record` object for reuse.
-                If the resolved type is a sheet (`type.schema is not None`), feature
+                If the resolved type is a record frame (`type.schema is not None`), feature
                 values are validated against that schema at save time.
-            name_field: Column used for record names when no schema index is configured.
-                Falls back to `name` if absent. If neither exists, records are created
+            name_field: Column used for data record names when no schema index is configured.
+                Falls back to `name` if absent. If neither exists, data records are created
                 without names.
 
         Examples:
 
-            Create a new type and import records::
+            Create a new record frame and import data records::
 
                 records = ln.Record.from_dataframe(df, type="my_df").save()
 
-            Import records into an existing type::
+            Import data records into an existing record frame::
 
-                records = ln.Record.from_dataframe(df, type=sample_sheet).save()
+                records = ln.Record.from_dataframe(df, type=samplesheet).save()
 
         """
         import pandas as pd
@@ -1466,9 +1474,25 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         return FeatureManager(self)
 
     @property
+    def is_page(self) -> bool:
+        """Whether this record is a record page (`is_type` and no schema)."""
+        return bool(self.is_type) and self.schema is None
+
+    @property
+    def is_frame(self) -> bool:
+        """Whether this record is a record frame (`is_type` and `schema` is set)."""
+        return bool(self.is_type) and self.schema is not None
+
+    @property
+    def is_data(self) -> bool:
+        """Whether this record is a data record (`not is_type`)."""
+        return not bool(self.is_type)
+
+    @property
+    @deprecated("is_frame")
     def is_sheet(self) -> bool:
-        """Check if record is a `sheet`, i.e., `self.is_type and self.schema is not None`."""
-        return self.schema is not None and self.is_type
+        """Deprecated. Use :attr:`~lamindb.Record.is_frame`."""
+        return self.is_frame
 
     def query_parents(self) -> QuerySet:
         """Query all parents of a record recursively.
@@ -1573,22 +1597,22 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
-        When the sheet schema defines :attr:`~lamindb.Schema.index`, the index feature is
+        When the record frame schema defines :attr:`~lamindb.Schema.index`, the index feature is
         placed on `df.index` (named after the feature) and encoded metadata columns
         (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
-        are omitted. Sheets without `index` keep the previous export behavior.
+        are omitted. Record frames without `index` keep the previous export behavior.
 
         Example:
 
-            Export all records on a sheet::
+            Export all data records in a record frame::
 
-                sample_sheet.to_dataframe()
+                samplesheet.to_dataframe()
 
         Args:
-            recurse: Whether to include records of sub-types recursively.
+            recurse: Whether to include data records of sub-types recursively.
             is_run_input: Whether to track the record as a run input.
-            link_individual_inputs: Whether to link all exported records as
-                inputs of the run. If `False`, only links the record type.
+            link_individual_inputs: Whether to link all exported data records as
+                inputs of the run. If `False`, only links the record page or record frame.
             use_export_run: Whether to create and use a mediating
                 `__lamindb_record_export__` run for lineage.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
@@ -1631,30 +1655,30 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
 
-        The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
+        The `key` defaults to `lamindb_record_exports/{self.name}{suffix}` unless a `key` is passed.
 
-        When the sheet schema defines :attr:`~lamindb.Schema.index`, the CSV is written
+        When the record frame schema defines :attr:`~lamindb.Schema.index`, the CSV is written
         with `index=True` so the index feature is preserved on export.
 
         Example:
 
-            Export all records on a sheet to an artifact::
+            Export all data records in a record frame to an artifact::
 
-                sample_sheet.to_artifact()
+                recordframe.to_artifact()
 
         Args:
             key: The artifact key.
             suffix: The suffix to append to the default key if no key is passed.
             is_run_input: Whether to track the record as a run input.
-            link_individual_inputs: Whether to link all exported records as
-                inputs of the export run. If `False`, only links the record type.
+            link_individual_inputs: Whether to link all exported data records as
+                inputs of the export run. If `False`, only links the record page or record frame.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
         assert self.is_type, "Only types can be exported as artifacts."
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
             suffix = ".csv" if suffix is None else suffix
-            key = f"sheet_exports/{self.name}{suffix}"
+            key = f"lamindb_record_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
@@ -1664,7 +1688,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 **kwargs,
             ),
             key=key,
-            description=f"Export of sheet {self.uid}{description}",
+            description=f"Export of record type {self.uid}{description}",
             schema=self.schema,
             csv_kwargs={
                 "index": self.schema is not None and self.schema.index is not None

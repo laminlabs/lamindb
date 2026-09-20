@@ -15,30 +15,30 @@ def test_record_docstring_examples():
     # create a feature if you don't yet have one
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-    # create a record to track a sample
+    # create a data record to track a sample
     sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
-    # describe the record
+    # describe the data record
     sample1.describe()
 
-    # create an experiments registry
-    experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-    experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
+    # create an Experiments record page
+    experiments = ln.Record(name="Experiments", is_type=True).save()
+    experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
     # create a feature to link experiments
-    experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
+    experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
-    # constrain a samples registry with a schema, turning it into a sheet
+    # create a record frame by constraining a record page with a schema
     schema = ln.Schema(
         [experiment, gc_content.with_config(optional=True)], name="sample_schema"
     ).save()
-    sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
+    samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
-    # move the sample1 record into the sample sheet
-    sample1.type = sample_sheet
+    # move the data record into the record frame
+    sample1.type = samplesheet
     sample1.save()
 
-    # reset the feature values for the record including the experiment
+    # reset the feature values for the data record including the experiment
     sample1.features.set_values(
         {
             gc_content: 0.5,
@@ -46,41 +46,41 @@ def test_record_docstring_examples():
         }
     )
 
-    # Export all records under a type to a dataframe
-    df = experiments_registry.to_dataframe()
+    # Export all data records under a type to a dataframe
+    df = experiments.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
-    # Use Schema.index on a sheet schema to define row keys
+    # Use Schema.index on a record frame schema to define row keys
     sample_id = ln.Feature(name="sample_id", dtype=str).save()
     score = ln.Feature(name="score", dtype=float).save()
     indexed_schema = ln.Schema(features=[score], index=sample_id).save()
-    indexed_sheet = ln.Record(
-        name="Samples", is_type=True, schema=indexed_schema
+    indexed_frame = ln.Record(
+        name="Indexed samples", is_type=True, schema=indexed_schema
     ).save()
     indexed_record = ln.Record(
-        type=indexed_sheet, features={"sample_id": "S-001", "score": 1.5}
+        type=indexed_frame, features={"sample_id": "S-001", "score": 1.5}
     ).save()
     assert indexed_record.name == "S-001"
-    indexed_df = indexed_sheet.to_dataframe()
+    indexed_df = indexed_frame.to_dataframe()
     assert indexed_df.index.name == "sample_id"
     assert "sample_id" not in indexed_df.columns
 
-    # Import records from a dataframe
+    # Import data records from a dataframe
     records = ln.Record.from_dataframe(
         pd.DataFrame({"gc_content": [0.1, 0.2]}),
         type="my_df",
     ).save()
     assert len(records) == 2
 
-    # If you try to set incomplete features in a record in a sheet, you'll get a validation error
-    sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
+    # If you try to set incomplete features on a data record in a record frame, you'll get a validation error
+    sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
     with pytest.raises(ln.errors.ValidationError):
         sample2.features.set_values({"gc_content": 0.6})
 
-    # Query records by features
+    # Query data records by features
     assert ln.Record.filter(gc_content == 0.5).one() == sample1
     assert ln.Record.filter(gc_content > 0.5).one_or_none() is None
-    assert ln.Record.filter(type=sample_sheet).count() >= 1
+    assert ln.Record.filter(type=samplesheet).count() >= 1
 
     # Clean up
     my_df_type = ln.Record.filter(name="my_df", is_type=True).one()
@@ -92,13 +92,13 @@ def test_record_docstring_examples():
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
     experiment1.delete(permanent=True)
-    sample_sheet.delete(permanent=True)
+    samplesheet.delete(permanent=True)
     schema.delete(permanent=True)
-    experiments_registry.delete(permanent=True)
+    experiments.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
     indexed_record.delete(permanent=True)
-    indexed_sheet.delete(permanent=True)
+    indexed_frame.delete(permanent=True)
     indexed_schema.delete(permanent=True)
     sample_id.delete(permanent=True)
     score.delete(permanent=True)
@@ -116,6 +116,44 @@ def test_record_initialization():
     with pytest.raises(ValueError) as error:
         ln.Record(1)
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
+
+
+def test_record_page_frame_data_properties():
+    page = ln.Record(name="KindTestExperiments", is_type=True).save()
+    score = ln.Feature(name="kind_test_score", dtype=float).save()
+    schema = ln.Schema([score], name="kind_test_samplesheet_schema").save()
+    frame = ln.Record(name="KindTestSamples", is_type=True, schema=schema).save()
+    data = ln.Record(name="KindTestSample1", type=frame).save()
+
+    assert page.is_page is True
+    assert page.is_frame is False
+    assert page.is_data is False
+    assert page.is_type is True
+    assert page.schema is None
+
+    assert frame.is_page is False
+    assert frame.is_frame is True
+    assert frame.is_data is False
+    assert frame.is_type is True
+    assert frame.schema is not None
+
+    assert data.is_page is False
+    assert data.is_frame is False
+    assert data.is_data is True
+    assert data.is_type is False
+
+    with pytest.warns(DeprecationWarning, match="Use is_frame instead of is_sheet"):
+        assert frame.is_sheet is True
+    with pytest.warns(DeprecationWarning, match="Use is_frame instead of is_sheet"):
+        assert page.is_sheet is False
+    with pytest.warns(DeprecationWarning, match="Use is_frame instead of is_sheet"):
+        assert data.is_sheet is False
+
+    data.delete(permanent=True)
+    frame.delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+    page.delete(permanent=True)
 
 
 def test_record_lazy_features_on_save():
@@ -392,7 +430,7 @@ def test_record_schema_index_stored_on_name():
     assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}
     artifact.delete(permanent=True)
 
-    # non-str index features are rejected for record sheets
+    # non-str index features are rejected for record frames
     row_id = ln.Feature(name="row_id", dtype=int).save()
     int_schema = ln.Schema(
         features=[score],
@@ -563,7 +601,7 @@ def test_record_schema_index_name_conflict_resolution():
         )
         monkeypatch.delenv("LAMIN_TESTING", raising=False)
         schema.save()
-    assert "sheet conflict-sheet" in prompt_messages[0]
+    assert "record frame conflict-sheet" in prompt_messages[0]
     record.refresh_from_db()
     assert record.name == "feature-value"
 
