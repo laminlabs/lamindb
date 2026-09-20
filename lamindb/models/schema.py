@@ -238,7 +238,7 @@ def transfer_schema_with_members(
 class FormatConstraints:
     """Manage format-specific constraints on a schema.
 
-    Currently supports ``zarr``. Constraints are not part of the schema hash.
+    Currently supports `zarr`. Constraints are not part of the schema hash.
     """
 
     def __init__(self, schema) -> None:
@@ -249,9 +249,9 @@ class FormatConstraints:
         """Zarr storage constraints.
 
         Each key is optional and enables one check. Keys reuse the vocabulary of
-        the specification they check: ``zarr_format`` and ``chunk_shape`` from
-        zarr v3 metadata, ``multiscales`` from OME-NGFF, ``layers`` from the
-        AnnData ``encoding-type``.
+        the specification they check: `zarr_format` and `chunk_shape` from
+        zarr v3 metadata, `multiscales` from OME-NGFF, `layers` from the
+        AnnData `encoding-type`.
 
         Example::
 
@@ -1584,7 +1584,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def formats(self) -> FormatConstraints:
         """Format-specific constraints.
 
-        Currently supports ``zarr``. Constraints are not part of the schema hash.
+        Currently supports `zarr`. Constraints are not part of the schema hash.
 
         Example::
 
