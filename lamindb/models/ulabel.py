@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Simple user-defined labels.
+    """Simple labels.
 
     Is similar to :class:`~lamindb.Record`, but has no ability to store features.
 

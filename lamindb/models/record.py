@@ -954,7 +954,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     - **Record frame** — a schema-validated collection of data records (`record.is_frame`)
     - **Data record** — a simple data record (`record.is_data`)
 
-    Record pages and frames are record types, in analogy to all other entities that inherit from :class:`~lamindb.HasType`.
+    Record pages and frames are record types, in analogy to all other entities that inherit from :class:`~lamindb.models.HasType`.
 
     Args:
         name: `str | None = None` A name.
