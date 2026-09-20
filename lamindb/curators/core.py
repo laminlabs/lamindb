@@ -55,7 +55,7 @@ from lamindb.models.sqlrecord import HasType
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
 from ..models.feature import get_record_type_from_uid
-from ._zarr import ZARR_AUX_KEY, validate_zarr_conventions
+from ._zarr import validate_zarr_conventions
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -721,9 +721,7 @@ class ComponentCurator(Curator):
                 # the unscoped "Feature" itype should not filter by type.
                 root_uid = itype[8:-1]  # len("Feature[") == 8
                 feature_type = Feature.connect(using).get(uid=root_uid)
-                qs = feature_type.query_features().filter(
-                    name__in=self._dataset.keys()
-                )
+                qs = feature_type.query_features().filter(name__in=self._dataset.keys())
             else:
                 qs = Feature.connect(using).filter(name__in=self._dataset.keys())
             features += qs.to_list()
@@ -1296,18 +1294,22 @@ class AnnDataCurator(SlotsCurator):
                     or (
                         slot == "var"
                         and schema.slots["var"].itype is not None
-                    # startswith("Feature") covers both "Feature" and "Feature[uid]":
-                    # neither generic nor scoped Feature schemas use gene-ID indices,
-                    # so neither should be transposed. Only gene-registry itypes
-                    # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
-                    and not schema.slots["var"].itype.startswith("Feature")
+                        # startswith("Feature") covers both "Feature" and "Feature[uid]":
+                        # neither generic nor scoped Feature schemas use gene-ID indices,
+                        # so neither should be transposed. Only gene-registry itypes
+                        # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
+                        and not schema.slots["var"].itype.startswith("Feature")
                     )
                     else getattr(self._dataset, slot)
                 )
             self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
-            if slot == "var" and schema.slots["var"].itype is not None and not schema.slots["var"].itype.startswith("Feature"):
+            if (
+                slot == "var"
+                and schema.slots["var"].itype is not None
+                and not schema.slots["var"].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1405,7 +1407,11 @@ class MuDataCurator(SlotsCurator):
                     df = getattr(schema_dataset, modality_slot.rstrip(".T"))
 
             # Transpose var if necessary
-            if modality_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
+            if (
+                modality_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1447,6 +1453,7 @@ class SpatialDataCurator(SlotsCurator):
 
     See Also:
         :meth:`~lamindb.Artifact.from_spatialdata`.
+        :attr:`~lamindb.Schema.formats`.
     """
 
     def __init__(
@@ -1498,7 +1505,11 @@ class SpatialDataCurator(SlotsCurator):
                         raise InvalidArgument(f"Unrecognized slot format: {slot}")
 
             # Handle var transposition logic
-            if table_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
+            if (
+                table_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1524,8 +1535,9 @@ class SpatialDataCurator(SlotsCurator):
     def validate(self) -> None:
         """{}"""  # noqa: D415
         # cheap structural checks short-circuit the slot validation
-        if ZARR_AUX_KEY in (self._schema._aux or {}):
-            validate_zarr_conventions(self, self._schema._aux[ZARR_AUX_KEY])
+        spec = self._schema.formats.zarr
+        if spec is not None:
+            validate_zarr_conventions(self, spec)
         super().validate()
 
 

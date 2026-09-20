@@ -1,18 +1,17 @@
-"""Storage conventions for `SpatialData`, declared in ``Schema._aux["zarr"]``.
+"""Storage conventions for `SpatialData`, declared in ``schema.formats.zarr``.
 
 Each key is optional and enables one check. Keys re-use the vocabulary of the
 specification they check: ``zarr_format`` and ``chunk_shape`` from the zarr v3
 metadata, ``multiscales`` from OME-NGFF, ``layers`` from the anndata
 ``encoding-type``::
 
-    schema._aux = {
-        "zarr": {
-            "zarr_format": 3,
-            "chunk_shape": {"y": [256, 512], "x": [256, 512]},
-            "multiscales": {"scale": 2, "axes": ["y", "x"]},
-            "layers": {"csc": "csc_matrix"},
-        }
+    schema.formats.zarr = {
+        "zarr_format": 3,
+        "chunk_shape": {"y": [256, 512], "x": [256, 512]},
+        "multiscales": {"scale": 2, "axes": ["y", "x"]},
+        "layers": {"csc": "csc_matrix"},
     }
+    schema.save()
 """
 
 from __future__ import annotations
@@ -30,8 +29,6 @@ if TYPE_CHECKING:
     from .core import SpatialDataCurator
 else:
     SpatialData = Any
-
-ZARR_AUX_KEY = "zarr"
 
 # downscaling floors the extent, so consecutive scales never divide exactly
 SCALE_RTOL = 0.05

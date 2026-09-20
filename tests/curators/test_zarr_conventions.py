@@ -33,7 +33,7 @@ def table(n_obs: int = 8, n_var: int = 4) -> ad.AnnData:
 
 
 def validate(sdata: SpatialData, schema: ln.Schema, spec: dict) -> None:
-    schema._aux = {"zarr": spec}
+    schema.formats.zarr = spec
     ln.curators.SpatialDataCurator(sdata, schema).validate()
 
 
@@ -48,11 +48,11 @@ def test_conventions_gate_the_validation_that_follows(schema: ln.Schema):
     curator = ln.curators.SpatialDataCurator(
         SpatialData(images={"image": image(scale_factors=[2, 2])}), schema
     )
-    schema._aux = {"zarr": {"multiscales": {"scale": 4}}}
+    schema.formats.zarr = {"multiscales": {"scale": 4}}
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
     assert not curator._is_validated
-    schema._aux = {"zarr": {"multiscales": {"scale": 2}}}
+    schema.formats.zarr = {"multiscales": {"scale": 2}}
     curator.validate()
     assert curator._is_validated
 

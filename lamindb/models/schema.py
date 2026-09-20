@@ -235,6 +235,51 @@ def transfer_schema_with_members(
     return schema_default
 
 
+class FormatConstraints:
+    """Manage format-specific constraints on a schema.
+
+    Currently supports ``zarr``. Constraints are not part of the schema hash.
+    """
+
+    def __init__(self, schema) -> None:
+        self.schema = schema
+
+    @property
+    def zarr(self) -> dict[str, Any] | None:
+        """Zarr storage constraints.
+
+        Each key is optional and enables one check. Keys reuse the vocabulary of
+        the specification they check: ``zarr_format`` and ``chunk_shape`` from
+        zarr v3 metadata, ``multiscales`` from OME-NGFF, ``layers`` from the
+        AnnData ``encoding-type``.
+
+        Example::
+
+            schema.formats.zarr = {
+                "zarr_format": 3,
+                "chunk_shape": {"y": [256, 512], "x": [256, 512]},
+                "multiscales": {"scale": 2, "axes": ["y", "x"]},
+                "layers": {"csc": "csc_matrix"},
+            }
+            schema.save()
+        """
+        aux = self.schema._aux
+        if not aux:
+            return None
+        return aux.get("zarr")
+
+    @zarr.setter
+    def zarr(self, value: dict[str, Any] | None) -> None:
+        if value is not None and not isinstance(value, dict):
+            raise TypeError("zarr constraints must be a dict or None")
+        aux = dict(self.schema._aux) if self.schema._aux else {}
+        if value is None:
+            aux.pop("zarr", None)
+        else:
+            aux["zarr"] = dict(value)
+        self.schema._aux = aux or None
+
+
 class SchemaOptionals:
     """Manage and access optional features in a schema."""
 
@@ -501,6 +546,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
+    # Top-level `_aux` keys beyond HasType's `ss`:
+    #   af: auxiliary feature config — see `_aux_fields`
+    #   zarr: format constraints — see Schema.formats.zarr
     _aux_fields: dict[str, tuple[str, type]] = {
         # define optional features in the schema as a list of their uids
         "1": ("optionals", list[str]),
@@ -581,6 +629,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     If set, :meth:`~lamindb.Artifact.save` raises a
     :class:`~lamindb.errors.ValidationError` when an artifact's suffix does not match.
+
+    See :attr:`~lamindb.Schema.formats` for additional format-specific constraints.
     """
     _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
@@ -767,6 +817,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             if schema is not None:
                 logger.important(f"returning schema with same hash: {schema}")
                 init_self_from_db(self, schema)
+                # `_aux` is reconstructed for hashed keys only (optionals / index)
+                # and would wipe unhashed keys such as `zarr`
+                validated_kwargs.pop("_aux", None)
                 update_attributes(self, validated_kwargs)
                 self.optionals.set(optional_features)
                 return None
@@ -957,7 +1010,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "slots_hash": "l",
             "suffix": "m",
         }
-        # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
+        # we do not want pure informational annotations like otype, name, type,
+        # is_type, or format constraints (`formats.zarr`) to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
         list_for_hashing = [
             f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
@@ -1525,6 +1579,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             )
         }
         return self._slots
+
+    @property
+    def formats(self) -> FormatConstraints:
+        """Format-specific constraints.
+
+        Currently supports ``zarr``. Constraints are not part of the schema hash.
+
+        Example::
+
+            schema.formats.zarr = {
+                "zarr_format": 3,
+                "multiscales": {"scale": 2},
+            }
+            schema.save()
+        """
+        return FormatConstraints(self)
 
     @property
     def optionals(self) -> SchemaOptionals:
