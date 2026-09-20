@@ -849,12 +849,14 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
-    """Measurable properties such as columns of a record frame.
+    """Measurable properties such as the columns of a `DataFrame`.
 
-    Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
+    Features validate and index variables across data so you can query by all dimensions:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px
+
+    Guide: :doc:`query-search`
 
     Args:
         name: `str` Name of the feature, typically a column name.
