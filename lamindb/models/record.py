@@ -487,7 +487,7 @@ def pop_index_from_feature_dictionary(
 
 
 def export_includes_record_metadata(schema: Schema | None) -> bool:
-    """Whether record frame export includes encoded ``__lamindb_record_*`` columns."""
+    """Whether record frame export includes encoded `__lamindb_record_*` columns."""
     return schema is None or schema.index is None
 
 
