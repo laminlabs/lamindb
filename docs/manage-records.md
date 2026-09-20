@@ -3,6 +3,12 @@
 Many use cases involving records management are primarily UI-based. However, the API allows you to perform all UI actions, too, see {class}`~lamindb.Record`.
 Use cases involving ontology management are largely API-based and documented here: {doc}`/manage-ontologies`.
 
+A {class}`~lamindb.Record` is one of three kinds:
+
+- **Record page** — a type without a schema (`record.is_page`)
+- **Record frame** — a type constrained by a schema (`record.is_frame`)
+- **Data record** — a record that is not a type (`record.is_data`)
+
 The following video provides an overview of the interplay of flexible records and ontology management on the UI:
 
 ```{toctree}
@@ -39,8 +45,8 @@ You can now launch the transform via the small "Launch" button, directly from th
    <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/tGS4pGEXqkXVscP90000.png" style="width: 50%;"/>
    </div>
 
-## Export sheets as artifacts
+## Export record frames as artifacts
 
-Click on "Export to Artifact" to save all records under a type as an artifact.
+Click on "Export to Artifact" to save all data records under a type as an artifact.
 
-In the API, call {meth}`~lamindb.Record.to_artifact()` for a `sheet`.
+In the API, call {meth}`~lamindb.Record.to_artifact()` for a record frame.

@@ -319,7 +319,7 @@ def my_func(
     run_name: str,
     started_at: datetime,
     organism: "cat[bionty.Organism[source__uid=4eeXrDKBKo]]",
-    sheet: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
+    record_frame: "cat[Record[YSS8VU4eeXrDKBKo, is_type=True, schema__uid=6pjoBrrz4f1EzQMO]]",
     diseases: "list[cat[bionty.Disease[source__uid=4a3ejKuf]]]",
     gene_id: "cat[bionty.Gene.ensembl_gene_id[source__uid=6w75X9zM]]",
 ) -> str:

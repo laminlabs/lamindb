@@ -193,35 +193,35 @@ def _resolve_record_categorical_from_sheet_export(
     cat_vector: CatVector,
     str_values: list[str],
 ) -> tuple[list[str], SQLRecordList, list[str]] | None:
-    """Resolve linked ``Record`` categoricals during sheet export round-trips.
+    """Resolve linked ``Record`` categoricals during record frame export round-trips.
 
     Background
     ----------
-    Sheet rows can link to other :class:`~lamindb.Record` objects through features
+    Data records can link to other :class:`~lamindb.Record` objects through features
     with dtypes like ``cat[Record[BioSample].name]``. On export, only the linked
     record's *display field* (usually ``name``) is written into the dataframe column
     — not the linked record's uid.
 
-    When validating that export dataframe again (e.g. ``sheet.to_artifact()``), the
+    When validating that export dataframe again (e.g. ``frame.to_artifact()``), the
     default categorical resolver looks up registry values **globally by name**. If two
     different linked records share the same display name (e.g. two BioSamples both
     named ``poolsample1``), that lookup is ambiguous and raises
     :class:`~lamindb.errors.ValidationError`.
 
     This helper avoids global name matching when the dataframe still carries enough
-    information to identify **which sheet row** each value came from. It resolves
+    information to identify **which data record** each value came from. It resolves
     linked records through existing :class:`~lamindb.models.record.RecordRecord` rows
     in the database instead.
 
     Row keys (two export shapes)
     ----------------------------
-    Sheets **without** :attr:`~lamindb.Schema.index` include encoded metadata columns
+    Record frames **without** :attr:`~lamindb.Schema.index` include encoded metadata columns
     on export::
 
         sample,fastq_1,...,__lamindb_record_uid__
         poolsample1,read_a,...,L2iXQt4UoivWTSut
 
-    Sheets **with** ``Schema.index`` omit ``__lamindb_record_*`` columns; the index
+    Record frames **with** ``Schema.index`` omit ``__lamindb_record_*`` columns; the index
     feature becomes ``df.index`` (values are stored on ``Record.name``)::
 
         name,treatment,cell_line
@@ -720,9 +720,7 @@ class ComponentCurator(Curator):
                 # the unscoped "Feature" itype should not filter by type.
                 root_uid = itype[8:-1]  # len("Feature[") == 8
                 feature_type = Feature.connect(using).get(uid=root_uid)
-                qs = feature_type.query_features().filter(
-                    name__in=self._dataset.keys()
-                )
+                qs = feature_type.query_features().filter(name__in=self._dataset.keys())
             else:
                 qs = Feature.connect(using).filter(name__in=self._dataset.keys())
             features += qs.to_list()
@@ -1295,18 +1293,22 @@ class AnnDataCurator(SlotsCurator):
                     or (
                         slot == "var"
                         and schema.slots["var"].itype is not None
-                    # startswith("Feature") covers both "Feature" and "Feature[uid]":
-                    # neither generic nor scoped Feature schemas use gene-ID indices,
-                    # so neither should be transposed. Only gene-registry itypes
-                    # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
-                    and not schema.slots["var"].itype.startswith("Feature")
+                        # startswith("Feature") covers both "Feature" and "Feature[uid]":
+                        # neither generic nor scoped Feature schemas use gene-ID indices,
+                        # so neither should be transposed. Only gene-registry itypes
+                        # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
+                        and not schema.slots["var"].itype.startswith("Feature")
                     )
                     else getattr(self._dataset, slot)
                 )
             self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
-            if slot == "var" and schema.slots["var"].itype is not None and not schema.slots["var"].itype.startswith("Feature"):
+            if (
+                slot == "var"
+                and schema.slots["var"].itype is not None
+                and not schema.slots["var"].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1404,7 +1406,11 @@ class MuDataCurator(SlotsCurator):
                     df = getattr(schema_dataset, modality_slot.rstrip(".T"))
 
             # Transpose var if necessary
-            if modality_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
+            if (
+                modality_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1497,7 +1503,11 @@ class SpatialDataCurator(SlotsCurator):
                         raise InvalidArgument(f"Unrecognized slot format: {slot}")
 
             # Handle var transposition logic
-            if table_slot == "var" and schema.slots[slot].itype is not None and not schema.slots[slot].itype.startswith("Feature"):
+            if (
+                table_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )

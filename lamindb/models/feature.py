@@ -849,7 +849,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
-    """Measurable properties such as columns of a sheet.
+    """Measurable properties such as columns of a record frame.
 
     Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
 
@@ -862,7 +862,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             Types or `ULabel` or `Record` objects representing types.
             See :class:`~lamindb.base.types.SimpleDtypeStr`.
         type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
-        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
+        is_type: `bool = False` Whether this is a feature type, see :attr:`~lamindb.Feature.is_type`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
@@ -897,12 +897,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-    Restrict a categorical feature to a specific `ULabel` type, here a perturbations registry::
+    Restrict a categorical feature to a specific ULabel type, here a perturbations registry::
 
         perturbation_registry = ln.ULabel(name="Perturbations", is_type=True).save()
         ln.Feature(name="perturbation", dtype=perturbation_registry).save()
 
-    Restrict a categorical feature to a `Record` type, here an experiments registry::
+    Restrict a categorical feature to a record page, here an experiments registry::
 
         experiments_registry = ln.Record(name="Experiments", is_type=True).save()
         ln.Feature(name="experiment", dtype=experiments_registry).save()
@@ -976,11 +976,11 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             cat_filters={"schema": schema},
         ).save()
 
-        # restrict records to sheets with a shared schema and type
+        # restrict records to record frames with a shared schema and type
         sample_type = ln.Record.get(name="Samples")
         schema = ln.Schema.get(name="my_sample_schema")
         ln.Feature(
-            name="samplesheet",
+            name="sample_frame",
             dtype=sample_type,
             cat_filters={"is_type": True, "schema": schema},
         ).save()
@@ -1022,7 +1022,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     .. dropdown:: Features work across artifacts, records, and runs.
 
-        Here is how records indexed by the features of a sheet look like on the hub UI:
+        Here is how data records indexed by the features of a record frame look like on the hub UI:
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
             :width: 800px
