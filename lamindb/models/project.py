@@ -66,7 +66,7 @@ class Reference(
     Args:
         name: `str` The name of the reference.
         type: `Reference | None = None` The type of the reference.
-        is_type: `bool = False` Whether the reference is a type.
+        is_type: `bool = False` Whether this is a reference type.
         abbr: `str | None = None` The abbreviation of the reference.
         url: `str | None = None` The URL of the reference.
         pubmed_id: `int | None = None` The PubMed ID of the reference.
@@ -310,7 +310,7 @@ class Project(
     Args:
         name: `str` Title or name of the project.
         type: `Project | None = None` A project type, see :attr:`~lamindb.Project.type`.
-        is_type: `bool = False` Whether this project is a type.
+        is_type: `bool = False` Whether this is a project type.
         abbr: `str | None = None` An abbreviation.
         url: `str | None = None` A URL.
         description: `str | None = None` A description.

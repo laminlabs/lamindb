@@ -362,7 +362,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     1. They can be used to validate arbitrary array-like data structures, not just tabular data.
     2. They're anchored in a database, not just in code, so that you can leverage them in queries.
-    3. They can be used to curate external data structures and define sheets via LaminDB's records.
+    3. They can be used to curate external data structures and define record frames via LaminDB's records.
 
     To create a schema, at least one of the following parameters must be passed:
 
@@ -380,7 +380,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
-        is_type: `bool = False` Whether the schema is a type.
+        is_type: `bool = False` Whether this is a schema type.
         index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices.
             When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
@@ -1226,7 +1226,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """Save schema.
 
         When the schema hash changes because `schema.index` was set or unset on a
-        record-sheet schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        record frame schema, row keys are migrated between :attr:`~lamindb.Record.name`
         and the link table in bulk. If `Record.name` and the link-table index value
         both exist and differ, you are prompted to keep `Record.name` (`y`) or use
         the feature values (`n`); pass `index_name_conflict="keep_name"` or
@@ -1236,8 +1236,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             >>> schema.save()
             ! you updated the schema hash and might invalidate datasets...
-            1 sheet row(s) have both Record.name and 'name' values that differ.
-              sheet My samples 2025-05 (Kzpu3Xo8g7xy), record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
+            1 data record(s) have both Record.name and 'name' values that differ.
+              record frame My samples 2025-05 (Kzpu3Xo8g7xy), data record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
             Keep Record.name (y) or use feature values (n)? y
 
         The prompt only appears when both values exist and differ; matching values
@@ -1494,15 +1494,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """The feature configured to act as index.
 
         For `DataFrame` / `AnnData` schemas, validates row indices during curation.
-        For record sheet schemas, the index feature must have `dtype=str`; see
+        For record frame schemas, the index feature must have `dtype=str`; see
         :class:`~lamindb.Record`. The index feature automatically targets
         :attr:`~lamindb.Record.name` (equivalent to `field="name"` for that
         feature). The schema must be saved before assigning
         `schema.index` (pass `index` to the constructor for unsaved schemas).
         Assignment only sets or clears the index marker; it does not add or remove
-        schema members. On :meth:`~lamindb.Schema.save`, record sheets migrate row
+        schema members. On :meth:`~lamindb.Schema.save`, record frames migrate row
         keys between :attr:`~lamindb.Record.name` and the link table when the index
-        changes. If both differ for a row, you are prompted to keep `Record.name` or
+        changes. If both differ for a data record, you are prompted to keep `Record.name` or
         the feature values; pass `index_name_conflict="keep_name"` or
         `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
