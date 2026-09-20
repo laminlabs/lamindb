@@ -1,9 +1,9 @@
-"""Storage conventions for `SpatialData`, declared in ``schema.formats.zarr``.
+"""Storage conventions for `SpatialData`, declared in `schema.formats.zarr`.
 
 Each key is optional and enables one check. Keys re-use the vocabulary of the
-specification they check: ``zarr_format`` and ``chunk_shape`` from the zarr v3
-metadata, ``multiscales`` from OME-NGFF, ``layers`` from the anndata
-``encoding-type``::
+specification they check: `zarr_format` and `chunk_shape` from the zarr v3
+metadata, `multiscales` from OME-NGFF, `layers` from the anndata
+`encoding-type`::
 
     schema.formats.zarr = {
         "zarr_format": 3,
@@ -35,7 +35,7 @@ SCALE_RTOL = 0.05
 
 
 def _scales(image: Any) -> list[tuple[str, Any]]:
-    """Return ``(scale_name, DataArray)`` pairs ordered from finest to coarsest."""
+    """Return `(scale_name, DataArray)` pairs ordered from finest to coarsest."""
     from xarray import DataTree
 
     if not isinstance(image, DataTree):
@@ -166,7 +166,7 @@ def _check_layers(sdata: SpatialData, required: dict[str, str]) -> list[str]:
 def validate_zarr_conventions(
     curator: SpatialDataCurator, spec: dict[str, Any]
 ) -> None:
-    """Check the curator's `SpatialData` against the conventions enabled in ``spec``."""
+    """Check the curator's `SpatialData` against the conventions enabled in `spec`."""
     sdata = curator._dataset
     errors: list[str] = []
     if "zarr_format" in spec:
