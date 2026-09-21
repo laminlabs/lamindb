@@ -100,6 +100,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
     You can also time-travel to previous versions of the collection.
 
+    You can build collections with tens of thousands of parquet files or zarr stores.
+    You can reach very high numbers of observations, for example 10k Parquet files with 100 million rows each allow storing a trillion observations.
+
     Collections are particularly useful if they enforce a common schema for their artifacts: pass `schema` to achieve this.
     You can then confidently use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow as you'll know that the columns of these parquet files will harmonize.
     Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sampler for AnnData objects.
@@ -155,6 +158,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     Create a collection from a list of :class:`~lamindb.Artifact` objects::
 
         collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
+
+    A sharded sequence corpus, e.g. a trillion sequences as 1000 parquet files of 1 billion rows::
+
+        artifacts = ln.Artifact.from_dir("s3://bucket/sequences/").save()
+        collection = ln.Collection(artifacts, key="genomes/sequences").save()
 
     Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
 
