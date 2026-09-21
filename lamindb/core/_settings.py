@@ -104,11 +104,7 @@ class Settings:
 
     @property
     def annotation(self) -> AnnotationSettings:
-        """Artifact annotation settings.
-
-        For example, `ln.settings.creation.search_names = False` will disable
-        searching for records with similar names during creation.
-        """
+        """Artifact annotation settings."""
         return annotation_settings
 
     # note: this setting should probably be deprecated soon

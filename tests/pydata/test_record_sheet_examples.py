@@ -169,8 +169,8 @@ def test_record_example_compound_treatment(
     assert artifact.path.read_text().startswith("""\
 name,id,uid,treatment,cell_line,preparation_date,project
 Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
-    assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
-    assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
+    assert artifact.key == f"lamindb_record_exports/{sample_sheet1.name}.csv"
+    assert artifact.description.startswith(f"Export of record type {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
     _assert_describe_feature_columns(
@@ -606,8 +606,21 @@ def test_record_export_applies_feature_predicate_filters():
     sample1 = ln.Record(name="sample1", type=sample_sheet).save()
     sample2 = ln.Record(name="sample2", type=sample_sheet).save()
     export_filter_score = ln.Feature(name="export_filter_score", dtype=int).save()
-    sample1.features.add_values({"export_filter_score": 10})
-    sample2.features.add_values({"export_filter_score": 20})
+    export_filter_url = ln.Feature(
+        name="export_filter_url", dtype=str, values_through="reference"
+    ).save()
+    sample1.features.add_values(
+        {
+            "export_filter_score": 10,
+            "export_filter_url": "https://records.example/sample1",
+        }
+    )
+    sample2.features.add_values(
+        {
+            "export_filter_score": 20,
+            "export_filter_url": "https://records.example/sample2",
+        }
+    )
     transform = ln.Transform(
         key="test_record_export_applies_feature_predicate_filters",
         kind="function",
@@ -620,6 +633,10 @@ def test_record_export_applies_feature_predicate_filters():
         ).to_dataframe(include="features")
         assert len(filtered_df) == 1
         assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
+        assert filtered_df["export_filter_score"].to_list() == [20]
+        assert filtered_df["export_filter_url"].to_list() == [
+            "https://records.example/sample2"
+        ]
 
         dataframe_export_run = sample_sheet.input_of_runs.order_by(
             "-created_at"
@@ -637,6 +654,7 @@ def test_record_export_applies_feature_predicate_filters():
         sample2.delete(permanent=True)
         sample_sheet.delete(permanent=True)
         export_filter_score.delete(permanent=True)
+        export_filter_url.delete(permanent=True)
 
 
 def test_record_queryset_to_dataframe_mixed_types_falls_back_to_generic():

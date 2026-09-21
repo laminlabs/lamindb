@@ -7,6 +7,7 @@ Modules
    :toctree: .
 
    lightning
+   notion
 
 Functions
 ---------
@@ -22,6 +23,7 @@ from ._vitessce import save_vitessce_config
 
 __all__ = [
     "lightning",
+    "notion",
     "save_tiledbsoma_experiment",
     "curate_from_croissant",
     "save_vitessce_config",
@@ -29,9 +31,10 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    """Lazy-import save_tiledbsoma_experiment to avoid loading storage at package import."""
+    """Lazy-import heavy symbols to avoid loading storage/lamindb at package import."""
     if name == "save_tiledbsoma_experiment":
         from lamindb.core.storage import save_tiledbsoma_experiment
 
         return save_tiledbsoma_experiment
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

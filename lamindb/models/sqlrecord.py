@@ -202,6 +202,9 @@ class HasType(models.Model):
 
     A `type` hence allows hierarchically grouping records under types.
 
+    For `Record`, a type without a schema is a **record page** and a type with a
+    schema is a **record frame**. Records that are not types are **data records**.
+
     For instance, using the example of `ln.Record`::
 
         experiment_type = ln.Record(name="Experiments", is_type=True).save()
@@ -215,7 +218,11 @@ class HasType(models.Model):
     is_type: bool = BooleanField(default=False, db_default=False, db_index=True)
     """Indicates if record is a `type`.
 
-    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
+    For `Record`, a type is a record page or record frame. For `Feature`, `ULabel`,
+    `Schema`, and `Project`, a type is a feature type, ULabel type, schema type, or
+    project type.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be data records of that `type`.
     """
 
     def query_types(self) -> SQLRecordList:
@@ -1675,6 +1682,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         cls_or_self,
         return_str: bool = False,
         include: None | Literal["comments"] = None,
+        n_max_features: int | None = None,
     ) -> None | str:
         """Describe record including relations.
 
@@ -1682,14 +1690,22 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             return_str: Return a string instead of printing.
             include: Include additional content. Use ``"comments"`` to display
                 readme and comment blocks.
+            n_max_features: Max number of internal schema members shown
+                in ``Artifact.describe()`` previews.
         """
         from ._describe import describe_postgres_sqlite
 
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
+            return type(cls_or_self).describe(  # type: ignore
+                cls_or_self,
+                return_str=return_str,
+            )
         else:
             return describe_postgres_sqlite(
-                cls_or_self, return_str=return_str, include=include
+                cls_or_self,
+                return_str=return_str,
+                include=include,
+                n_max_features=n_max_features,
             )
 
     def __repr__(

@@ -55,6 +55,7 @@ from lamindb.models.sqlrecord import HasType
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
 from ..models.feature import get_record_type_from_uid
+from ._zarr import validate_zarr_conventions
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -193,47 +194,47 @@ def _resolve_record_categorical_from_sheet_export(
     cat_vector: CatVector,
     str_values: list[str],
 ) -> tuple[list[str], SQLRecordList, list[str]] | None:
-    """Resolve linked ``Record`` categoricals during sheet export round-trips.
+    """Resolve linked `Record` categoricals during record frame export round-trips.
 
     Background
     ----------
-    Sheet rows can link to other :class:`~lamindb.Record` objects through features
-    with dtypes like ``cat[Record[BioSample].name]``. On export, only the linked
-    record's *display field* (usually ``name``) is written into the dataframe column
+    Data records can link to other :class:`~lamindb.Record` objects through features
+    with dtypes like `cat[Record[BioSample].name]`. On export, only the linked
+    record's *display field* (usually `name`) is written into the dataframe column
     — not the linked record's uid.
 
-    When validating that export dataframe again (e.g. ``sheet.to_artifact()``), the
+    When validating that export dataframe again (e.g. `frame.to_artifact()`), the
     default categorical resolver looks up registry values **globally by name**. If two
     different linked records share the same display name (e.g. two BioSamples both
-    named ``poolsample1``), that lookup is ambiguous and raises
+    named `poolsample1`), that lookup is ambiguous and raises
     :class:`~lamindb.errors.ValidationError`.
 
     This helper avoids global name matching when the dataframe still carries enough
-    information to identify **which sheet row** each value came from. It resolves
+    information to identify **which data record** each value came from. It resolves
     linked records through existing :class:`~lamindb.models.record.RecordRecord` rows
     in the database instead.
 
     Row keys (two export shapes)
     ----------------------------
-    Sheets **without** :attr:`~lamindb.Schema.index` include encoded metadata columns
+    Record frames **without** :attr:`~lamindb.Schema.index` include encoded metadata columns
     on export::
 
         sample,fastq_1,...,__lamindb_record_uid__
         poolsample1,read_a,...,L2iXQt4UoivWTSut
 
-    Sheets **with** ``Schema.index`` omit ``__lamindb_record_*`` columns; the index
-    feature becomes ``df.index`` (values are stored on ``Record.name``)::
+    Record frames **with** `Schema.index` omit `__lamindb_record_*` columns; the index
+    feature becomes `df.index` (values are stored on `Record.name`)::
 
         name,treatment,cell_line
         Sample 1,treatment1,HEK293T
 
-    This function detects which shape applies and queries ``RecordRecord`` with the
+    This function detects which shape applies and queries `RecordRecord` with the
     matching row key:
 
-    - **No index**: ``record__uid__in`` from ``__lamindb_record_uid__``.
-    - **With index**: ``record__name__in`` from ``df.index`` (or the index column),
+    - **No index**: `record__uid__in` from `__lamindb_record_uid__`.
+    - **With index**: `record__name__in` from `df.index` (or the index column),
       scoped to sheet types registered on the validating schema
-      (``Record.filter(is_type=True, schema_id=...)``). Index names are only unique
+      (`Record.filter(is_type=True, schema_id=...)`). Index names are only unique
       within a sheet, so the type filter is required.
 
     What this does *not* do
@@ -241,16 +242,16 @@ def _resolve_record_categorical_from_sheet_export(
     - Does not add uid columns to exports; row keys come from the existing export
       layout.
     - Does not replace dtype-based validation — dtype still defines *what* to validate.
-    - Returns ``None`` for external dataframes without row keys, so normal global name
+    - Returns `None` for external dataframes without row keys, so normal global name
       lookup proceeds unchanged.
 
     Args:
-        cat_vector: Categorical being validated; must be a ``Record`` registry feature.
+        cat_vector: Categorical being validated; must be a `Record` registry feature.
         str_values: Distinct string values observed in the dataframe column.
 
     Returns:
-        ``(validated_values, linked_records, non_validated_values)`` when row keys are
-        present and matching DB links exist; otherwise ``None`` (fall back to default
+        `(validated_values, linked_records, non_validated_values)` when row keys are
+        present and matching DB links exist; otherwise `None` (fall back to default
         validation).
     """
     if cat_vector.feature is None or cat_vector._cat_manager is None:
@@ -608,6 +609,38 @@ class SlotsCurator(Curator):
         )
 
 
+def _check_sqlrecord_type(value: SQLRecord, feature: Feature) -> None:
+    """Raise ValidationError if value.type_id doesn't match the type_uid in feature's dtype.
+
+    Only runs when the dtype contains a type_uid (e.g. cat[Record[<uid>]]).
+    Plain cat[ULabel], cat[bionty.Gene], etc. are unaffected.
+    """
+    from lamindb.models.feature import parse_dtype
+
+    parsed = parse_dtype(feature._dtype_str)
+    if not parsed:
+        return
+    type_uid = parsed[0].get("type_uid")
+    if not type_uid:
+        return
+    registry = parsed[0]["registry"]
+    type_record = registry.objects.using(feature._state.db).get(uid=type_uid)
+    if value.type_id != type_record.id:
+        actual = getattr(value, "type", None)
+        raise ValidationError(
+            f"Expected a record of type '{type_record.name}' "
+            f"for feature '{feature.name}', but received "
+            f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
+        )
+
+
+def _check_sqlrecord_type_in_list(values: list, feature: Feature) -> None:
+    """Apply _check_sqlrecord_type to each SQLRecord in a list."""
+    for v in values:
+        if isinstance(v, SQLRecord):
+            _check_sqlrecord_type(v, feature)
+
+
 def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
     d = dict(d)
@@ -624,12 +657,15 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
             if feature.name in df.columns:
                 value = df.loc[0, feature.name]
                 if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
+                    _check_sqlrecord_type_in_list(value, feature)  # type: ignore
                     df.attrs[feature.name] = "list_of_categories"
                 else:
                     if isinstance(value, SQLRecord) and value._state.adding:
                         raise ValidationError(
                             f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
                         )
+                    if isinstance(value, SQLRecord):
+                        _check_sqlrecord_type(value, feature)
                     df[feature.name] = pd.Categorical(df[feature.name])
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
@@ -676,9 +712,19 @@ class ComponentCurator(Curator):
         feature_ids: set[int] = set()
 
         if schema.flexible:
-            features += (
-                Feature.connect(using).filter(name__in=self._dataset.keys()).to_list()
-            )
+            itype = schema.itype
+            if itype and itype.startswith("Feature["):
+                # Scoped itype "Feature[<uid>]": use query_features() which
+                # efficiently traverses the full sub-type hierarchy in one
+                # query per depth level (BFS implemented in _query_relatives).
+                # Note: startswith("Feature[") not startswith("Feature") because
+                # the unscoped "Feature" itype should not filter by type.
+                root_uid = itype[8:-1]  # len("Feature[") == 8
+                feature_type = Feature.connect(using).get(uid=root_uid)
+                qs = feature_type.query_features().filter(name__in=self._dataset.keys())
+            else:
+                qs = Feature.connect(using).filter(name__in=self._dataset.keys())
+            features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 
         if schema.n_members and schema.n_members > 0:
@@ -1076,6 +1122,8 @@ class ExperimentalDictCurator(DataFrameCurator):
         slot: str | None = None,
         require_saved_schema: bool = False,
         using: str | None = None,
+        key_label: str = "items",
+        validate_keys: bool = False,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -1092,6 +1140,8 @@ class ExperimentalDictCurator(DataFrameCurator):
             require_saved_schema=require_saved_schema,
             using=using,
         )
+        self._atomic_curator.cat._cat_vectors["columns"]._key = key_label
+        self._atomic_curator.cat._validate_columns = validate_keys
 
 
 def _resolve_schema_slot_path(
@@ -1243,14 +1293,23 @@ class AnnDataCurator(SlotsCurator):
                     if slot == "var.T"
                     or (
                         slot == "var"
-                        and schema.slots["var"].itype not in {None, "Feature"}
+                        and schema.slots["var"].itype is not None
+                        # startswith("Feature") covers both "Feature" and "Feature[uid]":
+                        # neither generic nor scoped Feature schemas use gene-ID indices,
+                        # so neither should be transposed. Only gene-registry itypes
+                        # (e.g. "bionty.Gene.ensembl_gene_id") need transposition.
+                        and not schema.slots["var"].itype.startswith("Feature")
                     )
                     else getattr(self._dataset, slot)
                 )
             self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
-            if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
+            if (
+                slot == "var"
+                and schema.slots["var"].itype is not None
+                and not schema.slots["var"].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1348,10 +1407,11 @@ class MuDataCurator(SlotsCurator):
                     df = getattr(schema_dataset, modality_slot.rstrip(".T"))
 
             # Transpose var if necessary
-            if modality_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
+            if (
+                modality_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1393,6 +1453,7 @@ class SpatialDataCurator(SlotsCurator):
 
     See Also:
         :meth:`~lamindb.Artifact.from_spatialdata`.
+        :attr:`~lamindb.Schema.formats`.
     """
 
     def __init__(
@@ -1444,10 +1505,11 @@ class SpatialDataCurator(SlotsCurator):
                         raise InvalidArgument(f"Unrecognized slot format: {slot}")
 
             # Handle var transposition logic
-            if table_slot == "var" and schema.slots[slot].itype not in {
-                None,
-                "Feature",
-            }:
+            if (
+                table_slot == "var"
+                and schema.slots[slot].itype is not None
+                and not schema.slots[slot].itype.startswith("Feature")
+            ):
                 logger.warning(
                     "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
@@ -1468,6 +1530,15 @@ class SpatialDataCurator(SlotsCurator):
             )
 
         self._columns_field = self._var_fields
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}"""  # noqa: D415
+        # cheap structural checks short-circuit the slot validation
+        spec = self._schema.formats.zarr
+        if spec is not None:
+            validate_zarr_conventions(self, spec)
+        super().validate()
 
 
 @doc_args(SLOTS_DETAILS_DOCSTRING)
@@ -2105,6 +2176,7 @@ class DataFrameCatManager:
         maximal_set: bool = False,
         schema: Schema | None = None,
         using: str | None = None,
+        validate_columns: bool = True,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -2124,6 +2196,7 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
+        self._validate_columns = validate_columns
         columns = self._dataset.keys()
         if maximal_set:
             columns = [
@@ -2245,13 +2318,15 @@ class DataFrameCatManager:
         self._validate_category_error_messages = ""  # reset the error messages
         validated = True
         for key, cat_vector in self._cat_vectors.items():
+            if key == "columns" and not self._validate_columns:
+                continue
             logger.info(f"validating vector {key}")
             cat_vector.validate()
             validated &= cat_vector.is_validated
         self._is_validated = validated
         self._non_validated = {}  # type: ignore
 
-        if self._index is not None:
+        if self._index is not None and "columns" in self._cat_vectors:
             # cat_vector.validate() populates validated labels
             # the index should become part of the feature set corresponding to the dataframe
             if self._cat_vectors["columns"].records is not None:

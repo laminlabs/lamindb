@@ -17,7 +17,14 @@ from lamindb.base.fields import (
     TextField,
     URLField,
 )
+from lamindb.base.types import (
+    PROJECT_CODE_TO_STATUS,
+    PROJECT_STATUS_TO_CODE,
+    ProjectStatus,
+    Unset,
+)
 from lamindb.base.users import current_user_id
+from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_12
 from .artifact import Artifact
@@ -28,10 +35,6 @@ from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from lamindb.errors import FieldValidationError
-
-from lamindb.base.types import Unset
-
 from .sqlrecord import (
     UNSET,
     BaseSQLRecord,
@@ -63,7 +66,7 @@ class Reference(
     Args:
         name: `str` The name of the reference.
         type: `Reference | None = None` The type of the reference.
-        is_type: `bool = False` Whether the reference is a type.
+        is_type: `bool = False` Whether this is a reference type.
         abbr: `str | None = None` The abbreviation of the reference.
         url: `str | None = None` The URL of the reference.
         pubmed_id: `int | None = None` The PubMed ID of the reference.
@@ -268,7 +271,9 @@ class Reference(
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
-            valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Reference)])
+            valid_keywords = ", ".join(
+                [val[0] for val in _get_record_kwargs(Reference)]
+            )
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
@@ -305,9 +310,10 @@ class Project(
     Args:
         name: `str` Title or name of the project.
         type: `Project | None = None` A project type, see :attr:`~lamindb.Project.type`.
-        is_type: `bool = False` Whether this project is a type.
+        is_type: `bool = False` Whether this is a project type.
         abbr: `str | None = None` An abbreviation.
         url: `str | None = None` A URL.
+        description: `str | None = None` A description.
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
@@ -502,6 +508,7 @@ class Project(
         is_type: bool = False,
         abbr: str | None = None,
         url: str | None = None,
+        description: str | None = None,
         start_date: DateType | None = None,
         end_date: DateType | None = None,
         branch: Branch | None = None,
@@ -524,6 +531,7 @@ class Project(
         is_type: bool = kwargs.pop("is_type", False)
         abbr: str | None = kwargs.pop("abbr", None)
         url: str | None = kwargs.pop("url", None)
+        description: str | None = kwargs.pop("description", None)
         start_date: DateType | None = kwargs.pop("start_date", None)
         end_date: DateType | None = kwargs.pop("end_date", None)
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
@@ -540,12 +548,59 @@ class Project(
             is_type=is_type,
             abbr=abbr,
             url=url,
+            description=description,
             start_date=start_date,
             end_date=end_date,
             _skip_validation=_skip_validation,
             _aux=_aux,
             **space_branch_kwargs,
         )
+
+    @property
+    def status(self) -> ProjectStatus:
+        """Project status.
+
+        Get and set the status of the project.
+
+        ============  =====  ==========================================================
+        status        code   description
+        ============  =====  ==========================================================
+        `planned`     -3     The project is planned but not yet started.
+        `up-next`     -2     The project is queued as the next item to start.
+        `active`      -1     The project is currently active.
+        `completed`   0      The project completed successfully.
+        `paused`      2      The project is temporarily paused.
+        `background`  1      The project is still being worked on in the background.
+        `canceled`    3      The project was canceled.
+        `archived`    4      The project is archived and no longer actively tracked.
+        ============  =====  ==========================================================
+
+        The database stores the project status as an integer code in field `_status_code`.
+
+        Example:
+
+            See the status of a project::
+
+                project.status
+                #> 'planned'
+
+            Update the status::
+
+                project.status = "active"
+                project.save()
+
+            Query by status::
+
+                ln.Project.filter(status="active").to_dataframe()
+        """
+        return PROJECT_CODE_TO_STATUS.get(self._status_code, "completed")
+
+    @status.setter
+    def status(self, value: ProjectStatus) -> None:
+        if value not in PROJECT_STATUS_TO_CODE:
+            expected = ", ".join(f"'{status}'" for status in PROJECT_STATUS_TO_CODE)
+            raise ValueError(f"Invalid project status. Expected one of: {expected}.")
+        self._status_code = PROJECT_STATUS_TO_CODE[value]
 
     def query_projects(self) -> QuerySet:
         """Query projects of sub types.

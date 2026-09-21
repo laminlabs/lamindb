@@ -32,11 +32,7 @@ from ._relations import (
     get_related_name,
 )
 from .can_curate import CanCurate
-from .feature import (
-    Feature,
-    serialize_dtype,
-    serialize_pandas_dtype,
-)
+from .feature import Feature, serialize_dtype, serialize_pandas_dtype
 from .has_parents import _query_relatives
 from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
@@ -143,7 +139,7 @@ def transfer_schema_members(
     # Only Feature schemas require member-level transfer here.
     # Non-Feature schemas (e.g. large Gene schemas) can have huge memberships
     # and are handled via regular mapping/lookup paths.
-    if source_schema.itype != "Feature":
+    if source_schema.itype is None or not source_schema.itype.startswith("Feature"):
         return None
 
     index_feature_uid = source_schema._index_feature_uid
@@ -239,6 +235,51 @@ def transfer_schema_with_members(
     return schema_default
 
 
+class FormatConstraints:
+    """Manage format-specific constraints on a schema.
+
+    Currently supports `zarr`. Constraints are not part of the schema hash.
+    """
+
+    def __init__(self, schema) -> None:
+        self.schema = schema
+
+    @property
+    def zarr(self) -> dict[str, Any] | None:
+        """Zarr storage constraints.
+
+        Each key is optional and enables one check. Keys reuse the vocabulary of
+        the specification they check: `zarr_format` and `chunk_shape` from
+        zarr v3 metadata, `multiscales` from OME-NGFF, `layers` from the
+        AnnData `encoding-type`.
+
+        Example::
+
+            schema.formats.zarr = {
+                "zarr_format": 3,
+                "chunk_shape": {"y": [256, 512], "x": [256, 512]},
+                "multiscales": {"scale": 2, "axes": ["y", "x"]},
+                "layers": {"csc": "csc_matrix"},
+            }
+            schema.save()
+        """
+        aux = self.schema._aux
+        if not aux:
+            return None
+        return aux.get("zarr")
+
+    @zarr.setter
+    def zarr(self, value: dict[str, Any] | None) -> None:
+        if value is not None and not isinstance(value, dict):
+            raise TypeError("zarr constraints must be a dict or None")
+        aux = dict(self.schema._aux) if self.schema._aux else {}
+        if value is None:
+            aux.pop("zarr", None)
+        else:
+            aux["zarr"] = dict(value)
+        self.schema._aux = aux or None
+
+
 class SchemaOptionals:
     """Manage and access optional features in a schema."""
 
@@ -321,7 +362,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     1. They can be used to validate arbitrary array-like data structures, not just tabular data.
     2. They're anchored in a database, not just in code, so that you can leverage them in queries.
-    3. They can be used to curate external data structures and define sheets via LaminDB's records.
+    3. They can be used to curate external data structures and define record frames via LaminDB's records.
 
     To create a schema, at least one of the following parameters must be passed:
 
@@ -339,8 +380,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
-        is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
+        is_type: `bool = False` Whether this is a schema type.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices.
+            When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -414,6 +456,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="required_feature", dtype=str).save(),
             ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
         ]).save()
+
+    Setting :attr:`~lamindb.Schema.index` stores the
+    index feature on the `name` field of :class:`~lamindb.Record`::
+
+        sample_id = ln.Feature(name="sample_id", dtype=str).save()
+        schema = ln.Schema(features=[ln.Feature(name="score", dtype=float).save()], index=sample_id).save()
 
     Parse & validate feature identifier values::
 
@@ -498,8 +546,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
+    # Top-level `_aux` keys beyond HasType's `ss`:
+    #   af: auxiliary feature config — see `_aux_fields`
+    #   zarr: format constraints — see Schema.formats.zarr
     _aux_fields: dict[str, tuple[str, type]] = {
+        # define optional features in the schema as a list of their uids
         "1": ("optionals", list[str]),
+        # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
     }
 
@@ -576,6 +629,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     If set, :meth:`~lamindb.Artifact.save` raises a
     :class:`~lamindb.errors.ValidationError` when an artifact's suffix does not match.
+
+    See :attr:`~lamindb.Schema.formats` for additional format-specific constraints.
     """
     _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
@@ -762,6 +817,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             if schema is not None:
                 logger.important(f"returning schema with same hash: {schema}")
                 init_self_from_db(self, schema)
+                # `_aux` is reconstructed for hashed keys only (optionals / index)
+                # and would wipe unhashed keys such as `zarr`
+                validated_kwargs.pop("_aux", None)
                 update_attributes(self, validated_kwargs)
                 self.optionals.set(optional_features)
                 return None
@@ -816,9 +874,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         suffix = validate_schema_suffix(suffix)
         optional_features = []
+        record_fields: dict[str, str] = {}
         features_registry: Registry = None
         if itype is not None:
-            if itype != "Composite":
+            # If a Feature instance with is_type=True is passed, encode as
+            # "Feature[uid]" to scope the schema to only that feature type.
+            # This check must come before the "Composite" string comparison to
+            # avoid triggering SQLRecord.__bool__ on the Feature instance.
+            if isinstance(itype, Feature) and getattr(itype, "is_type", False):
+                if itype._state.adding:
+                    raise InvalidArgument(
+                        f"Please save the feature type '{itype.name}' before using it as itype."
+                    )
+                itype = f"Feature[{itype.uid}]"
+            elif itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
             else:
                 warnings.warn(
@@ -844,13 +913,45 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 optional_features = [
                     config[0] for config in configs if config[1].get("optional")
                 ]
+                from .record import get_feature_sqlrecord_field
+
+                for feature in features:
+                    field_name = get_feature_sqlrecord_field(feature)
+                    if field_name is None:
+                        continue
+                    is_index_feature = index is not None and feature.uid == index.uid
+                    if is_index_feature and field_name != "name":
+                        raise ValueError(
+                            "A schema index feature cannot map to a record field "
+                            "other than 'name'"
+                        )
+                    if (
+                        not is_index_feature
+                        and field_name == "name"
+                        and index is not None
+                    ):
+                        raise ValueError(
+                            "Cannot map a feature to Record.name when schema.index is set: "
+                            "the index feature is already stored on Record.name automatically"
+                        )
+                    if field_name in record_fields.values():
+                        raise ValueError(
+                            f"Multiple features map to record field '{field_name}'. "
+                            "Only one feature can target a given record field."
+                        )
+                    record_fields[feature.uid] = field_name
+
                 if optional_features:
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
                     optional_features = optional_features_manual
         # n_features stays None if no features passed (flexible schema)
         if dtype is None:
-            dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
+            dtype = (
+                None
+                if itype is not None and itype.startswith("Feature")
+                else NUMBER_TYPE
+            )
         else:
             dtype = get_type_str(dtype)
         if slots:
@@ -892,7 +993,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # index feature (key "3") - remains in _aux
         if index is not None:
             aux_dict.setdefault("af", {})["3"] = index.uid
-
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
         HASH_CODE = {
@@ -910,7 +1010,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "slots_hash": "l",
             "suffix": "m",
         }
-        # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
+        # we do not want pure informational annotations like otype, name, type,
+        # is_type, or format constraints (`formats.zarr`) to be part of the hash
         hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
         list_for_hashing = [
             f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
@@ -1125,7 +1226,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """Save schema.
 
         When the schema hash changes because `schema.index` was set or unset on a
-        record-sheet schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        record frame schema, row keys are migrated between :attr:`~lamindb.Record.name`
         and the link table in bulk. If `Record.name` and the link-table index value
         both exist and differ, you are prompted to keep `Record.name` (`y`) or use
         the feature values (`n`); pass `index_name_conflict="keep_name"` or
@@ -1135,8 +1236,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             >>> schema.save()
             ! you updated the schema hash and might invalidate datasets...
-            1 sheet row(s) have both Record.name and 'name' values that differ.
-              sheet My samples 2025-05 (Kzpu3Xo8g7xy), record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
+            1 data record(s) have both Record.name and 'name' values that differ.
+              record frame My samples 2025-05 (Kzpu3Xo8g7xy), data record 21977: Record.name='schmidt22_perturbseq', name='sample-001'
             Keep Record.name (y) or use feature values (n)? y
 
         The prompt only appears when both values exist and differ; matching values
@@ -1393,13 +1494,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """The feature configured to act as index.
 
         For `DataFrame` / `AnnData` schemas, validates row indices during curation.
-        For record sheet schemas, the index feature must have `dtype=str`; see
-        :class:`~lamindb.Record`. The schema must be saved before assigning
+        For record frame schemas, the index feature must have `dtype=str`; see
+        :class:`~lamindb.Record`. The index feature automatically targets
+        :attr:`~lamindb.Record.name` (equivalent to `field="name"` for that
+        feature). The schema must be saved before assigning
         `schema.index` (pass `index` to the constructor for unsaved schemas).
         Assignment only sets or clears the index marker; it does not add or remove
-        schema members. On :meth:`~lamindb.Schema.save`, record sheets migrate row
+        schema members. On :meth:`~lamindb.Schema.save`, record frames migrate row
         keys between :attr:`~lamindb.Record.name` and the link table when the index
-        changes. If both differ for a row, you are prompted to keep `Record.name` or
+        changes. If both differ for a data record, you are prompted to keep `Record.name` or
         the feature values; pass `index_name_conflict="keep_name"` or
         `"keep_feature"` to :meth:`~lamindb.Schema.save` to skip the prompt.
         """
@@ -1476,6 +1579,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             )
         }
         return self._slots
+
+    @property
+    def formats(self) -> FormatConstraints:
+        """Format-specific constraints.
+
+        Currently supports `zarr`. Constraints are not part of the schema hash.
+
+        Example::
+
+            schema.formats.zarr = {
+                "zarr_format": 3,
+                "multiscales": {"scale": 2},
+            }
+            schema.save()
+        """
+        return FormatConstraints(self)
 
     @property
     def optionals(self) -> SchemaOptionals:
@@ -1567,11 +1686,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         cls_or_self,
         return_str: bool = False,
         include: None | Literal["comments"] = None,
+        n_max_features: int | None = None,
     ) -> None | str:
         """Describe schema."""
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(
-                cls_or_self, return_str=return_str, include=include
+                cls_or_self,
+                return_str=return_str,
             )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")

@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -6,6 +7,8 @@ from unittest.mock import patch
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
+from lamindb_setup.core._settings_store import local_worktree_file
+from lamindb_setup.errors import WorktreePathError
 
 
 def test_transform_from_path_infers_kind_and_key(tmp_path):
@@ -55,6 +58,62 @@ def test_transform_from_path_uses_dev_dir_relative_key_for_relative_path(tmp_pat
     finally:
         os.chdir(previous_cwd)
         ln_setup.settings.dev_dir = previous_dev_dir
+
+
+def test_transform_from_path_uses_active_worktree_relative_key(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    worktree_parent.mkdir()
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('hello from worktree')\n")
+        os.chdir(child_root)
+        transform = ln.Transform.from_path(path_in_child)
+        assert transform.key == f"pipelines/{path_in_child.name}"
+    finally:
+        os.chdir(previous_cwd)
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
+        ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree and previous_dev_dir is not None:
+            worktree_marker = local_worktree_file(previous_dev_dir.resolve())
+            worktree_marker.parent.mkdir(parents=True, exist_ok=True)
+            worktree_marker.write_text("true")
+
+
+def test_transform_from_path_errors_outside_worktree_child(tmp_path):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    previous_worktree = ln_setup.settings.worktree
+    previous_cwd = Path.cwd()
+    worktree_parent = tmp_path / "worktrees"
+    child_root = worktree_parent / "feature-a"
+    path_in_child = child_root / "pipelines" / f"wf-{time.time_ns()}.py"
+    worktree_parent.mkdir()
+    try:
+        ln_setup.settings.dev_dir = worktree_parent
+        ln_setup.settings.worktree = True
+        path_in_child.parent.mkdir(parents=True)
+        path_in_child.write_text("print('outside child should fail')\n")
+        os.chdir(worktree_parent)
+        with pytest.raises(WorktreePathError, match="inside a child directory"):
+            ln.Transform.from_path(path_in_child)
+    finally:
+        os.chdir(previous_cwd)
+        if child_root.exists():
+            shutil.rmtree(child_root)
+        ln_setup.settings.worktree = False
+        ln_setup.settings.dev_dir = previous_dev_dir
+        if previous_worktree and previous_dev_dir is not None:
+            worktree_marker = local_worktree_file(previous_dev_dir.resolve())
+            worktree_marker.parent.mkdir(parents=True, exist_ok=True)
+            worktree_marker.write_text("true")
 
 
 def test_transform_from_path_persists_source_code_once(tmp_path):

@@ -136,6 +136,7 @@ Utils
 .. autoclass:: InspectResult
 .. autoclass:: ValidateFields
 .. autoclass:: SchemaOptionals
+.. autoclass:: FormatConstraints
 .. autoclass:: lamindb.models.db.BiontyDB
 .. autoclass:: lamindb.models.db.PertdbDB
 
@@ -205,6 +206,7 @@ from .schema import (
     ArtifactSchema,
     SchemaComponent,
     SchemaOptionals,
+    FormatConstraints,
 )
 from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 

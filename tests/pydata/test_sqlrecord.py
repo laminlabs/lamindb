@@ -419,6 +419,7 @@ def test_get_record_kwargs():
             "cat_filters",
             "dict[str",
         ),
+        ("values_through", "Feature | SQLRecordFieldName | None"),
         ("branch", "Branch | None"),
         ("space", "Space | None"),
     ]

@@ -1105,6 +1105,8 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         storage = False
     # only delete in storage if DB delete is successful
     # DB delete might error because of a foreign key constraint violated etc.
+    # With PostgreSQL RLS, DELETE can also return normally while deleting 0 rows.
+    db_deleted = True
     if artifact._overwrite_versions and artifact.is_latest:
         logger.important(
             "deleting all versions of this artifact because they all share the same store"
@@ -1114,10 +1116,32 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         versions = Artifact.objects.using(artifact._state.db).filter(
             uid__startswith=artifact.stem_uid
         )
+        saw_version = False
         for version in versions:
-            _delete_skip_storage(version)
+            saw_version = True
+            if not _delete_skip_storage(version):
+                db_deleted = False
+        if not saw_version:
+            # Empty queryset with pk still set is suspicious: the rows may
+            # still exist but be hidden (permissions changed after load).
+            # Only treat as already-deleted when pk was cleared by a prior
+            # successful delete (retry after storage deletion failed).
+            db_deleted = artifact.pk is None
+        elif db_deleted:
+            # Queryset instances are not `artifact`; clear pk so a later retry
+            # can tell metadata is already gone.
+            artifact.pk = None
     else:
-        artifact._delete_skip_storage()
+        # After a successful DB delete Django clears pk. If storage then
+        # failed, retry sees pk is None and can still clean up storage.
+        # After a denied (0-row) delete we restore pk, so this does not
+        # treat RLS no-ops as success.
+        db_deleted = artifact.pk is None or _delete_skip_storage(artifact)
+    if not db_deleted:
+        logger.warning(
+            "did not delete artifact from the database; skipping storage deletion"
+        )
+        return
     # by default do not delete storage if deleting only a previous version
     # and the underlying store is mutable
     if artifact._overwrite_versions and not artifact.is_latest:
@@ -3795,8 +3819,23 @@ def _synchronize_cleanup_on_error(
     return cache_path
 
 
-def _delete_skip_storage(artifact, *args, **kwargs) -> None:
-    super(SQLRecord, artifact).delete(*args, **kwargs)
+def _delete_skip_storage(artifact, *args, **kwargs) -> bool:
+    # Django returns (deleted_count, {model_label: count}). PostgreSQL RLS can
+    # return from DELETE without error while deleting 0 rows; related CASCADE
+    # rows can still be counted, so check this model only.
+    # Collector.delete() still sets instance.pk = None after collection, even
+    # when the count is 0. Restore the pk so the instance still refers to the
+    # existing row and can be refreshed, saved, or deleted again.
+    pk = artifact.pk
+    delete_result = super(SQLRecord, artifact).delete(*args, **kwargs)
+    if not delete_result:
+        artifact.pk = pk
+        return False
+    _, deleted_by_type = delete_result
+    if deleted_by_type.get(artifact._meta.label, 0) > 0:
+        return True
+    artifact.pk = pk
+    return False
 
 
 def _save_skip_storage(artifact, **kwargs) -> None:

@@ -9,7 +9,11 @@ from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
-from lamindb.models.query_set import get_feature_annotate_kwargs
+from lamindb.models.query_set import (
+    SQLRecordList,
+    get_default_branch_ids,
+    get_feature_annotate_kwargs,
+)
 
 
 # please also see the test_curate_df.py tests
@@ -17,6 +21,13 @@ def test_to_dataframe():
     project_label = ln.Record(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
     labels = ln.Record.from_values(project_names, create=True).save()
+    labels_df = labels.to_dataframe()
+    assert "_state" not in labels_df.columns
+    assert set(labels_df["name"]) == set(project_names)
+    assert SQLRecordList([]).to_dataframe().empty
+    assert SQLRecordList([labels[0]]).one() == labels[0]
+    with pytest.warns(DeprecationWarning, match="to_dataframe"):
+        assert set(labels.df()["name"]) == set(project_names)
     project_label.children.add(*labels)
     df = ln.Record.to_dataframe(include="parents__name")
     assert df.columns[2] == "parents__name"
@@ -30,6 +41,13 @@ def test_to_dataframe():
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, dtype=int) for name in feature_names]
     ln.save(features)
+    feature_df = ln.Feature.filter(name__in=feature_names).to_dataframe()
+    assert "_dtype_str" in feature_df.columns
+    assert "_ounit_str" not in feature_df.columns
+    feature_privates_df = ln.Feature.filter(name__in=feature_names).to_dataframe(
+        include="privates"
+    )
+    assert "_ounit_str" in feature_privates_df.columns
     schema = ln.Schema(features, name="my schema").save()
     schema.features.set(features)
 
@@ -54,6 +72,9 @@ def test_to_dataframe():
 
     # raise error for non many-to-many
     df = ln.Record.filter(name="Project 0").to_dataframe(include="created_by__name")
+    assert df["created_by__name"].iloc[0] == ln.setup.settings.user.name
+    with pytest.warns(DeprecationWarning, match="to_dataframe"):
+        df = ln.Record.filter(name="Project 0").df(include="created_by__name")
     assert df["created_by__name"].iloc[0] == ln.setup.settings.user.name
 
     # do not return fields with no data in the registry
@@ -114,16 +135,30 @@ def test_run_to_dataframe_includes_json_features():
     transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
     run = ln.Run(transform=transform).save()
     feature = ln.Feature(name="run_json_feature", dtype=str).save()
+    dict_feature = ln.Feature(name="run_json_dict_feature", dtype=dict).save()
+    dict_as_string_feature = ln.Feature(
+        name="run_json_dict_as_string_feature", dtype=dict
+    ).save()
 
-    run.features.set_values({"run_json_feature": "hello"})
+    run.features.set_values(
+        {
+            "run_json_feature": "hello",
+            dict_feature: {"key": "value"},
+            dict_as_string_feature: "{'external': True}",
+        }
+    )
     df = ln.Run.filter(id=run.id).to_dataframe(include="features")
 
     assert "run_json_feature" in df.columns
     assert df["run_json_feature"].iloc[0] == "hello"
+    assert df[dict_feature.name].iloc[0] == {"key": "value"}
+    assert df[dict_as_string_feature.name].iloc[0] == {"external": True}
 
     run.delete(permanent=True)
     transform.delete(permanent=True)
     feature.delete(permanent=True)
+    dict_feature.delete(permanent=True)
+    dict_as_string_feature.delete(permanent=True)
 
 
 def test_to_dataframe_include_features_uses_queryset_measured_features():
@@ -239,20 +274,41 @@ def test_to_dataframe_include_features_prefers_relational_duplicates():
     feature_cat = ln.Feature(
         name=feature_name, dtype=ln.ULabel, type=feature_type_b
     ).save()
+    str_only_name = "to_dataframe_duplicate_name_str_only"
+    feature_str_a = ln.Feature(
+        name=str_only_name, dtype=str, type=feature_type_a
+    ).save()
+    feature_str_b = ln.Feature(
+        name=str_only_name, dtype=str, type=feature_type_b
+    ).save()
+    unique_feature = ln.Feature(
+        name="to_dataframe_unique_name_alongside_duplicates", dtype=str
+    ).save()
     artifact = ln.Artifact(
         ".gitignore", key="test_to_dataframe_relational_priority"
     ).save()
     label = ln.ULabel(name="to_dataframe_duplicate_relational_label").save()
 
     artifact.features.set_values({feature_cat: label.name})
+    artifact.features.add_values({feature_str: "plain-text"})
+    artifact.features.add_values({feature_str_a: "first-str"})
+    artifact.features.add_values({feature_str_b: "second-str"})
+    artifact.features.add_values({unique_feature: "unique-value"})
     df = ln.Artifact.filter(id=artifact.id).to_dataframe(include="features")
 
     assert feature_name in df.columns
     assert df[feature_name].iloc[0] == label.name
+    assert str_only_name in df.columns
+    assert df[str_only_name].iloc[0] == "first-str"
+    assert unique_feature.name in df.columns
+    assert df[unique_feature.name].iloc[0] == "unique-value"
 
     artifact.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_cat.delete(permanent=True)
+    feature_str_a.delete(permanent=True)
+    feature_str_b.delete(permanent=True)
+    unique_feature.delete(permanent=True)
     feature_type_a.delete(permanent=True)
     feature_type_b.delete(permanent=True)
     label.delete(permanent=True)
@@ -295,6 +351,20 @@ def test_filter_unknown_field():
         ln.Artifact.filter(nonexistent="value")
     assert "You can query either by available fields" in str(e)
 
+    with pytest.raises(FieldError) as e:
+        ln.User.filter(nonexistent="value")
+    assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
+    feature = ln.Feature(name="filter_predicate_on_user", dtype=str).save()
+    try:
+        with pytest.raises(
+            FieldError,
+            match="Feature predicates are only supported for Artifact, Run, and Record, not User.",
+        ):
+            ln.User.filter(feature == "hello")
+    finally:
+        feature.delete(permanent=True)
+
 
 def test_filter_status_field():
     transform = ln.Transform(key="test_filter_status_field").save()
@@ -313,9 +383,21 @@ def test_filter_status_field():
     assert ln.Branch.filter(status="review").count() >= 1
 
     project = ln.Project(name="test_filter_status_project").save()
-    project._status_code = 2
+    project._status_code = -1
     project.save(update_fields=["_status_code"])
-    assert ln.Project.filter(status=2).count() >= 1
+    assert ln.Project.filter(status=-1).count() >= 1
+    assert ln.Project.filter(status="active").count() >= 1
+    assert ln.Project.filter(status__in=["active", "planned"]).count() >= 1
+    project.status = "up-next"
+    project.save(update_fields=["_status_code"])
+    assert project.status == "up-next"
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Invalid Project status 'not-a-status'. Expected one of: 'planned', 'up-next', 'active', 'completed', 'paused', 'background', 'canceled', 'archived'."
+        ),
+    ):
+        ln.Project.filter(status="not-a-status")
 
     run.delete(permanent=True)
     transform.delete(permanent=True)
@@ -345,6 +427,13 @@ def test_get_unknown_field():
     with pytest.raises(FieldError) as e:
         ln.Artifact.get(nonexistent="value")
     assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
+    with pytest.raises(FieldError) as e:
+        ln.User.get(nonexistent="value")
+    assert "Unknown field 'nonexistent'. Available fields:" in str(e)
+
+    with pytest.raises(ValueError, match="only possible for artifacts"):
+        ln.User.get(path="some/path")
 
 
 def test_search():
@@ -461,6 +550,14 @@ def test_get_filter_branch():
         ln.Artifact.filter(ln.Q(branch_id=branch.id), key="df_test_get.parquet").count()
         == 1
     )
+    # Q(branch=...) | Q(key=...) nests Q children; without walking them the
+    # default branch_id filter would hide this feature-branch artifact
+    assert (
+        ln.Artifact.filter(
+            ln.Q(branch=branch) | ln.Q(key="df_test_get.parquet")
+        ).count()
+        == 1
+    )
 
     # errors if doesn't find or multiple records found
     ln.Artifact.get(key="df_test_get.parquet", branch=branch)
@@ -481,7 +578,21 @@ def test_get_filter_branch():
     ln.Artifact.get(hash=artifact.hash)
     ln.Artifact.get(hash__in=[artifact.hash])
 
+    assert ln.Artifact.get(path=artifact.path, branch=branch) == artifact
+
+    transform = ln.Transform(key="test_get_filter_branch_is_run_input").save()
+    run = ln.Run(transform).save()
+    tracked = ln.Artifact.get(
+        key="df_test_get.parquet", branch=branch, is_run_input=run
+    )
+    assert tracked in run.input_artifacts.all()
+
+    assert get_default_branch_ids(branch) == [branch.id, 1]
+    assert get_default_branch_ids(ln.Branch.get(name="main")) == [1]
+
     artifact.delete(permanent=True)
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
     branch.delete()
 
 

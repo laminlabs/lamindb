@@ -13,7 +13,6 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.types import Unset
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_8
@@ -22,11 +21,11 @@ from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .sqlrecord import (
+    UNSET,
     BaseSQLRecord,
     HasType,
     IsLink,
     SQLRecord,
-    UNSET,
     _get_record_kwargs,
     pop_space_branch_kwargs,
 )
@@ -34,6 +33,8 @@ from .transform import Transform
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from lamindb.base.types import Unset
 
     from .artifact import Artifact
     from .block import ULabelBlock
@@ -46,9 +47,9 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Simple universal labels.
+    """Simple labels.
 
-    It behaves like `Record`, just without the ability to link features.
+    Is similar to :class:`~lamindb.Record`, but has no ability to store features.
 
     Args:
         name: `str` A name.
@@ -61,7 +62,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     See Also:
         :class:`~lamindb.Record`
-            Like `ULabel`, but with the ability to link features.
+            Similar to `ULabel`, but with the ability to store features.
 
     Examples
     --------
@@ -75,16 +76,16 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         ln.Artifact.filter(ulabels=train_split).to_dataframe()
 
-    Organize ulabels in a type hierarchy, based on the `type` field::
+    Organize ulabels under a **ULabel type**, based on the `type` field::
 
         split_type = ln.ULabel(name="Split", is_type=True).save()
-        train_split = ln.ULabel(name="train", type="split_type").save()
+        train_split = ln.ULabel(name="train", type=split_type).save()
 
     The `type` hierarchy gives rise to a tree. If you need to model a full DAG-like **ontology**, use the `parents`/`children` fields::
 
-        cell_type = ln.Record(name="CellType", is_type=True).save()
-        t_cell = ln.Record(name="T Cell", type=cell_type).save()
-        cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
+        cell_type = ln.ULabel(name="CellType", is_type=True).save()
+        t_cell = ln.ULabel(name="T Cell", type=cell_type).save()
+        cd4_t_cell = ln.ULabel(name="CD4+ T Cell", type=cell_type).save()
         t_cell.children.add(cd4_t_cell)
 
     If you work with basic biological entities like cell lines, cell types, tissues,

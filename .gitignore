@@ -16,8 +16,8 @@ docs/scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
 docs/scripts/define_valid_features.py
 docs/scripts/save_mini_immuno_datasets.py
 profile_output*
-docs/cli.md
 .coveragerc
+uv.lock
 *.db
 *.lndb
 *.jpg
@@ -69,6 +69,7 @@ docs/biology/test-multimodal/
 default_storage
 default_storage_unit_core
 default_storage_unit_storage
+testdb-integrations/
 test.ipynb
 test2.ipynb
 run-tests

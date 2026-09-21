@@ -200,6 +200,59 @@ def strip_cat(feature_dtype: str) -> str:
     return dtype_stripped_cat
 
 
+def _normalize_user_records_for_field_value(
+    value: Any,
+    *,
+    field_name: str,
+    feature_name: str,
+) -> Any:
+    from .run import User
+
+    def _normalize_one(item: Any) -> Any:
+        if isinstance(item, User):
+            field_value = getattr(item, field_name, None)
+            if field_value is None or (
+                isinstance(field_value, str) and field_value.strip() == ""
+            ):
+                raise ValidationError(
+                    f"Cannot annotate feature '{feature_name}' with User lacking "
+                    f"a non-empty '{field_name}' value."
+                )
+            return field_value
+        return item
+
+    if isinstance(value, (list, tuple, set)):
+        normalized = [_normalize_one(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(normalized)
+        if isinstance(value, set):
+            return set(normalized)
+        return normalized
+    return _normalize_one(value)
+
+
+def _record_feature_objects_from_links(record: Any) -> list[Feature]:
+    host_db = record._state.db
+    host_id = record.id
+    if host_id is None:
+        return []
+    feature_ids: set[int] = set()
+    for rel in record._meta.related_objects:
+        link_model = rel.related_model
+        if not hasattr(link_model, "feature_id") or not hasattr(
+            link_model, "record_id"
+        ):
+            continue
+        feature_ids.update(
+            link_model.objects.using(host_db)
+            .filter(record_id=host_id)
+            .values_list("feature_id", flat=True)
+        )
+    if not feature_ids:
+        return []
+    return list(Feature.objects.using(host_db).filter(id__in=feature_ids))
+
+
 def format_dtype_for_display(dtype_str: str) -> str:
     """Format dtype string for display, replacing Record[uid] or ULabel[uid] with Record[TypeName] or ULabel[TypeName]."""
     from .feature import parse_dtype
@@ -485,6 +538,7 @@ def get_features_data(
     related_data: dict | None = None,
     to_dict: bool = False,
     external_only: bool = False,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ):
     from .artifact import Artifact
 
@@ -534,7 +588,7 @@ def get_features_data(
                     name_field = get_name_field(features[0])
                     feature_names = list(
                         features.values_list(name_field, flat=True)[
-                            :SCHEMA_MEMBER_PREVIEW_LIMIT
+                            :schema_member_preview_limit
                         ]
                     )
                     schema_data[slot] = (schema, feature_names)
@@ -629,19 +683,64 @@ def get_features_data(
             }
         else:
             return dictionary
-    else:
-        return (
-            internal_feature_labels,
-            feature_data,
-            schema_data,
-            internal_feature_names,
-            external_data,
+    if self.__class__.__name__ == "Record":
+        _append_values_through_describe_rows(
+            self, external_data, internal_feature_labels
+        )
+    return (
+        internal_feature_labels,
+        feature_data,
+        schema_data,
+        internal_feature_names,
+        external_data,
+    )
+
+
+def _append_values_through_describe_rows(
+    record: Record,
+    external_data: list,
+    internal_feature_labels: dict,
+) -> None:
+    """Add `values_through` features to describe rows.
+
+    `get_values()` already calls `inject_index_into_feature_dict` for both reverse
+    relations and Record-field mappings. Describe used the same `get_features_data`
+    function but skipped that injection.
+    """
+    from .record import inject_index_into_feature_dict, load_values_through_features
+
+    derived: dict[str, Any] = {}
+    inject_index_into_feature_dict(record, derived)
+    already = {row[0] for row in external_data} | set(internal_feature_labels)
+    features_by_name = {
+        feature.name: feature
+        for feature in load_values_through_features(using=record._state.db)
+    }
+    for name, value in derived.items():
+        if name in already or name not in features_by_name:
+            continue
+        if value is None or value == [] or value == set():
+            continue
+        feature = features_by_name[name]
+        display_dtype = format_dtype_for_display(feature._dtype_str or "")
+        printed_values = (
+            _format_values(sorted(value), n=10, quotes=False)
+            if isinstance(value, set)
+            else str(value)
+        )
+        external_data.append(
+            (
+                name,
+                Text(strip_cat(display_dtype), style="dim"),
+                printed_values,
+            )
         )
 
 
 def describe_features(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
+    schema_member_preview_limit: int = SCHEMA_MEMBER_PREVIEW_LIMIT,
 ) -> tuple[Tree | None, Tree | None]:
     """Describe features of an artifact or collection."""
     if self._state.adding:
@@ -655,6 +754,7 @@ def describe_features(
     ) = get_features_data(
         self,
         related_data=related_data,
+        schema_member_preview_limit=schema_member_preview_limit,
     )
 
     # Dataset features section
@@ -665,7 +765,7 @@ def describe_features(
         slot_and_dtype = feature_data.get(feature_name)
         if slot_and_dtype is None:
             # Internal categorical values can exist for features omitted from the
-            # schema-member preview (`SCHEMA_MEMBER_PREVIEW_LIMIT`).
+            # schema-member preview (`schema_member_preview_limit`).
             skipped_internal_feature_labels.append(feature_name)
             continue
         slot, _ = slot_and_dtype
@@ -681,7 +781,7 @@ def describe_features(
             f"{len(skipped_internal_feature_labels)} internal feature(s) in "
             f"describe(): {skipped_preview}. "
             "These features are outside the schema preview limit "
-            f"({SCHEMA_MEMBER_PREVIEW_LIMIT})."
+            f"({schema_member_preview_limit})."
         )
 
     dataset_features_tree_children = []
@@ -1183,6 +1283,32 @@ class FeatureManager:
         if not feature_records:
             raise ValidationError(f"Feature with name {feature} not found")
 
+        if host_name == "Record":
+            from .record import (
+                _feature_value_from_backward_record_links,
+                _feature_value_from_mapped_record_field,
+                get_feature_sqlrecord_field,
+                get_feature_values_through_source_uid,
+            )
+
+            for feature_record in feature_records:
+                field_name = get_feature_sqlrecord_field(feature_record)
+                if field_name is not None:
+                    value = _feature_value_from_mapped_record_field(
+                        self._host, feature_record, field_name
+                    )
+                    if value is not None:
+                        return value
+                elif (
+                    source_uid := get_feature_values_through_source_uid(feature_record)
+                ) is not None:
+                    source_feature = Feature.objects.using(host_db).get(uid=source_uid)
+                    value = _feature_value_from_backward_record_links(
+                        self._host, feature_record, source_feature
+                    )
+                    if value is not None:
+                        return value
+
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
         for feature_record in feature_records:
@@ -1230,11 +1356,14 @@ class FeatureManager:
                     feature_values_qs.append(value)
             else:
                 # determine links name once per registry
-                links_value_name = (
-                    "links_value"
-                    if registry_name == host_name
-                    else f"links_{host_name.lower()}"
-                )
+                if registry_name == host_name and host_name == "Record":
+                    links_value_name = "links_record"
+                else:
+                    links_value_name = (
+                        "links_value"
+                        if registry_name == host_name
+                        else f"links_{host_name.lower()}"
+                    )
 
                 filters = {
                     f"{links_value_name}__feature_id__in": feature_ids,
@@ -1413,6 +1542,40 @@ class FeatureManager:
             explicit_features,
             values_by_feature_uid,
         )
+
+    @staticmethod
+    def _normalize_user_feature_values(
+        feature_objects: list[Feature],
+        dictionary: dict[str, Any],
+        values_by_feature_uid: dict[str, Any],
+    ) -> None:
+        for feature in feature_objects:
+            dtype = getattr(feature, "_dtype_str", None)
+            if not isinstance(dtype, str) or "User" not in dtype:
+                continue
+            parsed = parse_dtype(dtype)
+            if len(parsed) != 1 or parsed[0].get("registry_str") != "User":
+                continue
+            field_name = parsed[0].get("field_str") or "name"
+            value_set = False
+            if feature.uid in values_by_feature_uid:
+                raw_value = values_by_feature_uid[feature.uid]
+                value_set = True
+            elif feature.name in dictionary:
+                raw_value = dictionary[feature.name]
+                value_set = True
+            else:
+                continue
+            if not value_set:
+                continue
+            normalized_value = _normalize_user_records_for_field_value(
+                raw_value,
+                field_name=field_name,
+                feature_name=feature.name,
+            )
+            dictionary[feature.name] = normalized_value
+            if feature.uid in values_by_feature_uid:
+                values_by_feature_uid[feature.uid] = normalized_value
 
     @staticmethod
     def _merge_feature_objects(
@@ -1721,13 +1884,18 @@ class FeatureManager:
                 explicit_features, looked_up_features
             )
             schema = Schema(feature_objects)
+        self._normalize_user_feature_values(
+            feature_objects,
+            dictionary,
+            values_by_feature_uid,
+        )
         ExperimentalDictCurator(
             dictionary,
             schema,
             require_saved_schema=False,
             using=self._host._state.db,
         ).validate()
-        if host_is_record and schema.index is not None:
+        if host_is_record:
             from .record import strip_index_for_record_persistence
 
             dictionary, feature_objects = strip_index_for_record_persistence(
@@ -1778,13 +1946,17 @@ class FeatureManager:
                     save(links, ignore_conflicts=False, using=host_db)
                 except Exception:
                     save(links, ignore_conflicts=True, using=host_db)
-            from .record import get_type_schema_index, persist_record_name
+            from .record import get_type_schema_index
 
-            if (
-                self._host.pk is not None
-                and get_type_schema_index(self._host.type) is not None  # type: ignore
-            ):
-                persist_record_name(self._host)
+            if self._host.pk is not None:
+                update_fields = set(
+                    getattr(self._host, "_mapped_feature_update_fields", set())
+                )
+                if get_type_schema_index(self._host.type) is not None:  # type: ignore
+                    update_fields.add("name")
+                if update_fields:
+                    SQLRecord.save(self._host, update_fields=sorted(update_fields))
+                    del self._host._mapped_feature_update_fields
             return None
 
         features_labels = defaultdict(list)
@@ -1944,6 +2116,15 @@ class FeatureManager:
         if host_is_artifact:
             schema = self._get_external_schema()
         if schema is not None:
+            looked_up_features = schema.members.filter(name__in=keys)
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
+            self._normalize_user_feature_values(
+                feature_objects,
+                dictionary,
+                values_by_feature_uid,
+            )
             ExperimentalDictCurator(
                 dictionary, schema, using=self._host._state.db
             ).validate()
@@ -1958,20 +2139,6 @@ class FeatureManager:
                     "These feature keys are not in the provided schema: "
                     f"{features_not_in_schema}"
                 )
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-            if host_is_record and schema.index is not None:
-                from .record import strip_index_for_record_persistence
-
-                dictionary, feature_objects = strip_index_for_record_persistence(
-                    self._host,
-                    schema,
-                    dictionary,
-                    feature_objects,
-                    values_by_feature_uid=values_by_feature_uid,
-                )
         else:
             if string_key_values:
                 looked_up_features = self._get_feature_objects(
@@ -1981,6 +2148,21 @@ class FeatureManager:
                 looked_up_features = Feature.objects.none()
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
+            )
+            self._normalize_user_feature_values(
+                feature_objects,
+                dictionary,
+                values_by_feature_uid,
+            )
+        if host_is_record:
+            from .record import strip_index_for_record_persistence
+
+            dictionary, feature_objects = strip_index_for_record_persistence(
+                self._host,
+                schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
             )
         self._remove_values()
         self._add_values(
@@ -2051,18 +2233,25 @@ class FeatureManager:
                 self._remove_values(one_feature, value=one_value)
             return
         if feature is None:
-            features = get_features_data(
-                self._host, to_dict=True, external_only=True
-            ).keys()
-        elif not isinstance(feature, list):
-            features = [feature]
-        else:
-            features = feature
-        for feature in features:
-            if isinstance(feature, str):
-                feature_record = Feature.get(name=feature)
+            if host_is_record:
+                feature_inputs: list[str | Feature] = list(
+                    _record_feature_objects_from_links(self._host)
+                )
             else:
-                feature_record = feature
+                feature_inputs = list(
+                    get_features_data(
+                        self._host, to_dict=True, external_only=True
+                    ).keys()
+                )
+        elif not isinstance(feature, list):
+            feature_inputs = [feature]
+        else:
+            feature_inputs = feature
+        for feature_input in feature_inputs:
+            if isinstance(feature_input, str):
+                feature_record = Feature.get(name=feature_input)
+            else:
+                feature_record = feature_input
                 if feature_record._state.adding:
                     raise ValidationError(
                         f"Please save feature '{feature_record.name}' before annotation."
@@ -2074,6 +2263,16 @@ class FeatureManager:
                     feature_record = Feature.connect(self._host._state.db).get(
                         uid=feature_record.uid
                     )
+            if host_is_record and value is None:
+                from .record import get_type_schema_index
+
+                index_feature = get_type_schema_index(self._host.type)
+                if (
+                    index_feature is not None
+                    and feature_record.uid == index_feature.uid
+                ):
+                    # Record sheet index values persist on Record.name, not values_json.
+                    continue
             if host_is_artifact:
                 for schema in self.slots.values():
                     if feature_record in schema.members:
@@ -2428,17 +2627,16 @@ def bulk_set_features_in_records(
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        if batch_schema_index is not None:
-            from .record import strip_index_for_record_persistence
+        from .record import strip_index_for_record_persistence
 
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                record,
-                batch_schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
-                index_feature=batch_schema_index,
-            )
+        dictionary, feature_objects = strip_index_for_record_persistence(
+            record,
+            batch_schema,
+            dictionary,
+            feature_objects,
+            values_by_feature_uid=values_by_feature_uid,
+            index_feature=batch_schema_index,
+        )
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,
@@ -2460,10 +2658,18 @@ def bulk_set_features_in_records(
             save(links, ignore_conflicts=True, using=using)
     from .save import bulk_update
 
+    update_fields = set()
     if batch_schema_index is not None:
-        # only `name` was modified (via strip_index_for_record_persistence)
-        # updating all fields generates a massive CASE WHEN SQL for large batches
-        bulk_update(records_with_features, update_fields=["name"], using=using)
+        update_fields.add("name")
     for record in records_with_features:
+        update_fields.update(getattr(record, "_mapped_feature_update_fields", set()))
+    if update_fields:
+        # keep bulk update narrow to fields touched through mapped schema features
+        bulk_update(
+            records_with_features, update_fields=sorted(update_fields), using=using
+        )
+    for record in records_with_features:
+        if hasattr(record, "_mapped_feature_update_fields"):
+            del record._mapped_feature_update_fields
         del record._features
     return None
