@@ -38,15 +38,18 @@ For tracking agents, see the CLI command `lamin track`.
    flow
    step
 
-Artifacts
-=========
+Artifacts & collections
+=======================
 
 The central `Artifact` registry holds files, folders & arrays across any number of storage locations.
+The `Collection` registry holds versioned collections of artifacts and allows, e.g.,
+to construct big sharded datasets across many `parquet` files or `zarr` stores.
 
 .. autosummary::
    :toctree: .
 
    Artifact
+   Collection
 
 All other registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts.
 Here is an overview of the core data model:
@@ -96,7 +99,6 @@ Managing operations
    User
    Branch
    Space
-   Collection
    Reference
 
 Basic utilities

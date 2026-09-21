@@ -94,7 +94,23 @@ def _load_concat_artifacts(
 
 
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    """Versioned collections of artifacts.
+    """Versioned collections of artifacts, such as big sharded datasets across many `parquet` files or `zarr` stores.
+
+    A `Collection` in LaminDB is analogous to a Table in Iceberg or other lakehouse frameworks.
+    Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
+    You can also time-travel to previous versions of the collection.
+
+    Collections are particularly useful if they enforce a common schema for their artifacts, simply pass `schema` to achieve this.
+
+    You can use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow.
+    Or you use `collection.mapped()` to access the collection with the `MappedCollection` sample for AnnData objects.
+
+    For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example::
+
+        import duckdb
+        con = duckdb.connect()
+        s3_paths = [a.path.as_posix() for a in collection.artifacts.all()]  # collection is a Collection object
+        conn.execute(f"CREATE VIEW my_view AS SELECT * FROM read_parquet({s3_paths})")
 
     Args:
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
