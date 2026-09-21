@@ -130,10 +130,6 @@ FEAT_QC = "transfer_ci_qc"
 FEAT_TAGS = "transfer_ci_tags"
 FEAT_USER = "transfer_ci_operator"
 FEAT_SAMPLE = "transfer_ci_sample_ref"
-FEAT_SKIP = "transfer_ci_skipped_module"
-ORG_NAME = "transfer-ci-organism"
-ORG_TYPE = "transfer_ci_organism_type"
-ORG_SCHEMA = "transfer_ci_organism_schema"
 QC_TYPE = "transfer_ci_qc_type"
 QC_PASS = "transfer_ci_pass"
 QC_FAIL = "transfer_ci_fail"
@@ -144,32 +140,15 @@ def _wipe_xferci() -> None:
     from lamindb.models.record import RecordRecord
 
     recs = ln.Record.filter(
-        name__in=[
-            REC_NAME,
-            EMPTY_NAME,
-            SAMPLE_NAME,
-            SHEET_NAME,
-            SAMPLE_TYPE,
-            ORG_NAME,
-            ORG_TYPE,
-        ]
+        name__in=[REC_NAME, EMPTY_NAME, SAMPLE_NAME, SHEET_NAME, SAMPLE_TYPE]
     )
     ids = list(recs.values_list("id", flat=True))
     if ids:
         RecordRecord.filter(record_id__in=ids).delete()
         RecordRecord.filter(value_id__in=ids).delete()
-    for name in (
-        REC_NAME,
-        EMPTY_NAME,
-        SAMPLE_NAME,
-        SHEET_NAME,
-        SAMPLE_TYPE,
-        ORG_NAME,
-        ORG_TYPE,
-    ):
+    for name in (REC_NAME, EMPTY_NAME, SAMPLE_NAME, SHEET_NAME, SAMPLE_TYPE):
         ln.Record.filter(name=name).delete(permanent=True)
     ln.Schema.filter(name=f"{SHEET_NAME}_schema").delete(permanent=True)
-    ln.Schema.filter(name=ORG_SCHEMA).delete(permanent=True)
     ln.Feature.filter(
         name__in=[
             FEAT_VERSION,
@@ -178,21 +157,19 @@ def _wipe_xferci() -> None:
             FEAT_TAGS,
             FEAT_USER,
             FEAT_SAMPLE,
-            FEAT_SKIP,
         ]
     ).delete(permanent=True)
     ln.ULabel.filter(name__in=[QC_PASS, QC_FAIL]).delete(permanent=True)
     ln.ULabel.filter(name=QC_TYPE).delete(permanent=True)
 
 
-def _source_on_testdb1() -> tuple[str, str, str]:
+def _source_on_testdb1() -> tuple[str, str]:
     """Idempotent fixture on testdb1: notes, scalars, lists, cats, User, nested Record."""
     ln.connect("testdb1")
     existing = ln.Record.filter(name=REC_NAME).one_or_none()
     if existing is not None:
         empty = ln.Record.filter(name=EMPTY_NAME).one()
-        org_rec = ln.Record.filter(name=ORG_NAME).one()
-        return existing.uid, empty.uid, org_rec.uid
+        return existing.uid, empty.uid
 
     qc_type = ln.ULabel(name=QC_TYPE, is_type=True).save()
     pass_label = ln.ULabel(name=QC_PASS, type=qc_type).save()
@@ -226,23 +203,7 @@ def _source_on_testdb1() -> tuple[str, str, str]:
     ln.models.RecordBlock(record=source, content=README, kind="readme").save()
     empty = ln.Record(name=EMPTY_NAME, type=sheet).save()
     assert source.features.get_values()[FEAT_VERSION] == "2.10.0"
-
-    from django.apps import apps
-
-    Organism = apps.get_model("bionty", "Organism")
-    organism = Organism.objects.filter(name="human").first()
-    if organism is None:
-        organism = Organism(name="human")
-        organism.save()
-    org_feat = ln.Feature(name=FEAT_SKIP, dtype=Organism).save()
-    org_schema = ln.Schema(name=ORG_SCHEMA, features=[org_feat]).save()
-    org_type = ln.Record(name=ORG_TYPE, is_type=True, schema=org_schema).save()
-    org_rec = ln.Record(
-        name=ORG_NAME,
-        type=org_type,
-        features={FEAT_SKIP: organism},
-    ).save()
-    return source.uid, empty.uid, org_rec.uid
+    return source.uid, empty.uid
 
 
 @pytest.mark.parametrize(
@@ -258,7 +219,7 @@ def _source_on_testdb1() -> tuple[str, str, str]:
 )
 def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features, error):
     user_handle = ln.setup.settings.user.handle
-    rec_uid, empty_uid, org_uid = _source_on_testdb1()
+    rec_uid, empty_uid = _source_on_testdb1()
 
     ln.connect("testdb2")
     _wipe_xferci()
@@ -292,8 +253,6 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         assert not empty.features.get_values().get(FEAT_VERSION)
         db1.Record.get(uid=rec_uid).save(transfer="notes")
         assert ln.Record.get(uid=rec_uid).notes == README
-        with pytest.raises(ValueError, match="required schema module"):
-            db1.Record.get(uid=org_uid).save(transfer="annotations")
 
         source_db = f"{user_handle}/testdb1"
         transfer_notes(transferred, transferred._state.db, None)

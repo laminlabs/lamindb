@@ -2686,27 +2686,6 @@ def transfer_notes(record_on_default, source_db, source_pk) -> None:
     ).save()
 
 
-def _raise_if_dtype_module_missing(key: str, dtype: str) -> None:
-    """Error when a cat dtype needs a schema module the target instance does not load."""
-    from .feature import parse_nested_brackets
-
-    cat_dtype = dtype[5:-1] if dtype.startswith("list[") else dtype
-    if not (cat_dtype.startswith("cat[") and cat_dtype.endswith("]")):
-        return
-    configured = ln_setup.settings.instance.modules
-    for piece in cat_dtype[4:-1].split("|"):
-        registry_str = parse_nested_brackets(piece)["registry"]
-        if "." not in registry_str:
-            continue
-        module_name = registry_str.split(".")[0]
-        if module_name not in configured:
-            raise ValueError(
-                f"cannot transfer feature {key!r} ({dtype}): "
-                "the target instance does not have the required schema module loaded "
-                f"(e.g. run: lamin settings modules set {module_name})"
-            )
-
-
 def transfer_record_feature_values(
     record_on_default, source_db, source_pk, using, transfer_logs
 ):
@@ -2778,7 +2757,6 @@ def transfer_record_feature_values(
         if local_feature is not None and (
             dtype.startswith("cat") or dtype.startswith("list[cat")
         ):
-            _raise_if_dtype_module_missing(key, dtype)
             try:
                 parse_dtype(dtype)
             except ValidationError as err:
