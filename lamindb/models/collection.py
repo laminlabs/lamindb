@@ -96,14 +96,15 @@ def _load_concat_artifacts(
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Versioned collections of artifacts, such as sharded datasets across many Parquet files or zarr stores.
 
+    Use a collection when several artifacts should
+    behave as one dataset — one version history, one usually one schema and one query surface.
     A `Collection` in LaminDB is analogous to a Table in Iceberg or other lakehouse frameworks.
     Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
     You can also time-travel to previous versions of the collection.
 
-    Collections are particularly useful if they enforce a common schema for their artifacts, simply pass `schema` to achieve this.
-
-    You can use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow.
-    Or you use `collection.mapped()` to access the collection with the `MappedCollection` sample for AnnData objects.
+    Collections are particularly useful if they enforce a common schema for their artifacts: pass `schema` to achieve this.
+    You can then confidently use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow as you'll know that the columns of these parquet files will harmonize.
+    Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sample for AnnData objects.
 
     For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example::
 
@@ -116,9 +117,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
+        schema: `Schema | None = None` A schema that every artifact in the collection must satisfy.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
         reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
-        reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
+        reference_type: `str | None = None` The type of the simple reference, e.g. `"url"`.
         run: `Run | None = None` The run that creates the collection.
         revises: `Collection | None = None` An old version of the collection.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
@@ -127,6 +129,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     See Also:
         :class:`~lamindb.Artifact`
+        :doc:`/organize`
+            When to use folders, annotations, or collections.
 
     Examples
     --------
