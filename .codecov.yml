@@ -1,0 +1,18 @@
+# Codecov configuration for lamindb
+#
+# WHY this threshold exists:
+# The `integrations` CI group (which covers lamindb/integrations/lightning.py and
+# other integrations) only runs on PRs that touch lamindb/integrations/** or
+# tests/integrations/**. On all other PRs, those ~450 lines are never instrumented,
+# so Codecov sees them as 0% covered and reports a spurious project-level drop of
+# ~2-3%. The 3% threshold here absorbs that variance without masking real regressions.
+coverage:
+  status:
+    project:
+      default:
+        target: auto      # compare against the base branch, not a fixed %
+        threshold: 3%     # allow up to 3% drop before failing (covers missing integration runs)
+    patch:
+      default:
+        target: 70%       # at least 70% of newly added lines must be covered
+        threshold: 0%     # no tolerance on patch — fail if target not met
