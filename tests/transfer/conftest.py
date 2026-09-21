@@ -12,7 +12,7 @@ def _close_all_connections():
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_testdb1():
-    ln.setup.init(storage="./testdb1")
+    ln.setup.init(storage="./testdb1", modules="bionty")
     yield
     _close_all_connections()
     shutil.rmtree("./testdb1")
