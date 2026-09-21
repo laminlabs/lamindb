@@ -112,7 +112,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         s3_paths = [a.path.as_posix() for a in collection.artifacts.all()]  # collection is a Collection object
         con.execute(f"CREATE VIEW my_view AS SELECT * FROM read_parquet({s3_paths})")
 
-    If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See :doc:`/architecture`.
+    Or with `annbatch`, you can sample from 100s of millions of rows in a collection of `.zarr` stores::
+
+        import anndata as ad
+        import zarr
+        from annbatch import Loader
+
+        paths = [artifact.cache() for artifact in collection.artifacts.all()]
+        loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
+        loader.add_datasets(
+            datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
+            obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
+        )
+        for batch in loader:
+            pass
+
+    If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), LaminDB's `Collection` is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See :doc:`/architecture`.
 
     Args:
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
