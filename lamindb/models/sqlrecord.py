@@ -2669,9 +2669,11 @@ def normalize_transfer_config(
 
 def transfer_notes(record_on_default, source_db, source_pk) -> None:
     """Copy the latest readme block from the source SQLRecord."""
-    if source_pk is None:
+    if source_pk is None or not hasattr(record_on_default, "ablocks"):
         return
     source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    if not hasattr(source, "ablocks"):
+        return
     src_block = source.ablocks.filter(kind="readme", is_latest=True).first()
     if src_block is None or not src_block.content:
         return

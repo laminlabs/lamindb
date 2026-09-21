@@ -187,14 +187,14 @@ def _wipe_xferci() -> None:
 
 def _source_on_testdb1() -> tuple[str, str, str]:
     """Idempotent fixture on testdb1: notes, scalars, lists, cats, User, nested Record."""
-    import bionty as bt
-
     ln.connect("testdb1")
     existing = ln.Record.filter(name=REC_NAME).one_or_none()
     if existing is not None:
         empty = ln.Record.filter(name=EMPTY_NAME).one()
         org_rec = ln.Record.filter(name=ORG_NAME).one()
         return existing.uid, empty.uid, org_rec.uid
+
+    import bionty as bt
 
     qc_type = ln.ULabel(name=QC_TYPE, is_type=True).save()
     pass_label = ln.ULabel(name=QC_PASS, type=qc_type).save()
