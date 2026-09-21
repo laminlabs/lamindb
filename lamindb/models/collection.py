@@ -96,22 +96,23 @@ def _load_concat_artifacts(
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Versioned collections of artifacts, such as sharded datasets across many Parquet files or zarr stores.
 
-    Use a collection when several artifacts should
-    behave as one dataset — one version history, and usually one schema and one query surface.
-    A `Collection` in LaminDB is analogous to a Table in Iceberg or other lakehouse frameworks.
+    Use a collection when several artifacts should behave as one dataset — one version history, and usually one schema and one query surface.
     Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
     You can also time-travel to previous versions of the collection.
 
     Collections are particularly useful if they enforce a common schema for their artifacts: pass `schema` to achieve this.
     You can then confidently use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow as you'll know that the columns of these parquet files will harmonize.
-    Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sample for AnnData objects.
+    Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sampler for AnnData objects.
 
     For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example::
 
         import duckdb
+
         con = duckdb.connect()
         s3_paths = [a.path.as_posix() for a in collection.artifacts.all()]  # collection is a Collection object
-        conn.execute(f"CREATE VIEW my_view AS SELECT * FROM read_parquet({s3_paths})")
+        con.execute(f"CREATE VIEW my_view AS SELECT * FROM read_parquet({s3_paths})")
+
+    If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See :doc:`/architecture`.
 
     Args:
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
