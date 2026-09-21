@@ -194,8 +194,6 @@ def _source_on_testdb1() -> tuple[str, str, str]:
         org_rec = ln.Record.filter(name=ORG_NAME).one()
         return existing.uid, empty.uid, org_rec.uid
 
-    import bionty as bt
-
     qc_type = ln.ULabel(name=QC_TYPE, is_type=True).save()
     pass_label = ln.ULabel(name=QC_PASS, type=qc_type).save()
     fail_label = ln.ULabel(name=QC_FAIL, type=qc_type).save()
@@ -229,10 +227,14 @@ def _source_on_testdb1() -> tuple[str, str, str]:
     empty = ln.Record(name=EMPTY_NAME, type=sheet).save()
     assert source.features.get_values()[FEAT_VERSION] == "2.10.0"
 
-    organism = bt.Organism.filter(name="human").one_or_none()
+    from django.apps import apps
+
+    Organism = apps.get_model("bionty", "Organism")
+    organism = Organism.objects.filter(name="human").first()
     if organism is None:
-        organism = bt.Organism(name="human").save()
-    org_feat = ln.Feature(name=FEAT_SKIP, dtype=bt.Organism).save()
+        organism = Organism(name="human")
+        organism.save()
+    org_feat = ln.Feature(name=FEAT_SKIP, dtype=Organism).save()
     org_schema = ln.Schema(name=ORG_SCHEMA, features=[org_feat]).save()
     org_type = ln.Record(name=ORG_TYPE, is_type=True, schema=org_schema).save()
     org_rec = ln.Record(
