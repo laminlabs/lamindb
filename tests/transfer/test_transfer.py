@@ -1,6 +1,10 @@
+from unittest.mock import patch
+
+import numpy as np
 import pytest
 
 import lamindb as ln
+from lamindb.models._feature_manager import FeatureManager
 from lamindb.models.sqlrecord import (
     normalize_transfer_config,
     transfer_notes,
@@ -252,6 +256,41 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         db1.Feature.get(name=FEAT_VERSION).save(transfer="notes")
         db1.Record.get(uid=rec_uid).save(transfer="notes")
         assert ln.Record.get(uid=rec_uid).notes == README
+
+        source_db = f"{user_handle}/testdb1"
+        transfer_notes(transferred, transferred._state.db, None)
+        transfer_record_feature_values(transferred, source_db, None, None, {})
+        source = db1.Record.get(uid=rec_uid)
+        sample_obj = ln.Record.objects.using(source_db).get(name=SAMPLE_NAME)
+        qc_obj = ln.ULabel.objects.using(source_db).get(name=QC_PASS)
+        user = ln.User.objects.using(source_db).get(handle=user_handle)
+        orig = FeatureManager.get_values
+
+        def _values_for_prepare(self, *args, **kwargs):
+            got_values = orig(self, *args, **kwargs)
+            if getattr(self._host, "uid", None) != rec_uid:
+                return got_values
+            if self._host._state.db != source_db:
+                return got_values
+            got_values[FEAT_ALIASES] = np.array(["alpha", "beta"])
+            got_values[FEAT_SAMPLE] = sample_obj
+            got_values[FEAT_QC] = qc_obj
+            if getattr(user, "name", None):
+                got_values[FEAT_USER] = user.name
+            return got_values
+
+        with patch.object(FeatureManager, "get_values", _values_for_prepare):
+            transfer_record_feature_values(
+                transferred,
+                source_db,
+                source.pk,
+                None,
+                {"mapped": [], "transferred": [], "run": None},
+            )
+        again = ln.Record.get(uid=rec_uid).features.get_values()
+        assert set(again.get(FEAT_ALIASES) or []) == {"alpha", "beta"}
+        assert getattr(again.get(FEAT_SAMPLE), "name", again.get(FEAT_SAMPLE)) == SAMPLE_NAME
+        assert getattr(again.get(FEAT_QC), "name", again.get(FEAT_QC)) == QC_PASS
     else:
         assert values.get(FEAT_VERSION) is None
 
@@ -271,20 +310,4 @@ def test_normalize_transfer_config(transfer, default_annotations, expected):
     assert (
         normalize_transfer_config(transfer, default_annotations=default_annotations)
         == expected
-    )
-
-
-def test_record_transfer_internal_branches():
-    """source_pk=None returns immediately; do not patch parse_dtype (get_values uses it)."""
-    user_handle = ln.setup.settings.user.handle
-    rec_uid, _ = _source_on_testdb1()
-
-    ln.connect("testdb2")
-    _wipe_xferci()
-    db1 = ln.DB(f"{user_handle}/testdb1")
-    transferred = db1.Record.get(uid=rec_uid).save(transfer="sqlrecord")
-
-    transfer_notes(transferred, transferred._state.db, None)
-    transfer_record_feature_values(
-        transferred, f"{user_handle}/testdb1", None, None, {}
     )

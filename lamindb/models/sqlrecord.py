@@ -2734,10 +2734,7 @@ def transfer_record_feature_values(
         dtype = feature._dtype_str or ""
         if not (dtype.startswith("cat") or dtype.startswith("list[cat")):
             return value
-        try:
-            parsed = parse_dtype(dtype)[0]
-        except Exception:
-            return value
+        parsed = parse_dtype(dtype)[0]
         registry = parsed["registry"]
         field = parsed["field_str"]
         src_obj = registry.objects.using(source_db).filter(**{field: value}).first()
@@ -2762,13 +2759,12 @@ def transfer_record_feature_values(
         ):
             try:
                 parse_dtype(dtype)
-            except Exception:
-                logger.warning(
-                    f"skipping feature {key!r} ({dtype}) during transfer: "
+            except Exception as err:
+                raise ValueError(
+                    f"cannot transfer feature {key!r} ({dtype}): "
                     "the target instance does not have the required schema module loaded "
                     "(e.g. run: lamin settings modules set bionty)"
-                )
-                continue
+                ) from err
         prepared[key] = _prepare(value, local_feature)
         if local_feature is not None:
             feature_objects.append(local_feature)
