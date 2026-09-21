@@ -97,7 +97,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Versioned collections of artifacts, such as sharded datasets across many Parquet files or zarr stores.
 
     Use a collection when several artifacts should
-    behave as one dataset — one version history, one usually one schema and one query surface.
+    behave as one dataset — one version history, and usually one schema and one query surface.
     A `Collection` in LaminDB is analogous to a Table in Iceberg or other lakehouse frameworks.
     Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
     You can also time-travel to previous versions of the collection.
