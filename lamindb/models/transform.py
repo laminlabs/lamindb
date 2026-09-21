@@ -20,8 +20,8 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
-from .._secret_redaction import redact_secrets_in_source_code
 from ..base.uids import base62_12
+from ..core._secret_redaction import redact_secrets_in_source_code
 from ..errors import InvalidArgument, UpdateContext
 from ..models._is_versioned import process_revises
 from ._is_versioned import (
@@ -446,7 +446,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         version: str | None = None,
         notebook_runner: str | None = None,
     ) -> tuple[Transform, str]:
-        from .._finish import notebook_to_script
+        from ..core._finish import notebook_to_script
 
         source_code_to_store = source_code
         normalized_path = cls._normalize_local_path(path) if path is not None else None
@@ -679,7 +679,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         if not path.exists():
             return None
         if kind == "notebook" and path.suffix == ".ipynb":
-            from .._finish import notebook_to_script
+            from ..core._finish import notebook_to_script
 
             source_code_path = ln_setup.settings.cache_dir / path.name.replace(
                 ".ipynb", ".py"
