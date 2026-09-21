@@ -104,7 +104,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     You can then confidently use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow as you'll know that the columns of these parquet files will harmonize.
     Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sampler for AnnData objects.
 
-    For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example::
+    For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example, using DuckDB::
 
         import duckdb
 
@@ -130,8 +130,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     See Also:
         :class:`~lamindb.Artifact`
+            Datasets & models stored as files, folders, or arrays.
         :doc:`/organize`
-            When to use folders, annotations, or collections.
+            A basic guide on how to organize data.
 
     Examples
     --------
