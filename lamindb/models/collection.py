@@ -94,7 +94,7 @@ def _load_concat_artifacts(
 
 
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    """Versioned collections of artifacts, such as big sharded datasets across many `parquet` files or `zarr` stores.
+    """Versioned collections of artifacts, such as sharded datasets across many Parquet files or zarr stores.
 
     A `Collection` in LaminDB is analogous to a Table in Iceberg or other lakehouse frameworks.
     Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
