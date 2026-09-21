@@ -254,7 +254,7 @@ def configure_coverage(session) -> None:
 def prepare(session):
     """Create executable files to run during a test session.
 
-    Is not needed for unit tests!
+    Not needed for unit tests or the `minimal` runner (no docs notebooks, no jupytext).
     """
     content = open("README.md").read()
     # cannot execute the flow after ln.track() was called
@@ -501,8 +501,8 @@ def clidocs(session):
                 run(session, "git add docs/cli.md")
                 run(
                     session,
-                    "git -c user.name='lamin-ci' -c user.email='open-source@lamin.ai' "
-                    "commit -m 'Updated CLI docs'",
+                    "git -c user.name='lamin-cli-docs-bot' -c user.email='open-source@lamin.ai' "
+                    "commit -m '📝 Re-generated the CLI docs'",
                 )
                 branch = os.getenv("GITHUB_HEAD_REF") or os.getenv("GITHUB_REF_NAME")
                 if branch:

@@ -356,13 +356,13 @@ You can create **records** for entities underlying your experiments (samples, pe
 ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can create record types and relationships:
+You can create record pages, record frames, and relationships:
 
 ```python
-# create an Experiments type
+# create an Experiments record page
 experiments = ln.Record(name="Experiments", is_type=True).save()
 
-# create a record of that type
+# create a data record of that type
 experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 
 # create a feature that links experiments (a relationship)

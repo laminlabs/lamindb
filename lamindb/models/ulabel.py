@@ -47,7 +47,7 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Simple user-defined labels.
+    """Simple labels.
 
     Is similar to :class:`~lamindb.Record`, but has no ability to store features.
 
@@ -76,7 +76,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         ln.Artifact.filter(ulabels=train_split).to_dataframe()
 
-    Organize ulabels in a type hierarchy, based on the `type` field::
+    Organize ulabels under a **ULabel type**, based on the `type` field::
 
         split_type = ln.ULabel(name="Split", is_type=True).save()
         train_split = ln.ULabel(name="train", type=split_type).save()

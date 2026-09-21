@@ -45,7 +45,7 @@ class RecordSet(Iterable):
 
         Args:
             include: Fields to include. Pass `"features"` (or include it in a
-              list) for sheet-style export and optional run-input linking.
+              list) for record-frame-style export and optional run-input linking.
             features: Feature names to include when exporting features.
             limit: Maximum number of records to export.
             order_by: Ordering for exported records.
