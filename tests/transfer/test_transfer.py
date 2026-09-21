@@ -131,6 +131,9 @@ FEAT_TAGS = "transfer_ci_tags"
 FEAT_USER = "transfer_ci_operator"
 FEAT_SAMPLE = "transfer_ci_sample_ref"
 FEAT_SKIP = "transfer_ci_skipped_module"
+ORG_NAME = "transfer-ci-organism"
+ORG_TYPE = "transfer_ci_organism_type"
+ORG_SCHEMA = "transfer_ci_organism_schema"
 QC_TYPE = "transfer_ci_qc_type"
 QC_PASS = "transfer_ci_pass"
 QC_FAIL = "transfer_ci_fail"
@@ -147,8 +150,8 @@ def _wipe_xferci() -> None:
             SAMPLE_NAME,
             SHEET_NAME,
             SAMPLE_TYPE,
-            "transfer-ci-organism",
-            "transfer_ci_organism_type",
+            ORG_NAME,
+            ORG_TYPE,
         ]
     )
     ids = list(recs.values_list("id", flat=True))
@@ -161,12 +164,12 @@ def _wipe_xferci() -> None:
         SAMPLE_NAME,
         SHEET_NAME,
         SAMPLE_TYPE,
-        "transfer-ci-organism",
-        "transfer_ci_organism_type",
+        ORG_NAME,
+        ORG_TYPE,
     ):
         ln.Record.filter(name=name).delete(permanent=True)
     ln.Schema.filter(name=f"{SHEET_NAME}_schema").delete(permanent=True)
-    ln.Schema.filter(name="transfer_ci_organism_schema").delete(permanent=True)
+    ln.Schema.filter(name=ORG_SCHEMA).delete(permanent=True)
     ln.Feature.filter(
         name__in=[
             FEAT_VERSION,
@@ -182,13 +185,16 @@ def _wipe_xferci() -> None:
     ln.ULabel.filter(name=QC_TYPE).delete(permanent=True)
 
 
-def _source_on_testdb1() -> tuple[str, str]:
+def _source_on_testdb1() -> tuple[str, str, str]:
     """Idempotent fixture on testdb1: notes, scalars, lists, cats, User, nested Record."""
+    import bionty as bt
+
     ln.connect("testdb1")
     existing = ln.Record.filter(name=REC_NAME).one_or_none()
     if existing is not None:
         empty = ln.Record.filter(name=EMPTY_NAME).one()
-        return existing.uid, empty.uid
+        org_rec = ln.Record.filter(name=ORG_NAME).one()
+        return existing.uid, empty.uid, org_rec.uid
 
     qc_type = ln.ULabel(name=QC_TYPE, is_type=True).save()
     pass_label = ln.ULabel(name=QC_PASS, type=qc_type).save()
@@ -222,7 +228,19 @@ def _source_on_testdb1() -> tuple[str, str]:
     ln.models.RecordBlock(record=source, content=README, kind="readme").save()
     empty = ln.Record(name=EMPTY_NAME, type=sheet).save()
     assert source.features.get_values()[FEAT_VERSION] == "2.10.0"
-    return source.uid, empty.uid
+
+    organism = bt.Organism.filter(name="human").one_or_none()
+    if organism is None:
+        organism = bt.Organism(name="human").save()
+    org_feat = ln.Feature(name=FEAT_SKIP, dtype=bt.Organism).save()
+    org_schema = ln.Schema(name=ORG_SCHEMA, features=[org_feat]).save()
+    org_type = ln.Record(name=ORG_TYPE, is_type=True, schema=org_schema).save()
+    org_rec = ln.Record(
+        name=ORG_NAME,
+        type=org_type,
+        features={FEAT_SKIP: organism},
+    ).save()
+    return source.uid, empty.uid, org_rec.uid
 
 
 @pytest.mark.parametrize(
@@ -238,7 +256,7 @@ def _source_on_testdb1() -> tuple[str, str]:
 )
 def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features, error):
     user_handle = ln.setup.settings.user.handle
-    rec_uid, empty_uid = _source_on_testdb1()
+    rec_uid, empty_uid, org_uid = _source_on_testdb1()
 
     ln.connect("testdb2")
     _wipe_xferci()
@@ -272,31 +290,6 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         assert not empty.features.get_values().get(FEAT_VERSION)
         db1.Record.get(uid=rec_uid).save(transfer="notes")
         assert ln.Record.get(uid=rec_uid).notes == README
-
-        ln.connect("testdb1")
-        import bionty as bt
-
-        organism = bt.Organism.filter(name="human").one_or_none()
-        if organism is None:
-            organism = bt.Organism(name="human").save()
-        org_feat = ln.Feature.filter(name=FEAT_SKIP).one_or_none()
-        if org_feat is None:
-            org_feat = ln.Feature(name=FEAT_SKIP, dtype=bt.Organism).save()
-        org_rec = ln.Record.filter(name="transfer-ci-organism").one_or_none()
-        if org_rec is None:
-            org_schema = ln.Schema(
-                name="transfer_ci_organism_schema", features=[org_feat]
-            ).save()
-            org_type = ln.Record(
-                name="transfer_ci_organism_type", is_type=True, schema=org_schema
-            ).save()
-            org_rec = ln.Record(
-                name="transfer-ci-organism",
-                type=org_type,
-                features={FEAT_SKIP: organism},
-            ).save()
-        org_uid = org_rec.uid
-        ln.connect("testdb2")
         with pytest.raises(ValueError, match="required schema module"):
             db1.Record.get(uid=org_uid).save(transfer="annotations")
 
