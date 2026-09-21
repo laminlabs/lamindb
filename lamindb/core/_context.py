@@ -30,14 +30,14 @@ from django.db.models import Q
 from lamin_utils._logger import logger
 from lamindb_setup.core.django import _is_running_in_marimo
 
-from .._secret_redaction import (
+from ..errors import InvalidArgument, TrackNotCalled
+from ..models import Run, SQLRecord, Transform, format_field_value
+from ..models._feature_manager import infer_convert_dtype_key_value
+from ._secret_redaction import (
     REDACTED_SECRET_VALUE,
     is_sensitive_param_key,
     is_sensitive_param_value,
 )
-from ..errors import InvalidArgument, TrackNotCalled
-from ..models import Run, SQLRecord, Transform, format_field_value
-from ..models._feature_manager import infer_convert_dtype_key_value
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
@@ -370,7 +370,7 @@ class LogStreamTracker:
 
     def cleanup(self, signo=None, frame=None):
         try:
-            from .._finish import save_run_logs
+            from ._finish import save_run_logs
 
             if self.original_stdout and not self.is_cleaning_up:
                 self.is_cleaning_up = True
@@ -888,7 +888,7 @@ class Context:
         """
         from lamindb.models import Artifact, Branch, Project, Space
 
-        from .._finish import (
+        from ._finish import (
             save_context_core,
         )
 
@@ -1272,7 +1272,7 @@ class Context:
         See :doc:`/track`.
 
         """
-        from .._finish import save_context_core, save_run_logs
+        from ._finish import save_context_core, save_run_logs
 
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")

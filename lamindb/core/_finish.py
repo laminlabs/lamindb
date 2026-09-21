@@ -410,10 +410,9 @@ def save_context_core(
             for name in _candidate_names
             if (base_path / name).is_file() and (base_path / name).stat().st_size > 0
         ]
-        if (
-            (base_path / "run_env_pip.txt") in existing_paths
-            and (base_path / "r_environment.txt") in existing_paths
-        ):
+        if (base_path / "run_env_pip.txt") in existing_paths and (
+            base_path / "r_environment.txt"
+        ) in existing_paths:
             # let's not store the python environment for an R session for now
             existing_paths = [base_path / "r_environment.txt"]
 
@@ -434,7 +433,11 @@ def save_context_core(
                     filename = existing_paths[0].name
                     # use the filename as description, except pip freeze which is
                     # stored as run_env_pip.txt but shown as requirements.txt
-                    description = "requirements.txt" if filename == "run_env_pip.txt" else filename
+                    description = (
+                        "requirements.txt"
+                        if filename == "run_env_pip.txt"
+                        else filename
+                    )
                     size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
