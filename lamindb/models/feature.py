@@ -874,9 +874,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
         values_through: `Feature | SQLRecordFieldName | None = None` Source of values
-            for this feature. Pass a related :class:`~lamindb.Feature` to load values from the backward relationship.
-            Pass a :class:`~lamindb.base.types.SQLRecordFieldName` to store values
-            in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
+            for this feature. Pass a related :class:`~lamindb.Feature` to read and write
+            values through the backward relationship; writes store inverted links on
+            the source feature. Pass a :class:`~lamindb.base.types.SQLRecordFieldName`
+            to store values in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
 

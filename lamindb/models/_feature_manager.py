@@ -1896,14 +1896,22 @@ class FeatureManager:
             using=self._host._state.db,
         ).validate()
         if host_is_record:
-            from .record import strip_index_for_record_persistence
+            from .record import (
+                apply_inverted_values_through_writes,
+                strip_index_for_record_persistence,
+            )
 
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                self._host,
-                schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
+            dictionary, feature_objects, inverted_writes = (
+                strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
+            )
+            apply_inverted_values_through_writes(
+                self._host, inverted_writes, replace=False
             )
         return self._add_values(
             feature_objects,
@@ -2155,21 +2163,32 @@ class FeatureManager:
                 values_by_feature_uid,
             )
         if host_is_record:
-            from .record import strip_index_for_record_persistence
-
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                self._host,
-                schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
+            from .record import (
+                apply_inverted_values_through_writes,
+                strip_index_for_record_persistence,
             )
+
+            dictionary, feature_objects, inverted_writes = (
+                strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
+            )
+        else:
+            inverted_writes = []
         self._remove_values()
         self._add_values(
             feature_objects,
             dictionary=dictionary,
             values_by_feature_uid=values_by_feature_uid,
         )
+        if host_is_record:
+            apply_inverted_values_through_writes(
+                self._host, inverted_writes, replace=True
+            )
 
     def _get_external_schema(self) -> Schema | None:
         external_schema = None
@@ -2627,16 +2646,22 @@ def bulk_set_features_in_records(
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        from .record import strip_index_for_record_persistence
-
-        dictionary, feature_objects = strip_index_for_record_persistence(
-            record,
-            batch_schema,
-            dictionary,
-            feature_objects,
-            values_by_feature_uid=values_by_feature_uid,
-            index_feature=batch_schema_index,
+        from .record import (
+            apply_inverted_values_through_writes,
+            strip_index_for_record_persistence,
         )
+
+        dictionary, feature_objects, inverted_writes = (
+            strip_index_for_record_persistence(
+                record,
+                batch_schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+                index_feature=batch_schema_index,
+            )
+        )
+        apply_inverted_values_through_writes(record, inverted_writes, replace=True)
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,

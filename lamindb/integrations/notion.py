@@ -2534,7 +2534,9 @@ class _NotionSyncer:
             return datetime
         if notion_type in {"created_by", "last_edited_by"}:
             return ln.User
-        if notion_type in {"multi_select", "people", "relation"}:
+        if notion_type == "people":
+            return list[ln.User]
+        if notion_type in {"multi_select", "relation"}:
             return list[str]
         if notion_type == "files":
             return list[ln.Artifact]
@@ -2552,7 +2554,9 @@ class _NotionSyncer:
             return "datetime64[ns, UTC]"
         if notion_type in {"created_by", "last_edited_by"}:
             return "User"
-        if notion_type in {"multi_select", "people", "relation"}:
+        if notion_type == "people":
+            return "list[User]"
+        if notion_type in {"multi_select", "relation"}:
             return "list[str]"
         if notion_type == "files":
             return "list[Artifact]"
@@ -2842,6 +2846,8 @@ class _NotionSyncer:
             return self._dtype_from_formula_property(
                 db_name, property_name, property_spec
             )
+        if notion_type == "people":
+            return "list[User]", list[ln.User]
         if notion_type in {"select", "status", "multi_select"}:
             label_type, label_type_name, label_type_path = (
                 self._resolve_or_plan_ulabel_type(
@@ -3358,6 +3364,13 @@ class _NotionSyncer:
     ) -> bool:
         from lamindb.models.feature import parse_dtype
 
+        # Notion people properties used to be created as list[str]; upgrade to
+        # list[User] so re-syncing an existing schema can recover.
+        if current_dtype_str == "list[str]" and planned_dtype_str in {
+            "list[cat[User]]",
+            "list[User]",
+        }:
+            return True
         try:
             current = parse_dtype(current_dtype_str)
             planned = parse_dtype(planned_dtype_str)
@@ -3748,6 +3761,9 @@ class _NotionSyncer:
                     schema_features,
                     name=db_name,
                     index=index_feature,
+                    # Notion properties are all optional; a sparse set_values()
+                    # would fail COLUMN_NOT_IN_DATAFRAME if members were required.
+                    minimal_set=False,
                 ).save()
                 self._append_unique(report.created_schemas, db_name)
                 logger.important(f"notion sync metadata: created schema {db_name!r}")
@@ -3755,6 +3771,16 @@ class _NotionSyncer:
                 self._append_unique(report.create_schemas, db_name)
         else:
             logger.important(f"notion sync metadata: schema {db_name!r} already exists")
+            if getattr(schema, "minimal_set", True) is True:
+                if apply:
+                    schema.minimal_set = False
+                    schema.save()
+                    self._append_unique(report.updated_schemas, db_name)
+                    logger.important(
+                        f"notion sync metadata: set minimal_set=False on schema {db_name!r}"
+                    )
+                else:
+                    self._append_unique(report.update_schemas, db_name)
             if missing_specs:
                 if apply:
                     self._append_unique(report.updated_schemas, db_name)
