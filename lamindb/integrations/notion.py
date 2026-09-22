@@ -3761,6 +3761,9 @@ class _NotionSyncer:
                     schema_features,
                     name=db_name,
                     index=index_feature,
+                    # Notion properties are all optional; a sparse set_values()
+                    # would fail COLUMN_NOT_IN_DATAFRAME if members were required.
+                    minimal_set=False,
                 ).save()
                 self._append_unique(report.created_schemas, db_name)
                 logger.important(f"notion sync metadata: created schema {db_name!r}")
@@ -3768,6 +3771,16 @@ class _NotionSyncer:
                 self._append_unique(report.create_schemas, db_name)
         else:
             logger.important(f"notion sync metadata: schema {db_name!r} already exists")
+            if getattr(schema, "minimal_set", True) is True:
+                if apply:
+                    schema.minimal_set = False
+                    schema.save()
+                    self._append_unique(report.updated_schemas, db_name)
+                    logger.important(
+                        f"notion sync metadata: set minimal_set=False on schema {db_name!r}"
+                    )
+                else:
+                    self._append_unique(report.update_schemas, db_name)
             if missing_specs:
                 if apply:
                     self._append_unique(report.updated_schemas, db_name)

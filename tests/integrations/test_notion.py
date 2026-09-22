@@ -2883,6 +2883,44 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
     ]
 
 
+def test_plan_metadata_apply_sets_existing_schema_minimal_set_false(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("summary", "str", str)]
+    existing_feature = MagicMock()
+    existing_feature.name = "summary"
+    existing_feature.type_id = 1
+    schema = MagicMock()
+    schema.minimal_set = True
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Meetings",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert schema.minimal_set is False
+    schema.save.assert_called()
+    assert report.updated_schemas == ["Meetings"]
+
+
 def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer):
     report = SyncReport(apply=True)
     feature_plan = [
@@ -2929,6 +2967,7 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
     schema_features = Schema.call_args.args[0]
     assert schema_features == [summary_feature]
     assert Schema.call_args.kwargs["index"] is name_feature
+    assert Schema.call_args.kwargs["minimal_set"] is False
 
 
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
