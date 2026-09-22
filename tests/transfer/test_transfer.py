@@ -130,6 +130,7 @@ FEAT_QC = "transfer_ci_qc"
 FEAT_TAGS = "transfer_ci_tags"
 FEAT_USER = "transfer_ci_operator"
 FEAT_SAMPLE = "transfer_ci_sample_ref"
+FEAT_SKIP = "transfer_ci_skipped_module"
 QC_TYPE = "transfer_ci_qc_type"
 QC_PASS = "transfer_ci_pass"
 QC_FAIL = "transfer_ci_fail"
@@ -157,6 +158,7 @@ def _wipe_xferci() -> None:
             FEAT_TAGS,
             FEAT_USER,
             FEAT_SAMPLE,
+            FEAT_SKIP,
         ]
     ).delete(permanent=True)
     ln.ULabel.filter(name__in=[QC_PASS, QC_FAIL]).delete(permanent=True)
@@ -203,6 +205,10 @@ def _source_on_testdb1() -> tuple[str, str]:
     ln.models.RecordBlock(record=source, content=README, kind="readme").save()
     empty = ln.Record(name=EMPTY_NAME, type=sheet).save()
     assert source.features.get_values()[FEAT_VERSION] == "2.10.0"
+    # Stored as str so get_values() stays valid; dtype is flipped so transfer
+    # hits parse_dtype ValidationError on an instance without bionty.
+    skip = ln.Feature(name=FEAT_SKIP, dtype=str).save()
+    type(skip).objects.filter(pk=skip.pk).update(_dtype_str="cat[bionty.Organism]")
     return source.uid, empty.uid
 
 
@@ -262,6 +268,26 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         qc_obj = ln.ULabel.objects.using(source_db).get(name=QC_PASS)
         user = ln.User.objects.using(source_db).get(handle=user_handle)
         orig = FeatureManager.get_values
+
+        def _values_missing_module(self, *args, **kwargs):
+            got_values = orig(self, *args, **kwargs)
+            if getattr(self._host, "uid", None) != rec_uid:
+                return got_values
+            if self._host._state.db != source_db:
+                return got_values
+            got_values = dict(got_values)
+            got_values[FEAT_SKIP] = "human"
+            return got_values
+
+        with patch.object(FeatureManager, "get_values", _values_missing_module):
+            with pytest.raises(ValueError, match="required schema module"):
+                transfer_record_feature_values(
+                    transferred,
+                    source_db,
+                    source.pk,
+                    None,
+                    {"mapped": [], "transferred": [], "run": None},
+                )
 
         def _values_for_prepare(self, *args, **kwargs):
             got_values = orig(self, *args, **kwargs)
