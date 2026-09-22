@@ -2717,6 +2717,44 @@ def test_plan_metadata_apply_upgrades_untyped_ulabel_dtype(syncer):
     ]
 
 
+def test_plan_metadata_apply_upgrades_people_list_str_to_user(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("internal_attendees", "list[User]", "list[cat[User]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "internal_attendees"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[str]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Meetings",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[User]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == ["Meetings / internal_attendees: list[User]"]
+
+
 def test_plan_metadata_apply_upgrades_stale_record_reference_dtype(syncer):
     report = SyncReport(apply=True)
     feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
@@ -2992,6 +3030,24 @@ def test_feature_dtype_for_url_values_through_lamindb_url(syncer):
     dtype = syncer._feature_dtype_from_notion_type("url")
     assert syncer._feature_dtype_label_from_notion_type("url") == "url"
     assert dtype == "url"
+
+
+def test_feature_dtype_for_people_values_through_user_list(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("people")
+    assert syncer._feature_dtype_label_from_notion_type("people") == "list[User]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.User
+
+
+def test_dtype_from_notion_property_maps_people_to_user_list(syncer):
+    dtype_label, dtype = syncer._dtype_from_notion_property(
+        "Meetings",
+        "internal_attendees",
+        {"type": "people"},
+    )
+    assert dtype_label == "list[User]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.User
 
 
 def test_formula_dtype_prompts_user_for_choice(syncer):
