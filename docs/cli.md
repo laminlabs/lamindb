@@ -156,6 +156,12 @@ Save a **dataset** or **model** as {class}`~lamindb.Artifact`:
 lamin save my_table.csv --key my_tables/my_table.csv
 ```
 
+Pass `--batch-size` to control parallel file transfers when saving artifact folders (default 128). Reducing to 20 or lower can help with network errors:
+
+```
+lamin save my_folder --key my_tables --batch-size 20
+```
+
 Pass `--store-kwargs` as a JSON object for fine-grained upload settings (normally not needed):
 
 ```
@@ -230,6 +236,10 @@ Options:
   --registry [artifact|transform|record]
                                   Either 'artifact', 'transform', or 'record'.
                                   If not passed, chooses based on path suffix.
+  --batch-size INTEGER            Number of files transferred in parallel when
+                                  saving artifact folders (default 128).
+                                  Reducing to 20 or lower can help with
+                                  network errors.
   --store-kwargs TEXT             Fine-grained settings for uploads as a JSON
                                   object (normally not needed), e.g.
                                   '{"chunksize": 1000000}'.
@@ -259,6 +269,12 @@ lamin load artifact --uid e2G7k9EVul4JbfsE
 lamin load transform --uid Vul4JbfsEYAy5
 ```
 
+Pass `--batch-size` to control parallel file transfers when loading artifact or collection folders (default 128). Reducing to 20 or lower can help with network errors:
+
+```
+lamin load --key mydatasets/myfolder --batch-size 20
+```
+
 Pass `--store-kwargs` as a JSON object for fine-grained artifact or collection download settings (normally not needed):
 
 ```
@@ -271,13 +287,16 @@ Options:
 lamin load [OPTIONS] [ENTITY]
 
 Options:
-  --uid TEXT           The uid for the entity.
-  --key TEXT           The key for the entity.
-  --with-env           Also return the environment for a tranform.
-  --store-kwargs TEXT  Fine-grained settings for artifact or collection
-                       downloads as a JSON object (normally not needed), e.g.
-                       '{"batch_size": 20}'.
-  --help               Show this message and exit.
+  --uid TEXT            The uid for the entity.
+  --key TEXT            The key for the entity.
+  --with-env            Also return the environment for a tranform.
+  --batch-size INTEGER  Number of files transferred in parallel when loading
+                        artifact or collection folders (default 128). Reducing
+                        to 20 or lower can help with network errors.
+  --store-kwargs TEXT   Fine-grained settings for artifact or collection
+                        downloads as a JSON object (normally not needed), e.g.
+                        '{"batch_size": 20}'.
+  --help                Show this message and exit.
 ```
 
 → Python/R alternative: {func}`~lamindb.Artifact.load`, no equivalent for transforms
