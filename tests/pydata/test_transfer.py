@@ -258,6 +258,60 @@ def test_using_record_organism():
     )
 
 
+def test_annotation_transfer_requires_schema_module(monkeypatch):
+    import lamindb_setup as ln_setup
+    import pandas as pd
+
+    feature = ln.Feature(
+        name="organism_module_gate", dtype="cat[bionty.Organism]"
+    ).save()
+    record = ln.Record(name="module gate record").save()
+    artifact = ln.Artifact.from_dataframe(
+        pd.DataFrame({"a": [1]}), key="module-gate.parquet", description="module gate"
+    ).save()
+    schema = ln.Schema(name="organism module gate", itype=bt.Organism).save()
+    artifact.schemas.add(schema, through_defaults={"slot": "var"})
+
+    from lamindb.models._feature_manager import FeatureManager
+
+    real_get_values = FeatureManager.get_values
+    monkeypatch.setattr(
+        FeatureManager,
+        "get_values",
+        lambda self, external_only=False: (
+            {"organism_module_gate": "human"}
+            if getattr(self._host, "pk", None) == record.pk
+            else real_get_values(self, external_only=external_only)
+        ),
+    )
+
+    instance = ln_setup.settings.instance
+    modules = [module for module in instance.modules if module != "bionty"]
+    monkeypatch.setattr(instance, "_schema_str", ",".join(modules))
+
+    from lamindb.models.sqlrecord import transfer_record_feature_values
+
+    try:
+        with pytest.raises(ValueError, match="schema module"):
+            transfer_record_feature_values(
+                record,
+                "default",
+                record.pk,
+                None,
+                {"mapped": [], "transferred": [], "run": True},
+            )
+        with pytest.raises(ValueError, match="sqlrecord"):
+            artifact.features._add_from(
+                artifact, transfer_logs={"mapped": [], "transferred": [], "run": True}
+            )
+    finally:
+        artifact.schemas.clear()
+        artifact.delete(permanent=True)
+        schema.delete(permanent=True)
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def test_using_query_by_feature():
     assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)
 

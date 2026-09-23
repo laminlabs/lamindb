@@ -2811,7 +2811,8 @@ def transfer_record_feature_values(
                 raise ValueError(
                     f"cannot transfer feature {key!r} ({dtype}): "
                     "the target instance does not have the required schema module loaded "
-                    "(e.g. run: lamin settings modules set bionty)"
+                    "(e.g. run: lamin settings modules set bionty). "
+                    'Pass transfer="sqlrecord" to sync the row without annotations.'
                 ) from err
         prepared[key] = _prepare(value, local_feature)
         if local_feature is not None:

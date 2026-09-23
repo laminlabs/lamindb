@@ -2376,8 +2376,24 @@ class FeatureManager:
             try:
                 members = schema.members
             except ModuleWasntConfigured as err:
-                logger.warning(f"skipping transfer of {slot} schema because {err}")
-                continue
+                raise ValueError(
+                    f"cannot transfer schema slot {slot!r}: {err} "
+                    'Pass transfer="sqlrecord" to sync the row without annotations.'
+                ) from err
+            # Package installed, but this instance was not initialized with the
+            # module: `.members` falls back to an empty feature set.
+            if (
+                schema.itype
+                and schema.itype != "Composite"
+                and not schema.is_type
+                and schema._get_related_name() is None
+            ):
+                raise ValueError(
+                    f"cannot transfer schema slot {slot!r} ({schema.itype}): "
+                    "the target instance does not have the required schema module loaded "
+                    "(e.g. run: lamin settings modules set bionty). "
+                    'Pass transfer="sqlrecord" to sync the row without annotations.'
+                )
             if len(members) == 0:
                 continue
             if len(members) > settings.annotation.n_max_records:
