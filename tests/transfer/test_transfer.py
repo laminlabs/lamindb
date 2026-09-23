@@ -1,9 +1,8 @@
 from unittest.mock import patch
 
+import lamindb as ln
 import numpy as np
 import pytest
-
-import lamindb as ln
 from lamindb.models._feature_manager import FeatureManager
 from lamindb.models.sqlrecord import (
     normalize_transfer_config,
@@ -132,7 +131,7 @@ FEAT_USER = "transfer_ci_operator"
 FEAT_SAMPLE = "transfer_ci_sample_ref"
 FEAT_BIONTY = "transfer_ci_bionty_organism"
 QC_TYPE = "transfer_ci_qc_type"
-QC_PASS = "transfer_ci_pass"
+QC_OK = "transfer_ci_pass"
 QC_FAIL = "transfer_ci_fail"
 README = "transfer ci readme"
 
@@ -161,7 +160,7 @@ def _wipe_xferci() -> None:
             FEAT_BIONTY,
         ]
     ).delete(permanent=True)
-    ln.ULabel.filter(name__in=[QC_PASS, QC_FAIL]).delete(permanent=True)
+    ln.ULabel.filter(name__in=[QC_OK, QC_FAIL]).delete(permanent=True)
     ln.ULabel.filter(name=QC_TYPE).delete(permanent=True)
 
 
@@ -174,7 +173,7 @@ def _source_on_testdb1() -> tuple[str, str]:
         return existing.uid, empty.uid
 
     qc_type = ln.ULabel(name=QC_TYPE, is_type=True).save()
-    pass_label = ln.ULabel(name=QC_PASS, type=qc_type).save()
+    pass_label = ln.ULabel(name=QC_OK, type=qc_type).save()
     fail_label = ln.ULabel(name=QC_FAIL, type=qc_type).save()
     sample_type = ln.Record(name=SAMPLE_TYPE, is_type=True).save()
     sample = ln.Record(name=SAMPLE_NAME, type=sample_type).save()
@@ -184,7 +183,8 @@ def _source_on_testdb1() -> tuple[str, str]:
         ln.Feature(name=FEAT_VERSION, dtype=str).save(),
         ln.Feature(name=FEAT_ALIASES, dtype=list[str]).save(),
         ln.Feature(name=FEAT_QC, dtype=qc_type).save(),
-        ln.Feature(name=FEAT_TAGS, dtype=list[qc_type]).save(),
+        # qc_type is a ULabel record, not a type; list[...] is the dtype syntax.
+        ln.Feature(name=FEAT_TAGS, dtype=list[qc_type]).save(),  # type: ignore[valid-type]
         ln.Feature(name=FEAT_USER, dtype=ln.User).save(),
         ln.Feature(name=FEAT_SAMPLE, dtype=sample_type).save(),
     ]
@@ -226,7 +226,9 @@ def _source_on_testdb1() -> tuple[str, str]:
         ("nope", False, False, ValueError),
     ],
 )
-def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features, error):
+def test_record_transfer_features_opt_in(
+    transfer, expect_notes, expect_features, error
+):
     user_handle = ln.setup.settings.user.handle
     rec_uid, empty_uid = _source_on_testdb1()
 
@@ -244,16 +246,20 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
     values = transferred.features.get_values()
     if expect_notes:
         assert transferred.notes == README
+        assert README in transferred.describe(return_str=True)
     else:
         assert transferred.notes is None
+    if not expect_features:
+        assert not values
+        assert not ln.Feature.filter(name=FEAT_VERSION).exists()
     if expect_features:
         assert values.get(FEAT_VERSION) == "2.10.0"
         assert set(values.get(FEAT_ALIASES) or []) == {"alpha", "beta"}
         qc = values.get(FEAT_QC)
-        assert getattr(qc, "name", qc) == QC_PASS
+        assert getattr(qc, "name", qc) == QC_OK
         tags = values.get(FEAT_TAGS) or []
         tag_names = {getattr(t, "name", t) for t in tags}
-        assert {QC_PASS, QC_FAIL} <= tag_names
+        assert {QC_OK, QC_FAIL} <= tag_names
         operator = values.get(FEAT_USER)
         assert getattr(operator, "handle", operator) == user_handle
         sample = values.get(FEAT_SAMPLE)
@@ -268,7 +274,7 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
         transfer_record_feature_values(transferred, source_db, None, None, {})
         source = db1.Record.get(uid=rec_uid)
         sample_obj = ln.Record.objects.using(source_db).get(name=SAMPLE_NAME)
-        qc_obj = ln.ULabel.objects.using(source_db).get(name=QC_PASS)
+        qc_obj = ln.ULabel.objects.using(source_db).get(name=QC_OK)
         user = ln.User.objects.using(source_db).get(handle=user_handle)
         orig = FeatureManager.get_values
 
@@ -315,8 +321,11 @@ def test_record_transfer_features_opt_in(transfer, expect_notes, expect_features
             )
         again = ln.Record.get(uid=rec_uid).features.get_values()
         assert set(again.get(FEAT_ALIASES) or []) == {"alpha", "beta"}
-        assert getattr(again.get(FEAT_SAMPLE), "name", again.get(FEAT_SAMPLE)) == SAMPLE_NAME
-        assert getattr(again.get(FEAT_QC), "name", again.get(FEAT_QC)) == QC_PASS
+        assert (
+            getattr(again.get(FEAT_SAMPLE), "name", again.get(FEAT_SAMPLE))
+            == SAMPLE_NAME
+        )
+        assert getattr(again.get(FEAT_QC), "name", again.get(FEAT_QC)) == QC_OK
     else:
         assert values.get(FEAT_VERSION) is None
 

@@ -1440,7 +1440,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                     )
             pre_existing_record = transfer_to_default_db(
-                self, using, transfer_logs=transfer_logs
+                self,
+                using,
+                transfer_logs=transfer_logs,
+                # schema members and other annotation links are M2M, not part of
+                # the row. Only transfer="annotations" should copy them.
+                transfer_annotations=transfer_config == "annotations",
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -2534,6 +2539,8 @@ def update_fk_to_default_db(
     fk: str,
     using: str | None,
     transfer_logs: dict,
+    *,
+    transfer_annotations: bool = True,
 ):
     # here in case it is an iterable, we are checking only a single record
     # and set the same fks for all other records because we do this only
@@ -2559,7 +2566,8 @@ def update_fk_to_default_db(
             from copy import copy
 
             fk_record_default = copy(fk_record)
-            if fk_record.__class__.__name__ == "Schema":
+            # A schema FK is part of the row. Its members are annotations.
+            if fk_record.__class__.__name__ == "Schema" and transfer_annotations:
                 from .schema import transfer_schema_with_members
 
                 fk_record_default = transfer_schema_with_members(
@@ -2567,7 +2575,11 @@ def update_fk_to_default_db(
                 )
             elif pre_existing_fk_record_default is None:
                 transfer_to_default_db(
-                    fk_record_default, using, save=True, transfer_logs=transfer_logs
+                    fk_record_default,
+                    using,
+                    save=True,
+                    transfer_logs=transfer_logs,
+                    transfer_annotations=transfer_annotations,
                 )
             else:
                 fk_record_default = pre_existing_fk_record_default
@@ -2827,6 +2839,7 @@ def transfer_to_default_db(
     transfer_logs: dict,
     save: bool = False,
     transfer_fk: bool = True,
+    transfer_annotations: bool = True,
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
@@ -2862,7 +2875,13 @@ def transfer_to_default_db(
         # don't transfer fk fields that are already bulk transferred
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
     for fk in fk_fields:
-        update_fk_to_default_db(record, fk, using, transfer_logs=transfer_logs)
+        update_fk_to_default_db(
+            record,
+            fk,
+            using,
+            transfer_logs=transfer_logs,
+            transfer_annotations=transfer_annotations,
+        )
     # FK ids were remapped to the default DB; drop tracked *_id originals so save
     # logic does not treat remapping as a user-requested field change.
     if (original_values := getattr(record, "_original_values", None)) is not None:

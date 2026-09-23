@@ -1524,8 +1524,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         try:
             return self.features.get(uid=self._index_feature_uid)
         except Feature.DoesNotExist:
-            return Feature.objects.using(self._state.db).get(
-                uid=self._index_feature_uid
+            # The uid can be set before the feature row exists, for example
+            # after transfer="notes" copied the schema but not its members.
+            return (
+                Feature.objects.using(self._state.db)
+                .filter(uid=self._index_feature_uid)
+                .one_or_none()
             )
 
     @index.setter
