@@ -75,11 +75,11 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-## What `transfer` controls
+**What the `transfer` argument controls.**
 
-`.save()` on an object queried from another database accepts `transfer=`:
+`.save()` on an object queried from another database accepts `transfer`:
 
-- `"sqlrecord"` (default; alias `"record"` until v3): the row and its foreign keys
+- `"sqlrecord"`: the row and its foreign keys
 - `"notes"`: also the latest readme
 - `"annotations"`: also feature values and M2M labels
 
