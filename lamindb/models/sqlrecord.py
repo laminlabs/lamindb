@@ -1397,7 +1397,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         Args:
             using: Optional database slug for a target database that differs from the default database.
             transfer: If this object was queried on another instance:
-                "sqlrecord" (default; alias "record" until v3) copies the row
+                "sqlrecord" (default) copies the row
                 and foreign keys only; "notes" also copies the latest readme;
                 "annotations" also copies M2M annotations. Schema still defaults
                 to "annotations" when transfer is omitted.
