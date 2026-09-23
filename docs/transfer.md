@@ -7,7 +7,7 @@ execute_via: python
 This guide shows how to sync objects from a source database to your default database.
 
 If you don't have a database, create one with the modules you need on the target.
-Here we pass `bionty` because we'll transfer ontology labels:
+Here we pass `bionty` because we'll transfer biological entities:
 
 ```bash
 lamin init --modules bionty
@@ -80,8 +80,6 @@ When you call `.save()` on an object queried from another database, you can pass
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-`created_by` is always remapped to the user who runs the transfer. A {class}`~lamindb.User` feature value is remapped the same way.
-
 If the target is missing a schema module (for example you transfer a `bionty.Organism` value but did not run `lamin init --modules bionty`), that feature is skipped with a warning.
 
 ## Sync a record
@@ -136,9 +134,9 @@ for key in (
     "notes",
     "name",
     "description",
+    "owner",
 ):
     assert got[key] == expected[key]
-assert got["owner"] == ln.setup.settings.user.handle
 
 again = db.Record.get("mNDJgWFrkWQVW3ox").save(transfer="annotations")
 assert again.id == record.id

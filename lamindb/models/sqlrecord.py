@@ -2685,6 +2685,61 @@ def transfer_notes(record_on_default, source_db, source_pk) -> None:
     ).save()
 
 
+def _user_annotation_field(feature) -> str:
+    """Field `_add_values` looks up for a User feature. Defaults to handle."""
+    if feature is None:
+        return "handle"
+    dtype = getattr(feature, "_dtype_str", "") or ""
+    if "User" not in dtype:
+        return "handle"
+    from .feature import parse_dtype
+
+    parsed = parse_dtype(dtype)[0]
+    if parsed.get("registry_str") != "User":
+        return "handle"
+    return parsed.get("field_str") or "handle"
+
+
+def _user_registry_write_forbidden(error: Exception) -> bool:
+    message = str(error).lower()
+    return "row-level security" in message or "permission denied" in message
+
+
+def _save_transferred_record(record):
+    """Insert a transferred row.
+
+    `User` inserts are allowed like any other table. Until every instance
+    has that policy, a rejected insert still means the person must be added
+    as a collaborator so their `User` row exists, then the sync re-run.
+    """
+    try:
+        record.save()
+    except ProgrammingError as error:
+        if record.__class__.__name__ != "User" or not _user_registry_write_forbidden(
+            error
+        ):
+            raise
+        handle = record.handle
+        raise NoWriteAccess(
+            f"Cannot write user {handle!r} (uid {record.uid!r}) to the target User registry.\n"
+            f"Make {handle!r} a collaborator on this instance so they get a User entry, then re-run the sync."
+        ) from None
+
+
+def _map_user_annotation(source_user, feature, transfer_logs: dict):
+    """Map a source User annotation onto the target User registry by uid."""
+    from copy import copy
+
+    saved = transfer_to_default_db(
+        copy(source_user),
+        None,
+        save=True,
+        transfer_logs=transfer_logs,
+    )
+    local = saved if saved is not None else type(source_user).get(uid=source_user.uid)
+    return getattr(local, _user_annotation_field(feature))
+
+
 def transfer_record_feature_values(
     record_on_default, source_db, source_pk, using, transfer_logs
 ):
@@ -2699,17 +2754,11 @@ def transfer_record_feature_values(
     if not values:
         return
 
-    def _transfer_entity(value):
+    def _transfer_entity(value, feature=None):
         if type(value).__name__ == "User":
-            # Same as created_by: do not create Users on the target; remap to
-            # the person running the transfer. Return the handle string so
-            # _add_values can validate it (User is BaseSQLRecord, not SQLRecord).
-            current = type(value).filter(id=ln_setup.settings.user.id).one()
-            if getattr(value, "handle", None) != current.handle:
-                logger.info(
-                    f"mapping User {value.handle!r} → {current.handle!r} (current user)"
-                )
-            return current.handle
+            # User is BaseSQLRecord, not SQLRecord. Return the feature field
+            # (handle by default) so _add_values can look the user up.
+            return _map_user_annotation(value, feature, transfer_logs)
         return value.save(transfer="annotations")
 
     def _prepare(value, feature=None):
@@ -2727,7 +2776,7 @@ def transfer_record_feature_values(
             None,
             "default",
         ):
-            return _transfer_entity(value)
+            return _transfer_entity(value, feature)
         if feature is None or not isinstance(value, str):
             return value
         dtype = feature._dtype_str or ""
@@ -2740,7 +2789,7 @@ def transfer_record_feature_values(
         if src_obj is None and field != "name" and hasattr(registry, "name"):
             src_obj = registry.objects.using(source_db).filter(name=value).first()
         if src_obj is not None:
-            return _transfer_entity(src_obj)
+            return _transfer_entity(src_obj, feature)
         return registry.filter(**{field: value}).first() or value
 
     prepared = {}
@@ -2800,10 +2849,8 @@ def transfer_to_default_db(
     else:
         transfer_logs["transferred"].append(record_str)
 
-    if hasattr(record, "created_by_id"):
-        record.created_by = None
-        record.created_by_id = ln_setup.settings.user.id
-    # run & transform
+    # run & transform stay on the transfer run; created_by is transferred
+    # like any other foreign key, including the User row it points at.
     run = transfer_logs["run"]
     if hasattr(record, "run_id"):
         record.run = None
@@ -2812,12 +2859,11 @@ def transfer_to_default_db(
     if hasattr(record, "transform_id"):
         record.transform = None
         record.transform_id = run.transform_id
-    # transfer other foreign key fields
     fk_fields = [
         i.name
         for i in record._meta.fields
         if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"created_by", "run", "transform", "branch"}
+        if i.name not in {"run", "transform", "branch"}
     ]
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
@@ -2832,7 +2878,7 @@ def transfer_to_default_db(
     record.id = None
     record._state.db = "default"
     if save:
-        record.save()
+        _save_transferred_record(record)
     return None
 
 

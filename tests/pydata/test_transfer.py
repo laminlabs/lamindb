@@ -151,7 +151,8 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert id_remote != artifact1.id
     assert run_remote.uid != artifact1.run.uid
     assert transform_remote.uid != artifact1.transform.uid
-    assert created_by_remote.handle != artifact1.created_by.handle
+    assert created_by_remote.uid == artifact1.created_by.uid
+    assert created_by_remote.handle == artifact1.created_by.handle
     assert storage_remote.uid == artifact1.storage.uid
     assert storage_remote.created_at == artifact1.storage.created_at
     organism = artifact1.organisms.get(name="human")
@@ -259,3 +260,61 @@ def test_using_record_organism():
 
 def test_using_query_by_feature():
     assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)
+
+
+def _source_user(uid: str, handle: str, name: str):
+    user = ln.User(uid=uid, handle=handle, name=name)
+    user._state.db = "laminlabs/lamindata"
+    return user
+
+
+def _transfer_logs():
+    # A non-None run skips creating the transfer run in these unit tests.
+    return {"mapped": [], "transferred": [], "run": True}
+
+
+def test_map_user_annotation_uses_same_uid():
+    from types import SimpleNamespace
+
+    from lamindb.models.sqlrecord import _map_user_annotation
+
+    uid = "usrAnnot"
+    handle = "annot-user"
+    existing = ln.User.filter(uid=uid).one_or_none()
+    if existing is not None:
+        existing.delete(permanent=True)
+
+    source = _source_user(uid, handle, "Annot User")
+    logs = _transfer_logs()
+    try:
+        assert _map_user_annotation(source, feature=None, transfer_logs=logs) == handle
+        assert ln.User.filter(uid=uid).one().handle == handle
+        assert ln.User.get(uid=uid).id != ln.setup.settings.user.id
+        # a second sync maps the existing registry row
+        assert _map_user_annotation(source, feature=None, transfer_logs=logs) == handle
+        assert ln.User.filter(uid=uid).count() == 1
+        feature = SimpleNamespace(_dtype_str="cat[User.uid]")
+        assert _map_user_annotation(source, feature=feature, transfer_logs=logs) == uid
+    finally:
+        saved = ln.User.filter(uid=uid).one_or_none()
+        if saved is not None:
+            saved.delete(permanent=True)
+
+
+def test_map_user_annotation_asks_to_add_collaborator(monkeypatch):
+    from django.db import ProgrammingError
+    from lamindb.errors import NoWriteAccess
+    from lamindb.models.sqlrecord import _map_user_annotation
+
+    uid = "usrDeny1"
+    source = _source_user(uid, "denied-user", "Denied")
+
+    def deny(self, *args, **kwargs):
+        raise ProgrammingError(
+            'new row violates row-level security policy for table "lamindb_user"'
+        )
+
+    monkeypatch.setattr(ln.User, "save", deny)
+    with pytest.raises(NoWriteAccess, match="collaborator"):
+        _map_user_annotation(source, feature=None, transfer_logs=_transfer_logs())
+    assert ln.User.filter(uid=uid).one_or_none() is None
