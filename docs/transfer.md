@@ -21,8 +21,8 @@ import lamindb as ln
 ln.track()
 ```
 
-Syncing works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, `Schema`, etc.).
-Query the object on the source, then call `.save()` to copy it into the default database.
+Transfer works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, `Schema`, etc.).
+Query the object on the source, then call `.save()` to sync it to your current default database.
 
 ## Sync an artifact
 
@@ -34,13 +34,12 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-The default (`transfer="sqlrecord"`) copies the metadata row and its foreign keys.
-To also copy feature & label annotations, pass `transfer="annotations"`:
+To transfer annotations, pass `transfer="annotations"`:
 
 ```python
-# query again so that `artifact` holds the object on the source database
+# query again so that `artifact` points to the object on the source database
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
-# sync the artifact to the current database, including transfer of annotations where necessary
+# sync with annotations
 artifact.save(transfer="annotations")
 ```
 
@@ -62,7 +61,7 @@ Data lineage indicates the source database of the sync:
 artifact.view_lineage()
 ```
 
-The run that initiated the sync is linked via `initiated_by_run`:
+The run that initiated the transfer is linked via `initiated_by_run`:
 
 ```python
 artifact.run.initiated_by_run.transform
@@ -75,15 +74,11 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-**What the `transfer` argument controls.**
+When you call `.save()` on an object queried from another database, you can pass `transfer`:
 
-`.save()` on an object queried from another database accepts `transfer`:
-
-- `"sqlrecord"`: the row and its foreign keys
-- `"notes"`: also the latest readme
-- `"annotations"`: also feature values and M2M labels
-
-{class}`~lamindb.Schema` is the exception: omitting `transfer` defaults to `"annotations"` so schema members come along.
+- `"sqlrecord"`: the object and its foreign keys
+- `"notes"`: its associated notes
+- `"annotations"`: its annotations
 
 `created_by` is always remapped to the user who runs the transfer. A {class}`~lamindb.User` feature value is remapped the same way.
 
@@ -91,34 +86,22 @@ If the target is missing a schema module (for example you transfer a `bionty.Org
 
 ## Sync a record
 
-The same modes apply to records. This experiment on `laminlabs/lamindata` has scalar, {class}`~lamindb.User`, {class}`~lamindb.Project`, and bionty features: [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox).
+This experiment on `laminlabs/lamindata` has scalar, {class}`~lamindb.User`, {class}`~lamindb.Project`, and bionty features: [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox).
 
 ```python
 record = db.Record.get("mNDJgWFrkWQVW3ox")
+# this will *not* transfer the record's features
 record.save()
-record.features.get_values()
 ```
 
-```python tags=["hide-cell"]
-assert record.uid == "mNDJgWFrkWQVW3ox"
-assert record._state.db == "default"
-assert record.type is not None
-assert record.features.get_values() == {"name": "EXP-RNA-032"}
-```
-
-The row and its type are now local. `name` is stored on the row, so it already appears; the other feature values do not. Pass `transfer="annotations"` to copy them:
+Pass `transfer="annotations"` to sync them:
 
 ```python
 # query again so that `record` holds the object on the source database
 record = db.Record.get("mNDJgWFrkWQVW3ox")
 record.save(transfer="annotations")
-```
-
-```python
 record.describe()
 ```
-
-`owner` now points at the current user. `organism`, `assay`, and `project` keep their identity.
 
 ```{dropdown} How do I know if an object is in the default database or elsewhere?
 
