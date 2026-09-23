@@ -149,8 +149,10 @@ def test_set_abbr():
 
 
 def test_validate_int():
-    result = ln.User.validate([1, 2, 3], field=ln.User.id)
-    assert result.sum() == 1
+    existing_id = ln.User.objects.order_by("id").first().id
+    missing_id = ln.User.objects.order_by("-id").first().id + 1000
+    result = ln.User.validate([existing_id, missing_id], field=ln.User.id)
+    assert result.tolist() == [True, False]
 
 
 def test_synonym_mapping():

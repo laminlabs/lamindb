@@ -100,7 +100,7 @@ def test_to_dataframe():
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
-    assert qs.to_dataframe().iloc[0]["handle"] == ln.setup.settings.user.handle
+    assert ln.setup.settings.user.handle in set(qs.to_dataframe()["handle"])
 
 
 def test_complex_df_with_features():
@@ -315,7 +315,7 @@ def test_to_dataframe_include_features_prefers_relational_duplicates():
 
 
 def test_one_first():
-    qs = ln.User.objects.all()
+    qs = ln.User.filter(uid=ln.setup.settings.user.uid)
     assert qs.one().handle == ln.setup.settings.user.handle
     assert qs.first().handle == ln.setup.settings.user.handle
     assert qs.one_or_none().handle == ln.setup.settings.user.handle

@@ -2381,19 +2381,27 @@ class FeatureManager:
                     'Pass transfer="sqlrecord" to sync the object without annotations.'
                 ) from err
             # Package installed, but this instance was not initialized with the
-            # module: `.members` falls back to an empty feature set.
-            if (
-                schema.itype
-                and schema.itype != "Composite"
-                and not schema.is_type
-                and schema._get_related_name() is None
-            ):
-                raise ValueError(
-                    f"cannot transfer schema slot {slot!r} ({schema.itype}): "
-                    "the target instance does not have the required schema module loaded "
-                    "(e.g. run: lamin settings modules set bionty). "
-                    'Pass transfer="sqlrecord" to sync the object without annotations.'
+            # module: `.members` falls back to `.features`.
+            # `core.Feature` has no related-name entry, so a missing related name
+            # alone is not a missing module.
+            if schema.itype and schema.itype != "Composite" and not schema.is_type:
+                from lamindb.models.feature import parse_cat_dtype
+
+                from ._relations import get_schema_modules
+
+                registry_str = parse_cat_dtype(schema.itype, is_itype=True)[
+                    "registry_str"
+                ]
+                module_name = (
+                    registry_str.split(".", 1)[0] if "." in registry_str else "core"
                 )
+                if module_name not in get_schema_modules(schema._state.db):
+                    raise ValueError(
+                        f"cannot transfer schema slot {slot!r} ({schema.itype}): "
+                        "the target instance does not have the required schema module loaded "
+                        "(e.g. run: lamin settings modules set bionty). "
+                        'Pass transfer="sqlrecord" to sync the object without annotations.'
+                    )
             if len(members) == 0:
                 continue
             if len(members) > settings.annotation.n_max_records:

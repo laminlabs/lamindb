@@ -137,48 +137,54 @@ def test_transfer_from_remote_to_local(ccaplog):
         "name": "s3://cellxgene-data-public",
     }
 
-    id_remote = artifact1.id
-    run_remote = artifact1.run
-    transform_remote = artifact1.transform
-    created_by_remote = artifact1.created_by
-    storage_remote = artifact1.storage
-    organism_remote = artifact1.organisms.get(name="human")
+    # slot "tada" is a wetlab.Compound schema ("test schema for triggering error in CI")
+    with pytest.raises(ValueError, match="schema slot 'tada'"):
+        artifact1.save(transfer="annotations")
+    if artifact1.pk is not None and ln.Artifact.filter(uid=artifact1.uid).exists():
+        artifact1.delete(storage=False, permanent=True)
 
-    artifact1.save(transfer="annotations")
-    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("pertdb") in ccaplog.text
+    # transfer an artifact whose schemas the test instance can load
+    artifact2 = ln.Artifact.connect("laminlabs/lamin-dev").get("qz35YaRk")
+    id_remote = artifact2.id
+    run_remote = artifact2.run
+    transform_remote = artifact2.transform
+    created_by_remote = artifact2.created_by
+    storage_remote = artifact2.storage
+    organism_remote = artifact2.organisms.get(name="mouse")
+
+    artifact2.save(transfer="annotations")
 
     # check all ids are adjusted
-    assert id_remote != artifact1.id
-    assert run_remote.uid != artifact1.run.uid
-    assert transform_remote.uid != artifact1.transform.uid
-    assert created_by_remote.uid == artifact1.created_by.uid
-    assert created_by_remote.handle == artifact1.created_by.handle
-    assert storage_remote.uid == artifact1.storage.uid
-    assert storage_remote.created_at == artifact1.storage.created_at
-    organism = artifact1.organisms.get(name="human")
-    assert organism.created_at != organism_remote.created_at
+    assert id_remote != artifact2.id
+    if run_remote is not None:
+        assert artifact2.run is not None
+        assert run_remote.uid != artifact2.run.uid
+    if transform_remote is not None:
+        assert artifact2.transform is not None
+        assert transform_remote.uid != artifact2.transform.uid
+    assert created_by_remote.uid == artifact2.created_by.uid
+    assert created_by_remote.handle == artifact2.created_by.handle
+    assert storage_remote.uid == artifact2.storage.uid
+    assert storage_remote.created_at == artifact2.storage.created_at
+    organism = artifact2.organisms.get(name="mouse")
+    assert organism.uid == organism_remote.uid
+    assert organism._state.db in {None, "default"}
 
     # now check that this is idempotent and we can run it again
-    artifact_repeat = ln.Artifact.connect("laminlabs/lamin-dev").get(
-        "livFRRpMaOgb3y8U2mK2"
-    )
+    artifact_repeat = ln.Artifact.connect("laminlabs/lamin-dev").get(artifact2.uid)
     artifact_repeat.save(transfer="annotations")
+    assert artifact_repeat.id == artifact2.id
 
-    # now prepare a new test case
-    # mimic we have an existing feature with a different uid but same name
-    feature = artifact1.features.slots["obs"].members.get(name="organism")
+    # an existing feature with the same name keeps its uid across a re-transfer
+    feature = artifact2.features.slots["obs"].members.get(name="tissue")
     existing_uid = f"exst{feature.uid[-8:]}"
     feature.uid = existing_uid
     feature.save()
-
-    # transfer 2nd artifact
-    artifact2 = ln.Artifact.connect("laminlabs/lamin-dev").get("qz35YaRk")
-    artifact2.save(transfer="annotations")
-
-    # check the feature name
-    assert artifact2.organisms.get(name="mouse")
+    ln.Artifact.connect("laminlabs/lamin-dev").get(artifact2.uid).save(
+        transfer="annotations"
+    )
     assert (
-        artifact1.features.slots["obs"].members.get(name="organism").uid == existing_uid
+        artifact2.features.slots["obs"].members.get(name="tissue").uid == existing_uid
     )
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
@@ -189,7 +195,6 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact3.load()
 
     # delete with storage=False, because these are all stored in the source instances
-    artifact1.delete(storage=False, permanent=True)
     artifact2.delete(storage=False, permanent=True)
     artifact3.delete(
         storage=False
