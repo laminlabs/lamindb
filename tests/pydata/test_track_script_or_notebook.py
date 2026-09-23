@@ -9,13 +9,13 @@ from unittest.mock import MagicMock, patch
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
-from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb._secret_redaction import redact_secrets_in_source_code
 from lamindb.core._context import (
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
 )
+from lamindb.core._finish import clean_r_notebook_html, get_shortcut
+from lamindb.core._secret_redaction import redact_secrets_in_source_code
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -597,7 +597,7 @@ def test_notebook_to_script_notebooknode_metadata(tmp_path):
     https://github.com/laminlabs/lamindb/issues/3480
     """
     import nbformat
-    from lamindb._finish import notebook_to_script
+    from lamindb.core._finish import notebook_to_script
 
     nb = nbformat.v4.new_notebook()
     nb.metadata["kernelspec"] = nbformat.NotebookNode({"display_name": "python3"})
@@ -727,7 +727,10 @@ def test_logstream_tracker_exception_handling():
 def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch):
     """pixi.lock is copied to cache when sys.prefix is inside .pixi/envs/; nothing
     written when sys.prefix is a normal venv or pixi.lock is absent."""
-    from lamindb.core._track_environment import _find_pixi_project_root, _track_pixi_lock
+    from lamindb.core._track_environment import (
+        _find_pixi_project_root,
+        _track_pixi_lock,
+    )
 
     project_root = (tmp_path / "my_project").resolve()
     (project_root / ".pixi" / "envs" / "default").mkdir(parents=True)
@@ -745,7 +748,9 @@ def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch)
     assert (env_dir / "pixi.lock").read_text() == lock_content
 
     # normal venv prefix → not detected, no file written
-    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv"))
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv")
+    )
     monkeypatch.chdir(tmp_path)
     assert _find_pixi_project_root() is None
 
@@ -761,6 +766,7 @@ def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
     """No empty file is written when pip freeze fails (non-zero exit) or
     returns blank output — both would otherwise produce the empty-MD5 hash."""
     import subprocess as _subprocess
+
     from lamindb.core._track_environment import _track_pip_freeze
 
     env_dir = tmp_path / "env_cache"
@@ -772,7 +778,9 @@ def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
         r.stderr = "No module named pip"
         return r
 
-    with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_missing):
+    with patch(
+        "lamindb.core._track_environment.subprocess.run", side_effect=pip_missing
+    ):
         assert _track_pip_freeze(env_dir) is False
     assert not (env_dir / "run_env_pip.txt").exists()
 
@@ -803,7 +811,7 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
                 side_effect=[signal.SIG_DFL, raising_sigint_handler],
             ),
             patch("signal.signal"),
-            patch("lamindb._finish.save_run_logs"),
+            patch("lamindb.core._finish.save_run_logs"),
         ):
             tracker.start(run)
             with pytest.raises(KeyboardInterrupt):

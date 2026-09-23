@@ -94,15 +94,52 @@ def _load_concat_artifacts(
 
 
 class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    """Versioned collections of artifacts.
+    """Versioned collections of artifacts, such as sharded datasets across many parquet files or zarr stores.
+
+    Use a collection when several artifacts should behave as one dataset — one version history, and usually one schema and one query surface.
+    Through the `.append()` method, you can add new artifacts to a collection in an ACID way.
+    You can also time-travel to previous versions of the collection.
+
+    You can build collections with tens of thousands of parquet files or zarr stores.
+    This allows storing very high numbers of observations, for example 10k parquet files with 100 million rows each allow storing a trillion observations.
+
+    Collections are particularly useful if they enforce a common schema for their artifacts: pass `schema` to achieve this.
+    You can then confidently use `collection.open()` to open a collection of parquet files directly with Polars or PyArrow as you'll know that the columns of these parquet files will harmonize.
+    Or, analogously, you use `collection.mapped()` to access the collection with the `MappedCollection` sampler for AnnData objects.
+
+    For all other accessor patterns, you can use the raw file paths of the artifacts inside the collection, for example, using DuckDB::
+
+        import duckdb
+
+        con = duckdb.connect()
+        s3_paths = [a.path.as_posix() for a in collection.artifacts.all()]
+        con.execute(f"CREATE VIEW my_view AS SELECT * FROM read_parquet({s3_paths})")
+
+    Or with `annbatch`, you can sample from a collection of `.zarr` stores::
+
+        import anndata as ad
+        import zarr
+        from annbatch import Loader
+
+        paths = [artifact.cache() for artifact in collection.artifacts.all()]
+        loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
+        loader.add_datasets(
+            datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
+            obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
+        )
+        for batch in loader:
+            pass
+
+    If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), LaminDB's `Collection` is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See :doc:`/architecture`.
 
     Args:
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
+        schema: `Schema | None = None` A schema that every artifact in the collection must satisfy.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
         reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
-        reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
+        reference_type: `str | None = None` The type of the simple reference, e.g. `"url"`.
         run: `Run | None = None` The run that creates the collection.
         revises: `Collection | None = None` An old version of the collection.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
@@ -111,6 +148,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     See Also:
         :class:`~lamindb.Artifact`
+            Datasets & models stored as files, folders, or arrays.
+        :doc:`/organize`
+            A basic guide on how to organize data.
 
     Examples
     --------
@@ -119,9 +159,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
-    Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
+    A sharded sequence corpus, e.g. a trillion observations as 10k parquet files of 100 million rows::
 
-        collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
+        artifacts = ln.Artifact.from_dir("s3://bucket/sequences/").save()
+        collection = ln.Collection(artifacts, key="genomes/sequences").save()
 
     """
 
