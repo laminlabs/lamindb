@@ -3342,7 +3342,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using=using)
 
-    # TODO: consider renaming the transfer argument to sync
     def save(
         self,
         upload: bool | None = None,
@@ -3354,7 +3353,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
             transfer: In case artifact was queried on a different instance, dictates behavior of sync.
-                If "sqlrecord" (default; "record" is a deprecated alias until v3), only the SQL row and its foreign keys are synced.
+                If "sqlrecord" (default), only the SQL row and its foreign keys are synced.
                 If "notes", also transfer the latest readme block.
                 If "annotations", also transfer feature and label annotations.
 
