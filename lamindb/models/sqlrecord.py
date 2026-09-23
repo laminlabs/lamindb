@@ -2671,8 +2671,6 @@ def transfer_notes(record_on_default, source_db, source_pk) -> None:
     if source_pk is None or not hasattr(record_on_default, "ablocks"):
         return
     source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
-    if not hasattr(source, "ablocks"):
-        return
     src_block = source.ablocks.filter(kind="readme", is_latest=True).first()
     if src_block is None or not src_block.content:
         return
@@ -2689,15 +2687,9 @@ def _user_annotation_field(feature) -> str:
     """Field `_add_values` looks up for a User feature. Defaults to handle."""
     if feature is None:
         return "handle"
-    dtype = getattr(feature, "_dtype_str", "") or ""
-    if "User" not in dtype:
-        return "handle"
     from .feature import parse_dtype
 
-    parsed = parse_dtype(dtype)[0]
-    if parsed.get("registry_str") != "User":
-        return "handle"
-    return parsed.get("field_str") or "handle"
+    return parse_dtype(feature._dtype_str)[0]["field_str"]
 
 
 def _user_registry_write_forbidden(error: Exception) -> bool:
