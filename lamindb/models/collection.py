@@ -528,7 +528,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         .. note::
 
-            For a guide, see :doc:`docs:scrna-mappedcollection`.
+            For a guide, see :doc:`docs:scrna-dataloading`.
 
             This method currently only works for collections or query sets of `AnnData` artifacts.
 
