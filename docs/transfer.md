@@ -80,8 +80,6 @@ When you call `.save()` on an object queried from another database, you can pass
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-Transferring annotations requires every schema module those values use. If the target is missing one (for example a `bionty.Organism` value, but this instance was not created with `bionty`), the sync raises. Pass `transfer="sqlrecord"` to sync the row without annotations, or add the module and re-run.
-
 ## Sync a record
 
 Here is an exemplary experiment record [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox). Let's first just transfer it's notes:
