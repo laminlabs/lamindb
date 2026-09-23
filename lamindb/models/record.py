@@ -567,52 +567,11 @@ def move_schema_index_column_to_dataframe_index(
     return df
 
 
-def _records_from_feature_value(value: Any, *, feature_name: str) -> list[Record]:
-    """Normalize a set_values payload to saved Record objects."""
-    from lamindb.base.dtypes import is_iterable_of_sqlrecord
-
-    if value is None:
-        return []
-    if isinstance(value, Record):
-        records = [value]
-    elif is_iterable_of_sqlrecord(value):
-        records = list(value)
-    elif isinstance(value, str):
-        records = _resolve_record_by_name(value, feature_name)
-    elif isinstance(value, (list, tuple, set)):
-        records = []
-        for item in value:
-            if isinstance(item, Record):
-                records.append(item)
-            elif isinstance(item, str):
-                records.extend(_resolve_record_by_name(item, feature_name))
-            else:
-                raise TypeError(
-                    f"feature '{feature_name}' expects Record values, "
-                    f"not {type(item).__name__}"
-                )
-    else:
-        raise TypeError(
-            f"feature '{feature_name}' expects Record values, not {type(value).__name__}"
-        )
-    for related in records:
-        if related._state.adding:
-            raise ValidationError(f"Please save {related} before annotation.")
-    return records
-
-
-def _resolve_record_by_name(name: str, feature_name: str) -> list[Record]:
-    matches = Record.filter(name=name)
-    count = matches.count()
-    if count == 1:
-        return [matches.one()]
-    if count == 0:
-        raise ValidationError(
-            f"No Record matches name={name!r} for feature '{feature_name}'"
-        )
-    raise ValidationError(
-        f"Multiple Record records match name={name!r} for feature '{feature_name}'"
-    )
+def _records_from_feature_value(value: Any) -> list[Record]:
+    """Normalize a reverse `values_through` payload to Record objects."""
+    return [
+        item if not isinstance(item, str) else Record.get(name=item) for item in value
+    ]
 
 
 def apply_inverted_values_through_writes(
@@ -628,13 +587,9 @@ def apply_inverted_values_through_writes(
     """
     from .save import save as ln_save
 
-    if not writes:
-        return
     db = host._state.db
-    for derived_feature, source_feature, value in writes:
-        related_records = _records_from_feature_value(
-            value, feature_name=derived_feature.name
-        )
+    for _derived_feature, source_feature, value in writes:
+        related_records = _records_from_feature_value(value)
         desired_ids = {related.id for related in related_records}
         existing = RecordRecord.objects.using(db).filter(
             feature_id=source_feature.id, value_id=host.id
@@ -761,14 +716,7 @@ def strip_index_for_record_persistence(
                 dictionary.pop(feature.name, None)
                 continue
             source_uid = values_feature_uids[feature.uid]
-            source_feature = source_features.get(source_uid)
-            if source_feature is None:
-                raise ValidationError(
-                    f"feature '{feature.name}' is configured with "
-                    "Feature(..., values_through=...) but the source feature "
-                    f"uid={source_uid!r} could not be resolved"
-                )
-            inverted_writes.append((feature, source_feature, value))
+            inverted_writes.append((feature, source_features[source_uid], value))
             dictionary.pop(feature.name, None)
         feature_objects = filtered_features
     if update_fields:
