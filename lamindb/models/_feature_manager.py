@@ -2378,7 +2378,7 @@ class FeatureManager:
             except ModuleWasntConfigured as err:
                 raise ValueError(
                     f"cannot transfer schema slot {slot!r}: {err} "
-                    'Pass transfer="sqlrecord" to sync the row without annotations.'
+                    'Pass transfer="sqlrecord" to sync the object without annotations.'
                 ) from err
             # Package installed, but this instance was not initialized with the
             # module: `.members` falls back to an empty feature set.
@@ -2392,7 +2392,7 @@ class FeatureManager:
                     f"cannot transfer schema slot {slot!r} ({schema.itype}): "
                     "the target instance does not have the required schema module loaded "
                     "(e.g. run: lamin settings modules set bionty). "
-                    'Pass transfer="sqlrecord" to sync the row without annotations.'
+                    'Pass transfer="sqlrecord" to sync the object without annotations.'
                 )
             if len(members) == 0:
                 continue
