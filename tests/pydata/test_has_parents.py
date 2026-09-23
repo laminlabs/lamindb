@@ -30,6 +30,30 @@ def test_query_parents_children():
     label3.delete(permanent=True)
 
 
+def test_transfer_run_label_uses_description():
+    from lamindb.models.has_parents import get_record_label
+
+    transform = ln.Transform(
+        key="__lamindb_transfer__/4XIuR0tvaiXM",
+        description="Transfer from `laminlabs/lamindata`",
+        kind="function",
+        uid="4XIuR0tvaiXM0000",
+    ).save()
+    run = ln.Run(transform=transform).save()
+    label = get_record_label(run)
+    assert "Transfer from `laminlabs/lamindata`" in label
+    assert "__lamindb_transfer__" not in label
+
+    script = ln.Transform(key="my-script.py").save()
+    script_run = ln.Run(transform=script).save()
+    assert "my-script.py" in get_record_label(script_run)
+
+    run.delete(permanent=True)
+    script_run.delete(permanent=True)
+    transform.delete(permanent=True)
+    script.delete(permanent=True)
+
+
 def test_view_lineage_circular():
     import pandas as pd
 
