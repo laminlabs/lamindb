@@ -2590,25 +2590,28 @@ def update_fk_to_default_db(
                 **{field: getattr(fk_record, field)}
             ).one_or_none()
             # A data record is only valid in a type that is already on the
-            # target. A record type's own parent is stubbed so a dtype can
-            # resolve without transferring that whole ancestor tree.
+            # target. Every other missing type (a record type's parent, a
+            # feature type) is a stub.
             if fk == "type" and pre_existing_fk_record_default is None:
-                if getattr(record, "is_type", False):
-                    from copy import copy
-
-                    pre_existing_fk_record_default = transfer_to_default_db(
-                        copy(fk_record),
-                        using,
-                        transfer_logs=transfer_logs,
-                        stub=True,
-                    )
-                else:
+                is_data_record = record.__class__.__name__ in {
+                    "Record",
+                    "ULabel",
+                } and not getattr(record, "is_type", False)
+                if is_data_record:
                     type_name = getattr(fk_record, "name", None) or fk_record.uid
                     type_uid = getattr(fk_record, "uid", None)
                     raise ValueError(
                         f"Please transfer type {type_name!r} first: "
                         f"{fk_record.__class__.__name__}(uid={type_uid!r})"
                     )
+                from copy import copy
+
+                pre_existing_fk_record_default = transfer_to_default_db(
+                    copy(fk_record),
+                    using,
+                    transfer_logs=transfer_logs,
+                    stub=True,
+                )
             from copy import copy
 
             fk_record_default = copy(fk_record)
@@ -2811,9 +2814,7 @@ def transfer_record_feature_values(
             return _map_user_annotation(value, feature, transfer_logs)
         # A linked record is a stub (uid, name, type, created_by). Transferring
         # that record later fills its remaining fields.
-        if type(value).__name__ in {"Record", "ULabel"} and not getattr(
-            value, "is_type", False
-        ):
+        if type(value).__name__ in {"Record", "ULabel"}:
             from copy import copy
 
             return transfer_to_default_db(

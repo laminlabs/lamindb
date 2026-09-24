@@ -169,8 +169,7 @@ def transfer_feature_dtypes(
             source_type,
             using,
             transfer_logs=transfer_logs,
-            save=True,
-            transfer_annotations=False,
+            stub=True,
         )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "

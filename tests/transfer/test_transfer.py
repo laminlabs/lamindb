@@ -128,6 +128,37 @@ def test_record_type_parent_is_stubbed():
     assert child_on_target.type.uid == parent.uid
 
 
+def test_feature_type_is_stubbed():
+    user_handle = ln.setup.settings.user.handle
+    type_name = "transfer_ci_experiment_view"
+    feature_name = "transfer_ci_view_member"
+
+    ln.connect("testdb1")
+    feature_type = ln.Feature.filter(name=type_name, is_type=True).one_or_none()
+    if feature_type is None:
+        feature_type = ln.Feature(
+            name=type_name, is_type=True, description="view body"
+        ).save()
+        ln.Feature(name=feature_name, dtype=str, type=feature_type).save()
+    feature = ln.Feature.get(name=feature_name)
+    created_by_uid = feature_type.created_by.uid
+
+    ln.connect("testdb2")
+    for name in (feature_name, type_name):
+        existing = ln.Feature.filter(name=name).one_or_none()
+        if existing is not None:
+            existing.delete(permanent=True)
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    db1.Feature.get(feature.uid).save()
+
+    stub = ln.Feature.get(uid=feature_type.uid)
+    assert stub.is_type is True
+    assert stub.name == type_name
+    assert stub.description is None
+    assert stub.created_by.uid == created_by_uid
+    assert ln.Feature.get(uid=feature.uid).type.uid == feature_type.uid
+
+
 def test_schema_transfer_feature_uid_conflict_by_name():
     user_handle = ln.setup.settings.user.handle
 
