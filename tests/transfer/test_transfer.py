@@ -128,6 +128,74 @@ def test_record_type_parent_is_stubbed():
     assert child_on_target.type.uid == parent.uid
 
 
+def test_dtype_transfers_record_stub_and_schema():
+    user_handle = ln.setup.settings.user.handle
+    type_name = "transfer_ci_dtype_samples"
+    data_name = "transfer_ci_dtype_sample_row"
+    sheet_name = "transfer_ci_dtype_sheet_schema"
+    column_name = "transfer_ci_dtype_sheet_column"
+    feature_name = "transfer_ci_dtype_samplesheet"
+    parent_name = "transfer_ci_dtype_parent_schema"
+
+    ln.connect("testdb1")
+    sample_type = ln.Record.filter(name=type_name, is_type=True).one_or_none()
+    if sample_type is None:
+        sample_type = ln.Record(
+            name=type_name, is_type=True, description="type body"
+        ).save()
+    if ln.Record.filter(name=data_name, is_type=False).one_or_none() is None:
+        ln.Record(name=data_name, type=sample_type).save()
+    column = ln.Feature.filter(name=column_name).one_or_none()
+    if column is None:
+        column = ln.Feature(name=column_name, dtype=str).save()
+    sheet = ln.Schema.filter(name=sheet_name).one_or_none()
+    if sheet is None:
+        sheet = ln.Schema(name=sheet_name, features=[column]).save()
+    feature = ln.Feature.filter(name=feature_name).one_or_none()
+    if feature is None:
+        feature = ln.Feature(
+            name=feature_name,
+            dtype=sample_type,
+            cat_filters={"is_type": True, "schema": sheet},
+        ).save()
+    parent = ln.Schema.filter(name=parent_name).one_or_none()
+    if parent is None:
+        parent = ln.Schema(name=parent_name, features=[feature]).save()
+    parent_uid = parent.uid
+    assert f"schema__uid={sheet.uid}" in feature._dtype_str
+
+    ln.connect("testdb2")
+    for model, name in (
+        (ln.Schema, parent_name),
+        (ln.Schema, sheet_name),
+        (ln.Feature, feature_name),
+        (ln.Feature, column_name),
+        (ln.Record, data_name),
+        (ln.Record, type_name),
+    ):
+        existing = model.filter(name=name).one_or_none()
+        if existing is not None:
+            existing.delete(permanent=True)
+
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    db1.Schema.get(parent_uid).save()
+
+    stub = ln.Record.get(uid=sample_type.uid)
+    assert stub.is_type is True
+    assert stub.name == type_name
+    assert stub.description is None
+    assert ln.Record.filter(name=data_name).one_or_none() is None
+    transferred_sheet = ln.Schema.get(uid=sheet.uid)
+    assert transferred_sheet.name == sheet_name
+    assert transferred_sheet.members.get(name=column_name).uid == column.uid
+
+    # A later transfer of the same feature must still bring a missing schema.
+    transferred_sheet.delete(permanent=True)
+    assert ln.Schema.filter(uid=sheet.uid).one_or_none() is None
+    db1.Schema.get(parent_uid).save()
+    assert ln.Schema.get(uid=sheet.uid).name == sheet_name
+
+
 def test_feature_type_is_stubbed():
     user_handle = ln.setup.settings.user.handle
     type_name = "transfer_ci_experiment_view"

@@ -1678,8 +1678,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
-                if k != "run" and len(v) > 0:
-                    logger.important(f"{k}: {', '.join(v)}")
+                if k == "run" or k.startswith("_") or len(v) == 0:
+                    continue
+                logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
@@ -2907,6 +2908,12 @@ def transfer_to_default_db(
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
+    # Dtype text is not a foreign key. Follow it even when this feature row
+    # is already on the target, so a re-transfer picks up schema__uid refs.
+    if record.__class__.__name__ == "Feature":
+        from .feature import transfer_feature_dtypes
+
+        transfer_feature_dtypes(record, using, transfer_logs=transfer_logs)
     registry = record.__class__
     logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
