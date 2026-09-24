@@ -82,19 +82,17 @@ When you call `.save()` on an object queried from another database, you can pass
 
 ## Sync a record
 
-Here is an exemplary experiment record [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox). Let's first just transfer it's notes:
+A data record can be synced only after its type is already in the target database.
+[EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox) belongs to the [RNA-seq](https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU) record frame, so transfer that frame first:
 
 ```python
-record = db.Record.get("mNDJgWFrkWQVW3ox")
-# this will *not* transfer the record's features
-record.save(transfer="notes")
-record.describe()
+rna_seq = db.Record.get("gL3TbX2qZQmCwTAU")
+rna_seq.save(transfer="annotations")
 ```
 
-If you want to also transfer its features, pass `transfer="annotations"`:
+Now transfer the experiment record:
 
 ```python
-# query again so that `record` holds the object on the source database
 record = db.Record.get("mNDJgWFrkWQVW3ox")
 record.save(transfer="annotations")
 record.describe()
@@ -118,6 +116,10 @@ assert artifact.run.initiated_by_run.transform.description.startswith("Transfer 
 assert artifact.features.slots
 for schema in artifact.features.slots.values():
     _ = schema.index
+
+rna_seq = ln.Record.get("gL3TbX2qZQmCwTAU")
+assert rna_seq.is_type
+assert rna_seq._state.db == "default"
 
 source = db.Record.get("mNDJgWFrkWQVW3ox")
 expected = source.features.get_values()
