@@ -26,7 +26,7 @@ assert ln.setup.settings.instance.slug == "laminlabs/lamin-dev"
 # check that the rename resolves correctly (it was renamed)
 assert ln.Artifact.connect("laminlabs/lamin-dev1072025").db == "default"
 
-space_name = "Our test space for CI"
+space_name = "our-test-space-for-ci"
 space = ln.Space.get(name=space_name)
 
 # check that we throw an error if no storage location is managed by the space
@@ -138,7 +138,7 @@ try:
     assert artifact_storage_space.storage == storage_in_other_space
 
     # update the space of the storage location
-    space2 = ln.Space.get(name="Our test space for CI 2")
+    space2 = ln.Space.get(name="our-test-space-for-ci-2")
     storage_loc.space = space2
     storage_loc.save()
 
@@ -153,7 +153,7 @@ try:
         check=True,
     )
     result = subprocess.run(  # noqa: S602
-        "lamin save .gitignore --key mytest --space 'Our test space for CI 2'",
+        "lamin save .gitignore --key mytest --space 'our-test-space-for-ci-2'",
         shell=True,
         capture_output=True,
     )
