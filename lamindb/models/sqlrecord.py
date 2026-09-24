@@ -2578,10 +2578,30 @@ def update_fk_to_default_db(
         # process non-space fks
         else:
             fk_record = getattr(record, fk)
+            if fk in {"created_by", "schema", "type"}:
+                print(
+                    f"transfer {type(record).__name__} {getattr(record, 'uid', None)} "
+                    f".{fk} → {type(fk_record).__name__} {getattr(fk_record, 'uid', None)} "
+                    f"{getattr(fk_record, 'handle', None) or getattr(fk_record, 'name', '')}",
+                    flush=True,
+                )
             field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
             pre_existing_fk_record_default = fk_record.__class__.filter(
                 **{field: getattr(fk_record, field)}
             ).one_or_none()
+            # A data record is only valid in a type that is already on the
+            # target. Transfer the type first; do not pull it in from here.
+            if fk == "type" and pre_existing_fk_record_default is None:
+                obj = (
+                    f"{record.__class__.__name__}(uid={record.uid!r})"
+                    if getattr(record, "uid", None)
+                    else record.__class__.__name__
+                )
+                type_name = getattr(fk_record, "name", None) or fk_record.uid
+                raise ValueError(
+                    f"Could not map type {type_name!r} of object {obj}.\n"
+                    f"Please transfer the type first."
+                )
             from copy import copy
 
             fk_record_default = copy(fk_record)
@@ -2782,6 +2802,19 @@ def transfer_record_feature_values(
             # User is BaseSQLRecord, not SQLRecord. Return the feature field
             # (handle by default) so _add_values can look the user up.
             return _map_user_annotation(value, feature, transfer_logs)
+        # A linked record is a stub (uid, name, type, created_by). Transferring
+        # that record later fills its remaining fields.
+        if type(value).__name__ in {"Record", "ULabel"} and not getattr(
+            value, "is_type", False
+        ):
+            from copy import copy
+
+            return transfer_to_default_db(
+                copy(value),
+                using,
+                transfer_logs=transfer_logs,
+                stub=True,
+            )
         return value.save(transfer="annotations")
 
     def _prepare(value, feature=None):
@@ -2851,6 +2884,9 @@ def transfer_record_feature_values(
     record_on_default.features._add_values(feature_objects, prepared)
 
 
+_STUB_FKS = {"created_by", "type", "space"}
+
+
 def transfer_to_default_db(
     record: SQLRecord,
     using: str | None,
@@ -2859,6 +2895,7 @@ def transfer_to_default_db(
     save: bool = False,
     transfer_fk: bool = True,
     transfer_annotations: bool = True,
+    stub: bool = False,
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
@@ -2868,11 +2905,28 @@ def transfer_to_default_db(
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:
         transfer_logs["run"] = get_transfer_run(record)
-    if record_on_default is not None:
+    # A link keeps the row that is already there. Transferring the record
+    # itself writes the source fields onto that row.
+    filling = (
+        record_on_default is not None
+        and not stub
+        and record.__class__.__name__ in {"Record", "ULabel"}
+    )
+    if record_on_default is not None and not filling:
         transfer_logs["mapped"].append(record_str)
         return record_on_default
+    if filling:
+        from copy import copy
+
+        print(f"transfer fill stub {record_str}", flush=True)
+        record = copy(record)
     else:
         transfer_logs["transferred"].append(record_str)
+        if stub:
+            print(
+                f"transfer stub {record_str} {getattr(record, 'name', '')}",
+                flush=True,
+            )
 
     # run & transform stay on the transfer run; created_by is transferred
     # like any other foreign key, including the User row it points at.
@@ -2893,6 +2947,13 @@ def transfer_to_default_db(
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
+    if stub:
+        # Identity, type, and creator. The remaining fields are filled when
+        # this record is transferred itself.
+        fk_fields = [fk for fk in fk_fields if fk in _STUB_FKS]
+        for name in ("description", "reference", "reference_type", "schema_id"):
+            if hasattr(record, name):
+                setattr(record, name, None)
     for fk in fk_fields:
         update_fk_to_default_db(
             record,
@@ -2906,10 +2967,19 @@ def transfer_to_default_db(
     if (original_values := getattr(record, "_original_values", None)) is not None:
         for key in [key for key in original_values if key.endswith("_id")]:
             del original_values[key]
-    record.id = None
     record._state.db = "default"
-    if save:
+    if filling:
+        for field in record._meta.concrete_fields:
+            if field.primary_key:
+                continue
+            setattr(record_on_default, field.attname, getattr(record, field.attname))
+        _save_transferred_record(record_on_default)
+        return record_on_default
+    record.id = None
+    if save or stub:
         _save_transferred_record(record)
+    if stub:
+        return registry.get(uid=record.uid)
     return None
 
 

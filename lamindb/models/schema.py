@@ -167,6 +167,11 @@ def transfer_schema_members(
     members = list(source_schema.members.all())
     if len(members) == 0:
         return None
+    print(
+        f"transfer schema {source_schema.uid} ({getattr(source_schema, 'name', None)!r}) "
+        f"members: {len(members)}",
+        flush=True,
+    )
 
     transferred_members = []
     for source_member in members:

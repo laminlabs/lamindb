@@ -43,10 +43,11 @@ def test_schema_transfer_defaults_to_annotations():
     assert perturbation_feature.dtype_as_str.startswith("cat[Record[")
     assert perturbation_feature.dtype_as_object is not None
 
-    perturbation_names = sorted(
-        perturbation_feature.dtype_as_object.records.values_list("name", flat=True)
+    # The dtype only needs the Perturbation type. Its records stay behind.
+    assert (
+        ln.Record.filter(name=remote_perturbation_type_name, is_type=True).count() == 1
     )
-    assert {"DMSO", "IFNG"}.issubset(set(perturbation_names))
+    assert ln.Record.filter(type__name=remote_perturbation_type_name).count() == 0
 
     before_count = transferred.links_feature.count()
     transferred_repeat = db.Schema.get(schema_uid).save()

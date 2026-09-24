@@ -157,18 +157,21 @@ def transfer_feature_dtypes(
             continue
         registry = parsed_dtype["registry"]
         source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
-        source_type_id = source_type.id
-        transferred_type = transfer_to_default_db(
-            source_type, using, transfer_logs=transfer_logs, save=True
+        # The dtype only needs this type row so the categorical can resolve.
+        # Do not transfer every record of the type, and do not walk that
+        # type's schema members: both fan out into unrelated objects.
+        print(
+            f"transfer dtype {feature.name!r} ({dtype_str}) "
+            f"→ {registry.__name__} type {source_type_uid} only",
+            flush=True,
         )
-        if getattr(source_type, "is_type", False):
-            source_typed_children = source_type.__class__.objects.using(
-                feature._state.db
-            ).filter(type_id=source_type_id)
-            for source_record in source_typed_children:
-                transfer_to_default_db(
-                    source_record, using, transfer_logs=transfer_logs, save=True
-                )
+        transferred_type = transfer_to_default_db(
+            source_type,
+            using,
+            transfer_logs=transfer_logs,
+            save=True,
+            transfer_annotations=False,
+        )
         assert transferred_type is None or transferred_type.uid == source_type_uid, (
             "transfer_feature_dtypes() expected UID invariance for dtype type "
             f"{registry.__name__}(uid='{source_type_uid}'), but mapped to "

@@ -74,10 +74,9 @@ def test_schema_transfer_ulabel_dtype():
     assert perturbation.dtype_as_object is not None
     assert perturbation.dtype_as_object.name == "PerturbationTransferTest"
 
-    perturbation_labels = sorted(
-        perturbation.dtype_as_object.ulabels.values_list("name", flat=True)
-    )
-    assert perturbation_labels == ["DMSO", "IFNG"]
+    # The dtype only needs the type. DMSO and IFNG stay on the source.
+    assert ln.ULabel.filter(name="PerturbationTransferTest", is_type=True).count() == 1
+    assert ln.ULabel.filter(type__name="PerturbationTransferTest").count() == 0
 
     before_count = transferred.links_feature.count()
     transferred_repeat = db1.Schema.get(schema_uid).save()
@@ -242,6 +241,14 @@ def test_record_transfer_features_opt_in(
             db1.Record.get(uid=rec_uid).save(**kwargs)
         return
 
+    source_for_type = db1.Record.get(uid=rec_uid)
+    with pytest.raises(ValueError, match="Please transfer the type first"):
+        source_for_type.save(**kwargs)
+    sheet = source_for_type.type
+    db1.Record.get(uid=sheet.uid).save(
+        transfer="annotations" if expect_features else "sqlrecord"
+    )
+
     transferred = db1.Record.get(uid=rec_uid).save(**kwargs)
     values = transferred.features.get_values()
     if expect_notes:
@@ -264,6 +271,17 @@ def test_record_transfer_features_opt_in(
         assert getattr(operator, "handle", operator) == user_handle
         sample = values.get(FEAT_SAMPLE)
         assert getattr(sample, "name", sample) == SAMPLE_NAME
+        sample = ln.Record.get(name=SAMPLE_NAME)
+        assert sample.created_by.handle == user_handle
+        assert sample.description is None
+        assert not ln.Record.filter(name=EMPTY_NAME).exists()
+        source_db = f"{user_handle}/testdb1"
+        source_sample = ln.Record.objects.using(source_db).get(name=SAMPLE_NAME)
+        ln.Record.objects.using(source_db).filter(uid=source_sample.uid).update(
+            description="filled on rerun"
+        )
+        filled = db1.Record.get(uid=source_sample.uid).save(transfer="annotations")
+        assert filled.description == "filled on rerun"
         empty = db1.Record.get(uid=empty_uid).save(transfer="annotations")
         assert not empty.features.get_values().get(FEAT_VERSION)
         db1.Record.get(uid=rec_uid).save(transfer="notes")
