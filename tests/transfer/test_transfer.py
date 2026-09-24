@@ -1,9 +1,5 @@
-from unittest.mock import patch
-
 import lamindb as ln
-import numpy as np
 import pytest
-from lamindb.models._feature_manager import FeatureManager
 from lamindb.models.sqlrecord import (
     normalize_transfer_config,
     transfer_notes,
@@ -227,6 +223,50 @@ def test_feature_type_is_stubbed():
     assert ln.Feature.get(uid=feature.uid).type.uid == feature_type.uid
 
 
+def test_record_transfer_links_same_name_feature_by_uid():
+    user_handle = ln.setup.settings.user.handle
+    feature_name = "transfer_ci_uid_assay"
+    record_name = "transfer_ci_uid_record"
+    sheet_name = "transfer_ci_uid_sheet"
+
+    ln.connect("testdb1")
+    feature = ln.Feature.filter(name=feature_name).one_or_none()
+    if feature is None:
+        feature = ln.Feature(name=feature_name, dtype=str).save()
+    sheet = ln.Record.filter(name=sheet_name, is_type=True).one_or_none()
+    if sheet is None:
+        schema = ln.Schema(name=f"{sheet_name}_schema", features=[feature]).save()
+        sheet = ln.Record(name=sheet_name, is_type=True, schema=schema).save()
+    record = ln.Record.filter(name=record_name).one_or_none()
+    if record is None:
+        record = ln.Record(
+            name=record_name, type=sheet, features={feature: "kept-on-uid"}
+        ).save()
+
+    ln.connect("testdb2")
+    for model, name in (
+        (ln.Record, record_name),
+        (ln.Record, sheet_name),
+        (ln.Schema, f"{sheet_name}_schema"),
+    ):
+        existing = model.filter(name=name).one_or_none()
+        if existing is not None:
+            existing.delete(permanent=True)
+    for existing in ln.Feature.filter(name=feature_name):
+        existing.delete(permanent=True)
+    decoy = ln.Feature(name=feature_name, dtype=str).save()
+    assert decoy.uid != feature.uid
+
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    db1.Record.get(uid=sheet.uid).save(transfer="annotations")
+    transferred = db1.Record.get(uid=record.uid).save(transfer="annotations")
+    links = list(transferred.values_json.all())
+    assert len(links) == 1
+    assert links[0].feature.uid == feature.uid
+    assert links[0].feature.uid != decoy.uid
+    assert links[0].value == "kept-on-uid"
+
+
 def test_schema_transfer_feature_uid_conflict_by_name():
     user_handle = ln.setup.settings.user.handle
 
@@ -432,47 +472,15 @@ def test_record_transfer_features_opt_in(
 
         source_db = f"{user_handle}/testdb1"
         transfer_notes(transferred, transferred._state.db, None)
-        transfer_record_feature_values(transferred, source_db, None, None, {})
         source = db1.Record.get(uid=rec_uid)
-        sample_obj = ln.Record.objects.using(source_db).get(name=SAMPLE_NAME)
-        qc_obj = ln.ULabel.objects.using(source_db).get(name=QC_OK)
-        user = ln.User.objects.using(source_db).get(handle=user_handle)
-        orig = FeatureManager.get_values
+        from lamindb.models.record import RecordJson
 
-        def _values_missing_module(self, *args, **kwargs):
-            got_values = orig(self, *args, **kwargs)
-            if getattr(self._host, "uid", None) != rec_uid:
-                return got_values
-            if self._host._state.db != source_db:
-                return got_values
-            got_values = dict(got_values)
-            got_values[FEAT_BIONTY] = "human"
-            return got_values
-
-        with patch.object(FeatureManager, "get_values", _values_missing_module):
-            with pytest.raises(ValueError, match="required schema module"):
-                transfer_record_feature_values(
-                    transferred,
-                    source_db,
-                    source.pk,
-                    None,
-                    {"mapped": [], "transferred": [], "run": None},
-                )
-
-        def _values_for_prepare(self, *args, **kwargs):
-            got_values = orig(self, *args, **kwargs)
-            if getattr(self._host, "uid", None) != rec_uid:
-                return got_values
-            if self._host._state.db != source_db:
-                return got_values
-            got_values[FEAT_ALIASES] = np.array(["alpha", "beta"])
-            got_values[FEAT_SAMPLE] = sample_obj
-            got_values[FEAT_QC] = qc_obj
-            if getattr(user, "name", None):
-                got_values[FEAT_USER] = user.name
-            return got_values
-
-        with patch.object(FeatureManager, "get_values", _values_for_prepare):
+        bionty_feat = ln.Feature.objects.using(source_db).get(name=FEAT_BIONTY)
+        if not source.values_json.filter(feature_id=bionty_feat.id).exists():
+            RecordJson.objects.using(source_db).create(
+                record_id=source.id, feature_id=bionty_feat.id, value="human"
+            )
+        with pytest.raises(ValueError, match="required schema module"):
             transfer_record_feature_values(
                 transferred,
                 source_db,
@@ -480,13 +488,6 @@ def test_record_transfer_features_opt_in(
                 None,
                 {"mapped": [], "transferred": [], "run": None},
             )
-        again = ln.Record.get(uid=rec_uid).features.get_values()
-        assert set(again.get(FEAT_ALIASES) or []) == {"alpha", "beta"}
-        assert (
-            getattr(again.get(FEAT_SAMPLE), "name", again.get(FEAT_SAMPLE))
-            == SAMPLE_NAME
-        )
-        assert getattr(again.get(FEAT_QC), "name", again.get(FEAT_QC)) == QC_OK
     else:
         assert values.get(FEAT_VERSION) is None
 

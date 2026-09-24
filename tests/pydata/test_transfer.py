@@ -309,18 +309,9 @@ def test_annotation_transfer_requires_schema_module(monkeypatch):
     schema = ln.Schema(name="organism module gate", itype=bt.Organism).save()
     artifact.schemas.add(schema, through_defaults={"slot": "var"})
 
-    from lamindb.models._feature_manager import FeatureManager
+    from lamindb.models.record import RecordJson
 
-    real_get_values = FeatureManager.get_values
-    monkeypatch.setattr(
-        FeatureManager,
-        "get_values",
-        lambda self, external_only=False: (
-            {"organism_module_gate": "human"}
-            if getattr(self._host, "pk", None) == record.pk
-            else real_get_values(self, external_only=external_only)
-        ),
-    )
+    RecordJson(record=record, feature=feature, value="human").save()
 
     instance = ln_setup.settings.instance
     modules = [module for module in instance.modules if module != "bionty"]

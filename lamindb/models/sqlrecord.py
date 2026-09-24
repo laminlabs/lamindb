@@ -2794,6 +2794,28 @@ def _map_user_annotation(source_user, feature, transfer_logs: dict):
     return getattr(local, _user_annotation_field(feature))
 
 
+def _linked_feature_values(record) -> list[tuple[Any, Any]]:
+    """Feature values from link rows, keyed by the feature row rather than its name.
+
+    Names are not unique. Several categorical links for one feature are one list.
+    A JSON list stays one value because it is stored as a single JSON cell.
+    """
+    grouped: dict[int, list] = {}
+    features: dict[int, Any] = {}
+    for rel in record._meta.related_objects:
+        accessor = rel.get_accessor_name()
+        if not accessor or not str(accessor).startswith("values_"):
+            continue
+        for link in getattr(record, accessor).all():
+            feature = link.feature
+            features[feature.id] = feature
+            grouped.setdefault(feature.id, []).append(link.value)
+    return [
+        (features[feature_id], vals[0] if len(vals) == 1 else vals)
+        for feature_id, vals in grouped.items()
+    ]
+
+
 def transfer_record_feature_values(
     record_on_default, source_db, source_pk, using, transfer_logs
 ):
@@ -2804,8 +2826,8 @@ def transfer_record_feature_values(
     if source_pk is None:
         return
     source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
-    values = source.features.get_values()
-    if not values:
+    linked_values = _linked_feature_values(source)
+    if not linked_values:
         return
 
     def _transfer_entity(value, feature=None):
@@ -2857,40 +2879,39 @@ def transfer_record_feature_values(
             return _transfer_entity(src_obj, feature)
         return registry.filter(**{field: value}).first() or value
 
-    prepared = {}
+    prepared_by_uid = {}
     feature_objects = []
-    for key, value in values.items():
-        src_feature = Feature.objects.using(source_db).filter(name=key).first()
-        if src_feature is not None:
-            transfer_to_default_db(
-                copy(src_feature), using, save=True, transfer_logs=transfer_logs
-            )
-        local_feature = Feature.filter(name=key).first()
-        dtype = getattr(local_feature, "_dtype_str", "") or ""
-        if local_feature is not None and (
-            dtype.startswith("cat") or dtype.startswith("list[cat")
-        ):
+    for src_feature, value in linked_values:
+        transferred = transfer_to_default_db(
+            copy(src_feature), using, save=True, transfer_logs=transfer_logs
+        )
+        local_feature = (
+            transferred if transferred is not None else Feature.get(uid=src_feature.uid)
+        )
+        dtype = local_feature._dtype_str or ""
+        if dtype.startswith("cat") or dtype.startswith("list[cat"):
             try:
                 parse_dtype(dtype)
             except ValidationError as err:
                 raise ValueError(
-                    f"cannot transfer feature {key!r} ({dtype}): "
+                    f"cannot transfer feature {local_feature.uid!r} ({dtype}): "
                     "the target instance does not have the required schema module loaded "
                     "(e.g. run: lamin settings modules set bionty). "
                     'Pass transfer="sqlrecord" to sync the object without annotations.'
                 ) from err
-        prepared[key] = _prepare(value, local_feature)
-        if local_feature is not None:
-            feature_objects.append(local_feature)
+        prepared_by_uid[local_feature.uid] = _prepare(value, local_feature)
+        feature_objects.append(local_feature)
 
-    if not prepared:
-        return
     # Do not run ExperimentalDictCurator: source values are already valid, and
     # the target session may not have every module (e.g. bionty) imported.
     # set so _add_values can `del` it (normal set_values always sets this attr)
     record_on_default._mapped_feature_update_fields = set()
     record_on_default.features._remove_values()
-    record_on_default.features._add_values(feature_objects, prepared)
+    record_on_default.features._add_values(
+        feature_objects,
+        {},
+        values_by_feature_uid=prepared_by_uid,
+    )
 
 
 _STUB_FKS = {"created_by", "type", "space"}
