@@ -396,6 +396,22 @@ def test_features_name_duplicates_across_root_and_nested():
 
 
 # also see test_curator_schema_feature_mapping
+def test_remove_values_targets_the_linked_feature_when_names_collide():
+    feature_a = ln.Feature(name="experiment", dtype=str).save()
+    feature_b = ln.Feature(name="experiment", dtype=str).save()
+    artifact = ln.Artifact(".gitignore", key="test_experiment_remove").save()
+    artifact.features.add_values({feature_a: "EXP-1"})
+
+    artifact.features.remove_values("experiment")
+
+    assert artifact.features.get_values() == {}
+    assert not artifact.json_values.filter(feature=feature_a).exists()
+    assert not artifact.json_values.filter(feature=feature_b).exists()
+    artifact.delete(permanent=True)
+    feature_a.delete(permanent=True)
+    feature_b.delete(permanent=True)
+
+
 def test_features_name_duplicates_across_equal_levels():
     lab_a_type = ln.Feature(name="LabA", is_type=True).save()
     feature1 = ln.Feature(name="sample_name", dtype=ln.Record, type=lab_a_type).save()
@@ -1004,4 +1020,3 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
-

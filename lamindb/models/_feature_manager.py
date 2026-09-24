@@ -231,26 +231,34 @@ def _normalize_user_records_for_field_value(
     return _normalize_one(value)
 
 
-def _record_feature_objects_from_links(record: Any) -> list[Feature]:
-    host_db = record._state.db
-    host_id = record.id
+def _host_feature_objects_from_links(host: Any) -> list[Feature]:
+    """Features that annotate `host`, identified by link rows rather than name."""
+    host_db = host._state.db
+    host_id = host.id
     if host_id is None:
         return []
+    host_field = f"{host.__class__.__name__.lower()}_id"
     feature_ids: set[int] = set()
-    for rel in record._meta.related_objects:
+    for rel in host._meta.related_objects:
         link_model = rel.related_model
-        if not hasattr(link_model, "feature_id") or not hasattr(
-            link_model, "record_id"
-        ):
+        if not hasattr(link_model, "feature_id") or not hasattr(link_model, host_field):
             continue
         feature_ids.update(
             link_model.objects.using(host_db)
-            .filter(record_id=host_id)
+            .filter(**{host_field: host_id})
             .values_list("feature_id", flat=True)
         )
+    json_values = getattr(host, "json_values", None)
+    if json_values is not None:
+        feature_ids.update(json_values.values_list("feature_id", flat=True))
+    feature_ids.discard(None)
     if not feature_ids:
         return []
     return list(Feature.objects.using(host_db).filter(id__in=feature_ids))
+
+
+def _record_feature_objects_from_links(record: Any) -> list[Feature]:
+    return _host_feature_objects_from_links(record)
 
 
 def format_dtype_for_display(dtype_str: str) -> str:
@@ -2213,6 +2221,36 @@ class FeatureManager:
             value=value,
         )
 
+    def _features_to_remove(self, feature_input: str | Feature) -> list[Feature]:
+        """Resolve a remove_values argument to feature rows.
+
+        A string matches the features already linked on this object. That avoids
+        `Feature.get(name=...)` when several features share a name. An unlinked
+        name uses the same lookup as `add_values` / `set_values`.
+        """
+        if isinstance(feature_input, str):
+            linked = [
+                feature
+                for feature in _host_feature_objects_from_links(self._host)
+                if feature.name == feature_input
+            ]
+            if linked:
+                return linked
+            return list(self._get_feature_objects({feature_input: None}, Feature.name))
+        feature_record: Feature = feature_input
+        if feature_record._state.adding:
+            raise ValidationError(
+                f"Please save feature '{feature_record.name}' before annotation."
+            )
+        if (
+            self._host._state.db is not None
+            and feature_record._state.db != self._host._state.db
+        ):
+            feature_record = Feature.connect(self._host._state.db).get(
+                uid=feature_record.uid
+            )
+        return [feature_record]
+
     def _remove_values(
         self,
         feature: (
@@ -2236,36 +2274,27 @@ class FeatureManager:
                 self._remove_values(one_feature, value=one_value)
             return
         if feature is None:
-            if host_is_record:
-                feature_inputs: list[str | Feature] = list(
-                    _record_feature_objects_from_links(self._host)
-                )
-            else:
-                feature_inputs = list(
-                    get_features_data(
-                        self._host, to_dict=True, external_only=True
-                    ).keys()
-                )
+            linked_features = _host_feature_objects_from_links(self._host)
+            if host_is_artifact:
+                dataset_feature_ids = {
+                    feature_id
+                    for schema in self.slots.values()
+                    for feature_id in schema.members.values_list("id", flat=True)
+                }
+                linked_features = [
+                    feature_record
+                    for feature_record in linked_features
+                    if feature_record.id not in dataset_feature_ids
+                ]
+            feature_inputs: list[str | Feature] = list(linked_features)
         elif not isinstance(feature, list):
             feature_inputs = [feature]
         else:
             feature_inputs = feature
+        resolved_features: list[Feature] = []
         for feature_input in feature_inputs:
-            if isinstance(feature_input, str):
-                feature_record = Feature.get(name=feature_input)
-            else:
-                feature_record = feature_input
-                if feature_record._state.adding:
-                    raise ValidationError(
-                        f"Please save feature '{feature_record.name}' before annotation."
-                    )
-                if (
-                    self._host._state.db is not None
-                    and feature_record._state.db != self._host._state.db
-                ):
-                    feature_record = Feature.connect(self._host._state.db).get(
-                        uid=feature_record.uid
-                    )
+            resolved_features.extend(self._features_to_remove(feature_input))
+        for feature_record in resolved_features:
             if host_is_record and value is None:
                 from .record import get_type_schema_index
 
