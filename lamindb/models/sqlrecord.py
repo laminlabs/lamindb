@@ -2590,14 +2590,13 @@ def update_fk_to_default_db(
             pre_existing_fk_record_default = fk_record.__class__.filter(
                 **{field: getattr(fk_record, field)}
             ).one_or_none()
-            # A data record is only valid in a type that is already on the
-            # target. Every other missing type (a record type's parent, a
-            # feature type) is a stub.
+            # A Record is only valid in a type that is already on the target,
+            # because that type carries a schema. Every other missing type,
+            # including a ULabel type, is a stub.
             if fk == "type" and pre_existing_fk_record_default is None:
-                is_data_record = record.__class__.__name__ in {
-                    "Record",
-                    "ULabel",
-                } and not getattr(record, "is_type", False)
+                is_data_record = record.__class__.__name__ == "Record" and not getattr(
+                    record, "is_type", False
+                )
                 if is_data_record:
                     type_name = getattr(fk_record, "name", None) or fk_record.uid
                     type_uid = getattr(fk_record, "uid", None)

@@ -80,6 +80,39 @@ def test_schema_transfer_ulabel_dtype():
     assert transferred_repeat.links_feature.count() == before_count
 
 
+def test_ulabel_type_is_stubbed_with_the_label():
+    user_handle = ln.setup.settings.user.handle
+    type_name = "transfer_ci_ulabel_type"
+    label_name = "transfer_ci_ulabel_value"
+
+    ln.connect("testdb1")
+    ulabel_type = ln.ULabel.filter(name=type_name, is_type=True).one_or_none()
+    if ulabel_type is None:
+        ulabel_type = ln.ULabel(
+            name=type_name, is_type=True, description="type body"
+        ).save()
+    label = ln.ULabel.filter(name=label_name).one_or_none()
+    if label is None:
+        label = ln.ULabel(name=label_name, type=ulabel_type).save()
+
+    ln.connect("testdb2")
+    existing_type = ln.ULabel.filter(name=type_name, is_type=True).one_or_none()
+    if existing_type is not None:
+        ln.ULabel.filter(type=existing_type).delete(permanent=True)
+        existing_type.delete(permanent=True)
+    existing_label = ln.ULabel.filter(name=label_name).one_or_none()
+    if existing_label is not None:
+        existing_label.delete(permanent=True)
+
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    transferred = db1.ULabel.get(uid=label.uid).save()
+    assert transferred.type.uid == ulabel_type.uid
+    stub = ln.ULabel.get(uid=ulabel_type.uid)
+    assert stub.is_type is True
+    assert stub.name == type_name
+    assert stub.description is None
+
+
 def test_record_type_parent_is_stubbed():
     user_handle = ln.setup.settings.user.handle
     parent_name = "transfer_ci_biosamples"
