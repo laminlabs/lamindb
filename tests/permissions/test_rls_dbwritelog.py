@@ -391,19 +391,19 @@ def test_utility_tables():
 
 def test_user_rls():
     assert ln.User.filter().count() == 2
-    # should fail because can modify only the current user
+    # another user's row is not visible for update, so Django inserts it
+    # and the existing primary key is reported as no write access
     user = ln.User.get(handle="testuser")
     user.name = "New Name"
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(ln.errors.NoWriteAccess):
         user.save()
-    # can't insert a user with a different uid
-    with pytest.raises(ProgrammingError):
-        ln.User(handle="insert_new_user", uid="someuidd").save()
-    # also triggers RLS
-    with pytest.raises(ProgrammingError):
+    # write collaborators can insert a user with any uid
+    ln.User(handle="insert_new_user", uid="someuidd").save()
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM lamindb_user WHERE uid = %s", ("someuidd",))
+    # an existing uid of another user is the same no-write case
+    with pytest.raises(ln.errors.NoWriteAccess):
         ln.User(handle="insert_new_user", uid=user.uid).save()
-    # try to insert a user with the same uid
-    # should not trigger RLS because the uid is the same, it should throw an IntegrityError
     with pytest.raises(IntegrityError):
         ln.User(handle="insert_new_user", uid=ln.setup.settings.user.uid).save()
     # can modify the current user
