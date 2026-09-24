@@ -201,19 +201,50 @@ def test_transfer_from_remote_to_local(ccaplog):
     )  # there is an issue here with permanent deletion because of schema module mismatch
 
 
-def test_transfer_into_space():
-    # grab any ulabel from the default space
-    ulabel = ln.ULabel.connect("laminlabs/lamin-dev").filter(space__id=1).first()
+def test_transfer_keeps_source_space():
+    # A source object in the shared `all` space stays there. The current space
+    # must not replace it.
+    ulabel = (
+        ln.ULabel.connect("laminlabs/lamin-dev").filter(space__uid="a" * 12).first()
+    )
+    source_space_uid = ulabel.space.uid
 
     space = ln.Space(name="space for transfer", uid="00000123").save()
     with patch.object(ln.context, "_space", new=space):
         ulabel.save()
-    assert ulabel.space_id == space.id
+    assert ulabel.space.uid == source_space_uid
+    assert ulabel.space_id != space.id
 
     ulabel.delete(permanent=True)
     ln.Run.filter(space=space).delete(permanent=True)
     ln.Transform.filter(space=space).delete(permanent=True)
     space.delete()
+
+
+def test_transfer_missing_space_errors():
+    from lamindb.errors import NoWriteAccess
+    from lamindb.models.sqlrecord import update_fk_to_default_db
+
+    missing = ln.Space(name="restricted-perturbations", uid="noattach1")
+    missing.id = 99
+    record = ln.Record(name="space gate")
+    record.uid = "recSpace"
+    record.space = missing
+
+    with pytest.raises(NoWriteAccess, match="restricted-perturbations") as error:
+        update_fk_to_default_db(
+            record,
+            "space",
+            None,
+            {"mapped": [], "transferred": [], "run": True},
+        )
+    message = str(error.value)
+    target = ln.setup.settings.instance.slug
+    assert (
+        f"attach space 'restricted-perturbations' to the target database '{target}'"
+        in message
+    )
+    assert "Record(uid='recSpace')" in str(error.value)
 
 
 def test_using_record_organism():

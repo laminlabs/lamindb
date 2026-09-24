@@ -2559,13 +2559,22 @@ def update_fk_to_default_db(
     # todo: but this has to be changed i think, it is not safe as it is now - Sergei
     record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
-        # set the space of the transferred record to the current space
+        # Map the source space by uid. Do not substitute the current space:
+        # that would change who can access the object.
         if fk == "space":
-            # for space we set the record's space to the current space
-            from lamindb import context
-
-            # the default space has id=1
-            fk_record_default = Space.get(1) if context.space is None else context.space
+            source_space = getattr(record, fk)
+            fk_record_default = Space.filter(uid=source_space.uid).one_or_none()
+            if fk_record_default is None:
+                obj = (
+                    f"{record.__class__.__name__}(uid={record.uid!r})"
+                    if getattr(record, "uid", None)
+                    else record.__class__.__name__
+                )
+                target = ln_setup.settings.instance.slug
+                raise NoWriteAccess(
+                    f"Could not map space {source_space.name!r} of object {obj}.\n"
+                    f"Please attach space {source_space.name!r} to the target database {target!r}."
+                )
         # process non-space fks
         else:
             fk_record = getattr(record, fk)
