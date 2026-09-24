@@ -84,6 +84,50 @@ def test_schema_transfer_ulabel_dtype():
     assert transferred_repeat.links_feature.count() == before_count
 
 
+def test_record_type_parent_is_stubbed():
+    user_handle = ln.setup.settings.user.handle
+    parent_name = "transfer_ci_biosamples"
+    child_name = "transfer_ci_rnasamples"
+    feature_name = "transfer_ci_biosamples_dtype"
+    schema_name = "transfer_ci_rnasamples_schema"
+
+    ln.connect("testdb1")
+    existing_schema = ln.Schema.filter(name=schema_name).one_or_none()
+    if existing_schema is None:
+        parent = ln.Record(
+            name=parent_name, is_type=True, description="parent body"
+        ).save()
+        child = ln.Record(name=child_name, is_type=True, type=parent).save()
+        feature = ln.Feature(name=feature_name, dtype=child).save()
+        schema_uid = ln.Schema(name=schema_name, features=[feature]).save().uid
+    else:
+        schema_uid = existing_schema.uid
+        child = ln.Record.get(name=child_name)
+        parent = child.type
+    parent_created_by_uid = parent.created_by.uid
+
+    ln.connect("testdb2")
+    for model, name in (
+        (ln.Schema, schema_name),
+        (ln.Feature, feature_name),
+        (ln.Record, child_name),
+        (ln.Record, parent_name),
+    ):
+        existing = model.filter(name=name).one_or_none()
+        if existing is not None:
+            existing.delete(permanent=True)
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    db1.Schema.get(schema_uid).save()
+
+    parent_on_target = ln.Record.get(uid=parent.uid)
+    assert parent_on_target.is_type is True
+    assert parent_on_target.name == parent_name
+    assert parent_on_target.description is None
+    assert parent_on_target.created_by.uid == parent_created_by_uid
+    child_on_target = ln.Record.get(uid=child.uid)
+    assert child_on_target.type.uid == parent.uid
+
+
 def test_schema_transfer_feature_uid_conflict_by_name():
     user_handle = ln.setup.settings.user.handle
 
