@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str
+from lamindb.base.dtypes import check_dtype, check_pandera_str, try_coerce_simple_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -760,6 +760,7 @@ class ComponentCurator(Curator):
         else:
             assert schema.itype is not None  # noqa: S101
 
+        self._features = features
         pandera_columns = {}
         self._pandera_schema = None
         if features or schema._index_feature_uid is not None:
@@ -975,11 +976,31 @@ class ComponentCurator(Curator):
             self._is_validated = False
             raise ValidationError(self.cat._validate_category_error_messages)
 
+    def _coerce_simple_feature_dtypes(self) -> None:
+        """Apply lossless int/float coercion when schema or feature coerce is set.
+
+        ``check_dtype`` only accepts an already-matching pandas dtype. Pandera
+        ``coerce`` is a no-op for these columns, so convert here first.
+        """
+        if not isinstance(self._dataset, pd.DataFrame):
+            return
+        schema_coerce = bool(self._schema.coerce)
+        for feature in getattr(self, "_features", ()):
+            if not (schema_coerce or feature.coerce):
+                continue
+            dtype_str = feature._dtype_str
+            if dtype_str not in {"int", "float"} or feature.name not in self._dataset:
+                continue
+            coerced = try_coerce_simple_dtype(self._dataset[feature.name], dtype_str)
+            if coerced is not None:
+                self._dataset[feature.name] = coerced
+
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
         if self._pandera_schema is not None:
             try:
+                self._coerce_simple_feature_dtypes()
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals

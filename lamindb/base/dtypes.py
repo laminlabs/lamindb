@@ -188,6 +188,38 @@ def check_pandera_str(series) -> bool:
     return bool(all(result))
 
 
+def try_coerce_simple_dtype(series, expected_type: str):
+    """Losslessly coerce a Series to ``int`` or ``float``, or return ``None``.
+
+    Used when ``Schema.coerce`` or ``Feature.coerce`` is True. Does not truncate
+    (e.g. ``1.1`` → ``int`` fails). Returns the original series if it already
+    has the expected pandas dtype.
+    """
+    import pandas as pd
+
+    if expected_type == "int":
+        if pd.api.types.is_integer_dtype(series.dtype):
+            return series
+        try:
+            numeric = pd.to_numeric(series, errors="raise")
+        except (TypeError, ValueError):
+            return None
+        non_null = numeric.dropna()
+        if len(non_null) and not bool((non_null == non_null.round()).all()):
+            return None
+        if numeric.hasnans:
+            return numeric.astype("Int64")
+        return numeric.astype("int64")
+    if expected_type == "float":
+        if pd.api.types.is_float_dtype(series.dtype):
+            return series
+        try:
+            return pd.to_numeric(series, errors="raise").astype("float64")
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 

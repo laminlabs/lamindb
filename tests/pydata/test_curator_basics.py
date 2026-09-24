@@ -1029,6 +1029,74 @@ def test_curate_columns(df):
     ln.Feature.filter().delete(permanent=True)
 
 
+
+_COERCE_INT_FLOAT_CASES = {
+    "int_from_str": {
+        "test_int_feature": ["1", "2", "3"],
+        "test_float_feature": [1.1, 2.2, 3.3],
+    },
+    "int_from_float": {
+        "test_int_feature": [1.0, 2.0, 3.0],
+        "test_float_feature": [1.1, 2.2, 3.3],
+    },
+    "float_from_str": {
+        "test_int_feature": [1, 2, 3],
+        "test_float_feature": ["1.1", "2.2", "3.3"],
+    },
+    "float_from_int": {
+        "test_int_feature": [1, 2, 3],
+        "test_float_feature": [1, 2, 3],
+    },
+}
+
+
+@pytest.mark.parametrize(
+    "data", _COERCE_INT_FLOAT_CASES.values(), ids=_COERCE_INT_FLOAT_CASES.keys()
+)
+@pytest.mark.parametrize(
+    "feature_coerce",
+    [
+        pytest.param(False, id="schema_coerce"),
+        pytest.param(True, id="schema_and_feature_coerce"),
+    ],
+)
+def test_schema_coerce_int_float(feature_coerce, data):
+    """Schema.coerce=True accepts lossless int/float conversions (#1211)."""
+    feature_kwargs = {"coerce": True} if feature_coerce else {}
+    f_int = ln.Feature(name="test_int_feature", dtype=int, **feature_kwargs).save()
+    f_float = ln.Feature(
+        name="test_float_feature", dtype=float, **feature_kwargs
+    ).save()
+    schema = ln.Schema(
+        name="coerce_test_schema",
+        features=[f_int, f_float],
+        otype="DataFrame",
+        coerce=True,
+    ).save()
+    assert schema.coerce is True
+    assert f_int.coerce is f_float.coerce is (True if feature_coerce else None)
+
+    df = pd.DataFrame(data)
+    ln.curators.DataFrameCurator(df, schema).validate()
+
+    schema.delete(permanent=True)
+    f_int.delete(permanent=True)
+    f_float.delete(permanent=True)
+
+
+def test_schema_coerce_rejects_lossy_float_to_int():
+    """1.1 is not losslessly convertible to int, even with coerce=True."""
+    f_int = ln.Feature(name="test_int_feature", dtype=int).save()
+    schema = ln.Schema(features=[f_int], otype="DataFrame", coerce=True).save()
+    curator = ln.curators.DataFrameCurator(
+        pd.DataFrame({"test_int_feature": [1.1, 2.2, 3.3]}), schema
+    )
+    with pytest.raises(ln.errors.ValidationError):
+        curator.validate()
+    schema.delete(permanent=True)
+    f_int.delete(permanent=True)
+
+
 def test_wrong_datatype(df):
     feature = ln.Feature(name="sample_id", dtype=ln.ULabel).save()
     schema = ln.Schema(features=[feature]).save()
