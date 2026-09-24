@@ -1031,12 +1031,6 @@ def test_record_feature_values_through_reads_reverse_links():
         == 0
     )
 
-    with pytest.raises(
-        ln.errors.ValidationError,
-        match="is configured with Feature\\(\\.\\.\\., values_through=\\.\\.\\.\\) and is read-only",
-    ):
-        alice.features.set_values({"attended_meetings": [meeting_1]})
-
     people_df = people_sheet.to_dataframe(features=["attended_meetings"])
     people_by_name = people_df.set_index("__lamindb_record_name__")
     assert set(people_by_name.loc["values-from-alice", "attended_meetings"]) == {
@@ -1064,6 +1058,31 @@ def test_record_feature_values_through_reads_reverse_links():
     assert meetings_by_name.loc["values-from-meeting-2", "attendees"] == [
         "values-from-alice"
     ]
+
+    alice.features.set_values({"attended_meetings": [meeting_1]})
+    assert alice.features.get_values()["attended_meetings"] == ["values-from-meeting-1"]
+    assert (
+        ln.models.RecordRecord.filter(
+            record=alice, feature=attended_meetings_feature
+        ).count()
+        == 0
+    )
+    assert (
+        ln.models.RecordRecord.filter(
+            record=meeting_1, feature=attendees_feature, value=alice
+        ).count()
+        == 1
+    )
+    assert (
+        ln.models.RecordRecord.filter(
+            record=meeting_2, feature=attendees_feature, value=alice
+        ).count()
+        == 0
+    )
+    assert "values-from-alice" in meeting_1.features.get_values()["attendees"]
+    assert "values-from-alice" not in meeting_2.features.get_values().get(
+        "attendees", []
+    )
 
     meeting_1.delete(permanent=True)
     meeting_2.delete(permanent=True)
@@ -1332,11 +1351,6 @@ def test_record_feature_values_through_self_referential_relation():
         ln.models.RecordRecord.filter(record=manager, feature=manages_feature).count()
         == 0
     )
-    with pytest.raises(
-        ln.errors.ValidationError,
-        match="is configured with Feature\\(\\.\\.\\., values_through=\\.\\.\\.\\) and is read-only",
-    ):
-        report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
 
     people_df = people_sheet.to_dataframe(features=["reports_to", "manages"])
     people_by_name = people_df.set_index("__lamindb_record_name__")
@@ -1358,13 +1372,78 @@ def test_record_feature_values_through_self_referential_relation():
         "values-from-self-report-b",
     }
 
-    report_a.delete(permanent=True)
+    manager.features.set_values({"manages": [report_a]})
+    assert manager.features.get_values()["manages"] == ["values-from-self-report-a"]
+    assert report_a.features["reports_to"].name == "values-from-self-manager"
+    assert "reports_to" not in report_b.features.get_values()
+    report_a.features.set_values({"reports_to": manager, "manages": [report_b]})
+    assert report_a.features["reports_to"].name == "values-from-self-manager"
+    assert report_b.features["reports_to"].name == "values-from-self-report-a"
+    assert report_a.features.get_values()["manages"] == ["values-from-self-report-b"]
+    assert (
+        ln.models.RecordRecord.filter(record=report_a, feature=manages_feature).count()
+        == 0
+    )
+
     report_b.delete(permanent=True)
+    report_a.delete(permanent=True)
     manager.delete(permanent=True)
     people_sheet.delete(permanent=True)
     people_schema.delete(permanent=True)
     reports_to_feature.delete(permanent=True)
     manages_feature.delete(permanent=True)
+
+
+def test_record_feature_values_through_writes_by_name_and_add_values():
+    attendees = ln.Feature(name="vt-write-attendees", dtype=list[ln.Record]).save()
+    attended = ln.Feature(
+        name="vt-write-attended",
+        dtype=list[ln.Record],
+        values_through=attendees,
+    ).save()
+    meetings_schema = ln.Schema(
+        features=[attendees], name="vt-write-meetings-schema"
+    ).save()
+    people_schema = ln.Schema(
+        features=[attended.with_config(optional=True)],
+        name="vt-write-people-schema",
+    ).save()
+    meetings = ln.Record(
+        name="vt-write-meetings", is_type=True, schema=meetings_schema
+    ).save()
+    people = ln.Record(
+        name="vt-write-people", is_type=True, schema=people_schema
+    ).save()
+    alice = ln.Record(name="vt-write-alice", type=people).save()
+    meeting_1 = ln.Record(name="vt-write-meeting-1", type=meetings).save()
+    meeting_2 = ln.Record(name="vt-write-meeting-2", type=meetings).save()
+
+    alice.features.set_values({"vt-write-attended": ["vt-write-meeting-1"]})
+    assert alice.features.get_values()["vt-write-attended"] == ["vt-write-meeting-1"]
+    alice.features.set_values({"vt-write-attended": ["vt-write-meeting-1"]})
+    assert (
+        ln.models.RecordRecord.filter(
+            record=meeting_1, feature=attendees, value=alice
+        ).count()
+        == 1
+    )
+    alice.features.add_values({"vt-write-attended": [meeting_2]})
+    assert set(alice.features.get_values()["vt-write-attended"]) == {
+        "vt-write-meeting-1",
+        "vt-write-meeting-2",
+    }
+    alice.features.set_values({"vt-write-attended": []})
+    assert alice.features.get_values().get("vt-write-attended") in (None, [])
+
+    meeting_1.delete(permanent=True)
+    meeting_2.delete(permanent=True)
+    alice.delete(permanent=True)
+    meetings.delete(permanent=True)
+    people.delete(permanent=True)
+    meetings_schema.delete(permanent=True)
+    people_schema.delete(permanent=True)
+    attendees.delete(permanent=True)
+    attended.delete(permanent=True)
 
 
 def test_record_feature_values_through_validation_no_symmetric_config():

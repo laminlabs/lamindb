@@ -567,6 +567,62 @@ def move_schema_index_column_to_dataframe_index(
     return df
 
 
+def _records_from_feature_value(value: Any) -> list[Record]:
+    """Normalize a reverse `values_through` payload to Record objects."""
+    return [
+        item if not isinstance(item, str) else Record.get(name=item) for item in value
+    ]
+
+
+def apply_inverted_values_through_writes(
+    host: Record,
+    writes: list[tuple[Feature, Feature, Any]],
+    *,
+    replace: bool,
+) -> None:
+    """Write reverse `values_through` values as inverted source-feature links.
+
+    For `books.values_through=author`, setting `author.books = [book]` stores
+    `RecordRecord(record=book, feature=author, value=author_record)`.
+    """
+    from .save import save as ln_save
+
+    db = host._state.db
+    for _derived_feature, source_feature, value in writes:
+        related_records = _records_from_feature_value(value)
+        desired_ids = {related.id for related in related_records}
+        existing = RecordRecord.objects.using(db).filter(
+            feature_id=source_feature.id, value_id=host.id
+        )
+        existing_by_record_id = {link.record_id: link for link in existing}
+        if replace:
+            stale_ids = [
+                link.id
+                for record_id, link in existing_by_record_id.items()
+                if record_id not in desired_ids
+            ]
+            if stale_ids:
+                RecordRecord.objects.using(db).filter(id__in=stale_ids).delete()
+        source_is_list = (source_feature.dtype_as_str or "").startswith("list[")
+        to_create: list[RecordRecord] = []
+        for related in related_records:
+            if related.id in existing_by_record_id:
+                continue
+            if not source_is_list:
+                RecordRecord.objects.using(db).filter(
+                    record_id=related.id, feature_id=source_feature.id
+                ).exclude(value_id=host.id).delete()
+            to_create.append(
+                RecordRecord(
+                    record_id=related.id,
+                    feature_id=source_feature.id,
+                    value_id=host.id,
+                )
+            )
+        if to_create:
+            ln_save(to_create, ignore_conflicts=True, using=db)
+
+
 def strip_index_for_record_persistence(
     record: Record,
     schema: Schema | None,
@@ -575,14 +631,14 @@ def strip_index_for_record_persistence(
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
     index_feature: Feature | None = None,
-) -> tuple[dict[str, Any], list[Feature]]:
-    """Move `values_through` and schema-index values to `Record` fields."""
+) -> tuple[dict[str, Any], list[Feature], list[tuple[Feature, Feature, Any]]]:
+    """Move `values_through` and schema-index values off the forward write path."""
     if index_feature is None and schema is not None:
         index_feature = schema.index
     record_field_mappings = get_feature_record_field_mappings(feature_objects)
     values_feature_uids = get_feature_values_through_uids(feature_objects)
     if index_feature is None and not record_field_mappings and not values_feature_uids:
-        return dictionary, feature_objects
+        return dictionary, feature_objects, []
 
     index_value = None
     if index_feature is not None:
@@ -635,27 +691,37 @@ def strip_index_for_record_persistence(
                 update_fields.add(field_name)
             dictionary.pop(feature.name, None)
         feature_objects = filtered_features
+    inverted_writes: list[tuple[Feature, Feature, Any]] = []
     if values_feature_uids:
+        source_features = {
+            feature.uid: feature
+            for feature in Feature.objects.using(record._state.db).filter(
+                uid__in=set(values_feature_uids.values())
+            )
+        }
         values_target_feature_uids = set(values_feature_uids.keys())
         filtered_features = []
         for feature in feature_objects:
             if feature.uid not in values_target_feature_uids:
                 filtered_features.append(feature)
                 continue
-            has_explicit_value = (
+            if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
-            )
-            has_named_value = feature.name in dictionary
-            if has_explicit_value or has_named_value:
-                raise ValidationError(
-                    f"feature '{feature.name}' is configured with "
-                    "Feature(..., values_through=...) and is read-only"
-                )
+            ):
+                value = values_by_feature_uid[feature.uid]
+            elif feature.name in dictionary:
+                value = dictionary[feature.name]
+            else:
+                dictionary.pop(feature.name, None)
+                continue
+            source_uid = values_feature_uids[feature.uid]
+            inverted_writes.append((feature, source_features[source_uid], value))
+            dictionary.pop(feature.name, None)
         feature_objects = filtered_features
     if update_fields:
         record._mapped_feature_update_fields = update_fields
-    return dictionary, feature_objects
+    return dictionary, feature_objects, inverted_writes
 
 
 IndexNameConflict = Literal["keep_name", "keep_feature"]
