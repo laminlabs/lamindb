@@ -1396,6 +1396,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             using: Optional database slug for a target database that differs from the default database.
+            transfer: If this object was queried on another instance:
+                "sqlrecord" (default) copies the row
+                and foreign keys only; "notes" also copies the latest readme;
+                "annotations" also copies M2M annotations. Schema still defaults
+                to "annotations" when transfer is omitted.
         """
         using = None
         if "using" in kwargs:
@@ -1411,17 +1416,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             ):
                 self.run = None
                 self.run_id = None
-        transfer_config = kwargs.pop("transfer", None)
+        transfer_config = normalize_transfer_config(
+            kwargs.pop("transfer", None),
+            default_annotations=self.__class__.__name__ == "Schema",
+        )
         db = self._state.db
         pk_on_db = self.pk
-        if (
-            self.__class__.__name__ == "Schema"
-            and transfer_config is None
-            and db is not None
-            and db != "default"
-            and using is None
-        ):
-            transfer_config = "annotations"
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
@@ -1440,7 +1440,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                     )
             pre_existing_record = transfer_to_default_db(
-                self, using, transfer_logs=transfer_logs
+                self,
+                using,
+                transfer_logs=transfer_logs,
+                # schema members and other annotation links are M2M, not part of
+                # the row. Only transfer="annotations" should copy them.
+                transfer_annotations=transfer_config == "annotations",
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -1646,12 +1651,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
+            if transfer_config in {"notes", "annotations"}:
+                transfer_notes(self, db, pk_on_db)
             if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
+            if (
+                self.__class__.__name__ in {"Record", "Run"}
+                and transfer_config == "annotations"
+            ):
+                transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
@@ -1666,8 +1678,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
-                if k != "run" and len(v) > 0:
-                    logger.important(f"{k}: {', '.join(v)}")
+                if k == "run" or k.startswith("_") or len(v) == 0:
+                    continue
+                logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
@@ -2537,6 +2550,8 @@ def update_fk_to_default_db(
     fk: str,
     using: str | None,
     transfer_logs: dict,
+    *,
+    transfer_annotations: bool = True,
 ):
     # here in case it is an iterable, we are checking only a single record
     # and set the same fks for all other records because we do this only
@@ -2545,24 +2560,63 @@ def update_fk_to_default_db(
     # todo: but this has to be changed i think, it is not safe as it is now - Sergei
     record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
-        # set the space of the transferred record to the current space
+        # Map the source space by uid. Do not substitute the current space:
+        # that would change who can access the object.
         if fk == "space":
-            # for space we set the record's space to the current space
-            from lamindb import context
-
-            # the default space has id=1
-            fk_record_default = Space.get(1) if context.space is None else context.space
+            source_space = getattr(record, fk)
+            fk_record_default = Space.filter(uid=source_space.uid).one_or_none()
+            if fk_record_default is None:
+                obj = (
+                    f"{record.__class__.__name__}(uid={record.uid!r})"
+                    if getattr(record, "uid", None)
+                    else record.__class__.__name__
+                )
+                target = ln_setup.settings.instance.slug
+                raise NoWriteAccess(
+                    f"Could not map space {source_space.name!r} of object {obj}.\n"
+                    f"Please attach space {source_space.name!r} to the target database {target!r}."
+                )
         # process non-space fks
         else:
             fk_record = getattr(record, fk)
+            if fk in {"created_by", "schema", "type"}:
+                print(
+                    f"transfer {type(record).__name__} {getattr(record, 'uid', None)} "
+                    f".{fk} → {type(fk_record).__name__} {getattr(fk_record, 'uid', None)} "
+                    f"{getattr(fk_record, 'handle', None) or getattr(fk_record, 'name', '')}",
+                    flush=True,
+                )
             field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
             pre_existing_fk_record_default = fk_record.__class__.filter(
                 **{field: getattr(fk_record, field)}
             ).one_or_none()
+            # A Record is only valid in a type that is already on the target,
+            # because that type carries a schema. Every other missing type,
+            # including a ULabel type, is a stub.
+            if fk == "type" and pre_existing_fk_record_default is None:
+                is_data_record = record.__class__.__name__ == "Record" and not getattr(
+                    record, "is_type", False
+                )
+                if is_data_record:
+                    type_name = getattr(fk_record, "name", None) or fk_record.uid
+                    type_uid = getattr(fk_record, "uid", None)
+                    raise ValueError(
+                        f"Please transfer type {type_name!r} first: "
+                        f"{fk_record.__class__.__name__}(uid={type_uid!r})"
+                    )
+                from copy import copy
+
+                pre_existing_fk_record_default = transfer_to_default_db(
+                    copy(fk_record),
+                    using,
+                    transfer_logs=transfer_logs,
+                    stub=True,
+                )
             from copy import copy
 
             fk_record_default = copy(fk_record)
-            if fk_record.__class__.__name__ == "Schema":
+            # A schema FK is part of the row. Its members are annotations.
+            if fk_record.__class__.__name__ == "Schema" and transfer_annotations:
                 from .schema import transfer_schema_with_members
 
                 fk_record_default = transfer_schema_with_members(
@@ -2570,7 +2624,11 @@ def update_fk_to_default_db(
                 )
             elif pre_existing_fk_record_default is None:
                 transfer_to_default_db(
-                    fk_record_default, using, save=True, transfer_logs=transfer_logs
+                    fk_record_default,
+                    using,
+                    save=True,
+                    transfer_logs=transfer_logs,
+                    transfer_annotations=transfer_annotations,
                 )
             else:
                 fk_record_default = pre_existing_fk_record_default
@@ -2612,7 +2670,6 @@ def get_transfer_run(record) -> Run:
     if not cache_using_filepath.exists():
         raise SystemExit("Need to call .connect() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
-    # TODO: consider renaming to __lamindb_sync__
     key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
@@ -2643,6 +2700,222 @@ def get_transfer_run(record) -> Run:
     return run
 
 
+TRANSFER_MODES = {"sqlrecord", "notes", "annotations"}
+
+
+def normalize_transfer_config(
+    transfer_config: str | None, *, default_annotations: bool = False
+) -> str:
+    """Map transfer= to sqlrecord | notes | annotations.
+
+    ``transfer="record"`` is kept as an alias for ``sqlrecord`` until LaminDB v3.
+    Schema still defaults to ``annotations`` when ``transfer`` is omitted.
+    """
+    if transfer_config is None:
+        return "annotations" if default_annotations else "sqlrecord"
+    if transfer_config == "record":
+        logger.warning(
+            "transfer='record' is deprecated; use transfer='sqlrecord'. "
+            "The alias will be removed in LaminDB v3."
+        )
+        return "sqlrecord"
+    if transfer_config not in TRANSFER_MODES:
+        raise ValueError(
+            "transfer should be one of 'sqlrecord', 'notes', 'annotations' "
+            f"(or deprecated 'record'), not {transfer_config!r}"
+        )
+    return transfer_config
+
+
+def transfer_notes(record_on_default, source_db, source_pk) -> None:
+    """Copy the latest readme block from the source SQLRecord."""
+    if source_pk is None or not hasattr(record_on_default, "ablocks"):
+        return
+    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    src_block = source.ablocks.filter(kind="readme", is_latest=True).first()
+    if src_block is None or not src_block.content:
+        return
+    existing = record_on_default.ablocks.filter(kind="readme", is_latest=True).first()
+    if existing is not None and existing.content == src_block.content:
+        return
+    fk_name = record_on_default.__class__.__name__.lower()
+    record_on_default.ablocks.model(
+        **{fk_name: record_on_default, "kind": "readme", "content": src_block.content}
+    ).save()
+
+
+def _user_annotation_field(feature) -> str:
+    """Field `_add_values` looks up for a User feature. Defaults to handle."""
+    if feature is None:
+        return "handle"
+    from .feature import parse_dtype
+
+    return parse_dtype(feature._dtype_str)[0]["field_str"]
+
+
+def _user_registry_write_forbidden(error: Exception) -> bool:
+    message = str(error).lower()
+    return "row-level security" in message or "permission denied" in message
+
+
+def _save_transferred_record(record):
+    """Insert a transferred row.
+
+    `User` inserts are allowed like any other table. Until every instance
+    has that policy, a rejected insert still means the person must be added
+    as a collaborator so their `User` row exists, then the sync re-run.
+    """
+    try:
+        record.save()
+    except ProgrammingError as error:
+        if record.__class__.__name__ != "User" or not _user_registry_write_forbidden(
+            error
+        ):
+            raise
+        handle = record.handle
+        raise NoWriteAccess(
+            f"Cannot write user {handle!r} (uid {record.uid!r}) to the target User registry.\n"
+            f"Make {handle!r} a collaborator on this instance so they get a User entry, then re-run the sync."
+        ) from None
+
+
+def _map_user_annotation(source_user, feature, transfer_logs: dict):
+    """Map a source User annotation onto the target User registry by uid."""
+    from copy import copy
+
+    saved = transfer_to_default_db(
+        copy(source_user),
+        None,
+        save=True,
+        transfer_logs=transfer_logs,
+    )
+    local = saved if saved is not None else type(source_user).get(uid=source_user.uid)
+    return getattr(local, _user_annotation_field(feature))
+
+
+def _linked_feature_values(record) -> list[tuple[Any, Any]]:
+    """Feature values from link rows, keyed by the feature row rather than its name.
+
+    Names are not unique. Several categorical links for one feature are one list.
+    A JSON list stays one value because it is stored as a single JSON cell.
+    """
+    grouped: dict[int, list] = {}
+    features: dict[int, Any] = {}
+    for rel in record._meta.related_objects:
+        accessor = rel.get_accessor_name()
+        if not accessor or not str(accessor).startswith("values_"):
+            continue
+        for link in getattr(record, accessor).all():
+            feature = link.feature
+            features[feature.id] = feature
+            grouped.setdefault(feature.id, []).append(link.value)
+    return [
+        (features[feature_id], vals[0] if len(vals) == 1 else vals)
+        for feature_id, vals in grouped.items()
+    ]
+
+
+def transfer_record_feature_values(
+    record_on_default, source_db, source_pk, using, transfer_logs
+):
+    from copy import copy
+
+    from .feature import Feature, parse_dtype
+
+    if source_pk is None:
+        return
+    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+    linked_values = _linked_feature_values(source)
+    if not linked_values:
+        return
+
+    def _transfer_entity(value, feature=None):
+        if type(value).__name__ == "User":
+            # User is BaseSQLRecord, not SQLRecord. Return the feature field
+            # (handle by default) so _add_values can look the user up.
+            return _map_user_annotation(value, feature, transfer_logs)
+        # A linked record is a stub (uid, name, type, created_by). Transferring
+        # that record later fills its remaining fields.
+        if type(value).__name__ in {"Record", "ULabel"}:
+            from copy import copy
+
+            return transfer_to_default_db(
+                copy(value),
+                using,
+                transfer_logs=transfer_logs,
+                stub=True,
+            )
+        return value.save(transfer="annotations")
+
+    def _prepare(value, feature=None):
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [
+                prepared
+                for v in value
+                if (prepared := _prepare(v, feature)) is not None
+            ]
+        if isinstance(value, (SQLRecord, BaseSQLRecord)) and value._state.db not in (
+            None,
+            "default",
+        ):
+            return _transfer_entity(value, feature)
+        if feature is None or not isinstance(value, str):
+            return value
+        dtype = feature._dtype_str or ""
+        if not (dtype.startswith("cat") or dtype.startswith("list[cat")):
+            return value
+        parsed = parse_dtype(dtype)[0]
+        registry = parsed["registry"]
+        field = parsed["field_str"]
+        src_obj = registry.objects.using(source_db).filter(**{field: value}).first()
+        if src_obj is None and field != "name" and hasattr(registry, "name"):
+            src_obj = registry.objects.using(source_db).filter(name=value).first()
+        if src_obj is not None:
+            return _transfer_entity(src_obj, feature)
+        return registry.filter(**{field: value}).first() or value
+
+    prepared_by_uid = {}
+    feature_objects = []
+    for src_feature, value in linked_values:
+        transferred = transfer_to_default_db(
+            copy(src_feature), using, save=True, transfer_logs=transfer_logs
+        )
+        local_feature = (
+            transferred if transferred is not None else Feature.get(uid=src_feature.uid)
+        )
+        dtype = local_feature._dtype_str or ""
+        if dtype.startswith("cat") or dtype.startswith("list[cat"):
+            try:
+                parse_dtype(dtype)
+            except ValidationError as err:
+                raise ValueError(
+                    f"cannot transfer feature {local_feature.uid!r} ({dtype}): "
+                    "the target instance does not have the required schema module loaded "
+                    "(e.g. run: lamin settings modules set bionty). "
+                    'Pass transfer="sqlrecord" to sync the object without annotations.'
+                ) from err
+        prepared_by_uid[local_feature.uid] = _prepare(value, local_feature)
+        feature_objects.append(local_feature)
+
+    # Do not run ExperimentalDictCurator: source values are already valid, and
+    # the target session may not have every module (e.g. bionty) imported.
+    # set so _add_values can `del` it (normal set_values always sets this attr)
+    record_on_default._mapped_feature_update_fields = set()
+    record_on_default.features._remove_values()
+    record_on_default.features._add_values(
+        feature_objects,
+        {},
+        values_by_feature_uid=prepared_by_uid,
+    )
+
+
+_STUB_FKS = {"created_by", "type", "space"}
+
+
 def transfer_to_default_db(
     record: SQLRecord,
     using: str | None,
@@ -2650,25 +2923,48 @@ def transfer_to_default_db(
     transfer_logs: dict,
     save: bool = False,
     transfer_fk: bool = True,
+    transfer_annotations: bool = True,
+    stub: bool = False,
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
+    # Dtype text is not a foreign key. Follow it even when this feature row
+    # is already on the target, so a re-transfer picks up schema__uid refs.
+    if record.__class__.__name__ == "Feature":
+        from .feature import transfer_feature_dtypes
+
+        transfer_feature_dtypes(record, using, transfer_logs=transfer_logs)
     registry = record.__class__
     logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
     record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:
         transfer_logs["run"] = get_transfer_run(record)
-    if record_on_default is not None:
+    # A link keeps the row that is already there. Transferring the record
+    # itself writes the source fields onto that row.
+    filling = (
+        record_on_default is not None
+        and not stub
+        and record.__class__.__name__ in {"Record", "ULabel"}
+    )
+    if record_on_default is not None and not filling:
         transfer_logs["mapped"].append(record_str)
         return record_on_default
+    if filling:
+        from copy import copy
+
+        print(f"transfer fill stub {record_str}", flush=True)
+        record = copy(record)
     else:
         transfer_logs["transferred"].append(record_str)
+        if stub:
+            print(
+                f"transfer stub {record_str} {getattr(record, 'name', '')}",
+                flush=True,
+            )
 
-    if hasattr(record, "created_by_id"):
-        record.created_by = None
-        record.created_by_id = ln_setup.settings.user.id
-    # run & transform
+    # run & transform stay on the transfer run; created_by is transferred
+    # like any other foreign key, including the User row it points at.
     run = transfer_logs["run"]
     if hasattr(record, "run_id"):
         record.run = None
@@ -2677,27 +2973,48 @@ def transfer_to_default_db(
     if hasattr(record, "transform_id"):
         record.transform = None
         record.transform_id = run.transform_id
-    # transfer other foreign key fields
     fk_fields = [
         i.name
         for i in record._meta.fields
         if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"created_by", "run", "transform", "branch"}
+        if i.name not in {"run", "transform", "branch"}
     ]
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
         fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
+    if stub:
+        # Identity, type, and creator. The remaining fields are filled when
+        # this record is transferred itself.
+        fk_fields = [fk for fk in fk_fields if fk in _STUB_FKS]
+        for name in ("description", "reference", "reference_type", "schema_id"):
+            if hasattr(record, name):
+                setattr(record, name, None)
     for fk in fk_fields:
-        update_fk_to_default_db(record, fk, using, transfer_logs=transfer_logs)
+        update_fk_to_default_db(
+            record,
+            fk,
+            using,
+            transfer_logs=transfer_logs,
+            transfer_annotations=transfer_annotations,
+        )
     # FK ids were remapped to the default DB; drop tracked *_id originals so save
     # logic does not treat remapping as a user-requested field change.
     if (original_values := getattr(record, "_original_values", None)) is not None:
         for key in [key for key in original_values if key.endswith("_id")]:
             del original_values[key]
-    record.id = None
     record._state.db = "default"
-    if save:
-        record.save()
+    if filling:
+        for field in record._meta.concrete_fields:
+            if field.primary_key:
+                continue
+            setattr(record_on_default, field.attname, getattr(record, field.attname))
+        _save_transferred_record(record_on_default)
+        return record_on_default
+    record.id = None
+    if save or stub:
+        _save_transferred_record(record)
+    if stub:
+        return registry.get(uid=record.uid)
     return None
 
 

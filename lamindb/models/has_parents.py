@@ -255,7 +255,7 @@ def view_lineage(
     data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
 ) -> Digraph | None:
     """View data lineage graph."""
-    if ln_setup.settings.instance.is_on_hub:
+    if ln_setup.settings.instance.is_managed_by_hub:
         instance_slug = ln_setup.settings.instance.slug
         ui_url = ln_setup.settings.instance.ui_url
         entity_slug = data.__class__.__name__.lower()
@@ -510,7 +510,16 @@ def get_record_label(record: SQLRecord, field: str | None = None):
         )
         return rf"<{title}>"
     elif isinstance(record, Run):
-        title = record.transform.key.replace("&", "&amp;")
+        # Transfer transforms keep a stable internal key and put the readable
+        # source name in description.
+        if (
+            record.transform.key.startswith("__lamindb_transfer__/")
+            and record.transform.description
+        ):
+            title = record.transform.description
+        else:
+            title = record.transform.key
+        title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         if record.entrypoint is not None:
             title += f": {record.entrypoint}"
         return (

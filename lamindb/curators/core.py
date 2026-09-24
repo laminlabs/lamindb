@@ -651,11 +651,20 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
         df.index = pd.Index([index_value], name=index_feature.name)
     else:
         df = pd.DataFrame([d])
+    if df.empty:
+        return df
+    index_is_row_name = (
+        index_feature is not None and df.index.name == index_feature.name
+    )
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
         if feature.dtype_as_str.startswith("cat"):
             if feature.name in df.columns:
-                value = df.loc[0, feature.name]
+                value = (
+                    df[feature.name].iloc[0]
+                    if index_is_row_name
+                    else df.loc[0, feature.name]
+                )
                 if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
                     _check_sqlrecord_type_in_list(value, feature)  # type: ignore
                     df.attrs[feature.name] = "list_of_categories"

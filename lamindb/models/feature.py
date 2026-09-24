@@ -136,6 +136,46 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
     return result
 
 
+def _dtype_filter_uid(filter_str: str, key: str) -> str | None:
+    if not filter_str or f"{key}=" not in filter_str:
+        return None
+    parsed = parse_filter_string(filter_str).get(key)
+    if parsed is None:
+        return None
+    _relation, field_name, value = parsed
+    if field_name != "uid" or not value:
+        return None
+    return value
+
+
+def _transfer_dtype_schema(
+    schema_uid: str,
+    source_db: str,
+    using: str | None,
+    transfer_logs: dict,
+    feature_name: str,
+) -> None:
+    from .schema import Schema, transfer_schema_with_members
+
+    seen = transfer_logs.setdefault("_dtype_schemas", set())
+    if schema_uid in seen:
+        return None
+    seen.add(schema_uid)
+    source_schema = Schema.objects.using(source_db).get(uid=schema_uid)
+    print(
+        f"transfer dtype {feature_name!r} schema {schema_uid} "
+        f"({getattr(source_schema, 'name', None)!r})",
+        flush=True,
+    )
+    transferred = transfer_schema_with_members(
+        source_schema, using, transfer_logs=transfer_logs
+    )
+    assert transferred.uid == schema_uid, (
+        "transfer_feature_dtypes() expected UID invariance for dtype schema "
+        f"uid='{schema_uid}', but mapped to uid='{transferred.uid}'."
+    )
+
+
 def transfer_feature_dtypes(
     feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
@@ -144,36 +184,58 @@ def transfer_feature_dtypes(
     dtype_str = feature._dtype_str
     if dtype_str is None:
         return None
-    # Only typed refs need transfer here (Record[...] / ULabel[...]).
-    # Other categorical dtypes like cat[bionty.CellType] don't reference a
-    # concrete type record and should bypass this logic.
-    if "Record[" not in dtype_str and "ULabel[" not in dtype_str:
+    seen_features = transfer_logs.setdefault("_dtype_features", set())
+    if feature.uid in seen_features:
+        return None
+    seen_features.add(feature.uid)
+    # Concrete refs are Record/ULabel types and schema__uid filters.
+    # Registries like cat[bionty.CellType] name a whole table, not a row.
+    if (
+        "Record[" not in dtype_str
+        and "ULabel[" not in dtype_str
+        and "schema__uid" not in dtype_str
+    ):
         return None
     parsed_dtypes = parse_dtype(dtype_str)
+    source_db = feature._state.db
 
     for parsed_dtype in parsed_dtypes:
-        source_type_uid = parsed_dtype.get("type_uid")
-        if source_type_uid is None:
-            continue
-        registry = parsed_dtype["registry"]
-        source_type = registry.objects.using(feature._state.db).get(uid=source_type_uid)
-        source_type_id = source_type.id
-        transferred_type = transfer_to_default_db(
-            source_type, using, transfer_logs=transfer_logs, save=True
+        filter_str = parsed_dtype.get("filter_str") or ""
+        source_type_uid = parsed_dtype.get("type_uid") or _dtype_filter_uid(
+            filter_str, "type__uid"
         )
-        if getattr(source_type, "is_type", False):
-            source_typed_children = source_type.__class__.objects.using(
-                feature._state.db
-            ).filter(type_id=source_type_id)
-            for source_record in source_typed_children:
-                transfer_to_default_db(
-                    source_record, using, transfer_logs=transfer_logs, save=True
-                )
-        assert transferred_type is None or transferred_type.uid == source_type_uid, (
-            "transfer_feature_dtypes() expected UID invariance for dtype type "
-            f"{registry.__name__}(uid='{source_type_uid}'), but mapped to "
-            f"uid='{transferred_type.uid}'."
-        )
+        if source_type_uid is not None:
+            registry = parsed_dtype["registry"]
+            source_type = registry.objects.using(source_db).get(uid=source_type_uid)
+            # The dtype only needs this type row so the categorical can resolve.
+            # Do not transfer every record of the type: that fans out into data.
+            print(
+                f"transfer dtype {feature.name!r} ({dtype_str}) "
+                f"→ {registry.__name__} type {source_type_uid} only",
+                flush=True,
+            )
+            transferred_type = transfer_to_default_db(
+                source_type,
+                using,
+                transfer_logs=transfer_logs,
+                stub=True,
+            )
+            assert (
+                transferred_type is None or transferred_type.uid == source_type_uid
+            ), (
+                "transfer_feature_dtypes() expected UID invariance for dtype type "
+                f"{registry.__name__}(uid='{source_type_uid}'), but mapped to "
+                f"uid='{transferred_type.uid}'."
+            )
+        schema_uid = _dtype_filter_uid(filter_str, "schema__uid")
+        if schema_uid is not None:
+            _transfer_dtype_schema(
+                schema_uid,
+                source_db,
+                using,
+                transfer_logs,
+                feature.name,
+            )
 
 
 def get_record_type_from_uid(
