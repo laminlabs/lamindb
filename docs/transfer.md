@@ -86,8 +86,8 @@ A data record can be synced only after its type is already in the target databas
 [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox) belongs to the [RNA-seq](https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU) record frame, so transfer that frame first:
 
 ```python
-rna_seq = db.Record.get("gL3TbX2qZQmCwTAU")
-rna_seq.save(transfer="annotations")
+rna_seq_frame = db.Record.get("gL3TbX2qZQmCwTAU")
+rna_seq_frame.save(transfer="annotations")
 ```
 
 Now transfer the experiment record:

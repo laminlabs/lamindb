@@ -14,7 +14,13 @@ def test_schema_transfer_defaults_to_annotations():
     remote_schema = db.Schema.get(schema_uid)
     remote_member_names = remote_schema.members.to_list("name")
     assert len(remote_member_names) > 0
-    remote_perturbation_type_name = "Perturbation"
+    from lamindb.models.feature import parse_dtype
+
+    remote_perturbation_dtype = remote_schema.members.get(
+        name="perturbation"
+    )._dtype_str
+    remote_perturbation_type_uid = parse_dtype(remote_perturbation_dtype)[0]["type_uid"]
+    remote_perturbation_type_name = db.Record.get(remote_perturbation_type_uid).name
 
     existing_local = ln.Schema.filter(uid=schema_uid).one_or_none()
     if existing_local is not None:
