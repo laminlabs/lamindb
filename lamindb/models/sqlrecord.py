@@ -1628,6 +1628,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         f"If you are already a collaborator, please do 'lamin connect {slug}' in console, "
                         "restart the python session and try again."
                     ) from None
+                elif (
+                    isinstance(e, IntegrityError)
+                    and self.__class__.__name__ == "User"
+                    and self.uid != setup_settings.user.uid
+                ):
+                    # updating another user is hidden by RLS, so Django inserts
+                    # the same primary key and the database raises IntegrityError
+                    raise NoWriteAccess(
+                        "It is not allowed to modify a user other than the current user."
+                    ) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
