@@ -242,7 +242,7 @@ def test_record_transfer_features_opt_in(
         return
 
     source_for_type = db1.Record.get(uid=rec_uid)
-    with pytest.raises(ValueError, match="Please transfer the type first"):
+    with pytest.raises(ValueError, match="Please transfer type"):
         source_for_type.save(**kwargs)
     sheet = source_for_type.type
     db1.Record.get(uid=sheet.uid).save(

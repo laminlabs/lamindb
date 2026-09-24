@@ -2592,15 +2592,11 @@ def update_fk_to_default_db(
             # A data record is only valid in a type that is already on the
             # target. Transfer the type first; do not pull it in from here.
             if fk == "type" and pre_existing_fk_record_default is None:
-                obj = (
-                    f"{record.__class__.__name__}(uid={record.uid!r})"
-                    if getattr(record, "uid", None)
-                    else record.__class__.__name__
-                )
                 type_name = getattr(fk_record, "name", None) or fk_record.uid
+                type_uid = getattr(fk_record, "uid", None)
                 raise ValueError(
-                    f"Could not map type {type_name!r} of object {obj}.\n"
-                    f"Please transfer the type first."
+                    f"Please transfer type {type_name!r} first: "
+                    f"{fk_record.__class__.__name__}(uid={type_uid!r})"
                 )
             from copy import copy
 
