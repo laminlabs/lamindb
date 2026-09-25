@@ -39,7 +39,7 @@ from lamindb.integrations.notion import (
     _storage_src_for_artifact,
     _upsert_all,
     _write,
-    sync_from_notion,
+    sync_objects_from_notion,
 )
 from rich.console import Console
 
@@ -4436,14 +4436,14 @@ def test_upsert_all_normalizes_existing_dashed_notion_reference():
     assert rec.reference == compact_id
 
 
-def test_sync_from_notion_delegates_to_syncer_and_prints():
+def test_sync_objects_from_notion_delegates_to_syncer_and_prints():
     sync_report = SyncReport(created=1, apply=False)
     with (
         patch("lamindb.integrations.notion.NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_from_notion(parents=["p1", "p2"], apply=False, depth=3)
+        report = sync_objects_from_notion(parents=["p1", "p2"], apply=False, depth=3)
     Syncer.assert_called_once_with(token=None)
     Syncer.return_value.import_pages.assert_called_once_with(
         parents=["p1", "p2"], apply=False, depth=3
@@ -4519,7 +4519,7 @@ def test_sync_report_rich_render_preserves_bracketed_dtypes():
     assert "list[Artifact]" in rendered
 
 
-def test_sync_from_notion_live_smoke_with_env_token():
+def test_sync_objects_from_notion_live_smoke_with_env_token():
     token = os.getenv("NOTION_TOKEN")
     run_live = os.getenv("CI") or os.getenv("LAMINDB_RUN_NOTION_LIVE_TESTS") in {
         "1",
@@ -4531,7 +4531,7 @@ def test_sync_from_notion_live_smoke_with_env_token():
             "Set NOTION_TOKEN and run in CI, or set "
             "LAMINDB_RUN_NOTION_LIVE_TESTS=true for a local live smoke test."
         )
-    report = sync_from_notion(
+    report = sync_objects_from_notion(
         parents="7283894209c44522a7c79620795d0409",
         token=token,
         apply=False,

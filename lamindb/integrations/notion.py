@@ -1,6 +1,6 @@
 """Sync Notion pages to LaminDB records.
 
-.. autofunction:: sync_from_notion
+.. autofunction:: sync_objects_from_notion
 .. autoclass:: SyncReport
 
 """
@@ -5595,7 +5595,7 @@ class NotionSyncer(RecordSyncer):
 
 
 @ln.flow("Ofbk5ruuTiN2")
-def sync_from_notion(
+def sync_objects_from_notion(
     *,
     parents: str | list[str],
     token: str | None = None,
@@ -5624,7 +5624,7 @@ def sync_from_notion(
 
 
 __all__ = [
-    "sync_from_notion",
+    "sync_objects_from_notion",
     "SyncReport",
     "NotionSyncer",
     "RecordSyncer",

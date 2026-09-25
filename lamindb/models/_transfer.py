@@ -526,7 +526,7 @@ def _registry_class_name(registry: str) -> str:
     return "".join(part.capitalize() for part in registry.split("_"))
 
 
-def sync_objects(
+def sync_objects_from_database(
     registry: str,
     uids: str | list[str],
     *,
