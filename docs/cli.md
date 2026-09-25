@@ -925,3 +925,19 @@ Mutations:
   update  Update objects.
   delete  Delete objects.
 ```
+
+## Other
+
+### lamin transfer
+
+Sync SQLRecord objects from another LaminDB instance.
+
+```text
+Usage: lamin transfer [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  artifact  Sync an artifact into the current default database.
+```
