@@ -230,7 +230,7 @@ def test_transfer_keeps_source_space():
 
 def test_transfer_missing_space_errors():
     from lamindb.errors import NoWriteAccess
-    from lamindb.models.sqlrecord import update_fk_to_default_db
+    from lamindb.models._transfer import update_fk_to_default_db
 
     missing = ln.Space(name="restricted-perturbations", uid="noattach1")
     missing.id = 99
@@ -323,7 +323,7 @@ def test_annotation_transfer_requires_schema_module(monkeypatch):
     modules = [module for module in instance.modules if module != "bionty"]
     monkeypatch.setattr(instance, "_schema_str", ",".join(modules))
 
-    from lamindb.models.sqlrecord import transfer_record_feature_values
+    from lamindb.models._transfer import transfer_record_feature_values
 
     try:
         with pytest.raises(ValueError, match="schema module"):
@@ -364,7 +364,7 @@ def _transfer_logs():
 def test_map_user_annotation_uses_same_uid():
     from types import SimpleNamespace
 
-    from lamindb.models.sqlrecord import _map_user_annotation
+    from lamindb.models._transfer import _map_user_annotation
 
     uid = "usrAnnot"
     handle = "annot-user"
@@ -392,7 +392,7 @@ def test_map_user_annotation_uses_same_uid():
 def test_map_user_annotation_asks_to_add_collaborator(monkeypatch):
     from django.db import ProgrammingError
     from lamindb.errors import NoWriteAccess
-    from lamindb.models.sqlrecord import _map_user_annotation
+    from lamindb.models._transfer import _map_user_annotation
 
     uid = "usrDeny1"
     source = _source_user(uid, "denied-user", "Denied")

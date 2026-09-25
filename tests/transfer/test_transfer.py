@@ -1,6 +1,6 @@
 import lamindb as ln
 import pytest
-from lamindb.models.sqlrecord import (
+from lamindb.models._transfer import (
     normalize_transfer_config,
     transfer_notes,
     transfer_record_feature_values,
