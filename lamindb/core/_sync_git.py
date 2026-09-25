@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,15 @@ def get_git_repo_from_remote(url: str | None = None, depth: int | None = 10) -> 
     return repo_dir
 
 
+def _ssh_to_https_git_url(url: str) -> str:
+    """Map an SSH remote like `git@github.com:org/repo.git` to its https URL."""
+    match = re.match(r"^(?:ssh://)?[^@/\s]+@([^:/\s]+)[:/](.+)$", url)
+    if match is None:
+        return url
+    host, path = match.groups()
+    return f"https://{host}/{path}"
+
+
 def check_local_git_repo() -> bool:
     result = subprocess.run(
         ["git", "config", "--get", "remote.origin.url"],
@@ -48,7 +58,13 @@ def check_local_git_repo() -> bool:
         # running-not-in-a-git-repo
         return False
     else:
-        remote_url = sanitize_git_repo_url(result_str)
+        remote_url = _ssh_to_https_git_url(result_str)
+        if not remote_url.startswith("https://"):
+            logger.warning(
+                f"running in git repo: {result_str}, expected: {settings.sync_git_repo}"
+            )
+            return False
+        remote_url = sanitize_git_repo_url(remote_url)
         if remote_url == settings.sync_git_repo:
             # running-in-correct-git-repo
             return True
