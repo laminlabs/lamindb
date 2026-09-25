@@ -87,7 +87,7 @@ try:
     assert ln.context.run.space == space
 
     # move the artifact to another storage location
-    space_test_move = ln.Space.get(name="test-move")
+    space_test_move = ln.Space.get(name="our-test-space-for-ci-3")
     original_path = artifact.path
     artifact.space = space_test_move
     # cancel save
