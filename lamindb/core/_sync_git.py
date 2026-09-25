@@ -147,7 +147,8 @@ def get_filepath_within_git_repo(
         .strip()
     )
     # Run the git commands separately to circumvent spawning a shell
-    git_command = ["git", "ls-tree", "-r", commit_hash]
+    # core.quotePath=false keeps non-ASCII paths unquoted
+    git_command = ["git", "-c", "core.quotePath=false", "ls-tree", "-r", commit_hash]
     git_process = subprocess.Popen(
         git_command,
         stdout=subprocess.PIPE,
@@ -174,7 +175,8 @@ def get_filepath_within_git_repo(
             f"Could not find path in git repo {settings.sync_git_repo} running:\n{command}"
             f"\nin local clone: {repo_root}"
         )
-    filepath = result.stdout.decode().split()[-1]
+    # each line is "<mode> <type> <object>\t<path>" and the path may contain spaces
+    filepath = result.stdout.decode().splitlines()[0].split("\t", 1)[1]
     return filepath
 
 
