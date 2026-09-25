@@ -3313,9 +3313,3 @@ class Migration(BaseSQLRecord):
         db_table = "django_migrations"
         app_label = "lamindb"
         managed = False
-
-
-LinkORM = IsLink  # backward compat
-Record = SQLRecord  # backward compat
-BasicRecord = BaseSQLRecord  # backward compat
-RecordInfo = SQLRecordInfo  # backward compat
