@@ -2221,53 +2221,42 @@ class _NotionSyncer:
         out: set[str],
         *,
         parent_page_id: str | None = None,
-        limit: int | None = None,
-        discovered_children: list[int] | None = None,
-    ) -> bool:
+        depth: int | None = None,
+    ) -> None:
+        """Collect child databases up to `depth` levels below this block.
+
+        ``depth=None`` walks the whole subtree. ``depth<=0`` does not enter it.
+        A child database on this block is one level; databases nested under it
+        consume the remaining levels.
+        """
+        if depth is not None and depth <= 0:
+            return
+        next_depth = None if depth is None else depth - 1
         for block in self._iter_block_children(block_id):
-            if (
-                limit is not None
-                and discovered_children is not None
-                and discovered_children[0] >= limit
-            ):
-                return True
             bid = block.get("id")
             if bid and bid in seen:
                 continue
             if bid:
                 seen.add(bid)
             if block.get("type") == "child_database" and bid:
-                is_new = bid not in out
                 out.add(bid)
-                if is_new and discovered_children is not None:
-                    discovered_children[0] += 1
                 normalized_db_id = _normalize_notion_id(bid)
                 if parent_page_id is not None and normalized_db_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
-                if (
-                    limit is not None
-                    and discovered_children is not None
-                    and discovered_children[0] >= limit
-                ):
-                    return True
             if block.get("has_children") and bid:
-                reached_limit = self._collect_databases_from_block(
+                self._collect_databases_from_block(
                     bid,
                     seen,
                     out,
                     parent_page_id=parent_page_id,
-                    limit=limit,
-                    discovered_children=discovered_children,
+                    depth=next_depth,
                 )
-                if reached_limit:
-                    return True
-        return False
 
     def _collect_database_ids(
-        self, parents: list[str], limit: int | None = None
+        self, parents: list[str], depth: int | None = None
     ) -> tuple[set[str], dict[str, str]]:
-        if limit is not None and limit < 0:
-            raise ValueError("limit must be >= 0 when provided.")
+        if depth is not None and depth < 0:
+            raise ValueError("depth must be >= 0 when provided.")
         database_ids: set[str] = set()
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
@@ -2275,7 +2264,6 @@ class _NotionSyncer:
         self._seed_page_ids_by_database = {}
         self._parent_page_parents = {}
         seen_blocks: set[str] = set()
-        discovered_children = [0]
         for parent in parents:
             db_payload = self._safe_call(f"/databases/{parent}")
             if db_payload is not None:
@@ -2297,23 +2285,18 @@ class _NotionSyncer:
                                 parent_page_payload
                             )
                 # recurse through rows as pages to discover nested child databases
-                if limit == 0:
+                if depth == 0:
                     continue
-                if limit is not None and discovered_children[0] >= limit:
-                    continue
-                for row in self.reader.rows(parent, limit=limit):
+                for row in self.reader.rows(parent):
                     notion_id = row.get("notion_id")
                     if notion_id:
-                        reached_limit = self._collect_databases_from_block(
+                        self._collect_databases_from_block(
                             notion_id,
                             seen_blocks,
                             database_ids,
                             parent_page_id=None,
-                            limit=limit,
-                            discovered_children=discovered_children,
+                            depth=depth,
                         )
-                        if reached_limit:
-                            break
                 continue
             page_payload = self._safe_call(f"/pages/{parent}")
             if page_payload is None:
@@ -2337,18 +2320,15 @@ class _NotionSyncer:
                         self._database_parent_pages[normalized_db_id] = (
                             db_parent_page_id
                         )
-                if limit == 0:
+                if depth == 0:
                     continue
-                reached_limit = self._collect_databases_from_block(
+                self._collect_databases_from_block(
                     parent,
                     seen_blocks,
                     database_ids,
                     parent_page_id=None,
-                    limit=limit,
-                    discovered_children=discovered_children,
+                    depth=depth,
                 )
-                if reached_limit:
-                    break
                 continue
 
             parent_title = _page_title(page_payload).strip() or _compact_uuid(parent)
@@ -2367,18 +2347,15 @@ class _NotionSyncer:
                     parent_page_emojis[ancestor_page_id] = self._database_emoji(
                         ancestor_page_payload
                     )
-            if limit == 0:
+            if depth == 0:
                 continue
-            reached_limit = self._collect_databases_from_block(
+            self._collect_databases_from_block(
                 parent,
                 seen_blocks,
                 database_ids,
                 parent_page_id=parent_id,
-                limit=limit,
-                discovered_children=discovered_children,
+                depth=depth,
             )
-            if reached_limit:
-                break
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
 
@@ -4130,7 +4107,7 @@ class _NotionSyncer:
         parents: str | list[str],
         *,
         apply: bool = False,
-        limit: int | None = None,
+        depth: int | None = None,
     ) -> SyncReport:
         """Import parent trees, validating schema before any write.
 
@@ -4149,7 +4126,7 @@ class _NotionSyncer:
             apply=apply,
             message="Dry run report -- nothing got created" if not apply else None,
         )
-        db_id_set, parent_pages = self._collect_database_ids(parent_ids, limit=limit)
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
         db_ids = sorted(db_id_set)
 
         # Parent pages can also map to LaminDB record types.
@@ -4184,7 +4161,7 @@ class _NotionSyncer:
 
         if not db_ids:
             report.discovered_pages = len(parent_pages)
-            if limit == 0:
+            if depth == 0:
                 return report
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "
@@ -4234,9 +4211,7 @@ class _NotionSyncer:
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
                 else:
-                    rows = self.reader.rows(
-                        db_id, limit=limit, include_page_emoji=apply
-                    )
+                    rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
                 logger.important(
                     f"notion sync phase A: db={_compact_uuid(db_id)}, discovered_rows={len(rows)}"
@@ -5310,7 +5285,7 @@ class NotionSyncer(RecordSyncer):
         parents: str | list[str],
         *,
         apply: bool = False,
-        limit: int | None = None,
+        depth: int | None = None,
     ) -> SyncReport:
         if isinstance(parents, str):
             parent_ids = [parents]
@@ -5323,11 +5298,11 @@ class NotionSyncer(RecordSyncer):
             apply=apply,
             message="Dry run report -- nothing got created" if not apply else None,
         )
-        db_id_set, parent_pages = self._collect_database_ids(parent_ids, limit=limit)
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
         db_ids = sorted(db_id_set)
         if not db_ids:
             report.discovered_pages = len(parent_pages)
-            if limit == 0:
+            if depth == 0:
                 return report
             raise ValueError(
                 "No child databases discovered under parents. In phase 1, sync operates "
@@ -5438,9 +5413,7 @@ class NotionSyncer(RecordSyncer):
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
                 else:
-                    rows = self.reader.rows(
-                        db_id, limit=limit, include_page_emoji=apply
-                    )
+                    rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
                 if db_id in project_db_ids:
                     db_name = self._database_title(db_payloads[db_id], fallback=db_id)
@@ -5627,9 +5600,17 @@ def sync_from_notion(
     parents: str | list[str],
     token: str | None = None,
     apply: bool = False,
-    limit: int | None = None,
+    depth: int | None = None,
 ) -> SyncReport:
-    """Sync Notion pages via the class-based sync API."""
+    """Sync Notion pages via the class-based sync API.
+
+    Args:
+        parents: Notion page or database ids.
+        token: Notion API token. Defaults to the ``NOTION_TOKEN`` environment variable.
+        apply: Write to LaminDB. By default this is a dry run.
+        depth: How many levels of child pages and databases to walk.
+            ``None`` walks the whole tree. ``0`` syncs only the given parents.
+    """
     syncer = NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
@@ -5637,7 +5618,7 @@ def sync_from_notion(
         parent_list = list(parents)
     else:
         raise TypeError("parents must be a str or list[str].")
-    report = syncer.import_pages(parents=parent_list, apply=apply, limit=limit)
+    report = syncer.import_pages(parents=parent_list, apply=apply, depth=depth)
     RICH_CONSOLE.print(report.to_pretty_text(), markup=True, highlight=False)
     return report
 
