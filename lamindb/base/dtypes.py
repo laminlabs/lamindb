@@ -189,10 +189,10 @@ def check_pandera_str(series) -> bool:
 
 
 def try_coerce_simple_dtype(series, expected_type: str):
-    """Losslessly coerce a Series to ``int`` or ``float``, or return ``None``.
+    """Losslessly coerce a Series to `int` or `float`, or return `None`.
 
-    Used when ``Schema.coerce`` or ``Feature.coerce`` is True. Does not truncate
-    (e.g. ``1.1`` → ``int`` fails). Returns the original series if it already
+    Used when `Schema.coerce` or `Feature.coerce` is True. Does not truncate
+    (e.g. `1.1` → `int` fails). Returns the original series if it already
     has the expected pandas dtype.
     """
     import pandas as pd

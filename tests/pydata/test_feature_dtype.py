@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from lamindb import Record
 from lamindb.errors import ValidationError
+from lamindb.base.dtypes import try_coerce_simple_dtype
 from lamindb.models.feature import (
     parse_dtype,
     parse_filter_string,
@@ -20,6 +21,36 @@ def organism():
     organism.uid = "testuid2"
     organism.save()
     return organism
+
+
+def test_try_coerce_simple_dtype():
+    already_int = pd.Series([1, 2, 3])
+    assert try_coerce_simple_dtype(already_int, "int") is already_int
+
+    coerced_int = try_coerce_simple_dtype(pd.Series([1.0, 2.0, 3.0]), "int")
+    assert coerced_int is not None
+    assert pd.api.types.is_integer_dtype(coerced_int.dtype)
+    assert not coerced_int.hasnans
+    assert coerced_int.tolist() == [1, 2, 3]
+
+    coerced_nullable_int = try_coerce_simple_dtype(pd.Series([1.0, None, 3.0]), "int")
+    assert coerced_nullable_int is not None
+    assert str(coerced_nullable_int.dtype) == "Int64"
+
+    assert try_coerce_simple_dtype(pd.Series(["a", "b"]), "int") is None
+    assert try_coerce_simple_dtype(pd.Series([[1], [2]]), "int") is None
+    assert try_coerce_simple_dtype(pd.Series([1.1, 2.2]), "int") is None
+
+    already_float = pd.Series([1.1, 2.2])
+    assert try_coerce_simple_dtype(already_float, "float") is already_float
+
+    coerced_float = try_coerce_simple_dtype(pd.Series([1, 2, 3]), "float")
+    assert coerced_float is not None
+    assert pd.api.types.is_float_dtype(coerced_float.dtype)
+
+    assert try_coerce_simple_dtype(pd.Series(["a", "b"]), "float") is None
+    assert try_coerce_simple_dtype(pd.Series([[1], [2]]), "float") is None
+    assert try_coerce_simple_dtype(pd.Series([1, 2]), "bool") is None
 
 
 # -----------------------------------------------------------------------------

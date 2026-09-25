@@ -977,11 +977,7 @@ class ComponentCurator(Curator):
             raise ValidationError(self.cat._validate_category_error_messages)
 
     def _coerce_simple_feature_dtypes(self) -> None:
-        """Apply lossless int/float coercion when schema or feature coerce is set.
-
-        ``check_dtype`` only accepts an already-matching pandas dtype. Pandera
-        ``coerce`` is a no-op for these columns, so convert here first.
-        """
+        """Apply lossless int/float coercion when schema or feature coerce is set."""
         if not isinstance(self._dataset, pd.DataFrame):
             return
         schema_coerce = bool(self._schema.coerce)
@@ -1000,6 +996,11 @@ class ComponentCurator(Curator):
         """{}"""  # noqa: D415
         if self._pandera_schema is not None:
             try:
+                # Coerce here, before checks — same place pandera does.
+                # For int/float Features we use Column(dtype=None) + check_dtype
+                # (strict pandas-dtype check). Pandera only coerces when a column
+                # has a concrete target dtype, so coerce=True on that path does
+                # nothing and we have to convert ourselves.
                 self._coerce_simple_feature_dtypes()
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset, lazy=True)
