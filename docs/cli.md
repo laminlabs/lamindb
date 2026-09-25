@@ -712,7 +712,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Settings & migrations
+## Settings, IO & migrations
 
 ### settings
 

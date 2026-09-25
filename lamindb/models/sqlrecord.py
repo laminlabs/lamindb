@@ -1401,7 +1401,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 "annotations" also copies M2M annotations. Schema still defaults
                 to "annotations" when transfer is omitted.
             depth: How many levels of related records to follow during transfer.
-                ``None`` follows the full graph. ``0`` syncs only this object;
+                `None` follows the full graph. `0` syncs only this object;
                 foreign keys must already exist on the target.
         """
         from ._transfer import (

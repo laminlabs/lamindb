@@ -22,7 +22,13 @@ ln.track()
 ```
 
 Transfer works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, `Schema`, etc.).
-Query the object on the source, then call `.save()` to sync it to your current default database.
+Paste a LaminDB URL to sync that object into the current default database:
+
+```bash
+lamin transfer https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE
+```
+
+Or query the object on the source, then call `.save()`:
 
 ## Sync an artifact
 

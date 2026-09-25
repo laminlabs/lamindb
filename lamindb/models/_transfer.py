@@ -537,13 +537,13 @@ def sync_objects_from_database(
     """Sync SQLRecord objects from a source database into the default database.
 
     Args:
-        registry: Registry name, for example ``"artifact"``.
+        registry: Registry name, for example `artifact` or `record`.
         uids: One uid or several uids on the source database.
-        source: Source instance slug, for example ``"laminlabs/lamindata"``.
+        source: Source instance slug, for example `laminlabs/lamindata`.
         depth: How many levels of related records to follow.
-            ``None`` follows the full graph. ``0`` syncs only the given objects;
+            `None` follows the full graph. `0` syncs only the given objects;
             their foreign keys must already exist on the target.
-        transfer: ``"sqlrecord"``, ``"notes"``, or ``"annotations"``.
+        transfer: `sqlrecord`, `notes`, or `annotations`.
             Omit it to use the registry default.
     """
     from .db import DB
