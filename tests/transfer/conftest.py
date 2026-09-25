@@ -20,10 +20,18 @@ def pytest_sessionstart():
     if is_postgresql:
         print("running transfer tests on PostgreSQL")
         try:
-            pgurls.update(setup_local_test_postgres(databases=["testdb1", "testdb2"]))
+            pgurls.update(
+                setup_local_test_postgres(
+                    databases=["testdb1", "testdb2", "testdbbionty"]
+                )
+            )
         except RuntimeError:
             run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
-            pgurls.update(setup_local_test_postgres(databases=["testdb1", "testdb2"]))
+            pgurls.update(
+                setup_local_test_postgres(
+                    databases=["testdb1", "testdb2", "testdbbionty"]
+                )
+            )
     else:
         os.environ["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         print("running transfer tests on SQLite")
@@ -70,4 +78,27 @@ def setup_testdb2():
 def setup_test_in_db1_then_connect_to_db2(setup_testdb1, setup_testdb2):
     ln.connect("testdb1")
     ln.Artifact("README.md", key="README.md").save()
+    ln.connect("testdb2")
+
+
+@pytest.fixture(scope="session")
+def bionty_instance(setup_testdb2):
+    """Target instance with the bionty module. testdb2 stays without it."""
+    name = "testdbbionty"
+    kwargs = {"storage": f"./{name}", "name": name, "modules": "bionty"}
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") == "postgresql":
+        kwargs["db"] = pgurls[name]
+    ln.setup.init(**kwargs)
+    ln.connect("testdb2")
+    yield name
+    ln.connect("testdb2")
+    _close_all_connections()
+    shutil.rmtree(f"./{name}")
+    ln.setup.delete(name, force=True)
+
+
+@pytest.fixture
+def connected_bionty(bionty_instance):
+    ln.connect(bionty_instance)
+    yield
     ln.connect("testdb2")
