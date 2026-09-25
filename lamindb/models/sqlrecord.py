@@ -1717,10 +1717,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             return_str: Return a string instead of printing.
-            include: Include additional content. Use ``"comments"`` to display
+            include: Include additional content. Use `"comments"` to display
                 readme and comment blocks.
             n_max_features: Max number of internal schema members shown
-                in ``Artifact.describe()`` previews.
+                in `Artifact.describe()` previews.
         """
         from ._describe import describe_postgres_sqlite
 
