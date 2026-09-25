@@ -119,6 +119,7 @@ def test_save_record_with_relation_to_another_db_via_model_save():
         for qs in (db2.Record.filter(name=rec_name), db2.Record.filter(name=type_name)):
             qs.delete(permanent=True)
 
+
 def test_save_record_with_multivalued_relation_to_another_db_via_model_save():
     assert ln.setup.settings.instance.name == "testdb2"
 
@@ -147,7 +148,9 @@ def test_save_record_with_multivalued_relation_to_another_db_via_model_save():
         intervention_t = ln.Record(name=type_name, is_type=True).save(using=using)
         gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
         gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
-        gene_pool = [ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names]
+        gene_pool = [
+            ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names
+        ]
 
         child = ln.Record(
             name=rec_name,
@@ -296,9 +299,9 @@ def test_bulk_save_records_with_multivalued_features_to_another_db():
         gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
         gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
         schema = ln.Schema(name=schema_name, features=[gene_feat]).save(using=using)
-        int_t = ln.Record(
-            name=int_type_name, is_type=True, schema=schema
-        ).save(using=using)
+        int_t = ln.Record(name=int_type_name, is_type=True, schema=schema).save(
+            using=using
+        )
         gene_pool = [
             ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names
         ]
@@ -351,15 +354,15 @@ def test_read_features_from_another_db_via_to_dataframe():
         gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
         gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
         schema = ln.Schema(name=schema_name, features=[gene_feat]).save(using=using)
-        int_t = ln.Record(
-            name=int_type_name, is_type=True, schema=schema
-        ).save(using=using)
+        int_t = ln.Record(name=int_type_name, is_type=True, schema=schema).save(
+            using=using
+        )
         gene_pool = [
             ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names
         ]
-        ln.Record(
-            name=rec_name, type=int_t, features={gene_feat: gene_pool[:3]}
-        ).save(using=using)
+        ln.Record(name=rec_name, type=int_t, features={gene_feat: gene_pool[:3]}).save(
+            using=using
+        )
 
         # cross-instance read with feature reassembly must not raise
         df = db2.Record.filter(name=rec_name).to_dataframe(include="features")
@@ -413,12 +416,12 @@ def test_from_dataframe_bulk_save_to_another_db():
         gene_t = ln.Record(name=gene_type_name, is_type=True).save(using=using)
         gene_feat = ln.Feature(name=gene_feat_name, dtype=gene_t).save(using=using)
         score_feat = ln.Feature(name=score_feat_name, dtype=float).save(using=using)
-        schema = ln.Schema(
-            name=schema_name, features=[gene_feat, score_feat]
-        ).save(using=using)
-        sheet = ln.Record(
-            name=sheet_name, is_type=True, schema=schema
-        ).save(using=using)
+        schema = ln.Schema(name=schema_name, features=[gene_feat, score_feat]).save(
+            using=using
+        )
+        sheet = ln.Record(name=sheet_name, is_type=True, schema=schema).save(
+            using=using
+        )
         [ln.Record(name=g, type=gene_t).save(using=using) for g in gene_names]
 
         df = pd.DataFrame(

@@ -178,3 +178,7 @@ def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
     ln.DB("owner/name")
 
     assert warning_calls == []
+
+
+def test_using_query_by_feature():
+    assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)

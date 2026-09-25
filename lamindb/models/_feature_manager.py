@@ -25,6 +25,11 @@ from lamindb.models._from_values import (
     _format_values,
     build_not_validated_values_message,
 )
+from lamindb.models._transfer import (
+    REGISTRY_UNIQUE_FIELD,
+    transfer_fk_to_default_db_bulk,
+    transfer_to_default_db,
+)
 from lamindb.models.feature import (
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
@@ -32,12 +37,7 @@ from lamindb.models.feature import (
 from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
-from lamindb.models.sqlrecord import (
-    REGISTRY_UNIQUE_FIELD,
-    get_name_field,
-    transfer_fk_to_default_db_bulk,
-    transfer_to_default_db,
-)
+from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
     NAME_WIDTH,

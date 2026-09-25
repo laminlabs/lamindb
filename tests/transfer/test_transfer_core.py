@@ -1,6 +1,6 @@
 import lamindb as ln
 import pytest
-from lamindb.models.sqlrecord import (
+from lamindb.models._transfer import (
     normalize_transfer_config,
     transfer_notes,
     transfer_record_feature_values,
@@ -541,3 +541,131 @@ def test_normalize_transfer_config(transfer, default_annotations, expected):
         normalize_transfer_config(transfer, default_annotations=default_annotations)
         == expected
     )
+
+
+def test_transfer_missing_space_errors():
+    from lamindb.errors import NoWriteAccess
+    from lamindb.models._transfer import update_fk_to_default_db
+
+    missing = ln.Space(name="restricted-perturbations", uid="noattach1")
+    missing.id = 99
+    record = ln.Record(name="space gate")
+    record.uid = "recSpace"
+    record.space = missing
+
+    with pytest.raises(NoWriteAccess, match="restricted-perturbations") as error:
+        update_fk_to_default_db(
+            record,
+            "space",
+            None,
+            {"mapped": [], "transferred": [], "run": True},
+        )
+    message = str(error.value)
+    target = ln.setup.settings.instance.slug
+    assert (
+        f"attach space 'restricted-perturbations' to the target database '{target}'"
+        in message
+    )
+    assert "Record(uid='recSpace')" in str(error.value)
+
+
+def test_annotation_transfer_requires_schema_module(connected_bionty, monkeypatch):
+    import bionty as bt
+    import lamindb_setup as ln_setup
+    import pandas as pd
+
+    feature = ln.Feature(
+        name="organism_module_gate", dtype="cat[bionty.Organism]"
+    ).save()
+    record = ln.Record(name="module gate record").save()
+    artifact = ln.Artifact.from_dataframe(
+        pd.DataFrame({"a": [1]}), key="module-gate.parquet", description="module gate"
+    ).save()
+    schema = ln.Schema(name="organism module gate", itype=bt.Organism).save()
+    artifact.schemas.add(schema, through_defaults={"slot": "var"})
+
+    from lamindb.models.record import RecordJson
+
+    RecordJson(record=record, feature=feature, value="human").save()
+
+    instance = ln_setup.settings.instance
+    modules = [module for module in instance.modules if module != "bionty"]
+    monkeypatch.setattr(instance, "_schema_str", ",".join(modules))
+
+    try:
+        with pytest.raises(ValueError, match="schema module"):
+            transfer_record_feature_values(
+                record,
+                "default",
+                record.pk,
+                None,
+                {"mapped": [], "transferred": [], "run": True},
+            )
+        with pytest.raises(ValueError, match="sqlrecord"):
+            artifact.features._add_from(
+                artifact, transfer_logs={"mapped": [], "transferred": [], "run": True}
+            )
+    finally:
+        artifact.schemas.clear()
+        artifact.delete(permanent=True)
+        schema.delete(permanent=True)
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def _source_user(uid: str, handle: str, name: str):
+    user = ln.User(uid=uid, handle=handle, name=name)
+    user._state.db = "laminlabs/lamindata"
+    return user
+
+
+def _transfer_logs():
+    # A non-None run skips creating the transfer run in these unit tests.
+    return {"mapped": [], "transferred": [], "run": True}
+
+
+def test_map_user_annotation_uses_same_uid():
+    from types import SimpleNamespace
+
+    from lamindb.models._transfer import _map_user_annotation
+
+    uid = "usrAnnot"
+    handle = "annot-user"
+    existing = ln.User.filter(uid=uid).one_or_none()
+    if existing is not None:
+        existing.delete(permanent=True)
+
+    source = _source_user(uid, handle, "Annot User")
+    logs = _transfer_logs()
+    try:
+        assert _map_user_annotation(source, feature=None, transfer_logs=logs) == handle
+        assert ln.User.filter(uid=uid).one().handle == handle
+        assert ln.User.get(uid=uid).id != ln.setup.settings.user.id
+        # a second sync maps the existing registry row
+        assert _map_user_annotation(source, feature=None, transfer_logs=logs) == handle
+        assert ln.User.filter(uid=uid).count() == 1
+        feature = SimpleNamespace(_dtype_str="cat[User.uid]")
+        assert _map_user_annotation(source, feature=feature, transfer_logs=logs) == uid
+    finally:
+        saved = ln.User.filter(uid=uid).one_or_none()
+        if saved is not None:
+            saved.delete(permanent=True)
+
+
+def test_map_user_annotation_asks_to_add_collaborator(monkeypatch):
+    from django.db import ProgrammingError
+    from lamindb.errors import NoWriteAccess
+    from lamindb.models._transfer import _map_user_annotation
+
+    uid = "usrDeny1"
+    source = _source_user(uid, "denied-user", "Denied")
+
+    def deny(self, *args, **kwargs):
+        raise ProgrammingError(
+            'new row violates row-level security policy for table "lamindb_user"'
+        )
+
+    monkeypatch.setattr(ln.User, "save", deny)
+    with pytest.raises(NoWriteAccess, match="collaborator"):
+        _map_user_annotation(source, feature=None, transfer_logs=_transfer_logs())
+    assert ln.User.filter(uid=uid).one_or_none() is None
