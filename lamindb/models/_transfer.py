@@ -320,10 +320,8 @@ def transfer_record_feature_values(
         return value.save(transfer="annotations")
 
     def _prepare(value, feature=None):
-        import numpy as np
-
-        if isinstance(value, np.ndarray):
-            value = value.tolist()
+        # Link rows are reloaded from the database. Categorical values are
+        # related records; JSON values are lists and scalars, not ndarrays.
         if isinstance(value, (list, tuple, set, frozenset)):
             return [
                 prepared
@@ -335,20 +333,7 @@ def transfer_record_feature_values(
             "default",
         ):
             return _transfer_entity(value, feature)
-        if feature is None or not isinstance(value, str):
-            return value
-        dtype = feature._dtype_str or ""
-        if not (dtype.startswith("cat") or dtype.startswith("list[cat")):
-            return value
-        parsed = parse_dtype(dtype)[0]
-        registry = parsed["registry"]
-        field = parsed["field_str"]
-        src_obj = registry.objects.using(source_db).filter(**{field: value}).first()
-        if src_obj is None and field != "name" and hasattr(registry, "name"):
-            src_obj = registry.objects.using(source_db).filter(name=value).first()
-        if src_obj is not None:
-            return _transfer_entity(src_obj, feature)
-        return registry.filter(**{field: value}).first() or value
+        return value
 
     prepared_by_uid = {}
     feature_objects = []
