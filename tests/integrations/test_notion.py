@@ -3587,7 +3587,7 @@ def test_collect_database_ids_stores_parent_page_emoji(syncer):
     assert syncer._parent_page_emojis == {page_id: "📊"}
 
 
-def test_collect_database_ids_limit_caps_discovered_children_for_page_parent(syncer):
+def test_collect_database_ids_depth_includes_sibling_child_databases(syncer):
     page_id = "7283894209c44522a7c79620795d0409"
     request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
     response = httpx.Response(400, request=request)
@@ -3610,9 +3610,9 @@ def test_collect_database_ids_limit_caps_discovered_children_for_page_parent(syn
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, children]
 
-    db_ids, _ = syncer._collect_database_ids([page_id], limit=1)
+    db_ids, _ = syncer._collect_database_ids([page_id], depth=1)
 
-    assert db_ids == {"db-1"}
+    assert db_ids == {"db-1", "db-2"}
 
 
 def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
@@ -3628,7 +3628,7 @@ def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     page_ok = _make_response({"object": "page", "id": page_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == set()
     assert parent_pages == {page_id: page_id}
@@ -3656,7 +3656,7 @@ def test_collect_database_ids_page_parent_in_database_seeds_database_rows(syncer
     db_ok = _make_response({"id": database_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok, db_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {}
@@ -3691,7 +3691,7 @@ def test_collect_database_ids_page_parent_in_data_source_seeds_database_rows(syn
     db_ok = _make_response({"id": database_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok, data_source_ok, db_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {}
@@ -3760,7 +3760,7 @@ def test_collect_database_ids_page_parent_includes_ancestor_page(syncer):
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, ancestor_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == set()
     assert parent_pages == {page_id: page_id, parent_page_id: "Knowledge"}
@@ -3788,7 +3788,7 @@ def test_collect_database_ids_from_database_registers_its_parent_page(syncer):
     )
     syncer.reader.s.request.side_effect = [db_ok, page_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([database_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([database_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {parent_page_id: "General asset"}
@@ -4003,7 +4003,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], limit=None)
+    collect_ids.assert_called_once_with(["parent"], depth=None)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -4222,8 +4222,8 @@ def test_import_pages_passes_limit_to_database_discovery(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        syncer.import_pages("parent", apply=True, limit=1)
-    collect_ids.assert_called_once_with(["parent"], limit=1)
+        syncer.import_pages("parent", apply=True, depth=1)
+    collect_ids.assert_called_once_with(["parent"], depth=1)
 
 
 def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
@@ -4248,7 +4248,7 @@ def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     seed_rows.assert_called_once_with("db-1", {"a"}, include_page_emoji=True)
     database_rows.assert_not_called()
@@ -4277,7 +4277,7 @@ def test_import_pages_apply_seed_rows_materialize_even_when_unchanged(syncer):
         ) as write,
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["a"]
@@ -4332,7 +4332,7 @@ def test_import_pages_dry_run_seed_rows_preview_even_when_unchanged(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=False, limit=0)
+        report = syncer.import_pages("parent", apply=False, depth=0)
 
     preview_rows = resolve_rel.call_args.args[1]
     assert [r["notion_id"] for r in preview_rows] == ["a"]
@@ -4356,8 +4356,8 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_pages("parent", apply=False, limit=0)
-    collect_ids.assert_called_once_with(["parent"], limit=0)
+        report = syncer.import_pages("parent", apply=False, depth=0)
+    collect_ids.assert_called_once_with(["parent"], depth=0)
     assert report.discovered_pages == 1
     assert report.databases == []
     assert report.discovered == 0
@@ -4386,7 +4386,7 @@ def test_import_pages_apply_links_parent_page_hierarchy(syncer):
         ),
     ):
         syncer._parent_page_parents = {"child-id": "parent-id"}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     assert report.discovered_pages == 2
     child_type.save.assert_called_once_with(update_fields=["type"])
@@ -4443,10 +4443,10 @@ def test_sync_from_notion_delegates_to_syncer_and_prints():
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_from_notion(parents=["p1", "p2"], apply=False, limit=3)
+        report = sync_from_notion(parents=["p1", "p2"], apply=False, depth=3)
     Syncer.assert_called_once_with(token=None)
     Syncer.return_value.import_pages.assert_called_once_with(
-        parents=["p1", "p2"], apply=False, limit=3
+        parents=["p1", "p2"], apply=False, depth=3
     )
     rich_print.assert_called_once()
     assert "Dry run: nothing got created." in rich_print.call_args[0][0]
