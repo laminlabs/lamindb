@@ -5602,7 +5602,7 @@ def sync_from_notion(
     apply: bool = False,
     depth: int | None = None,
 ) -> SyncReport:
-    """Sync Notion pages via the class-based sync API.
+    """Sync Notion pages to LaminDB records.
 
     Args:
         parents: Notion page or database ids.
