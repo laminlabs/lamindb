@@ -913,8 +913,8 @@ class _NotionReader:
                 :meth:`rows`.
 
         Returns:
-            Dict with one key per property plus ``notion_id`` and
-            page-level timestamps (``created_time``, ``last_edited_time``).
+            Dict with one key per property plus `notion_id` and
+            page-level timestamps (`created_time`, `last_edited_time`).
             Relation/people values are lists of Notion page UUIDs — the stable
             join key.
         """
@@ -2225,7 +2225,7 @@ class _NotionSyncer:
     ) -> None:
         """Collect child databases up to `depth` levels below this block.
 
-        ``depth=None`` walks the whole subtree. ``depth<=0`` does not enter it.
+        `depth=None` walks the whole subtree. `depth<=0` does not enter it.
         A child database on this block is one level; databases nested under it
         consume the remaining levels.
         """
@@ -5606,10 +5606,10 @@ def sync_from_notion(
 
     Args:
         parents: Notion page or database ids.
-        token: Notion API token. Defaults to the ``NOTION_TOKEN`` environment variable.
+        token: Notion API token. Defaults to the `NOTION_TOKEN` environment variable.
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
-            ``None`` walks the whole tree. ``0`` syncs only the given parents.
+            `None` walks the whole tree. `0` syncs only the given parents.
     """
     syncer = NotionSyncer(token=token)
     if isinstance(parents, str):
