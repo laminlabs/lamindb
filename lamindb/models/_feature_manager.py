@@ -1677,6 +1677,9 @@ class FeatureManager:
                     RecordJson(record=record, feature=feature, value=converted_value)
                 )
                 continue
+            # an empty collection of labels has nothing to link
+            if isinstance(value, (list, tuple, set, np.ndarray)) and len(value) == 0:
+                continue
 
             if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                 if isinstance(value, SQLRecord):
@@ -2001,6 +2004,9 @@ class FeatureManager:
                 filter_kwargs = {"feature": feature, "value": converted_value}
                 feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
+            elif isinstance(value, (list, tuple, set, np.ndarray)) and len(value) == 0:
+                # an empty collection of labels has nothing to link
+                continue
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                     if isinstance(value, SQLRecord):

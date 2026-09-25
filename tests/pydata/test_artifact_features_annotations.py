@@ -1020,3 +1020,23 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+def test_add_values_with_empty_list_for_categorical_feature():
+    feature = ln.Feature(name="empty_list_of_ulabels", dtype=list[ln.ULabel]).save()
+    artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    record = ln.Record(name="record with empty list of ulabels").save()
+
+    # an empty list of labels must be a no-op, not a bare StopIteration
+    artifact.features.add_values({"empty_list_of_ulabels": []})
+    artifact.features.set_values({"empty_list_of_ulabels": []})
+    record.features.add_values({"empty_list_of_ulabels": []})
+    assert "empty_list_of_ulabels" not in artifact.features.get_values()
+    assert "empty_list_of_ulabels" not in record.features.get_values()
+    # an empty string is an invalid label, not a bare StopIteration
+    with pytest.raises(ln.errors.ValidationError):
+        artifact.features.add_values({"empty_list_of_ulabels": ""})
+
+    record.delete(permanent=True)
+    artifact.delete(permanent=True)
+    feature.delete(permanent=True)

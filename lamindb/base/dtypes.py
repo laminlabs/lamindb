@@ -267,4 +267,6 @@ def is_valid_datetime_str(date_string: str) -> bool | str:
 def is_iterable_of_sqlrecord(value: Any):
     from lamindb.models import SQLRecord
 
-    return isinstance(value, Iterable) and isinstance(next(iter(value)), SQLRecord)
+    return isinstance(value, Iterable) and isinstance(
+        next(iter(value), None), SQLRecord
+    )
