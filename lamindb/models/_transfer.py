@@ -536,6 +536,17 @@ def sync_objects_from_database(
 ) -> list[SQLRecord]:
     """Sync SQLRecord objects from a source database into the default database.
 
+    This is a high-level function used in the CLI: `lamin io sync`.
+
+    Most of the time, you will just `.save()` on an object from another database::
+
+        import lamindb as ln
+        db = ln.DB("laminlabs/lamindata")
+        record = db.Record.get(uid="gL3TbX2qZQmCwTAU")
+        record.save(transfer="sqlrecord")
+
+    Guide: {doc}`transfer`
+
     Args:
         registry: Registry name, for example `artifact` or `record`.
         uids: One uid or several uids on the source database.

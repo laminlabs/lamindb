@@ -812,6 +812,7 @@ Commands:
   exportdb  Export registry tables to parquet files.
   importdb  Import registry tables from parquet files.
   snapshot  Create a SQLite snapshot of the connected instance.
+  sync      Sync an object from another database into the current one.
 ```
 
 ### integrations
@@ -924,20 +925,4 @@ Mutations:
   upsert  Insert or update objects.
   update  Update objects.
   delete  Delete objects.
-```
-
-## Other
-
-### lamin transfer
-
-Sync SQLRecord objects from another LaminDB instance.
-
-```text
-Usage: lamin transfer [OPTIONS] COMMAND [ARGS]...
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  artifact  Sync an artifact into the current default database.
 ```
