@@ -50,7 +50,7 @@ Options:
 
 ### info
 
-Show info about the instance, development & cache directories, branch, space, and user.
+Show info about the database, branch, space, and user.
 
 Manage settings via [lamin settings](https://docs.lamin.ai/cli#settings).
 
@@ -411,7 +411,7 @@ Options:
 
 ### annotate
 
-Annotate an artifact, transform, or collection.
+Annotate an object.
 
 You can annotate with projects, labels, records, version tags, a readme, a comment, and, for artifacts, with features. For example,
 
@@ -472,7 +472,7 @@ Options:
 
 ### update
 
-Update mutable fields of an entity.
+Update an object.
 
 Examples:
 
@@ -502,7 +502,7 @@ Options:
 
 ### get
 
-Get a field value or describe an object.
+Get object metadata.
 
 If no field flag is passed, this behaves like `lamin describe`.
 If a field flag is passed, it reads that field from the resolved entity.
@@ -712,7 +712,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Settings & migrations
+## Administer
 
 ### settings
 
@@ -809,14 +809,22 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  exportdb  Export registry tables to parquet files.
-  importdb  Import registry tables from parquet files.
-  snapshot  Create a SQLite snapshot of the connected instance.
+  exportdb  Export registries to parquet files.
+  importdb  Import registries from parquet files.
+  snapshot  Create an SQLite snapshot of the current database.
+  sync      Sync an object to the current database.
 ```
 
 ### integrations
 
 Run integration helpers.
+
+Examples:
+
+```
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 0 --apply
+```
 
 Options:
 
@@ -830,11 +838,13 @@ Commands:
   notion  Sync from Notion.
 ```
 
-## Auth
+→ Python/R alternative: {func}`~lamindb.integrations.notion.sync_objects_from_notion`
+
+## Authenticate
 
 ### login
 
-Log into LaminHub.
+Log into the hub.
 
 `lamin login` prompts for your API key unless you set it via environment variable `LAMIN_API_KEY`.
 
@@ -855,7 +865,7 @@ Options:
 
 ### logout
 
-Log out of LaminHub.
+Log out of the hub.
 
 Options:
 
