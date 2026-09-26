@@ -268,12 +268,13 @@ class DB:
         self._modules = ["lamindb"] + list(instance_info.modules)
         warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
-            # Read-only DB querying should only warn when instance modules are missing
+            # Read-only DB querying should only tip when instance modules are missing
             # from the local environment, not when local modules are additional.
             current_apps={"lamindb"} | (setup_settings.modules & instance_info.modules),
+            instance_slug=instance_info.slug,
         )
         if warning is not None:
-            logger.warning(warning)
+            logger.important_hint(warning)
 
     def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.
