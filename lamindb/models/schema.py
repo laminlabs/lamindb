@@ -400,8 +400,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         maximal_set: `bool = False` Whether additional features are allowed.
         ordered_set: `bool = False` Whether features are required to be ordered.
-        coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Schema.coerce`.
+        coerce: `bool | None = None` When `True`, coerces every column and the index during validation,
+            including features that leave `coerce` unset. See :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
@@ -572,7 +572,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     n_members: int | None = IntegerField(null=True, default=None)
     """Number of features in the schema. None for type-like schemas."""
     coerce: bool | None = BooleanField(null=True, default=None)
-    """Whether dtypes should be coerced during validation. None for type-like schemas."""
+    """Whether values are coerced to the feature dtype during validation.
+
+    A column is coerced when this is `True` or when that feature's `coerce` is `True`,
+    the same way pandera combines `DataFrameSchema.coerce` and `Column.coerce`.
+    `True` here coerces every column and the index, including features that leave
+    :attr:`~lamindb.Feature.coerce` unset. A feature with `coerce=True` is coerced
+    even when this is left unset. Either flag is enough. `Feature.coerce=False`
+    does not disable schema-level coercion.
+
+    For `int` and `float`, coercion is lossless (`"1"` and `1.0` become `int`;
+    `1.1` does not) and does not change an existing integer or float width.
+
+    `None` for type-like schemas.
+    """
     flexible: bool | None = BooleanField(null=True, default=None)
     """Indicates how to handle validation and annotation in case features are not defined.
 

@@ -1077,7 +1077,16 @@ def _delete_coerce_schema(schema, *features):
 )
 @pytest.mark.parametrize("coerce_level", ["feature", "schema"])
 def test_coerce_int_float_lossless(coerce_level, data):
-    """Either Feature.coerce or Schema.coerce accepts lossless int/float conversions."""
+    """Either coerce flag is enough for a lossless int/float conversion.
+
+    This is pandera's rule, not a Lamin-specific fallback. Pandera coerces a
+    column when `Column.coerce` is true or when `DataFrameSchema.coerce` is
+    true. `Schema.coerce=True` therefore coerces every column and the index,
+    including features whose own `coerce` is left unset. `Feature.coerce=True`
+    coerces that column even when the schema leaves `coerce` unset. Setting
+    both does not change the result, so this test checks each switch on its own.
+    A feature with `coerce=False` does not turn schema-level coercion off.
+    """
     f_int, f_float, schema = _int_float_schema(coerce_level)
     try:
         if coerce_level == "feature":
@@ -1111,7 +1120,11 @@ def test_coerce_int_float_requires_a_flag(data):
 
 @pytest.mark.parametrize("coerce_level", ["feature", "schema"])
 def test_coerce_rejects_lossy_float_to_int(coerce_level):
-    """1.1 is not losslessly convertible to int, under either coerce flag."""
+    """1.1 is not an int under either coerce flag.
+
+    Same pandera OR as `test_coerce_int_float_lossless`: each flag is tested
+    alone, and neither one makes a lossy cast succeed.
+    """
     feature_coerce = True if coerce_level == "feature" else None
     schema_coerce = True if coerce_level == "schema" else None
     f_int = ln.Feature(name="test_int_feature", dtype=int, coerce=feature_coerce).save()

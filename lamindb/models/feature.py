@@ -932,8 +932,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
-            Defaults to `False` unless `is_type` is `True`.
+        coerce: `bool | None = None` When `True`, coerces this feature's values during validation.
+            `Schema.coerce=True` also coerces it when this is left unset. See :attr:`~lamindb.Feature.coerce`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
         values_through: `Feature | SQLRecordFieldName | None = None` Source of values
             for this feature. Pass a related :class:`~lamindb.Feature` to read and write
@@ -1277,7 +1277,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     nullable: bool | None = BooleanField(null=True, default=None)
     """Whether the feature can have nullable values. None for type-like features."""
     coerce: bool | None = BooleanField(null=True, default=None)
-    """Whether dtypes should be coerced during validation. None for type-like features."""
+    """Whether this feature's values are coerced to its dtype during validation.
+
+    `True` coerces this feature even when the schema leaves `coerce` unset.
+    See :attr:`~lamindb.Schema.coerce` for how the two flags combine.
+
+    `None` for type-like features.
+    """
     # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
     schemas: RelatedManager[Schema] = models.ManyToManyField(
