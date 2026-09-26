@@ -25,7 +25,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str, try_coerce_simple_dtype
+from lamindb.base.dtypes import AnyFloat, AnyInt, check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -760,7 +760,6 @@ class ComponentCurator(Curator):
         else:
             assert schema.itype is not None  # noqa: S101
 
-        self._features = features
         pandera_columns = {}
         self._pandera_schema = None
         if features or schema._index_feature_uid is not None:
@@ -789,11 +788,19 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
+                # AnyInt / AnyFloat: width-agnostic dtypes, same hook as DateTime
+                # so Feature.coerce and Schema.coerce both reach pandera.
+                elif dtype_str in {"int", "float"}:
+                    pandera_columns[feature.name] = pandera.Column(
+                        AnyInt() if dtype_str == "int" else AnyFloat(),
+                        nullable=feature.nullable,
+                        coerce=feature.coerce,
+                        required=required,
+                    )
                 # "str" via check_dtype/check_pandera_str: keep pandas 2
-                # Column("str") results on pandas 3 (see check_pandera_str)
+                # Column("str") results on pandas 3 (see check_pandera_str).
+                # dtype=None, so coerce on this path is a no-op.
                 elif dtype_str in {
-                    "int",
-                    "float",
                     "bool",
                     "num",
                     "str",
@@ -876,6 +883,10 @@ class ComponentCurator(Curator):
                             error="expected series 'None' to have type str",
                         ),
                     )
+                elif index_dtype == "int":
+                    index = pandera.Index(AnyInt(), coerce=schema.index.coerce)
+                elif index_dtype == "float":
+                    index = pandera.Index(AnyFloat(), coerce=schema.index.coerce)
                 else:
                     index = pandera.Index(index_dtype)
             else:
@@ -976,32 +987,11 @@ class ComponentCurator(Curator):
             self._is_validated = False
             raise ValidationError(self.cat._validate_category_error_messages)
 
-    def _coerce_simple_feature_dtypes(self) -> None:
-        """Apply lossless int/float coercion when schema or feature coerce is set."""
-        if not isinstance(self._dataset, pd.DataFrame):
-            return
-        schema_coerce = bool(self._schema.coerce)
-        for feature in getattr(self, "_features", ()):
-            if not (schema_coerce or feature.coerce):
-                continue
-            dtype_str = feature._dtype_str
-            if dtype_str not in {"int", "float"} or feature.name not in self._dataset:
-                continue
-            coerced = try_coerce_simple_dtype(self._dataset[feature.name], dtype_str)
-            if coerced is not None:
-                self._dataset[feature.name] = coerced
-
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
         if self._pandera_schema is not None:
             try:
-                # Coerce here, before checks — same place pandera does.
-                # For int/float Features we use Column(dtype=None) + check_dtype
-                # (strict pandas-dtype check). Pandera only coerces when a column
-                # has a concrete target dtype, so coerce=True on that path does
-                # nothing and we have to convert ourselves.
-                self._coerce_simple_feature_dtypes()
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset, lazy=True)
                 # then validate lamindb categoricals

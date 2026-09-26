@@ -5,14 +5,15 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import Record
+from lamindb.base.dtypes import AnyFloat, AnyInt, try_coerce_simple_dtype
 from lamindb.errors import ValidationError
-from lamindb.base.dtypes import try_coerce_simple_dtype
 from lamindb.models.feature import (
     parse_dtype,
     parse_filter_string,
     resolve_relation_filters,
     serialize_dtype,
 )
+from pandera.errors import ParserError
 
 
 @pytest.fixture
@@ -51,6 +52,24 @@ def test_try_coerce_simple_dtype():
     assert try_coerce_simple_dtype(pd.Series(["a", "b"]), "float") is None
     assert try_coerce_simple_dtype(pd.Series([[1], [2]]), "float") is None
     assert try_coerce_simple_dtype(pd.Series([1, 2]), "bool") is None
+
+
+def test_any_int_any_float_accept_any_width():
+    int32 = pd.Series([1, 2, 3], dtype="int32")
+    uint16 = pd.Series([1, 2, 3], dtype="uint16")
+    float32 = pd.Series([1.5, 2.5], dtype="float32")
+
+    assert AnyInt().check(None, int32) is True
+    assert AnyInt().check(None, uint16) is True
+    assert AnyInt().coerce(int32) is int32
+    assert AnyInt().check(None, float32) is False
+
+    assert AnyFloat().check(None, float32) is True
+    assert AnyFloat().coerce(float32) is float32
+    assert AnyFloat().check(None, int32) is False
+
+    with pytest.raises(ParserError):
+        AnyInt().coerce(pd.Series([1.1, 2.2]))
 
 
 # -----------------------------------------------------------------------------

@@ -137,6 +137,10 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Callable
 
+import numpy as np
+import pandas as pd
+from pandera.engines import pandas_engine
+
 
 def is_list_of_type(value: Any, expected_type: Any) -> bool:
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
@@ -191,9 +195,9 @@ def check_pandera_str(series) -> bool:
 def try_coerce_simple_dtype(series, expected_type: str):
     """Losslessly coerce a Series to `int` or `float`, or return `None`.
 
-    Used when `Schema.coerce` or `Feature.coerce` is True. Does not truncate
+    Used by :class:`AnyInt` and :class:`AnyFloat`. Does not truncate
     (e.g. `1.1` → `int` fails). Returns the original series if it already
-    has the expected pandas dtype.
+    has the expected pandas dtype, without changing its width.
     """
     import pandas as pd
 
@@ -218,6 +222,65 @@ def try_coerce_simple_dtype(series, expected_type: str):
         except (TypeError, ValueError):
             return None
     return None
+
+
+def _accepts_any_width(series, kind_check) -> bool:
+    """True when every value is missing, or the series dtype passes `kind_check`."""
+    if series is None:
+        return False
+    if len(series) == 0 or bool(series.isna().all()):
+        return True
+    return bool(kind_check(series.dtype))
+
+
+def _coerce_lossless(series, expected_type: str):
+    """Return a lossless coercion, or raise pandera's ParserError."""
+    from pandera.errors import ParserError
+
+    coerced = try_coerce_simple_dtype(series, expected_type)
+    if coerced is None:
+        raise ParserError(
+            f"Could not losslessly coerce into {expected_type}",
+            failure_cases=series,
+        )
+    return coerced
+
+
+# Registered with no "int"/"float" equivalents, so pandera's fixed-width
+# dtypes stay unchanged. Same hook as pandas_engine.DateTime: a real dtype,
+# which is what pandera coerces. A Check cannot honor coerce.
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyInt(pandas_engine.DataType):
+    """Integer dtype that accepts any width and coerces only losslessly."""
+
+    type = np.dtype("int64")
+
+    def check(self, pandera_dtype, data_container=None):
+        return _accepts_any_width(data_container, pd.api.types.is_integer_dtype)
+
+    def coerce(self, data_container):
+        return _coerce_lossless(data_container, "int")
+
+    def __str__(self) -> str:
+        return "int"
+
+
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyFloat(pandas_engine.DataType):
+    """Float dtype that accepts any width and coerces only losslessly."""
+
+    type = np.dtype("float64")
+
+    def check(self, pandera_dtype, data_container=None):
+        return _accepts_any_width(data_container, pd.api.types.is_float_dtype)
+
+    def coerce(self, data_container):
+        return _coerce_lossless(data_container, "float")
+
+    def __str__(self) -> str:
+        return "float"
 
 
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:

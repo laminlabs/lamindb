@@ -141,7 +141,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
         ln.track(transform=test_transform, features=kwargs)
-    assert "Column 'param4' failed dtype check for 'int': got object" in exc.exconly()
+    assert "expected series 'param4' to have type int, got object" in exc.exconly()
     # fix param4 dtype
     param4.delete(permanent=True)
     param4 = ln.Feature(name="param4", dtype=list[int]).save()
