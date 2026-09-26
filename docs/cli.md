@@ -712,7 +712,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Settings, IO & migrations
+## Administer
 
 ### settings
 
@@ -809,15 +809,22 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  exportdb  Export registry tables to parquet files.
-  importdb  Import registry tables from parquet files.
-  snapshot  Create a SQLite snapshot of the connected instance.
-  sync      Sync an object from another database into the current one.
+  exportdb  Export registries to parquet files.
+  importdb  Import registries from parquet files.
+  snapshot  Create an SQLite snapshot of the current database.
+  sync      Sync an object to the current database.
 ```
 
 ### integrations
 
 Run integration helpers.
+
+Examples:
+
+```
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 0 --apply
+```
 
 Options:
 
@@ -831,7 +838,9 @@ Commands:
   notion  Sync from Notion.
 ```
 
-## Auth
+→ Python/R alternative: {func}`~lamindb.integrations.notion.sync_objects_from_notion`
+
+## Authenticate
 
 ### login
 
