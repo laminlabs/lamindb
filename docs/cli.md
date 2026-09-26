@@ -19,7 +19,7 @@ eval "$(_LAMIN_COMPLETE=zsh_source lamin)"
 
 ### connect
 
-Set the default database for this environment or directory.
+Set the default database for this directory.
 
 This command updates your local configuration to target the specified instance:
 all subsequent CLI commands and Python/R sessions will auto-connect to this instance.
@@ -27,10 +27,10 @@ all subsequent CLI commands and Python/R sessions will auto-connect to this inst
 You can pass a slug (`account/name`) or URL (`https://lamin.ai/account/name`).
 
 ```
-# set a default instance for the current environment
-lamin connect laminlabs/cellxgene
-# set a default instance for the current directory
+# set a default database for the current directory (recommended)
 lamin connect laminlabs/cellxgene --here
+# set a default database for the entire home directory
+lamin connect laminlabs/cellxgene
 # use a URL instead of a slug
 lamin connect https://lamin.ai/laminlabs/cellxgene
 ```
@@ -68,7 +68,7 @@ Options:
 
 ### init
 
-Initialize a LaminDB instance.
+Initialize a database in the current directory.
 
 Create a new development directory for your source code and `cd` into it:
 
@@ -118,17 +118,16 @@ Options:
 
 ### disconnect
 
-Unset the default database for this environment or directory.
+Unset the default database for this directory.
 
-- Without `--here`, it clears the global default instance.
-- With `--here`, it removes the nearest local marker from the current
-  directory hierarchy and unsets `dev-dir` for that instance.
+- With `--here`, it clears the default database for the current directory.
+- Without `--here`, it clears the default database for the entire home directory.
 
 For example:
 
 ```
-lamin disconnect
 lamin disconnect --here
+lamin disconnect
 ```
 
 Options:
@@ -148,7 +147,7 @@ Options:
 
 ### save
 
-Save a file or folder as an `artifact`, `transform`, or `record`.
+Save a file or folder as an artifact, transform, or record.
 
 Save a **dataset** or **model** as {class}`~lamindb.Artifact`:
 
@@ -250,7 +249,7 @@ Options:
 
 ### load
 
-Sync a file/folder into a local cache (artifacts) or development directory (transforms).
+Sync a file/folder into a local cache (artifacts) or development directory (transforms, records).
 
 Pass an entity or a `--key`. For example:
 
@@ -306,6 +305,10 @@ Options:
 Create an object.
 
 Currently only supports creating branches and projects.
+
+Use `lamin save` to create artifacts, transforms, and records.
+
+Examples:
 
 ```
 lamin create branch my_branch
@@ -798,7 +801,18 @@ Commands:
 
 ### io
 
-Import and export databases.
+Transfer, import, and export data.
+
+Use `lamin io sync` to sync objects to the current database:
+
+```
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE
+lamin io sync https://lamin.ai/laminlabs/lamindata/artifact/e2G7k9EVul4JbfsE --depth 0
+lamin io sync record --uid UrcIKR8v0ywim0pE --from laminlabs/lamindata
+lamin io sync artifact --key example_datasets/mini_immuno/dataset1.h5ad --from laminlabs/lamindata
+```
+
+→ Guide: {doc}`transfer`
 
 Options:
 
@@ -815,9 +829,29 @@ Commands:
   sync      Sync an object to the current database.
 ```
 
+→ Python/R alternative: {func}`~lamindb.models.sync_objects_from_database`
+
+Use `lamin io snapshot` to create an SQLite snapshot of the current database:
+
+```
+lamin io snapshot
+```
+
+Use `lamin io importdb` to import data from parquet files:
+
+```
+lamin io importdb --input-dir path/to/parquet/files
+```
+
+Use `lamin io exportdb` to export data to parquet files:
+
+```
+lamin io exportdb --output-dir path/to/parquet/files
+```
+
 ### integrations
 
-Run integration helpers.
+Use integrations.
 
 Examples:
 
