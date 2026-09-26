@@ -383,6 +383,7 @@ def test_filter_status_field():
     assert ln.Branch.filter(status="review").count() >= 1
 
     project = ln.Project(name="test_filter_status_project").save()
+    assert project.status == "planned"
     project._status_code = -1
     project.save(update_fields=["_status_code"])
     assert ln.Project.filter(status=-1).count() >= 1

@@ -495,6 +495,7 @@ class Project(
     """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
     branches: RelatedManager[Branch]
     """Annotated branches ← :attr:`~lamindb.Branch.projects`."""
+    # consider changing to -3 as a database default in the future as we do for Run._status_code
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
@@ -551,6 +552,7 @@ class Project(
             description=description,
             start_date=start_date,
             end_date=end_date,
+            _status_code=PROJECT_STATUS_TO_CODE["planned"],
             _skip_validation=_skip_validation,
             _aux=_aux,
             **space_branch_kwargs,
