@@ -1400,6 +1400,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 and foreign keys only; "notes" also copies the latest readme;
                 "annotations" also copies M2M annotations. Schema still defaults
                 to "annotations" when transfer is omitted.
+            depth: How many levels of related records to follow during transfer.
+                `None` follows the full graph. `0` syncs only this object;
+                foreign keys must already exist on the target.
         """
         from ._transfer import (
             normalize_transfer_config,
@@ -1426,6 +1429,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             kwargs.pop("transfer", None),
             default_annotations=self.__class__.__name__ == "Schema",
         )
+        depth = kwargs.pop("depth", None)
+        if depth is not None and depth < 0:
+            raise ValueError("depth must be >= 0 when provided.")
         db = self._state.db
         pk_on_db = self.pk
         artifacts: list = []
@@ -1439,6 +1445,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "transferred": [],
             "run": None,
         }
+        if depth is not None:
+            transfer_logs["_depth"] = depth
         if db is not None and db != "default" and using is None:
             if isinstance(self, IsVersioned):
                 if not self.is_latest:
@@ -1451,7 +1459,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 transfer_logs=transfer_logs,
                 # schema members and other annotation links are M2M, not part of
                 # the row. Only transfer="annotations" should copy them.
-                transfer_annotations=transfer_config == "annotations",
+                # depth 0 copies this row and maps foreign keys that already exist.
+                transfer_annotations=transfer_config == "annotations" and depth != 0,
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -1651,26 +1660,41 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using is None:
-            if self.__class__.__name__ == "Collection":
+            follow_related = depth != 0
+            if self.__class__.__name__ == "Collection" and follow_related:
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
+                    child_depth = None if depth is None else depth - 1
                     for artifact in artifacts:
-                        artifact.save()
+                        artifact.save(
+                            **({} if child_depth is None else {"depth": child_depth})
+                        )
                     self.artifacts.add(*artifacts)
-            if transfer_config in {"notes", "annotations"}:
+            if follow_related and transfer_config in {"notes", "annotations"}:
                 transfer_notes(self, db, pk_on_db)
-            if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
+            if (
+                follow_related
+                and self.__class__.__name__ == "Schema"
+                and transfer_config == "annotations"
+            ):
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
+            if follow_related and depth is not None:
+                transfer_logs["_depth"] = depth - 1
             if (
-                self.__class__.__name__ in {"Record", "Run"}
+                follow_related
+                and self.__class__.__name__ in {"Record", "Run"}
                 and transfer_config == "annotations"
             ):
                 transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
-            if hasattr(self, "labels") and transfer_config == "annotations":
+            if (
+                follow_related
+                and hasattr(self, "labels")
+                and transfer_config == "annotations"
+            ):
                 from copy import copy
 
                 # here we go back to original record on the source database
@@ -1679,6 +1703,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self_on_db.pk = pk_on_db  # manually set the primary key
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+            if depth is not None:
+                transfer_logs["_depth"] = depth
             if transfer_logs["run"] is not None:
                 transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
