@@ -77,6 +77,7 @@ from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
+from ._transfer import normalize_transfer_config
 from .feature import Feature, JsonValue
 from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
@@ -91,7 +92,6 @@ from .sqlrecord import (
     SQLRecord,
     _get_record_kwargs,
     check_key,
-    normalize_transfer_config,
 )
 from .storage import Storage
 from .ulabel import ULabel

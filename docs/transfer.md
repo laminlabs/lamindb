@@ -13,6 +13,24 @@ Here we pass `bionty` because we'll transfer biological entities:
 lamin init --modules bionty
 ```
 
+## Via the CLI
+
+You can sync an object from any database to your current database:
+
+```bash
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU
+```
+
+You can pass the `--transfer` argument, which dictates which related objects are transferred:
+
+- `"sqlrecord"`: the object and its foreign keys
+- `"notes"`: its associated notes
+- `"annotations"`: its annotations
+
+The analogous `transfer` argument is also available on the API.
+
+## Via the API
+
 Import `lamindb` and optionally run `ln.track()`:
 
 ```python
@@ -21,10 +39,7 @@ import lamindb as ln
 ln.track()
 ```
 
-Transfer works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, `Schema`, etc.).
-Query the object on the source, then call `.save()` to sync it to your current default database.
-
-## Sync an artifact
+Query the object on the source, then call `.save()`:
 
 ```python
 db = ln.DB("laminlabs/lamindata")
@@ -74,15 +89,7 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-When you call `.save()` on an object queried from another database, you can pass `transfer`:
-
-- `"sqlrecord"`: the object and its foreign keys
-- `"notes"`: its associated notes
-- `"annotations"`: its annotations
-
-## Sync a record
-
-A data record can be synced only after its type is already in the target database.
+A **data record** can be synced only after its type is already in the target database.
 [EXP-RNA-032](https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox) belongs to the [RNA-seq](https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU) record frame, so transfer that frame first:
 
 ```python

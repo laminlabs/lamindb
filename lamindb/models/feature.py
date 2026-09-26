@@ -179,7 +179,7 @@ def _transfer_dtype_schema(
 def transfer_feature_dtypes(
     feature: Feature, using: str | None, transfer_logs: dict
 ) -> None:
-    from .sqlrecord import transfer_to_default_db
+    from ._transfer import transfer_to_default_db
 
     dtype_str = feature._dtype_str
     if dtype_str is None:

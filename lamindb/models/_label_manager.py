@@ -10,13 +10,13 @@ from rich.tree import Tree
 
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
-from lamindb.models.save import save
-from lamindb.models.sqlrecord import (
+from lamindb.models._transfer import (
     REGISTRY_UNIQUE_FIELD,
-    get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
+from lamindb.models.save import save
+from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
     NAME_WIDTH,

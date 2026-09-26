@@ -127,8 +127,8 @@ def transfer_schema_members(
 ) -> None:
     from copy import copy
 
+    from ._transfer import transfer_to_default_db
     from .feature import transfer_feature_dtypes
-    from .sqlrecord import transfer_to_default_db
 
     if source_pk is None:
         return None
@@ -218,7 +218,7 @@ def transfer_schema_with_members(
 ) -> Schema:
     from copy import copy
 
-    from .sqlrecord import transfer_to_default_db
+    from ._transfer import transfer_to_default_db
 
     source_db = schema._state.db
     source_pk = schema.pk
