@@ -495,7 +495,7 @@ class Project(
     """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
     branches: RelatedManager[Branch]
     """Annotated branches ← :attr:`~lamindb.Branch.projects`."""
-    # consider changing to -3 as a database default in the future
+    # consider changing to -3 as a database default in the future as we do for Run._status_code
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
