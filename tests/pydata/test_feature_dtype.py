@@ -5,7 +5,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import Record
-from lamindb.base.dtypes import AnyFloat, AnyInt, try_coerce_simple_dtype
+from lamindb.curators.core import AnyFloat, AnyInt, try_coerce_simple_dtype
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
     parse_dtype,
