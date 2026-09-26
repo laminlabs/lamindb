@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import lamindb_setup as ln_setup
@@ -15,6 +16,36 @@ if TYPE_CHECKING:
     from .run import Run
 
 REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
+_DEPTH_UNSET = object()
+
+
+def _remaining_depth(transfer_logs: dict) -> int | None:
+    """Levels of related records still allowed. ``None`` means no limit."""
+    return transfer_logs.get("_depth")
+
+
+@contextmanager
+def _with_depth(transfer_logs: dict, depth: int | None):
+    previous = transfer_logs.get("_depth", _DEPTH_UNSET)
+    if depth is None:
+        transfer_logs.pop("_depth", None)
+    else:
+        transfer_logs["_depth"] = depth
+    try:
+        yield
+    finally:
+        if previous is _DEPTH_UNSET:
+            transfer_logs.pop("_depth", None)
+        else:
+            transfer_logs["_depth"] = previous
+
+
+def _missing_related_record(fk_record) -> ValueError:
+    uid = getattr(fk_record, "uid", None)
+    return ValueError(
+        f"Related {type(fk_record).__name__}(uid={uid!r}) is not in the target database. "
+        "Increase depth to transfer it."
+    )
 
 
 def update_fk_to_default_db(
@@ -76,32 +107,44 @@ def update_fk_to_default_db(
                         f"Please transfer type {type_name!r} first: "
                         f"{fk_record.__class__.__name__}(uid={type_uid!r})"
                     )
+                if _remaining_depth(transfer_logs) == 0:
+                    raise _missing_related_record(fk_record)
                 from copy import copy
 
-                pre_existing_fk_record_default = transfer_to_default_db(
-                    copy(fk_record),
-                    using,
-                    transfer_logs=transfer_logs,
-                    stub=True,
-                )
+                child_depth = _remaining_depth(transfer_logs)
+                with _with_depth(
+                    transfer_logs, None if child_depth is None else child_depth - 1
+                ):
+                    pre_existing_fk_record_default = transfer_to_default_db(
+                        copy(fk_record),
+                        using,
+                        transfer_logs=transfer_logs,
+                        stub=True,
+                    )
             from copy import copy
 
             fk_record_default = copy(fk_record)
             # A schema FK is part of the row. Its members are annotations.
+            depth = _remaining_depth(transfer_logs)
+            if pre_existing_fk_record_default is None and depth == 0:
+                raise _missing_related_record(fk_record)
+            child_depth = None if depth is None else depth - 1
             if fk_record.__class__.__name__ == "Schema" and transfer_annotations:
                 from .schema import transfer_schema_with_members
 
-                fk_record_default = transfer_schema_with_members(
-                    fk_record_default, using, transfer_logs=transfer_logs
-                )
+                with _with_depth(transfer_logs, child_depth):
+                    fk_record_default = transfer_schema_with_members(
+                        fk_record_default, using, transfer_logs=transfer_logs
+                    )
             elif pre_existing_fk_record_default is None:
-                transfer_to_default_db(
-                    fk_record_default,
-                    using,
-                    save=True,
-                    transfer_logs=transfer_logs,
-                    transfer_annotations=transfer_annotations,
-                )
+                with _with_depth(transfer_logs, child_depth):
+                    transfer_to_default_db(
+                        fk_record_default,
+                        using,
+                        save=True,
+                        transfer_logs=transfer_logs,
+                        transfer_annotations=transfer_annotations,
+                    )
             else:
                 fk_record_default = pre_existing_fk_record_default
         # re-set the fks to the newly saved ones in the default db
@@ -473,3 +516,68 @@ def transfer_to_default_db(
     if stub:
         return registry.get(uid=record.uid)
     return None
+
+
+def _registry_class_name(registry: str) -> str:
+    if registry == "ulabel":
+        return "ULabel"
+    if not registry or not registry.replace("_", "").isalnum():
+        raise ValueError(f"Unknown registry {registry!r}.")
+    return "".join(part.capitalize() for part in registry.split("_"))
+
+
+def sync_objects_from_database(
+    registry: str,
+    uids: str | list[str],
+    *,
+    source: str,
+    depth: int | None = None,
+    transfer: str | None = None,
+) -> list[SQLRecord]:
+    """Sync SQLRecord objects from a source database into the default database.
+
+    This is a high-level function used in the CLI: `lamin io sync`.
+
+    Most of the time, you will just `.save()` on an object from another database::
+
+        import lamindb as ln
+        db = ln.DB("laminlabs/lamindata")
+        record = db.Record.get(uid="gL3TbX2qZQmCwTAU")
+        record.save(transfer="sqlrecord")
+
+    Guide: {doc}`transfer`
+
+    Args:
+        registry: Registry name, for example `artifact` or `record`.
+        uids: One uid or several uids on the source database.
+        source: Source instance slug, for example `laminlabs/lamindata`.
+        depth: How many levels of related records to follow.
+            `None` follows the full graph. `0` syncs only the given objects;
+            their foreign keys must already exist on the target.
+        transfer: `sqlrecord`, `notes`, or `annotations`.
+            Omit it to use the registry default.
+    """
+    from .db import DB
+
+    if depth is not None and depth < 0:
+        raise ValueError("depth must be >= 0 when provided.")
+    if isinstance(uids, str):
+        uid_list = [uids]
+    elif isinstance(uids, list):
+        uid_list = list(uids)
+    else:
+        raise TypeError("uids must be a str or list[str].")
+    if not uid_list:
+        raise ValueError("uids is required and must contain at least one uid.")
+    model_name = _registry_class_name(registry)
+    queryset = getattr(DB(source), model_name)
+    saved: list[SQLRecord] = []
+    for uid in uid_list:
+        record = queryset.get(uid)
+        kwargs: dict[str, Any] = {}
+        if depth is not None:
+            kwargs["depth"] = depth
+        if transfer is not None:
+            kwargs["transfer"] = transfer
+        saved.append(record.save(**kwargs))
+    return saved

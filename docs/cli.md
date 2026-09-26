@@ -712,7 +712,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Settings & migrations
+## Settings, IO & migrations
 
 ### settings
 
@@ -812,6 +812,7 @@ Commands:
   exportdb  Export registry tables to parquet files.
   importdb  Import registry tables from parquet files.
   snapshot  Create a SQLite snapshot of the connected instance.
+  sync      Sync an object from another database into the current one.
 ```
 
 ### integrations
