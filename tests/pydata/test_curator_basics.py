@@ -510,7 +510,7 @@ def test_curator_partial_null_bool_int():
     assert "Column 'cur-flag' failed dtype check for 'bool': got object" in str(
         excinfo.value
     )
-    assert "Column 'cur-count' failed dtype check for 'int': got float64" in str(
+    assert "expected series 'cur-count' to have type int, got float64" in str(
         excinfo.value
     )
 
@@ -1027,6 +1027,203 @@ def test_curate_columns(df):
 
     schema.delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+_COERCE_INT_FLOAT_CASES = {
+    "int_from_str": {
+        "test_int_feature": ["1", "2", "3"],
+        "test_float_feature": [1.1, 2.2, 3.3],
+    },
+    "int_from_float": {
+        "test_int_feature": [1.0, 2.0, 3.0],
+        "test_float_feature": [1.1, 2.2, 3.3],
+    },
+    "float_from_str": {
+        "test_int_feature": [1, 2, 3],
+        "test_float_feature": ["1.1", "2.2", "3.3"],
+    },
+    "float_from_int": {
+        "test_int_feature": [1, 2, 3],
+        "test_float_feature": [1, 2, 3],
+    },
+}
+
+
+def _int_float_schema(coerce_level: str | None):
+    """Build an int/float schema with coerce on the feature, the schema, or neither."""
+    feature_coerce = True if coerce_level == "feature" else None
+    schema_coerce = True if coerce_level == "schema" else None
+    f_int = ln.Feature(name="test_int_feature", dtype=int, coerce=feature_coerce).save()
+    f_float = ln.Feature(
+        name="test_float_feature", dtype=float, coerce=feature_coerce
+    ).save()
+    schema = ln.Schema(
+        name="coerce_test_schema",
+        features=[f_int, f_float],
+        otype="DataFrame",
+        coerce=schema_coerce,
+    ).save()
+    return f_int, f_float, schema
+
+
+def _delete_coerce_schema(schema, *features):
+    schema.delete(permanent=True)
+    for feature in features:
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "data", _COERCE_INT_FLOAT_CASES.values(), ids=_COERCE_INT_FLOAT_CASES.keys()
+)
+@pytest.mark.parametrize("coerce_level", ["feature", "schema"])
+def test_coerce_int_float_lossless(coerce_level, data):
+    """Either coerce flag is enough for a lossless int/float conversion.
+
+    This is pandera's rule, not a Lamin-specific fallback. Pandera coerces a
+    column when `Column.coerce` is true or when `DataFrameSchema.coerce` is
+    true. `Schema.coerce=True` therefore coerces every column and the index,
+    including features whose own `coerce` is left unset. `Feature.coerce=True`
+    coerces that column even when the schema leaves `coerce` unset. Setting
+    both does not change the result, so this test checks each switch on its own.
+    A feature with `coerce=False` does not turn schema-level coercion off.
+    """
+    f_int, f_float, schema = _int_float_schema(coerce_level)
+    try:
+        if coerce_level == "feature":
+            assert schema.coerce is None
+            assert f_int.coerce is f_float.coerce is True
+        else:
+            assert schema.coerce is True
+            assert f_int.coerce is f_float.coerce is None
+        df = pd.DataFrame(data)
+        dtypes_before = df.dtypes.copy()
+        ln.curators.DataFrameCurator(df, schema).validate()
+        pd.testing.assert_series_equal(df.dtypes, dtypes_before)
+    finally:
+        _delete_coerce_schema(schema, f_int, f_float)
+
+
+@pytest.mark.parametrize(
+    "data", _COERCE_INT_FLOAT_CASES.values(), ids=_COERCE_INT_FLOAT_CASES.keys()
+)
+def test_coerce_int_float_requires_a_flag(data):
+    """Conversions fail when neither the feature nor the schema sets coerce."""
+    f_int, f_float, schema = _int_float_schema(None)
+    try:
+        assert schema.coerce is None
+        assert f_int.coerce is f_float.coerce is None
+        with pytest.raises(ln.errors.ValidationError):
+            ln.curators.DataFrameCurator(pd.DataFrame(data), schema).validate()
+    finally:
+        _delete_coerce_schema(schema, f_int, f_float)
+
+
+@pytest.mark.parametrize("coerce_level", ["feature", "schema"])
+def test_coerce_rejects_lossy_float_to_int(coerce_level):
+    """1.1 is not an int under either coerce flag.
+
+    Same pandera OR as `test_coerce_int_float_lossless`: each flag is tested
+    alone, and neither one makes a lossy cast succeed.
+    """
+    feature_coerce = True if coerce_level == "feature" else None
+    schema_coerce = True if coerce_level == "schema" else None
+    f_int = ln.Feature(name="test_int_feature", dtype=int, coerce=feature_coerce).save()
+    schema = ln.Schema(features=[f_int], otype="DataFrame", coerce=schema_coerce).save()
+    try:
+        with pytest.raises(ln.errors.ValidationError):
+            ln.curators.DataFrameCurator(
+                pd.DataFrame({"test_int_feature": [1.1, 2.2, 3.3]}), schema
+            ).validate()
+    finally:
+        _delete_coerce_schema(schema, f_int)
+
+
+def test_int_float_any_width():
+    """int and float accept any width, and coerce does not recast it."""
+    f_int = ln.Feature(name="width_int", dtype=int).save()
+    f_uint = ln.Feature(name="width_uint", dtype=int).save()
+    f_float = ln.Feature(name="width_float", dtype=float).save()
+    schema = ln.Schema(features=[f_int, f_uint, f_float], otype="DataFrame").save()
+    schema_coerce = ln.Schema(
+        features=[f_int, f_uint, f_float], otype="DataFrame", coerce=True
+    ).save()
+    df = pd.DataFrame(
+        {
+            "width_int": pd.Series([1, 2, 3], dtype="int32"),
+            "width_uint": pd.Series([1, 2, 3], dtype="uint16"),
+            "width_float": pd.Series([1.5, 2.5, 3.5], dtype="float32"),
+        }
+    )
+    try:
+        assert schema.coerce is None
+        ln.curators.DataFrameCurator(df, schema).validate()
+        coerced = df.copy()
+        ln.curators.DataFrameCurator(coerced, schema_coerce).validate()
+        for frame in (df, coerced):
+            assert str(frame["width_int"].dtype) == "int32"
+            assert str(frame["width_uint"].dtype) == "uint16"
+            assert str(frame["width_float"].dtype) == "float32"
+    finally:
+        schema_coerce.delete(permanent=True)
+        schema.delete(permanent=True)
+        f_float.delete(permanent=True)
+        f_uint.delete(permanent=True)
+        f_int.delete(permanent=True)
+
+
+def test_int_index_any_width_and_rejects_lossy():
+    """An int index uses AnyInt: int32 passes, and 1.1 is not truncated."""
+    idx = ln.Feature(name="width_index", dtype=int).save()
+    val = ln.Feature(name="width_value", dtype=str).save()
+    schema = ln.Schema(features=[val], index=idx, otype="DataFrame").save()
+    schema_coerce = ln.Schema(
+        features=[val], index=idx, otype="DataFrame", coerce=True
+    ).save()
+    df = pd.DataFrame(
+        {"width_value": ["a", "b"]},
+        index=pd.Index([1, 2], dtype="int32", name="width_index"),
+    )
+    lossy = pd.DataFrame(
+        {"width_value": ["a", "b"]},
+        index=pd.Index([1.1, 2.2], name="width_index"),
+    )
+    try:
+        ln.curators.DataFrameCurator(df, schema).validate()
+        assert str(df.index.dtype) == "int32"
+        with pytest.raises(ln.errors.ValidationError):
+            ln.curators.DataFrameCurator(lossy, schema_coerce).validate()
+    finally:
+        schema_coerce.delete(permanent=True)
+        schema.delete(permanent=True)
+        val.delete(permanent=True)
+        idx.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    ("dtype", "values"),
+    [
+        (bool, [1, 0]),
+        ("str", [1, 2]),
+        ("path", [1, 2]),
+        ("url", [1, 2]),
+        ("num", ["1", "2"]),
+        ("list[int]", [["1"], ["2"]]),
+    ],
+)
+def test_dtype_none_coerce_is_noop(dtype, values):
+    """Feature.coerce does not convert dtypes that still use a pandera Check."""
+    name = f"noop_{dtype if isinstance(dtype, str) else dtype.__name__}"
+    feature = ln.Feature(name=name, dtype=dtype, coerce=True).save()
+    schema = ln.Schema(features=[feature], otype="DataFrame").save()
+    try:
+        assert schema.coerce is None
+        assert feature.coerce is True
+        with pytest.raises(ln.errors.ValidationError):
+            ln.curators.DataFrameCurator(
+                pd.DataFrame({name: values}), schema
+            ).validate()
+    finally:
+        _delete_coerce_schema(schema, feature)
 
 
 def test_wrong_datatype(df):

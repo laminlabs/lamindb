@@ -81,6 +81,93 @@ else:
     ScverseDataStructures = Any
 
 
+def try_coerce_simple_dtype(series, expected_type: str):
+    """Losslessly coerce a Series to `int` or `float`, or return `None`.
+
+    Does not truncate (e.g. `1.1` → `int` fails). Returns the original series
+    if it already has the expected pandas dtype, without changing its width.
+    """
+    if expected_type == "int":
+        if pd.api.types.is_integer_dtype(series.dtype):
+            return series
+        try:
+            numeric = pd.to_numeric(series, errors="raise")
+        except (TypeError, ValueError):
+            return None
+        non_null = numeric.dropna()
+        if len(non_null) and not bool((non_null == non_null.round()).all()):
+            return None
+        if numeric.hasnans:
+            return numeric.astype("Int64")
+        return numeric.astype("int64")
+    if expected_type == "float":
+        if pd.api.types.is_float_dtype(series.dtype):
+            return series
+        try:
+            return pd.to_numeric(series, errors="raise").astype("float64")
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _accepts_any_width(series, kind_check) -> bool:
+    """True when every value is missing, or the series dtype passes `kind_check`."""
+    if series is None:
+        return False
+    if len(series) == 0 or bool(series.isna().all()):
+        return True
+    return bool(kind_check(series.dtype))
+
+
+def _coerce_lossless(series, expected_type: str):
+    """Return a lossless coercion, or raise pandera's ParserError."""
+    from pandera.errors import ParserError
+
+    coerced = try_coerce_simple_dtype(series, expected_type)
+    if coerced is None:
+        raise ParserError(
+            f"Could not losslessly coerce into {expected_type}",
+            failure_cases=series,
+        )
+    return coerced
+
+
+# Registered with no "int"/"float" equivalents, so pandera's fixed-width
+# dtypes stay unchanged. A real dtype is what pandera coerces; a Check cannot.
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyInt(pandas_engine.DataType):
+    """Integer dtype that accepts any width and coerces only losslessly."""
+
+    type = np.dtype("int64")
+
+    def check(self, pandera_dtype, data_container=None):
+        return _accepts_any_width(data_container, pd.api.types.is_integer_dtype)
+
+    def coerce(self, data_container):
+        return _coerce_lossless(data_container, "int")
+
+    def __str__(self) -> str:
+        return "int"
+
+
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyFloat(pandas_engine.DataType):
+    """Float dtype that accepts any width and coerces only losslessly."""
+
+    type = np.dtype("float64")
+
+    def check(self, pandera_dtype, data_container=None):
+        return _accepts_any_width(data_container, pd.api.types.is_float_dtype)
+
+    def coerce(self, data_container):
+        return _coerce_lossless(data_container, "float")
+
+    def __str__(self) -> str:
+        return "float"
+
+
 def strip_ansi_codes(text):
     # This pattern matches ANSI escape sequences
     ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
@@ -788,11 +875,19 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
+                # AnyInt / AnyFloat: width-agnostic dtypes, same hook as DateTime
+                # so Feature.coerce and Schema.coerce both reach pandera.
+                elif dtype_str in {"int", "float"}:
+                    pandera_columns[feature.name] = pandera.Column(
+                        AnyInt() if dtype_str == "int" else AnyFloat(),
+                        nullable=feature.nullable,
+                        coerce=feature.coerce,
+                        required=required,
+                    )
                 # "str" via check_dtype/check_pandera_str: keep pandas 2
-                # Column("str") results on pandas 3 (see check_pandera_str)
+                # Column("str") results on pandas 3 (see check_pandera_str).
+                # dtype=None, so coerce on this path is a no-op.
                 elif dtype_str in {
-                    "int",
-                    "float",
                     "bool",
                     "num",
                     "str",
@@ -875,6 +970,10 @@ class ComponentCurator(Curator):
                             error="expected series 'None' to have type str",
                         ),
                     )
+                elif index_dtype == "int":
+                    index = pandera.Index(AnyInt(), coerce=schema.index.coerce)
+                elif index_dtype == "float":
+                    index = pandera.Index(AnyFloat(), coerce=schema.index.coerce)
                 else:
                     index = pandera.Index(index_dtype)
             else:

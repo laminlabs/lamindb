@@ -230,7 +230,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
-        "Column 'treatment_time_h' failed series or dataframe validator 0: <Check check_function: Column 'treatment_time_h' failed dtype check for 'float': got int64>"
+        "expected series 'treatment_time_h' to have type float, got int64"
         in error.exconly()
     )
 
