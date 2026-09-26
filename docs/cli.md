@@ -50,7 +50,7 @@ Options:
 
 ### info
 
-Show info about the instance, development & cache directories, branch, space, and user.
+Show info about the database, branch, space, and user.
 
 Manage settings via [lamin settings](https://docs.lamin.ai/cli#settings).
 
@@ -411,7 +411,7 @@ Options:
 
 ### annotate
 
-Annotate an artifact, transform, or collection.
+Annotate an object.
 
 You can annotate with projects, labels, records, version tags, a readme, a comment, and, for artifacts, with features. For example,
 
@@ -472,7 +472,7 @@ Options:
 
 ### update
 
-Update mutable fields of an entity.
+Update an object.
 
 Examples:
 
@@ -502,7 +502,7 @@ Options:
 
 ### get
 
-Get a field value or describe an object.
+Get object metadata.
 
 If no field flag is passed, this behaves like `lamin describe`.
 If a field flag is passed, it reads that field from the resolved entity.
@@ -844,7 +844,7 @@ Commands:
 
 ### login
 
-Log into LaminHub.
+Log into the hub.
 
 `lamin login` prompts for your API key unless you set it via environment variable `LAMIN_API_KEY`.
 
@@ -865,7 +865,7 @@ Options:
 
 ### logout
 
-Log out of LaminHub.
+Log out of the hub.
 
 Options:
 
