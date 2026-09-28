@@ -50,7 +50,9 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
+def get_default_branch_ids(
+    branch: Branch | None = None, db: str | None = None
+) -> list[int]:
     """Return branch IDs to include in default queries.
 
     By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
@@ -63,6 +65,9 @@ def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
         List containing the default branch and current branch if different.
     """
     if branch is None:
+        # immediately return main branch on Model.connect() queries
+        if db not in {"default", None} and db != setup_settings.instance.slug:
+            return [1]
         branch_id = setup_settings.branch.id
     else:
         branch_id = branch.id
@@ -264,7 +269,7 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     expressions_have_branch = True
                     break
             if not expressions_have_branch and not queries_contain_branch(queries):
-                expressions["branch_id__in"] = get_default_branch_ids()
+                expressions["branch_id__in"] = get_default_branch_ids(db=queryset.db)
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
@@ -654,7 +659,9 @@ def get_feature_annotate_kwargs(
                 value_relation_path,
                 condition=Q(
                     **{
-                        f"{value_relation_path}__branch_id__in": get_default_branch_ids()
+                        f"{value_relation_path}__branch_id__in": get_default_branch_ids(
+                            db=qs.db
+                        )
                     }
                 ),
             )

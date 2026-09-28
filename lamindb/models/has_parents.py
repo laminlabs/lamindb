@@ -37,8 +37,6 @@ def _query_relatives(
     *,
     depth: int | None = None,
 ) -> QuerySet:
-    branch_ids = get_default_branch_ids()
-
     if hasattr(records, "values_list"):
         model = records.model  # type: ignore
         using_db = records.db  # type: ignore
@@ -48,6 +46,8 @@ def _query_relatives(
         model = record.__class__
         using_db = record._state.db  # type: ignore
         frontier_ids = {r.id for r in records}  # type: ignore
+
+    branch_ids = get_default_branch_ids(db=using_db)
 
     if attr == "children":
         attr_filter = "parents__id__in"
@@ -142,7 +142,7 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
 def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
     from .query_set import get_default_branch_ids
 
-    branch_ids = get_default_branch_ids()
+    branch_ids = get_default_branch_ids(db=record._state.db)
     ancestors = []
 
     current = getattr(record, attr)

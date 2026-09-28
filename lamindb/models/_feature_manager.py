@@ -407,7 +407,7 @@ def get_categoricals_sqlite(
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
                 if hasattr(label, "branch_id"):
-                    if label.branch_id not in get_default_branch_ids():
+                    if label.branch_id not in get_default_branch_ids(db=self._state.db):
                         continue
                 label_name = getattr(label, feature_field)
                 dict_key = (feature.name, dtype_str)

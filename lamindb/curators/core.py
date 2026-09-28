@@ -395,7 +395,7 @@ def _resolve_record_categorical_from_sheet_export(
         row_record_filter["record__name__in"] = index_values
         row_record_filter["record__type_id__in"] = sheet_type_ids
 
-    branch_ids = get_default_branch_ids()
+    branch_ids = get_default_branch_ids(db=cat_vector._using)
     links = RecordRecord.objects.filter(
         **row_record_filter,
         record__branch_id__in=branch_ids,

@@ -205,7 +205,9 @@ def get_artifact_or_run_with_related(
             "RecordUser",
             "ArtifactUser",
         }:  # user does not have branch
-            filter_kwargs[f"{label_field}__branch_id__in"] = get_default_branch_ids()
+            filter_kwargs[f"{label_field}__branch_id__in"] = get_default_branch_ids(
+                db=record._state.db
+            )
         annotations[f"linkfield_{link}"] = Subquery(
             link_model.objects.filter(**filter_kwargs)
             .annotate(
