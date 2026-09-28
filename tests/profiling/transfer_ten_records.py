@@ -7,6 +7,7 @@ ln.models.sync_objects_from_database(
     uids="gL3TbX2qZQmCwTAU",
     source="laminlabs/lamindata",
     depth=1,
+    transfer="annotations",
 )
 
 

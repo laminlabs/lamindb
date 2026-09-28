@@ -31,4 +31,4 @@ jobs:
       - run: lamin connect laminlabs/lamindb-benchmarks
       - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.5
       - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 1.5
-      - run: laminprofiler check tests/profiling/transfer_ten_records.py --threshold 30 --repeats 1
+      - run: laminprofiler check tests/profiling/transfer_ten_records.py --threshold 35 --repeats 1
