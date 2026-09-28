@@ -1539,13 +1539,17 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         return FeaturePredicate(self, "__isnull", value)
 
     # manually sync this docstring across all other children of HasType
-    def query_features(self) -> QuerySet:
+    def query_features(self, depth: int | None = None) -> QuerySet:
         """Query features of sub types.
 
         While `.features` retrieves the features with the current type, this method
         also retrieves sub types and the features with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct features of this type.
         """
-        return _query_relatives([self], "features")  # type: ignore
+        return _query_relatives([self], "features", depth=depth)  # type: ignore
 
     @classmethod
     def from_dataframe(

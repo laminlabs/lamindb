@@ -861,13 +861,17 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs.update(space_branch_kwargs)
         super().__init__(**validated_kwargs)
 
-    def query_schemas(self) -> QuerySet:
+    def query_schemas(self, depth: int | None = None) -> QuerySet:
         """Query schemas of sub types.
 
         While `.schemas` retrieves the schemas with the current type, this method
         also retrieves sub types and the schemas with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct schemas of this type.
         """
-        return _query_relatives([self], "schemas")  # type: ignore
+        return _query_relatives([self], "schemas", depth=depth)  # type: ignore
 
     def _validate_kwargs_calculate_hash(
         self,
