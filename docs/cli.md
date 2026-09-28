@@ -807,7 +807,7 @@ Use `lamin io sync` to sync objects to the current database:
 
 ```
 lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE
-lamin io sync https://lamin.ai/laminlabs/lamindata/artifact/e2G7k9EVul4JbfsE --depth 0
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE --depth 1
 lamin io sync record --uid UrcIKR8v0ywim0pE --from laminlabs/lamindata
 lamin io sync artifact --key example_datasets/mini_immuno/dataset1.h5ad --from laminlabs/lamindata
 ```

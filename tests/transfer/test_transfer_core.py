@@ -669,3 +669,90 @@ def test_map_user_annotation_asks_to_add_collaborator(monkeypatch):
     with pytest.raises(NoWriteAccess, match="collaborator"):
         _map_user_annotation(source, feature=None, transfer_logs=_transfer_logs())
     assert ln.User.filter(uid=uid).one_or_none() is None
+
+
+DEPTH_ROOT = "transfer_depth_root"
+DEPTH_SUBTYPE = "transfer_depth_subtype"
+DEPTH_DIRECT = "transfer_depth_direct"
+DEPTH_GRANDCHILD = "transfer_depth_grandchild"
+_DEPTH_DELETE_ORDER = (DEPTH_GRANDCHILD, DEPTH_DIRECT, DEPTH_SUBTYPE, DEPTH_ROOT)
+
+
+def _depth_chain_uids() -> dict[str, str]:
+    """Type, subtype, one direct data record, and one record under the subtype."""
+    ln.connect("testdb1")
+    root = ln.Record.filter(name=DEPTH_ROOT, is_type=True).one_or_none()
+    if root is None:
+        root = ln.Record(name=DEPTH_ROOT, is_type=True).save()
+        subtype = ln.Record(name=DEPTH_SUBTYPE, is_type=True, type=root).save()
+        ln.Record(name=DEPTH_DIRECT, type=root).save()
+        ln.Record(name=DEPTH_GRANDCHILD, type=subtype).save()
+    return {
+        DEPTH_ROOT: ln.Record.get(name=DEPTH_ROOT, is_type=True).uid,
+        DEPTH_SUBTYPE: ln.Record.get(name=DEPTH_SUBTYPE, is_type=True).uid,
+        DEPTH_DIRECT: ln.Record.get(name=DEPTH_DIRECT).uid,
+        DEPTH_GRANDCHILD: ln.Record.get(name=DEPTH_GRANDCHILD).uid,
+    }
+
+
+def _wipe_depth_chain(uids: dict[str, str]) -> None:
+    for name in _DEPTH_DELETE_ORDER:
+        record = ln.Record.filter(uid=uids[name]).one_or_none()
+        if record is not None:
+            record.delete(permanent=True)
+
+
+def _transferred_depth_uids(uids: dict[str, str]) -> set[str]:
+    return set(
+        ln.Record.filter(uid__in=list(uids.values())).values_list("uid", flat=True)
+    )
+
+
+def test_query_records_depth_limit():
+    uids = _depth_chain_uids()
+    ln.connect("testdb1")
+    root = ln.Record.get(uids[DEPTH_ROOT])
+    one_hop = set(root.query_records(depth=1).values_list("name", flat=True))
+    assert one_hop == {DEPTH_SUBTYPE, DEPTH_DIRECT}
+    full = set(root.query_records().values_list("name", flat=True))
+    assert full == {DEPTH_SUBTYPE, DEPTH_DIRECT, DEPTH_GRANDCHILD}
+
+
+def test_transfer_depth_follows_type_children():
+    user_handle = ln.setup.settings.user.handle
+    uids = _depth_chain_uids()
+    ln.connect("testdb2")
+    db1 = ln.DB(f"{user_handle}/testdb1")
+
+    _wipe_depth_chain(uids)
+    db1.Record.get(uids[DEPTH_ROOT]).save(depth=0)
+    assert _transferred_depth_uids(uids) == {uids[DEPTH_ROOT]}
+
+    _wipe_depth_chain(uids)
+    db1.Record.get(uids[DEPTH_ROOT]).save(depth=1)
+    assert _transferred_depth_uids(uids) == {
+        uids[DEPTH_ROOT],
+        uids[DEPTH_SUBTYPE],
+        uids[DEPTH_DIRECT],
+    }
+
+    _wipe_depth_chain(uids)
+    db1.Record.get(uids[DEPTH_ROOT]).save(depth=2)
+    assert _transferred_depth_uids(uids) == set(uids.values())
+    _wipe_depth_chain(uids)
+
+
+def test_depth_rejected_for_non_hastype_and_none():
+    from lamindb.models._transfer import sync_objects_from_database
+
+    user_handle = ln.setup.settings.user.handle
+    ln.connect("testdb2")
+    artifact = ln.DB(f"{user_handle}/testdb1").Artifact.get(key="README.md")
+    with pytest.raises(ValueError, match="depth applies only"):
+        artifact.save(depth=1)
+    with pytest.raises(ValueError, match="depth must be an int >= 0"):
+        artifact.save(depth=None)
+    with pytest.raises(ValueError, match="depth must be an int >= 0"):
+        sync_objects_from_database(
+            "record", "not-a-uid", source=f"{user_handle}/testdb1", depth=None
+        )

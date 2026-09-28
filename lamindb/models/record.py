@@ -1576,13 +1576,17 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "children")  # type: ignore
 
-    def query_records(self) -> QuerySet:
+    def query_records(self, depth: int | None = None) -> QuerySet:
         """Query records of sub types.
 
         While `.records` retrieves the records with the current type, this method
         also retrieves sub types and the records with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct records of this type.
         """
-        return _query_relatives([self], "records")  # type: ignore
+        return _query_relatives([self], "records", depth=depth)  # type: ignore
 
     def _set_export_run(
         self,

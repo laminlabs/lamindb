@@ -34,6 +34,8 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 def _query_relatives(
     records: BasicQuerySet | list[HasParents],
     attr: Literal["children", "parents"] | str,
+    *,
+    depth: int | None = None,
 ) -> QuerySet:
     branch_ids = get_default_branch_ids()
 
@@ -56,8 +58,12 @@ def _query_relatives(
 
     seen_ids = set(frontier_ids)  # copies
     results = set()
+    level = 0
 
     while frontier_ids:
+        # ``None`` walks the whole chain. A positive int stops after that many hops.
+        if depth is not None and level >= depth:
+            break
         relatives_qs = model.connect(using_db).filter(
             branch_id__in=branch_ids, **{attr_filter: frontier_ids}
         )
@@ -67,6 +73,7 @@ def _query_relatives(
         results.update(next_ids)
         seen_ids.update(next_ids)
         frontier_ids = next_ids
+        level += 1
 
     return model.connect(using_db).filter(id__in=results)
 

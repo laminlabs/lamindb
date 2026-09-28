@@ -293,13 +293,17 @@ class Reference(
             **space_branch_kwargs,
         )
 
-    def query_references(self) -> QuerySet:
+    def query_references(self, depth: int | None = None) -> QuerySet:
         """Query references of sub types.
 
         While `.references` retrieves the references with the current type, this method
         also retrieves sub types and the references with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct references of this type.
         """
-        return _query_relatives([self], "references")  # type: ignore
+        return _query_relatives([self], "references", depth=depth)  # type: ignore
 
 
 class Project(
@@ -604,13 +608,17 @@ class Project(
             raise ValueError(f"Invalid project status. Expected one of: {expected}.")
         self._status_code = PROJECT_STATUS_TO_CODE[value]
 
-    def query_projects(self) -> QuerySet:
+    def query_projects(self, depth: int | None = None) -> QuerySet:
         """Query projects of sub types.
 
         While `.projects` retrieves the projects with the current type, this method
         also retrieves sub types and the projects with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct projects of this type.
         """
-        return _query_relatives([self], "projects")  # type: ignore
+        return _query_relatives([self], "projects", depth=depth)  # type: ignore
 
 
 class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
