@@ -29,6 +29,8 @@ from lamindb.models._transfer import (
     REGISTRY_UNIQUE_FIELD,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
+    unreadable_annotation_warning,
+    unreadable_feature_annotations,
 )
 from lamindb.models.feature import (
     serialize_pandas_dtype,
@@ -405,7 +407,12 @@ def get_categoricals_sqlite(
                 dtype_str = feature._dtype_str
                 feature_field = parse_dtype(dtype_str)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
-                label = getattr(link, link_attr)
+                try:
+                    label = getattr(link, link_attr)
+                except DoesNotExist:
+                    # Same for the value. Postgres drops the link in the join;
+                    # sqlite has to skip it here.
+                    continue
                 if hasattr(label, "branch_id"):
                     if label.branch_id not in get_default_branch_ids():
                         continue
@@ -544,6 +551,20 @@ def create_feature_table(
     return table
 
 
+def warn_unreadable_annotations(record, feature_name: str | None = None) -> None:
+    """Warn when feature links point at rows this account cannot read.
+
+    Link rows stay visible when the value is in another space. ``describe()``
+    and ``get_values()`` omit those values; this says which features are missing.
+    """
+    gaps = unreadable_feature_annotations(record)
+    if feature_name is not None:
+        gaps = [gap for gap in gaps if gap.feature_name == feature_name]
+    if not gaps:
+        return
+    logger.warning(unreadable_annotation_warning(record, gaps))
+
+
 def get_features_data(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
@@ -560,6 +581,8 @@ def get_features_data(
             return dictionary
         else:
             raise NotImplementedError
+
+    warn_unreadable_annotations(self)
 
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
@@ -1393,6 +1416,7 @@ class FeatureManager:
                 else:
                     value_records[registry_name] = feature_values_qs
 
+        warn_unreadable_annotations(self._host, feature_name=feature)
         return (
             next(iter(value_records.values()))
             if len(value_records) == 1

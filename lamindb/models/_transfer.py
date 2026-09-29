@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import lamindb_setup as ln_setup
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db import ProgrammingError
 from django.db.models import QuerySet as DjangoQuerySet
 from lamin_utils import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
+from lamindb_setup.errors import NoReadAccess
 
 from ..errors import NoWriteAccess, ValidationError
 from .sqlrecord import BaseSQLRecord, Space, SQLRecord
@@ -260,26 +263,214 @@ def _map_user_annotation(source_user, feature, transfer_logs: dict):
     return getattr(local, _user_annotation_field(feature))
 
 
+@dataclass
+class AnnotationGap:
+    """A feature link whose feature or value is not visible to this account.
+
+    ``feature_name`` is set only when the feature row itself can be read.
+    ``hidden_value_ids`` are ids already stored on the link table.
+    """
+
+    feature_id: int | None
+    feature_name: str | None
+    feature_uid: str | None
+    value_model: str | None
+    hidden_value_ids: list[int]
+    n_total: int
+    n_hidden: int
+
+
+def _annotation_value_links(record):
+    """Yield ``(accessor, value_field)`` for feature-value link tables.
+
+    Link tables have no space of their own, so their rows stay visible when the
+    value (or the feature) is in a space this account cannot read.
+    """
+    for rel in record._meta.related_objects:
+        accessor = rel.get_accessor_name()
+        if not accessor or not str(accessor).startswith("values_"):
+            continue
+        model = rel.related_model
+        try:
+            value_field = model._meta.get_field("value")
+        except FieldDoesNotExist:
+            # Run.values_artifact stores the target as `artifact`, not `value`.
+            continue
+        yield accessor, value_field
+
+
+def _manager(model, using: str | None):
+    manager = model.objects
+    if using is not None:
+        manager = manager.using(using)
+    return manager
+
+
+def _visible_ids(model, ids: set[int], using: str | None) -> set[int]:
+    if not ids:
+        return set()
+    # `id__in` skips the default branch filter and still applies row-level
+    # security, so a missing id is a row this account cannot read.
+    return set(
+        _manager(model, using).filter(id__in=list(ids)).values_list("id", flat=True)
+    )
+
+
+def unreadable_feature_annotations(record) -> list[AnnotationGap]:
+    """Feature annotations whose feature or value this account cannot read."""
+    from .feature import Feature
+
+    using = record._state.db
+    gaps: list[AnnotationGap] = []
+    for accessor, value_field in _annotation_value_links(record):
+        qs = getattr(record, accessor).order_by("id")
+        relational = bool(getattr(value_field, "is_relation", False))
+        if relational:
+            rows = list(qs.values_list("feature_id", "value_id"))
+            value_model_name = value_field.related_model.__name__
+            visible_values = _visible_ids(
+                value_field.related_model,
+                {value_id for _, value_id in rows if value_id is not None},
+                using,
+            )
+        else:
+            rows = [
+                (feature_id, None)
+                for feature_id in qs.values_list("feature_id", flat=True)
+            ]
+            value_model_name = None
+        feature_ids = {feature_id for feature_id, _ in rows if feature_id is not None}
+        feature_info: dict[int, tuple[str, str]] = {}
+        if feature_ids:
+            feature_info = {
+                feature_id: (name, uid)
+                for feature_id, name, uid in _manager(Feature, using)
+                .filter(id__in=list(feature_ids))
+                .values_list("id", "name", "uid")
+            }
+        by_feature: dict[int | None, dict] = {}
+        for feature_id, value_id in rows:
+            slot = by_feature.setdefault(feature_id, {"total": 0, "hidden_ids": []})
+            slot["total"] += 1
+            if relational and value_id is not None and value_id not in visible_values:
+                slot["hidden_ids"].append(value_id)
+        for feature_id, (name, uid) in feature_info.items():
+            slot = by_feature[feature_id]
+            if not slot["hidden_ids"]:
+                continue
+            gaps.append(
+                AnnotationGap(
+                    feature_id=feature_id,
+                    feature_name=name,
+                    feature_uid=uid,
+                    value_model=value_model_name,
+                    hidden_value_ids=list(slot["hidden_ids"]),
+                    n_total=slot["total"],
+                    n_hidden=len(slot["hidden_ids"]),
+                )
+            )
+    return gaps
+
+
+def unreadable_annotation_warning(record, gaps: list[AnnotationGap]) -> str:
+    """Warning text for annotations omitted from describe() and get_values()."""
+    parts: list[str] = []
+    for gap in gaps:
+        if gap.n_hidden != gap.n_total:
+            parts.append(
+                f"feature {gap.feature_name!r} ({gap.n_hidden} of {gap.n_total} values)"
+            )
+        else:
+            parts.append(f"feature {gap.feature_name!r}")
+    return (
+        f"{record.__class__.__name__} {record.uid!r} has annotations this account "
+        f"cannot read: {', '.join(parts)}."
+    )
+
+
+def _blocked_annotation_message(record, gaps: list[AnnotationGap]) -> str:
+    lines = [
+        f"Cannot transfer annotations of {record.__class__.__name__} {record.uid!r}."
+    ]
+    for gap in gaps:
+        hidden_ids = ", ".join(str(value_id) for value_id in gap.hidden_value_ids)
+        id_label = "id" if len(gap.hidden_value_ids) == 1 else "ids"
+        partial = ""
+        if gap.n_hidden != gap.n_total:
+            partial = f" ({gap.n_hidden} of {gap.n_total} values)"
+        lines.append(
+            f"Feature {gap.feature_name!r} (uid={gap.feature_uid}) links a "
+            f"{gap.value_model} ({id_label}={hidden_ids}){partial} that this "
+            "account cannot read."
+        )
+    lines.append("The annotation set would be incomplete.")
+    lines.append('Pass transfer="sqlrecord" to sync the object without annotations.')
+    return "\n".join(lines)
+
+
 def _linked_feature_values(record) -> list[tuple[Any, Any]]:
     """Feature values from link rows, keyed by the feature row rather than its name.
 
     Names are not unique. Several categorical links for one feature are one list.
     A JSON list stays one value because it is stored as a single JSON cell.
+
+    Raises ``NoReadAccess`` when a link points at a value this account cannot
+    read. Skipping it would transfer a partial annotation set.
     """
     grouped: dict[int, list] = {}
     features: dict[int, Any] = {}
-    for rel in record._meta.related_objects:
-        accessor = rel.get_accessor_name()
-        if not accessor or not str(accessor).startswith("values_"):
-            continue
-        for link in getattr(record, accessor).all():
+    totals: dict[tuple, int] = {}
+    gap_slots: dict[tuple, dict] = {}
+    for accessor, value_field in _annotation_value_links(record):
+        relational = bool(getattr(value_field, "is_relation", False))
+        model_name = value_field.related_model.__name__ if relational else None
+        for link in getattr(record, accessor).order_by("id"):
             feature = link.feature
+            key = ("value", feature.id)
+            totals[key] = totals.get(key, 0) + 1
+            if not relational:
+                features[feature.id] = feature
+                grouped.setdefault(feature.id, []).append(link.value)
+                continue
+            try:
+                value = link.value
+            except ObjectDoesNotExist:
+                slot = gap_slots.setdefault(
+                    key,
+                    {"feature": feature, "model": model_name, "hidden_ids": []},
+                )
+                slot["hidden_ids"].append(link.value_id)
+                continue
             features[feature.id] = feature
-            grouped.setdefault(feature.id, []).append(link.value)
+            grouped.setdefault(feature.id, []).append(value)
+    if gap_slots:
+        gaps = []
+        for key, slot in gap_slots.items():
+            feature = slot["feature"]
+            hidden_ids = list(slot["hidden_ids"])
+            gaps.append(
+                AnnotationGap(
+                    feature_id=feature.id,
+                    feature_name=feature.name,
+                    feature_uid=feature.uid,
+                    value_model=slot["model"],
+                    hidden_value_ids=hidden_ids,
+                    n_total=totals[key],
+                    n_hidden=len(hidden_ids),
+                )
+            )
+        raise NoReadAccess(_blocked_annotation_message(record, gaps))
     return [
         (features[feature_id], vals[0] if len(vals) == 1 else vals)
         for feature_id, vals in grouped.items()
     ]
+
+
+def _pop_cached_linked_values(transfer_logs: dict, record):
+    cache = transfer_logs.get("_linked_values")
+    if not isinstance(cache, dict):
+        return None
+    return cache.pop(getattr(record, "uid", None), None)
 
 
 def transfer_record_feature_values(
@@ -289,10 +480,10 @@ def transfer_record_feature_values(
 
     from .feature import Feature, parse_dtype
 
-    if source_pk is None:
-        return
-    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
-    linked_values = _linked_feature_values(source)
+    linked_values = _pop_cached_linked_values(transfer_logs, record_on_default)
+    if linked_values is None:
+        source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+        linked_values = _linked_feature_values(source)
     if not linked_values:
         return
 
@@ -380,6 +571,17 @@ def transfer_to_default_db(
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
+    # Read every annotation target before writing the row. Link tables are
+    # visible even when the value sits in a space this account cannot read,
+    # and saving first would leave a record whose annotations are not the source.
+    if (
+        transfer_annotations
+        and not stub
+        and record.__class__.__name__ in {"Record", "Run"}
+    ):
+        transfer_logs.setdefault("_linked_values", {})[record.uid] = (
+            _linked_feature_values(record)
+        )
     # Dtype text is not a foreign key. Follow it even when this feature row
     # is already on the target, so a re-transfer picks up schema__uid refs.
     if record.__class__.__name__ == "Feature":
