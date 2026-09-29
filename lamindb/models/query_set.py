@@ -9,7 +9,7 @@ from collections.abc import Iterable as IterableType
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 from django.core.exceptions import FieldError
-from django.db import models, transaction
+from django.db import connections, models, transaction
 from django.db.models import (
     Case,
     F,
@@ -50,6 +50,34 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
+def _db_is_current_instance(db: str | None) -> bool:
+    """Whether `db` is the connected instance rather than a remote database.
+
+    `None`, `"default"`, and the instance slug are local. A bare name,
+    `owner/name`, or `https://lamin.ai/owner/name` is local when it resolves to
+    the same owner and name as `SQLRecord.connect()`. An existing Django
+    connection alias stays remote unless it is the slug, because `connect()`
+    uses that alias as-is.
+    """
+    instance = setup_settings.instance
+    if db is None or db == "default" or db == instance.slug:
+        return True
+    # A registered alias is a Model.connect() database, not an unresolved name.
+    try:
+        if db in connections.databases:
+            return False
+    except Exception as e:
+        logger.warning(f"could not check database connection aliases: {e}")
+    from lamindb_setup._connect_instance import get_owner_name_from_identifier
+
+    try:
+        owner, name = get_owner_name_from_identifier(db)
+    except Exception as e:
+        logger.warning(f"could not resolve database identifier {db!r}: {e}")
+        return False
+    return owner == instance.owner and name == instance.name
+
+
 def get_default_branch_ids(
     branch: Branch | None = None, db: str | None = None
 ) -> list[int]:
@@ -65,8 +93,9 @@ def get_default_branch_ids(
         List containing the default branch and current branch if different.
     """
     if branch is None:
-        # immediately return main branch on Model.connect() queries
-        if db not in {"default", None} and db != setup_settings.instance.slug:
+        # Remote Model.connect() queries only include main. Current-instance
+        # aliases (short name, URL, slug) follow the local branch.
+        if not _db_is_current_instance(db):
             return [1]
         branch_id = setup_settings.branch.id
     else:
