@@ -141,10 +141,14 @@ ln.track(space="Our team space")
 
 ### Development directory
 
-The development directory (`dev-dir`) is the local root LaminDB uses to map script, notebook, and notes paths.
+A development directory (`dev-dir`) is one working tree: one instance, one branch, one space, and keys relative to that directory. Another branch or space is another directory. Register it with `lamin settings dev-dir set` or `lamin connect --here` inside that directory.
 
-- If a development directory is set, keys are stored as paths relative to that directory.
+- Keys of scripts, notebooks, and notes inside the directory are stored as paths relative to it.
 - Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
+- There is no dev-dir path stored in `$HOME`. The only record is `.lamin/current_instance` inside the directory.
+- `$HOME/.lamin/current_instance` remains the legacy global instance. It is not a dev-dir.
+- Outside a marked directory, `lamin settings dev-dir get` prints `None`.
+- `lamin settings dev-dir find [PATH]` lists every dev-dir under that path. The default path is `.`.
 
 Whenever you're not just reading from but writing to a LaminDB instance, configure a development directory already during connection by passing the `--here` flag:
 
@@ -155,7 +159,7 @@ lamin connect --here account/name
 You can also configure the development directory independent from connecting by running:
 
 ```bash
-lamin settings set dev-dir .
+lamin settings dev-dir set .
 ```
 
 You can see the current configuration by running:
@@ -165,35 +169,6 @@ lamin info
 ```
 
 When you `cd` into the development directory, LaminDB auto-connects to the configured database.
-
-### Worktree
-
-If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch, inspired by `git worktree`.
-
-```bash
-lamin settings set worktree true
-```
-
-In this mode, each child directory maps on a branch, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
-
-```bash
-lamin switch -c branch-a
-cd branch-a
-```
-
-Here is an examplary structure:
-
-```bash
-dbs/
-  my_instance/                # development directory (dev-dir)
-    .lamin/
-    branch-a/                 # branch directory in the worktree
-      analysis/
-        script1.py
-    branch-b/                 # another branch directory with another version of script1.py
-      analysis/
-        script1.py
-```
 
 (sync-code-with-git)=
 

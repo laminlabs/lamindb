@@ -726,15 +726,20 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                 else "script"
             )
         if key is None:
-            effective_dev_dir = ln_setup.settings.effective_dev_dir
-            if effective_dev_dir is not None:
+            from lamindb_setup.core._settings_store import dev_dir_containing
+
+            key_root = dev_dir_containing(
+                normalized_path,
+                instance_slug=ln_setup.settings.instance.slug,
+            )
+            if key_root is not None:
                 try:
-                    key = normalized_path.relative_to(effective_dev_dir).as_posix()
+                    key = normalized_path.relative_to(key_root).as_posix()
                 except ValueError as e:
                     if "subpath" in str(e):
                         logger.warning(
                             f"path {normalized_path} is not within the configured dev directory "
-                            f"({effective_dev_dir}), falling back to using filename as transform key "
+                            f"({key_root}), falling back to using filename as transform key "
                             f"('{normalized_path.name}')"
                         )
                         key = normalized_path.name

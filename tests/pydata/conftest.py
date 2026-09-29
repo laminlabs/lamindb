@@ -46,14 +46,16 @@ def pytest_sessionstart():
             db=pgurl,
         )
 
+    # init registers the pytest cwd as a dev-dir; drop that marker so the checkout stays unmarked
+    ln_setup.settings.dev_dir = None
     ln.settings.creation.artifact_silence_missing_run_warning = True
-    ln_setup.settings.worktree = False
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
+    ln_setup.settings.dev_dir = None
     shutil.rmtree("./default_storage_unit_core")
     ln.setup.delete("lamindb-unit-tests-core", force=True)
     del os.environ["LAMIN_TESTING"]
