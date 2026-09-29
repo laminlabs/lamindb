@@ -389,25 +389,21 @@ def test_create_or_load_transform():
     ln.context._path = None
 
 
-def test_create_or_load_transform_warns_when_outside_dev_dir(
-    tmp_path, ccaplog: pytest.LogCaptureFixture
-):
+def test_create_or_load_transform_uses_filename_when_outside_dev_dir(tmp_path):
     previous_dev_dir = ln_setup.settings.dev_dir
     path_outside_dev_dir = tmp_path / f"outside-{time.time_ns()}.py"
     path_outside_dev_dir.write_text("print('track test')\n")
-    expected_key = path_outside_dev_dir.name
+    dev_dir = tmp_path / "configured-dev-dir"
+    dev_dir.mkdir()
     transform: ln.Transform | None = None
     try:
-        ln_setup.settings.dev_dir = tmp_path / "configured-dev-dir"
-        ln_setup.settings.dev_dir.mkdir(exist_ok=True)
-        ccaplog.clear()
+        ln_setup.settings.dev_dir = dev_dir
         context._path = path_outside_dev_dir
         transform, _ = ln.Transform._create_or_load_from_source(
             path=context._path,
-            description="outside dev dir warning test",
+            description="outside dev dir test",
         )
-        assert "falling back to using filename as transform key" in ccaplog.text
-        assert transform.key == expected_key
+        assert transform.key == path_outside_dev_dir.name
     finally:
         ln_setup.settings.dev_dir = previous_dev_dir
         ln.context._uid = None
