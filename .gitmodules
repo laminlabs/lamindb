@@ -10,6 +10,3 @@
 [submodule "sub/pertdb"]
 	path = sub/pertdb
 	url = https://github.com/laminlabs/pertdb
-[submodule "lamindb/.agents"]
-	path = lamindb/.agents
-	url = https://github.com/laminlabs/lamin-skills
