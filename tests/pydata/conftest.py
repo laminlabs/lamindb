@@ -46,8 +46,8 @@ def pytest_sessionstart():
             db=pgurl,
         )
 
-    # init registers the pytest cwd as a dev-dir; drop that marker so the checkout stays unmarked
-    ln_setup.settings.dev_dir = None
+    # Keep the dev-dir marker init writes. Notebook subprocesses auto-connect through it.
+    # sessionfinish removes it so the checkout does not stay marked.
     ln.settings.creation.artifact_silence_missing_run_warning = True
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
