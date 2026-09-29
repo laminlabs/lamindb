@@ -74,19 +74,11 @@ transform.latest_run.report       # report of latest run
 transform.latest_run.environment  # environment of latest run
 ```
 
-<!-- #endregion -->
-
-<!-- #region -->
-
 You can use the CLI to load a transform into your current (development) directory:
 
 ```bash
 lamin load --key my_analyses/my_notebook.ipynb
 ```
-
-<!-- #endregion -->
-
-<!-- #region -->
 
 Here is how you'd load the [notebook from the video](https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ) into your local directory:
 
