@@ -1,6 +1,5 @@
 import lamindb as ln
 
-db = ln.DB("laminlabs/lamindata")
 # transfer the RNA-seq frame from lamindata to lamindb-benchmarks
 ln.models.sync_objects_from_database(
     registry="record",
