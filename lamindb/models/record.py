@@ -1696,7 +1696,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self = cls_or_self
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
 
-        branch_ids = get_default_branch_ids()
+        branch_ids = get_default_branch_ids(db=self._state.db)
         qs = (
             self.query_records()
             if recurse
