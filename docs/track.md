@@ -74,19 +74,11 @@ transform.latest_run.report       # report of latest run
 transform.latest_run.environment  # environment of latest run
 ```
 
-<!-- #endregion -->
-
-<!-- #region -->
-
 You can use the CLI to load a transform into your current (development) directory:
 
 ```bash
 lamin load --key my_analyses/my_notebook.ipynb
 ```
-
-<!-- #endregion -->
-
-<!-- #region -->
 
 Here is how you'd load the [notebook from the video](https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ) into your local directory:
 
@@ -141,59 +133,28 @@ ln.track(space="Our team space")
 
 ### Development directory
 
-The development directory (`dev-dir`) is the local root LaminDB uses to map script, notebook, and notes paths.
-
-- If a development directory is set, keys are stored as paths relative to that directory.
-- Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
-
-Whenever you're not just reading from but writing to a LaminDB instance, configure a development directory already during connection by passing the `--here` flag:
+A development directory (`dev-dir`) is a local working directory that configures one database and one branch, similar to a git repository. You can connect a database inside any directory:
 
 ```bash
-lamin connect --here account/name
+lamin connect account/name --here
 ```
 
-You can also configure the development directory independent from connecting by running:
-
-```bash
-lamin settings set dev-dir .
-```
-
-You can see the current configuration by running:
+You can see the current configuration anywhere in your system by running:
 
 ```bash
 lamin info
 ```
 
-When you `cd` into the development directory, LaminDB auto-connects to the configured database.
+To disconnect a directory from a database, run `lamin disconnect --here`.
 
-### Worktree
+When you work with agents who should perform decoupled work on different branches of the same database **at the same time**, you need to make a development directory for every branch, similar to what you'd with `git worktree`.
 
-If you enable worktree mode, LaminDB interprets `dev-dir` as a parent directory that contains one child directory per branch, inspired by `git worktree`.
+:::{dropdown} Finding your development directories
 
-```bash
-lamin settings set worktree true
-```
+- Outside a marked directory, `lamin settings dev-dir get` prints `None`.
+- `lamin settings dev-dir find [PATH]` lists every development directory under that path. The default path is `.`.
 
-In this mode, each child directory maps on a branch, which is useful if multiple agents work in parallel on different branches in the same environment. Typical flow:
-
-```bash
-lamin switch -c branch-a
-cd branch-a
-```
-
-Here is an examplary structure:
-
-```bash
-dbs/
-  my_instance/                # development directory (dev-dir)
-    .lamin/
-    branch-a/                 # branch directory in the worktree
-      analysis/
-        script1.py
-    branch-b/                 # another branch directory with another version of script1.py
-      analysis/
-        script1.py
-```
+:::
 
 (sync-code-with-git)=
 

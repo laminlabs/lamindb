@@ -728,18 +728,15 @@ Get or set the following settings:
 - `modules` → environment schema modules {attr}`~lamindb.setup.core.SetupSettings.modules`
 - `branch` → current {attr}`~lamindb.setup.core.SetupSettings.branch`
 - `space` → current {attr}`~lamindb.setup.core.SetupSettings.space`
-- `worktree` → toggle {attr}`~lamindb.setup.core.SetupSettings.worktree` mode (dev-dir is a worktree parent where each child directory maps on a branch)
 
 You can display your current settings by running: `lamin info`
 
 Examples:
 
 ```
-# dev-dir
+# dev-dir (created by lamin init or lamin connect <account/name> --here)
 lamin settings dev-dir get
-lamin settings dev-dir set .  # set to current directory
-lamin settings dev-dir set ~/my-project
-lamin settings dev-dir unset
+lamin settings dev-dir find .
 # cache-dir
 lamin settings cache-dir get
 lamin settings cache-dir set /path/to/cache
@@ -754,10 +751,6 @@ lamin settings branch set main
 # space
 lamin settings space get
 lamin settings space set all
-# worktree
-lamin settings worktree get
-lamin settings worktree set true
-lamin settings worktree unset
 # mount
 lamin settings mount storage ./mnt
 lamin settings mount unset ./mnt
@@ -773,10 +766,9 @@ Options:
 
 Commands:
   cache-dir  Get, set, reset, or clear the cache directory.
-  dev-dir    Get or set the development directory.
+  dev-dir    Get or find development directories.
   modules    Get or set environment schema modules.
   mount      Mount storage locations read-only via an installed FUSE...
-  worktree   Get or set whether dev-dir is interpreted as a worktree parent.
 ```
 
 → Python/R alternative: {attr}`~lamindb.setup.core.SetupSettings.dev_dir`, {attr}`~lamindb.setup.core.SetupSettings.cache_dir`, {attr}`~lamindb.setup.core.SetupSettings.modules`, {attr}`~lamindb.setup.core.SetupSettings.branch`, and {attr}`~lamindb.setup.core.SetupSettings.space`
