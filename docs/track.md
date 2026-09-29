@@ -141,28 +141,28 @@ ln.track(space="Our team space")
 
 ### Development directory
 
-A development directory (`dev-dir`) is one working tree: one instance, one branch, one space, and keys relative to that directory. Another branch or space is another directory. `lamin init` creates one in the working directory. To use an existing instance, connect inside that directory:
+A development directory (`dev-dir`) is a local working directory that configures one database and one branch, similar to a git repository. You can connect a database inside any directory:
 
 ```bash
 lamin connect account/name --here
 ```
 
-Remove it with `lamin disconnect --here`.
-
-- Keys of scripts, notebooks, and notes inside the directory are stored as paths relative to it.
-- Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
-- There is no dev-dir path stored in `$HOME`. The only record is `.lamin/current_instance` inside the directory.
-- `$HOME/.lamin/current_instance` remains the legacy global instance. It is not a dev-dir.
-- Outside a marked directory, `lamin settings dev-dir get` prints `None`.
-- `lamin settings dev-dir find [PATH]` lists every dev-dir under that path. The default path is `.`.
-
-You can see the current configuration by running:
+You can see the current configuration anywhere in your system by running:
 
 ```bash
 lamin info
 ```
 
-When you `cd` into the development directory, LaminDB auto-connects to the configured database.
+To disconnect a directory from a database, run `lamin disconnect --here`.
+
+When you work with agents who should perform decoupled work on different branches of the same database **at the same time**, you need to make a development directory for every branch, similar to what you'd with `git worktree`.
+
+:::{dropdown} Finding your development directories
+
+- Outside a marked directory, `lamin settings dev-dir get` prints `None`.
+- `lamin settings dev-dir find [PATH]` lists every development directory under that path. The default path is `.`.
+
+:::
 
 (sync-code-with-git)=
 
