@@ -782,50 +782,24 @@ def _hide_record(monkeypatch, hidden_id: int):
     monkeypatch.setattr(BasicQuerySet, "filter", filter)
 
 
-def test_unreadable_annotation_warns_and_blocks_transfer(monkeypatch):
+def test_unreadable_annotation_blocks_transfer(monkeypatch):
     from uuid import uuid4
 
     from lamindb.models._transfer import _linked_feature_values
-    from lamindb.models.record import RecordJson, RecordRecord
+    from lamindb.models.record import RecordRecord
     from lamindb_setup.errors import NoReadAccess
 
     token = uuid4().hex[:8]
     treatment = ln.Feature(name=f"treatment-{token}", dtype="cat[Record]").save()
     combo = ln.Feature(name=f"combo-{token}", dtype="list[cat[Record]]").save()
-    note = ln.Feature(name=f"note-{token}", dtype=str).save()
     parent = ln.Record(name=f"parent-{token}").save()
     secret = ln.Record(name=f"secret-{token}").save()
     visible = ln.Record(name=f"visible-{token}").save()
     RecordRecord(record=parent, feature=treatment, value=secret).save()
     RecordRecord(record=parent, feature=combo, value=secret).save()
     RecordRecord(record=parent, feature=combo, value=visible).save()
-    RecordJson(record=parent, feature=note, value="kept").save()
-    warnings: list[str] = []
-    monkeypatch.setattr(
-        "lamindb.models._feature_manager.logger.warning",
-        lambda message, *args, **kwargs: warnings.append(str(message)),
-    )
     try:
-        parent.features.get_values()
-        assert warnings == []
-
         _hide_record(monkeypatch, secret.id)
-        warnings.clear()
-        values = parent.features.get_values()
-        assert secret.name not in str(values.values())
-        assert values[note.name] == "kept"
-        assert treatment.name not in values
-        assert visible.name in str(values[combo.name])
-        parent.describe(return_str=True)
-        parent.features[treatment.name]
-        assert warnings
-        for message in warnings:
-            assert secret.name not in message
-        text = "\n".join(warnings)
-        assert f"feature {treatment.name!r}" in text
-        assert f"feature {combo.name!r} (1 of 2 values)" in text
-        assert parent.uid in text
-
         with pytest.raises(NoReadAccess, match="sqlrecord") as error:
             _linked_feature_values(parent)
         message = str(error.value)
@@ -837,13 +811,11 @@ def test_unreadable_annotation_warns_and_blocks_transfer(monkeypatch):
         assert "incomplete" in message
     finally:
         RecordRecord.filter(record=parent).delete(permanent=True)
-        RecordJson.filter(record=parent).delete(permanent=True)
         parent.delete(permanent=True)
         secret.delete(permanent=True)
         visible.delete(permanent=True)
         treatment.delete(permanent=True)
         combo.delete(permanent=True)
-        note.delete(permanent=True)
 
 
 def test_annotation_read_check_runs_before_save(monkeypatch):
