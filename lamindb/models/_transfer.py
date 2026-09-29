@@ -132,7 +132,6 @@ def get_transfer_run(record) -> Run:
     from lamindb import settings
     from lamindb.core._context import context
     from lamindb.models import Run, Transform
-    from lamindb.models._lineage import WARNING_RUN_TRANSFORM
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
@@ -153,13 +152,9 @@ def get_transfer_run(record) -> Run:
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
         settings.creation.search_names = search_names
-    # use the global run context to get the initiated_by_run run id
-    if context.run is not None:
-        initiated_by_run = context.run
-    else:
-        if not settings.creation.artifact_silence_missing_run_warning:
-            logger.warning(WARNING_RUN_TRANSFORM)
-        initiated_by_run = None
+    # The transfer run is the lineage. An ambient ln.track() run, when present,
+    # is only the parent (initiated_by_run). `lamin io sync` has no such parent.
+    initiated_by_run = context.run
     # it doesn't seem to make sense to create new runs for every transfer
     run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
