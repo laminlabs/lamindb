@@ -734,11 +734,8 @@ You can display your current settings by running: `lamin info`
 Examples:
 
 ```
-# dev-dir
+# dev-dir (created by lamin init or lamin connect <account/name> --here)
 lamin settings dev-dir get
-lamin settings dev-dir set .  # set to current directory
-lamin settings dev-dir set ~/my-project
-lamin settings dev-dir unset
 lamin settings dev-dir find .
 # cache-dir
 lamin settings cache-dir get
@@ -769,7 +766,7 @@ Options:
 
 Commands:
   cache-dir  Get, set, reset, or clear the cache directory.
-  dev-dir    Get, set, or find development directories.
+  dev-dir    Get or find development directories.
   modules    Get or set environment schema modules.
   mount      Mount storage locations read-only via an installed FUSE...
 ```

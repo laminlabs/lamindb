@@ -141,7 +141,13 @@ ln.track(space="Our team space")
 
 ### Development directory
 
-A development directory (`dev-dir`) is one working tree: one instance, one branch, one space, and keys relative to that directory. Another branch or space is another directory. Register it with `lamin settings dev-dir set` or `lamin connect --here` inside that directory.
+A development directory (`dev-dir`) is one working tree: one instance, one branch, one space, and keys relative to that directory. Another branch or space is another directory. `lamin init` creates one in the working directory. To use an existing instance, connect inside that directory:
+
+```bash
+lamin connect account/name --here
+```
+
+Remove it with `lamin disconnect --here`.
 
 - Keys of scripts, notebooks, and notes inside the directory are stored as paths relative to it.
 - Packaged source code uses `pypackages/{package_name}/path/to/file.py`.
@@ -149,18 +155,6 @@ A development directory (`dev-dir`) is one working tree: one instance, one branc
 - `$HOME/.lamin/current_instance` remains the legacy global instance. It is not a dev-dir.
 - Outside a marked directory, `lamin settings dev-dir get` prints `None`.
 - `lamin settings dev-dir find [PATH]` lists every dev-dir under that path. The default path is `.`.
-
-Whenever you're not just reading from but writing to a LaminDB instance, configure a development directory already during connection by passing the `--here` flag:
-
-```bash
-lamin connect --here account/name
-```
-
-You can also configure the development directory independent from connecting by running:
-
-```bash
-lamin settings dev-dir set .
-```
 
 You can see the current configuration by running:
 
