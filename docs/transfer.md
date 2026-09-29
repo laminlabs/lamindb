@@ -27,7 +27,7 @@ You can pass the `--transfer` argument, which dictates which related objects are
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-The analogous `transfer` argument is also available on the API.
+You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy.
 
 ## Via the API
 

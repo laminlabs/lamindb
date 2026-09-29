@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import lamindb_setup as ln_setup
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db import ProgrammingError
 from django.db.models import QuerySet as DjangoQuerySet
 from lamin_utils import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
+from lamindb_setup.errors import NoReadAccess
 
 from ..errors import NoWriteAccess, ValidationError
 from .sqlrecord import BaseSQLRecord, Space, SQLRecord
@@ -132,7 +135,6 @@ def get_transfer_run(record) -> Run:
     from lamindb import settings
     from lamindb.core._context import context
     from lamindb.models import Run, Transform
-    from lamindb.models._lineage import WARNING_RUN_TRANSFORM
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
@@ -153,13 +155,9 @@ def get_transfer_run(record) -> Run:
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
         settings.creation.search_names = search_names
-    # use the global run context to get the initiated_by_run run id
-    if context.run is not None:
-        initiated_by_run = context.run
-    else:
-        if not settings.creation.artifact_silence_missing_run_warning:
-            logger.warning(WARNING_RUN_TRANSFORM)
-        initiated_by_run = None
+    # The transfer run is the lineage. An ambient ln.track() run, when present,
+    # is only the parent (initiated_by_run). `lamin io sync` has no such parent.
+    initiated_by_run = context.run
     # it doesn't seem to make sense to create new runs for every transfer
     run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
@@ -265,26 +263,125 @@ def _map_user_annotation(source_user, feature, transfer_logs: dict):
     return getattr(local, _user_annotation_field(feature))
 
 
+@dataclass
+class AnnotationGap:
+    """A feature link whose feature or value is not visible to this account.
+
+    ``feature_name`` is set only when the feature row itself can be read.
+    ``hidden_value_ids`` are ids already stored on the link table.
+    """
+
+    feature_id: int | None
+    feature_name: str | None
+    feature_uid: str | None
+    value_model: str | None
+    hidden_value_ids: list[int]
+    n_total: int
+    n_hidden: int
+
+
+def _annotation_value_links(record):
+    """Yield ``(accessor, value_field)`` for feature-value link tables.
+
+    Link tables have no space of their own, so their rows stay visible when the
+    value (or the feature) is in a space this account cannot read.
+    """
+    for rel in record._meta.related_objects:
+        accessor = rel.get_accessor_name()
+        if not accessor or not str(accessor).startswith("values_"):
+            continue
+        model = rel.related_model
+        try:
+            value_field = model._meta.get_field("value")
+        except FieldDoesNotExist:
+            # Run.values_artifact stores the target as `artifact`, not `value`.
+            continue
+        yield accessor, value_field
+
+
+def _blocked_annotation_message(record, gaps: list[AnnotationGap]) -> str:
+    lines = [
+        f"Cannot transfer annotations of {record.__class__.__name__} {record.uid!r}."
+    ]
+    for gap in gaps:
+        hidden_ids = ", ".join(str(value_id) for value_id in gap.hidden_value_ids)
+        id_label = "id" if len(gap.hidden_value_ids) == 1 else "ids"
+        partial = ""
+        if gap.n_hidden != gap.n_total:
+            partial = f" ({gap.n_hidden} of {gap.n_total} values)"
+        lines.append(
+            f"Feature {gap.feature_name!r} (uid={gap.feature_uid}) links a "
+            f"{gap.value_model} ({id_label}={hidden_ids}){partial} that this "
+            "account cannot read."
+        )
+    lines.append("The annotation set would be incomplete.")
+    lines.append('Pass transfer="sqlrecord" to sync the object without annotations.')
+    return "\n".join(lines)
+
+
 def _linked_feature_values(record) -> list[tuple[Any, Any]]:
     """Feature values from link rows, keyed by the feature row rather than its name.
 
     Names are not unique. Several categorical links for one feature are one list.
     A JSON list stays one value because it is stored as a single JSON cell.
+
+    Raises ``NoReadAccess`` when a link points at a value this account cannot
+    read. Skipping it would transfer a partial annotation set.
     """
     grouped: dict[int, list] = {}
     features: dict[int, Any] = {}
-    for rel in record._meta.related_objects:
-        accessor = rel.get_accessor_name()
-        if not accessor or not str(accessor).startswith("values_"):
-            continue
-        for link in getattr(record, accessor).all():
+    totals: dict[tuple, int] = {}
+    gap_slots: dict[tuple, dict] = {}
+    for accessor, value_field in _annotation_value_links(record):
+        relational = bool(getattr(value_field, "is_relation", False))
+        model_name = value_field.related_model.__name__ if relational else None
+        for link in getattr(record, accessor).order_by("id"):
             feature = link.feature
+            key = ("value", feature.id)
+            totals[key] = totals.get(key, 0) + 1
+            if not relational:
+                features[feature.id] = feature
+                grouped.setdefault(feature.id, []).append(link.value)
+                continue
+            try:
+                value = link.value
+            except ObjectDoesNotExist:
+                slot = gap_slots.setdefault(
+                    key,
+                    {"feature": feature, "model": model_name, "hidden_ids": []},
+                )
+                slot["hidden_ids"].append(link.value_id)
+                continue
             features[feature.id] = feature
-            grouped.setdefault(feature.id, []).append(link.value)
+            grouped.setdefault(feature.id, []).append(value)
+    if gap_slots:
+        gaps = []
+        for key, slot in gap_slots.items():
+            feature = slot["feature"]
+            hidden_ids = list(slot["hidden_ids"])
+            gaps.append(
+                AnnotationGap(
+                    feature_id=feature.id,
+                    feature_name=feature.name,
+                    feature_uid=feature.uid,
+                    value_model=slot["model"],
+                    hidden_value_ids=hidden_ids,
+                    n_total=totals[key],
+                    n_hidden=len(hidden_ids),
+                )
+            )
+        raise NoReadAccess(_blocked_annotation_message(record, gaps))
     return [
         (features[feature_id], vals[0] if len(vals) == 1 else vals)
         for feature_id, vals in grouped.items()
     ]
+
+
+def _pop_cached_linked_values(transfer_logs: dict, record):
+    cache = transfer_logs.get("_linked_values")
+    if not isinstance(cache, dict):
+        return None
+    return cache.pop(getattr(record, "uid", None), None)
 
 
 def transfer_record_feature_values(
@@ -294,10 +391,10 @@ def transfer_record_feature_values(
 
     from .feature import Feature, parse_dtype
 
-    if source_pk is None:
-        return
-    source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
-    linked_values = _linked_feature_values(source)
+    linked_values = _pop_cached_linked_values(transfer_logs, record_on_default)
+    if linked_values is None:
+        source = record_on_default.__class__.objects.using(source_db).get(pk=source_pk)
+        linked_values = _linked_feature_values(source)
     if not linked_values:
         return
 
@@ -385,6 +482,17 @@ def transfer_to_default_db(
 ) -> SQLRecord | None:
     if record._state.db is None or record._state.db == "default":
         return None
+    # Read every annotation target before writing the row. Link tables are
+    # visible even when the value sits in a space this account cannot read,
+    # and saving first would leave a record whose annotations are not the source.
+    if (
+        transfer_annotations
+        and not stub
+        and record.__class__.__name__ in {"Record", "Run"}
+    ):
+        transfer_logs.setdefault("_linked_values", {})[record.uid] = (
+            _linked_feature_values(record)
+        )
     # Dtype text is not a foreign key. Follow it even when this feature row
     # is already on the target, so a re-transfer picks up schema__uid refs.
     if record.__class__.__name__ == "Feature":
