@@ -11,8 +11,6 @@ Official LaminDB skill to write code with best practices, keeping up to date wit
 
 Run `lamin --skill-version` only after the user agrees to track, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` (add `--claude` for Claude Code). Do not continue tracking on the old skill.
 
-> Agent tracking requires lamindb >= 2.11.
-
 ## Concepts
 
 - **Transform**: code, not data. Each coding agent/harness has its own fixed Transform for the whole project representing that harness's sessions (the "agent run") — internally keyed `__claudecode__` for Claude Code, `__copilot__` for Copilot, and `__cursor__` for Cursor. **These are internal database identifiers only, never CLI arguments or command names** — the actual commands are `lamin track claude`, `lamin track copilot`, and `lamin track cursor`; see your harness's reference file for the exact syntax. **Any script you write to accomplish the user's task (`.py`/`.ipynb`/`.R`/`.Rmd`/`.qmd`) is its own separate Transform, tracked automatically the moment it runs** — never save a script as a plain Artifact. Getting this backwards destroys the lineage from script to the data it produced, which is the entire point of LaminDB.
@@ -206,4 +204,4 @@ If Step 1 printed `NOT_FOUND`, there is no run to close — skip Step 3 entirely
 - [Track Claude Code sessions](references/track_claude.md).
 - [Track Copilot sessions](references/track_copilot.md). If this Copilot chat spawned a child, read that file first and skip dev-dir / branch / track.
 - [Track Cursor IDE sessions](references/track_cursor.md).
-- [Curate datasets](references/curate_datasets.md).
+- [Curate a dataframe](references/curate_a_dataframe.md).
