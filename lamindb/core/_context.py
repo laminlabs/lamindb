@@ -191,13 +191,11 @@ def get_notebook_path() -> tuple[Path, str]:
     if marimo_path is not None:
         return Path(marimo_path), "marimo"
 
-    from nbproject.dev._jupyter_communicate import (
-        notebook_path as get_notebook_path,
-    )
+    from lamindb.integrations.jupyter import notebook_path
 
     path = None
     try:
-        path, env = get_notebook_path(return_env=True)
+        path, env = notebook_path(return_env=True)
     except ValueError as ve:
         raise ve
     except Exception as error:
@@ -1216,15 +1214,12 @@ class Context:
             path_str = get_notebook_key_colab()
             path = Path(path_str)
         else:
-            from nbproject.dev import read_notebook
-            from nbproject.dev._meta_live import get_title
+            from lamindb.integrations.jupyter import get_title, read_notebook
 
             try:
-                nb = read_notebook(path_str)
-
-                nbproject_title = get_title(nb)
-                if nbproject_title is not None:
-                    description = nbproject_title
+                nb_title = get_title(read_notebook(path_str))
+                if nb_title is not None:
+                    description = nb_title
             except Exception:
                 logger.debug("reading the notebook file failed")
                 pass
