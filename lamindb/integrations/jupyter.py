@@ -24,8 +24,18 @@ _CONN_ERROR = (
 
 
 def read_notebook(filepath: str | Path):
-    """Read a notebook from disk."""
-    import nbformat
+    """Read a notebook from disk.
+
+    Raises:
+        ImportError: If `nbformat` or `jupytext` is not installed.
+    """
+    try:
+        import jupytext  # noqa: F401
+        import nbformat
+    except ImportError as error:
+        raise ImportError(
+            "install nbconvert & jupytext: pip install nbconvert jupytext"
+        ) from error
 
     with Path(filepath).open(encoding="utf-8") as file:
         return nbformat.read(file, as_version=4)

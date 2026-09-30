@@ -301,13 +301,7 @@ def save_context_core(
             # the title may have been edited since track()
             from lamindb.integrations.jupyter import get_title, read_notebook
 
-            try:
-                nb_title = get_title(read_notebook(filepath))
-            except ImportError:
-                logger.error(
-                    "install nbconvert & jupytext: pip install nbconvert jupytext"
-                )
-                return None
+            nb_title = get_title(read_notebook(filepath))
             if nb_title != transform.description:
                 transform.description = nb_title
                 transform.save()
@@ -323,12 +317,6 @@ def save_context_core(
                     "the notebook on disk wasn't saved within the last 10 sec"
                 )
     if is_ipynb and filepath.exists():  # could be from CLI outside interactive session
-        try:
-            import jupytext  # noqa: F401
-            import nbformat  # noqa: F401
-        except ImportError:
-            logger.error("install nbconvert & jupytext: pip install nbconvert jupytext")
-            return None
         from lamindb.integrations.jupyter import read_notebook
 
         notebook_content = read_notebook(filepath)
