@@ -236,17 +236,6 @@ def get_cli_call() -> tuple[str, str] | None:
     return None
 
 
-def pretty_pypackages(dependencies: dict) -> str:
-    deps_list = []
-    for pkg, ver in dependencies.items():
-        if ver != "":
-            deps_list.append(pkg + f"=={ver}")
-        else:
-            deps_list.append(pkg)
-    deps_list.sort()
-    return " ".join(deps_list)
-
-
 def last_non_empty_r_block(line: str) -> str:
     for block in reversed(line.split("\r")):
         if block:
@@ -1229,7 +1218,6 @@ class Context:
         else:
             from nbproject.dev import read_notebook
             from nbproject.dev._meta_live import get_title
-            from nbproject.dev._pypackage import infer_pypackages
 
             try:
                 nb = read_notebook(path_str)
@@ -1237,12 +1225,6 @@ class Context:
                 nbproject_title = get_title(nb)
                 if nbproject_title is not None:
                     description = nbproject_title
-
-                if pypackages:
-                    self._logging_message_imports += (
-                        "notebook imports:"
-                        f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
-                    )
             except Exception:
                 logger.debug("reading the notebook file failed")
                 pass
