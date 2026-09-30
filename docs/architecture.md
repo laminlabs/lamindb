@@ -309,7 +309,8 @@ Tightly integrated dependencies are available as git submodules [here](https://g
 
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB.
 - [lamin-cli](https://github.com/laminlabs/lamin-cli): The CLI.
-- [lamin-skills](https://github.com/laminlabs/lamin-skills): Agent skills.
+
+Agent skills ship in the package at [`lamindb/.agents`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents).
 
 Use cases / domain-specific repos:
 
