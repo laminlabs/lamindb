@@ -39,7 +39,7 @@ from lamindb.integrations.notion import (
     _storage_src_for_artifact,
     _upsert_all,
     _write,
-    sync_from_notion,
+    sync_objects_from_notion,
 )
 from rich.console import Console
 
@@ -2717,6 +2717,44 @@ def test_plan_metadata_apply_upgrades_untyped_ulabel_dtype(syncer):
     ]
 
 
+def test_plan_metadata_apply_upgrades_people_list_str_to_user(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("internal_attendees", "list[User]", "list[cat[User]]")]
+    schema = MagicMock()
+    existing_feature = MagicMock()
+    existing_feature.name = "internal_attendees"
+    existing_feature.type_id = 1
+    existing_feature._dtype_str = "list[str]"
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Meetings",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert existing_feature._dtype_str == "list[cat[User]]"
+    existing_feature.save.assert_called_once_with(update_fields=["_dtype_str"])
+    assert report.updated_features == ["Meetings / internal_attendees: list[User]"]
+
+
 def test_plan_metadata_apply_upgrades_stale_record_reference_dtype(syncer):
     report = SyncReport(apply=True)
     feature_plan = [("reference", "list[Reference]", "list[cat[Reference]]")]
@@ -2845,6 +2883,44 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
     ]
 
 
+def test_plan_metadata_apply_sets_existing_schema_minimal_set_false(syncer):
+    report = SyncReport(apply=True)
+    feature_plan = [("summary", "str", str)]
+    existing_feature = MagicMock()
+    existing_feature.name = "summary"
+    existing_feature.type_id = 1
+    schema = MagicMock()
+    schema.minimal_set = True
+    schema.members.all.return_value = [existing_feature]
+    schema.members.filter.return_value = [existing_feature]
+
+    with (
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("lamindb.integrations.notion.ln.Schema") as Schema,
+    ):
+        feature_type = MagicMock()
+        feature_type.id = 1
+        feature_type_qs = MagicMock()
+        feature_type_qs.count.return_value = 1
+        feature_type_qs.one_or_none.return_value = feature_type
+        schema_qs = MagicMock()
+        schema_qs.count.return_value = 1
+        schema_qs.one_or_none.return_value = schema
+        Feature.filter.side_effect = [feature_type_qs, [existing_feature]]
+        Schema.filter.return_value = schema_qs
+
+        syncer._plan_or_create_db_metadata(
+            "Meetings",
+            feature_plan,
+            apply=True,
+            report=report,
+        )
+
+    assert schema.minimal_set is False
+    schema.save.assert_called()
+    assert report.updated_schemas == ["Meetings"]
+
+
 def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer):
     report = SyncReport(apply=True)
     feature_plan = [
@@ -2891,6 +2967,7 @@ def test_plan_metadata_apply_skips_record_name_mapping_for_index_feature(syncer)
     schema_features = Schema.call_args.args[0]
     assert schema_features == [summary_feature]
     assert Schema.call_args.kwargs["index"] is name_feature
+    assert Schema.call_args.kwargs["minimal_set"] is False
 
 
 def test_create_record_type_uses_title_property_as_schema_index(syncer):
@@ -2992,6 +3069,24 @@ def test_feature_dtype_for_url_values_through_lamindb_url(syncer):
     dtype = syncer._feature_dtype_from_notion_type("url")
     assert syncer._feature_dtype_label_from_notion_type("url") == "url"
     assert dtype == "url"
+
+
+def test_feature_dtype_for_people_values_through_user_list(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("people")
+    assert syncer._feature_dtype_label_from_notion_type("people") == "list[User]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.User
+
+
+def test_dtype_from_notion_property_maps_people_to_user_list(syncer):
+    dtype_label, dtype = syncer._dtype_from_notion_property(
+        "Meetings",
+        "internal_attendees",
+        {"type": "people"},
+    )
+    assert dtype_label == "list[User]"
+    assert getattr(dtype, "__origin__", None) is list
+    assert dtype.__args__[0] is ln.User
 
 
 def test_formula_dtype_prompts_user_for_choice(syncer):
@@ -3492,7 +3587,7 @@ def test_collect_database_ids_stores_parent_page_emoji(syncer):
     assert syncer._parent_page_emojis == {page_id: "📊"}
 
 
-def test_collect_database_ids_limit_caps_discovered_children_for_page_parent(syncer):
+def test_collect_database_ids_depth_includes_sibling_child_databases(syncer):
     page_id = "7283894209c44522a7c79620795d0409"
     request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
     response = httpx.Response(400, request=request)
@@ -3515,9 +3610,9 @@ def test_collect_database_ids_limit_caps_discovered_children_for_page_parent(syn
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, children]
 
-    db_ids, _ = syncer._collect_database_ids([page_id], limit=1)
+    db_ids, _ = syncer._collect_database_ids([page_id], depth=1)
 
-    assert db_ids == {"db-1"}
+    assert db_ids == {"db-1", "db-2"}
 
 
 def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
@@ -3533,7 +3628,7 @@ def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     page_ok = _make_response({"object": "page", "id": page_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == set()
     assert parent_pages == {page_id: page_id}
@@ -3561,7 +3656,7 @@ def test_collect_database_ids_page_parent_in_database_seeds_database_rows(syncer
     db_ok = _make_response({"id": database_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok, db_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {}
@@ -3596,7 +3691,7 @@ def test_collect_database_ids_page_parent_in_data_source_seeds_database_rows(syn
     db_ok = _make_response({"id": database_id})
     syncer.reader.s.request.side_effect = [db_400, page_ok, data_source_ok, db_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {}
@@ -3665,7 +3760,7 @@ def test_collect_database_ids_page_parent_includes_ancestor_page(syncer):
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, ancestor_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=0)
 
     assert db_ids == set()
     assert parent_pages == {page_id: page_id, parent_page_id: "Knowledge"}
@@ -3693,7 +3788,7 @@ def test_collect_database_ids_from_database_registers_its_parent_page(syncer):
     )
     syncer.reader.s.request.side_effect = [db_ok, page_ok]
 
-    db_ids, parent_pages = syncer._collect_database_ids([database_id], limit=0)
+    db_ids, parent_pages = syncer._collect_database_ids([database_id], depth=0)
 
     assert db_ids == {database_id}
     assert parent_pages == {parent_page_id: "General asset"}
@@ -3908,7 +4003,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], limit=None)
+    collect_ids.assert_called_once_with(["parent"], depth=None)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -4127,8 +4222,8 @@ def test_import_pages_passes_limit_to_database_discovery(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        syncer.import_pages("parent", apply=True, limit=1)
-    collect_ids.assert_called_once_with(["parent"], limit=1)
+        syncer.import_pages("parent", apply=True, depth=1)
+    collect_ids.assert_called_once_with(["parent"], depth=1)
 
 
 def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
@@ -4153,7 +4248,7 @@ def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     seed_rows.assert_called_once_with("db-1", {"a"}, include_page_emoji=True)
     database_rows.assert_not_called()
@@ -4182,7 +4277,7 @@ def test_import_pages_apply_seed_rows_materialize_even_when_unchanged(syncer):
         ) as write,
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["a"]
@@ -4237,7 +4332,7 @@ def test_import_pages_dry_run_seed_rows_preview_even_when_unchanged(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=False, limit=0)
+        report = syncer.import_pages("parent", apply=False, depth=0)
 
     preview_rows = resolve_rel.call_args.args[1]
     assert [r["notion_id"] for r in preview_rows] == ["a"]
@@ -4261,8 +4356,8 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_pages("parent", apply=False, limit=0)
-    collect_ids.assert_called_once_with(["parent"], limit=0)
+        report = syncer.import_pages("parent", apply=False, depth=0)
+    collect_ids.assert_called_once_with(["parent"], depth=0)
     assert report.discovered_pages == 1
     assert report.databases == []
     assert report.discovered == 0
@@ -4291,7 +4386,7 @@ def test_import_pages_apply_links_parent_page_hierarchy(syncer):
         ),
     ):
         syncer._parent_page_parents = {"child-id": "parent-id"}
-        report = syncer.import_pages("parent", apply=True, limit=0)
+        report = syncer.import_pages("parent", apply=True, depth=0)
 
     assert report.discovered_pages == 2
     child_type.save.assert_called_once_with(update_fields=["type"])
@@ -4341,17 +4436,17 @@ def test_upsert_all_normalizes_existing_dashed_notion_reference():
     assert rec.reference == compact_id
 
 
-def test_sync_from_notion_delegates_to_syncer_and_prints():
+def test_sync_objects_from_notion_delegates_to_syncer_and_prints():
     sync_report = SyncReport(created=1, apply=False)
     with (
         patch("lamindb.integrations.notion.NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
         Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_from_notion(parents=["p1", "p2"], apply=False, limit=3)
+        report = sync_objects_from_notion(parents=["p1", "p2"], apply=False, depth=3)
     Syncer.assert_called_once_with(token=None)
     Syncer.return_value.import_pages.assert_called_once_with(
-        parents=["p1", "p2"], apply=False, limit=3
+        parents=["p1", "p2"], apply=False, depth=3
     )
     rich_print.assert_called_once()
     assert "Dry run: nothing got created." in rich_print.call_args[0][0]
@@ -4424,7 +4519,7 @@ def test_sync_report_rich_render_preserves_bracketed_dtypes():
     assert "list[Artifact]" in rendered
 
 
-def test_sync_from_notion_live_smoke_with_env_token():
+def test_sync_objects_from_notion_live_smoke_with_env_token():
     token = os.getenv("NOTION_TOKEN")
     run_live = os.getenv("CI") or os.getenv("LAMINDB_RUN_NOTION_LIVE_TESTS") in {
         "1",
@@ -4436,7 +4531,7 @@ def test_sync_from_notion_live_smoke_with_env_token():
             "Set NOTION_TOKEN and run in CI, or set "
             "LAMINDB_RUN_NOTION_LIVE_TESTS=true for a local live smoke test."
         )
-    report = sync_from_notion(
+    report = sync_objects_from_notion(
         parents="7283894209c44522a7c79620795d0409",
         token=token,
         apply=False,

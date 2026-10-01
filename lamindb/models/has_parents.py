@@ -34,9 +34,9 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 def _query_relatives(
     records: BasicQuerySet | list[HasParents],
     attr: Literal["children", "parents"] | str,
+    *,
+    depth: int | None = None,
 ) -> QuerySet:
-    branch_ids = get_default_branch_ids()
-
     if hasattr(records, "values_list"):
         model = records.model  # type: ignore
         using_db = records.db  # type: ignore
@@ -47,6 +47,8 @@ def _query_relatives(
         using_db = record._state.db  # type: ignore
         frontier_ids = {r.id for r in records}  # type: ignore
 
+    branch_ids = get_default_branch_ids(db=using_db)
+
     if attr == "children":
         attr_filter = "parents__id__in"
     elif attr == "parents":
@@ -56,8 +58,12 @@ def _query_relatives(
 
     seen_ids = set(frontier_ids)  # copies
     results = set()
+    level = 0
 
     while frontier_ids:
+        # ``None`` walks the whole chain. A positive int stops after that many hops.
+        if depth is not None and level >= depth:
+            break
         relatives_qs = model.connect(using_db).filter(
             branch_id__in=branch_ids, **{attr_filter: frontier_ids}
         )
@@ -67,6 +73,7 @@ def _query_relatives(
         results.update(next_ids)
         seen_ids.update(next_ids)
         frontier_ids = next_ids
+        level += 1
 
     return model.connect(using_db).filter(id__in=results)
 
@@ -135,7 +142,7 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
 def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
     from .query_set import get_default_branch_ids
 
-    branch_ids = get_default_branch_ids()
+    branch_ids = get_default_branch_ids(db=record._state.db)
     ancestors = []
 
     current = getattr(record, attr)
@@ -255,7 +262,7 @@ def view_lineage(
     data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
 ) -> Digraph | None:
     """View data lineage graph."""
-    if ln_setup.settings.instance.is_on_hub:
+    if ln_setup.settings.instance.is_managed_by_hub:
         instance_slug = ln_setup.settings.instance.slug
         ui_url = ln_setup.settings.instance.ui_url
         entity_slug = data.__class__.__name__.lower()
@@ -510,7 +517,16 @@ def get_record_label(record: SQLRecord, field: str | None = None):
         )
         return rf"<{title}>"
     elif isinstance(record, Run):
-        title = record.transform.key.replace("&", "&amp;")
+        # Transfer transforms keep a stable internal key and put the readable
+        # source name in description.
+        if (
+            record.transform.key.startswith("__lamindb_transfer__/")
+            and record.transform.description
+        ):
+            title = record.transform.description
+        else:
+            title = record.transform.key
+        title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         if record.entrypoint is not None:
             title += f": {record.entrypoint}"
         return (

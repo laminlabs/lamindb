@@ -108,8 +108,6 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
             run.save()
 
 
-# this is from the get_title function in nbproject
-# should be moved into lamindb sooner or later
 def prepare_notebook(
     nb,
     strip_title: bool = False,
@@ -239,7 +237,10 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     return title_text, cleaned_path
 
 
-def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool:
+# Waits up to ~30s for a notebook save; not part of the coverage run.
+def check_filepath_recently_saved(
+    filepath: Path, is_finish_retry: bool
+) -> bool:  # pragma: no cover
     # the recently_saved_time needs to be very low for the first check
     # because an accidental save (e.g. via auto-save) might otherwise lead
     # to upload of an outdated notebook
@@ -300,11 +301,12 @@ def save_context_core(
     ):  # python notebooks in interactive session
         if is_ipynb:
             # ignore this for py:percent notebooks
-            import nbproject
+            # the title may have been edited since track()
+            from lamindb.integrations.jupyter import get_title, read_notebook
 
-            # it might be that the user modifies the title just before ln.finish()
-            if (nbproject_title := nbproject.meta.live.title) != transform.description:
-                transform.description = nbproject_title
+            nb_title = get_title(read_notebook(filepath))
+            if nb_title != transform.description:
+                transform.description = nb_title
                 transform.save()
         if not ln_setup._TESTING:
             save_source_code_and_report = check_filepath_recently_saved(
@@ -318,15 +320,9 @@ def save_context_core(
                     "the notebook on disk wasn't saved within the last 10 sec"
                 )
     if is_ipynb and filepath.exists():  # could be from CLI outside interactive session
-        try:
-            import jupytext  # noqa: F401
-            from nbproject.dev import (
-                read_notebook,
-            )
-        except ImportError:
-            logger.error("install nbproject & jupytext: pip install nbproject jupytext")
-            return None
-        notebook_content = read_notebook(filepath)  # type: ignore
+        from lamindb.integrations.jupyter import read_notebook
+
+        notebook_content = read_notebook(filepath)
         if not ignore_non_consecutive:  # ignore_non_consecutive is None or False
             is_consecutive = check_consecutiveness(
                 notebook_content, calling_statement=".finish("
@@ -410,10 +406,9 @@ def save_context_core(
             for name in _candidate_names
             if (base_path / name).is_file() and (base_path / name).stat().st_size > 0
         ]
-        if (
-            (base_path / "run_env_pip.txt") in existing_paths
-            and (base_path / "r_environment.txt") in existing_paths
-        ):
+        if (base_path / "run_env_pip.txt") in existing_paths and (
+            base_path / "r_environment.txt"
+        ) in existing_paths:
             # let's not store the python environment for an R session for now
             existing_paths = [base_path / "r_environment.txt"]
 
@@ -434,7 +429,11 @@ def save_context_core(
                     filename = existing_paths[0].name
                     # use the filename as description, except pip freeze which is
                     # stored as run_env_pip.txt but shown as requirements.txt
-                    description = "requirements.txt" if filename == "run_env_pip.txt" else filename
+                    description = (
+                        "requirements.txt"
+                        if filename == "run_env_pip.txt"
+                        else filename
+                    )
                     size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"

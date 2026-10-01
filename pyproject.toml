@@ -17,8 +17,8 @@ classifiers = [
 ]
 dependencies = [
     "lamin_utils==0.16.4",  # no dependencies
-    "lamin_cli==1.20a1",  # no dependencies
-    "lamindb_setup[aws]==1.26a1",  # dependencies like Django & fsspec
+    "lamin_cli==1.20a2",  # no dependencies
+    "lamindb_setup[aws]==1.26a2",  # dependencies like Django & fsspec
     "psycopg2-binary",
 ]
 
@@ -35,7 +35,6 @@ full = [
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
-    "nbproject==0.11.1",  # adds orjson
     # Data & validation dependencies (heavier)
     "pyarrow",
     "pandera>=0.24.0",
@@ -238,7 +237,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/examples/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/integrations/notion.py"]
+omit = ["**/examples/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/integrations/notion.py", "**/integrations/jupyter.py"]
 
 [tool.flit.sdist]
 exclude = [

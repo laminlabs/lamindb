@@ -12,7 +12,7 @@ on:
 jobs:
   profile:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
     steps:
@@ -28,6 +28,8 @@ jobs:
       - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
       - run: lamin login
       - run: laminprofiler check tests/profiling/import_lamindb_and_connect.py --threshold 3.5
-      - run: lamin connect laminlabs/lamindata
+      - run: lamin connect laminlabs/lamindb-benchmarks
       - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.5
       - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 1.5
+      - run: laminprofiler check tests/profiling/describe_a_record.py --threshold 20 --repeats 2
+      - run: laminprofiler check tests/profiling/transfer_ten_records.py --threshold 600 --repeats 1

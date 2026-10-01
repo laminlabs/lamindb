@@ -63,6 +63,15 @@ def test_schema_from_values():
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, dtype="float"
         )
+    assert (
+        ln.Schema.from_values(
+            ["weird_name"],
+            field=ln.Feature.name,
+            dtype="float",
+            raise_validation_error=False,
+        )
+        is None
+    )
 
 
 def test_schema_from_records(df):
@@ -178,6 +187,20 @@ def test_edge_cases():
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
+
+    schema = ln.Schema(features=[feature], n_members=1, coerce=True).save()
+    assert schema.n == 1
+    schema.n = 2
+    assert schema.n_members == 2
+    assert schema.coerce_dtype is True
+    schema.coerce_dtype = False
+    assert schema.coerce is False
+
+    # A copied index uid with no member row resolves to nothing.
+    schema._index_feature_uid = "missinguid00"
+    assert schema.index is None
+
+    schema.delete(permanent=True)
     feature.delete(permanent=True)
 
 

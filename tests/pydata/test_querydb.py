@@ -86,6 +86,14 @@ def test_DB_dir():
     assert "Collection" in dir_result
     assert "Gene" not in dir_result
     assert "bionty" in dir_result
+    assert "pertdb" not in dir_result
+    assert repr(cxg) == "DB('laminlabs/cellxgene')"
+    assert repr(cxg.Artifact) == "<QuerySet [Artifact]>"
+    assert "Gene" in dir(cxg.bionty)
+    with pytest.raises(AttributeError, match="Registry 'NotAGene' not found"):
+        _ = cxg.bionty.NotAGene
+    with pytest.raises(AttributeError, match="Schema 'pertdb' not available"):
+        _ = cxg.pertdb
 
 
 def test_DB_view(monkeypatch):
@@ -131,10 +139,10 @@ def test_DB_view_warns_for_unconfigured_module(monkeypatch):
 
 
 def test_DB_warns_for_missing_local_modules(monkeypatch):
-    warning_calls: list[str] = []
+    hint_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.db.logger.warning",
-        lambda message: warning_calls.append(message),
+        "lamindb.models.db.logger.important_hint",
+        lambda message: hint_calls.append(message),
     )
     monkeypatch.setattr(
         "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
@@ -142,7 +150,9 @@ def test_DB_warns_for_missing_local_modules(monkeypatch):
     )
     monkeypatch.setattr(
         "lamindb.models.db.ln_setup._connect_instance._connect_instance",
-        lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty", "pertdb"}),
+        lambda owner, name, **kwargs: SimpleNamespace(
+            modules={"bionty", "pertdb"}, slug="owner/name"
+        ),
     )
     monkeypatch.setattr(
         "lamindb.models.db.setup_settings",
@@ -151,16 +161,17 @@ def test_DB_warns_for_missing_local_modules(monkeypatch):
 
     ln.DB("owner/name")
 
-    assert len(warning_calls) == 1
-    assert "database has module pertdb" in warning_calls[0]
-    assert "lamin settings modules set bionty,pertdb" in warning_calls[0]
+    assert hint_calls == [
+        "tip: to work with the additional module (pertdb) of database owner/name, "
+        "configure your environment for it: lamin settings modules set bionty,pertdb"
+    ]
 
 
 def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
-    warning_calls: list[str] = []
+    hint_calls: list[str] = []
     monkeypatch.setattr(
-        "lamindb.models.db.logger.warning",
-        lambda message: warning_calls.append(message),
+        "lamindb.models.db.logger.important_hint",
+        lambda message: hint_calls.append(message),
     )
     monkeypatch.setattr(
         "lamindb.models.db.ln_setup._connect_instance.get_owner_name_from_identifier",
@@ -168,7 +179,9 @@ def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
     )
     monkeypatch.setattr(
         "lamindb.models.db.ln_setup._connect_instance._connect_instance",
-        lambda owner, name, **kwargs: SimpleNamespace(modules={"bionty"}),
+        lambda owner, name, **kwargs: SimpleNamespace(
+            modules={"bionty"}, slug="owner/name"
+        ),
     )
     monkeypatch.setattr(
         "lamindb.models.db.setup_settings",
@@ -177,4 +190,8 @@ def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
 
     ln.DB("owner/name")
 
-    assert warning_calls == []
+    assert hint_calls == []
+
+
+def test_using_query_by_feature():
+    assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)

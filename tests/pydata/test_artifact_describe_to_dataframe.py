@@ -289,3 +289,12 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     bt.Gene.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
+
+
+def test_describe_artifact_from_remote_instance(capsys):
+    # A public instance with fewer modules than the local one.
+    artifact = ln.Artifact.connect("laminlabs/lamin-site-assets").first()
+    artifact.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "artifact" in captured.out.lower()

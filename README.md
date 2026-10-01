@@ -34,11 +34,11 @@ How?
 
 Architecture?
 
-- **zero lock-in** → uses open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
+- **zero lock-in** → open source, using open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
-- **unified** → federate data [across storage locations (local, S3, GCP, …)](https://docs.lamin.ai/lamindb.storage) in any database
-- **distributed** → federate data zero-copy & lineage-aware [across databases](https://docs.lamin.ai/transfer)
+- **unified access** → local, S3, GCP, etc. · Postgres, SQLite · ontologies
+- **distributed** → [zero-copy data sharing across databases & storage](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - **ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
 - **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites
@@ -178,7 +178,7 @@ Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Trace data, code & agents
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Ask your coding agent to copy it to wherever it reads skills from — `.claude/skills/` for Claude Code, `.agents/skills/` for GitHub Copilot — so that it automatically tracks agent sessions.
+The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --all` so your agent can read it (add `--claude` for Claude Code). It will then track agent sessions.
 
 To create a dataset in a script or notebook while tracking source code, inputs, outputs, logs, and environment:
 

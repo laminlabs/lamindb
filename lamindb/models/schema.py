@@ -127,8 +127,8 @@ def transfer_schema_members(
 ) -> None:
     from copy import copy
 
+    from ._transfer import transfer_to_default_db
     from .feature import transfer_feature_dtypes
-    from .sqlrecord import transfer_to_default_db
 
     if source_pk is None:
         return None
@@ -167,6 +167,11 @@ def transfer_schema_members(
     members = list(source_schema.members.all())
     if len(members) == 0:
         return None
+    print(
+        f"transfer schema {source_schema.uid} ({getattr(source_schema, 'name', None)!r}) "
+        f"members: {len(members)}",
+        flush=True,
+    )
 
     transferred_members = []
     for source_member in members:
@@ -213,7 +218,7 @@ def transfer_schema_with_members(
 ) -> Schema:
     from copy import copy
 
-    from .sqlrecord import transfer_to_default_db
+    from ._transfer import transfer_to_default_db
 
     source_db = schema._state.db
     source_pk = schema.pk
@@ -395,8 +400,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         maximal_set: `bool = False` Whether additional features are allowed.
         ordered_set: `bool = False` Whether features are required to be ordered.
-        coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Schema.coerce`.
+        coerce: `bool | None = None` When `True`, coerces every column and the index during validation,
+            including features that leave `coerce` unset. See :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
@@ -558,6 +563,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # 16 characters since lamindb 1.5. Records from before that are 20 characters.
     uid: str = CharField(max_length=16, unique=True, db_index=True, editable=False)
     """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
@@ -567,7 +573,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     n_members: int | None = IntegerField(null=True, default=None)
     """Number of features in the schema. None for type-like schemas."""
     coerce: bool | None = BooleanField(null=True, default=None)
-    """Whether dtypes should be coerced during validation. None for type-like schemas."""
+    """Whether values are coerced to the feature dtype during validation.
+
+    A column is coerced when this is `True` or when that feature's `coerce` is `True`,
+    the same way pandera combines `DataFrameSchema.coerce` and `Column.coerce`.
+    `True` here coerces every column and the index, including features that leave
+    :attr:`~lamindb.Feature.coerce` unset. A feature with `coerce=True` is coerced
+    even when this is left unset. Either flag is enough. `Feature.coerce=False`
+    does not disable schema-level coercion.
+
+    For `int` and `float`, coercion is lossless (`"1"` and `1.0` become `int`;
+    `1.1` does not) and does not change an existing integer or float width.
+
+    `None` for type-like schemas.
+    """
     flexible: bool | None = BooleanField(null=True, default=None)
     """Indicates how to handle validation and annotation in case features are not defined.
 
@@ -843,13 +862,17 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         validated_kwargs.update(space_branch_kwargs)
         super().__init__(**validated_kwargs)
 
-    def query_schemas(self) -> QuerySet:
+    def query_schemas(self, depth: int | None = None) -> QuerySet:
         """Query schemas of sub types.
 
         While `.schemas` retrieves the schemas with the current type, this method
         also retrieves sub types and the schemas with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct schemas of this type.
         """
-        return _query_relatives([self], "schemas")  # type: ignore
+        return _query_relatives([self], "schemas", depth=depth)  # type: ignore
 
     def _validate_kwargs_calculate_hash(
         self,
@@ -1524,8 +1547,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         try:
             return self.features.get(uid=self._index_feature_uid)
         except Feature.DoesNotExist:
-            return Feature.objects.using(self._state.db).get(
-                uid=self._index_feature_uid
+            # The uid can be set before the feature row exists, for example
+            # after transfer="notes" copied the schema but not its members.
+            return (
+                Feature.objects.using(self._state.db)
+                .filter(uid=self._index_feature_uid)
+                .one_or_none()
             )
 
     @index.setter

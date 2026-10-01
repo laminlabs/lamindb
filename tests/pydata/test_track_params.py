@@ -69,13 +69,28 @@ def test_serialize_params_to_json_redacts_provider_api_key_names():
 
 
 def test_serialize_params_to_json_skips_annotation_mismatch(ccaplog):
-    params = {"count": "not-an-int", "label": "ok"}
+    params = {
+        "count": "not-an-int",
+        "label": "ok",
+        "names": ("a", "b"),
+        "counts": ["a", 1],
+        "pair": (1, "a", True),
+    }
     result = serialize_params_to_json(
-        params, expected_param_types={"count": int, "label": str}
+        params,
+        expected_param_types={
+            "count": int,
+            "label": str,
+            "names": list[str],
+            "counts": dict[str, int],
+            "pair": tuple[int, str],
+        },
     )
     assert result == {"label": "ok"}
     assert "does not match annotation" in ccaplog.text
-    assert "count" in ccaplog.text
+    assert "expected list" in ccaplog.text
+    assert "expected mapping" in ccaplog.text
+    assert "tuple arity mismatch" in ccaplog.text
 
 
 def test_serialize_params_to_json_serializes_valid_record_annotations():
@@ -116,6 +131,8 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
         "names": ["a", "b"],
         "counts": {"a": 1, "b": 2},
         "mixed": [1, "two", 3],
+        "tags": {"a", "b"},
+        "pair": (1, "a"),
     }
     result = serialize_params_to_json(
         params,
@@ -123,9 +140,15 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
             "names": Sequence[str],
             "counts": Mapping[str, int],
             "mixed": list[int | str],
+            "tags": set[str],
+            "pair": tuple[int, str],
         },
     )
-    assert result == params
+    assert result["names"] == ["a", "b"]
+    assert result["counts"] == {"a": 1, "b": 2}
+    assert result["mixed"] == [1, "two", 3]
+    assert set(result["tags"]) == {"a", "b"}
+    assert result["pair"] == [1, "a"]
 
 
 def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):

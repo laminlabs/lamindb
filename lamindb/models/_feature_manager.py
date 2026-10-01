@@ -25,6 +25,11 @@ from lamindb.models._from_values import (
     _format_values,
     build_not_validated_values_message,
 )
+from lamindb.models._transfer import (
+    REGISTRY_UNIQUE_FIELD,
+    transfer_fk_to_default_db_bulk,
+    transfer_to_default_db,
+)
 from lamindb.models.feature import (
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
@@ -32,12 +37,7 @@ from lamindb.models.feature import (
 from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
-from lamindb.models.sqlrecord import (
-    REGISTRY_UNIQUE_FIELD,
-    get_name_field,
-    transfer_fk_to_default_db_bulk,
-    transfer_to_default_db,
-)
+from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
     NAME_WIDTH,
@@ -231,26 +231,34 @@ def _normalize_user_records_for_field_value(
     return _normalize_one(value)
 
 
-def _record_feature_objects_from_links(record: Any) -> list[Feature]:
-    host_db = record._state.db
-    host_id = record.id
+def _host_feature_objects_from_links(host: Any) -> list[Feature]:
+    """Features that annotate `host`, identified by link rows rather than name."""
+    host_db = host._state.db
+    host_id = host.id
     if host_id is None:
         return []
+    host_field = f"{host.__class__.__name__.lower()}_id"
     feature_ids: set[int] = set()
-    for rel in record._meta.related_objects:
+    for rel in host._meta.related_objects:
         link_model = rel.related_model
-        if not hasattr(link_model, "feature_id") or not hasattr(
-            link_model, "record_id"
-        ):
+        if not hasattr(link_model, "feature_id") or not hasattr(link_model, host_field):
             continue
         feature_ids.update(
             link_model.objects.using(host_db)
-            .filter(record_id=host_id)
+            .filter(**{host_field: host_id})
             .values_list("feature_id", flat=True)
         )
+    json_values = getattr(host, "json_values", None)
+    if json_values is not None:
+        feature_ids.update(json_values.values_list("feature_id", flat=True))
+    feature_ids.discard(None)
     if not feature_ids:
         return []
     return list(Feature.objects.using(host_db).filter(id__in=feature_ids))
+
+
+def _record_feature_objects_from_links(record: Any) -> list[Feature]:
+    return _host_feature_objects_from_links(record)
 
 
 def format_dtype_for_display(dtype_str: str) -> str:
@@ -399,7 +407,7 @@ def get_categoricals_sqlite(
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
                 if hasattr(label, "branch_id"):
-                    if label.branch_id not in get_default_branch_ids():
+                    if label.branch_id not in get_default_branch_ids(db=self._state.db):
                         continue
                 label_name = getattr(label, feature_field)
                 dict_key = (feature.name, dtype_str)
@@ -465,8 +473,11 @@ def get_non_categoricals(
                     f"    record.features.set_values({{{feature_name!r}: <value>}})"
                 )
 
-            if connections[self._state.db].vendor == "sqlite":
-                # undo GROUP_CONCAT
+            if (
+                not isinstance(self, Record)
+                and connections[self._state.db].vendor == "sqlite"
+            ):
+                # undo GROUP_CONCAT (Artifact/Run only; Record stores one JSON value)
                 if isinstance(values, str):
                     values = {value.strip('"') for value in values.split(", ")}
 
@@ -1896,14 +1907,22 @@ class FeatureManager:
             using=self._host._state.db,
         ).validate()
         if host_is_record:
-            from .record import strip_index_for_record_persistence
+            from .record import (
+                apply_inverted_values_through_writes,
+                strip_index_for_record_persistence,
+            )
 
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                self._host,
-                schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
+            dictionary, feature_objects, inverted_writes = (
+                strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
+            )
+            apply_inverted_values_through_writes(
+                self._host, inverted_writes, replace=False
             )
         return self._add_values(
             feature_objects,
@@ -2155,21 +2174,32 @@ class FeatureManager:
                 values_by_feature_uid,
             )
         if host_is_record:
-            from .record import strip_index_for_record_persistence
-
-            dictionary, feature_objects = strip_index_for_record_persistence(
-                self._host,
-                schema,
-                dictionary,
-                feature_objects,
-                values_by_feature_uid=values_by_feature_uid,
+            from .record import (
+                apply_inverted_values_through_writes,
+                strip_index_for_record_persistence,
             )
+
+            dictionary, feature_objects, inverted_writes = (
+                strip_index_for_record_persistence(
+                    self._host,
+                    schema,
+                    dictionary,
+                    feature_objects,
+                    values_by_feature_uid=values_by_feature_uid,
+                )
+            )
+        else:
+            inverted_writes = []
         self._remove_values()
         self._add_values(
             feature_objects,
             dictionary=dictionary,
             values_by_feature_uid=values_by_feature_uid,
         )
+        if host_is_record:
+            apply_inverted_values_through_writes(
+                self._host, inverted_writes, replace=True
+            )
 
     def _get_external_schema(self) -> Schema | None:
         external_schema = None
@@ -2210,6 +2240,36 @@ class FeatureManager:
             value=value,
         )
 
+    def _features_to_remove(self, feature_input: str | Feature) -> list[Feature]:
+        """Resolve a remove_values argument to feature rows.
+
+        A string matches the features already linked on this object. That avoids
+        `Feature.get(name=...)` when several features share a name. An unlinked
+        name uses the same lookup as `add_values` / `set_values`.
+        """
+        if isinstance(feature_input, str):
+            linked = [
+                feature
+                for feature in _host_feature_objects_from_links(self._host)
+                if feature.name == feature_input
+            ]
+            if linked:
+                return linked
+            return list(self._get_feature_objects({feature_input: None}, Feature.name))
+        feature_record: Feature = feature_input
+        if feature_record._state.adding:
+            raise ValidationError(
+                f"Please save feature '{feature_record.name}' before annotation."
+            )
+        if (
+            self._host._state.db is not None
+            and feature_record._state.db != self._host._state.db
+        ):
+            feature_record = Feature.connect(self._host._state.db).get(
+                uid=feature_record.uid
+            )
+        return [feature_record]
+
     def _remove_values(
         self,
         feature: (
@@ -2233,36 +2293,27 @@ class FeatureManager:
                 self._remove_values(one_feature, value=one_value)
             return
         if feature is None:
-            if host_is_record:
-                feature_inputs: list[str | Feature] = list(
-                    _record_feature_objects_from_links(self._host)
-                )
-            else:
-                feature_inputs = list(
-                    get_features_data(
-                        self._host, to_dict=True, external_only=True
-                    ).keys()
-                )
+            linked_features = _host_feature_objects_from_links(self._host)
+            if host_is_artifact:
+                dataset_feature_ids = {
+                    feature_id
+                    for schema in self.slots.values()
+                    for feature_id in schema.members.values_list("id", flat=True)
+                }
+                linked_features = [
+                    feature_record
+                    for feature_record in linked_features
+                    if feature_record.id not in dataset_feature_ids
+                ]
+            feature_inputs: list[str | Feature] = list(linked_features)
         elif not isinstance(feature, list):
             feature_inputs = [feature]
         else:
             feature_inputs = feature
+        resolved_features: list[Feature] = []
         for feature_input in feature_inputs:
-            if isinstance(feature_input, str):
-                feature_record = Feature.get(name=feature_input)
-            else:
-                feature_record = feature_input
-                if feature_record._state.adding:
-                    raise ValidationError(
-                        f"Please save feature '{feature_record.name}' before annotation."
-                    )
-                if (
-                    self._host._state.db is not None
-                    and feature_record._state.db != self._host._state.db
-                ):
-                    feature_record = Feature.connect(self._host._state.db).get(
-                        uid=feature_record.uid
-                    )
+            resolved_features.extend(self._features_to_remove(feature_input))
+        for feature_record in resolved_features:
             if host_is_record and value is None:
                 from .record import get_type_schema_index
 
@@ -2373,8 +2424,32 @@ class FeatureManager:
             try:
                 members = schema.members
             except ModuleWasntConfigured as err:
-                logger.warning(f"skipping transfer of {slot} schema because {err}")
-                continue
+                raise ValueError(
+                    f"cannot transfer schema slot {slot!r}: {err} "
+                    'Pass transfer="sqlrecord" to sync the object without annotations.'
+                ) from err
+            # Package installed, but this instance was not initialized with the
+            # module: `.members` falls back to `.features`.
+            # `core.Feature` has no related-name entry, so a missing related name
+            # alone is not a missing module.
+            if schema.itype and schema.itype != "Composite" and not schema.is_type:
+                from lamindb.models.feature import parse_cat_dtype
+
+                from ._relations import get_schema_modules
+
+                registry_str = parse_cat_dtype(schema.itype, is_itype=True)[
+                    "registry_str"
+                ]
+                module_name = (
+                    registry_str.split(".", 1)[0] if "." in registry_str else "core"
+                )
+                if module_name not in get_schema_modules(schema._state.db):
+                    raise ValueError(
+                        f"cannot transfer schema slot {slot!r} ({schema.itype}): "
+                        "the target instance does not have the required schema module loaded "
+                        "(e.g. run: lamin settings modules set bionty). "
+                        'Pass transfer="sqlrecord" to sync the object without annotations.'
+                    )
             if len(members) == 0:
                 continue
             if len(members) > settings.annotation.n_max_records:
@@ -2627,16 +2702,22 @@ def bulk_set_features_in_records(
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
         )
-        from .record import strip_index_for_record_persistence
-
-        dictionary, feature_objects = strip_index_for_record_persistence(
-            record,
-            batch_schema,
-            dictionary,
-            feature_objects,
-            values_by_feature_uid=values_by_feature_uid,
-            index_feature=batch_schema_index,
+        from .record import (
+            apply_inverted_values_through_writes,
+            strip_index_for_record_persistence,
         )
+
+        dictionary, feature_objects, inverted_writes = (
+            strip_index_for_record_persistence(
+                record,
+                batch_schema,
+                dictionary,
+                feature_objects,
+                values_by_feature_uid=values_by_feature_uid,
+                index_feature=batch_schema_index,
+            )
+        )
+        apply_inverted_values_through_writes(record, inverted_writes, replace=True)
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,

@@ -18,7 +18,6 @@ from typing import (
 )
 
 import dj_database_url
-import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
 from django.db.models import (
@@ -255,6 +254,28 @@ class HasType(models.Model):
         return SQLRecordSettings(self)
 
 
+# One type hop of records under a HasType object. Used by transfer depth.
+_HASTYPE_QUERY_METHODS = {
+    "Record": "query_records",
+    "Feature": "query_features",
+    "Schema": "query_schemas",
+    "Project": "query_projects",
+    "ULabel": "query_ulabels",
+    "Reference": "query_references",
+}
+
+
+def _typed_children(record: HasType) -> list:
+    """Direct records whose type is ``record``, queried on ``record``'s database."""
+    method_name = _HASTYPE_QUERY_METHODS.get(record.__class__.__name__)
+    if method_name is None:
+        names = ", ".join(_HASTYPE_QUERY_METHODS)
+        raise ValueError(
+            f"depth applies only to {names}, not {record.__class__.__name__}."
+        )
+    return list(getattr(record, method_name)(depth=1))
+
+
 class SQLRecordSettings:
     """Settings for :class:`~lamindb.models.SQLRecord` objects."""
 
@@ -431,8 +452,9 @@ def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
                     fields = [f.strip() for f in fields_part.split(",")]
                     return fields
 
-                # Fallback if DETAIL line not available
-                return [field_string]
+                # Django's Postgres errors include DETAIL. Without it the
+                # constraint name is one mashed field, not column names.
+                return [field_string]  # pragma: no cover
             else:
                 # Single field constraint (ends with _key)
                 constraint_field = constraint_name.removesuffix("_key").split("_")[-1]
@@ -578,9 +600,8 @@ def validate_fields(record: SQLRecord, kwargs):
             "uid"
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
-            if not (
-                record.__class__ is Schema and len(kwargs["uid"]) == 16
-            ):  # no error for schema
+            # Schema uids were 20 characters before lamindb 1.5.
+            if not (record.__class__ is Schema and len(kwargs["uid"]) == 20):
                 raise ValidationError(
                     f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
                 )
@@ -687,7 +708,7 @@ def suggest_records_with_similar_names(
         else ("s", "one of them", "", "records")
     )
     similar_names = ", ".join(f"'{getattr(record, name_field)}'" for record in queryset)
-    msg = f"you are trying to create a record with name='{kwargs[name_field]}' but {record_text} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
+    msg = f"you are trying to create a {record.__class__.__name__.lower()} with name='{kwargs[name_field]}' but {record_text} with similar {name_field}{s} exist{nots}: {similar_names}. Did you mean to load {it}?"
     logger.warning(f"{msg}")
 
     return None
@@ -785,11 +806,8 @@ class Registry(ModelBase):
                 return isinstance(attr_value, (classmethod, staticmethod, type))
             return True
 
-        # check also inherited attributes
-        if hasattr(cls, "mro"):
-            attrs = chain(*(c.__dict__.items() for c in cls.mro()))
-        else:
-            attrs = cls.__dict__.items()
+        # check also inherited attributes; classes always have an mro
+        attrs = chain(*(c.__dict__.items() for c in cls.mro()))
 
         result = []
         for attr_name, attr_value in attrs:
@@ -1327,7 +1345,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     try:
                         if hasattr(self, "clean_fields"):
                             self.clean_fields()
-                        else:
+                        else:  # pragma: no cover
+                            # Django models always define clean_fields.
                             self._Model__clean_fields()
                     except DjangoValidationError as e:
                         message = _format_django_validation_error(self, e)
@@ -1396,7 +1415,25 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             using: Optional database slug for a target database that differs from the default database.
+            transfer: If this object was queried on another instance:
+                "sqlrecord" (default) copies the row
+                and foreign keys only; "notes" also copies the latest readme;
+                "annotations" also copies M2M annotations. Schema still defaults
+                to "annotations" when transfer is omitted.
+            depth: How many levels of records under a type to transfer.
+                `0` (default) transfers only this object, plus the related objects
+                selected by `transfer`. A positive integer also transfers that many
+                levels of records whose type chain starts here. Only `Record`,
+                `Feature`, `Schema`, `Project`, `ULabel`, and `Reference` accept
+                `depth > 0`.
         """
+        from ._transfer import (
+            normalize_transfer_config,
+            transfer_notes,
+            transfer_record_feature_values,
+            transfer_to_default_db,
+        )
+
         using = None
         if "using" in kwargs:
             using = kwargs["using"]
@@ -1411,21 +1448,35 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             ):
                 self.run = None
                 self.run_id = None
-        transfer_config = kwargs.pop("transfer", None)
+        transfer_config = normalize_transfer_config(
+            kwargs.pop("transfer", None),
+            default_annotations=self.__class__.__name__ == "Schema",
+        )
+        depth = kwargs.pop("depth", 0)
+        if type(depth) is not int or depth < 0:
+            raise ValueError("depth must be an int >= 0.")
+        if depth > 0 and not isinstance(self, HasType):
+            names = ", ".join(_HASTYPE_QUERY_METHODS)
+            raise ValueError(
+                f"depth applies only to {names}, not {self.__class__.__name__}."
+            )
         db = self._state.db
         pk_on_db = self.pk
-        if (
-            self.__class__.__name__ == "Schema"
-            and transfer_config is None
-            and db is not None
-            and db != "default"
-            and using is None
-        ):
-            transfer_config = "annotations"
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
             artifacts = self.ordered_artifacts.to_list()
+        # Snapshot one level of typed children while this object still points at
+        # the source. transfer_to_default_db switches `_state.db` to "default".
+        typed_children: list = []
+        if (
+            db is not None
+            and db != "default"
+            and using is None
+            and depth > 0
+            and isinstance(self, HasType)
+        ):
+            typed_children = _typed_children(self)
         pre_existing_record = None
         # consider records that are being transferred from other databases
         transfer_logs: dict[str, list[str] | Run | None] = {
@@ -1440,7 +1491,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "You are attempting to transfer a record that's not the latest in its version history. This is currently not supported."
                     )
             pre_existing_record = transfer_to_default_db(
-                self, using, transfer_logs=transfer_logs
+                self,
+                using,
+                transfer_logs=transfer_logs,
+                # schema members and other annotation links are M2M, not part of
+                # the row. Only transfer="annotations" should copy them.
+                transfer_annotations=transfer_config == "annotations",
             )
         self._revises: IsVersioned
         if pre_existing_record is not None:
@@ -1623,6 +1679,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         f"If you are already a collaborator, please do 'lamin connect {slug}' in console, "
                         "restart the python session and try again."
                     ) from None
+                elif (
+                    isinstance(e, IntegrityError)
+                    and self.__class__.__name__ == "User"
+                    and self.uid != setup_settings.user.uid
+                ):
+                    # updating another user is hidden by RLS, so Django inserts
+                    # the same primary key and the database raises IntegrityError
+                    raise NoWriteAccess(
+                        "It is not allowed to modify a user other than the current user."
+                    ) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
@@ -1636,12 +1702,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
+            if transfer_config in {"notes", "annotations"}:
+                transfer_notes(self, db, pk_on_db)
             if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
+            if (
+                self.__class__.__name__ in {"Record", "Run"}
+                and transfer_config == "annotations"
+            ):
+                transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
             if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
@@ -1651,13 +1724,18 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self_on_db.pk = pk_on_db  # manually set the primary key
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+            # Parent is on the target. Each child transfers itself, then one
+            # fewer type level, so a subtype is saved before its data records.
+            for child in typed_children:
+                child.save(transfer=transfer_config, depth=depth - 1)
             if transfer_logs["run"] is not None:
                 transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
-                if k != "run" and len(v) > 0:
-                    logger.important(f"{k}: {', '.join(v)}")
+                if k == "run" or k.startswith("_") or len(v) == 0:
+                    continue
+                logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
@@ -1688,10 +1766,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             return_str: Return a string instead of printing.
-            include: Include additional content. Use ``"comments"`` to display
+            include: Include additional content. Use `"comments"` to display
                 readme and comment blocks.
             n_max_features: Max number of internal schema members shown
-                in ``Artifact.describe()`` previews.
+                in `Artifact.describe()` previews.
         """
         from ._describe import describe_postgres_sqlite
 
@@ -2519,178 +2597,6 @@ def add_db_connection(db: str, using: str):
     _ensure_lamindb_router()
 
 
-REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
-
-
-def update_fk_to_default_db(
-    records: SQLRecord | list[SQLRecord] | DjangoQuerySet,
-    fk: str,
-    using: str | None,
-    transfer_logs: dict,
-):
-    # here in case it is an iterable, we are checking only a single record
-    # and set the same fks for all other records because we do this only
-    # for certain fks where they have to the same for the whole bulk
-    # see transfer_fk_to_default_db_bulk
-    # todo: but this has to be changed i think, it is not safe as it is now - Sergei
-    record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
-    if getattr(record, f"{fk}_id", None) is not None:
-        # set the space of the transferred record to the current space
-        if fk == "space":
-            # for space we set the record's space to the current space
-            from lamindb import context
-
-            # the default space has id=1
-            fk_record_default = Space.get(1) if context.space is None else context.space
-        # process non-space fks
-        else:
-            fk_record = getattr(record, fk)
-            field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
-            pre_existing_fk_record_default = fk_record.__class__.filter(
-                **{field: getattr(fk_record, field)}
-            ).one_or_none()
-            from copy import copy
-
-            fk_record_default = copy(fk_record)
-            if fk_record.__class__.__name__ == "Schema":
-                from .schema import transfer_schema_with_members
-
-                fk_record_default = transfer_schema_with_members(
-                    fk_record_default, using, transfer_logs=transfer_logs
-                )
-            elif pre_existing_fk_record_default is None:
-                transfer_to_default_db(
-                    fk_record_default, using, save=True, transfer_logs=transfer_logs
-                )
-            else:
-                fk_record_default = pre_existing_fk_record_default
-        # re-set the fks to the newly saved ones in the default db
-        if isinstance(records, (list, DjangoQuerySet)):
-            for r in records:
-                setattr(r, f"{fk}", None)
-                setattr(r, f"{fk}_id", fk_record_default.id)
-        else:
-            setattr(records, f"{fk}", None)
-            setattr(records, f"{fk}_id", fk_record_default.id)
-
-
-FKBULK = [
-    "organism",
-    "source",
-    "report",  # Run
-]
-
-
-def transfer_fk_to_default_db_bulk(
-    records: list | DjangoQuerySet, using: str | None, transfer_logs: dict
-):
-    for fk in FKBULK:
-        update_fk_to_default_db(records, fk, using, transfer_logs=transfer_logs)
-
-
-def get_transfer_run(record) -> Run:
-    from lamindb import settings
-    from lamindb.core._context import context
-    from lamindb.models import Run, Transform
-    from lamindb.models._lineage import WARNING_RUN_TRANSFORM
-
-    slug = record._state.db
-    owner, name = get_owner_name_from_identifier(slug)
-    cache_using_filepath = (
-        ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
-    )
-    if not cache_using_filepath.exists():
-        raise SystemExit("Need to call .connect() before")
-    instance_uid = cache_using_filepath.read_text().split("\n")[0]
-    # TODO: consider renaming to __lamindb_sync__
-    key = f"__lamindb_transfer__/{instance_uid}"
-    uid = instance_uid + "0000"
-    transform = Transform.filter(uid=uid).one_or_none()
-    if transform is None:
-        search_names = settings.creation.search_names
-        settings.creation.search_names = False
-        # TODO: consider renaming to "Sync from"
-        transform = Transform(  # type: ignore
-            uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
-        ).save()
-        settings.creation.search_names = search_names
-    # use the global run context to get the initiated_by_run run id
-    if context.run is not None:
-        initiated_by_run = context.run
-    else:
-        if not settings.creation.artifact_silence_missing_run_warning:
-            logger.warning(WARNING_RUN_TRANSFORM)
-        initiated_by_run = None
-    # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
-    if run is None:
-        run = Run(
-            transform=transform,
-            initiated_by_run=initiated_by_run,
-            status="started",
-        ).save()  # type: ignore
-        run.initiated_by_run = initiated_by_run  # so that it's available in memory
-    return run
-
-
-def transfer_to_default_db(
-    record: SQLRecord,
-    using: str | None,
-    *,
-    transfer_logs: dict,
-    save: bool = False,
-    transfer_fk: bool = True,
-) -> SQLRecord | None:
-    if record._state.db is None or record._state.db == "default":
-        return None
-    registry = record.__class__
-    logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
-    record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
-    record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
-    if transfer_logs["run"] is None:
-        transfer_logs["run"] = get_transfer_run(record)
-    if record_on_default is not None:
-        transfer_logs["mapped"].append(record_str)
-        return record_on_default
-    else:
-        transfer_logs["transferred"].append(record_str)
-
-    if hasattr(record, "created_by_id"):
-        record.created_by = None
-        record.created_by_id = ln_setup.settings.user.id
-    # run & transform
-    run = transfer_logs["run"]
-    if hasattr(record, "run_id"):
-        record.run = None
-        record.run_id = run.id
-    # deal with denormalized transform FK on artifact and collection
-    if hasattr(record, "transform_id"):
-        record.transform = None
-        record.transform_id = run.transform_id
-    # transfer other foreign key fields
-    fk_fields = [
-        i.name
-        for i in record._meta.fields
-        if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"created_by", "run", "transform", "branch"}
-    ]
-    if not transfer_fk:
-        # don't transfer fk fields that are already bulk transferred
-        fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
-    for fk in fk_fields:
-        update_fk_to_default_db(record, fk, using, transfer_logs=transfer_logs)
-    # FK ids were remapped to the default DB; drop tracked *_id originals so save
-    # logic does not treat remapping as a user-requested field change.
-    if (original_values := getattr(record, "_original_values", None)) is not None:
-        for key in [key for key in original_values if key.endswith("_id")]:
-            del original_values[key]
-    record.id = None
-    record._state.db = "default"
-    if save:
-        record.save()
-    return None
-
-
 def track_current_name_value(record: SQLRecord):
     # below, we're using __dict__ to avoid triggering the refresh from the database
     # which can lead to a recursion
@@ -2986,9 +2892,3 @@ class Migration(BaseSQLRecord):
         db_table = "django_migrations"
         app_label = "lamindb"
         managed = False
-
-
-LinkORM = IsLink  # backward compat
-Record = SQLRecord  # backward compat
-BasicRecord = BaseSQLRecord  # backward compat
-RecordInfo = SQLRecordInfo  # backward compat

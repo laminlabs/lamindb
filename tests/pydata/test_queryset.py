@@ -1,6 +1,8 @@
 import re
 import textwrap
 from contextlib import contextmanager
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import bionty as bt
 import lamindb as ln
@@ -11,6 +13,7 @@ from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
 from lamindb.models.query_set import (
     SQLRecordList,
+    _db_is_current_instance,
     get_default_branch_ids,
     get_feature_annotate_kwargs,
 )
@@ -100,7 +103,7 @@ def test_to_dataframe():
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
-    assert qs.to_dataframe().iloc[0]["handle"] == ln.setup.settings.user.handle
+    assert ln.setup.settings.user.handle in set(qs.to_dataframe()["handle"])
 
 
 def test_complex_df_with_features():
@@ -315,7 +318,7 @@ def test_to_dataframe_include_features_prefers_relational_duplicates():
 
 
 def test_one_first():
-    qs = ln.User.objects.all()
+    qs = ln.User.filter(uid=ln.setup.settings.user.uid)
     assert qs.one().handle == ln.setup.settings.user.handle
     assert qs.first().handle == ln.setup.settings.user.handle
     assert qs.one_or_none().handle == ln.setup.settings.user.handle
@@ -383,6 +386,7 @@ def test_filter_status_field():
     assert ln.Branch.filter(status="review").count() >= 1
 
     project = ln.Project(name="test_filter_status_project").save()
+    assert project.status == "planned"
     project._status_code = -1
     project.save(update_fields=["_status_code"])
     assert ln.Project.filter(status=-1).count() >= 1
@@ -594,6 +598,61 @@ def test_get_filter_branch():
     run.delete(permanent=True)
     transform.delete(permanent=True)
     branch.delete()
+
+
+def test_db_is_current_instance():
+    instance = ln.setup.settings.instance
+    url = f"https://lamin.ai/{instance.owner}/{instance.name}"
+
+    assert _db_is_current_instance(None)
+    assert _db_is_current_instance("default")
+    assert _db_is_current_instance(instance.slug)
+    assert _db_is_current_instance(url)
+    assert not _db_is_current_instance("other-owner/other-name")
+
+    with patch.object(ln.setup.settings.user, "handle", instance.owner):
+        assert _db_is_current_instance(instance.name)
+
+    with patch("lamindb.models.query_set.logger.warning") as warning:
+        assert not _db_is_current_instance("https://lamin.ai/owner/name/extra")
+    warning.assert_called_once()
+    message = warning.call_args.args[0]
+    assert "could not resolve database identifier" in message
+    assert "https://lamin.ai/owner/name/extra" in message
+
+    with patch(
+        "lamindb.models.query_set.connections",
+        SimpleNamespace(databases={url: {}}),
+    ):
+        assert not _db_is_current_instance(url)
+
+    class RaisingDatabases:
+        def __contains__(self, key: object) -> bool:
+            raise RuntimeError("aliases unavailable")
+
+    with (
+        patch(
+            "lamindb.models.query_set.connections",
+            SimpleNamespace(databases=RaisingDatabases()),
+        ),
+        patch("lamindb.models.query_set.logger.warning") as warning,
+    ):
+        assert _db_is_current_instance(url)
+    warning.assert_called_once()
+    message = warning.call_args.args[0]
+    assert "could not check database connection aliases" in message
+    assert "aliases unavailable" in message
+
+    branch = ln.Branch(name="test_current_instance_alias").save()
+    try:
+        with set_branch(branch):
+            assert get_default_branch_ids(db=url) == [branch.id, 1]
+            assert get_default_branch_ids(db=instance.slug) == [branch.id, 1]
+            assert get_default_branch_ids(db="other-owner/other-name") == [1]
+            with patch.object(ln.setup.settings.user, "handle", instance.owner):
+                assert get_default_branch_ids(db=instance.name) == [branch.id, 1]
+    finally:
+        branch.delete()
 
 
 def test_to_class():

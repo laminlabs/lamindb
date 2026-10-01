@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
-from django.db.models import Q
 from lamin_utils import colors, logger
 from rich.table import Column, Table
 from rich.text import Text
@@ -767,31 +766,21 @@ def describe_sqlite(record, n_max_features: int | None = None):
 def append_readme_blocks_to_tree(
     record, tree: Tree, include: None | Literal["comments"] = None
 ) -> None:
-    """Append readme (and optionally comment) block content to the describe tree."""
-    if record._state.adding:
+    """Append notes (and optionally comment blocks) to the describe tree."""
+    if record._state.adding or not hasattr(record, "notes"):
         return
-    if not hasattr(record, "ablocks"):
+    notes = record.notes
+    if notes:
+        display_text(notes, "Notes", tree, max_lines=30, uid="")
+    if include != "comments" or not hasattr(record, "ablocks"):
         return
-    if include == "comments":
-        blocks_qs = record.ablocks.filter(
-            Q(kind="readme", is_latest=True) | Q(kind="comment")
-        ).select_related("created_by")
-    else:
-        blocks_qs = record.ablocks.filter(kind="readme", is_latest=True)
-    blocks = list(blocks_qs.order_by("created_at"))
-    # README first, then comments; each group sorted chronologically
-    readme_blocks = [b for b in blocks if b.kind == "readme"]
-    comment_blocks = [b for b in blocks if b.kind == "comment"]
-    for block in readme_blocks + comment_blocks:
-        if block.kind == "readme":
-            title = "README"
-        else:
-            handle = block.created_by.handle if block.created_by else "?"
-            created_at_str = format_field_value(block.created_at)
-            title = f"comment by {handle} at {created_at_str}"
+    comment_blocks = record.ablocks.filter(kind="comment").select_related("created_by")
+    for block in comment_blocks.order_by("created_at"):
+        handle = block.created_by.handle if block.created_by else "?"
+        created_at_str = format_field_value(block.created_at)
         display_text(
             block.content,
-            title,
+            f"comment by {handle} at {created_at_str}",
             tree,
             max_lines=30,
             uid="",

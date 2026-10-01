@@ -19,7 +19,7 @@ eval "$(_LAMIN_COMPLETE=zsh_source lamin)"
 
 ### connect
 
-Set the default database for this environment or directory.
+Set the default database for this directory.
 
 This command updates your local configuration to target the specified instance:
 all subsequent CLI commands and Python/R sessions will auto-connect to this instance.
@@ -27,10 +27,10 @@ all subsequent CLI commands and Python/R sessions will auto-connect to this inst
 You can pass a slug (`account/name`) or URL (`https://lamin.ai/account/name`).
 
 ```
-# set a default instance for the current environment
-lamin connect laminlabs/cellxgene
-# set a default instance for the current directory
+# set a default database for the current directory (recommended)
 lamin connect laminlabs/cellxgene --here
+# set a default database for the entire home directory
+lamin connect laminlabs/cellxgene
 # use a URL instead of a slug
 lamin connect https://lamin.ai/laminlabs/cellxgene
 ```
@@ -50,7 +50,7 @@ Options:
 
 ### info
 
-Show info about the instance, development & cache directories, branch, space, and user.
+Show info about the database, branch, space, and user.
 
 Manage settings via [lamin settings](https://docs.lamin.ai/cli#settings).
 
@@ -68,7 +68,7 @@ Options:
 
 ### init
 
-Initialize a LaminDB instance.
+Initialize a database in the current directory.
 
 Create a new development directory for your source code and `cd` into it:
 
@@ -118,17 +118,16 @@ Options:
 
 ### disconnect
 
-Unset the default database for this environment or directory.
+Unset the default database for this directory.
 
-- Without `--here`, it clears the global default instance.
-- With `--here`, it removes the nearest local marker from the current
-  directory hierarchy and unsets `dev-dir` for that instance.
+- With `--here`, it clears the default database for the current directory.
+- Without `--here`, it clears the default database for the entire home directory.
 
 For example:
 
 ```
-lamin disconnect
 lamin disconnect --here
+lamin disconnect
 ```
 
 Options:
@@ -148,12 +147,18 @@ Options:
 
 ### save
 
-Save a file or folder as an `artifact`, `transform`, or `record`.
+Save a file or folder as an artifact, transform, or record.
 
 Save a **dataset** or **model** as {class}`~lamindb.Artifact`:
 
 ```
 lamin save my_table.csv --key my_tables/my_table.csv
+```
+
+Pass `--batch-size` to control parallel file transfers when saving artifact folders (default 128). Reducing to 20 or lower can help with network errors:
+
+```
+lamin save my_folder --key my_tables --batch-size 20
 ```
 
 Pass `--store-kwargs` as a JSON object for fine-grained upload settings (normally not needed):
@@ -230,6 +235,10 @@ Options:
   --registry [artifact|transform|record]
                                   Either 'artifact', 'transform', or 'record'.
                                   If not passed, chooses based on path suffix.
+  --batch-size INTEGER            Number of files transferred in parallel when
+                                  saving artifact folders (default 128).
+                                  Reducing to 20 or lower can help with
+                                  network errors.
   --store-kwargs TEXT             Fine-grained settings for uploads as a JSON
                                   object (normally not needed), e.g.
                                   '{"chunksize": 1000000}'.
@@ -240,7 +249,7 @@ Options:
 
 ### load
 
-Sync a file/folder into a local cache (artifacts) or development directory (transforms).
+Sync a file/folder into a local cache (artifacts) or development directory (transforms, records).
 
 Pass an entity or a `--key`. For example:
 
@@ -259,6 +268,12 @@ lamin load artifact --uid e2G7k9EVul4JbfsE
 lamin load transform --uid Vul4JbfsEYAy5
 ```
 
+Pass `--batch-size` to control parallel file transfers when loading artifact or collection folders (default 128). Reducing to 20 or lower can help with network errors:
+
+```
+lamin load --key mydatasets/myfolder --batch-size 20
+```
+
 Pass `--store-kwargs` as a JSON object for fine-grained artifact or collection download settings (normally not needed):
 
 ```
@@ -271,13 +286,16 @@ Options:
 lamin load [OPTIONS] [ENTITY]
 
 Options:
-  --uid TEXT           The uid for the entity.
-  --key TEXT           The key for the entity.
-  --with-env           Also return the environment for a tranform.
-  --store-kwargs TEXT  Fine-grained settings for artifact or collection
-                       downloads as a JSON object (normally not needed), e.g.
-                       '{"batch_size": 20}'.
-  --help               Show this message and exit.
+  --uid TEXT            The uid for the entity.
+  --key TEXT            The key for the entity.
+  --with-env            Also return the environment for a tranform.
+  --batch-size INTEGER  Number of files transferred in parallel when loading
+                        artifact or collection folders (default 128). Reducing
+                        to 20 or lower can help with network errors.
+  --store-kwargs TEXT   Fine-grained settings for artifact or collection
+                        downloads as a JSON object (normally not needed), e.g.
+                        '{"batch_size": 20}'.
+  --help                Show this message and exit.
 ```
 
 → Python/R alternative: {func}`~lamindb.Artifact.load`, no equivalent for transforms
@@ -287,6 +305,10 @@ Options:
 Create an object.
 
 Currently only supports creating branches and projects.
+
+Use `lamin save` to create artifacts, transforms, and records.
+
+Examples:
 
 ```
 lamin create branch my_branch
@@ -392,7 +414,7 @@ Options:
 
 ### annotate
 
-Annotate an artifact, transform, or collection.
+Annotate an object.
 
 You can annotate with projects, labels, records, version tags, a readme, a comment, and, for artifacts, with features. For example,
 
@@ -453,7 +475,7 @@ Options:
 
 ### update
 
-Update mutable fields of an entity.
+Update an object.
 
 Examples:
 
@@ -483,7 +505,7 @@ Options:
 
 ### get
 
-Get a field value or describe an object.
+Get object metadata.
 
 If no field flag is passed, this behaves like `lamin describe`.
 If a field flag is passed, it reads that field from the resolved entity.
@@ -639,7 +661,7 @@ If you run the script, input and output artifacts will be linked:
 sh my_script.sh
 ```
 
-The `lamindb` [skill](https://github.com/laminlabs/lamin-skills) ships with the `lamindb` package at `.agents/skills/`. Ask your coding agent to copy it to wherever it reads skills from — `.claude/skills/` for Claude Code, `.agents/skills/` for GitHub Copilot — so that it automatically tracks agent sessions. It will call:
+The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --all` so your agent can read it (add `--claude` for Claude Code). It will call:
 
 ```
 lamin track claude   # or: lamin track copilot, or: lamin track cursor
@@ -693,7 +715,7 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.finish` for (non-shell) scripts or notebooks
 
-## Settings & migrations
+## Administer
 
 ### settings
 
@@ -706,18 +728,15 @@ Get or set the following settings:
 - `modules` → environment schema modules {attr}`~lamindb.setup.core.SetupSettings.modules`
 - `branch` → current {attr}`~lamindb.setup.core.SetupSettings.branch`
 - `space` → current {attr}`~lamindb.setup.core.SetupSettings.space`
-- `worktree` → toggle {attr}`~lamindb.setup.core.SetupSettings.worktree` mode (dev-dir is a worktree parent where each child directory maps on a branch)
 
 You can display your current settings by running: `lamin info`
 
 Examples:
 
 ```
-# dev-dir
+# dev-dir (created by lamin init or lamin connect <account/name> --here)
 lamin settings dev-dir get
-lamin settings dev-dir set .  # set to current directory
-lamin settings dev-dir set ~/my-project
-lamin settings dev-dir unset
+lamin settings dev-dir find .
 # cache-dir
 lamin settings cache-dir get
 lamin settings cache-dir set /path/to/cache
@@ -732,10 +751,6 @@ lamin settings branch set main
 # space
 lamin settings space get
 lamin settings space set all
-# worktree
-lamin settings worktree get
-lamin settings worktree set true
-lamin settings worktree unset
 # mount
 lamin settings mount storage ./mnt
 lamin settings mount unset ./mnt
@@ -751,10 +766,9 @@ Options:
 
 Commands:
   cache-dir  Get, set, reset, or clear the cache directory.
-  dev-dir    Get or set the development directory.
+  dev-dir    Get or find development directories.
   modules    Get or set environment schema modules.
   mount      Mount storage locations read-only via an installed FUSE...
-  worktree   Get or set whether dev-dir is interpreted as a worktree parent.
 ```
 
 → Python/R alternative: {attr}`~lamindb.setup.core.SetupSettings.dev_dir`, {attr}`~lamindb.setup.core.SetupSettings.cache_dir`, {attr}`~lamindb.setup.core.SetupSettings.modules`, {attr}`~lamindb.setup.core.SetupSettings.branch`, and {attr}`~lamindb.setup.core.SetupSettings.space`
@@ -779,7 +793,18 @@ Commands:
 
 ### io
 
-Import and export databases.
+Transfer, import, and export data.
+
+Use `lamin io sync` to sync objects to the current database:
+
+```
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE --depth 1
+lamin io sync record --uid UrcIKR8v0ywim0pE --from laminlabs/lamindata
+lamin io sync artifact --key example_datasets/mini_immuno/dataset1.h5ad --from laminlabs/lamindata
+```
+
+→ Guide: {doc}`transfer`
 
 Options:
 
@@ -790,14 +815,42 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  exportdb  Export registry tables to parquet files.
-  importdb  Import registry tables from parquet files.
-  snapshot  Create a SQLite snapshot of the connected instance.
+  exportdb  Export registries to parquet files.
+  importdb  Import registries from parquet files.
+  snapshot  Create an SQLite snapshot of the current database.
+  sync      Sync an object to the current database.
+```
+
+→ Python/R alternative: {func}`~lamindb.models.sync_objects_from_database`
+
+Use `lamin io snapshot` to create an SQLite snapshot of the current database:
+
+```
+lamin io snapshot
+```
+
+Use `lamin io importdb` to import data from parquet files:
+
+```
+lamin io importdb --input-dir path/to/parquet/files
+```
+
+Use `lamin io exportdb` to export data to parquet files:
+
+```
+lamin io exportdb --output-dir path/to/parquet/files
 ```
 
 ### integrations
 
-Run integration helpers.
+Use integrations.
+
+Examples:
+
+```
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 0 --apply
+```
 
 Options:
 
@@ -811,11 +864,13 @@ Commands:
   notion  Sync from Notion.
 ```
 
-## Auth
+→ Python/R alternative: {func}`~lamindb.integrations.notion.sync_objects_from_notion`
+
+## Authenticate
 
 ### login
 
-Log into LaminHub.
+Log into the hub.
 
 `lamin login` prompts for your API key unless you set it via environment variable `LAMIN_API_KEY`.
 
@@ -836,7 +891,7 @@ Options:
 
 ### logout
 
-Log out of LaminHub.
+Log out of the hub.
 
 Options:
 

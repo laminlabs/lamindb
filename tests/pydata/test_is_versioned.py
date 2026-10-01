@@ -1,11 +1,16 @@
+import string
+from datetime import datetime, timedelta, timezone
+
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.base.uids import base26, base62_20, base62_24, base64
 from lamindb.errors import IntegrityError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
     max_version_uid_in_family,
+    reconcile_is_latest_within_branch,
     set_version,
 )
 
@@ -18,6 +23,23 @@ def df1():
 @pytest.fixture(scope="module")
 def df2():
     return pd.DataFrame({"feat1": [2, 3]})
+
+
+def test_off_path_uid_generators_use_their_alphabets():
+    base62_alphabet = set(string.digits + string.ascii_letters)
+    uid20 = base62_20()
+    uid24 = base62_24()
+    uid64 = base64(8)
+    uid26 = base26(8)
+
+    assert len(uid20) == 20
+    assert set(uid20) <= base62_alphabet
+    assert len(uid24) == 24
+    assert set(uid24) <= base62_alphabet
+    assert len(uid64) == 8
+    assert set(uid64) <= base62_alphabet | {"_", "-"}
+    assert len(uid26) == 8
+    assert set(uid26) <= set(string.ascii_lowercase)
 
 
 def test_set_version():
@@ -42,6 +64,90 @@ def test_bump_version():
     assert bump_version(current_version_major_only, bump_type="minor") == "2.1"
     assert bump_version(current_version_major_minor, bump_type="major") == "3"
     assert bump_version(current_version_major_minor, bump_type="minor") == "2.2"
+    with pytest.raises(ValueError, match="bump_type must be 'major' or 'minor'"):
+        bump_version(current_version_major_minor, bump_type="patch")
+
+
+def test_version_setter_writes_version_tag():
+    transform = ln.Transform(key="version-setter-writes-tag").save()
+    assert transform.version_tag is None
+    assert transform.version == transform.uid[-4:]
+
+    transform.version = "1.2"
+    assert transform.version_tag == "1.2"
+    assert transform.version == "1.2"
+
+    transform.version = None
+    assert transform.version_tag is None
+    assert transform.version == transform.uid[-4:]
+    transform.delete(permanent=True)
+
+
+def test_reconcile_is_latest_within_branch_demotes_duplicates():
+    empty = ln.Branch(name="reconcile-empty-branch").save()
+    assert reconcile_is_latest_within_branch(ln.Transform, branch_id=empty.id) == 0
+
+    single = ln.Branch(name="reconcile-single-branch").save()
+    only = ln.Transform(key="reconcile-single", branch=single).save()
+    assert reconcile_is_latest_within_branch(ln.Transform, branch_id=single.id) == 0
+    only.refresh_from_db()
+    assert only.is_latest
+
+    family = ln.Branch(name="reconcile-family-branch").save()
+    v1 = ln.Transform(key="reconcile-family", branch=family).save()
+    v2 = ln.Transform(revises=v1, key="reconcile-family", branch=family).save()
+    v1.refresh_from_db()
+    assert not v1.is_latest
+    assert v2.is_latest
+
+    ln.Transform.objects.filter(pk=v1.pk).update(is_latest=True)
+    demoted = reconcile_is_latest_within_branch(ln.Transform, branch_id=family.id)
+    assert demoted == 1
+    v1.refresh_from_db()
+    v2.refresh_from_db()
+    assert not v1.is_latest
+    assert v2.is_latest
+
+    # Versions share a stem and differ in the uid suffix, and the query orders by
+    # uid before created_at. Give the newer row the uid that sorts first so the
+    # older row arrives later and is demoted by the else branch.
+    ordered = ln.Branch(name="reconcile-uid-order-branch").save()
+    older = ln.Transform(key="reconcile-uid-order", branch=ordered).save()
+    newer = ln.Transform(
+        revises=older, key="reconcile-uid-order", branch=ordered
+    ).save()
+    stem = older.stem_uid
+    earlier = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    later = earlier + timedelta(days=1)
+    ln.Transform.objects.filter(pk=older.pk).update(uid=f"{stem}temp")
+    ln.Transform.objects.filter(pk=newer.pk).update(
+        uid=f"{stem}0000", created_at=later, is_latest=True
+    )
+    ln.Transform.objects.filter(pk=older.pk).update(
+        uid=f"{stem}0001", created_at=earlier, is_latest=True
+    )
+    arrival = list(
+        ln.Transform.objects.filter(branch_id=ordered.id, is_latest=True)
+        .order_by("uid", "created_at", "pk")
+        .values_list("pk", flat=True)
+    )
+    assert arrival == [newer.pk, older.pk]
+    demoted = reconcile_is_latest_within_branch(ln.Transform, branch_id=ordered.id)
+    assert demoted == 1
+    older.refresh_from_db()
+    newer.refresh_from_db()
+    assert not older.is_latest
+    assert newer.is_latest
+
+    newer.delete(permanent=True)
+    older.delete(permanent=True)
+    ordered.delete(permanent=True)
+    v2.delete(permanent=True)
+    v1.delete(permanent=True)
+    only.delete(permanent=True)
+    family.delete(permanent=True)
+    single.delete(permanent=True)
+    empty.delete(permanent=True)
 
 
 def test_add_to_version_family(df1, df2):

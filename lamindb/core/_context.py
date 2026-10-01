@@ -30,14 +30,14 @@ from django.db.models import Q
 from lamin_utils._logger import logger
 from lamindb_setup.core.django import _is_running_in_marimo
 
-from .._secret_redaction import (
+from ..errors import InvalidArgument, TrackNotCalled
+from ..models import Run, SQLRecord, Transform, format_field_value
+from ..models._feature_manager import infer_convert_dtype_key_value
+from ._secret_redaction import (
     REDACTED_SECRET_VALUE,
     is_sensitive_param_key,
     is_sensitive_param_value,
 )
-from ..errors import InvalidArgument, TrackNotCalled
-from ..models import Run, SQLRecord, Transform, format_field_value
-from ..models._feature_manager import infer_convert_dtype_key_value
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
@@ -191,13 +191,11 @@ def get_notebook_path() -> tuple[Path, str]:
     if marimo_path is not None:
         return Path(marimo_path), "marimo"
 
-    from nbproject.dev._jupyter_communicate import (
-        notebook_path as get_notebook_path,
-    )
+    from lamindb.integrations.jupyter import notebook_path
 
     path = None
     try:
-        path, env = get_notebook_path(return_env=True)
+        path, env = notebook_path(return_env=True)
     except ValueError as ve:
         raise ve
     except Exception as error:
@@ -234,17 +232,6 @@ def get_cli_call() -> tuple[str, str] | None:
     if len(sys.argv) > 1 and sys.argv[0] and not is_run_from_ipython:
         return Path(sys.argv[0]).name, " ".join(sys.argv[1:])
     return None
-
-
-def pretty_pypackages(dependencies: dict) -> str:
-    deps_list = []
-    for pkg, ver in dependencies.items():
-        if ver != "":
-            deps_list.append(pkg + f"=={ver}")
-        else:
-            deps_list.append(pkg)
-    deps_list.sort()
-    return " ".join(deps_list)
 
 
 def last_non_empty_r_block(line: str) -> str:
@@ -370,7 +357,7 @@ class LogStreamTracker:
 
     def cleanup(self, signo=None, frame=None):
         try:
-            from .._finish import save_run_logs
+            from ._finish import save_run_logs
 
             if self.original_stdout and not self.is_cleaning_up:
                 self.is_cleaning_up = True
@@ -536,7 +523,8 @@ def _annotation_to_feature_dtype_arg(
             return None, value, "expected tuple"
         items = list(value)
         if not args:
-            return list, items, None
+            # `list` is not a feature dtype, so skip the virtual schema.
+            return None, items, None
         if len(args) == 2 and args[1] is Ellipsis:
             item_annotation = args[0]
             normalized_items = []
@@ -547,7 +535,7 @@ def _annotation_to_feature_dtype_arg(
                 if reason is not None:
                     return None, value, f"tuple item mismatch ({reason})"
                 normalized_items.append(normalized_item)
-            return list, normalized_items, None
+            return None, normalized_items, None
         if len(args) != len(items):
             return None, value, "tuple arity mismatch"
         normalized_items = []
@@ -558,7 +546,7 @@ def _annotation_to_feature_dtype_arg(
             if reason is not None:
                 return None, value, f"tuple item mismatch ({reason})"
             normalized_items.append(normalized_item)
-        return list, normalized_items, None
+        return None, normalized_items, None
 
     if origin is not None:
         return None, value, f"unsupported annotation origin {origin!r}"
@@ -888,7 +876,7 @@ class Context:
         """
         from lamindb.models import Artifact, Branch, Project, Space
 
-        from .._finish import (
+        from ._finish import (
             save_context_core,
         )
 
@@ -1227,22 +1215,12 @@ class Context:
             path_str = get_notebook_key_colab()
             path = Path(path_str)
         else:
-            from nbproject.dev import read_notebook
-            from nbproject.dev._meta_live import get_title
-            from nbproject.dev._pypackage import infer_pypackages
+            from lamindb.integrations.jupyter import get_title, read_notebook
 
             try:
-                nb = read_notebook(path_str)
-
-                nbproject_title = get_title(nb)
-                if nbproject_title is not None:
-                    description = nbproject_title
-
-                if pypackages:
-                    self._logging_message_imports += (
-                        "notebook imports:"
-                        f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
-                    )
+                nb_title = get_title(read_notebook(path_str))
+                if nb_title is not None:
+                    description = nb_title
             except Exception:
                 logger.debug("reading the notebook file failed")
                 pass
@@ -1272,7 +1250,7 @@ class Context:
         See :doc:`/track`.
 
         """
-        from .._finish import save_context_core, save_run_logs
+        from ._finish import save_context_core, save_run_logs
 
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")

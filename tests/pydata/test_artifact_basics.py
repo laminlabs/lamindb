@@ -955,6 +955,9 @@ def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
     df = example_dataframe
     artifact = ln.Artifact.from_dataframe(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
+    csv_artifact = ln.Artifact.from_dataframe(df, key="test_.csv")
+    assert csv_artifact.suffix == ".csv"
+    csv_artifact._local_filepath.unlink(missing_ok=True)
 
     with pytest.raises(ln.errors.InvalidArgument) as error:
         artifact = ln.Artifact.from_dataframe(df, key="test_.def")
@@ -1090,6 +1093,21 @@ def test_create_from_spatialdata(
         assert af.otype == "SpatialData"
         assert af.kind == "dataset"
         # n_observations not defined
+
+    zarr_af = ln.Artifact.from_spatialdata(
+        get_small_sdata, format="zarr", description="zarr format"
+    )
+    assert zarr_af.suffix == ".zarr"
+    shutil.rmtree(zarr_af._local_filepath, ignore_errors=True)
+    spatial_af = ln.Artifact.from_spatialdata(
+        get_small_sdata,
+        format="spatialdata.zarr",
+        description="spatialdata.zarr format",
+    )
+    assert spatial_af.suffix == ".spatialdata.zarr"
+    shutil.rmtree(spatial_af._local_filepath, ignore_errors=True)
+    with pytest.raises(ValueError, match="SpatialData storage format"):
+        ln.Artifact.from_spatialdata(get_small_sdata, format="h5ad")
 
 
 @pytest.mark.parametrize(

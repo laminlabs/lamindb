@@ -197,6 +197,7 @@ artifacts = ln.Artifact.filter(
 ## Versioned collections of artifacts
 
 If you want to group artifacts by metadata and version the entire set, use {class}`~lamindb.Collection`.
+If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See {doc}`/architecture`.
 
 <img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
 
@@ -213,6 +214,8 @@ Artifacts are versioned based on the hash of their content. Collections are vers
 ```python
 collection_v2 = collection.append(artifact3)
 ```
+
+If the artifacts share a schema, {meth}`~lamindb.Collection.open` streams them as one table (Polars or PyArrow). See {class}`~lamindb.Collection`.
 
 While collections are indirectly annotated through the annotations of the artifacts they contain, you can also add collection-level annotations. Like artifacts, collections link to projects, runs, ulabels, records, and most other registries.
 

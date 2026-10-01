@@ -293,13 +293,17 @@ class Reference(
             **space_branch_kwargs,
         )
 
-    def query_references(self) -> QuerySet:
+    def query_references(self, depth: int | None = None) -> QuerySet:
         """Query references of sub types.
 
         While `.references` retrieves the references with the current type, this method
         also retrieves sub types and the references with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct references of this type.
         """
-        return _query_relatives([self], "references")  # type: ignore
+        return _query_relatives([self], "references", depth=depth)  # type: ignore
 
 
 class Project(
@@ -495,6 +499,7 @@ class Project(
     """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
     branches: RelatedManager[Branch]
     """Annotated branches ← :attr:`~lamindb.Branch.projects`."""
+    # consider changing to -3 as a database default in the future as we do for Run._status_code
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
@@ -551,6 +556,7 @@ class Project(
             description=description,
             start_date=start_date,
             end_date=end_date,
+            _status_code=PROJECT_STATUS_TO_CODE["planned"],
             _skip_validation=_skip_validation,
             _aux=_aux,
             **space_branch_kwargs,
@@ -602,13 +608,17 @@ class Project(
             raise ValueError(f"Invalid project status. Expected one of: {expected}.")
         self._status_code = PROJECT_STATUS_TO_CODE[value]
 
-    def query_projects(self) -> QuerySet:
+    def query_projects(self, depth: int | None = None) -> QuerySet:
         """Query projects of sub types.
 
         While `.projects` retrieves the projects with the current type, this method
         also retrieves sub types and the projects with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct projects of this type.
         """
-        return _query_relatives([self], "projects")  # type: ignore
+        return _query_relatives([self], "projects", depth=depth)  # type: ignore
 
 
 class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):

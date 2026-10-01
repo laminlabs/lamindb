@@ -277,13 +277,17 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             **space_branch_kwargs,
         )
 
-    def query_ulabels(self) -> QuerySet:
+    def query_ulabels(self, depth: int | None = None) -> QuerySet:
         """Query ulabels of sub types.
 
         While `.ulabels` retrieves the ulabels with the current type, this method
         also retrieves sub types and the ulabels with sub types of the current type.
+
+        Args:
+            depth: How many type hops to follow. ``None`` walks the whole subtree.
+                ``1`` returns only the direct ulabels of this type.
         """
-        return _query_relatives([self], "ulabels")  # type: ignore
+        return _query_relatives([self], "ulabels", depth=depth)  # type: ignore
 
 
 class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):

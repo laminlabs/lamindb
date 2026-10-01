@@ -9,7 +9,7 @@ from collections.abc import Iterable as IterableType
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 from django.core.exceptions import FieldError
-from django.db import models, transaction
+from django.db import connections, models, transaction
 from django.db.models import (
     Case,
     F,
@@ -50,7 +50,37 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
+def _db_is_current_instance(db: str | None) -> bool:
+    """Whether `db` is the connected instance rather than a remote database.
+
+    `None`, `"default"`, and the instance slug are local. A bare name,
+    `owner/name`, or `https://lamin.ai/owner/name` is local when it resolves to
+    the same owner and name as `SQLRecord.connect()`. An existing Django
+    connection alias stays remote unless it is the slug, because `connect()`
+    uses that alias as-is.
+    """
+    instance = setup_settings.instance
+    if db is None or db == "default" or db == instance.slug:
+        return True
+    # A registered alias is a Model.connect() database, not an unresolved name.
+    try:
+        if db in connections.databases:
+            return False
+    except Exception as e:
+        logger.warning(f"could not check database connection aliases: {e}")
+    from lamindb_setup._connect_instance import get_owner_name_from_identifier
+
+    try:
+        owner, name = get_owner_name_from_identifier(db)
+    except Exception as e:
+        logger.warning(f"could not resolve database identifier {db!r}: {e}")
+        return False
+    return owner == instance.owner and name == instance.name
+
+
+def get_default_branch_ids(
+    branch: Branch | None = None, db: str | None = None
+) -> list[int]:
     """Return branch IDs to include in default queries.
 
     By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
@@ -63,6 +93,10 @@ def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
         List containing the default branch and current branch if different.
     """
     if branch is None:
+        # Remote Model.connect() queries only include main. Current-instance
+        # aliases (short name, URL, slug) follow the local branch.
+        if not _db_is_current_instance(db):
+            return [1]
         branch_id = setup_settings.branch.id
     else:
         branch_id = branch.id
@@ -264,7 +298,7 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     expressions_have_branch = True
                     break
             if not expressions_have_branch and not queries_contain_branch(queries):
-                expressions["branch_id__in"] = get_default_branch_ids()
+                expressions["branch_id__in"] = get_default_branch_ids(db=queryset.db)
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
@@ -654,7 +688,9 @@ def get_feature_annotate_kwargs(
                 value_relation_path,
                 condition=Q(
                     **{
-                        f"{value_relation_path}__branch_id__in": get_default_branch_ids()
+                        f"{value_relation_path}__branch_id__in": get_default_branch_ids(
+                            db=qs.db
+                        )
                     }
                 ),
             )

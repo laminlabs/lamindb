@@ -184,7 +184,7 @@ def test_record_block_comment_always_new_block():
 
     # Test full describe call with include="comments"
     result = record.describe(return_str=True, include="comments")
-    assert "README" in result
+    assert "Notes" in result
     assert "comment by" in result
     assert "same text" in result
 
