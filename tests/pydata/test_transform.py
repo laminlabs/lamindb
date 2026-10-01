@@ -8,6 +8,13 @@ import lamindb_setup as ln_setup
 import pytest
 
 
+def test_transform_branch_id_pins_the_record_branch():
+    main = ln.Branch.get(name="main")
+    transform = ln.Transform(key="branch-id-constructor", branch_id=main.id).save()
+    assert transform.branch_id == main.id
+    transform.delete(permanent=True)
+
+
 def test_transform_from_path_infers_kind_and_key(tmp_path):
     script_path = tmp_path / f"workflow-{time.time_ns()}.py"
     script_body = "print('hello')\n"

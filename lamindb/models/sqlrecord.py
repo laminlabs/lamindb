@@ -452,8 +452,9 @@ def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
                     fields = [f.strip() for f in fields_part.split(",")]
                     return fields
 
-                # Fallback if DETAIL line not available
-                return [field_string]
+                # Django's Postgres errors include DETAIL. Without it the
+                # constraint name is one mashed field, not column names.
+                return [field_string]  # pragma: no cover
             else:
                 # Single field constraint (ends with _key)
                 constraint_field = constraint_name.removesuffix("_key").split("_")[-1]
@@ -599,12 +600,9 @@ def validate_fields(record: SQLRecord, kwargs):
             "uid"
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
-            if not (
-                record.__class__ is Schema and len(kwargs["uid"]) == 16
-            ):  # no error for schema
-                raise ValidationError(
-                    f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
-                )
+            raise ValidationError(
+                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
+            )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         is_approx_pascal_case(kwargs["name"])
@@ -806,11 +804,8 @@ class Registry(ModelBase):
                 return isinstance(attr_value, (classmethod, staticmethod, type))
             return True
 
-        # check also inherited attributes
-        if hasattr(cls, "mro"):
-            attrs = chain(*(c.__dict__.items() for c in cls.mro()))
-        else:
-            attrs = cls.__dict__.items()
+        # check also inherited attributes; classes always have an mro
+        attrs = chain(*(c.__dict__.items() for c in cls.mro()))
 
         result = []
         for attr_name, attr_value in attrs:
@@ -1348,7 +1343,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     try:
                         if hasattr(self, "clean_fields"):
                             self.clean_fields()
-                        else:
+                        else:  # pragma: no cover
+                            # Django models always define clean_fields.
                             self._Model__clean_fields()
                     except DjangoValidationError as e:
                         message = _format_django_validation_error(self, e)

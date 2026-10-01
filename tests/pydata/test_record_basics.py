@@ -1754,6 +1754,12 @@ def test_single_space_getter_setter_paths():
     assert constrained_type.settings.single_space is False
     assert constrained_type._aux is None
 
+    # Assigning a space before any aux exists has to create `_aux`.
+    fresh = ln.Record(name=f"DirectSpace-{suffix}", is_type=True).save()
+    fresh.settings.single_space = restricted_space
+    assert fresh._aux == {"ss": restricted_space.uid}
+    fresh.delete(permanent=True)
+
     constrained_type._aux = {"foo": "bar"}
     assert constrained_type.settings.single_space is False
 
@@ -1787,6 +1793,15 @@ def test_single_space_getter_setter_paths():
     constrained_type.settings.single_space = True
     constrained_type.settings.single_space = False
     assert constrained_type._aux is None
+
+    # The UI stores the type-space policy as the string "1", not the int 1.
+    constrained_type.space = restricted_space
+    constrained_type._aux = {"ss": "1"}
+    constrained_type.save()
+    child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
+    assert child.space_id == restricted_space.id
+    child.save()
+    child.delete(permanent=True)
 
     constrained_type.delete(permanent=True)
     restricted_space.delete(permanent=True)

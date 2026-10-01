@@ -87,7 +87,7 @@ def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
     if format is None:
         return ".zarr"
     if isinstance(format, str) and format in {"spatialdata.zarr", "zarr"}:
-        return format
+        return f".{format}"
     raise ValueError(
         "Error when specifying SpatialData storage format, it should be"
         f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"

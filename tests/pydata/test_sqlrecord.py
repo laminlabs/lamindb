@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 from django.db import ProgrammingError
 from django.db.models import Model
-from lamindb.errors import FieldValidationError
+from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models import sqlrecord as sqlrecord_module
 from lamindb.models.sqlrecord import (
     UNSET,
@@ -19,6 +19,7 @@ from lamindb.models.sqlrecord import (
     _search,
     check_key,
     get_name_field,
+    parse_violated_field_from_error_message,
     suggest_records_with_similar_names,
 )
 
@@ -203,6 +204,51 @@ def test_validate_required_fields():
     # ULabel has a required name
     with pytest.raises(FieldValidationError):
         ln.ULabel(description="test")
+
+
+def test_uid_must_match_field_length():
+    with pytest.raises(ValidationError, match="must be exactly 16 characters"):
+        ln.Transform(key="short-uid-transform", uid="0123456789ab")
+
+
+def test_django_field_validators_format_the_failing_value():
+    with pytest.raises(FieldValidationError, match="doi") as error:
+        ln.Reference(name="bad doi", doi="not-a-doi")
+    assert "not-a-doi" in error.exconly()
+
+    with pytest.raises(FieldValidationError, match="url") as error:
+        ln.Reference(name="bad url", url="not a url")
+    assert "not a url" in error.exconly()
+
+
+def test_fieldattr_repr_names_the_registry_field():
+    assert repr(ln.Feature.name) == "FieldAttr(Feature.name)"
+
+
+def test_record_rejects_space_and_space_id_together():
+    space = ln.Space.filter().first()
+    with pytest.raises(ValueError, match="Do not pass both Space and its id"):
+        ln.Record(name="both-space-and-id", space=space, space_id=space.id)
+
+
+def test_registry_dir_keeps_class_api_and_hides_instance_methods():
+    names = dir(ln.Feature)
+    assert "from_dataframe" in names
+    assert "search" in names
+    assert "save" not in names
+
+
+def test_parse_postgres_unique_constraint_names():
+    assert parse_violated_field_from_error_message("connection reset") is None
+    assert parse_violated_field_from_error_message(
+        'duplicate key value violates unique constraint "lamindb_feature_name_key"\n'
+        "DETAIL:  Key (name)=(foo) already exists."
+    ) == ["name"]
+    assert parse_violated_field_from_error_message(
+        "duplicate key value violates unique constraint "
+        '"bionty_ethnicity_name_ontology_id_a1b2c3d4_uniq"\n'
+        "DETAIL:  Key (name, ontology_id)=(South Asian, HANCESTRO:0006) already exists."
+    ) == ["name", "ontology_id"]
 
 
 @pytest.fixture

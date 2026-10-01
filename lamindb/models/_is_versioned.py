@@ -146,6 +146,8 @@ def bump_version(
     Returns:
         The new version string.
     """
+    if bump_type not in {"major", "minor"}:
+        raise ValueError("bump_type must be 'major' or 'minor'")
     try:
         # Split the version into major and minor parts if possible
         parts = version.split(".")
@@ -155,14 +157,12 @@ def bump_version(
         if bump_type == "major":
             # Bump the major version and reset the minor version
             new_version = f"{major + 1}"
-        elif bump_type == "minor":
+        else:
             # Bump the minor version
             new_version = f"{major}.{minor + 1}"
-        else:
-            raise ValueError("bump_type must be 'major' or 'minor'")
 
     except (ValueError, IndexError):
-        if behavior == "prompt":
+        if behavior == "prompt":  # pragma: no cover
             new_version = input(
                 f"The current version is '{version}' - please type the new version: "
             )

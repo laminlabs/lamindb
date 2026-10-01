@@ -191,14 +191,17 @@ def check_pandera_str(series) -> bool:
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
-    Supports both standard dtype checking and mixed list/single values for the same type.
-    For example, a column with expected_type 'float' would also accept a mix of float values and lists of floats.
+    Used for ``bool``, ``num``, ``str``, ``path``, ``url``, and ``list[...]``
+    columns. ``int`` and ``float`` go through ``AnyInt`` / ``AnyFloat`` in the
+    curator and never reach this check.
 
     Args:
-        expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
+        expected_type: String identifier for the expected type
+            (``bool``, ``num``, ``str``, ``path``, ``url``, or ``list[...]``).
+        nullable: Whether an all-null series is valid.
 
     Returns:
-        A function that checks if a series has the expected dtype or contains mixed types
+        A function that checks if a series has the expected dtype or contains mixed types.
     """
     import pandas as pd
 
@@ -209,11 +212,7 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
         if nullable and series.isnull().all():
             return True
         # first check if the series is entirely of the expected dtype (fast path)
-        if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
-            return True
-        elif expected_type == "float" and pd.api.types.is_float_dtype(series.dtype):
-            return True
-        elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
+        if expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
             return True
         elif expected_type == "str":
             return check_pandera_str(series)

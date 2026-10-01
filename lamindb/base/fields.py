@@ -153,7 +153,8 @@ class FloatField(models.FloatField):
         super().__init__(*args, **kwargs)
 
 
-class DecimalField(models.DecimalField):
+# Not instantiated. __init__ only sets blank=True.
+class DecimalField(models.DecimalField):  # pragma: no cover
     """Custom `DecimalField` with default values for `blank`.
 
     Django default values for `DecimalField` are `blank=False`.
@@ -197,7 +198,8 @@ class URLField(models.URLField):
         super().__init__(*args, **kwargs)
 
 
-class EmailField(models.EmailField):
+# Not instantiated. Each __init__ only sets blank=True.
+class EmailField(models.EmailField):  # pragma: no cover
     """Custom `EmailField` with default values for `blank`.
 
     Django default values for `EmailField` are `blank=False`.
@@ -208,7 +210,7 @@ class EmailField(models.EmailField):
         super().__init__(*args, **kwargs)
 
 
-class TimeField(models.TimeField):
+class TimeField(models.TimeField):  # pragma: no cover
     """Custom `TimeField` with default values for `blank`.
 
     Django default values for `TimeField` are `blank=False`.
@@ -219,7 +221,7 @@ class TimeField(models.TimeField):
         super().__init__(*args, **kwargs)
 
 
-class SlugField(models.SlugField):
+class SlugField(models.SlugField):  # pragma: no cover
     """Custom `SlugField` with default values for `blank`.
 
     Django default values for `SlugField` are `blank=False`.
@@ -230,7 +232,7 @@ class SlugField(models.SlugField):
         super().__init__(*args, **kwargs)
 
 
-class UUIDField(models.UUIDField):
+class UUIDField(models.UUIDField):  # pragma: no cover
     """Custom `UUIDField` with default values for `blank`.
 
     Django default values for `UUIDField` are `blank=False`.
@@ -241,7 +243,7 @@ class UUIDField(models.UUIDField):
         super().__init__(*args, **kwargs)
 
 
-class PositiveIntegerField(models.PositiveIntegerField):
+class PositiveIntegerField(models.PositiveIntegerField):  # pragma: no cover
     """Custom `PositiveIntegerField` with default values for `blank`.
 
     Django default values for `PositiveIntegerField` are `blank=False`.
@@ -252,7 +254,7 @@ class PositiveIntegerField(models.PositiveIntegerField):
         super().__init__(*args, **kwargs)
 
 
-class PositiveSmallIntegerField(models.PositiveSmallIntegerField):
+class PositiveSmallIntegerField(models.PositiveSmallIntegerField):  # pragma: no cover
     """Custom `PositiveSmallIntegerField` with default values for `blank`.
 
     Django default values for `PositiveSmallIntegerField` are `blank=False`.
@@ -263,7 +265,7 @@ class PositiveSmallIntegerField(models.PositiveSmallIntegerField):
         super().__init__(*args, **kwargs)
 
 
-class SmallIntegerField(models.SmallIntegerField):
+class SmallIntegerField(models.SmallIntegerField):  # pragma: no cover
     """Custom `SmallIntegerField` with default values for `blank`.
 
     Django default values for `SmallIntegerField` are `blank=False`.
@@ -274,7 +276,7 @@ class SmallIntegerField(models.SmallIntegerField):
         super().__init__(*args, **kwargs)
 
 
-class BinaryField(models.BinaryField):
+class BinaryField(models.BinaryField):  # pragma: no cover
     """Custom `BinaryField` with default values for `blank`.
 
     Django default values for `BinaryField` are `blank=False`.
@@ -285,7 +287,7 @@ class BinaryField(models.BinaryField):
         super().__init__(*args, **kwargs)
 
 
-class GenericIPAddressField(models.GenericIPAddressField):
+class GenericIPAddressField(models.GenericIPAddressField):  # pragma: no cover
     """Custom `GenericIPAddressField` with default values for `blank`.
 
     Django default values for `GenericIPAddressField` are `blank=False`.
