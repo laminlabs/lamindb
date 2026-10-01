@@ -1094,11 +1094,15 @@ def test_create_from_spatialdata(
         assert af.kind == "dataset"
         # n_observations not defined
 
-    zarr_af = ln.Artifact.from_spatialdata(get_small_sdata, format="zarr")
+    zarr_af = ln.Artifact.from_spatialdata(
+        get_small_sdata, format="zarr", description="zarr format"
+    )
     assert zarr_af.suffix == ".zarr"
     shutil.rmtree(zarr_af._local_filepath, ignore_errors=True)
     spatial_af = ln.Artifact.from_spatialdata(
-        get_small_sdata, format="spatialdata.zarr"
+        get_small_sdata,
+        format="spatialdata.zarr",
+        description="spatialdata.zarr format",
     )
     assert spatial_af.suffix == ".spatialdata.zarr"
     shutil.rmtree(spatial_af._local_filepath, ignore_errors=True)

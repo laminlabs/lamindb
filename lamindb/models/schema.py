@@ -563,6 +563,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
+    # 16 characters since lamindb 1.5. Records from before that are 20 characters.
     uid: str = CharField(max_length=16, unique=True, db_index=True, editable=False)
     """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)

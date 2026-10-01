@@ -600,9 +600,11 @@ def validate_fields(record: SQLRecord, kwargs):
             "uid"
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
-            raise ValidationError(
-                f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
-            )
+            # Schema uids were 20 characters before lamindb 1.5.
+            if not (record.__class__ is Schema and len(kwargs["uid"]) == 20):
+                raise ValidationError(
+                    f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
+                )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
         is_approx_pascal_case(kwargs["name"])

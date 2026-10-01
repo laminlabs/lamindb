@@ -21,6 +21,7 @@ from lamindb.models.sqlrecord import (
     get_name_field,
     parse_violated_field_from_error_message,
     suggest_records_with_similar_names,
+    validate_fields,
 )
 
 
@@ -209,6 +210,13 @@ def test_validate_required_fields():
 def test_uid_must_match_field_length():
     with pytest.raises(ValidationError, match="must be exactly 16 characters"):
         ln.Transform(key="short-uid-transform", uid="0123456789ab")
+
+    # Schema.uid is 16 characters since lamindb 1.5. Older rows are 20.
+    schema = ln.Schema.__new__(ln.Schema)
+    validate_fields(schema, {"uid": "0" * 16})
+    validate_fields(schema, {"uid": "0" * 20})
+    with pytest.raises(ValidationError, match="must be exactly 16 characters"):
+        validate_fields(schema, {"uid": "0" * 12})
 
 
 def test_django_field_validators_format_the_failing_value():

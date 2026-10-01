@@ -191,13 +191,13 @@ def check_pandera_str(series) -> bool:
 def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
-    Used for ``bool``, ``num``, ``str``, ``path``, ``url``, and ``list[...]``
-    columns. ``int`` and ``float`` go through ``AnyInt`` / ``AnyFloat`` in the
+    Used for `bool`, `num`, `str`, `path`, `url`, and `list[...]`
+    columns. `int` and `float` go through `AnyInt` / `AnyFloat` in the
     curator and never reach this check.
 
     Args:
         expected_type: String identifier for the expected type
-            (``bool``, ``num``, ``str``, ``path``, ``url``, or ``list[...]``).
+            (`bool`, `num`, `str`, `path`, `url`, or `list[...]`).
         nullable: Whether an all-null series is valid.
 
     Returns:
