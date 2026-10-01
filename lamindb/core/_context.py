@@ -523,7 +523,8 @@ def _annotation_to_feature_dtype_arg(
             return None, value, "expected tuple"
         items = list(value)
         if not args:
-            return list, items, None
+            # `list` is not a feature dtype, so skip the virtual schema.
+            return None, items, None
         if len(args) == 2 and args[1] is Ellipsis:
             item_annotation = args[0]
             normalized_items = []
@@ -534,7 +535,7 @@ def _annotation_to_feature_dtype_arg(
                 if reason is not None:
                     return None, value, f"tuple item mismatch ({reason})"
                 normalized_items.append(normalized_item)
-            return list, normalized_items, None
+            return None, normalized_items, None
         if len(args) != len(items):
             return None, value, "tuple arity mismatch"
         normalized_items = []
@@ -545,7 +546,7 @@ def _annotation_to_feature_dtype_arg(
             if reason is not None:
                 return None, value, f"tuple item mismatch ({reason})"
             normalized_items.append(normalized_item)
-        return list, normalized_items, None
+        return None, normalized_items, None
 
     if origin is not None:
         return None, value, f"unsupported annotation origin {origin!r}"

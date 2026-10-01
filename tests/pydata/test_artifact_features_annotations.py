@@ -687,6 +687,18 @@ Here is how to create a feature:
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
     )
+    # set_values() does not run the dict curator unless a schema is passed.
+    # Unknown categories are rejected inside _add_values, before any link is written.
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.set_values({"experiment": "Experiment 1"})
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['Experiment 1'])}
+Here is how to create objects for them:
+
+  objects = ln.Record.from_values(['Experiment 1'], field='name', create=True).save()"""
+    )
+    assert artifact.links_record.count() == 0
     ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
@@ -899,6 +911,10 @@ def test_add_remove_list_features(ccaplog):
     artifact = ln.Artifact(".gitignore", key=".gitignore").save()
     artifact.features.add_values({"list_of_str": ["1", "2", "3"]})
     assert artifact.features.get_values() == {"list_of_str": ["1", "2", "3"]}
+    # bool is a subclass of int; a list of bools must stay list[bool]
+    flags = ln.Feature(name="list_of_bool", dtype=list[bool]).save()
+    artifact.features.add_values({"list_of_bool": [True, False]})
+    assert artifact.features.get_values()["list_of_bool"] == [True, False]
     # remove a non-linked value, this should do nothing but print a warning
     artifact.features.remove_values("list_of_str", value="4")
     assert "no feature 'list_of_str' with value '4' found" in ccaplog.text
@@ -925,6 +941,7 @@ def test_add_remove_list_features(ccaplog):
     artifact.delete(permanent=True)
     assert ln.models.JsonValue.filter(feature__name="list_of_str").count() == 1
     feature.delete(permanent=True)
+    flags.delete(permanent=True)
     assert ln.models.JsonValue.filter(feature__name="list_of_str").count() == 0
     cell_types_feature.delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)

@@ -1171,6 +1171,44 @@ def test_int_float_any_width():
         f_int.delete(permanent=True)
 
 
+def test_float_index_any_width():
+    idx = ln.Feature(name="width_float_index", dtype=float).save()
+    val = ln.Feature(name="width_float_value", dtype=str).save()
+    schema = ln.Schema(features=[val], index=idx, otype="DataFrame").save()
+    df = pd.DataFrame(
+        {"width_float_value": ["a", "b"]},
+        index=pd.Index([1.5, 2.5], dtype="float32", name="width_float_index"),
+    )
+    try:
+        ln.curators.DataFrameCurator(df, schema).validate()
+        assert str(df.index.dtype) == "float32"
+    finally:
+        schema.delete(permanent=True)
+        val.delete(permanent=True)
+        idx.delete(permanent=True)
+
+
+def test_list_bool_accepts_bool_lists_and_rejects_a_scalar():
+    feature = ln.Feature(name="flags", dtype=list[bool]).save()
+    schema = ln.Schema(features=[feature], otype="DataFrame").save()
+    ok = pd.DataFrame({"flags": [[True, False], [False]]})
+    mixed = pd.DataFrame({"flags": [[True, False], True]})
+    try:
+        ln.curators.DataFrameCurator(ok, schema).validate()
+        with pytest.raises(ValidationError):
+            ln.curators.DataFrameCurator(mixed, schema).validate()
+    finally:
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def test_curator_rejects_a_non_schema():
+    with pytest.raises(
+        ln.errors.InvalidArgument, match="schema argument must be a Schema"
+    ):
+        ln.curators.DataFrameCurator(pd.DataFrame({"a": [1]}), schema="not-a-schema")
+
+
 def test_int_index_any_width_and_rejects_lossy():
     """An int index uses AnyInt: int32 passes, and 1.1 is not truncated."""
     idx = ln.Feature(name="width_index", dtype=int).save()

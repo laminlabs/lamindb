@@ -237,7 +237,10 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
     return title_text, cleaned_path
 
 
-def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool:
+# Waits up to ~30s for a notebook save; not part of the coverage run.
+def check_filepath_recently_saved(
+    filepath: Path, is_finish_retry: bool
+) -> bool:  # pragma: no cover
     # the recently_saved_time needs to be very low for the first check
     # because an accidental save (e.g. via auto-save) might otherwise lead
     # to upload of an outdated notebook

@@ -86,6 +86,14 @@ def test_DB_dir():
     assert "Collection" in dir_result
     assert "Gene" not in dir_result
     assert "bionty" in dir_result
+    assert "pertdb" not in dir_result
+    assert repr(cxg) == "DB('laminlabs/cellxgene')"
+    assert repr(cxg.Artifact) == "<QuerySet [Artifact]>"
+    assert "Gene" in dir(cxg.bionty)
+    with pytest.raises(AttributeError, match="Registry 'NotAGene' not found"):
+        _ = cxg.bionty.NotAGene
+    with pytest.raises(AttributeError, match="Schema 'pertdb' not available"):
+        _ = cxg.pertdb
 
 
 def test_DB_view(monkeypatch):
