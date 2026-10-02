@@ -1415,11 +1415,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             using: Optional database slug for a target database that differs from the default database.
-            transfer: If this object was queried on another instance:
-                "sqlrecord" (default) copies the row
-                and foreign keys only; "notes" also copies the latest readme;
-                "annotations" also copies M2M annotations. Schema still defaults
-                to "annotations" when transfer is omitted.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
             depth: How many levels of records under a type to transfer.
                 `0` (default) transfers only this object, plus the related objects
                 selected by `transfer`. A positive integer also transfers that many
