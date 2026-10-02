@@ -4,7 +4,7 @@ See [SKILL.md](../SKILL.md) for the shared steps. This reference covers only Cur
 
 Cursor does not expose its conversation ID to commands run by the IDE Agent. Generate one random marker per Cursor conversation and pass it to the CLI, which uses the marker to identify the conversation in Cursor's local chat database. Parallel conversations must use different markers.
 
-When shared Step 1 chooses a new branch, use a task-specific name with a unique agent-chosen suffix of at least eight hexadecimal characters, for example `favorite-protein-fasta-a1b2c3d4`. Keep this branch dedicated to the current Cursor conversation.
+When shared Step 1 chooses a branch, use only the task slug from SKILL.md, for example `favorite-protein-fasta`. Other agent sessions may write to that same branch. If it already exists and its status is `merged`, ask as SKILL.md describes before reusing it.
 
 If the user chose **Do not track**, stop here. Otherwise complete [SKILL.md](../SKILL.md)'s Step 1, including session-working-directory resolution, before running the commands below. Stay in that directory. Do not write your own tracking logic.
 

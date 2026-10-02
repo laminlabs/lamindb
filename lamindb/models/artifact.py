@@ -39,7 +39,7 @@ from lamindb_setup.core.upath import (
 )
 from postgrest.exceptions import APIError
 
-from lamindb.base.types import CanonicalSuffix
+from lamindb.base.types import CanonicalSuffix, TransferMode
 
 from ..base.fields import (
     BigIntegerField,
@@ -3345,17 +3345,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def save(
         self,
         upload: bool | None = None,
-        transfer: Literal["sqlrecord", "notes", "annotations"] = "sqlrecord",
+        transfer: TransferMode = "sqlrecord",
         **kwargs,
     ) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            transfer: In case artifact was queried on a different instance, dictates behavior of sync.
-                If "sqlrecord" (default), only the SQL row and its foreign keys are synced.
-                If "notes", also transfer the latest readme block.
-                If "annotations", also transfer feature and label annotations.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
 
         See Also:
             :doc:`transfer`

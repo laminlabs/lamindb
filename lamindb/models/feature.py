@@ -153,7 +153,6 @@ def _transfer_dtype_schema(
     source_db: str,
     using: str | None,
     transfer_logs: dict,
-    feature_name: str,
 ) -> None:
     from .schema import Schema, transfer_schema_with_members
 
@@ -162,11 +161,6 @@ def _transfer_dtype_schema(
         return None
     seen.add(schema_uid)
     source_schema = Schema.objects.using(source_db).get(uid=schema_uid)
-    print(
-        f"transfer dtype {feature_name!r} schema {schema_uid} "
-        f"({getattr(source_schema, 'name', None)!r})",
-        flush=True,
-    )
     transferred = transfer_schema_with_members(
         source_schema, using, transfer_logs=transfer_logs
     )
@@ -209,11 +203,6 @@ def transfer_feature_dtypes(
             source_type = registry.objects.using(source_db).get(uid=source_type_uid)
             # The dtype only needs this type row so the categorical can resolve.
             # Do not transfer every record of the type: that fans out into data.
-            print(
-                f"transfer dtype {feature.name!r} ({dtype_str}) "
-                f"→ {registry.__name__} type {source_type_uid} only",
-                flush=True,
-            )
             transferred_type = transfer_to_default_db(
                 source_type,
                 using,
@@ -234,7 +223,6 @@ def transfer_feature_dtypes(
                 source_db,
                 using,
                 transfer_logs,
-                feature.name,
             )
 
 

@@ -10,7 +10,7 @@ import json
 import os
 from datetime import date, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import httpx
 import lamindb as ln
@@ -1436,6 +1436,18 @@ def test_notion_syncer_project_type_name_for_database_defaults():
     assert NotionSyncer._project_type_name_for_database("Other DB") is None
 
 
+def test_project_url_uses_instance_owner_when_workspace_is_omitted():
+    with patch.object(
+        type(ln.setup.settings), "instance", new_callable=PropertyMock
+    ) as instance:
+        instance.return_value.owner = "laminlabs"
+        syncer = ProjectSyncer(reader=MagicMock())
+        assert (
+            syncer._notion_project_url("3922aeaa55e1808d9725d314fb7bc388")
+            == "https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388"
+        )
+
+
 def test_project_syncer_upsert_all_assigns_tasks_type():
     rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
     project_type = type("ProjectType", (), {"id": 77})()
@@ -1443,7 +1455,7 @@ def test_project_syncer_upsert_all_assigns_tasks_type():
         project_factory = MagicMock()
         project_factory.save.return_value = "saved-task"
         Project.return_value = project_factory
-        syncer = ProjectSyncer(reader=MagicMock())
+        syncer = ProjectSyncer(reader=MagicMock(), workspace="laminlabs")
         out = syncer.upsert_all(
             rows=rows,
             by_id={},
@@ -1469,7 +1481,7 @@ def test_project_syncer_upsert_all_updates_existing_type():
     existing.updated_at = None
     existing._aux = None
 
-    syncer = ProjectSyncer(reader=MagicMock())
+    syncer = ProjectSyncer(reader=MagicMock(), workspace="laminlabs")
     out = syncer.upsert_all(
         rows=rows,
         by_id={"3922aeaa55e1808d9725d314fb7bc388": existing},
@@ -2256,6 +2268,7 @@ def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url
             rec_type=rec_type,
             apply=True,
             report=report,
+            workspace="laminlabs",
         )
 
     Project.assert_called_once_with(
@@ -2332,11 +2345,6 @@ def test_syncer_init_raises_without_token(monkeypatch):
         with patch("httpx.Client") as MockSession:
             MockSession.return_value = MagicMock()
             _NotionSyncer()
-
-
-def test_import_pages_requires_parents(syncer):
-    with pytest.raises(ValueError, match="parents is required"):
-        syncer.import_pages([])
 
 
 def test_resolve_record_type_dry_run_reports_create_record_types(syncer):
@@ -3551,7 +3559,7 @@ def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, children]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id])
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
 
     assert db_ids == {"db-1"}
     assert parent_pages == {page_id: page_id}
@@ -4002,8 +4010,8 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], depth=None)
+        report = syncer.import_page("parent", apply=False)
+    collect_ids.assert_called_once_with(["parent"], depth=0)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -4032,7 +4040,7 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", apply=False)
+        report = syncer.import_page("parent", apply=False)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
@@ -4067,7 +4075,7 @@ def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", apply=False)
+        report = syncer.import_page("parent", apply=False)
     assert report.create_artifacts == [
         f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
     ]
@@ -4097,7 +4105,7 @@ def test_import_pages_dry_run_reports_pending_embedded_note_file_transfers(synce
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_pages("parent", apply=False)
+        report = syncer.import_page("parent", apply=False)
     assert report.create_artifacts == [
         f'{_short_file_source("https://files.notion.site/a.png")} <- a:notes (key=None, kind="__easset__")'
     ]
@@ -4129,7 +4137,7 @@ def test_import_pages_dry_run_includes_parent_page_type(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_pages("parent", apply=False)
+        report = syncer.import_page("parent", apply=False)
     assert "Import metrics" in report.create_record_types
     upsert_all.assert_not_called()
     write.assert_not_called()
@@ -4156,7 +4164,7 @@ def test_import_pages_report_compacts_database_ids(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        report = syncer.import_pages("parent", apply=False)
+        report = syncer.import_page("parent", apply=False)
     assert report.databases == ["3b2d2040857e4febbb68d2bec9d6ba09"]
 
 
@@ -4193,7 +4201,7 @@ def test_import_pages_writes_only_created_or_changed(syncer):
             return_value={"records": 2, "pending": 1},
         ) as write,
     ):
-        report = syncer.import_pages(["parent"], apply=True)
+        report = syncer.import_page("parent", apply=True)
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["b", "c"]
     assert report.created == 1
@@ -4222,7 +4230,7 @@ def test_import_pages_passes_limit_to_database_discovery(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        syncer.import_pages("parent", apply=True, depth=1)
+        syncer.import_page("parent", apply=True, depth=1)
     collect_ids.assert_called_once_with(["parent"], depth=1)
 
 
@@ -4248,7 +4256,7 @@ def test_import_pages_uses_seed_rows_for_page_parents_in_database(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, depth=0)
+        report = syncer.import_page("parent", apply=True, depth=0)
 
     seed_rows.assert_called_once_with("db-1", {"a"}, include_page_emoji=True)
     database_rows.assert_not_called()
@@ -4277,7 +4285,7 @@ def test_import_pages_apply_seed_rows_materialize_even_when_unchanged(syncer):
         ) as write,
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=True, depth=0)
+        report = syncer.import_page("parent", apply=True, depth=0)
 
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["a"]
@@ -4332,7 +4340,7 @@ def test_import_pages_dry_run_seed_rows_preview_even_when_unchanged(syncer):
         ),
     ):
         syncer._seed_page_ids_by_database = {"db-1": {"a"}}
-        report = syncer.import_pages("parent", apply=False, depth=0)
+        report = syncer.import_page("parent", apply=False, depth=0)
 
     preview_rows = resolve_rel.call_args.args[1]
     assert [r["notion_id"] for r in preview_rows] == ["a"]
@@ -4356,7 +4364,7 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_pages("parent", apply=False, depth=0)
+        report = syncer.import_page("parent", apply=False, depth=0)
     collect_ids.assert_called_once_with(["parent"], depth=0)
     assert report.discovered_pages == 1
     assert report.databases == []
@@ -4386,7 +4394,7 @@ def test_import_pages_apply_links_parent_page_hierarchy(syncer):
         ),
     ):
         syncer._parent_page_parents = {"child-id": "parent-id"}
-        report = syncer.import_pages("parent", apply=True, depth=0)
+        report = syncer.import_page("parent", apply=True, depth=0)
 
     assert report.discovered_pages == 2
     child_type.save.assert_called_once_with(update_fields=["type"])
@@ -4442,11 +4450,11 @@ def test_sync_objects_from_notion_delegates_to_syncer_and_prints():
         patch("lamindb.integrations.notion.NotionSyncer") as Syncer,
         patch("lamindb.integrations.notion.RICH_CONSOLE.print") as rich_print,
     ):
-        Syncer.return_value.import_pages.return_value = sync_report
-        report = sync_objects_from_notion(parents=["p1", "p2"], apply=False, depth=3)
-    Syncer.assert_called_once_with(token=None)
-    Syncer.return_value.import_pages.assert_called_once_with(
-        parents=["p1", "p2"], apply=False, depth=3
+        Syncer.return_value.import_page.return_value = sync_report
+        report = sync_objects_from_notion(notion_uuid="p1", apply=False, depth=3)
+    Syncer.assert_called_once_with(token=None, workspace=None)
+    Syncer.return_value.import_page.assert_called_once_with(
+        notion_uuid="p1", apply=False, depth=3
     )
     rich_print.assert_called_once()
     assert "Dry run: nothing got created." in rich_print.call_args[0][0]
@@ -4532,7 +4540,7 @@ def test_sync_objects_from_notion_live_smoke_with_env_token():
             "LAMINDB_RUN_NOTION_LIVE_TESTS=true for a local live smoke test."
         )
     report = sync_objects_from_notion(
-        parents="7283894209c44522a7c79620795d0409",
+        notion_uuid="7283894209c44522a7c79620795d0409",
         token=token,
         apply=False,
     )

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast, get_args
 
 import lamindb_setup as ln_setup
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist
 from django.db import ProgrammingError
+from django.db.models import Model
 from django.db.models import QuerySet as DjangoQuerySet
 from lamin_utils import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.errors import NoReadAccess
 
+from ..base.types import TransferMode
 from ..errors import NoWriteAccess, ValidationError
 from .sqlrecord import BaseSQLRecord, Space, SQLRecord
 
@@ -54,17 +56,15 @@ def update_fk_to_default_db(
         # process non-space fks
         else:
             fk_record = getattr(record, fk)
-            if fk in {"created_by", "schema", "type"}:
-                print(
-                    f"transfer {type(record).__name__} {getattr(record, 'uid', None)} "
-                    f".{fk} → {type(fk_record).__name__} {getattr(fk_record, 'uid', None)} "
-                    f"{getattr(fk_record, 'handle', None) or getattr(fk_record, 'name', '')}",
-                    flush=True,
-                )
             field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
-            pre_existing_fk_record_default = fk_record.__class__.filter(
-                **{field: getattr(fk_record, field)}
-            ).one_or_none()
+            if field == "uid":
+                pre_existing_fk_record_default = _cached_or_load(
+                    fk_record, transfer_logs
+                )
+            else:
+                pre_existing_fk_record_default = fk_record.__class__.filter(
+                    **{field: getattr(fk_record, field)}
+                ).one_or_none()
             # A Record is only valid in a type that is already on the target,
             # because that type carries a schema. Every other missing type,
             # including a ULabel type, is a stub.
@@ -170,12 +170,12 @@ def get_transfer_run(record) -> Run:
     return run
 
 
-TRANSFER_MODES = {"sqlrecord", "notes", "annotations"}
+TRANSFER_MODES = set(get_args(TransferMode))
 
 
 def normalize_transfer_config(
     transfer_config: str | None, *, default_annotations: bool = False
-) -> str:
+) -> TransferMode:
     """Map transfer= to sqlrecord | notes | annotations.
 
     ``transfer="record"`` is kept as an alias for ``sqlrecord`` until LaminDB v3.
@@ -194,7 +194,7 @@ def normalize_transfer_config(
             "transfer should be one of 'sqlrecord', 'notes', 'annotations' "
             f"(or deprecated 'record'), not {transfer_config!r}"
         )
-    return transfer_config
+    return cast(TransferMode, transfer_config)
 
 
 def transfer_notes(record_on_default, source_db, source_pk) -> None:
@@ -319,44 +319,165 @@ def _blocked_annotation_message(record, gaps: list[AnnotationGap]) -> str:
     return "\n".join(lines)
 
 
-def _linked_feature_values(record) -> list[tuple[Any, Any]]:
-    """Feature values from link rows, keyed by the feature row rather than its name.
+_NOT_CACHED = object()
 
-    Names are not unique. Several categorical links for one feature are one list.
-    A JSON list stays one value because it is stored as a single JSON cell.
 
-    Raises ``NoReadAccess`` when a link points at a value this account cannot
-    read. Skipping it would transfer a partial annotation set.
+def _pop_cached_linked_values(transfer_logs: dict, record):
+    cache = transfer_logs.get("_linked_values")
+    if not isinstance(cache, dict):
+        return None
+    return cache.pop(getattr(record, "uid", None), None)
+
+
+def _cached_or_load(record, transfer_logs: dict):
+    """Target row for ``record.uid``, looked up once per registry batch.
+
+    ``None`` means the uid was looked up and is absent. A missing cache entry
+    loads that one uid and stores the result.
     """
-    grouped: dict[int, list] = {}
-    features: dict[int, Any] = {}
-    totals: dict[tuple, int] = {}
-    gap_slots: dict[tuple, dict] = {}
+    uid = getattr(record, "uid", None)
+    if uid is None:
+        return None
+    resolved = transfer_logs.setdefault("_resolved", {})
+    key = (record.__class__.__name__, uid)
+    if key in resolved:
+        return resolved[key]
+    found = record.__class__.objects.filter(uid=uid).one_or_none()
+    resolved[key] = found
+    return found
+
+
+def _remember_target(record, transfer_logs: dict) -> None:
+    uid = getattr(record, "uid", None)
+    if uid is None:
+        return
+    transfer_logs.setdefault("_resolved", {})[(record.__class__.__name__, uid)] = record
+
+
+def resolve_records(records, transfer_logs: dict) -> None:
+    """One `uid__in` lookup per registry for records that are not cached yet."""
+    bucket: dict = {}
+    for record in records:
+        bucket.setdefault(record.__class__, {})[record.uid] = record
+    _resolve_present(bucket, transfer_logs)
+
+
+def _resolve_present(bucket: dict, transfer_logs: dict) -> None:
+    resolved = transfer_logs.setdefault("_resolved", {})
+    for model, by_uid in bucket.items():
+        unknown = [uid for uid in by_uid if (model.__name__, uid) not in resolved]
+        if not unknown:
+            continue
+        found = {row.uid: row for row in model.objects.filter(uid__in=unknown)}
+        for uid in unknown:
+            resolved[(model.__name__, uid)] = found.get(uid)
+
+
+def _put_entity(bucket: dict, record) -> None:
+    uid = getattr(record, "uid", None)
+    if uid is None:
+        return
+    bucket.setdefault(record.__class__, {})[uid] = record
+
+
+def _collect_entities(linked_values, bucket: dict) -> None:
+    for feature, value in linked_values:
+        _put_entity(bucket, feature)
+        values = value if isinstance(value, list) else [value]
+        for item in values:
+            _put_entity(bucket, item)
+
+
+def _read_link_rows(record) -> tuple[list[dict], dict[str, type[Model]]]:
+    """All feature-value links for one record, in one query.
+
+    Relational rows carry ``value_pk``. JSON rows carry ``json_value``.
+    A ``value_pk`` that does not resolve is an unreadable annotation.
+    """
+    from django.db.models import BigIntegerField, CharField, F, JSONField, Value
+
+    model_by_name: dict[str, type[Model]] = {}
+    parts = []
     for accessor, value_field in _annotation_value_links(record):
         relational = bool(getattr(value_field, "is_relation", False))
-        model_name = value_field.related_model.__name__ if relational else None
-        for link in getattr(record, accessor).order_by("id"):
-            feature = link.feature
-            key = ("value", feature.id)
-            totals[key] = totals.get(key, 0) + 1
-            if not relational:
-                features[feature.id] = feature
-                grouped.setdefault(feature.id, []).append(link.value)
-                continue
-            try:
-                value = link.value
-            except ObjectDoesNotExist:
-                slot = gap_slots.setdefault(
-                    key,
-                    {"feature": feature, "model": model_name, "hidden_ids": []},
+        model_name = value_field.related_model.__name__ if relational else ""
+        if relational:
+            model_by_name[model_name] = value_field.related_model
+        qs = getattr(record, accessor).order_by()
+        if relational:
+            qs = qs.annotate(
+                link_id=F("id"),
+                value_pk=F("value_id"),
+                json_value=Value(None, output_field=JSONField()),
+                value_model=Value(model_name, output_field=CharField(max_length=64)),
+            )
+        else:
+            qs = qs.annotate(
+                link_id=F("id"),
+                value_pk=Value(None, output_field=BigIntegerField()),
+                json_value=F("value"),
+                value_model=Value("", output_field=CharField(max_length=64)),
+            )
+        parts.append(
+            qs.values("link_id", "feature_id", "value_pk", "json_value", "value_model")
+        )
+    if not parts:
+        return [], model_by_name
+    rows = parts[0] if len(parts) == 1 else parts[0].union(*parts[1:], all=True)
+    return list(rows), model_by_name
+
+
+def _assemble_linked_values(record, rows: list[dict], features: dict, values: dict):
+    """Group link rows into ``(feature, value)`` pairs.
+
+    Several categorical links for one feature are one list. A JSON list stays
+    one value because it is stored as a single JSON cell.
+    """
+    rows = sorted(rows, key=lambda row: row["link_id"] or 0)
+    grouped: dict[int, list] = {}
+    feature_for: dict[int, Any] = {}
+    totals: dict[int, int] = {}
+    gap_slots: dict[int, dict] = {}
+    for row in rows:
+        feature_id = row["feature_id"]
+        feature = features.get(feature_id)
+        if feature is None:
+            raise NoReadAccess(
+                _blocked_annotation_message(
+                    record,
+                    [
+                        AnnotationGap(
+                            feature_id=feature_id,
+                            feature_name=None,
+                            feature_uid=None,
+                            value_model=row["value_model"] or None,
+                            hidden_value_ids=[row["value_pk"]]
+                            if row["value_pk"] is not None
+                            else [],
+                            n_total=1,
+                            n_hidden=1,
+                        )
+                    ],
                 )
-                slot["hidden_ids"].append(link.value_id)
-                continue
-            features[feature.id] = feature
-            grouped.setdefault(feature.id, []).append(value)
+            )
+        feature_for[feature_id] = feature
+        model_name = row["value_model"] or ""
+        if not model_name:
+            grouped.setdefault(feature_id, []).append(row["json_value"])
+            continue
+        totals[feature_id] = totals.get(feature_id, 0) + 1
+        value = values.get((model_name, row["value_pk"]))
+        if value is None:
+            slot = gap_slots.setdefault(
+                feature_id,
+                {"feature": feature, "model": model_name, "hidden_ids": []},
+            )
+            slot["hidden_ids"].append(row["value_pk"])
+            continue
+        grouped.setdefault(feature_id, []).append(value)
     if gap_slots:
         gaps = []
-        for key, slot in gap_slots.items():
+        for feature_id, slot in gap_slots.items():
             feature = slot["feature"]
             hidden_ids = list(slot["hidden_ids"])
             gaps.append(
@@ -366,22 +487,158 @@ def _linked_feature_values(record) -> list[tuple[Any, Any]]:
                     feature_uid=feature.uid,
                     value_model=slot["model"],
                     hidden_value_ids=hidden_ids,
-                    n_total=totals[key],
+                    n_total=totals[feature_id],
                     n_hidden=len(hidden_ids),
                 )
             )
         raise NoReadAccess(_blocked_annotation_message(record, gaps))
     return [
-        (features[feature_id], vals[0] if len(vals) == 1 else vals)
+        (feature_for[feature_id], vals[0] if len(vals) == 1 else vals)
         for feature_id, vals in grouped.items()
     ]
 
 
-def _pop_cached_linked_values(transfer_logs: dict, record):
-    cache = transfer_logs.get("_linked_values")
-    if not isinstance(cache, dict):
-        return None
-    return cache.pop(getattr(record, "uid", None), None)
+def _hydrate_link_rows(record, rows: list[dict], model_by_name: dict[str, type[Model]]):
+    from .feature import Feature
+
+    source_db = record._state.db
+    feature_ids = {row["feature_id"] for row in rows if row["feature_id"] is not None}
+    features = {}
+    if feature_ids:
+        features = {
+            feature.id: feature
+            for feature in Feature.objects.using(source_db).filter(id__in=feature_ids)
+        }
+    value_ids: dict[str, set] = {}
+    for row in rows:
+        if row["value_model"] and row["value_pk"] is not None:
+            value_ids.setdefault(row["value_model"], set()).add(row["value_pk"])
+    values = {}
+    for model_name, ids in value_ids.items():
+        model = model_by_name[model_name]
+        for obj in model.objects.using(source_db).filter(id__in=ids):
+            values[(model_name, obj.id)] = obj
+    return _assemble_linked_values(record, rows, features, values)
+
+
+def _linked_feature_values(record) -> list[tuple[Any, Any]]:
+    """Feature values from link rows, keyed by the feature row rather than its name.
+
+    Names are not unique. Several categorical links for one feature are one list.
+    A JSON list stays one value because it is stored as a single JSON cell.
+
+    Raises ``NoReadAccess`` when a link points at a value this account cannot
+    read. Skipping it would transfer a partial annotation set.
+    """
+    rows, model_by_name = _read_link_rows(record)
+    if not rows:
+        return []
+    return _hydrate_link_rows(record, rows, model_by_name)
+
+
+def prime_annotation_transfer(hosts: list, transfer_logs: dict) -> None:
+    """Read every host's links and resolve those uids on the target once.
+
+    One link query per host. Feature rows and value rows are loaded with one
+    ``id__in`` per registry on the source, then one ``uid__in`` per registry
+    on the target.
+    """
+    cache = transfer_logs.setdefault("_linked_values", {})
+    pending = []
+    for host in hosts:
+        if host.__class__.__name__ not in {"Record", "Run"}:
+            continue
+        if host.uid in cache:
+            continue
+        rows, model_by_name = _read_link_rows(host)
+        pending.append((host, rows, model_by_name))
+    if not pending:
+        return
+    by_db: dict = {}
+    for host, rows, model_by_name in pending:
+        by_db.setdefault(host._state.db, []).append((host, rows, model_by_name))
+    bucket: dict = {}
+    for source_db, items in by_db.items():
+        _hydrate_hosts(source_db, items, cache, bucket)
+    _resolve_present(bucket, transfer_logs)
+
+
+def _hydrate_hosts(source_db, items, cache: dict, bucket: dict) -> None:
+    from .feature import Feature
+
+    feature_ids: set = set()
+    value_ids: dict[str, set] = {}
+    model_by_name: dict[str, type[Model]] = {}
+    for _host, rows, names in items:
+        model_by_name.update(names)
+        for row in rows:
+            if row["feature_id"] is not None:
+                feature_ids.add(row["feature_id"])
+            if row["value_model"] and row["value_pk"] is not None:
+                value_ids.setdefault(row["value_model"], set()).add(row["value_pk"])
+    features = {}
+    if feature_ids:
+        features = {
+            feature.id: feature
+            for feature in Feature.objects.using(source_db).filter(id__in=feature_ids)
+        }
+    values = {}
+    for model_name, ids in value_ids.items():
+        model = model_by_name[model_name]
+        for obj in model.objects.using(source_db).filter(id__in=ids):
+            values[(model_name, obj.id)] = obj
+    for host, rows, _names in items:
+        linked = _assemble_linked_values(host, rows, features, values)
+        cache[host.uid] = linked
+        _collect_entities(linked, bucket)
+
+
+def _clear_annotation_links(record, transfer_logs: dict) -> None:
+    """Delete this record's annotation links, one query per link table.
+
+    A row inserted earlier in this sync has no links to replace.
+    """
+    inserted = transfer_logs.get("_inserted")
+    if isinstance(inserted, set) and record.uid in inserted:
+        return
+    if record.pk is None:
+        return
+    for rel in record._meta.related_objects:
+        accessor = rel.get_accessor_name()
+        if not accessor or not str(accessor).startswith("values_"):
+            continue
+        try:
+            rel.related_model._meta.get_field("value")
+        except FieldDoesNotExist:
+            continue
+        rel.related_model.objects.filter(**{rel.field.name: record.pk}).delete()
+
+
+def _depth_descendants(record, depth: int) -> list:
+    from .sqlrecord import _typed_children
+
+    if depth <= 0:
+        return []
+    children = _typed_children(record)
+    found = list(children)
+    for child in children:
+        found.extend(_depth_descendants(child, depth - 1))
+    return found
+
+
+def log_transferred_record(
+    record, transfer_logs: dict, mapped_before: int, transferred_before: int
+) -> None:
+    name = (
+        getattr(record, "name", None)
+        or getattr(record, "key", None)
+        or getattr(record, "uid", None)
+    )
+    n_new = len(transfer_logs["transferred"]) - transferred_before
+    n_have = len(transfer_logs["mapped"]) - mapped_before
+    logger.important(
+        f"{type(record).__name__} {name}: {n_new} transferred, {n_have} already on target"
+    )
 
 
 def transfer_record_feature_values(
@@ -399,6 +656,14 @@ def transfer_record_feature_values(
         return
 
     def _transfer_entity(value, feature=None):
+        known = transfer_logs.get("_resolved", {}).get(
+            (type(value).__name__, getattr(value, "uid", None)), _NOT_CACHED
+        )
+        if known is not _NOT_CACHED and known is not None:
+            transfer_logs["mapped"].append(f"{type(value).__name__}(uid='{value.uid}')")
+            if type(value).__name__ == "User":
+                return getattr(known, _user_annotation_field(feature))
+            return known
         if type(value).__name__ == "User":
             # User is BaseSQLRecord, not SQLRecord. Return the feature field
             # (handle by default) so _add_values can look the user up.
@@ -414,7 +679,11 @@ def transfer_record_feature_values(
                 transfer_logs=transfer_logs,
                 stub=True,
             )
-        return value.save(transfer="annotations")
+        return value.save(
+            transfer="annotations",
+            _transfer_logs=transfer_logs,
+            _transfer_summarize=False,
+        )
 
     def _prepare(value, feature=None):
         # Link rows are reloaded from the database. Categorical values are
@@ -459,7 +728,7 @@ def transfer_record_feature_values(
     # the target session may not have every module (e.g. bionty) imported.
     # set so _add_values can `del` it (normal set_values always sets this attr)
     record_on_default._mapped_feature_update_fields = set()
-    record_on_default.features._remove_values()
+    _clear_annotation_links(record_on_default, transfer_logs)
     record_on_default.features._add_values(
         feature_objects,
         {},
@@ -490,9 +759,9 @@ def transfer_to_default_db(
         and not stub
         and record.__class__.__name__ in {"Record", "Run"}
     ):
-        transfer_logs.setdefault("_linked_values", {})[record.uid] = (
-            _linked_feature_values(record)
-        )
+        cache = transfer_logs.setdefault("_linked_values", {})
+        if record.uid not in cache:
+            cache[record.uid] = _linked_feature_values(record)
     # Dtype text is not a foreign key. Follow it even when this feature row
     # is already on the target, so a re-transfer picks up schema__uid refs.
     if record.__class__.__name__ == "Feature":
@@ -501,7 +770,7 @@ def transfer_to_default_db(
         transfer_feature_dtypes(record, using, transfer_logs=transfer_logs)
     registry = record.__class__
     logger.debug(f"transferring {registry.__name__} record {record.uid} to default db")
-    record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
+    record_on_default = _cached_or_load(record, transfer_logs)
     record_str = f"{record.__class__.__name__}(uid='{record.uid}')"
     if transfer_logs["run"] is None:
         transfer_logs["run"] = get_transfer_run(record)
@@ -518,15 +787,11 @@ def transfer_to_default_db(
     if filling:
         from copy import copy
 
-        print(f"transfer fill stub {record_str}", flush=True)
         record = copy(record)
     else:
         transfer_logs["transferred"].append(record_str)
-        if stub:
-            print(
-                f"transfer stub {record_str} {getattr(record, 'name', '')}",
-                flush=True,
-            )
+        # The caller may insert this row itself. It has no annotation links yet.
+        transfer_logs.setdefault("_inserted", set()).add(record.uid)
 
     # run & transform stay on the transfer run; created_by is transferred
     # like any other foreign key, including the User row it points at.
@@ -574,76 +839,14 @@ def transfer_to_default_db(
                 continue
             setattr(record_on_default, field.attname, getattr(record, field.attname))
         _save_transferred_record(record_on_default)
+        _remember_target(record_on_default, transfer_logs)
         return record_on_default
     record.id = None
     if save or stub:
         _save_transferred_record(record)
-    if stub:
-        return registry.get(uid=record.uid)
+        transfer_logs.setdefault("_inserted", set()).add(record.uid)
+        saved_row = registry.get(uid=record.uid) if stub else record
+        _remember_target(saved_row, transfer_logs)
+        if stub:
+            return saved_row
     return None
-
-
-def _registry_class_name(registry: str) -> str:
-    if registry == "ulabel":
-        return "ULabel"
-    if not registry or not registry.replace("_", "").isalnum():
-        raise ValueError(f"Unknown registry {registry!r}.")
-    return "".join(part.capitalize() for part in registry.split("_"))
-
-
-def sync_objects_from_database(
-    registry: str,
-    uids: str | list[str],
-    *,
-    source: str,
-    depth: int = 0,
-    transfer: str | None = None,
-) -> list[SQLRecord]:
-    """Sync SQLRecord objects from a source database into the default database.
-
-    This is a high-level function used in the CLI: `lamin io sync`.
-
-    Most of the time, you will just `.save()` on an object from another database::
-
-        import lamindb as ln
-        db = ln.DB("laminlabs/lamindata")
-        record = db.Record.get(uid="gL3TbX2qZQmCwTAU")
-        record.save(transfer="sqlrecord")
-
-    Guide: {doc}`transfer`
-
-    Args:
-        registry: Registry name, for example `artifact` or `record`.
-        uids: One uid or several uids on the source database.
-        source: Source instance slug, for example `laminlabs/lamindata`.
-        depth: How many levels of records under a type to transfer.
-            `0` transfers only the given objects, plus related objects selected
-            by `transfer`. A positive integer also transfers that many levels
-            of records whose type chain starts at each object. Only `record`,
-            `feature`, `schema`, `project`, `ulabel`, and `reference` accept
-            `depth > 0`.
-        transfer: `sqlrecord`, `notes`, or `annotations`.
-            Omit it to use the registry default.
-    """
-    from .db import DB
-
-    if type(depth) is not int or depth < 0:
-        raise ValueError("depth must be an int >= 0.")
-    if isinstance(uids, str):
-        uid_list = [uids]
-    elif isinstance(uids, list):
-        uid_list = list(uids)
-    else:
-        raise TypeError("uids must be a str or list[str].")
-    if not uid_list:
-        raise ValueError("uids is required and must contain at least one uid.")
-    model_name = _registry_class_name(registry)
-    queryset = getattr(DB(source), model_name)
-    saved: list[SQLRecord] = []
-    for uid in uid_list:
-        record = queryset.get(uid)
-        kwargs: dict[str, Any] = {"depth": depth}
-        if transfer is not None:
-            kwargs["transfer"] = transfer
-        saved.append(record.save(**kwargs))
-    return saved

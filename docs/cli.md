@@ -719,7 +719,7 @@ Options:
 
 ### settings
 
-Manage development, cache, modules, branch, space, and mount settings.
+Manage development, cache, modules, branch, space, mount, and run settings.
 
 Get or set the following settings:
 
@@ -728,6 +728,8 @@ Get or set the following settings:
 - `modules` → environment schema modules {attr}`~lamindb.setup.core.SetupSettings.modules`
 - `branch` → current {attr}`~lamindb.setup.core.SetupSettings.branch`
 - `space` → current {attr}`~lamindb.setup.core.SetupSettings.space`
+- `mount` → read-only mounts of storage locations, used by `lamin run` to read inputs in place
+- `run-where` → default place for `lamin run` (overridden by `$LAMIN_RUN_WHERE` and `--where`)
 
 You can display your current settings by running: `lamin info`
 
@@ -753,7 +755,12 @@ lamin settings space get
 lamin settings space set all
 # mount
 lamin settings mount storage ./mnt
+lamin settings mount path lamin://acme/data/artifact/key/my_file.parquet
 lamin settings mount unset ./mnt
+# run-where
+lamin settings run-where get
+lamin settings run-where set modal
+lamin settings run-where unset
 ```
 
 Options:
@@ -769,6 +776,7 @@ Commands:
   dev-dir    Get or find development directories.
   modules    Get or set environment schema modules.
   mount      Mount storage locations read-only via an installed FUSE...
+  run-where  Get or set where `lamin run` runs by default.
 ```
 
 → Python/R alternative: {attr}`~lamindb.setup.core.SetupSettings.dev_dir`, {attr}`~lamindb.setup.core.SetupSettings.cache_dir`, {attr}`~lamindb.setup.core.SetupSettings.modules`, {attr}`~lamindb.setup.core.SetupSettings.branch`, and {attr}`~lamindb.setup.core.SetupSettings.space`
@@ -821,7 +829,7 @@ Commands:
   sync      Sync an object to the current database.
 ```
 
-→ Python/R alternative: {func}`~lamindb.models.sync_objects_from_database`
+→ Python/R alternative: {func}`~lamindb.core.sync`
 
 Use `lamin io snapshot` to create an SQLite snapshot of the current database:
 
@@ -849,7 +857,7 @@ Examples:
 
 ```
 lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
-lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 0 --apply
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 1 --apply
 ```
 
 Options:
@@ -906,29 +914,76 @@ Options:
 
 ### run
 
-Run a compute job in the cloud.
+Run a script or executable, tracked as a run.
 
-This is an EXPERIMENTAL feature that enables to run a script on Modal.
-
-Example: Given a valid project name "my_project",
+Arguments for the target go after `--`. Any `lamin://` URI among them, or the
+target itself, is replaced by a local path: read in place from a mounted storage
+location if there is one (see `lamin settings mount`), otherwise from the cache.
 
 ```
-lamin run my_script.py --project my_project
+lamin run train.py -- --data lamin://acme/data/artifact/key/train.parquet --epochs 3
+lamin run samtools -- view -b lamin://acme/data/artifact/3TrLu3AbQx9dZq2K -o out.bam
+lamin run --register-output out.bam align.sh -- --out out.bam
+lamin run --where modal --project my_project my_script.py
+lamin run --dry-run align.sh -- --out out.bam
 ```
+
+URIs take two forms. The uid form matches nf-lamin; the key form accepts
+`space`, `branch` and `version` qualifiers:
+
+```
+lamin://<owner>/<instance>/artifact/<uid>[/<subpath>]
+lamin://<owner>/<instance>/artifact/key/<key>[/<subpath>][?space=&branch=&version=]
+```
+
+Resolved artifacts are linked as run inputs. The target receives
+`LAMIN_INITIATED_BY_RUN_UID`, so a script calling `ln.track()` records its run as
+a child of this one, plus `LAMIN_INPUT_PATHS` and `LAMIN_MOUNTS` (JSON) to
+translate URIs it reads from elsewhere, e.g. config files.
+
+The target's `--version` output, when it has one, is recorded in
+`run.params["tool_version"]`, not on its (possibly reused) transform. For a
+Python script, the interpreter's `pip freeze` is additionally snapshotted and
+linked as `run.environment`, mirroring what `ln.track()` does for its own
+process.
+
+Unlike inputs, which carry their own `?branch=&space=` in the URI, the
+transform/run/outputs otherwise inherit whatever branch/space the local machine
+is pointed at; pass `--branch`/`--space` to make this explicit instead.
+
+An output only registers if the target exits 0, and is uploaded or kept local
+following the instance's `keep_artifacts_local` setting; pass `--upload-outputs`
+to force it for this run. Use `--dry-run` to preview all of this first.
 
 Options:
 
 ```text
-lamin run [OPTIONS] FILEPATH
+lamin run [OPTIONS] TARGET
 
 Options:
-  --project TEXT    A valid project name or uid. When running on Modal,
-                    creates an app with the same name.  [required]
-  --image-url TEXT  A URL to the base docker image to use.
-  --packages TEXT   A comma-separated list of additional packages to install.
-  --cpu FLOAT       Configuration for the CPU.
-  --gpu TEXT        The type of GPU to use (only compatible with cuda images).
-  --help            Show this message and exit.
+  --where [local|modal]   Where to run. Defaults to $LAMIN_RUN_WHERE, then
+                          `lamin settings run-where`, then local.
+  --project TEXT          A valid project name or uid to link the run to. On
+                          Modal, also names the app.
+  --register-output TEXT  Register a file the target writes as an output
+                          artifact. Repeatable.
+  --remount               Remount a storage location if it serves stale
+                          metadata for an input.
+  --image-url TEXT        Modal only: a URL to the base docker image.
+  --packages TEXT         Modal only: a comma-separated list of additional
+                          packages.
+  --cpu FLOAT             Modal only: CPU configuration.
+  --gpu TEXT              Modal only: the type of GPU (cuda images only).
+  --branch TEXT           A branch name or uid for the transform, run and any
+                          outputs. Defaults to the current local branch.
+  --space TEXT            A space name or uid for the transform, run and any
+                          outputs. Defaults to the current local space.
+  --upload-outputs        Force outputs to upload even if the instance keeps
+                          artifacts local by default.
+  --dry-run               Report what would be linked as inputs and registered
+                          as outputs, without executing the target or saving
+                          anything. Local only.
+  --help                  Show this message and exit.
 ```
 
 → Python/R alternative: no equivalent

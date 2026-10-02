@@ -129,11 +129,6 @@ Blocks
 .. autoclass:: TransformBlock
 .. autoclass:: ULabelBlock
 
-Transfer
---------
-
-.. autofunction:: sync_objects_from_database
-
 Utils
 -----
 
@@ -181,7 +176,6 @@ from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager
 from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .db import DB
-from ._transfer import sync_objects_from_database
 from .artifact_set import ArtifactSet
 from .record_set import RecordSet
 from .has_parents import HasParents

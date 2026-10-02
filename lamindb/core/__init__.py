@@ -1,6 +1,13 @@
 """Core library.
 
-Settings & context:
+High-level sync function:
+
+.. autosummary::
+   :toctree: .
+
+   sync
+
+Settings & run context:
 
 .. autosummary::
    :toctree: .
@@ -23,13 +30,12 @@ Data loaders:
 
    MappedCollection
 
-Modules:
+Storage library:
 
 .. autosummary::
    :toctree: .
 
    storage
-   logger
 
 """
 
@@ -42,7 +48,9 @@ from ..examples import datasets  # backward compat
 from . import subsettings
 from ._context import Context
 from ._settings import Settings
+from ._sync import sync
 from ._verify_lineage import verify_lineage
+
 
 def __getattr__(name: str):
     # need to lazy import a few auxliary modules to maintain backward compatibility
