@@ -41,15 +41,15 @@ ln.core.sync(
 :::
 ::::
 
-→ API: {func}`~lamindb.core.sync` → CLI: [lamin io sync](cli.md#io)
-
-You can pass the `--transfer` argument, which dictates which related objects are transferred:
+To sync annotations in addition to the bare object, pass the `--transfer` / `transfer` argument:
 
 - `"sqlrecord"`: the object and its foreign keys
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy.
+You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. For details, see {func}`~lamindb.core.sync`.
+
+What the high-level `sync` command does is wrapping the lower-level `SQLRecord.save()` API. Let's walk through it!
 
 ## Using `save`
 

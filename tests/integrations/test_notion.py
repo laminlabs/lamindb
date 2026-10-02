@@ -10,7 +10,7 @@ import json
 import os
 from datetime import date, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import httpx
 import lamindb as ln
@@ -1436,6 +1436,18 @@ def test_notion_syncer_project_type_name_for_database_defaults():
     assert NotionSyncer._project_type_name_for_database("Other DB") is None
 
 
+def test_project_url_uses_instance_owner_when_workspace_is_omitted():
+    with patch.object(
+        type(ln.setup.settings), "instance", new_callable=PropertyMock
+    ) as instance:
+        instance.return_value.owner = "laminlabs"
+        syncer = ProjectSyncer(reader=MagicMock())
+        assert (
+            syncer._notion_project_url("3922aeaa55e1808d9725d314fb7bc388")
+            == "https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388"
+        )
+
+
 def test_project_syncer_upsert_all_assigns_tasks_type():
     rows = [{"notion_id": "3922aeaa55e1808d9725d314fb7bc388", "Name": "Task A"}]
     project_type = type("ProjectType", (), {"id": 77})()
@@ -1443,7 +1455,7 @@ def test_project_syncer_upsert_all_assigns_tasks_type():
         project_factory = MagicMock()
         project_factory.save.return_value = "saved-task"
         Project.return_value = project_factory
-        syncer = ProjectSyncer(reader=MagicMock())
+        syncer = ProjectSyncer(reader=MagicMock(), workspace="laminlabs")
         out = syncer.upsert_all(
             rows=rows,
             by_id={},
@@ -1469,7 +1481,7 @@ def test_project_syncer_upsert_all_updates_existing_type():
     existing.updated_at = None
     existing._aux = None
 
-    syncer = ProjectSyncer(reader=MagicMock())
+    syncer = ProjectSyncer(reader=MagicMock(), workspace="laminlabs")
     out = syncer.upsert_all(
         rows=rows,
         by_id={"3922aeaa55e1808d9725d314fb7bc388": existing},
@@ -2256,6 +2268,7 @@ def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url
             rec_type=rec_type,
             apply=True,
             report=report,
+            workspace="laminlabs",
         )
 
     Project.assert_called_once_with(
@@ -4439,7 +4452,7 @@ def test_sync_objects_from_notion_delegates_to_syncer_and_prints():
     ):
         Syncer.return_value.import_page.return_value = sync_report
         report = sync_objects_from_notion(notion_uuid="p1", apply=False, depth=3)
-    Syncer.assert_called_once_with(token=None)
+    Syncer.assert_called_once_with(token=None, workspace=None)
     Syncer.return_value.import_page.assert_called_once_with(
         notion_uuid="p1", apply=False, depth=3
     )

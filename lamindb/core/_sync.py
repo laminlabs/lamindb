@@ -42,8 +42,7 @@ def sync(
     What is copied
     --------------
 
-    `transfer` sets the boundary. `depth` does not widen it. `depth` only adds
-    records in the type tree.
+    `transfer` sets the boundary.
 
     .. code-block:: mermaid
 

@@ -1212,13 +1212,27 @@ def _registry_supports_relation_stubs(registry: Any) -> bool:
     return registry_name in {"Project", "Reference"}
 
 
+def _notion_workspace(workspace: str | None) -> str:
+    if workspace:
+        return workspace
+    return ln.setup.settings.instance.owner
+
+
+def _notion_page_url(notion_id: str, workspace: str) -> str:
+    compact_id = _normalize_notion_id(notion_id) or notion_id
+    return f"https://notion.so/{workspace}/{compact_id}"
+
+
 def _registry_stub_kwargs(
-    registry: Any, field_name: str, stub_name: str, notion_id: str
+    registry: Any,
+    field_name: str,
+    stub_name: str,
+    notion_id: str,
+    workspace: str | None = None,
 ) -> dict[str, str]:
     kwargs: dict[str, str] = {field_name: stub_name}
     if getattr(registry, "__name__", "") == "Project":
-        compact_notion_id = _normalize_notion_id(notion_id) or notion_id
-        kwargs["url"] = f"https://notion.so/laminlabs/{compact_notion_id}"
+        kwargs["url"] = _notion_page_url(notion_id, _notion_workspace(workspace))
     return kwargs
 
 
@@ -1232,6 +1246,7 @@ def _resolve_relation_records_for_rows(
     rec_type: Any,
     apply: bool,
     report: SyncReport | None,
+    workspace: str | None = None,
 ) -> tuple[dict[str, Any], int]:
     prop_map = prop_map or {}
     relation_ids_by_prop: dict[str, set[str]] = {}
@@ -1305,6 +1320,7 @@ def _resolve_relation_records_for_rows(
                                 field_name,
                                 stub_name,
                                 notion_id,
+                                workspace,
                             )
                         ).save()
                         resolved[notion_id] = stub
@@ -1852,6 +1868,7 @@ def _write(
     *,
     transfer_details_by_url: dict[str, str] | None = None,
     report: SyncReport | None = None,
+    workspace: str | None = None,
 ) -> dict:
     """Materialize every row of one database. Schema, kinds and labels resolved once."""
     rel, lab, file_props = _kinds(spec)
@@ -1912,6 +1929,7 @@ def _write(
             rel,
             feat,
             prop_map,
+            workspace=workspace,
             rec_type=rec_type,
             apply=True,
             report=report,
@@ -2075,11 +2093,14 @@ def _upsert_all(rec_type, rows) -> dict:
 class _NotionSyncer:
     """Sync Notion page trees to typed LaminDB records."""
 
-    def __init__(self, token: str | None = None) -> None:
+    def __init__(
+        self, token: str | None = None, *, workspace: str | None = None
+    ) -> None:
         token = token or os.getenv("NOTION_TOKEN")
         if not token:
             raise ValueError("Pass token=... or set NOTION_TOKEN.")
         self.reader = _NotionReader(token=token)
+        self.workspace = workspace
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
         self._seed_page_ids_by_database: dict[str, set[str]] = {}
@@ -4289,6 +4310,7 @@ class _NotionSyncer:
                             rec_type=rec_type,
                             apply=False,
                             report=report,
+                            workspace=self.workspace,
                         )
                         report.pending_relations += relation_pending
 
@@ -4325,6 +4347,7 @@ class _NotionSyncer:
                     by_id=after_maps[db_id],
                     transfer_details_by_url=planned_transfers_by_db.get(db_id, {}),
                     report=report,
+                    workspace=self.workspace,
                 )
                 report.pending_relations += stats["pending"]
                 logger.important(
@@ -4362,8 +4385,9 @@ class ProjectSyncer:
         "cancelled": "canceled",
     }
 
-    def __init__(self, reader: _NotionReader) -> None:
+    def __init__(self, reader: _NotionReader, *, workspace: str | None = None) -> None:
         self.reader = reader
+        self.workspace = workspace
 
     @staticmethod
     def _normalize_name(value: str) -> str:
@@ -4465,10 +4489,8 @@ class ProjectSyncer:
         }
         return any(token in normalized for token in successor_tokens)
 
-    @staticmethod
-    def _notion_project_url(notion_id: str) -> str:
-        compact_id = _normalize_notion_id(notion_id) or notion_id
-        return f"https://notion.so/laminlabs/{compact_id}"
+    def _notion_project_url(self, notion_id: str) -> str:
+        return _notion_page_url(notion_id, _notion_workspace(self.workspace))
 
     @staticmethod
     def _append_unmapped(
@@ -4990,6 +5012,7 @@ class ProjectSyncer:
                 rec_type=type("ProjectRegistry", (), {"name": db_name})(),
                 apply=True,
                 report=report,
+                workspace=self.workspace,
             )
         else:
             resolved_relations, relation_pending = {}, 0
@@ -5237,9 +5260,11 @@ class ProjectSyncer:
 class NotionSyncer(RecordSyncer):
     """Dispatcher that routes Notion databases to record or project syncers."""
 
-    def __init__(self, token: str | None = None) -> None:
-        super().__init__(token=token)
-        self.project_syncer = ProjectSyncer(self.reader)
+    def __init__(
+        self, token: str | None = None, *, workspace: str | None = None
+    ) -> None:
+        super().__init__(token=token, workspace=workspace)
+        self.project_syncer = ProjectSyncer(self.reader, workspace=workspace)
 
     def _is_project_database(self, payload: dict[str, Any], database_id: str) -> bool:
         db_name = self._database_title(payload, fallback=database_id)
@@ -5529,6 +5554,7 @@ class NotionSyncer(RecordSyncer):
                             rec_type=rec_type,
                             apply=False,
                             report=report,
+                            workspace=self.workspace,
                         )
                         report.pending_relations += relation_pending
                 if apply:
@@ -5569,6 +5595,7 @@ class NotionSyncer(RecordSyncer):
                     by_id=after_maps[db_id],
                     transfer_details_by_url=planned_transfers_by_db.get(db_id, {}),
                     report=report,
+                    workspace=self.workspace,
                 )
                 report.pending_relations += stats["pending"]
 
@@ -5590,6 +5617,7 @@ def sync_objects_from_notion(
     token: str | None = None,
     apply: bool = False,
     depth: int = 0,
+    workspace: str | None = None,
 ) -> SyncReport:
     """Sync a Notion page to LaminDB records.
 
@@ -5600,10 +5628,13 @@ def sync_objects_from_notion(
         depth: How many levels of child pages and databases to walk.
             `0` syncs only this page. A positive integer walks that many
             levels below it.
+        workspace: Notion workspace slug used in page URLs, for example
+            `laminlabs` when the current database is `laminlabs/lamindata`.
+            Defaults to the account handle of the current database.
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
-    syncer = NotionSyncer(token=token)
+    syncer = NotionSyncer(token=token, workspace=workspace)
     report = syncer.import_page(notion_uuid=notion_uuid, apply=apply, depth=depth)
     RICH_CONSOLE.print(report.to_pretty_text(), markup=True, highlight=False)
     return report
