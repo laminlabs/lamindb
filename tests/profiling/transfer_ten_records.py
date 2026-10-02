@@ -3,8 +3,8 @@ import lamindb as ln
 # transfer the RNA-seq frame from lamindata to lamindb-benchmarks
 ln.core.sync(
     registry="record",
-    uids="gL3TbX2qZQmCwTAU",
-    source="laminlabs/lamindata",
+    uid="gL3TbX2qZQmCwTAU",
+    source_db="laminlabs/lamindata",
     depth=1,
     transfer="annotations",
 )

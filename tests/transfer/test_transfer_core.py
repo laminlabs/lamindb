@@ -1003,11 +1003,7 @@ def test_transfer_helper_early_returns():
     source = f"{user_handle}/testdb1"
     assert _registry_class_name("ulabel") == "ULabel"
     with pytest.raises(ValueError, match="Unknown registry"):
-        sync("not a registry", ["uid"], source=source)
-    with pytest.raises(ValueError, match="at least one uid"):
-        sync("record", [], source=source)
-    with pytest.raises(TypeError, match="str or list"):
-        sync("record", None, source=source)
+        sync(registry="not a registry", uid="uid", source_db=source)
 
 
 def test_depth_rejected_for_non_hastype_and_none():
@@ -1021,4 +1017,9 @@ def test_depth_rejected_for_non_hastype_and_none():
     with pytest.raises(ValueError, match="depth must be an int >= 0"):
         artifact.save(depth=None)
     with pytest.raises(ValueError, match="depth must be an int >= 0"):
-        sync("record", "not-a-uid", source=f"{user_handle}/testdb1", depth=None)
+        sync(
+            registry="record",
+            uid="not-a-uid",
+            source_db=f"{user_handle}/testdb1",
+            depth=None,
+        )
