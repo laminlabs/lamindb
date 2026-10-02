@@ -35,19 +35,28 @@ def sync(
     Returns:
         The saved `SQLRecord` object on the current database.
 
-    The `transfer` argument determines what is copied. If `"sqlrecord"`, only the object
-    with its required foreign keys are copied. If `"notes"`, the object and its notes are copied.
+    Traversing relationships
+    ------------------------
+
+    The `transfer` argument determines which related objects are transferred.
+    If `"sqlrecord"`, only the object with its required foreign keys are copied.
+    If `"notes"`, the object and its notes are copied.
     If `"annotations"`, the object and its annotations are copied, that is, the object's features,
     labels, and, for a schema, its members.
+
+    **Example:** For an artifact, the following relationships are foreign keys, which are copied even
+    when `transfer="sqlrecord"`.
 
     .. code-block:: mermaid
 
        flowchart TD
-         you("transfer = annotations") --> links("One step of links on this object")
-         links --> feat("Features of this object")
-         links --> vals("Values linked from this object")
-         vals --> stub("Record and ULabel: stub")
-         vals --> other("Artifact and other registries: save with their annotations")
+         artifact("Artifact") -->|storage| storage("Storage")
+         artifact -->|branch| branch("Branch")
+         artifact -->|created_by| user("User")
+         artifact -->|created_on| created_on("Branch")
+         artifact -->|run| run("Run")
+         artifact -->|schema| schema("Schema")
+         artifact -->|space| space("Space")
 
     A linked `Record` or `ULabel` is a stub: uid, name, type, and creator. Its
     own features, labels, and readme stay on the source. Transfer that record
@@ -80,8 +89,10 @@ def sync(
         import lamindb as ln
 
         db = ln.DB("laminlabs/lamindata")
+        db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad").save(
+            transfer="annotations"
+        )
         db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
-        db.Artifact.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
