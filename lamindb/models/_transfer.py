@@ -354,13 +354,10 @@ def _remember_target(record, transfer_logs: dict) -> None:
 
 
 def resolve_records(records, transfer_logs: dict) -> None:
-    """One ``uid__in`` lookup per registry for records that are not cached yet."""
+    """One `uid__in` lookup per registry for records that are not cached yet."""
     bucket: dict = {}
     for record in records:
-        uid = getattr(record, "uid", None)
-        if uid is None:
-            continue
-        bucket.setdefault(record.__class__, {})[uid] = record
+        bucket.setdefault(record.__class__, {})[record.uid] = record
     _resolve_present(bucket, transfer_logs)
 
 
@@ -378,8 +375,6 @@ def _resolve_present(bucket: dict, transfer_logs: dict) -> None:
 def _put_entity(bucket: dict, record) -> None:
     uid = getattr(record, "uid", None)
     if uid is None:
-        return
-    if not isinstance(record, (SQLRecord, BaseSQLRecord)):
         return
     bucket.setdefault(record.__class__, {})[uid] = record
 

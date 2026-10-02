@@ -30,7 +30,7 @@ Data loaders:
 
    MappedCollection
 
-Modules:
+Storage library:
 
 .. autosummary::
    :toctree: .
