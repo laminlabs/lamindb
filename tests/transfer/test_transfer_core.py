@@ -950,8 +950,6 @@ def test_depth_descendants_stops_and_walks():
 
 
 def test_transfer_helper_early_returns():
-    from lamindb.core import sync
-    from lamindb.core._sync import _registry_class_name
     from lamindb.models._transfer import (
         _cached_or_load,
         _pop_cached_linked_values,
@@ -999,12 +997,6 @@ def test_transfer_helper_early_returns():
         record.delete(permanent=True)
         feature.delete(permanent=True)
 
-    user_handle = ln.setup.settings.user.handle
-    source = f"{user_handle}/testdb1"
-    assert _registry_class_name("ulabel") == "ULabel"
-    with pytest.raises(ValueError, match="Unknown registry"):
-        sync(registry="not a registry", uid="uid", source_db=source)
-
 
 def test_depth_rejected_for_non_hastype_and_none():
     from lamindb.core import sync
@@ -1018,7 +1010,7 @@ def test_depth_rejected_for_non_hastype_and_none():
         artifact.save(depth=None)
     with pytest.raises(ValueError, match="depth must be an int >= 0"):
         sync(
-            registry="record",
+            registry=ln.Record,
             uid="not-a-uid",
             source_db=f"{user_handle}/testdb1",
             depth=None,

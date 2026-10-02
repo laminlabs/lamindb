@@ -32,7 +32,7 @@ lamin io sync https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU
 import lamindb as ln
 
 ln.core.sync(
-    registry="record",
+    registry=ln.Record,
     uid="gL3TbX2qZQmCwTAU",
     source_db="laminlabs/lamindata",
 )

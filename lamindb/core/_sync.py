@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..base.types import TransferMode
-    from ..models.sqlrecord import SQLRecord
-
-
-def _registry_class_name(registry: str) -> str:
-    if registry == "ulabel":
-        return "ULabel"
-    if not registry or not registry.replace("_", "").isalnum():
-        raise ValueError(f"Unknown registry {registry!r}.")
-    return "".join(part.capitalize() for part in registry.split("_"))
+    from ..models.sqlrecord import Registry, SQLRecord
 
 
 def sync(
     *,
-    registry: str,
+    registry: Registry,
     uid: str,
     source_db: str,
     depth: int = 0,
@@ -30,7 +22,7 @@ def sync(
     Guide: :doc:`transfer`
 
     Args:
-        registry: Registry name, for example `artifact` or `record`.
+        registry: Registry class, for example `ln.Artifact` or `ln.Record`.
         uid: UID of the object to sync.
         source_db: Source database slug, for example `laminlabs/lamindata`.
         depth: How many levels of the type tree to transfer. `0` transfers
@@ -89,13 +81,7 @@ def sync(
         db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
         db.Artifact.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
     """
-    from ..models.db import DB
-
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
-    model_name = _registry_class_name(registry)
-    record = getattr(DB(source_db), model_name).get(uid)
-    kwargs: dict[str, Any] = {"depth": depth}
-    if transfer is not None:
-        kwargs["transfer"] = transfer
-    return record.save(**kwargs)
+    sqlrecord = registry.connect(source_db).get(uid)
+    return sqlrecord.save(depth=depth, transfer=transfer)
