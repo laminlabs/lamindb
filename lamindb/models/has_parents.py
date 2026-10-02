@@ -243,13 +243,17 @@ def view_digraph(u: Digraph):
 
             #  True if the code is running in a Jupyter Notebook or Lab environment
             if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
-                return u.view()
+                return u.view(
+                    directory=ln_setup.settings.cache_dir / "graphs", cleanup=True
+                )
             else:
                 # call u._repr_mimebundle_() manually that exception gets raised properly and not just printed by
                 # call to display()
                 display(u._repr_mimebundle_(), raw=True)
         else:
-            return u.view()
+            return u.view(
+                directory=ln_setup.settings.cache_dir / "graphs", cleanup=True
+            )
     except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
