@@ -2,7 +2,7 @@
 
 See [SKILL.md](../SKILL.md) for concepts and the shared steps — this covers only what's specific to Claude Code.
 
-When shared Step 1 chooses a new branch, use the complete `$CLAUDE_CODE_SESSION_ID`. Combine it with an agent-chosen slug that describes the user's task. Expand the ID directly inside the `lamin switch -c` branch argument, for example `lamin switch -c "curate-cell-types-${CLAUDE_CODE_SESSION_ID}"`. Never run `echo`, `printenv`, `env`, Python, or any other command to inspect or print the session ID, and never use a generic or timestamp-only branch name.
+When shared Step 1 chooses a branch, use only the task slug from SKILL.md, for example `lamin switch -c curate-cell-types`. Other agent sessions may write to that same branch. If it already exists and its status is `merged`, ask as SKILL.md describes before reusing it. Never run `echo`, `printenv`, `env`, Python, or any other command to inspect or print the session ID, and never use a generic or timestamp-only branch name.
 
 ## Step 1 — Start of session
 

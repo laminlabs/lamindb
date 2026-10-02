@@ -12,7 +12,7 @@ If you created another chat with `create_session`, you are the **parent**:
 
 If this chat was created as a child, follow [SKILL.md](../SKILL.md) and the rest of this file as written: dev-dir, branch, track, artifacts, finish.
 
-When shared Step 1 needs a new branch, use the complete `$COPILOT_AGENT_SESSION_ID`. Combine it with an agent-chosen slug that describes the user's task. Expand the ID directly inside the `lamin switch -c` branch argument, for example `lamin switch -c "favorite-protein-fasta-${COPILOT_AGENT_SESSION_ID}"`. Never run `echo`, `printenv`, `env`, Python, or any other command to inspect or print the session ID, and never use a generic or timestamp-only branch name.
+When shared Step 1 needs a branch, use only the task slug from SKILL.md, for example `lamin switch -c favorite-protein-fasta`. Other agent sessions may write to that same branch. If it already exists and its status is `merged`, ask as SKILL.md describes before reusing it. Never run `echo`, `printenv`, `env`, Python, or any other command to inspect or print the session ID, and never use a generic or timestamp-only branch name.
 
 A Copilot session folder under `~/.copilot/repos/copilot-worktrees/` is not a dev-dir and is not the session working directory. Do not set dev-dir to that folder. The session working directory is the one resolved in [SKILL.md](../SKILL.md).
 
