@@ -1416,7 +1416,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         Args:
             using: Optional database slug for a target database that differs from the default database.
                 Do not use this to transfer data between instances; instead see the :doc:`/transfer` documentation.
-                The call fails if `using` is used to transfer an existing record.
+                The call fails if `using` is used to transfer a record from one instance to another.
             transfer: If this object was queried on another instance:
                 "sqlrecord" (default) copies the row
                 and foreign keys only; "notes" also copies the latest readme;
