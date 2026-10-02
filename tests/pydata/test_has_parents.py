@@ -1,5 +1,6 @@
 import bionty as bt
 import lamindb as ln
+import pytest
 
 
 def test_view_parents():
@@ -91,3 +92,61 @@ def test_view_lineage_connected_instance():
 
     if af and af.run:
         af.view_lineage()
+
+
+@pytest.mark.parametrize("terminal_ipython", [False, True])
+def test_view_digraph_keeps_rendered_files_out_of_working_directory(
+    tmp_path, monkeypatch, terminal_ipython
+):
+    from pathlib import Path
+
+    import graphviz
+    from lamindb.models import has_parents
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(has_parents, "is_run_from_ipython", terminal_ipython)
+    if terminal_ipython:
+        import IPython
+
+        terminal_shell = type("TerminalInteractiveShell", (), {})()
+        monkeypatch.setattr(IPython, "get_ipython", lambda: terminal_shell)
+    viewed = []
+    monkeypatch.setattr(
+        graphviz.Digraph,
+        "_view",
+        lambda self, path, **kwargs: viewed.append(path),
+    )
+    graph = graphviz.Digraph("regression-lineage")
+    graph.edge("input", "output")
+
+    rendered = Path(has_parents.view_digraph(graph))
+
+    assert not list(tmp_path.iterdir())
+    assert rendered.is_file()
+    assert rendered.read_bytes().startswith(b"%PDF")
+    assert not rendered.with_suffix("").exists()
+    assert viewed == [str(rendered)]
+
+
+def test_view_digraph_notebook_does_not_create_files(tmp_path, monkeypatch):
+    import graphviz
+    import IPython
+    import IPython.display
+    from lamindb.models import has_parents
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(has_parents, "is_run_from_ipython", True)
+    notebook_shell = type("ZMQInteractiveShell", (), {})()
+    monkeypatch.setattr(IPython, "get_ipython", lambda: notebook_shell)
+    displayed = []
+    monkeypatch.setattr(
+        IPython.display,
+        "display",
+        lambda bundle, **kwargs: displayed.append(bundle),
+    )
+    graph = graphviz.Digraph("notebook-lineage")
+    graph.edge("input", "output")
+
+    assert has_parents.view_digraph(graph) is None
+    assert not list(tmp_path.iterdir())
+    assert "image/svg+xml" in displayed[0]
