@@ -4003,7 +4003,7 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._write") as write,
     ):
         report = syncer.import_pages("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], depth=None)
+    collect_ids.assert_called_once_with(["parent"], depth=0)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4

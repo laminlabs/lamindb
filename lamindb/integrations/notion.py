@@ -2221,17 +2221,16 @@ class _NotionSyncer:
         out: set[str],
         *,
         parent_page_id: str | None = None,
-        depth: int | None = None,
+        depth: int = 0,
     ) -> None:
         """Collect child databases up to `depth` levels below this block.
 
-        `depth=None` walks the whole subtree. `depth<=0` does not enter it.
-        A child database on this block is one level; databases nested under it
-        consume the remaining levels.
+        `depth<=0` does not enter it. A child database on this block is one
+        level; databases nested under it consume the remaining levels.
         """
-        if depth is not None and depth <= 0:
+        if depth <= 0:
             return
-        next_depth = None if depth is None else depth - 1
+        next_depth = depth - 1
         for block in self._iter_block_children(block_id):
             bid = block.get("id")
             if bid and bid in seen:
@@ -2253,10 +2252,10 @@ class _NotionSyncer:
                 )
 
     def _collect_database_ids(
-        self, parents: list[str], depth: int | None = None
+        self, parents: list[str], depth: int = 0
     ) -> tuple[set[str], dict[str, str]]:
-        if depth is not None and depth < 0:
-            raise ValueError("depth must be >= 0 when provided.")
+        if type(depth) is not int or depth < 0:
+            raise ValueError("depth must be an int >= 0.")
         database_ids: set[str] = set()
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
@@ -4107,7 +4106,7 @@ class _NotionSyncer:
         parents: str | list[str],
         *,
         apply: bool = False,
-        depth: int | None = None,
+        depth: int = 0,
     ) -> SyncReport:
         """Import parent trees, validating schema before any write.
 
@@ -5285,7 +5284,7 @@ class NotionSyncer(RecordSyncer):
         parents: str | list[str],
         *,
         apply: bool = False,
-        depth: int | None = None,
+        depth: int = 0,
     ) -> SyncReport:
         if isinstance(parents, str):
             parent_ids = [parents]
@@ -5600,7 +5599,7 @@ def sync_objects_from_notion(
     parents: str | list[str],
     token: str | None = None,
     apply: bool = False,
-    depth: int | None = None,
+    depth: int = 0,
 ) -> SyncReport:
     """Sync Notion pages to LaminDB records.
 
@@ -5609,8 +5608,11 @@ def sync_objects_from_notion(
         token: Notion API token. Defaults to the `NOTION_TOKEN` environment variable.
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
-            `None` walks the whole tree. `0` syncs only the given parents.
+            `0` syncs only the given parents. A positive integer walks that
+            many levels below them.
     """
+    if type(depth) is not int or depth < 0:
+        raise ValueError("depth must be an int >= 0.")
     syncer = NotionSyncer(token=token)
     if isinstance(parents, str):
         parent_list = [parents]
