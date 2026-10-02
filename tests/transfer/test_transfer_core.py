@@ -492,6 +492,50 @@ def test_record_transfer_features_opt_in(
         assert sample.description is None
         assert not ln.Record.filter(name=EMPTY_NAME).exists()
         source_db = f"{user_handle}/testdb1"
+        source = ln.Record.objects.using(source_db).get(uid=rec_uid)
+        from lamindb.models.record import RecordJson, RecordULabel
+
+        version = ln.Feature.objects.using(source_db).get(name=FEAT_VERSION)
+        tags = ln.Feature.objects.using(source_db).get(name=FEAT_TAGS)
+        qc_type = ln.ULabel.objects.using(source_db).get(name=QC_TYPE)
+        RecordJson.objects.using(source_db).filter(
+            record_id=source.pk, feature_id=version.id
+        ).update(value="9.9.9")
+        ln.Record.objects.using(source_db).filter(pk=source.pk).update(
+            description="scalar-rerun"
+        )
+        extra = ln.ULabel.objects.using(source_db).create(
+            name="transfer_ci_rerun", type=qc_type
+        )
+        RecordULabel.objects.using(source_db).create(
+            record_id=source.pk, feature_id=tags.id, value_id=extra.id
+        )
+        try:
+            again = db1.Record.get(uid=rec_uid).save(transfer="annotations")
+            again_values = again.features.get_values()
+            assert again.description == "scalar-rerun"
+            assert again_values.get(FEAT_VERSION) == "9.9.9"
+            again_tags = {
+                getattr(label, "name", label)
+                for label in (again_values.get(FEAT_TAGS) or [])
+            }
+            assert {QC_OK, QC_FAIL, "transfer_ci_rerun"} <= again_tags
+        finally:
+            RecordJson.objects.using(source_db).filter(
+                record_id=source.pk, feature_id=version.id
+            ).update(value="2.10.0")
+            ln.Record.objects.using(source_db).filter(pk=source.pk).update(
+                description=None
+            )
+            RecordULabel.objects.using(source_db).filter(
+                record_id=source.pk, value_id=extra.id
+            ).delete()
+            ln.ULabel.objects.using(source_db).filter(pk=extra.pk).delete(
+                permanent=True
+            )
+            RecordULabel.filter(value__name="transfer_ci_rerun").delete()
+            ln.ULabel.filter(name="transfer_ci_rerun").delete(permanent=True)
+        source_db = f"{user_handle}/testdb1"
         source_sample = ln.Record.objects.using(source_db).get(name=SAMPLE_NAME)
         ln.Record.objects.using(source_db).filter(uid=source_sample.uid).update(
             description="filled on rerun"
