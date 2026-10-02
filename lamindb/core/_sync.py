@@ -17,7 +17,12 @@ def sync(
 ) -> SQLRecord:
     """Sync one object from a source database into the current database.
 
-    This function underlies `lamin io sync`.
+    This function underlies `lamin io sync` and wraps the lower-level `.save()` API::
+
+        import lamindb as ln
+
+        db = ln.DB("laminlabs/lamindata")
+        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
 
     Guide: :doc:`transfer`
 
@@ -57,37 +62,37 @@ def sync(
          artifact -->|schema| schema("Schema")
          artifact -->|space| space("Space")
 
-    If you pass `transfer="annotations"`, the artifact and its annotations are copied.
-    Annotating objects are **transferred** without their own annotations. You have to
-    transfer an annotating object itself if you want to transfer its annotations.
+    If you pass `transfer="annotations"` upon transferring an artifact, its many-to-many relationships are transferred.
+    Those contain all label & feature annotations but also inferred schemas via `.schemas`.
+    Some of the many-to-many relationships of an artifact are shown below:
 
     .. code-block:: mermaid
 
+       flowchart TD
+         artifact("Artifact") -->|ulabels| ulabels("ULabel")
+         artifact -->|records| records("Record")
+         artifact -->|projects| projects("Project")
+         artifact -->|users| users("User")
+         artifact -->|artifacts| linked("Artifact")
+         artifact -->|schemas| schemas("Schema")
+         artifact -->|json_values| json_values("JsonValue")
 
+    The related objects themselves are **transferred** without their own annotations to avoid an infinite recursion.
+    You have to transfer the related object itself if you want to transfer it with its own annotations.
 
-    Running it again
-    ----------------
+    Re-syncing
+    ----------
 
-    A transfer is safe to repeat. Uids already on the target are reused. A
-    `Record` or `ULabel` that arrived earlier as a stub is filled in when you
-    transfer that object itself. Link rows are replaced, not duplicated. So a
+    A sync operation is safe to repeat. UIDs already on the target database are mapped. A
+    `Record` that arrived earlier as a stub is filled in when you
+    transfer that object itself. Links are replaced, not duplicated. So a
     first run with `transfer="sqlrecord"` and a second run with
-    `transfer="annotations"` completes the annotations.
+    `transfer="annotations"` completes annotations.
 
     Every row this transfer writes has `.run` set to a run of the transform
-    `__lamindb_transfer__/{source instance uid}`. To undo it, find that run and
+    `__lamindb_transfer__/{source_database_uid}`. To undo it, find that run and
     delete the objects whose `.run` is that run. Objects that were already on
     the target and only got mapped are not part of that run.
-
-    Most of the time, call `.save()` on the object from the other database::
-
-        import lamindb as ln
-
-        db = ln.DB("laminlabs/lamindata")
-        db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad").save(
-            transfer="annotations"
-        )
-        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
