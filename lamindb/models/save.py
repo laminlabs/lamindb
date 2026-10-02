@@ -73,9 +73,8 @@ def save(
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
-        using: Optional database slug for a target database that differs from the default database.
-            Do not use this to transfer data between instances; instead see the :doc:`/transfer` documentation.
-            The call fails if `using` is used to transfer a record from one instance to another.
+        using: Database slug for a target database that differs from the default database;
+            won't track lineage, do not use for transferring data.
 
     Examples
     --------
