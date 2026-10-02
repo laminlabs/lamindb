@@ -64,6 +64,7 @@ def save(
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
         using: Optional database slug for a target database that differs from the default database.
+            Do not use this to transfer data between instances; instead see the :doc:`/transfer` documentation.
 
     Examples
     --------
