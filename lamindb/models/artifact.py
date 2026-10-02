@@ -39,7 +39,7 @@ from lamindb_setup.core.upath import (
 )
 from postgrest.exceptions import APIError
 
-from lamindb.base.types import CanonicalSuffix
+from lamindb.base.types import CanonicalSuffix, TransferMode
 
 from ..base.fields import (
     BigIntegerField,
@@ -3345,7 +3345,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def save(
         self,
         upload: bool | None = None,
-        transfer: Literal["sqlrecord", "notes", "annotations"] = "sqlrecord",
+        transfer: TransferMode = "sqlrecord",
         **kwargs,
     ) -> Artifact:
         """Save to database & storage.

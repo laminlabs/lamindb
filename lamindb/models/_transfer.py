@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast, get_args
 
 import lamindb_setup as ln_setup
 from django.core.exceptions import FieldDoesNotExist
@@ -12,6 +12,7 @@ from lamin_utils import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.errors import NoReadAccess
 
+from ..base.types import TransferMode
 from ..errors import NoWriteAccess, ValidationError
 from .sqlrecord import BaseSQLRecord, Space, SQLRecord
 
@@ -169,12 +170,12 @@ def get_transfer_run(record) -> Run:
     return run
 
 
-TRANSFER_MODES = {"sqlrecord", "notes", "annotations"}
+TRANSFER_MODES = set(get_args(TransferMode))
 
 
 def normalize_transfer_config(
     transfer_config: str | None, *, default_annotations: bool = False
-) -> str:
+) -> TransferMode:
     """Map transfer= to sqlrecord | notes | annotations.
 
     ``transfer="record"`` is kept as an alias for ``sqlrecord`` until LaminDB v3.
@@ -193,7 +194,7 @@ def normalize_transfer_config(
             "transfer should be one of 'sqlrecord', 'notes', 'annotations' "
             f"(or deprecated 'record'), not {transfer_config!r}"
         )
-    return transfer_config
+    return cast(TransferMode, transfer_config)
 
 
 def transfer_notes(record_on_default, source_db, source_pk) -> None:
