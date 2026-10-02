@@ -12,8 +12,8 @@ def sync(
     registry: Registry,
     uid: str,
     source_db: str,
-    depth: int = 0,
     transfer: TransferMode | None = None,
+    depth: int = 0,
 ) -> SQLRecord:
     """Sync one object from a source database into the current database.
 
@@ -25,18 +25,20 @@ def sync(
         registry: Registry class, for example `ln.Artifact` or `ln.Record`.
         uid: UID of the object to sync.
         source_db: Source database slug, for example `laminlabs/lamindata`.
+        transfer: A :class:`~lamindb.base.types.TransferMode`.
+            Omit it to use the registry default. Schema defaults to `annotations`.
         depth: How many levels of the type tree to transfer. `0` transfers
             only this object, plus the related objects selected by `transfer`.
             Only `record`, `feature`, `schema`, `project`, `ulabel`, and
             `reference` accept `depth > 0`.
-        transfer: A :class:`~lamindb.base.types.TransferMode`.
-            Omit it to use the registry default. Schema defaults to `annotations`.
 
-    `transfer="annotations"`
-    ------------------------
+    Returns:
+        The saved `SQLRecord` object on the current database.
 
-    This copies the row and one step of links on this object: its features,
-    its labels, and, for a schema, its members.
+    The `transfer` argument determines what is copied. If `"sqlrecord"`, only the object
+    with its required foreign keys are copied. If `"notes"`, the object and its notes are copied.
+    If `"annotations"`, the object and its annotations are copied, that is, the object's features,
+    labels, and, for a schema, its members.
 
     .. code-block:: mermaid
 
