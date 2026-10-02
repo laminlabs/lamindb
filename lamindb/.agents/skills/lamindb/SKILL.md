@@ -72,13 +72,26 @@ Then resolve the session working directory. A development directory is one worki
 2. One result: that directory is the session working directory. Run later LaminDB commands there.
 3. Several: use the one that contains the files being edited. If none contains them, show the list and ask. Do not guess, and do not pick `$HOME`.
 4. None: ask the user to run `lamin connect <account/name> --here` in the project directory. `lamin init` also creates a dev-dir in the working directory. Do not run either command unless they ask.
-5. From that directory, choose a concise branch name in the form `<meaningful-task-slug>-<session-id-suffix>`. The slug must describe the user's actual task; never use a generic or timestamp-only name. Derive the suffix as specified in your harness reference (Cursor uses a unique agent-chosen suffix because it does not expose its session ID to shell commands); do not print it separately. Use only letters, digits, hyphens, or underscores, and never `/`. Then run:
+5. From that directory, choose a concise branch name in the form `<meaningful-task-slug>`. The slug must describe the user's actual task; never use a generic or timestamp-only name, and never append a session id or any other per-session suffix. Several agent sessions may write to the same branch. A `-v2`, `-v3`, `-v4`, ... suffix is only for a new version of that same task when the previous branch is merged, as below. Use only letters, digits, hyphens, or underscores, and never `/`. Then run:
 
 ```bash
 lamin switch -c <branch-name>
 ```
 
-`lamin switch -c` switches the branch of that directory. It does not create a child directory. Then `lamin track <agent>` as in the harness reference.
+`lamin switch -c` switches the branch of that directory. It does not create a child directory. If the branch already exists, the command fails and tells you to omit `-c`. Read its status as its own command:
+
+```bash
+lamin get branch --name <branch-name> --status
+```
+
+If the printed status is anything other than `merged`, run `lamin switch <branch-name>` and stay on that branch.
+
+If the printed status is `merged`, the user very likely wants a new version of the same task. Take the base slug by removing a trailing `-v<number>` when the name already has one. Check `<base>-v2`, then `<base>-v3`, and so on with the same `lamin get branch --name ... --status` command. If one of those exists and its status is not `merged`, switch to it with `lamin switch <that-name>`: other sessions may already be writing that version. If every existing version is `merged`, the new name is the first one that does not exist (`<base>-v2` when only the base exists). Stop and ask before creating it or switching onto a merged branch. Use the harness ask-user tool when one exists. Ask exactly: **"Branch `<latest-merged-name>` is merged. Create `<new-name>` for this task?"** Offer these two labels, in this order:
+
+1. **Create `<new-name>`**
+2. **Continue on `<latest-merged-name>`**
+
+Wait for the selection. For **Create**, run `lamin switch -c <new-name>`. For **Continue**, run `lamin switch <latest-merged-name>`. Do not invent any other name. Then `lamin track <agent>` as in the harness reference.
 
 Escalate to the fallback below only if `lamin settings dev-dir get` errors (non-zero exit status). A command error here usually means `lamin` is only installed in a project-local virtualenv rather than on `PATH`:
 
@@ -102,7 +115,7 @@ Keep every prescribed command free of diagnostic shell noise. Required working-d
 
 - status headings or separators such as `echo "--- dev-dir ---"`;
 - manual exit-code output such as `echo "exit: $?"` or `echo "switch exit: $?"` — rely on the execution tool's reported exit status;
-- commands that inspect or print harness session IDs, including `echo`, `printenv`, `env`, or a Python command — except for the single Cursor marker command prescribed in its reference file, expand the environment variable only inside the branch name or required state-file path;
+- commands that inspect or print harness session IDs, including `echo`, `printenv`, `env`, or a Python command — except for the single Cursor marker command prescribed in its reference file; a session-id environment variable may appear only inside a required state-file path;
 - convenience aliases such as `LAMIN=...` or `PYBIN=...` — invoke the required `lamin` or matching Python executable directly.
 
 Run `lamin track` and `lamin finish` as standalone substantive commands: do not place another diagnostic or task command before or after either one in the same tool call.
