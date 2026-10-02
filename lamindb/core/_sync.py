@@ -44,8 +44,7 @@ def sync(
     If `"annotations"`, the object and its annotations are copied, that is, the object's features,
     labels, and, for a schema, its members.
 
-    **Example:** For an artifact, the following relationships are foreign keys, which are copied even
-    when `transfer="sqlrecord"`.
+    **Example:** If you pass `transfer="sqlrecord"` upon transferring an artifact, the following foreign keys are transferred:
 
     .. code-block:: mermaid
 
@@ -58,17 +57,13 @@ def sync(
          artifact -->|schema| schema("Schema")
          artifact -->|space| space("Space")
 
-    A linked `Record` or `ULabel` is a stub: uid, name, type, and creator. Its
-    own features, labels, and readme stay on the source. Transfer that record
-    itself when you want them. A linked branch is a stub, and a stub is enough
-    for a branch.
+    If you pass `transfer="annotations"`, the artifact and its annotations are copied.
+    Annotating objects are **transferred** without their own annotations. You have to
+    transfer an annotating object itself if you want to transfer its annotations.
 
-    A linked artifact, feature, schema, or other registry is saved with
-    `transfer="annotations"`, so its own annotations come along. A data record
-    whose type is not on the target yet is refused. Transfer that type first.
+    .. code-block:: mermaid
 
-    `sqlrecord` stops after the row. `notes` also copies the latest readme.
-    `run` and `transform` point at this transfer's run, not the source run.
+
 
     Running it again
     ----------------
