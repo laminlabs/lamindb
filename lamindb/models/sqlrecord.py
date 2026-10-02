@@ -1415,11 +1415,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
         Args:
             using: Optional database slug for a target database that differs from the default database.
-            transfer: If this object was queried on another instance:
-                "sqlrecord" (default) copies the row
-                and foreign keys only; "notes" also copies the latest readme;
-                "annotations" also copies M2M annotations. Schema still defaults
-                to "annotations" when transfer is omitted.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
             depth: How many levels of records under a type to transfer.
                 `0` (default) transfers only this object, plus the related objects
                 selected by `transfer`. A positive integer also transfers that many
@@ -1428,11 +1424,18 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 `depth > 0`.
         """
         from ._transfer import (
+            _depth_descendants,
+            _remember_target,
+            log_transferred_record,
             normalize_transfer_config,
+            prime_annotation_transfer,
             transfer_notes,
             transfer_record_feature_values,
             transfer_to_default_db,
         )
+
+        shared_logs = kwargs.pop("_transfer_logs", None)
+        summarize = kwargs.pop("_transfer_summarize", None)
 
         using = None
         if "using" in kwargs:
@@ -1478,12 +1481,33 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         ):
             typed_children = _typed_children(self)
         pre_existing_record = None
-        # consider records that are being transferred from other databases
-        transfer_logs: dict[str, list[str] | Run | None] = {
-            "mapped": [],
-            "transferred": [],
-            "run": None,
-        }
+        # One context for this save and every depth child. Nested saves of
+        # annotation targets receive the same dict so a uid is resolved once.
+        owns_logs = shared_logs is None
+        transfer_logs: dict[str, list[str] | Run | None] = (
+            shared_logs
+            if shared_logs is not None
+            else {
+                "mapped": [],
+                "transferred": [],
+                "run": None,
+            }
+        )
+        if summarize is None:
+            summarize = owns_logs
+        mapped_before = len(transfer_logs["mapped"])
+        transferred_before = len(transfer_logs["transferred"])
+        if (
+            owns_logs
+            and transfer_config == "annotations"
+            and db is not None
+            and db != "default"
+            and using is None
+        ):
+            hosts = [self]
+            if depth > 0 and isinstance(self, HasType):
+                hosts.extend(_depth_descendants(self, depth))
+            prime_annotation_transfer(hosts, transfer_logs)
         if db is not None and db != "default" and using is None:
             if isinstance(self, IsVersioned):
                 if not self.is_latest:
@@ -1696,6 +1720,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using is None:
+            # The row is on the target now. A cached "absent" lookup must not
+            # hide it from a later record whose type points here.
+            _remember_target(self, transfer_logs)
             if self.__class__.__name__ == "Collection":
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
@@ -1724,18 +1751,23 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self_on_db.pk = pk_on_db  # manually set the primary key
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+            if summarize:
+                log_transferred_record(
+                    self, transfer_logs, mapped_before, transferred_before
+                )
             # Parent is on the target. Each child transfers itself, then one
             # fewer type level, so a subtype is saved before its data records.
             for child in typed_children:
-                child.save(transfer=transfer_config, depth=depth - 1)
-            if transfer_logs["run"] is not None:
+                child.save(
+                    transfer=transfer_config,
+                    depth=depth - 1,
+                    _transfer_logs=transfer_logs,
+                    _transfer_summarize=True,
+                )
+            if owns_logs and transfer_logs["run"] is not None:
                 transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
-            for k, v in transfer_logs.items():
-                if k == "run" or k.startswith("_") or len(v) == 0:
-                    continue
-                logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",

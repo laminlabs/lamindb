@@ -11,6 +11,7 @@ Basic types
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
 .. autoclass:: BlockKind
+.. autoclass:: TransferMode
 .. autoclass:: BranchStatus
 .. autoclass:: ProjectStatus
 .. autoclass:: RunStatus
@@ -51,6 +52,14 @@ BlockKind = Literal["readme", "comment"]
 """Block kind, a `README.md`-type page or comment.
 
 Any block expects Markdown as the formatting language.
+"""
+
+TransferMode = Literal["sqlrecord", "notes", "annotations"]
+"""How much of an object `.save()` copies from another database.
+
+`sqlrecord` copies the row and the foreign keys it needs.
+`notes` also copies the latest readme.
+`annotations` also copies one step of links on the object.
 """
 
 BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]

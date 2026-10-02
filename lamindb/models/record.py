@@ -1423,10 +1423,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """Save.
 
         Args:
-            transfer: If this record was queried on another instance:
-                "sqlrecord" (default) copies the row
-                and foreign keys only; "notes" also copies the readme;
-                "annotations" also copies feature values.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
         """
         if self.is_type:
             validate_record_type_schema_index(self.schema)

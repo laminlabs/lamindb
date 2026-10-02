@@ -13,35 +13,58 @@ Here we pass `bionty` because we'll transfer biological entities:
 lamin init --modules bionty
 ```
 
-## Via the CLI
+## Using `sync`
 
 You can sync an object from any database to your current database:
+
+<!-- #region -->
+
+::::{tab-set}
+:::{tab-item} CLI
 
 ```bash
 lamin io sync https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU
 ```
 
-You can pass the `--transfer` argument, which dictates which related objects are transferred:
+:::
+
+:::{tab-item} Python
+
+```python
+import lamindb as ln
+
+ln.core.sync(
+    registry=ln.Record,
+    uid="gL3TbX2qZQmCwTAU",
+    source_db="laminlabs/lamindata",
+)
+```
+
+:::
+::::
+
+<!-- #endregion -->
+
+To sync annotations in addition to the bare object, pass the `--transfer` / `transfer` argument:
 
 - `"sqlrecord"`: the object and its foreign keys
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy.
+You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. For details, see {func}`~lamindb.core.sync`.
 
-## Via the API
+What the high-level `sync` command does is wrapping the lower-level `SQLRecord.save()` API. Let's walk through it!
 
-Import `lamindb` and optionally run `ln.track()`:
-
-```python
-import lamindb as ln
-
-ln.track()
-```
+## Using `save`
 
 Query the object on the source, then call `.save()`:
 
 ```python
+import lamindb as ln
+
+# optionally track the run
+ln.track()
+# instantiate a database object for your source database
 db = ln.DB("laminlabs/lamindata")
 # query the artifact on the source database
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")

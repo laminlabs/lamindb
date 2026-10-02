@@ -821,7 +821,7 @@ Commands:
   sync      Sync an object to the current database.
 ```
 
-→ Python/R alternative: {func}`~lamindb.models.sync_objects_from_database`
+→ Python/R alternative: {func}`~lamindb.core.sync`
 
 Use `lamin io snapshot` to create an SQLite snapshot of the current database:
 
@@ -849,7 +849,7 @@ Examples:
 
 ```
 lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
-lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 0 --apply
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 1 --apply
 ```
 
 Options:
