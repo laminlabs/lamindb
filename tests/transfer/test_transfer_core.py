@@ -889,6 +889,127 @@ def test_annotation_read_check_runs_before_save(monkeypatch):
     assert saved == []
 
 
+def test_clear_annotation_links_skips_unsaved_fresh_and_nonvalue_tables():
+    from lamindb.models._transfer import _clear_annotation_links
+    from lamindb.models.record import RecordULabel
+
+    ln.connect("testdb2")
+    unsaved = ln.Record(name="transfer_clear_unsaved")
+    assert unsaved.pk is None
+    _clear_annotation_links(unsaved, {})
+
+    qc_type = ln.ULabel(name="transfer_clear_type", is_type=True).save()
+    label = ln.ULabel(name="transfer_clear_label", type=qc_type).save()
+    feature = ln.Feature(name="transfer_clear_feat", dtype=qc_type).save()
+    record = ln.Record(name="transfer_clear_host").save()
+    RecordULabel(record=record, feature=feature, value=label).save()
+    transform = ln.Transform(key="transfer_clear_run.py").save()
+    run = ln.Run(transform).save()
+    try:
+        # A row created in this sync has no links to replace.
+        _clear_annotation_links(record, {"_inserted": {record.uid}})
+        assert RecordULabel.filter(record=record, value=label).count() == 1
+        # Run.values_artifact stores `artifact`, not `value`, so that table is skipped.
+        _clear_annotation_links(run, {})
+        _clear_annotation_links(record, {})
+        assert RecordULabel.filter(record=record, value=label).count() == 0
+    finally:
+        RecordULabel.filter(record=record).delete()
+        record.delete(permanent=True)
+        run.delete(permanent=True)
+        transform.delete(permanent=True)
+        feature.delete(permanent=True)
+        label.delete(permanent=True)
+        qc_type.delete(permanent=True)
+
+
+def test_depth_descendants_stops_and_walks():
+    from lamindb.models._transfer import _depth_descendants
+
+    uids = _depth_chain_uids()
+    ln.connect("testdb1")
+    root = ln.Record.get(uids[DEPTH_ROOT])
+    assert _depth_descendants(root, 0) == []
+    assert {record.name for record in _depth_descendants(root, 2)} == {
+        DEPTH_SUBTYPE,
+        DEPTH_DIRECT,
+        DEPTH_GRANDCHILD,
+    }
+
+    user_handle = ln.setup.settings.user.handle
+    ln.connect("testdb2")
+    _wipe_depth_chain(uids)
+    db1 = ln.DB(f"{user_handle}/testdb1")
+    db1.Record.get(uids[DEPTH_ROOT]).save(transfer="annotations", depth=1)
+    assert _transferred_depth_uids(uids) == {
+        uids[DEPTH_ROOT],
+        uids[DEPTH_SUBTYPE],
+        uids[DEPTH_DIRECT],
+    }
+    _wipe_depth_chain(uids)
+
+
+def test_transfer_helper_early_returns():
+    from lamindb.models._transfer import (
+        _cached_or_load,
+        _pop_cached_linked_values,
+        _put_entity,
+        _read_link_rows,
+        _registry_class_name,
+        _remember_target,
+        log_transferred_record,
+        prime_annotation_transfer,
+        sync_objects_from_database,
+        transfer_notes,
+    )
+
+    ln.connect("testdb2")
+    nameless = type("Nameless", (), {"uid": None})()
+    assert _cached_or_load(nameless, {}) is None
+    _remember_target(nameless, {})
+    bucket: dict = {}
+    _put_entity(bucket, nameless)
+    _put_entity(bucket, "not-a-record")
+    assert bucket == {}
+
+    feature = ln.Feature(name="transfer_early_feat", dtype=str).save()
+    record = ln.Record(name="transfer_early_host").save()
+    try:
+        assert _read_link_rows(feature) == ([], {})
+        assert _pop_cached_linked_values({}, record) is None
+        assert _pop_cached_linked_values({"_linked_values": []}, record) is None
+        cached = {"_linked_values": {record.uid: []}}
+        prime_annotation_transfer([feature, record], cached)
+        assert cached["_linked_values"][record.uid] == []
+        transfer_notes(record, record._state.db, None)
+        transfer_notes(type("Plain", (), {})(), "default", 1)
+        log_transferred_record(
+            type("Keyed", (), {"key": "only-key", "uid": "u"})(),
+            {"mapped": [], "transferred": ["x"]},
+            0,
+            0,
+        )
+        log_transferred_record(
+            type("UidOnly", (), {"uid": "only-uid"})(),
+            {"mapped": ["a"], "transferred": []},
+            0,
+            0,
+        )
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+
+    user_handle = ln.setup.settings.user.handle
+    source = f"{user_handle}/testdb1"
+    assert _registry_class_name("ulabel") == "ULabel"
+    with pytest.raises(ValueError, match="Unknown registry"):
+        sync_objects_from_database("not a registry", ["uid"], source=source)
+    with pytest.raises(ValueError, match="at least one uid"):
+        sync_objects_from_database("record", [], source=source)
+    with pytest.raises(TypeError, match="str or list"):
+        sync_objects_from_database("record", None, source=source)
+
+
 def test_depth_rejected_for_non_hastype_and_none():
     from lamindb.models._transfer import sync_objects_from_database
 
