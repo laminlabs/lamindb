@@ -1422,7 +1422,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 `Feature`, `Schema`, `Project`, `ULabel`, and `Reference` accept
                 `depth > 0`.
             using: Database slug for a target database that differs from the default database;
-                won't track lineage, do not use for transfering data.
+                won't track lineage, do not use for transferring data.
         """
         from ._transfer import (
             _depth_descendants,
