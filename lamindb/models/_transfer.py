@@ -882,13 +882,13 @@ def sync_objects_from_database(
     .. code-block:: mermaid
 
        flowchart TD
-         roots["Requested records and depth children"] --> row["Copy the row once; fill Record and ULabel"]
-         row --> shared["Schema, features, dtype types: once per uid"]
-         row --> lookup["Annotation values: one uid lookup per registry"]
-         lookup --> present["Already on target: use that row"]
-         lookup --> stub["Missing Record or ULabel: stub"]
-         lookup --> once["Missing other registry: save once"]
-         row --> links["Replace link rows; do not copy them by uid"]
+         roots("Requested records and depth children") --> row("Copy the row once; fill Record and ULabel")
+         row --> shared("Schema, features, dtype types: once per uid")
+         row --> lookup("Annotation values: one uid lookup per registry")
+         lookup --> present("Already on target: use that row")
+         lookup --> stub("Missing Record or ULabel: stub")
+         lookup --> once("Missing other registry: save once")
+         row --> links("Replace link rows; do not copy them by uid")
 
     Most of the time, you will just `.save()` on an object from another database::
 
@@ -897,7 +897,7 @@ def sync_objects_from_database(
         record = db.Record.get(uid="gL3TbX2qZQmCwTAU")
         record.save(transfer="sqlrecord")
 
-    Guide: {doc}`transfer`
+    Guide: :doc:`transfer`
 
     Args:
         registry: Registry name, for example `artifact` or `record`.
