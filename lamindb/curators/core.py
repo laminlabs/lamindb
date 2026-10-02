@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 import pandera.pandas as pandera
 from django.db.models import Q
-from lamin_utils import colors, logger
+from lamindb_setup import logger
+from lamindb_setup.core import colors
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
@@ -514,7 +515,7 @@ class Curator:
         pass  # pragma: no cover
 
     def __repr__(self) -> str:
-        from lamin_utils import colors
+        from lamindb_setup.core import colors
 
         if self._schema is not None:
             # Schema might have different attributes

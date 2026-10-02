@@ -7,7 +7,7 @@ import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
-from lamin_utils import logger
+from lamindb_setup import logger
 
 from lamindb.base.fields import (
     CharField,

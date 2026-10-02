@@ -27,7 +27,7 @@ from typing import (
 
 import lamindb_setup as ln_setup
 from django.db.models import Q
-from lamin_utils._logger import logger
+from lamindb_setup import logger
 from lamindb_setup.core.django import _is_running_in_marimo
 
 from ..errors import InvalidArgument, TrackNotCalled
@@ -153,7 +153,7 @@ def detect_and_process_source_code_file(
 
 
 def get_uid_ext(version: str) -> str:
-    from lamin_utils._base62 import encodebytes
+    from lamindb_setup.core.base62 import encodebytes
 
     # merely zero-padding the nbproject version such that the base62 encoding is
     # at least 4 characters long doesn't yields sufficiently diverse hashes and

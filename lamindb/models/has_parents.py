@@ -5,7 +5,7 @@ import builtins
 from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamindb_setup import logger
 
 from ..errors import ValidationError
 from .query_set import SQLRecordList, get_default_branch_ids

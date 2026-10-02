@@ -22,8 +22,9 @@ import lamindb_setup as ln_setup
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
-from lamin_utils import colors, logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup.core import colors
 from lamindb_setup.core._hub_core import (
     get_instance_slug_by_uid,
     select_storage_or_parent,

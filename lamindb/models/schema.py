@@ -8,7 +8,7 @@ import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 

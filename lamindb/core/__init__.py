@@ -39,8 +39,9 @@ Storage library:
 
 """
 
-from lamin_utils import logger
-from lamin_utils._inspect import InspectResult
+from lamindb_setup import logger
+
+from lamindb.models.can_curate import InspectResult
 
 from .. import errors as exceptions  # backward compat
 from ..base import types  # backward compat

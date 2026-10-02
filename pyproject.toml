@@ -16,7 +16,6 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "lamin_utils==0.16.4",  # no dependencies
     "lamin_cli==1.20a3",  # no dependencies
     "lamindb_setup[aws]==1.26a3",  # dependencies like Django & fsspec
     "psycopg2-binary",
@@ -38,7 +37,7 @@ full = [
     # Data & validation dependencies (heavier)
     "pyarrow",
     "pandera>=0.24.0",
-    "pandas>=2.0.0",  # for .infer_objects(copy=False) in lamin-utils
+    "pandas>=2.0.0",  # for .infer_objects(copy=False) in can_curate.standardize
     # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
     # scipy 1.17.0 is incompatible with anndata<0.12.7
     "anndata>=0.10.0,<=0.13.2",

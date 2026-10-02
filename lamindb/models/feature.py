@@ -12,7 +12,7 @@ from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError as DjangoIntegrityError
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string

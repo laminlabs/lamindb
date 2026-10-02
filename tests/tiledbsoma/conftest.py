@@ -8,7 +8,7 @@ import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 import pytest
-from lamin_utils import logger
+from lamindb_setup import logger
 
 
 def pytest_sessionstart():

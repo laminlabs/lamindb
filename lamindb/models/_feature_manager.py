@@ -13,7 +13,7 @@ from django.db import connections
 from django.db.models import Aggregate, Subquery
 from django.db.models.expressions import RawSQL
 from django.db.utils import IntegrityError
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import UPath
 from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table

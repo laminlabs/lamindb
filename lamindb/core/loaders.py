@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.canonical_suffix import CanonicalSuffix
 from lamindb_setup.core.upath import (

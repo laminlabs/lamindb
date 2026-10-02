@@ -5,9 +5,9 @@ import importlib
 import inspect
 from typing import TYPE_CHECKING, Any
 
-from lamin_utils import colors, logger
-from lamindb_setup import settings
+from lamindb_setup import logger, settings
 from lamindb_setup._init_instance import get_schema_module_name
+from lamindb_setup.core import colors
 from lamindb_setup.errors import ModuleWasntConfigured
 
 from .feature import Feature, serialize_pandas_dtype

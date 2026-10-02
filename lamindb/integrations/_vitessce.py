@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamindb_setup import logger
 
 from lamindb.models.artifact import Artifact
 from lamindb.models.collection import Collection

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lamin_utils import colors, logger
+from lamindb_setup import logger
+from lamindb_setup.core import colors
 
 if TYPE_CHECKING:
     from pandas import DataFrame, Index

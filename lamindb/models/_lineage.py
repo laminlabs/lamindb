@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.db import ProgrammingError
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 
 from ..core._settings import settings

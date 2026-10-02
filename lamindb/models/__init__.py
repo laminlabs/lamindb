@@ -144,9 +144,8 @@ Utils
 
 # ruff: noqa: I001
 
-from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
-from .can_curate import CanCurate, HasAbbr, HasSynonyms
+from .can_curate import CanCurate, HasAbbr, HasSynonyms, InspectResult
 from .sqlrecord import (
     BaseSQLRecord,
     SQLRecord,

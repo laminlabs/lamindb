@@ -5,9 +5,10 @@ import sys
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import colors, logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
+from lamindb_setup.core import colors
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 from lamindb_setup.core._settings_storage import (
     StorageSettings,

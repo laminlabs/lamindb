@@ -13,7 +13,7 @@ from django.db.models import (
     Q,
     TextField,
 )
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.hashing import hash_string
 
 from ..base.types import RegistryId

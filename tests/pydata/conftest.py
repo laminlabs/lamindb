@@ -13,8 +13,8 @@ import pytest
 
 # for artifact fixtures
 import yaml  # type: ignore
-from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
+from lamindb_setup import logger
 
 
 def pytest_sessionstart():
@@ -66,7 +66,7 @@ def pytest_sessionfinish(session: pytest.Session):
 @pytest.fixture
 def ccaplog(caplog) -> pytest.LogCaptureFixture:
     """Add caplog handler to our custom logger at session start."""
-    from lamin_utils._logger import logger
+    from lamindb_setup import logger
 
     logger.addHandler(caplog.handler)
 

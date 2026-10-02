@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamindb_setup import logger
 
 if TYPE_CHECKING:
     from lamindb.models import Run
@@ -62,7 +62,9 @@ def _track_pip_freeze(env_dir: Path) -> bool:
         )
         return False
     if not result.stdout.strip():
-        logger.warning("pip freeze returned empty output, skipping environment tracking")
+        logger.warning(
+            "pip freeze returned empty output, skipping environment tracking"
+        )
         return False
     env_dir.mkdir(parents=True, exist_ok=True)
     filepath = env_dir / "run_env_pip.txt"

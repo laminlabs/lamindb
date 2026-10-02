@@ -6,7 +6,7 @@ Runnable as: python -m lamindb.models._run_cleanup --instance owner/name --ids 1
 import argparse
 import logging
 
-from lamin_utils import logger
+from lamindb_setup import logger
 
 import lamindb as ln
 

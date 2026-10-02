@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING, Literal
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
-from lamin_utils import colors, logger
+from lamindb_setup import logger
+from lamindb_setup.core import colors
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
