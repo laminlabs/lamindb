@@ -1414,7 +1414,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         """Save.
 
         Args:
-            using: Optional database slug for a target database that differs from the default database.
             transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
             depth: How many levels of records under a type to transfer.
                 `0` (default) transfers only this object, plus the related objects
@@ -1422,6 +1421,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 levels of records whose type chain starts here. Only `Record`,
                 `Feature`, `Schema`, `Project`, `ULabel`, and `Reference` accept
                 `depth > 0`.
+            using: Database slug for a target database that differs from the default database;
+                won't track lineage, do not use for transferring data.
         """
         from ._transfer import (
             _depth_descendants,
@@ -1442,15 +1443,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             using = kwargs["using"]
             if using != "default" and using not in connections:
                 self.__class__.connect(using)
-            # cross-instance writes can inherit a run from the active local context;
-            # that run id does not exist in the target instance.
-            if (
-                using != "default"
-                and (self._state.adding or self.pk is None)
-                and hasattr(self, "run_id")
-            ):
-                self.run = None
-                self.run_id = None
+            from .save import _prepare_cross_instance_create
+
+            _prepare_cross_instance_create(self, using)
         transfer_config = normalize_transfer_config(
             kwargs.pop("transfer", None),
             default_annotations=self.__class__.__name__ == "Schema",

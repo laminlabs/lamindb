@@ -75,6 +75,45 @@ def test_save_ulabel_to_another_db_via_model_save():
         db2.ULabel.filter(name=name).delete(permanent=True)
 
 
+def test_save_unsaved_record_to_another_db_via_using():
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+    name = "save-using-unsaved"
+
+    db2.Record.filter(name=name).delete(permanent=True)
+    try:
+        record = ln.Record(name=name).save(using=using)
+
+        assert record._state.db == using
+        assert db2.Record.get(name=name)
+        assert ln.Record.filter(name=name).count() == 0
+    finally:
+        db2.Record.filter(name=name).delete(permanent=True)
+
+
+def test_save_existing_record_to_another_db_via_using_raises():
+    assert ln.setup.settings.instance.name == "testdb2"
+
+    using = f"{ln.setup.settings.user.handle}/testdb1"
+    db2 = ln.DB(using)
+    name = "save-using-existing"
+
+    db2.Record.filter(name=name).delete(permanent=True)
+    record = ln.Record(name=name).save()
+    try:
+        record = ln.Record.get(name=name)
+        with pytest.raises(ValueError) as excinfo:
+            record.save(using=using)
+        assert "Please use the transfer flow instead" in str(excinfo.value)
+        assert "https://docs.lamin.ai/transfer" in str(excinfo.value)
+        assert db2.Record.filter(name=name).count() == 0
+    finally:
+        ln.Record.filter(name=name).delete(permanent=True)
+        db2.Record.filter(name=name).delete(permanent=True)
+
+
 def test_save_ulabels_to_another_db_via_ln_save():
     assert ln.setup.settings.instance.name == "testdb2"
 

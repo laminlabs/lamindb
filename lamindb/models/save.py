@@ -33,7 +33,17 @@ def _ensure_using_connection(registry: type[SQLRecord], using: str | None) -> No
 
 
 def _prepare_cross_instance_create(record: SQLRecord, using: str | None) -> None:
-    if using is None or using == "default":
+    if using is None:
+        return
+    # Unsaved objects may have `_state.db` pinned to "default" by branch/space FKs.
+    if not (record._state.adding or record.pk is None) and record._state.db not in {
+        None,
+        using,
+    }:
+        raise ValueError(
+            "Please use the transfer flow instead: https://docs.lamin.ai/transfer"
+        )
+    if using == "default":
         return
     if (record._state.adding or record.pk is None) and hasattr(record, "run_id"):
         record.run = None
@@ -63,7 +73,8 @@ def save(
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
-        using: Optional database slug for a target database that differs from the default database.
+        using: Database slug for a target database that differs from the default database;
+            won't track lineage, do not use for transferring data.
 
     Examples
     --------
