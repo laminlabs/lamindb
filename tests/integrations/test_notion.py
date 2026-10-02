@@ -3559,7 +3559,7 @@ def test_collect_database_ids_falls_back_to_page_on_database_400(syncer):
     )
     syncer.reader.s.request.side_effect = [db_400, page_ok, children]
 
-    db_ids, parent_pages = syncer._collect_database_ids([page_id])
+    db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
 
     assert db_ids == {"db-1"}
     assert parent_pages == {page_id: page_id}
