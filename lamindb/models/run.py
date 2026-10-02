@@ -11,8 +11,7 @@ from django.db.models import (
     PROTECT,
     Q,
 )
-from lamin_utils import logger
-from lamindb_setup import _check_instance_setup
+from lamindb_setup import _check_instance_setup, logger
 from lamindb_setup import settings as setup_settings
 
 from lamindb.base.fields import (

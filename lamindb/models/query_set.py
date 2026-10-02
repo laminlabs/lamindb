@@ -22,7 +22,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.fields.related import ForeignObjectRel
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args

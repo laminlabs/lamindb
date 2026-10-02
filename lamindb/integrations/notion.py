@@ -21,7 +21,7 @@ from typing import Any
 from urllib.parse import quote, urlparse
 
 import httpx
-from lamin_utils import logger
+from lamindb_setup import logger
 from rich.console import Console
 from rich.markup import escape as rich_escape
 

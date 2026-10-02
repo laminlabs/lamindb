@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, overload
 import lamindb_setup as ln_setup
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Func, IntegerField, Q
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
 from lamindb.base import deprecated

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_set
 
 from lamindb.base.fields import (

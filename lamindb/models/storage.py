@@ -7,7 +7,7 @@ from typing import (
 from uuid import UUID
 
 from django.db import models
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,

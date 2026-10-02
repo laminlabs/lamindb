@@ -22,7 +22,7 @@ from anndata._io.specs.registry import (
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import S3FSMap, infer_filesystem
 from packaging import version
 from upath import UPath

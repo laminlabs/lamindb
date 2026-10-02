@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import UPath
 
 if TYPE_CHECKING:

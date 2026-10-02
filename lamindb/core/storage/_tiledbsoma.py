@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pyarrow as pa
 from anndata import AnnData, read_h5ad
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import (
     LocalPathClasses,

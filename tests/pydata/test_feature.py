@@ -4,7 +4,6 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamin_utils import logger
 from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models.feature import (
     FeaturePredicate,
@@ -19,6 +18,7 @@ from lamindb.models.record import (
     get_feature_sqlrecord_field,
     get_feature_values_through_source_uid,
 )
+from lamindb_setup import logger
 from pandas.api.types import is_string_dtype
 
 

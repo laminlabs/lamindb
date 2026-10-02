@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, cast
 
-from lamin_utils import logger
+from lamindb_setup import logger
 
 from .artifact import Artifact
 from .query_manager import SEARCH_QUERY_DEFAULT_LIMIT

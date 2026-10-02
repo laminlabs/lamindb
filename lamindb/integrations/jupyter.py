@@ -14,7 +14,7 @@ from itertools import chain
 from pathlib import Path, PurePath
 from urllib import request
 
-from lamin_utils import logger
+from lamindb_setup import logger
 
 _DIR_KEYS = ("notebook_dir", "root_dir")
 _CONN_ERROR = (

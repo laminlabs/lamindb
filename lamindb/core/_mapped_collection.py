@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import UPath
 
 from .storage._anndata_accessor import (

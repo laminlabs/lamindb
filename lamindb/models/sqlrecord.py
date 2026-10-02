@@ -38,8 +38,7 @@ from django.db.models.fields.related import (
     ManyToOneRel,
 )
 from django.db.models.functions import Lower
-from lamin_utils import colors, logger
-from lamin_utils._base62 import increment_base62
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
     INSTANCE_NOT_FOUND_MESSAGE,
@@ -49,9 +48,11 @@ from lamindb_setup._connect_instance import (
     try_synchronize_sqlite_clone,
     update_db_using_local,
 )
+from lamindb_setup.core import colors
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
+from lamindb_setup.core.base62 import increment_base62
 from lamindb_setup.core.django import DBToken, db_token_manager
 
 from lamindb.base.users import current_user_id

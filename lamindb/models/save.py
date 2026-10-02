@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from django.db import IntegrityError, connections, transaction
 from django.utils.functional import partition
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
 from ..core._settings import settings

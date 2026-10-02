@@ -4,7 +4,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, final
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 
 if TYPE_CHECKING:

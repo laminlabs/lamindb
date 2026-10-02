@@ -4,9 +4,9 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 from django.db import models
-from lamin_utils import logger
-from lamin_utils._base62 import decode as base62_to_int
-from lamin_utils._base62 import increment_base62
+from lamindb_setup import logger
+from lamindb_setup.core.base62 import decode as base62_to_int
+from lamindb_setup.core.base62 import increment_base62
 
 from lamindb.base import uids
 from lamindb.base.fields import (

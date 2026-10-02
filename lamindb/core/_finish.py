@@ -7,8 +7,8 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
-from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
+from lamindb_setup import logger
+from lamindb_setup.core._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
 from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform

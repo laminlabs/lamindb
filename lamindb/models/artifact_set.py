@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 
 from django.db.models import Case, Q, TextField, Value, When
 from django.db.models.functions import Concat
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core._docs import doc_args
 from upath import UPath
 

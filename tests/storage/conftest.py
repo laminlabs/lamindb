@@ -6,8 +6,8 @@ from time import perf_counter
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
-from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
+from lamindb_setup import logger
 
 
 def create_test_instance(pgurl: str):
@@ -75,7 +75,7 @@ def pytest_sessionfinish(session: pytest.Session):
 @pytest.fixture
 def ccaplog(caplog):
     """Add caplog handler to our custom logger at session start."""
-    from lamin_utils._logger import logger
+    from lamindb_setup import logger
 
     # Add caplog's handler to our custom logger
     logger.addHandler(caplog.handler)

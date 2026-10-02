@@ -4,7 +4,7 @@ from importlib.metadata import version as get_version
 from typing import TYPE_CHECKING, Literal
 
 import zarr
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup.core.upath import LocalPathClasses, S3FSMap, UPath, create_mapper
 from packaging import version
 

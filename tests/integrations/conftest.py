@@ -20,7 +20,7 @@ def pytest_sessionfinish(session: pytest.Session):
 @pytest.fixture
 def ccaplog(caplog):
     """Add caplog handler to our custom logger at session start."""
-    from lamin_utils._logger import logger
+    from lamindb_setup import logger
 
     logger.addHandler(caplog.handler)
 

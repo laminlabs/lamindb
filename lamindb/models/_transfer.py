@@ -8,7 +8,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db import ProgrammingError
 from django.db.models import Model
 from django.db.models import QuerySet as DjangoQuerySet
-from lamin_utils import logger
+from lamindb_setup import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.errors import NoReadAccess
 
