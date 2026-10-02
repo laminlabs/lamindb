@@ -4101,25 +4101,20 @@ class _NotionSyncer:
             out[notion_id] = _normalized_timestamp(getattr(record, "updated_at", None))
         return out
 
-    def import_pages(
+    def import_page(
         self,
-        parents: str | list[str],
+        notion_uuid: str,
         *,
         apply: bool = False,
         depth: int = 0,
     ) -> SyncReport:
-        """Import parent trees, validating schema before any write.
+        """Import one Notion page or database, validating schema before any write.
 
-        `parents` are Notion page/database IDs. The sync discovers databases under
-        these roots, validates property parity against Lamin schemas, then performs
-        an idempotent upsert/materialize pass.
+        `notion_uuid` is a Notion page or database id. The sync discovers
+        databases under it, validates property parity against Lamin schemas,
+        then performs an idempotent upsert/materialize pass.
         """
-        if isinstance(parents, str):
-            parent_ids = [parents]
-        else:
-            parent_ids = list(parents)
-        if not parent_ids:
-            raise ValueError("parents is required and must contain at least one ID.")
+        parent_ids = [notion_uuid]
 
         report = SyncReport(
             apply=apply,
@@ -4163,7 +4158,7 @@ class _NotionSyncer:
             if depth == 0:
                 return report
             raise ValueError(
-                "No child databases discovered under parents. In phase 1, sync operates "
+                "No child databases discovered under this page. In phase 1, sync operates "
                 "on page trees that include at least one Notion database."
             )
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
@@ -5279,19 +5274,14 @@ class NotionSyncer(RecordSyncer):
             return None
         return ln.Project(name=type_name, is_type=True).save()
 
-    def import_pages(
+    def import_page(
         self,
-        parents: str | list[str],
+        notion_uuid: str,
         *,
         apply: bool = False,
         depth: int = 0,
     ) -> SyncReport:
-        if isinstance(parents, str):
-            parent_ids = [parents]
-        else:
-            parent_ids = list(parents)
-        if not parent_ids:
-            raise ValueError("parents is required and must contain at least one ID.")
+        parent_ids = [notion_uuid]
 
         report = SyncReport(
             apply=apply,
@@ -5304,7 +5294,7 @@ class NotionSyncer(RecordSyncer):
             if depth == 0:
                 return report
             raise ValueError(
-                "No child databases discovered under parents. In phase 1, sync operates "
+                "No child databases discovered under this page. In phase 1, sync operates "
                 "on page trees that include at least one Notion database."
             )
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
@@ -5596,31 +5586,25 @@ class NotionSyncer(RecordSyncer):
 @ln.flow("Ofbk5ruuTiN2")
 def sync_objects_from_notion(
     *,
-    parents: str | list[str],
+    notion_uuid: str,
     token: str | None = None,
     apply: bool = False,
     depth: int = 0,
 ) -> SyncReport:
-    """Sync Notion pages to LaminDB records.
+    """Sync a Notion page to LaminDB records.
 
     Args:
-        parents: Notion page or database ids.
+        notion_uuid: Notion page or database id.
         token: Notion API token. Defaults to the `NOTION_TOKEN` environment variable.
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
-            `0` syncs only the given parents. A positive integer walks that
-            many levels below them.
+            `0` syncs only this page. A positive integer walks that many
+            levels below it.
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
     syncer = NotionSyncer(token=token)
-    if isinstance(parents, str):
-        parent_list = [parents]
-    elif isinstance(parents, list):
-        parent_list = list(parents)
-    else:
-        raise TypeError("parents must be a str or list[str].")
-    report = syncer.import_pages(parents=parent_list, apply=apply, depth=depth)
+    report = syncer.import_page(notion_uuid=notion_uuid, apply=apply, depth=depth)
     RICH_CONSOLE.print(report.to_pretty_text(), markup=True, highlight=False)
     return report
 
