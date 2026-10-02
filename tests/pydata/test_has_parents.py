@@ -111,6 +111,8 @@ def test_view_digraph_keeps_rendered_files_out_of_working_directory(
         terminal_shell = type("TerminalInteractiveShell", (), {})()
         monkeypatch.setattr(IPython, "get_ipython", lambda: terminal_shell)
     viewed = []
+    messages = []
+    monkeypatch.setattr(has_parents.logger, "important", messages.append)
     monkeypatch.setattr(
         graphviz.Digraph,
         "_view",
@@ -126,6 +128,7 @@ def test_view_digraph_keeps_rendered_files_out_of_working_directory(
     assert rendered.read_bytes().startswith(b"%PDF")
     assert not rendered.with_suffix("").exists()
     assert viewed == [str(rendered)]
+    assert messages == [f"graph saved to: {rendered}"]
 
 
 def test_view_digraph_notebook_does_not_create_files(tmp_path, monkeypatch):
@@ -139,6 +142,8 @@ def test_view_digraph_notebook_does_not_create_files(tmp_path, monkeypatch):
     notebook_shell = type("ZMQInteractiveShell", (), {})()
     monkeypatch.setattr(IPython, "get_ipython", lambda: notebook_shell)
     displayed = []
+    messages = []
+    monkeypatch.setattr(has_parents.logger, "important", messages.append)
     monkeypatch.setattr(
         IPython.display,
         "display",
@@ -150,3 +155,4 @@ def test_view_digraph_notebook_does_not_create_files(tmp_path, monkeypatch):
     assert has_parents.view_digraph(graph) is None
     assert not list(tmp_path.iterdir())
     assert "image/svg+xml" in displayed[0]
+    assert messages == []
