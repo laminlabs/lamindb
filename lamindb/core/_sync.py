@@ -22,9 +22,9 @@ def sync(
     depth: int = 0,
     transfer: str | None = None,
 ) -> SQLRecord:
-    """Sync objects from a source database to the default database.
+    """Sync one object from a source database into the current database.
 
-    This function underlies the CLI command: `lamin io sync`.
+    This function underlies `lamin io sync`.
 
     Guide: :doc:`transfer`
 
@@ -32,50 +32,97 @@ def sync(
         registry: Registry name, for example `artifact` or `record`.
         uid: UID of the object to sync.
         source_db: Source database slug, for example `laminlabs/lamindata`.
-        depth: How many levels of records under a type to transfer.
-            `0` transfers only the given object, plus related objects selected
-            by `transfer`. A positive integer also transfers that many levels
-            of records whose type chain starts at the object. Only `record`,
-            `feature`, `schema`, `project`, `ulabel`, and `reference` accept
-            `depth > 0`.
+        depth: How many levels of the type tree to transfer. `0` transfers
+            only this object, plus the related objects selected by `transfer`.
+            Only `record`, `feature`, `schema`, `project`, `ulabel`, and
+            `reference` accept `depth > 0`.
         transfer: `sqlrecord`, `notes`, or `annotations`.
-            Omit it to use the registry default.
+            Omit it to use the registry default. Schema defaults to `annotations`.
 
-    One sync walks a single graph. Shared nodes are copied once. Link rows are
-    replaced on the target, not copied by uid.
+    What is copied
+    --------------
+
+    `transfer` sets the boundary. `depth` does not widen it. `depth` only adds
+    records in the type tree.
 
     .. code-block:: mermaid
 
        flowchart TD
-         roots("Requested records and depth children") --> row("Copy the row once; fill Record and ULabel")
-         row --> shared("Schema, features, dtype types: once per uid")
-         row --> lookup("Annotation values: one uid lookup per registry")
-         lookup --> present("Already on target: use that row")
-         lookup --> stub("Missing Record or ULabel: stub")
-         lookup --> once("Missing other registry: save once")
-         row --> links("Replace link rows; do not copy them by uid")
+         you("Object you sync") --> row("Its row and required foreign keys")
+         row --> mode{"transfer"}
+         mode --> bare("sqlrecord: stop after the row")
+         mode --> notes("notes: also the latest readme")
+         mode --> ann("annotations: also one step of links")
+         ann --> feat("Features of this object")
+         ann --> vals("Values linked from this object")
+         vals --> stub("Record and ULabel: stub")
+         vals --> other("Artifact and other registries: save with their annotations")
+         you --> depth("depth, type tree only")
+         depth --> kids("Direct records of this type, then depth - 1")
 
-    Most of the time, you will just the equivalent `.save()` on an object from another database::
+    `sqlrecord` copies the row. Foreign keys that the row needs are mapped by
+    uid or created. `run` and `transform` are not copied from the source. They
+    point at this transfer's run.
+
+    `notes` also copies the latest readme.
+
+    `annotations` also copies one step of links on this object: feature values,
+    labels, and, for a schema, its members. It does not copy the annotations of
+    those linked records.
+
+    A linked `Record` or `ULabel` is a stub: uid, name, type, and creator. Its
+    own features, labels, and readme stay on the source. Transfer that record
+    itself, with `transfer="annotations"`, when you want them. A linked branch
+    is the same kind of link. A stub is enough for a branch, because a branch
+    has no annotations you are trying to keep. It is not enough for a record.
+
+    A linked artifact, feature, schema, or other registry is saved with
+    `transfer="annotations"`, so its own annotations come along. A data record
+    whose type is not on the target yet is refused. Transfer that type first.
+
+    `depth` only follows the type tree of `Record`, `Feature`, `Schema`,
+    `Project`, `ULabel`, and `Reference`. `depth=1` adds the records whose type
+    is the object you named. `depth=2` also adds the records typed by those.
+    An artifact is never a depth child. An artifact is copied only when it is a
+    foreign key or an annotation value of an object that is actually transferred.
+
+    A record-frame is a record type. Its rows are data records of that type, so
+    they are included only if you sync the type and pass `depth`. A row that
+    merely appears as a feature value of something else is a stub: that sheet's
+    other rows, and that row's own features, are not copied.
+
+    .. code-block:: mermaid
+
+       flowchart TD
+         sheet("Sync the sheet type, depth=1") --> rows("Its rows are transferred")
+         rows --> rowann("Each row keeps the transfer mode you passed")
+         sample("Sync one sample") --> link("A feature points at a row of a sheet")
+         link --> onerow("That one row is a stub")
+         onerow --> notsheet("The rest of the sheet is not copied")
+
+    Running it again
+    ----------------
+
+    A transfer is safe to repeat. Uids already on the target are reused. A
+    `Record` or `ULabel` that arrived earlier as a stub is filled in when you
+    transfer that object itself. Link rows are replaced, not duplicated. So a
+    first run with `transfer="sqlrecord"` and a second run with
+    `transfer="annotations"` completes the annotations.
+
+    Every row this transfer writes has `.run` set to a run of the transform
+    `__lamindb_transfer__/{source instance uid}`. To undo it, find that run and
+    delete the objects whose `.run` is that run. Objects that were already on
+    the target and only got mapped are not part of that run.
+
+    Most of the time, call `.save()` on the object from the other database::
 
         import lamindb as ln
-        db = ln.DB("laminlabs/lamindata")
-        # sync a record
-        db.Record.get("gL3TbX2qZQmCwTAU").save()
-        # sync a record with annotations
-        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
-        # sync a record type and its data records at depth 1
-        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations", depth=1)
-        # sync an artifact with annotations
-        db.Artifact.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
-        # sync a feature
-        db.Feature.get("gL3TbX2qZQmCwTAU").save()
-        # sync a schema
-        db.Schema.get("gL3TbX2qZQmCwTAU").save()
-        # sync a project
-        db.Project.get("gL3TbX2qZQmCwTAU").save()
-        # sync a ulabel
-        db.ULabel.get("gL3TbX2qZQmCwTAU").save()
 
+        db = ln.DB("laminlabs/lamindata")
+        db.Record.get("gL3TbX2qZQmCwTAU").save()
+        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
+        db.Record.get("gL3TbX2qZQmCwTAU").save(transfer="annotations", depth=1)
+        db.Artifact.get("gL3TbX2qZQmCwTAU").save(transfer="annotations")
     """
     from ..models.db import DB
 

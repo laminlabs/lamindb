@@ -13,13 +13,35 @@ Here we pass `bionty` because we'll transfer biological entities:
 lamin init --modules bionty
 ```
 
-## Via the CLI
+## Using `sync`
 
 You can sync an object from any database to your current database:
+
+::::{tab-set}
+:::{tab-item} CLI
 
 ```bash
 lamin io sync https://lamin.ai/laminlabs/lamindata/record/gL3TbX2qZQmCwTAU
 ```
+
+:::
+
+:::{tab-item} Python
+
+```python
+import lamindb as ln
+
+ln.core.sync(
+    registry="record",
+    uid="gL3TbX2qZQmCwTAU",
+    source_db="laminlabs/lamindata",
+)
+```
+
+:::
+::::
+
+→ API: {func}`~lamindb.core.sync` → CLI: [lamin io sync](cli.md#io)
 
 You can pass the `--transfer` argument, which dictates which related objects are transferred:
 
@@ -29,19 +51,16 @@ You can pass the `--transfer` argument, which dictates which related objects are
 
 You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy.
 
-## Via the API
-
-Import `lamindb` and optionally run `ln.track()`:
-
-```python
-import lamindb as ln
-
-ln.track()
-```
+## Using `save`
 
 Query the object on the source, then call `.save()`:
 
 ```python
+import lamindb as ln
+
+# optionally track the run
+ln.track()
+# instantiate a database object for your source database
 db = ln.DB("laminlabs/lamindata")
 # query the artifact on the source database
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
