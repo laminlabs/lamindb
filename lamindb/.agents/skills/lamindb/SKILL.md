@@ -1,15 +1,13 @@
 ---
 name: lamindb
-description: "MUST invoke before responding to ANY message — including greetings, small talk, trivial math, anything that looks unrelated. Not a judgment call: never skip it, never decide a message is too trivial. Tracks this session in LaminDB as a Transform + Run. If you are about to respond without invoking this first, stop — that is already a mistake."
+description: "Should invoke if an agent session is about to write data to a LaminDB instance to track this agent session as a run. Should also invoke when tasked to curate datasets."
 metadata:
   version: "1.1"
 ---
 
 # LaminDB
 
-Official LaminDB skill to write code with best practices, keeping up to date with new versions and features.
-
-Run `lamin --skill-version` only after the user agrees to track, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` (add `--claude` for Claude Code). Do not continue tracking on the old skill.
+Run `lamin --skill-version` only after the user agrees to use this skill, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` (add `--claude` for Claude Code). Do not continue tracking on the old skill.
 
 ## Concepts
 
@@ -68,14 +66,13 @@ If the user selects **Do not track**, do the task with no LaminDB commands and n
 
 Run the version check described above. If the skill is stale, stop there.
 
-Then resolve the session working directory. A development directory is one working tree for one instance, branch, and space. It is not the coding agent's own sandbox folder. Run these commands from the workspace directory.
+Then resolve the session working directory. A development directory is one working tree for one database, branch, and space. It is not the coding agent's own sandbox folder. Run these commands from the workspace directory.
 
-1. `lamin settings dev-dir get`. A path means that directory already contains the session. Use it.
-2. If it prints `None`, run `lamin settings dev-dir find` with the workspace as `PATH`. Do not pass `$HOME` and do not scan the machine.
-3. One result: that directory is the session working directory. Run later LaminDB commands there.
-4. Several: use the one that contains the files being edited. If none contains them, show the list and ask. Do not guess, and do not pick `$HOME`.
-5. None: ask the user to run `lamin connect <account/name> --here` in the project directory. `lamin init` also creates a dev-dir in the working directory. Do not run either command unless they ask.
-6. From that directory, choose a concise branch name in the form `<meaningful-task-slug>-<session-id-suffix>`. The slug must describe the user's actual task; never use a generic or timestamp-only name. Derive the suffix as specified in your harness reference (Cursor uses a unique agent-chosen suffix because it does not expose its session ID to shell commands); do not print it separately. Use only letters, digits, hyphens, or underscores, and never `/`. Then run:
+1. Run `lamin settings dev-dir find` with the workspace as `PATH`. Do not pass `$HOME` and do not scan the machine.
+2. One result: that directory is the session working directory. Run later LaminDB commands there.
+3. Several: use the one that contains the files being edited. If none contains them, show the list and ask. Do not guess, and do not pick `$HOME`.
+4. None: ask the user to run `lamin connect <account/name> --here` in the project directory. `lamin init` also creates a dev-dir in the working directory. Do not run either command unless they ask.
+5. From that directory, choose a concise branch name in the form `<meaningful-task-slug>-<session-id-suffix>`. The slug must describe the user's actual task; never use a generic or timestamp-only name. Derive the suffix as specified in your harness reference (Cursor uses a unique agent-chosen suffix because it does not expose its session ID to shell commands); do not print it separately. Use only letters, digits, hyphens, or underscores, and never `/`. Then run:
 
 ```bash
 lamin switch -c <branch-name>
