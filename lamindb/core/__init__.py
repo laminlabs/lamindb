@@ -48,6 +48,7 @@ from ..examples import datasets  # backward compat
 from . import subsettings
 from ._context import Context
 from ._settings import Settings
+from ._sync import sync
 from ._verify_lineage import verify_lineage
 
 

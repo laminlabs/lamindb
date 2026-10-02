@@ -950,16 +950,16 @@ def test_depth_descendants_stops_and_walks():
 
 
 def test_transfer_helper_early_returns():
+    from lamindb.core import sync
+    from lamindb.core._sync import _registry_class_name
     from lamindb.models._transfer import (
         _cached_or_load,
         _pop_cached_linked_values,
         _put_entity,
         _read_link_rows,
-        _registry_class_name,
         _remember_target,
         log_transferred_record,
         prime_annotation_transfer,
-        sync_objects_from_database,
         transfer_notes,
     )
 
@@ -1003,15 +1003,15 @@ def test_transfer_helper_early_returns():
     source = f"{user_handle}/testdb1"
     assert _registry_class_name("ulabel") == "ULabel"
     with pytest.raises(ValueError, match="Unknown registry"):
-        sync_objects_from_database("not a registry", ["uid"], source=source)
+        sync("not a registry", ["uid"], source=source)
     with pytest.raises(ValueError, match="at least one uid"):
-        sync_objects_from_database("record", [], source=source)
+        sync("record", [], source=source)
     with pytest.raises(TypeError, match="str or list"):
-        sync_objects_from_database("record", None, source=source)
+        sync("record", None, source=source)
 
 
 def test_depth_rejected_for_non_hastype_and_none():
-    from lamindb.models._transfer import sync_objects_from_database
+    from lamindb.core import sync
 
     user_handle = ln.setup.settings.user.handle
     ln.connect("testdb2")
@@ -1021,6 +1021,4 @@ def test_depth_rejected_for_non_hastype_and_none():
     with pytest.raises(ValueError, match="depth must be an int >= 0"):
         artifact.save(depth=None)
     with pytest.raises(ValueError, match="depth must be an int >= 0"):
-        sync_objects_from_database(
-            "record", "not-a-uid", source=f"{user_handle}/testdb1", depth=None
-        )
+        sync("record", "not-a-uid", source=f"{user_handle}/testdb1", depth=None)

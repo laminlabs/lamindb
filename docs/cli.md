@@ -821,7 +821,7 @@ Commands:
   sync      Sync an object to the current database.
 ```
 
-→ Python/R alternative: {func}`~lamindb.models.sync_objects_from_database`
+→ Python/R alternative: {func}`~lamindb.core.sync`
 
 Use `lamin io snapshot` to create an SQLite snapshot of the current database:
 
