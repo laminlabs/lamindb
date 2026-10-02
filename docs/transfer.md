@@ -17,6 +17,8 @@ lamin init --modules bionty
 
 You can sync an object from any database to your current database:
 
+<!-- #region -->
+
 ::::{tab-set}
 :::{tab-item} CLI
 
@@ -40,6 +42,8 @@ ln.core.sync(
 
 :::
 ::::
+
+<!-- #endregion -->
 
 To sync annotations in addition to the bare object, pass the `--transfer` / `transfer` argument:
 
