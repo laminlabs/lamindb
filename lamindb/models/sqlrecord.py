@@ -1416,6 +1416,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         Args:
             using: Optional database slug for a target database that differs from the default database.
                 Do not use this to transfer data between instances; instead see the :doc:`/transfer` documentation.
+                The call fails if `using` is used to transfer an existing record.
             transfer: If this object was queried on another instance:
                 "sqlrecord" (default) copies the row
                 and foreign keys only; "notes" also copies the latest readme;
@@ -1440,15 +1441,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             using = kwargs["using"]
             if using != "default" and using not in connections:
                 self.__class__.connect(using)
-            # cross-instance writes can inherit a run from the active local context;
-            # that run id does not exist in the target instance.
-            if (
-                using != "default"
-                and (self._state.adding or self.pk is None)
-                and hasattr(self, "run_id")
-            ):
-                self.run = None
-                self.run_id = None
+            from .save import _prepare_cross_instance_create
+
+            _prepare_cross_instance_create(self, using)
         transfer_config = normalize_transfer_config(
             kwargs.pop("transfer", None),
             default_annotations=self.__class__.__name__ == "Schema",
