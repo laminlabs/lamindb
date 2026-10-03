@@ -5,6 +5,7 @@ from pathlib import Path
 
 import nox
 from laminci import convert_executable_md_files, upload_docs_artifact
+from laminci.laminr_converter import convert_markdown_python_to_tabbed
 from laminci.nox import (
     build_docs,
     login_testuser1,
@@ -36,6 +37,7 @@ GROUPS["tutorial"] = [
     "tables.ipynb",
     "manage-ontologies.ipynb",
     "query-search.ipynb",
+    "tutorial.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",
@@ -271,6 +273,13 @@ def prepare(session):
     )
 
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    # Python/R tabs are part of the built tutorial that lamin-docs pulls in.
+    tutorial_path = Path("docs/tutorial.md")
+    tutorial_path.write_text(
+        convert_markdown_python_to_tabbed(
+            tutorial_path.read_text(), add_runnable_cell=True
+        )
+    )
     convert_executable_md_files()
     os.system("cp ./tests/pydata/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
