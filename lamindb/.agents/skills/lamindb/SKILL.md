@@ -7,7 +7,7 @@ metadata:
 
 # LaminDB
 
-Run `lamin --skill-version` only after the user agrees to use this skill, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` (add `--claude` for Claude Code). Do not continue tracking on the old skill.
+Run `lamin --skill-version` only after the user agrees to use this skill, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` . Do not continue tracking on the old skill.
 
 ## Concepts
 

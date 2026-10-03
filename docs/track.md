@@ -24,7 +24,7 @@ lamin init
 
 ### Sessions
 
-The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --all` so your agent can read it (add `--claude` for Claude Code). It will then track agent sessions.
+The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --skill lamindb` so your agent can read it. It will then track agent sessions.
 
 When the agent finishes a session with `lamin finish`, usage metrics are recorded in `run.extra_data`:
 
