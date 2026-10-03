@@ -127,11 +127,6 @@ def install_ci(session, group):
             session,
             "uv pip install --system huggingface_hub polars anndata==0.13.2 duckdb 'pyiceberg[sql]==0.11.1' lancedb==0.34.0 sqlalchemy",
         )
-        # tutorial.ipynb trains a small batch through torch DataLoader
-        run(
-            session,
-            "uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple",
-        )
     elif group == "guide":
         # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
         # so do not force the zarr_v2 compatibility extra in this group.
