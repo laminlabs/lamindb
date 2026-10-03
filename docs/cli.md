@@ -661,7 +661,7 @@ If you run the script, input and output artifacts will be linked:
 sh my_script.sh
 ```
 
-The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --all` so your agent can read it (add `--claude` for Claude Code). It will call:
+The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --skill lamindb` so your agent can read it. It will call:
 
 ```
 lamin track claude   # or: lamin track copilot, or: lamin track cursor
