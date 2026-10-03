@@ -93,7 +93,7 @@ For more info: {doc}`/track`
 
 :::{dropdown} How do I track a workflow or a pipeline instead of a notebook or script?
 
-Use {meth}`~lamdindb.flow`:
+Use {func}`~lamindb.flow`:
 
 ```python
 import lamindb as ln
@@ -560,7 +560,7 @@ The good thing about passing `revises` is that you don't need to worry about com
 
 We've already seen a few queries. Let's now walk through the topic systematically.
 
-To get an overview over all artifacts in your instance, call {class}`~lamindb.models.SQLRecord.df`.
+To get an overview over all artifacts in your instance, call {meth}`~lamindb.models.BaseSQLRecord.to_dataframe`.
 
 ```python
 ln.Artifact.to_dataframe()
@@ -594,7 +594,7 @@ ln.view()
 
 :::
 
-Every registry supports arbitrary relational queries using the class methods {class}`~lamindb.models.SQLRecord.get` and {class}`~lamindb.models.SQLRecord.filter`.
+Every registry supports arbitrary relational queries using the class methods {meth}`~lamindb.models.BaseSQLRecord.get` and {meth}`~lamindb.models.BaseSQLRecord.filter`.
 The syntax for it is Django's query syntax.
 
 Here are some simple query examples.
@@ -633,7 +633,7 @@ Yes: `ln.Artifact.filter(suffix=".jpg").search("my image")`
 
 :::
 
-The class methods {class}`~lamindb.models.SQLRecord.search` and {class}`~lamindb.models.SQLRecord.lookup` help with approximate matches.
+The class methods {meth}`~lamindb.models.BaseSQLRecord.search` and {meth}`~lamindb.models.BaseSQLRecord.lookup` help with approximate matches.
 
 ```python
 # search artifacts
