@@ -5,12 +5,14 @@
 :caption: "Overview"
 
 README
+tutorial
 ```
 
 ```{toctree}
 :hidden:
 :caption: "How to"
 
+setup
 query-search
 track
 organize

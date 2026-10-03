@@ -146,7 +146,7 @@ When you work with structured data formats like `DataFrame` or `AnnData`, you mi
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Below is an example from the {doc}`docs:tutorial` illustrating how you get, e.g., cell type, treatment, and assay annotations based on a `DataFrame`'s content. You can read more on this in {doc}`/curate`.
+Below is an example from the {doc}`/tutorial` illustrating how you get, e.g., cell type, treatment, and assay annotations based on a `DataFrame`'s content. You can read more on this in {doc}`/curate`.
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 
