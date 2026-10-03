@@ -234,6 +234,7 @@ class HasParents:
 
 
 def view_digraph(u: Digraph):
+    """Display inline in notebooks; otherwise open and report the cached graph path."""
     from graphviz.backend import ExecutableNotFound
 
     try:
@@ -241,15 +242,17 @@ def view_digraph(u: Digraph):
             from IPython import get_ipython
             from IPython.display import display
 
-            #  True if the code is running in a Jupyter Notebook or Lab environment
-            if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
-                return u.view()
-            else:
-                # call u._repr_mimebundle_() manually that exception gets raised properly and not just printed by
-                # call to display()
+            # Terminal IPython uses an external viewer, unlike Jupyter's inline display.
+            if get_ipython().__class__.__name__ != "TerminalInteractiveShell":
+                # Call manually so errors are raised here rather than printed by display().
                 display(u._repr_mimebundle_(), raw=True)
-        else:
-            return u.view()
+                return None
+
+        rendered = u.view(
+            directory=ln_setup.settings.cache_dir / "graphs", cleanup=True
+        )
+        logger.important(f"graph saved to: {rendered}")
+        return rendered
     except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
