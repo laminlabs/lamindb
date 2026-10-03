@@ -1,15 +1,8 @@
 # LaminDB guide
 
-This skill is the procedure for tracking a session and curating data. The library reference is the guide installed with the package. Open it from the installed package, which does not require a network connection:
+This skill is the procedure for tracking a session and curating data. The library reference is the guide in the lamindb repository.
 
-```python
-from pathlib import Path
-import lamindb
-
-print(Path(lamindb.__file__).resolve().parent / ".agents" / "docs")
-```
-
-In a git checkout of lamindb, the same pages are in `docs/` at the repository root. Read that tree when you are editing the repository.
+In a git checkout, start at `docs/guide.md` and grep `docs/`.
 
 Start with these pages:
 
@@ -21,6 +14,6 @@ Start with these pages:
 - `curate.md`
 - `transfer.md`
 
-API pages are not in that copy. Use `help()` and the installed Python source.
+API pages in `docs/` are autodoc stubs. Use `help()` and the Python source.
 
-Use-case, Hub, and pipeline docs are not in the wheel. When the network is available, their index is https://docs.lamin.ai/llms.txt.
+Use-case, Hub, and pipeline docs are not in this repository. When the network is available, their index is https://docs.lamin.ai/llms.txt.

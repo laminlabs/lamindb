@@ -215,4 +215,4 @@ If Step 1 printed `NOT_FOUND`, there is no run to close — skip Step 3 entirely
 - [Track Copilot sessions](references/track_copilot.md). If this Copilot chat spawned a child, read that file first and skip dev-dir / branch / track.
 - [Track Cursor IDE sessions](references/track_cursor.md).
 - [Curate a dataframe](references/curate_a_dataframe.md).
-- [LaminDB guide](references/docs-map.md). This skill is the tracking procedure. The installed guide is the library reference.
+- [LaminDB guide](references/docs-map.md). This skill is the tracking procedure. The guide in the repository is the library reference.
