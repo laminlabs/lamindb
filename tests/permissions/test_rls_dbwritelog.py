@@ -61,46 +61,53 @@ def test_authentication():
         )
         result = cur.fetchall()[0][0]
     assert result
-    # check querying without setting jwt
+    # reused session keeps empty temp tables until set_token runs again
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg2.errors.RaiseException) as exc,
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_ulabel;")
-    # test that auth can't be hijacked
-    # false table created before
-    with (
-        pytest.raises(psycopg2.errors.DuplicateTable),
-        connection.connection.cursor() as cur,
-    ):
-        cur.execute(
-            """
-            CREATE TEMP TABLE access(
-                id int,
-                role varchar(20),
-                type text
-            ) ON COMMIT DROP;
-            SELECT set_token(%s);
-            """,
-            (token,),
-        )
-    # check that jwt user can't set arbitrary account_id manually
-    with (
-        pytest.raises(psycopg2.errors.RaiseException),
-        connection.connection.cursor() as cur,
-    ):
-        cur.execute(
-            """
-            CREATE TEMP TABLE access(
-                id int,
-                role varchar(20),
-                type text
-            ) ON COMMIT DROP;
-            INSERT INTO access (id, role, type)
-            VALUES (1, 'admin', 'space');
-            SELECT * FROM check_access();
-            """
-        )
+    assert "no access: this account has no permissions on this instance" in str(
+        exc.value
+    )
+    # fresh session has no temp tables; a client-owned access table is rejected
+    with psycopg2.connect(ln.setup.settings.instance.db) as conn, conn.cursor() as cur:
+        # autocommit is off, so roll back the aborted transaction before the next command
+        with pytest.raises(psycopg2.errors.RaiseException) as exc:
+            cur.execute("SELECT * FROM lamindb_ulabel;")
+        assert "JWT is not set" in str(exc.value)
+        conn.rollback()
+        # test that auth can't be hijacked
+        with pytest.raises(psycopg2.errors.RaiseException) as exc:
+            cur.execute(
+                """
+                CREATE TEMP TABLE access(
+                    id int,
+                    role varchar(20),
+                    type text
+                );
+                SELECT set_token(%s);
+                """,
+                (token,),
+            )
+        assert "JWT is not set" in str(exc.value)
+        conn.rollback()
+        # check that jwt user can't set arbitrary account_id manually
+        with pytest.raises(psycopg2.errors.RaiseException) as exc:
+            cur.execute(
+                """
+                CREATE TEMP TABLE access(
+                    id int,
+                    role varchar(20),
+                    type text
+                );
+                INSERT INTO access (id, role, type)
+                VALUES (1, 'admin', 'space');
+                SELECT * FROM check_access();
+                """
+            )
+        assert "JWT is not set" in str(exc.value)
+        conn.rollback()
     # check manual insert
     with (
         pytest.raises(psycopg2.errors.InsufficientPrivilege),
@@ -120,9 +127,12 @@ def test_authentication():
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT security.get_secret('jwt_secret');")
-    # test read-only token
+    # second set_token in the same transaction replaces the first
     with connection.connection.cursor() as cur:
-        cur.execute("SELECT set_token(%s); SELECT * FROM check_access()", (token_read,))
+        cur.execute(
+            "SELECT set_token(%s); SELECT set_token(%s); SELECT * FROM check_access()",
+            (token, token_read),
+        )
         result = cur.fetchall()
     assert len(result) == 1
     assert result[0] == (1, "read", "space")
@@ -495,16 +505,22 @@ def test_tracking_error():
 
 
 def test_token_reset():
+    # create the temp tables in this session before dropping the token
+    ln.ULabel.filter().exists()
     db_token_manager.reset()
 
-    # account_id is not set
+    # tables remain and are empty, so access is denied
     with pytest.raises(InternalError) as error:
         ln.ULabel.filter().count()
-    assert "JWT is not set" in error.exconly()
+    assert (
+        "no access: this account has no permissions on this instance" in error.exconly()
+    )
 
     with pytest.raises(InternalError) as error, transaction.atomic():
         ln.ULabel.filter().count()
-    assert "JWT is not set" in error.exconly()
+    assert (
+        "no access: this account has no permissions on this instance" in error.exconly()
+    )
 
 
 def test_dbwrite_uninstall():
