@@ -110,7 +110,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: improve_set_token
+          ref: main
 
       - uses: actions/setup-python@v6
         with:
