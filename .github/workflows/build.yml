@@ -269,6 +269,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
+          # cli.codecov.io rejects the runner TLS handshake
+          use_pypi: true
 
   dispatch:
     if: ${{ github.event_name == 'push' }}
