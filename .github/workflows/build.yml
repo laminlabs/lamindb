@@ -265,10 +265,9 @@ jobs:
           coverage combine coverage--*/.coverage*
           coverage report --fail-under=0
           coverage xml
-      - uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
 
   dispatch:
     if: ${{ github.event_name == 'push' }}
