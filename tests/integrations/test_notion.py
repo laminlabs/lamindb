@@ -27,6 +27,7 @@ from lamindb.integrations.notion import (
     _ensure_artifacts,
     _ensure_feature_itype_on_record_schema,
     _flatten,
+    _notion_property_type,
     _notion_user_or_page_name,
     _NotionReader,
     _NotionSyncer,
@@ -3095,6 +3096,79 @@ def test_record_field_mapping_is_derived_from_notion_type_and_property_name(sync
         "Summary": "description",
         "description": "description",
     }
+
+
+def test_notion_property_type_reads_created_time_config():
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "name": "created_at",
+                "type": "created_time",
+                "created_time": {},
+            }
+        )
+        == "created_time"
+    )
+    assert (
+        _notion_property_type(
+            {
+                "id": "def",
+                "name": "updated_at",
+                "type": "last_edited_time",
+                "last_edited_time": {},
+            }
+        )
+        == "last_edited_time"
+    )
+    # Page property values store the timestamp string under the type key.
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "type": "created_time",
+                "created_time": "2026-10-01T10:11:00.000Z",
+            }
+        )
+        == "created_time"
+    )
+
+
+def test_notion_property_type_prefers_config_key_over_mismatched_type_string():
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "name": "created_at",
+                "type": "last_edited_time",
+                "created_time": {},
+            }
+        )
+        == "created_time"
+    )
+
+
+def test_schema_distinguishes_created_time_from_last_edited_time(reader):
+    timestamp_ds = {
+        "properties": {
+            "created_at": {
+                "id": "created",
+                "name": "created_at",
+                "type": "created_time",
+                "created_time": {},
+            },
+            "updated_at": {
+                "id": "updated",
+                "name": "updated_at",
+                "type": "last_edited_time",
+                "last_edited_time": {},
+            },
+        }
+    }
+    reader.s.request.side_effect = [_make_response(DB), _make_response(timestamp_ds)]
+    columns = reader.columns("db-1")
+    assert columns["created_at"] == "created_time"
+    assert columns["updated_at"] == "last_edited_time"
 
 
 def test_database_emoji_and_description_parsing(syncer):

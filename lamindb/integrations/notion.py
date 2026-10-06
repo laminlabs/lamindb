@@ -377,6 +377,52 @@ def _flatten(prop: dict, *, people_name_cache: dict[str, str] | None = None) -> 
     return None  # rollup, formula, unknown
 
 
+# Notion identifies a property's type by the configuration object on the schema
+# (`created_time: {}` vs `last_edited_time: {}`). The `type` string repeats that
+# key when it is present.
+_NOTION_PROPERTY_TYPES = (
+    "button",
+    "checkbox",
+    "created_by",
+    "created_time",
+    "date",
+    "email",
+    "files",
+    "formula",
+    "last_edited_by",
+    "last_edited_time",
+    "multi_select",
+    "number",
+    "people",
+    "phone_number",
+    "place",
+    "relation",
+    "rich_text",
+    "rollup",
+    "select",
+    "status",
+    "title",
+    "unique_id",
+    "url",
+    "verification",
+)
+
+
+def _notion_property_type(prop: dict) -> str:
+    """Return the Notion property type from a schema or page-property object."""
+    if not isinstance(prop, dict):
+        return ""
+    config_types = [
+        key for key in _NOTION_PROPERTY_TYPES if isinstance(prop.get(key), dict)
+    ]
+    declared = prop.get("type")
+    if len(config_types) == 1:
+        return config_types[0]
+    if isinstance(declared, str) and declared:
+        return declared
+    return ""
+
+
 def _page_title(page: dict) -> str:
     """The title of a page, whatever the title property happens to be called."""
     for prop in page.get("properties", {}).values():
@@ -508,7 +554,7 @@ class _NotionReader:
         props = self._call("GET", f"/data_sources/{ds}").get("properties", {})
         out: dict[str, dict] = {}
         for name, p in props.items():
-            t = p.get("type", "")
+            t = _notion_property_type(p)
             target = None
             dual = None
             choices = None
