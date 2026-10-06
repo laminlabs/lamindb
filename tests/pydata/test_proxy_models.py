@@ -130,3 +130,50 @@ def test_deleting_a_proxy_artifact_removes_row_and_file(tmp_path):
     proxy.delete(permanent=True, storage=True)
     assert not ln.Artifact.filter(uid=uid).exists()
     assert not path.exists()
+
+
+def test_proxy_queryset_has_the_registry_queryset_methods():
+    assert isinstance(ProxyArtifact.filter(), ln.models.ArtifactSet)
+    assert isinstance(ProxyArtifact.objects.all(), ln.models.ArtifactSet)
+
+
+def test_proxy_queryset_maps_query_aliases():
+    project = ProxyProject(name="proxy-models-status").save()
+    try:
+        assert project in ProxyProject.filter(status="planned")
+    finally:
+        project.delete(permanent=True)
+
+
+def test_proxy_queryset_filters_and_exports_features(artifact):
+    feature = ln.Feature(name="proxy_models_note", dtype=str).save()
+    try:
+        artifact.features.add_values({"proxy_models_note": "hello"})
+        assert artifact in ProxyArtifact.filter(proxy_models_note="hello")
+        assert artifact in ProxyArtifact.filter(feature == "hello")
+        assert artifact not in ProxyArtifact.filter(proxy_models_note__isnull=True)
+        df = ProxyArtifact.filter(key=artifact.key).to_dataframe(
+            features=["proxy_models_note"]
+        )
+        assert df["proxy_models_note"].tolist() == ["hello"]
+    finally:
+        artifact.features.remove_values("proxy_models_note")
+        feature.delete(permanent=True)
+
+
+def test_proxy_queryset_delete_removes_files(tmp_path):
+    source = tmp_path / "proxy-qs-delete.txt"
+    source.write_text("proxy-models queryset delete")
+    artifact = ln.Artifact(source, key="proxy-models/qs-delete.txt").save()
+    path = artifact.path
+    ProxyArtifact.filter(uid=artifact.uid).delete(permanent=True, storage=True)
+    assert not ln.Artifact.filter(uid=artifact.uid).exists()
+    assert not path.exists()
+
+
+def test_proxy_dataframe_columns_use_the_registry_prefix():
+    from lamindb.models.query_set import encode_lamindb_fields_as_columns
+
+    assert encode_lamindb_fields_as_columns(ProxyArtifact, "uid") == (
+        "__lamindb_artifact_uid__"
+    )

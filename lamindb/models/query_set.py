@@ -32,7 +32,7 @@ from ..base.types import (
     PROJECT_STATUS_TO_CODE,
     RUN_STATUS_TO_CODE,
 )
-from ..base.utils import get_registry_name
+from ..base.utils import concrete_model, get_registry_name
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
@@ -141,28 +141,29 @@ def map_query_kwargs(queryset, expressions):
         Run,
     )
 
-    if issubclass(queryset.model, IsVersioned):
+    model = concrete_model(queryset.model)
+    if issubclass(model, IsVersioned):
         name_mappings = {
             "version": "version_tag",
         }
     else:
         name_mappings = {}
 
-    if queryset.model is Artifact:
+    if model is Artifact:
         name_mappings.update(
             {
                 "transform": "run__transform",
                 "feature_sets": "schemas",
             }
         )
-    if queryset.model is Feature:
+    if model is Feature:
         name_mappings.update(
             {
                 "dtype": "_dtype_str",
                 "dtype_as_str": "_dtype_str",
             }
         )
-    if queryset.model in {Run, Branch, Project}:
+    if model in {Run, Branch, Project}:
         name_mappings.update(
             {
                 "status": "_status_code",
@@ -178,11 +179,11 @@ def map_query_kwargs(queryset, expressions):
         expressions = {field: True for field in expressions}
     mapped = {}
     status_mapping = None
-    if queryset.model is Run:
+    if model is Run:
         status_mapping = RUN_STATUS_TO_CODE
-    elif queryset.model is Branch:
+    elif model is Branch:
         status_mapping = BRANCH_STATUS_TO_CODE
-    elif queryset.model is Project:
+    elif model is Project:
         status_mapping = PROJECT_STATUS_TO_CODE
 
     def _map_status_value(value):
@@ -205,13 +206,13 @@ def map_query_kwargs(queryset, expressions):
         parts = field.split("__")
         if parts[0] in name_mappings:
             # Issue deprecation warnings
-            if queryset.model is Artifact and parts[0] == "feature_sets":
+            if model is Artifact and parts[0] == "feature_sets":
                 warnings.warn(
                     "Querying Artifact by `feature_sets` is deprecated. Use `schemas` instead.",
                     DeprecationWarning,
                     stacklevel=4,
                 )
-            elif queryset.model is Feature and parts[0] == "dtype":
+            elif model is Feature and parts[0] == "dtype":
                 warnings.warn(
                     "Querying Feature by `dtype` is deprecated. Use `dtype_as_str` instead. "
                     "Notice the new dtype encoding format for Record and ULabel subtypes.",
@@ -505,6 +506,7 @@ def get_feature_annotate_kwargs(
     )
     from lamindb.models.feature import parse_dtype
 
+    registry = concrete_model(registry)
     assert registry in {Artifact, Record, Run}, (
         f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
     )
@@ -801,6 +803,7 @@ def encode_lamindb_fields_as_columns(
     This is needed when reshaping dataframes with features to avoid conflicts between
     laminDB fields and feature names.
     """
+    registry = concrete_model(registry)
 
     def encode(field: str) -> str:
         return f"__lamindb_{registry._meta.model_name}_{field}__"
@@ -836,6 +839,7 @@ def reshape_annotate_result(
 
     from lamindb.models import Artifact, Run
 
+    registry = concrete_model(registry)
     cols_from_include = cols_from_include or {}
 
     # Initialize result with basic fields (need a copy since we're modifying it)
@@ -1121,6 +1125,7 @@ def _queryset_class_factory(
     # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
     # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
     # Thus all query sets of artifacts (and only of artifacts) will have functions from ArtifactSet.
+    registry = concrete_model(registry)
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
@@ -1366,7 +1371,8 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        if self.model is Run:
+        model = concrete_model(self.model)
+        if model is Run:
             if permanent is True:
                 from .run import _permanent_delete_runs
 
@@ -1375,7 +1381,7 @@ class BasicQuerySet(models.QuerySet):
             if permanent is not True:
                 self.update(branch_id=-1)
                 return
-        if self.model is Transform:
+        if model is Transform:
             if permanent is True:
                 from .transform import _permanent_delete_transforms
 
@@ -1389,10 +1395,10 @@ class BasicQuerySet(models.QuerySet):
                     self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop
-        if self.model in {Artifact, Collection}:
+        if model in {Artifact, Collection}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)
-        elif self.model is Storage:  # storage does not have soft delete
+        elif model is Storage:  # storage does not have soft delete
             if permanent is False:
                 raise ValueError(
                     "Soft delete is not possible for Storage, "
@@ -1563,7 +1569,7 @@ class QuerySet(BasicQuerySet):
 
         feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
         queries = tuple(q for q in queries if not isinstance(q, FeaturePredicate))
-        registry = self.model
+        registry = concrete_model(self.model)
         is_status_filter_on_run = registry is Run and any(
             key.split("__")[0] == "status" for key in expressions
         )

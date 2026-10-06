@@ -20,7 +20,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.base.utils import get_registry_name
+from lamindb.base.utils import concrete_model, get_registry_name
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import (
     _format_values,
@@ -983,23 +983,24 @@ def _filter_one_feature_clause(
     from lamindb.models.record import Record, RecordJson
     from lamindb.models.run import Run
 
+    model = concrete_model(queryset.model)
     dtype_str = feature._dtype_str
     # non-categorical features
     if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
         if comparator == "__isnull":
-            if queryset.model is Artifact:
+            if model is Artifact:
                 from .artifact import ArtifactJsonValue
 
                 value_subquery = ArtifactJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("artifact_id")
-            elif queryset.model is Run:
+            elif model is Run:
                 from .run import RunJsonValue
 
                 value_subquery = RunJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("run_id")
-            elif queryset.model is Record:
+            elif model is Record:
                 value_subquery = RecordJson.objects.filter(feature=feature).values(
                     "record_id"
                 )
@@ -1023,7 +1024,7 @@ def _filter_one_feature_clause(
         if use_numeric_sqlite:
             # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
             num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
-            if queryset.model is Record:
+            if model is Record:
                 value_qs = (
                     RecordJson.objects.using(queryset.db)
                     .filter(feature=feature)
@@ -1038,11 +1039,7 @@ def _filter_one_feature_clause(
                     .annotate(num_val=num_val_raw)
                     .filter(**{f"num_val{comparator}": value})
                 )
-                accessor = (
-                    "json_values"
-                    if queryset.model in {Artifact, Run}
-                    else "values_json"
-                )
+                accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
         else:
             if connections[feature._state.db].vendor == "sqlite" and comparator in {
@@ -1054,16 +1051,12 @@ def _filter_one_feature_clause(
                 # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
                 value = str(value)
             filter_expr = {"feature": feature, f"value{comparator}": value}
-            if queryset.model is Record:
+            if model is Record:
                 value_qs = RecordJson.objects.using(queryset.db).filter(**filter_expr)
                 return queryset.filter(values_json__id__in=value_qs)
             else:
                 json_values = JsonValue.objects.using(queryset.db).filter(**filter_expr)
-                accessor = (
-                    "json_values"
-                    if queryset.model in {Artifact, Run}
-                    else "values_json"
-                )
+                accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
     # categorical features
     elif isinstance(value, (str, SQLRecord, bool)):
