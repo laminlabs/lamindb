@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamindb_setup import logger
 
+from ..base.utils import get_registry_name
 from ..errors import ValidationError
 from .query_set import SQLRecordList, get_default_branch_ids
 from .run import Run
@@ -265,7 +266,7 @@ def view_lineage(
     if ln_setup.settings.instance.is_managed_by_hub:
         instance_slug = ln_setup.settings.instance.slug
         ui_url = ln_setup.settings.instance.ui_url
-        entity_slug = data.__class__.__name__.lower()
+        entity_slug = get_registry_name(data).lower()
         logger.important(
             f"explore at: {ui_url}/{instance_slug}/{entity_slug}/{data.uid}"
         )
@@ -296,7 +297,7 @@ def view_lineage(
         )
 
     u = graphviz.Digraph(
-        f"{data._meta.model_name}_{data.uid}",
+        f"{get_registry_name(data).lower()}_{data.uid}",
         node_attr={
             "fillcolor": "white",
             "color": "darkgrey",
@@ -314,7 +315,7 @@ def view_lineage(
         u.edge(row["source"], row["target"], color="dimgrey")
 
     u.node(
-        f"{data._meta.model_name}_{data.uid}",
+        f"{get_registry_name(data).lower()}_{data.uid}",
         label=get_record_label(data),
         style="rounded,filled",
         fillcolor="white",
@@ -491,7 +492,7 @@ def _df_edges_from_parents(
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
     df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
-    if record.__class__.__name__ == "Transform":
+    if get_registry_name(record) == "Transform":
         df_edges["source_label"] = df_edges["source_record"].apply(get_record_label)
         df_edges["target_label"] = df_edges["target_record"].apply(get_record_label)
     else:
@@ -542,7 +543,7 @@ def get_record_label(record: SQLRecord, field: str | None = None):
 
 def _get_all_parent_runs(data: Artifact | Collection) -> list:
     """Get all input file/collection runs recursively."""
-    name = data._meta.model_name
+    name = get_registry_name(data).lower()
     run_inputs_outputs = []
 
     runs = [data.run] if data.run is not None else []
@@ -588,7 +589,7 @@ def _get_all_parent_runs(data: Artifact | Collection) -> list:
 
 def _get_all_child_runs(data: Artifact | Collection) -> list:
     """Get all output file/collection runs recursively."""
-    name = data._meta.model_name
+    name = get_registry_name(data).lower()
     all_runs: set[Run] = set()
     run_inputs_outputs = []
 
@@ -654,8 +655,12 @@ def _df_edges_from_runs(df_values: list):
     df = df.explode("source_record")
     df = df.explode("target_record")
     df = df.drop_duplicates().dropna()
-    df["source"] = [f"{i._meta.model_name}_{i.uid}" for i in df["source_record"]]
-    df["target"] = [f"{i._meta.model_name}_{i.uid}" for i in df["target_record"]]
+    df["source"] = [
+        f"{get_registry_name(i).lower()}_{i.uid}" for i in df["source_record"]
+    ]
+    df["target"] = [
+        f"{get_registry_name(i).lower()}_{i.uid}" for i in df["target_record"]
+    ]
     df["source_label"] = df["source_record"].apply(get_record_label)
     df["target_label"] = df["target_record"].apply(get_record_label)
     return df

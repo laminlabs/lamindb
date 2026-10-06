@@ -32,6 +32,7 @@ from ..base.types import (
     PROJECT_STATUS_TO_CODE,
     RUN_STATUS_TO_CODE,
 )
+from ..base.utils import get_registry_name
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
@@ -438,7 +439,10 @@ def get_basic_field_names(
             and (
                 not field.name.startswith("_")
                 or include_private_fields
-                or (field.name == "_dtype_str" and qs.model.__name__ == "Feature")
+                or (
+                    field.name == "_dtype_str"
+                    and get_registry_name(qs.model) == "Feature"
+                )
             )
         )
     ]
@@ -518,7 +522,7 @@ def get_feature_annotate_kwargs(
                 or link_model.__name__ == "Record_parents"
             ):
                 continue
-            filter_field = registry.__name__.lower()
+            filter_field = get_registry_name(registry).lower()
             if not hasattr(link_model, filter_field):
                 continue
             links = link_model.objects.using(qs.db).filter(
@@ -1186,7 +1190,7 @@ class BasicQuerySet(models.QuerySet):
         import pandas as pd
 
         if (
-            self.model.__name__ == "Artifact"
+            get_registry_name(self.model) == "Artifact"
             and "kind" not in str(self.query.where)
             and self.query.low_mark
             == 0  # this should be 0, not None, it represent OFFSET = 0

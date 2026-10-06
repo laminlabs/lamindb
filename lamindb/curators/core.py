@@ -28,6 +28,7 @@ from pandera.engines import pandas_engine
 
 from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.base.utils import get_registry_name
 from lamindb.models import (
     Artifact,
     Feature,
@@ -2013,7 +2014,7 @@ class CatVector:
                 # This prevents ambiguity errors for schema-defined column/features in
                 # flexible schemas when duplicate root-level Features exist.
                 if (
-                    registry.__name__ == "Feature"
+                    get_registry_name(registry) == "Feature"
                     and self._schema
                     and self._schema.n_members
                 ):

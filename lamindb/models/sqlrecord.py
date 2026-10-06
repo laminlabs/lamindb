@@ -56,7 +56,12 @@ from lamindb_setup.core.base62 import increment_base62
 from lamindb_setup.core.django import DBToken, db_token_manager
 
 from lamindb.base.users import current_user_id
-from lamindb.base.utils import class_and_instance_method, deprecated
+from lamindb.base.utils import (
+    class_and_instance_method,
+    concrete_model,
+    deprecated,
+    get_registry_name,
+)
 
 from ..base.fields import (
     BooleanField,
@@ -137,8 +142,9 @@ BRANCH_SENSITIVE_BLOCK_MODEL_NAMES = frozenset(
 
 def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
     return (
-        issubclass(model, SQLRecord) and model.__name__ not in {"Storage", "Source"}
-    ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
+        issubclass(model, SQLRecord)
+        and get_registry_name(model) not in {"Storage", "Source"}
+    ) or get_registry_name(model) in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
 
 def _format_versioned_record(record: IsVersioned) -> str:
@@ -268,7 +274,7 @@ _HASTYPE_QUERY_METHODS = {
 
 def _typed_children(record: HasType) -> list:
     """Direct records whose type is ``record``, queried on ``record``'s database."""
-    method_name = _HASTYPE_QUERY_METHODS.get(record.__class__.__name__)
+    method_name = _HASTYPE_QUERY_METHODS.get(get_registry_name(record))
     if method_name is None:
         names = ", ".join(_HASTYPE_QUERY_METHODS)
         raise ValueError(
@@ -529,7 +535,7 @@ def validate_literal_fields(record: SQLRecord, kwargs) -> None:
     """
     if isinstance(record, IsLink):
         return None
-    if record.__class__.__name__ in "Feature":
+    if get_registry_name(record) in "Feature":
         return None
     from lamindb.base.types import ArtifactKind, Dtype, TransformKind
 
@@ -588,7 +594,7 @@ def validate_fields(record: SQLRecord, kwargs):
     if missing_fields:
         raise FieldValidationError(f"{missing_fields} are required.")
     # ensure the exact length of the internal uid for core entities
-    if "uid" in kwargs and record.__class__ in {
+    if "uid" in kwargs and concrete_model(record) in {
         Artifact,
         Collection,
         Transform,
@@ -602,7 +608,7 @@ def validate_fields(record: SQLRecord, kwargs):
         ).max_length  # triggers FieldDoesNotExist
         if len(kwargs["uid"]) != uid_max_length:  # triggers KeyError
             # Schema uids were 20 characters before lamindb 1.5.
-            if not (record.__class__ is Schema and len(kwargs["uid"]) == 20):
+            if not (concrete_model(record) is Schema and len(kwargs["uid"]) == 20):
                 raise ValidationError(
                     f"`uid` must be exactly {uid_max_length} characters long, got {len(kwargs['uid'])}."
                 )
@@ -1155,7 +1161,7 @@ class Registry(ModelBase):
         return QuerySet(model=cls, using=instance)
 
     def __get_module_name__(cls) -> str:
-        schema_module_name = cls.__module__.split(".")[0]
+        schema_module_name = concrete_model(cls).__module__.split(".")[0]
         module_name = schema_module_name.replace("lnschema_", "")
         if module_name == "lamindb":
             module_name = "core"
@@ -1167,7 +1173,7 @@ class Registry(ModelBase):
             module_prefix = ""
         else:
             module_prefix = f"{module_name}."
-        return f"{module_prefix}{cls.__name__}"
+        return f"{module_prefix}{get_registry_name(cls)}"
 
     def __get_available_fields__(cls) -> set[str]:
         if cls._available_fields is None:
@@ -1177,7 +1183,7 @@ class Registry(ModelBase):
                     available_fields.add(field_name)
                     if isinstance(field, django_ForeignKey):
                         available_fields.add(field_name + "_id")
-            if cls.__name__ == "Artifact":
+            if get_registry_name(cls) == "Artifact":
                 available_fields.add("transform")
                 available_fields.add("feature_sets")  # backward compat with lamindb v1
             cls._available_fields = available_fields
@@ -1449,7 +1455,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             _prepare_cross_instance_create(self, using)
         transfer_config = normalize_transfer_config(
             kwargs.pop("transfer", None),
-            default_annotations=self.__class__.__name__ == "Schema",
+            default_annotations=get_registry_name(self) == "Schema",
         )
         depth = kwargs.pop("depth", 0)
         if type(depth) is not int or depth < 0:
@@ -1462,7 +1468,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         db = self._state.db
         pk_on_db = self.pk
         artifacts: list = []
-        if self.__class__.__name__ == "Collection" and self.id is not None:
+        if get_registry_name(self) == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
             artifacts = self.ordered_artifacts.to_list()
         # Snapshot one level of typed children while this object still points at
@@ -1600,14 +1606,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 error_msg = str(e)
                 # error for hash/uid duplication
                 if (
-                    self.__class__.__name__ in {"Transform", "Artifact", "Collection"}
+                    get_registry_name(self) in {"Transform", "Artifact", "Collection"}
                     and isinstance(e, IntegrityError)
                     and "hash" in error_msg
                     and unique_constraint_error_in_error_message(error_msg)
                 ):
                     # we also need to include the key here because hash can be the same across keys
                     query_fields = {"hash": self.hash, "key": self.key}
-                    if self.__class__.__name__ == "Artifact":
+                    if get_registry_name(self) == "Artifact":
                         # in case of artifact, also storage is needed
                         query_fields["storage"] = self.storage
                     # the get here is Django's get and not aware of the trash or other branches
@@ -1701,7 +1707,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     ) from None
                 elif (
                     isinstance(e, IntegrityError)
-                    and self.__class__.__name__ == "User"
+                    and get_registry_name(self) == "User"
                     and self.uid != setup_settings.user.uid
                 ):
                     # updating another user is hidden by RLS, so Django inserts
@@ -1719,7 +1725,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             # The row is on the target now. A cached "absent" lookup must not
             # hide it from a later record whose type points here.
             _remember_target(self, transfer_logs)
-            if self.__class__.__name__ == "Collection":
+            if get_registry_name(self) == "Collection":
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
                     for artifact in artifacts:
@@ -1727,14 +1733,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     self.artifacts.add(*artifacts)
             if transfer_config in {"notes", "annotations"}:
                 transfer_notes(self, db, pk_on_db)
-            if self.__class__.__name__ == "Schema" and transfer_config == "annotations":
+            if get_registry_name(self) == "Schema" and transfer_config == "annotations":
                 from .schema import transfer_schema_members
 
                 transfer_schema_members(
                     self, db, pk_on_db, using, transfer_logs=transfer_logs
                 )
             if (
-                self.__class__.__name__ in {"Record", "Run"}
+                get_registry_name(self) in {"Record", "Run"}
                 and transfer_config == "annotations"
             ):
                 transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
@@ -1765,7 +1771,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 
-        if self.__class__.__name__ in {
+        if get_registry_name(self) in {
             "Artifact",
             "Transform",
             "Run",
@@ -1775,7 +1781,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             "Collection",
             "Reference",
         } and not (
-            self.__class__.__name__ == "Artifact" and self.kind == "__lamindb_run__"
+            get_registry_name(self) == "Artifact" and self.kind == "__lamindb_run__"
         ):
             import lamindb as ln
 
@@ -1861,7 +1867,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 continue
             if (
                 not k.startswith("_")
-                or (k == "_dtype_str" and self.__class__.__name__ == "Feature")
+                or (k == "_dtype_str" and get_registry_name(self) == "Feature")
             ) and hasattr(self, k):
                 value = getattr(self, k)
                 # Force strip the time component of the version
@@ -2398,7 +2404,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         if self.branch_id > trash_branch_id and permanent is not True:
             if isinstance(self, HasType) and self.is_type:
                 for child in getattr(
-                    self, f"query_{self.__class__.__name__.lower()}s"
+                    self, f"query_{get_registry_name(self).lower()}s"
                 )():
                     child.delete()
             delete_record(self, is_soft=True)
@@ -2660,7 +2666,7 @@ def check_name_change(record: SQLRecord):
 
     old_name = record._old_name
     new_name = getattr(record, record._name_field)
-    registry = record.__class__.__name__
+    registry = get_registry_name(record)
 
     if old_name != new_name:
         if hasattr(record, "artifacts") and not isinstance(record, Storage):
@@ -2811,7 +2817,7 @@ class SQLRecordInfo:
         )
 
         # For Record class, move linked_in fields to the end
-        if self.registry.__name__ == "Record":
+        if get_registry_name(self.registry) == "Record":
             regular_fields = [
                 f
                 for f in ordered_relational_fields
