@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from lamindb_setup import logger
 from lamindb_setup.core import colors
 
+from lamindb.base.utils import concrete_model
+
 if TYPE_CHECKING:
     from pandas import DataFrame, Index
 
@@ -49,12 +51,9 @@ def build_not_validated_values_message(
 
 def _is_biorecord(registry: type) -> bool:
     """Whether `registry` is a bionty `BioRecord`, including a proxy of one."""
-    # Name check first so non-bionty registries do not import bionty.
-    if not any(base.__name__ == "BioRecord" for base in registry.__mro__):
-        return False
-    from bionty.models import BioRecord
-
-    return issubclass(registry, BioRecord)
+    return any(
+        base.__name__ == "BioRecord" for base in concrete_model(registry).__mro__
+    )
 
 
 # The base function for `from_values`
