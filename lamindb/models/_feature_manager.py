@@ -142,12 +142,17 @@ def get_categorical_link_info(
     Used by filter_base (categorical path) and _add_label_feature_links.
     """
     host_name = get_registry_name(host_class).lower()
+    host_model = concrete_model(host_class)
+    # Keep the passed class name for the error. Link resolution uses the concrete
+    # registries, so a proxy label matches the FK target it shares a table with.
+    label_name = label_registry.__name__
+    label_registry = concrete_model(label_registry)
 
     if host_name == "record":
         d = dict_related_model_to_related_name(
-            host_class, links=True, instance=instance
+            host_model, links=True, instance=instance
         )
-        for rel in host_class._meta.related_objects:
+        for rel in host_model._meta.related_objects:
             link_model = rel.related_model
             key = link_model.__get_name_with_module__()
             if key not in d:
@@ -159,13 +164,13 @@ def get_categorical_link_info(
             value_fk = link_model._meta.get_field("value")
             if (
                 value_fk.remote_field is None
-                or value_fk.remote_field.model != label_registry
+                or concrete_model(value_fk.remote_field.model) is not label_registry
             ):
                 continue
             accessor = d[key]
             return (link_model, "value", accessor)
         raise ValueError(
-            f"No categorical link model for Record + {label_registry.__name__}. "
+            f"No categorical link model for Record + {label_name}. "
             "Ensure the label registry has a Record* link model (e.g. RecordRecord, RecordULabel) "
             "or a bionty link model (e.g. RecordCellLine) in loaded schema modules."
         )

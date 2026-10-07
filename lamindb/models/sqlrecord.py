@@ -535,7 +535,7 @@ def validate_literal_fields(record: SQLRecord, kwargs) -> None:
     """
     if isinstance(record, IsLink):
         return None
-    if get_registry_name(record) in "Feature":
+    if get_registry_name(record) == "Feature":
         return None
     from lamindb.base.types import ArtifactKind, Dtype, TransformKind
 

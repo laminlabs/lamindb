@@ -1,11 +1,13 @@
 """Django proxy models of lamindb registries behave like the registry they proxy."""
 
+import bionty as bt
 import lamindb as ln
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from lamindb.base.utils import concrete_model, get_registry_name
 from lamindb.errors import ValidationError
+from lamindb.models._from_values import _is_biorecord
 from lamindb.models.sqlrecord import validate_fields
 
 
@@ -28,6 +30,18 @@ class ProxyULabel(ln.ULabel):
 
 
 class ProxySchema(ln.Schema):
+    class Meta:
+        proxy = True
+        app_label = "lamindb_tests"
+
+
+class ProxyRecord(ln.Record):
+    class Meta:
+        proxy = True
+        app_label = "lamindb_tests"
+
+
+class ProxyGene(bt.Gene):
     class Meta:
         proxy = True
         app_label = "lamindb_tests"
@@ -69,6 +83,47 @@ def test_proxy_artifact_is_tracked_as_an_artifact_input(artifact):
         ln.context._run = None
         run.delete(permanent=True)
         transform.delete(permanent=True)
+
+
+def test_proxy_of_a_bionty_registry_counts_as_a_biorecord():
+    assert _is_biorecord(ProxyGene)
+    assert _is_biorecord(bt.Gene)
+    assert not _is_biorecord(ProxyRecord)
+    assert not _is_biorecord(ln.Record)
+
+
+def test_proxy_record_links_a_proxy_label_on_the_record_table():
+    feature = ln.Feature(name="proxy_models_sample", dtype="cat[Record]").save()
+    host = ProxyRecord(name="proxy-models-host").save()
+    label = ProxyRecord(name="proxy-models-label").save()
+    try:
+        host.features.add_values({"proxy_models_sample": label})
+        assert ln.models.RecordRecord.filter(
+            record_id=host.id, feature=feature, value_id=label.id
+        ).exists()
+        assert (
+            ln.Record.get(host.id).features.get_values()["proxy_models_sample"]
+            == "proxy-models-label"
+        )
+    finally:
+        host.delete(permanent=True)
+        label.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def test_proxy_artifact_links_a_proxy_ulabel(artifact):
+    feature = ln.Feature(name="proxy_models_ulabel", dtype="cat[ULabel]").save()
+    label = ProxyULabel(name="proxy-models-ulabel").save()
+    try:
+        proxy = ProxyArtifact.get(artifact.id)
+        proxy.features.add_values({"proxy_models_ulabel": label})
+        assert ln.models.ArtifactULabel.filter(
+            artifact_id=artifact.id, feature=feature, ulabel_id=label.id
+        ).exists()
+    finally:
+        artifact.features.remove_values("proxy_models_ulabel")
+        label.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_proxy_artifact_annotates_like_an_artifact(artifact):

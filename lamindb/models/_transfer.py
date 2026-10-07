@@ -668,7 +668,7 @@ def transfer_record_feature_values(
             if get_registry_name(value) == "User":
                 return getattr(known, _user_annotation_field(feature))
             return known
-        if type(value).__name__ == "User":
+        if get_registry_name(value) == "User":
             # User is BaseSQLRecord, not SQLRecord. Return the feature field
             # (handle by default) so _add_values can look the user up.
             return _map_user_annotation(value, feature, transfer_logs)

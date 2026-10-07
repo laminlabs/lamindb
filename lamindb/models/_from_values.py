@@ -47,6 +47,16 @@ def build_not_validated_values_message(
     )
 
 
+def _is_biorecord(registry: type) -> bool:
+    """Whether `registry` is a bionty `BioRecord`, including a proxy of one."""
+    # Name check first so non-bionty registries do not import bionty.
+    if not any(base.__name__ == "BioRecord" for base in registry.__mro__):
+        return False
+    from bionty.models import BioRecord
+
+    return issubclass(registry, BioRecord)
+
+
 # The base function for `from_values`
 def _from_values(
     iterable: ListLike,
@@ -92,7 +102,7 @@ def _from_values(
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        if from_source and registry.__base__.__name__ == "BioRecord":
+        if from_source and _is_biorecord(registry):
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
@@ -411,7 +421,7 @@ def get_organism_record_from_field(  # type: ignore
             The field is not unique (e.g. Gene.symbol) or the organism is not None
     """
     registry = field.field.model
-    if registry.__base__.__name__ != "BioRecord":
+    if not _is_biorecord(registry):
         return None
 
     from bionty._organism import (
