@@ -12,6 +12,8 @@ from lamindb_setup import logger
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.errors import NoReadAccess
 
+from lamindb.base.utils import get_registry_name
+
 from ..base.types import TransferMode
 from ..errors import NoWriteAccess, ValidationError
 from .sqlrecord import BaseSQLRecord, Space, SQLRecord
@@ -69,7 +71,7 @@ def update_fk_to_default_db(
             # because that type carries a schema. Every other missing type,
             # including a ULabel type, is a stub.
             if fk == "type" and pre_existing_fk_record_default is None:
-                is_data_record = record.__class__.__name__ == "Record" and not getattr(
+                is_data_record = get_registry_name(record) == "Record" and not getattr(
                     record, "is_type", False
                 )
                 if is_data_record:
@@ -91,7 +93,7 @@ def update_fk_to_default_db(
 
             fk_record_default = copy(fk_record)
             # A schema FK is part of the row. Its members are annotations.
-            if fk_record.__class__.__name__ == "Schema" and transfer_annotations:
+            if get_registry_name(fk_record) == "Schema" and transfer_annotations:
                 from .schema import transfer_schema_with_members
 
                 fk_record_default = transfer_schema_with_members(
@@ -208,7 +210,7 @@ def transfer_notes(record_on_default, source_db, source_pk) -> None:
     existing = record_on_default.ablocks.filter(kind="readme", is_latest=True).first()
     if existing is not None and existing.content == src_block.content:
         return
-    fk_name = record_on_default.__class__.__name__.lower()
+    fk_name = get_registry_name(record_on_default).lower()
     record_on_default.ablocks.model(
         **{fk_name: record_on_default, "kind": "readme", "content": src_block.content}
     ).save()
@@ -238,7 +240,7 @@ def _save_transferred_record(record):
     try:
         record.save()
     except ProgrammingError as error:
-        if record.__class__.__name__ != "User" or not _user_registry_write_forbidden(
+        if get_registry_name(record) != "User" or not _user_registry_write_forbidden(
             error
         ):
             raise
@@ -339,7 +341,7 @@ def _cached_or_load(record, transfer_logs: dict):
     if uid is None:
         return None
     resolved = transfer_logs.setdefault("_resolved", {})
-    key = (record.__class__.__name__, uid)
+    key = (get_registry_name(record), uid)
     if key in resolved:
         return resolved[key]
     found = record.__class__.objects.filter(uid=uid).one_or_none()
@@ -351,7 +353,7 @@ def _remember_target(record, transfer_logs: dict) -> None:
     uid = getattr(record, "uid", None)
     if uid is None:
         return
-    transfer_logs.setdefault("_resolved", {})[(record.__class__.__name__, uid)] = record
+    transfer_logs.setdefault("_resolved", {})[(get_registry_name(record), uid)] = record
 
 
 def resolve_records(records, transfer_logs: dict) -> None:
@@ -365,12 +367,14 @@ def resolve_records(records, transfer_logs: dict) -> None:
 def _resolve_present(bucket: dict, transfer_logs: dict) -> None:
     resolved = transfer_logs.setdefault("_resolved", {})
     for model, by_uid in bucket.items():
-        unknown = [uid for uid in by_uid if (model.__name__, uid) not in resolved]
+        unknown = [
+            uid for uid in by_uid if (get_registry_name(model), uid) not in resolved
+        ]
         if not unknown:
             continue
         found = {row.uid: row for row in model.objects.filter(uid__in=unknown)}
         for uid in unknown:
-            resolved[(model.__name__, uid)] = found.get(uid)
+            resolved[(get_registry_name(model), uid)] = found.get(uid)
 
 
 def _put_entity(bucket: dict, record) -> None:
@@ -546,7 +550,7 @@ def prime_annotation_transfer(hosts: list, transfer_logs: dict) -> None:
     cache = transfer_logs.setdefault("_linked_values", {})
     pending = []
     for host in hosts:
-        if host.__class__.__name__ not in {"Record", "Run"}:
+        if get_registry_name(host) not in {"Record", "Run"}:
             continue
         if host.uid in cache:
             continue
@@ -657,20 +661,20 @@ def transfer_record_feature_values(
 
     def _transfer_entity(value, feature=None):
         known = transfer_logs.get("_resolved", {}).get(
-            (type(value).__name__, getattr(value, "uid", None)), _NOT_CACHED
+            (get_registry_name(value), getattr(value, "uid", None)), _NOT_CACHED
         )
         if known is not _NOT_CACHED and known is not None:
             transfer_logs["mapped"].append(f"{type(value).__name__}(uid='{value.uid}')")
-            if type(value).__name__ == "User":
+            if get_registry_name(value) == "User":
                 return getattr(known, _user_annotation_field(feature))
             return known
-        if type(value).__name__ == "User":
+        if get_registry_name(value) == "User":
             # User is BaseSQLRecord, not SQLRecord. Return the feature field
             # (handle by default) so _add_values can look the user up.
             return _map_user_annotation(value, feature, transfer_logs)
         # A linked record is a stub (uid, name, type, created_by). Transferring
         # that record later fills its remaining fields.
-        if type(value).__name__ in {"Record", "ULabel"}:
+        if get_registry_name(value) in {"Record", "ULabel"}:
             from copy import copy
 
             return transfer_to_default_db(
@@ -757,14 +761,14 @@ def transfer_to_default_db(
     if (
         transfer_annotations
         and not stub
-        and record.__class__.__name__ in {"Record", "Run"}
+        and get_registry_name(record) in {"Record", "Run"}
     ):
         cache = transfer_logs.setdefault("_linked_values", {})
         if record.uid not in cache:
             cache[record.uid] = _linked_feature_values(record)
     # Dtype text is not a foreign key. Follow it even when this feature row
     # is already on the target, so a re-transfer picks up schema__uid refs.
-    if record.__class__.__name__ == "Feature":
+    if get_registry_name(record) == "Feature":
         from .feature import transfer_feature_dtypes
 
         transfer_feature_dtypes(record, using, transfer_logs=transfer_logs)
@@ -779,7 +783,7 @@ def transfer_to_default_db(
     filling = (
         record_on_default is not None
         and not stub
-        and record.__class__.__name__ in {"Record", "ULabel"}
+        and get_registry_name(record) in {"Record", "ULabel"}
     )
     if record_on_default is not None and not filling:
         transfer_logs["mapped"].append(record_str)

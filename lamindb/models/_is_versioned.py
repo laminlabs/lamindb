@@ -13,6 +13,7 @@ from lamindb.base.fields import (
     BooleanField,
     CharField,
 )
+from lamindb.base.utils import get_registry_name
 
 if TYPE_CHECKING:  # noqa
     from lamindb.models.query_set import QuerySet
@@ -112,7 +113,7 @@ class IsVersioned(models.Model):
         old_uid = self.uid  # type: ignore
         new_uid = create_uid(revises=revises, version_tag=version_tag)
         if (
-            self.__class__.__name__ == "Artifact"
+            get_registry_name(self) == "Artifact"
             and self._real_key is None
             and (self._key_is_virtual or self.key is None)
         ):

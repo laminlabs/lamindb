@@ -8,6 +8,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.base.utils import get_registry_name
 from lamindb.models import CanCurate, Feature
 from lamindb.models._from_values import _format_values
 from lamindb.models._transfer import (
@@ -48,7 +49,7 @@ def _get_labels(
     related_models = dict_related_model_to_related_name(
         obj.__class__, links=links, instance=instance
     )
-    if obj.__class__.__name__ == "Artifact" and links:
+    if get_registry_name(obj) == "Artifact" and links:
         related_models["ArtifactArtifact"] = "links_artifact"
     for _, related_name in related_models.items():
         if (
@@ -134,7 +135,7 @@ def _save_validated_records(
         return []
     registry = labels[0].__class__
     field = (
-        REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+        REGISTRY_UNIQUE_FIELD.get(get_registry_name(registry).lower(), "uid")
         if not hasattr(registry, "_ontology_id_field")
         else registry._ontology_id_field
     )
@@ -247,7 +248,7 @@ class LabelManager:
             if not labels.exists():
                 continue
             # look for features
-            data_name_lower = data.__class__.__name__.lower()
+            data_name_lower = get_registry_name(data).lower()
             labels_by_features: dict = defaultdict(list)
             features = set()
             new_labels = save_validated_records(labels)

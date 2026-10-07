@@ -28,6 +28,7 @@ from pandera.engines import pandas_engine
 
 from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
+from lamindb.base.utils import get_registry_name
 from lamindb.models import (
     Artifact,
     Feature,
@@ -38,6 +39,7 @@ from lamindb.models import (
 from lamindb.models._from_values import (
     _format_values,
     _from_values,
+    _is_biorecord,
     build_create_records_hint,
 )
 from lamindb.models.artifact import (
@@ -1769,7 +1771,7 @@ class CatVector:
                     using=self._using,
                 )  # type: ignore
             )
-        if self._registry.__base__.__name__ == "BioRecord":
+        if _is_biorecord(self._registry):
             if self._source is not None:
                 self._filter_kwargs["source"] = self._source
             organism_record = get_organism_record_from_field(
@@ -1951,7 +1953,7 @@ class CatVector:
                             parsed_filters, registry, using=self._using
                         )
                     )
-                if registry.__base__.__name__ == "BioRecord":
+                if _is_biorecord(registry):
                     organism_record = get_organism_record_from_field(
                         field=field,
                         organism=None,
@@ -1989,7 +1991,8 @@ class CatVector:
                     self._subtype_query_set = qs
                 else:
                     query_sub_types = getattr(
-                        self._type_record, f"query_{registry.__name__.lower()}s"
+                        self._type_record,
+                        f"query_{get_registry_name(registry).lower()}s",
                     )
                     self._subtype_query_set = query_sub_types()
                 subtype_query_set = (
@@ -2013,7 +2016,7 @@ class CatVector:
                 # This prevents ambiguity errors for schema-defined column/features in
                 # flexible schemas when duplicate root-level Features exist.
                 if (
-                    registry.__name__ == "Feature"
+                    get_registry_name(registry) == "Feature"
                     and self._schema
                     and self._schema.n_members
                 ):
@@ -2197,9 +2200,8 @@ class CatVector:
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
                 check_organism = ""
-                if (
-                    self._registry.__base__.__name__ == "BioRecord"
-                    and self._registry.require_organism(field=self._field)
+                if _is_biorecord(self._registry) and self._registry.require_organism(
+                    field=self._field
                 ):
                     organism = self._filter_kwargs.get("organism", None)
                     check_organism = f"fix organism '{organism}', "

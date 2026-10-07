@@ -28,6 +28,7 @@ from rich.markup import escape as rich_escape
 import lamindb as ln
 
 from ..base.types import PROJECT_STATUS_TO_CODE as LAMIN_PROJECT_STATUS_TO_CODE
+from ..base.utils import get_registry_name
 
 API_VERSION = "2026-03-11"
 BASE = "https://api.notion.com/v1"
@@ -2074,7 +2075,7 @@ def _ensure_feature_itype_on_record_schema(rec_type: Any) -> None:
         first_member = members[0]
     if first_member is None:
         return
-    if first_member.__class__.__name__ != "Feature":
+    if get_registry_name(first_member) != "Feature":
         return
     schema.itype = "Feature"
     save_fn = getattr(schema, "save", None)
@@ -5239,7 +5240,7 @@ class ProjectSyncer:
                 return [
                     value
                     for value in values
-                    if value.__class__.__name__.lower() == model_name.lower()
+                    if get_registry_name(value).lower() == model_name.lower()
                 ]
 
             project.parents.set(

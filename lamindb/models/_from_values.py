@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from lamindb_setup import logger
 from lamindb_setup.core import colors
 
+from lamindb.base.utils import concrete_model
+
 if TYPE_CHECKING:
     from pandas import DataFrame, Index
 
@@ -44,6 +46,13 @@ def build_not_validated_values_message(
     return (
         f"These values could not be validated: {dict(not_validated_values)}\n"
         f"{create_hint}"
+    )
+
+
+def _is_biorecord(registry: type) -> bool:
+    """Whether `registry` is a bionty `BioRecord`, including a proxy of one."""
+    return any(
+        base.__name__ == "BioRecord" for base in concrete_model(registry).__mro__
     )
 
 
@@ -92,7 +101,7 @@ def _from_values(
 
     # new records to be created based on new values
     if len(nonexist_values) > 0:
-        if from_source and registry.__base__.__name__ == "BioRecord":
+        if from_source and _is_biorecord(registry):
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
@@ -411,7 +420,7 @@ def get_organism_record_from_field(  # type: ignore
             The field is not unique (e.g. Gene.symbol) or the organism is not None
     """
     registry = field.field.model
-    if registry.__base__.__name__ != "BioRecord":
+    if not _is_biorecord(registry):
         return None
 
     from bionty._organism import (
