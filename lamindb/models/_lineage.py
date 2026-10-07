@@ -6,6 +6,7 @@ from django.db import ProgrammingError
 from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 
+from ..base.utils import get_registry_name
 from ..core._settings import settings
 from ..errors import NoWriteAccess
 from .run import Run
@@ -133,7 +134,7 @@ def track_run_inputs(
         ]
         input_datasets_ids = [dataset.id for dataset in input_datasets]
     if input_datasets:
-        registry_str = input_datasets[0].__class__.__name__.lower()
+        registry_str = get_registry_name(input_datasets[0]).lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to

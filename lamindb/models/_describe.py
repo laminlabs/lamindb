@@ -12,6 +12,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.base.utils import get_registry_name
 from lamindb.models import BaseSQLRecord, Branch, Run
 
 from ._is_versioned import IsVersioned
@@ -658,8 +659,9 @@ def describe_postgres(record, n_max_features: int | None = None):
         get_collection_with_related,
     )
 
-    model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
+    display_name = record.__class__.__name__
+    model_name = get_registry_name(record)
+    msg = f"{colors.green(display_name)}{record.__repr__(include_foreign_keys=False).lstrip(display_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
@@ -707,8 +709,9 @@ def describe_postgres(record, n_max_features: int | None = None):
 def describe_sqlite(record, n_max_features: int | None = None):
     from ._django import SCHEMA_MEMBER_PREVIEW_LIMIT
 
-    model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
+    display_name = record.__class__.__name__
+    model_name = get_registry_name(record)
+    msg = f"{colors.green(display_name)}{record.__repr__(include_foreign_keys=False).lstrip(display_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"

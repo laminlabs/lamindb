@@ -20,6 +20,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.base.utils import concrete_model, get_registry_name
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import (
     _format_values,
@@ -127,7 +128,7 @@ def get_link_attr(
         link_model_name = link.__name__  # type: ignore
     if link_model_name.startswith("Record") or link_model_name == "ArtifactArtifact":
         return "value"
-    host_name = data.__name__ if isinstance(data, type) else data.__class__.__name__
+    host_name = get_registry_name(data)
     return link_model_name.replace(host_name, "").lower()
 
 
@@ -140,7 +141,7 @@ def get_categorical_link_info(
 
     Used by filter_base (categorical path) and _add_label_feature_links.
     """
-    host_name = host_class.__name__.lower()
+    host_name = get_registry_name(host_class).lower()
 
     if host_name == "record":
         d = dict_related_model_to_related_name(
@@ -237,7 +238,7 @@ def _host_feature_objects_from_links(host: Any) -> list[Feature]:
     host_id = host.id
     if host_id is None:
         return []
-    host_field = f"{host.__class__.__name__.lower()}_id"
+    host_field = f"{get_registry_name(host).lower()}_id"
     feature_ids: set[int] = set()
     for rel in host._meta.related_objects:
         link_model = rel.related_model
@@ -320,7 +321,7 @@ def get_categoricals_postgres(
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if related_data is None:
-        if self.__class__.__name__ in {"Artifact", "Run", "Record"}:
+        if get_registry_name(self) in {"Artifact", "Run", "Record"}:
             artifact_meta = get_artifact_or_run_with_related(
                 self, include_feature_link=True, include_m2m=True
             )
@@ -334,11 +335,11 @@ def get_categoricals_postgres(
     # e.g. {'tissue': {1: {'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, 10: {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}}, 'celltype': {1: {'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}}}
     # integers are the ids of the related labels
     m2m_name = {}
-    if not self.__class__.__name__ == "Record":
+    if not get_registry_name(self) == "Record":
         for related_name, values in m2m_data.items():
             link_model = getattr(self.__class__, related_name).through
             related_model_name = link_model.__name__.replace(
-                self.__class__.__name__, "", 1
+                get_registry_name(self), "", 1
             ).lower()
             if related_model_name == "artifact":
                 related_model_name = "value"
@@ -369,7 +370,7 @@ def get_categoricals_postgres(
                 continue
             feature_name, feature_dtype = feature_dict.get(feature_id)
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
-            if not self.__class__.__name__ == "Record":
+            if not get_registry_name(self) == "Record":
                 label_id = link_value.get(related_name)
                 label_name = (
                     m2m_name.get(related_name, {}).get(label_id, {}).get(feature_field)
@@ -684,7 +685,7 @@ def get_features_data(
                 external_data.append(feature_info)
 
     if to_dict:
-        if self.__class__.__name__ == "Record":
+        if get_registry_name(self) == "Record":
             from .record import inject_index_into_feature_dict
 
             inject_index_into_feature_dict(self, dictionary)
@@ -694,7 +695,7 @@ def get_features_data(
             }
         else:
             return dictionary
-    if self.__class__.__name__ == "Record":
+    if get_registry_name(self) == "Record":
         _append_values_through_describe_rows(
             self, external_data, internal_feature_labels
         )
@@ -872,7 +873,7 @@ def describe_features(
         external_features_text = (
             "External features"
             if (
-                self.__class__.__name__ == "Artifact" and dataset_features_tree_children
+                get_registry_name(self) == "Artifact" and dataset_features_tree_children
             )
             else "Features"
         )
@@ -982,23 +983,24 @@ def _filter_one_feature_clause(
     from lamindb.models.record import Record, RecordJson
     from lamindb.models.run import Run
 
+    model = concrete_model(queryset.model)
     dtype_str = feature._dtype_str
     # non-categorical features
     if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
         if comparator == "__isnull":
-            if queryset.model is Artifact:
+            if model is Artifact:
                 from .artifact import ArtifactJsonValue
 
                 value_subquery = ArtifactJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("artifact_id")
-            elif queryset.model is Run:
+            elif model is Run:
                 from .run import RunJsonValue
 
                 value_subquery = RunJsonValue.objects.filter(
                     jsonvalue__feature=feature
                 ).values("run_id")
-            elif queryset.model is Record:
+            elif model is Record:
                 value_subquery = RecordJson.objects.filter(feature=feature).values(
                     "record_id"
                 )
@@ -1022,7 +1024,7 @@ def _filter_one_feature_clause(
         if use_numeric_sqlite:
             # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
             num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
-            if queryset.model is Record:
+            if model is Record:
                 value_qs = (
                     RecordJson.objects.using(queryset.db)
                     .filter(feature=feature)
@@ -1037,11 +1039,7 @@ def _filter_one_feature_clause(
                     .annotate(num_val=num_val_raw)
                     .filter(**{f"num_val{comparator}": value})
                 )
-                accessor = (
-                    "json_values"
-                    if queryset.model in {Artifact, Run}
-                    else "values_json"
-                )
+                accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
         else:
             if connections[feature._state.db].vendor == "sqlite" and comparator in {
@@ -1053,16 +1051,12 @@ def _filter_one_feature_clause(
                 # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
                 value = str(value)
             filter_expr = {"feature": feature, f"value{comparator}": value}
-            if queryset.model is Record:
+            if model is Record:
                 value_qs = RecordJson.objects.using(queryset.db).filter(**filter_expr)
                 return queryset.filter(values_json__id__in=value_qs)
             else:
                 json_values = JsonValue.objects.using(queryset.db).filter(**filter_expr)
-                accessor = (
-                    "json_values"
-                    if queryset.model in {Artifact, Run}
-                    else "values_json"
-                )
+                accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
     # categorical features
     elif isinstance(value, (str, SQLRecord, bool)):
@@ -1287,7 +1281,7 @@ class FeatureManager:
 
         from .query_set import SQLRecordList
 
-        host_name = self._host.__class__.__name__
+        host_name = get_registry_name(self._host)
         host_id = self._host.id
         host_db = self._host._state.db
         feature_records = list(Feature.objects.using(host_db).filter(name=feature))
@@ -1423,7 +1417,7 @@ class FeatureManager:
         self,
         features_labels,
     ):
-        host_name = self._host.__class__.__name__.lower()
+        host_name = get_registry_name(self._host).lower()
         host_is_record = host_name == "record"
         instance = getattr(self._host._state, "db", None)
         for class_name, registry_features_labels in features_labels.items():
@@ -1846,8 +1840,8 @@ class FeatureManager:
         """
         from lamindb.curators.core import ExperimentalDictCurator
 
-        host_is_record = self._host.__class__.__name__ == "Record"
-        host_is_artifact = self._host.__class__.__name__ == "Artifact"
+        host_is_record = get_registry_name(self._host) == "Record"
+        host_is_artifact = get_registry_name(self._host) == "Artifact"
         # rename to distinguish from the values inside the dict
         (
             dictionary,
@@ -1943,7 +1937,7 @@ class FeatureManager:
         from .can_curate import CanCurate
 
         host_db = self._host._state.db
-        host_is_record = self._host.__class__.__name__ == "Record"
+        host_is_record = get_registry_name(self._host) == "Record"
         if host_is_record:
             feature_json_values: list[SQLRecord] = []
             links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
@@ -2070,7 +2064,7 @@ class FeatureManager:
             links = [
                 self._host.json_values.through(
                     **{
-                        f"{self._host.__class__.__name__.lower()}_id": self._host.id,
+                        f"{get_registry_name(self._host).lower()}_id": self._host.id,
                         "jsonvalue_id": json_value.id,
                     }
                 )
@@ -2113,8 +2107,8 @@ class FeatureManager:
         """
         from lamindb.curators.core import ExperimentalDictCurator
 
-        host_is_record = self._host.__class__.__name__ == "Record"
-        host_is_artifact = self._host.__class__.__name__ == "Artifact"
+        host_is_record = get_registry_name(self._host) == "Record"
+        host_is_artifact = get_registry_name(self._host) == "Artifact"
         # rename to distinguish from the values inside the dict
         (
             dictionary,
@@ -2226,7 +2220,7 @@ class FeatureManager:
                 e.g. `{feature: value}`.
             value: An optional value to restrict removal to a single value.
         """
-        host_name = self._host.__class__.__name__.lower()
+        host_name = get_registry_name(self._host).lower()
         host_is_artifact = host_name == "artifact"
 
         if host_is_artifact:
@@ -2280,7 +2274,7 @@ class FeatureManager:
     ) -> None:
         from django.apps import apps
 
-        host_name = self._host.__class__.__name__.lower()
+        host_name = get_registry_name(self._host).lower()
         host_is_record = host_name == "record"
         host_is_artifact = host_name == "artifact"
 
@@ -2341,7 +2335,7 @@ class FeatureManager:
                 else:
                     app_label = "lamindb"
                     entity_name = feature_registry
-                host_name = self._host.__class__.__name__
+                host_name = get_registry_name(self._host)
                 link_model_name = f"{host_name}{entity_name}"
                 link_model = apps.get_model(app_label, link_model_name)
                 filter_kwargs[host_name.lower()] = self._host
@@ -2465,7 +2459,9 @@ class FeatureManager:
             else:
                 registry = members[0].__class__
                 # note here the features are transferred based on an unique field
-                field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+                field = REGISTRY_UNIQUE_FIELD.get(
+                    get_registry_name(registry).lower(), "uid"
+                )
                 # this will be e.g. be a list of ontology_ids or uids
                 member_uids = list(members.values_list(field, flat=True))
                 validated = registry.validate(member_uids, field=field, mute=True)

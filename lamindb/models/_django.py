@@ -9,6 +9,7 @@ from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
 
+from ..base.utils import get_registry_name
 from ._relations import dict_related_model_to_related_name, get_schema_modules
 from .schema import Schema
 
@@ -95,9 +96,9 @@ def get_artifact_or_run_with_related(
     from .query_set import get_default_branch_ids
 
     model = record.__class__
-    is_record = record.__class__.__name__ == "Record"
-    is_artifact = record.__class__.__name__ == "Artifact"
-    entity_field_name = record.__class__.__name__.lower()
+    is_record = get_registry_name(record) == "Record"
+    is_artifact = get_registry_name(record) == "Artifact"
+    entity_field_name = get_registry_name(record).lower()
     if entity_field_name in {"run", "record"} and include_schema:
         include_schema = False  # runs do not have feature sets
     schema_modules = get_schema_modules(record._state.db)

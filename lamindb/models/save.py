@@ -13,6 +13,7 @@ from django.utils.functional import partition
 from lamindb_setup import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
+from ..base.utils import concrete_model, get_registry_name
 from ..core._settings import settings
 from .sqlrecord import (
     UNIQUE_FIELD_NAMES,
@@ -132,7 +133,7 @@ def save(
         records_with_lazy_features = [
             record
             for record in non_artifacts
-            if record.__class__.__name__ == "Record" and hasattr(record, "_features")
+            if get_registry_name(record) == "Record" and hasattr(record, "_features")
         ]
         if records_with_lazy_features:
             from ._feature_manager import bulk_set_features_in_records
@@ -175,7 +176,7 @@ def bulk_create(
     """
     records_by_orm = defaultdict(list)
     for record in records:
-        records_by_orm[record.__class__].append(record)
+        records_by_orm[concrete_model(record)].append(record)
 
     for registry, records_list in records_by_orm.items():
         _ensure_using_connection(registry, using)
@@ -286,7 +287,7 @@ def bulk_update(
     """
     records_by_orm = defaultdict(list)
     for record in records:
-        records_by_orm[record.__class__].append(record)
+        records_by_orm[concrete_model(record)].append(record)
 
     for registry, records_list in records_by_orm.items():
         _ensure_using_connection(registry, using)
