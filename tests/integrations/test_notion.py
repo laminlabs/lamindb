@@ -27,11 +27,13 @@ from lamindb.integrations.notion import (
     _ensure_artifacts,
     _ensure_feature_itype_on_record_schema,
     _flatten,
+    _notion_property_type,
     _notion_user_or_page_name,
     _NotionReader,
     _NotionSyncer,
     _planned_embedded_file_transfers,
     _planned_missing_file_transfers,
+    _relation_stub_page,
     _resolve_relation_records_for_rows,
     _resolved_users_by_notion_id,
     _rewrite_embedded_file_refs,
@@ -1707,7 +1709,11 @@ def test_write_creates_relation_stubs_and_sets_typed_feature_values():
     reader = MagicMock()
     reader.page_markdown.return_value = ""
     reader._call.return_value = {
-        "properties": {"Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}}
+        "created_time": "2024-01-01T08:00:00Z",
+        "last_edited_time": "2024-01-03T10:00:00Z",
+        "properties": {
+            "Name": {"type": "title", "title": [{"plain_text": "Deepmind"}]}
+        },
     }
     related_feature = _fake_feature("Related", "list[cat[Record[Ab12Cd34Ef56]]]")
     rec_type = type(
@@ -1762,6 +1768,8 @@ def test_write_creates_relation_stubs_and_sets_typed_feature_values():
         reference="3922aeaa55e1808d9725d314fb7bc388",
         reference_type="notion",
     )
+    assert stub_factory.created_at == _ts("2024-01-01T08:00:00Z")
+    assert stub_factory.updated_at == _ts("2024-01-03T10:00:00Z")
     values = rec.features.set_values.call_args.args[0]
     assert values[related_feature] == [stub_record]
     assert (
@@ -1773,6 +1781,40 @@ def test_write_creates_relation_stubs_and_sets_typed_feature_values():
         in report.relation_value_links
     )
     assert stats == {"records": 1, "pending": 0}
+
+
+def test_relation_stub_page_uses_notion_created_time():
+    reader = MagicMock()
+    reader._call.return_value = {
+        "created_time": "2026-07-08T09:00:00.000Z",
+        "last_edited_time": "2026-08-19T11:30:00.000Z",
+        "properties": {
+            "Name": {
+                "type": "title",
+                "title": [{"plain_text": "Pfizer Bi-Weekly | 2026-07-08"}],
+            }
+        },
+    }
+
+    name, created_at, updated_at = _relation_stub_page(
+        reader, "3ab2aeaa55e180d186d4eb27d6fa1f29"
+    )
+
+    assert name == "Pfizer Bi-Weekly | 2026-07-08"
+    assert created_at == _ts("2026-07-08T09:00:00.000Z")
+    assert updated_at == _ts("2026-08-19T11:30:00.000Z")
+
+
+def test_relation_stub_page_falls_back_when_created_time_missing():
+    reader = MagicMock()
+    reader._call.return_value = {
+        "last_edited_time": "2026-08-19T11:30:00Z",
+        "properties": {"Name": {"type": "title", "title": [{"plain_text": "Meeting"}]}},
+    }
+
+    _, created_at, updated_at = _relation_stub_page(reader, "page-1")
+
+    assert created_at == updated_at == _ts("2026-08-19T11:30:00Z")
 
 
 def test_relation_resolution_dry_run_reports_planned_stub_creation():
@@ -2255,9 +2297,11 @@ def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url
     ):
         reader = MagicMock()
         reader._call.return_value = {
+            "created_time": "2024-01-01T08:00:00Z",
+            "last_edited_time": "2024-01-03T10:00:00Z",
             "properties": {
                 "Name": {"type": "title", "title": [{"plain_text": "Pfizer"}]}
-            }
+            },
         }
         resolved, pending = _resolve_relation_records_for_rows(
             reader,
@@ -2275,6 +2319,8 @@ def test_relation_resolution_project_registry_apply_creates_stub_with_notion_url
         name="Pfizer",
         url="https://notion.so/laminlabs/3922aeaa55e1808d9725d314fb7bc388",
     )
+    assert stub_factory.created_at == _ts("2024-01-01T08:00:00Z")
+    assert stub_factory.updated_at == _ts("2024-01-03T10:00:00Z")
     assert resolved["3922aeaa55e1808d9725d314fb7bc388"] is stub_project
     assert pending == 0
     assert (
@@ -2311,9 +2357,11 @@ def test_relation_resolution_reference_registry_apply_creates_stub():
     ):
         reader = MagicMock()
         reader._call.return_value = {
+            "created_time": "2024-01-01T08:00:00Z",
+            "last_edited_time": "2024-01-03T10:00:00Z",
             "properties": {
                 "Name": {"type": "title", "title": [{"plain_text": "Nature paper"}]}
-            }
+            },
         }
         resolved, pending = _resolve_relation_records_for_rows(
             reader,
@@ -2327,6 +2375,8 @@ def test_relation_resolution_reference_registry_apply_creates_stub():
         )
 
     Reference.assert_called_once_with(name="Nature paper")
+    assert stub_factory.created_at == _ts("2024-01-01T08:00:00Z")
+    assert stub_factory.updated_at == _ts("2024-01-03T10:00:00Z")
     assert resolved["ref-page-1"] is stub_record
     assert pending == 0
     assert (
@@ -3046,6 +3096,79 @@ def test_record_field_mapping_is_derived_from_notion_type_and_property_name(sync
         "Summary": "description",
         "description": "description",
     }
+
+
+def test_notion_property_type_reads_created_time_config():
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "name": "created_at",
+                "type": "created_time",
+                "created_time": {},
+            }
+        )
+        == "created_time"
+    )
+    assert (
+        _notion_property_type(
+            {
+                "id": "def",
+                "name": "updated_at",
+                "type": "last_edited_time",
+                "last_edited_time": {},
+            }
+        )
+        == "last_edited_time"
+    )
+    # Page property values store the timestamp string under the type key.
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "type": "created_time",
+                "created_time": "2026-10-01T10:11:00.000Z",
+            }
+        )
+        == "created_time"
+    )
+
+
+def test_notion_property_type_prefers_config_key_over_mismatched_type_string():
+    assert (
+        _notion_property_type(
+            {
+                "id": "abc",
+                "name": "created_at",
+                "type": "last_edited_time",
+                "created_time": {},
+            }
+        )
+        == "created_time"
+    )
+
+
+def test_schema_distinguishes_created_time_from_last_edited_time(reader):
+    timestamp_ds = {
+        "properties": {
+            "created_at": {
+                "id": "created",
+                "name": "created_at",
+                "type": "created_time",
+                "created_time": {},
+            },
+            "updated_at": {
+                "id": "updated",
+                "name": "updated_at",
+                "type": "last_edited_time",
+                "last_edited_time": {},
+            },
+        }
+    }
+    reader.s.request.side_effect = [_make_response(DB), _make_response(timestamp_ds)]
+    columns = reader.columns("db-1")
+    assert columns["created_at"] == "created_time"
+    assert columns["updated_at"] == "last_edited_time"
 
 
 def test_database_emoji_and_description_parsing(syncer):

@@ -377,6 +377,52 @@ def _flatten(prop: dict, *, people_name_cache: dict[str, str] | None = None) -> 
     return None  # rollup, formula, unknown
 
 
+# Notion identifies a property's type by the configuration object on the schema
+# (`created_time: {}` vs `last_edited_time: {}`). The `type` string repeats that
+# key when it is present.
+_NOTION_PROPERTY_TYPES = (
+    "button",
+    "checkbox",
+    "created_by",
+    "created_time",
+    "date",
+    "email",
+    "files",
+    "formula",
+    "last_edited_by",
+    "last_edited_time",
+    "multi_select",
+    "number",
+    "people",
+    "phone_number",
+    "place",
+    "relation",
+    "rich_text",
+    "rollup",
+    "select",
+    "status",
+    "title",
+    "unique_id",
+    "url",
+    "verification",
+)
+
+
+def _notion_property_type(prop: dict) -> str:
+    """Return the Notion property type from a schema or page-property object."""
+    if not isinstance(prop, dict):
+        return ""
+    config_types = [
+        key for key in _NOTION_PROPERTY_TYPES if isinstance(prop.get(key), dict)
+    ]
+    declared = prop.get("type")
+    if len(config_types) == 1:
+        return config_types[0]
+    if isinstance(declared, str) and declared:
+        return declared
+    return ""
+
+
 def _page_title(page: dict) -> str:
     """The title of a page, whatever the title property happens to be called."""
     for prop in page.get("properties", {}).values():
@@ -392,6 +438,28 @@ def _parse_notion_timestamp(value: Any) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _notion_timestamps(
+    created_time: Any, last_edited_time: Any
+) -> tuple[datetime | None, datetime | None]:
+    """Notion page timestamps, with the same fallback as a full page upsert."""
+    created_at = _parse_notion_timestamp(created_time)
+    updated_at = _parse_notion_timestamp(last_edited_time)
+    if created_at is None:
+        created_at = updated_at
+    if updated_at is None:
+        updated_at = created_at
+    return created_at, updated_at
+
+
+def _assign_notion_timestamps(
+    record: Any, created_at: datetime | None, updated_at: datetime | None
+) -> None:
+    if created_at is not None:
+        record.created_at = created_at
+    if updated_at is not None:
+        record.updated_at = updated_at
 
 
 def _normalized_timestamp(value: datetime | None) -> datetime | None:
@@ -486,7 +554,7 @@ class _NotionReader:
         props = self._call("GET", f"/data_sources/{ds}").get("properties", {})
         out: dict[str, dict] = {}
         for name, p in props.items():
-            t = p.get("type", "")
+            t = _notion_property_type(p)
             target = None
             dual = None
             choices = None
@@ -1055,14 +1123,25 @@ def _matches_target_type(record: Any, target_type: Any) -> bool:
     return getattr(record, "type_id", None) == target_id
 
 
-def _relation_stub_name(reader: _NotionReader, notion_id: str) -> str:
+def _relation_stub_page(
+    reader: _NotionReader, notion_id: str
+) -> tuple[str, datetime | None, datetime | None]:
+    """Stub display name plus the Notion page's created and edited times."""
     fallback = _compact_uuid(notion_id)
     try:
         payload = reader._call("GET", f"/pages/{_notion_api_id(notion_id)}")
     except Exception:
-        return fallback
-    name = _page_title(payload).strip()
-    return name or fallback
+        return fallback, None, None
+    name = _page_title(payload).strip() or fallback
+    created_at, updated_at = _notion_timestamps(
+        payload.get("created_time"), payload.get("last_edited_time")
+    )
+    return name, created_at, updated_at
+
+
+def _relation_stub_name(reader: _NotionReader, notion_id: str) -> str:
+    name, _, _ = _relation_stub_page(reader, notion_id)
+    return name
 
 
 def _relation_stub_detail(
@@ -1313,7 +1392,9 @@ def _resolve_relation_records_for_rows(
                 field_name = getattr(target_type, "_name_field", "name")
                 if apply:
                     for notion_id in missing:
-                        stub_name = _relation_stub_name(reader, notion_id)
+                        stub_name, created_at, updated_at = _relation_stub_page(
+                            reader, notion_id
+                        )
                         stub = target_type(
                             **_registry_stub_kwargs(
                                 target_type,
@@ -1322,7 +1403,9 @@ def _resolve_relation_records_for_rows(
                                 notion_id,
                                 workspace,
                             )
-                        ).save()
+                        )
+                        _assign_notion_timestamps(stub, created_at, updated_at)
+                        stub = stub.save()
                         resolved[notion_id] = stub
                         stub_create += 1
                         if report is not None:
@@ -1382,13 +1465,17 @@ def _resolve_relation_records_for_rows(
             if missing:
                 if apply:
                     for notion_id in missing:
-                        stub_name = _relation_stub_name(reader, notion_id)
+                        stub_name, created_at, updated_at = _relation_stub_page(
+                            reader, notion_id
+                        )
                         stub = ln.Record(
                             name=stub_name,
                             type=target_type,
                             reference=_normalize_notion_id(notion_id) or notion_id,
                             reference_type="notion",
-                        ).save()
+                        )
+                        _assign_notion_timestamps(stub, created_at, updated_at)
+                        stub = stub.save()
                         resolved[notion_id] = stub
                         stub_create += 1
                         if report is not None:
@@ -2040,12 +2127,9 @@ def _upsert_all(rec_type, rows) -> dict:
             continue
         nid = _normalize_notion_id(raw_nid) or raw_nid
         row_emoji = row.get("__notion_emoji__")
-        created_at = _parse_notion_timestamp(row.get("created_time"))
-        updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
-        if created_at is None:
-            created_at = updated_at
-        if updated_at is None:
-            updated_at = created_at
+        created_at, updated_at = _notion_timestamps(
+            row.get("created_time"), row.get("last_edited_time")
+        )
         rec = by_id.get(nid)
         if rec is None:
             rec = ln.Record(
@@ -2055,10 +2139,7 @@ def _upsert_all(rec_type, rows) -> dict:
                 reference_type="notion",
             )
             rec._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-            if created_at is not None:
-                rec.created_at = created_at
-            if updated_at is not None:
-                rec.updated_at = updated_at
+            _assign_notion_timestamps(rec, created_at, updated_at)
             by_id[nid] = rec.save()
             continue
 
@@ -4807,12 +4888,9 @@ class ProjectSyncer:
             notion_id = _normalize_notion_id(raw_notion_id) or raw_notion_id
             project_url = self._notion_project_url(notion_id)
             row_emoji = row.get("__notion_emoji__")
-            created_at = _parse_notion_timestamp(row.get("created_time"))
-            updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
-            if created_at is None:
-                created_at = updated_at
-            if updated_at is None:
-                updated_at = created_at
+            created_at, updated_at = _notion_timestamps(
+                row.get("created_time"), row.get("last_edited_time")
+            )
             row_name = row.get(title_property) if title_property else row.get("name")
             project = by_id.get(notion_id)
             if project is None:
@@ -4824,10 +4902,7 @@ class ProjectSyncer:
                     project_kwargs["type"] = project_type
                 project = ln.Project(**project_kwargs)
                 project._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-                if created_at is not None:
-                    project.created_at = created_at
-                if updated_at is not None:
-                    project.updated_at = updated_at
+                _assign_notion_timestamps(project, created_at, updated_at)
                 by_id[notion_id] = project.save()
                 continue
             changed_fields: list[str] = []
