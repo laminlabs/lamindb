@@ -2540,10 +2540,7 @@ class DataFrameCatManager:
                 [pl.col(key).unique().implode().alias(key) for key in keys]
             )
             if isinstance(query, pl.LazyFrame):
-                try:
-                    query = query.collect(engine="streaming")
-                except TypeError:  # older polars
-                    query = query.collect()
+                query = query.collect(engine="streaming")
             self._unique_values = {
                 key: pd.Series(query[key][0].to_list(), name=key) for key in keys
             }

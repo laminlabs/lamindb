@@ -210,7 +210,7 @@ executing the frame. `validate()` checks both dtypes and values, including
 nullability and registry membership; it executes check queries rather than
 converting the full frame to pandas. Registry lookups only need distinct values,
 so the distinct values of all registry columns are computed in one batched
-(streaming where supported) query and cached. Memory is bound by the number of
+streaming query and cached. Memory is bound by the number of
 distinct labels, not by the number of rows.
 Saving a LazyFrame uses Polars' lazy CSV or Parquet sink.
 
