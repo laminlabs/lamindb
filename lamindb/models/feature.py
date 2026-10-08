@@ -11,7 +11,6 @@ from django.conf import settings as django_settings
 from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
-from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamindb_setup import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -2006,18 +2005,24 @@ class JsonValue(SQLRecord, TracksRun):
 
     @classmethod
     def get_or_create(cls, feature, value):
+        """Return the JSON value for a feature, creating it if absent.
+
+        Args:
+            feature: Feature this value is indexed by.
+            value: JSON value. Scalars are hashed from their string form.
+
+        Returns:
+            The record and `True` if it already existed.
+        """
         # simple values: (int, float, str, bool, datetime)
         if not isinstance(value, dict):
-            hash = hash_string(str(value))
+            value_hash = hash_string(str(value))
         else:
-            hash = hash_dict(value)
-        try:
-            return (
-                cls.objects.create(feature=feature, value=value, hash=hash),
-                False,
-            )
-        except DjangoIntegrityError:
-            return cls.objects.get(feature=feature, hash=hash), True
+            value_hash = hash_dict(value)
+        record, created = cls.objects.get_or_create(
+            feature=feature, hash=value_hash, defaults={"value": value}
+        )
+        return record, not created
 
 
 def suggest_categorical_for_str_iterable(
