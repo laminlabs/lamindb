@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import IntegrityError, models, transaction
+from django.db import models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from lamindb_setup import logger
@@ -2010,20 +2010,9 @@ class JsonValue(SQLRecord, TracksRun):
             value_hash = hash_string(str(value))
         else:
             value_hash = hash_dict(value)
-        lookup = {"feature": feature, "hash": value_hash}
-        try:
-            return cls.objects.get(**lookup), False
-        except cls.DoesNotExist:
-            try:
-                # Savepoint so IntegrityError does not abort an outer transaction.
-                with transaction.atomic():
-                    return cls.objects.create(value=value, **lookup), True
-            except IntegrityError:
-                try:
-                    return cls.objects.get(**lookup), False
-                except cls.DoesNotExist:
-                    pass
-                raise
+        return cls.objects.get_or_create(
+            feature=feature, hash=value_hash, defaults={"value": value}
+        )
 
 
 def suggest_categorical_for_str_iterable(

@@ -535,39 +535,18 @@ def test_format_cat_filter_value_edge_cases():
         _format_cat_filter_value("a,\"b'c")
 
 
-def test_json_value_get_or_create_integrity_error(monkeypatch):
-    from django.db import IntegrityError
-
-    feature = ln.Feature(name="json_get_or_create_conflict", dtype=str).save()
+def test_json_value_get_or_create():
+    feature = ln.Feature(name="json_get_or_create", dtype=str).save()
     try:
-        existing, created = ln.models.JsonValue.get_or_create(feature, "kept")
+        created_record, created = ln.models.JsonValue.get_or_create(feature, "kept")
         assert created is True
-
-        real_get = ln.models.JsonValue.objects.get
-        gets = {"n": 0}
-
-        def miss_once(*args, **kwargs):
-            gets["n"] += 1
-            if gets["n"] == 1:
-                raise ln.models.JsonValue.DoesNotExist
-            return real_get(*args, **kwargs)
-
-        def conflict(*args, **kwargs):
-            raise IntegrityError("duplicate key")
-
-        monkeypatch.setattr(ln.models.JsonValue.objects, "get", miss_once)
-        monkeypatch.setattr(ln.models.JsonValue.objects, "create", conflict)
-
-        record, created = ln.models.JsonValue.get_or_create(feature, "kept")
+        again, created = ln.models.JsonValue.get_or_create(feature, "kept")
         assert created is False
-        assert record.pk == existing.pk
+        assert again.pk == created_record.pk
 
-        def always_miss(*args, **kwargs):
-            raise ln.models.JsonValue.DoesNotExist
-
-        monkeypatch.setattr(ln.models.JsonValue.objects, "get", always_miss)
-        with pytest.raises(IntegrityError, match="duplicate key"):
-            ln.models.JsonValue.get_or_create(feature, "missing")
+        dict_record, created = ln.models.JsonValue.get_or_create(feature, {"detail": 1})
+        assert created is True
+        assert dict_record.pk != created_record.pk
     finally:
         ln.models.JsonValue.filter(feature=feature).delete(permanent=True)
         feature.delete(permanent=True)
