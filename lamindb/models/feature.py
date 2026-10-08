@@ -8,10 +8,9 @@ from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
-from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamindb_setup import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -2008,16 +2007,23 @@ class JsonValue(SQLRecord, TracksRun):
     def get_or_create(cls, feature, value):
         # simple values: (int, float, str, bool, datetime)
         if not isinstance(value, dict):
-            hash = hash_string(str(value))
+            value_hash = hash_string(str(value))
         else:
-            hash = hash_dict(value)
+            value_hash = hash_dict(value)
+        lookup = {"feature": feature, "hash": value_hash}
         try:
-            return (
-                cls.objects.create(feature=feature, value=value, hash=hash),
-                False,
-            )
-        except DjangoIntegrityError:
-            return cls.objects.get(feature=feature, hash=hash), True
+            return cls.objects.get(**lookup), False
+        except cls.DoesNotExist:
+            try:
+                # Savepoint so IntegrityError does not abort an outer transaction.
+                with transaction.atomic():
+                    return cls.objects.create(value=value, **lookup), True
+            except IntegrityError:
+                try:
+                    return cls.objects.get(**lookup), False
+                except cls.DoesNotExist:
+                    pass
+                raise
 
 
 def suggest_categorical_for_str_iterable(
