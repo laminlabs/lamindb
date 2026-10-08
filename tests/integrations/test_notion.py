@@ -4133,8 +4133,8 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], depth=0)
+        report = syncer.import_page("parent", apply=False, depth=1)
+    collect_ids.assert_called_once_with(["parent"], depth=1)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -4163,7 +4163,7 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
@@ -4198,7 +4198,7 @@ def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.create_artifacts == [
         f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
     ]
@@ -4228,7 +4228,7 @@ def test_import_pages_dry_run_reports_pending_embedded_note_file_transfers(synce
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.create_artifacts == [
         f'{_short_file_source("https://files.notion.site/a.png")} <- a:notes (key=None, kind="__easset__")'
     ]
@@ -4260,7 +4260,7 @@ def test_import_pages_dry_run_includes_parent_page_type(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert "Import metrics" in report.create_record_types
     upsert_all.assert_not_called()
     write.assert_not_called()
@@ -4287,7 +4287,7 @@ def test_import_pages_report_compacts_database_ids(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.databases == ["3b2d2040857e4febbb68d2bec9d6ba09"]
 
 
@@ -4324,13 +4324,74 @@ def test_import_pages_writes_only_created_or_changed(syncer):
             return_value={"records": 2, "pending": 1},
         ) as write,
     ):
-        report = syncer.import_page("parent", apply=True)
+        report = syncer.import_page("parent", apply=True, depth=1)
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["b", "c"]
     assert report.created == 1
     assert report.updated == 1
     assert report.unchanged == 1
     assert report.pending_relations == 1
+
+
+def test_import_pages_depth_zero_skips_database_rows(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type) as resolve,
+        patch.object(syncer, "_validate_schema") as validate,
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref") as existing,
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_page("db-1", apply=True, depth=0)
+
+    resolve.assert_called_once()
+    validate.assert_called_once()
+    database_rows.assert_not_called()
+    existing.assert_not_called()
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+    assert report.discovered == 0
+    assert report.created == 0
+    assert report.databases == ["db-1"]
+
+
+def test_notion_syncer_depth_zero_skips_database_rows(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    rec_type = _fake_rec_type("People", ["Name"])
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value=({"db-1"}, {})),
+        patch.object(syncer, "_is_project_database", return_value=False),
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "People"}]},
+        ),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch("lamindb.integrations.notion._existing_by_ref") as existing,
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_page("db-1", apply=True, depth=0)
+
+    database_rows.assert_not_called()
+    existing.assert_not_called()
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
 
 
 def test_import_pages_passes_limit_to_database_discovery(syncer):

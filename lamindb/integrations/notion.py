@@ -4216,6 +4216,10 @@ class _NotionSyncer:
         `notion_uuid` is a Notion page or database id. The sync discovers
         databases under it, validates property parity against Lamin schemas,
         then performs an idempotent upsert/materialize pass.
+
+        `depth=0` syncs this page only. A database id syncs its record type.
+        A page id syncs that page. A positive depth also includes that many
+        levels of child pages, and `1` on a database includes its pages.
         """
         parent_ids = [notion_uuid]
 
@@ -4307,6 +4311,15 @@ class _NotionSyncer:
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
+                elif depth <= 0:
+                    logger.important(
+                        "notion sync: depth=0 syncs the record type only for "
+                        f"db={_compact_uuid(db_id)}; pass --depth 1 to include its pages"
+                    )
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    planned_transfers_by_db[db_id] = {}
+                    continue
                 else:
                     rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
@@ -5502,6 +5515,15 @@ class NotionSyncer(RecordSyncer):
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
+                elif depth <= 0:
+                    logger.important(
+                        "notion sync: depth=0 syncs the record type only for "
+                        f"db={_compact_uuid(db_id)}; pass --depth 1 to include its pages"
+                    )
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    planned_transfers_by_db[db_id] = {}
+                    continue
                 else:
                     rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
@@ -5702,8 +5724,9 @@ def sync_objects_from_notion(
         token: Notion API token. Defaults to the `NOTION_TOKEN` environment variable.
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
-            `0` syncs only this page. A positive integer walks that many
-            levels below it.
+            `0` syncs only this page. A database id syncs its record type,
+            and a page id syncs that page. A positive integer also walks
+            that many levels of children. `1` on a database includes its pages.
         workspace: Notion workspace slug used in page URLs, for example
             `laminlabs` when the current database is `laminlabs/lamindata`.
             Defaults to the account handle of the current database.
