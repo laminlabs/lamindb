@@ -538,14 +538,14 @@ def test_format_cat_filter_value_edge_cases():
 def test_json_value_get_or_create():
     feature = ln.Feature(name="json_get_or_create", dtype=str).save()
     try:
-        created_record, created = ln.models.JsonValue.get_or_create(feature, "kept")
-        assert created is True
-        again, created = ln.models.JsonValue.get_or_create(feature, "kept")
-        assert created is False
+        created_record, existed = ln.models.JsonValue.get_or_create(feature, "kept")
+        assert existed is False
+        again, existed = ln.models.JsonValue.get_or_create(feature, "kept")
+        assert existed is True
         assert again.pk == created_record.pk
 
-        dict_record, created = ln.models.JsonValue.get_or_create(feature, {"detail": 1})
-        assert created is True
+        dict_record, existed = ln.models.JsonValue.get_or_create(feature, {"detail": 1})
+        assert existed is False
         assert dict_record.pk != created_record.pk
     finally:
         ln.models.JsonValue.filter(feature=feature).delete(permanent=True)

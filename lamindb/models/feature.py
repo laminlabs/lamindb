@@ -2005,14 +2005,24 @@ class JsonValue(SQLRecord, TracksRun):
 
     @classmethod
     def get_or_create(cls, feature, value):
+        """Return the JSON value for a feature, creating it if absent.
+
+        Args:
+            feature: Feature this value is indexed by.
+            value: JSON value. Scalars are hashed from their string form.
+
+        Returns:
+            The record and `True` if it already existed.
+        """
         # simple values: (int, float, str, bool, datetime)
         if not isinstance(value, dict):
             value_hash = hash_string(str(value))
         else:
             value_hash = hash_dict(value)
-        return cls.objects.get_or_create(
+        record, created = cls.objects.get_or_create(
             feature=feature, hash=value_hash, defaults={"value": value}
         )
+        return record, not created
 
 
 def suggest_categorical_for_str_iterable(
