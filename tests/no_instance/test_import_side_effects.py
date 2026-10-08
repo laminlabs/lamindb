@@ -167,3 +167,14 @@ def test_setup_shim_imports():
 def test_core_storage_types_import():
     """lamindb.core.storage.types is a TYPE_CHECKING-only module."""
     import lamindb.core.storage.types  # noqa: F401
+
+
+def test_polars_detection_does_not_import_polars():
+    code = (
+        "assert 'polars' not in sys.modules\n"
+        "from lamindb.core._compat import is_polars_dataframe\n"
+        "assert not is_polars_dataframe(object())\n"
+        "assert 'polars' not in sys.modules"
+    )
+    result = _probe_modules_loaded(code)
+    _assert_modules(result, LIGHT_IMPORTS, "optional polars detection")

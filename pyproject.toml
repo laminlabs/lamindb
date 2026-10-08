@@ -25,6 +25,10 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
+polars = [
+    "polars>=1.0",
+    "pandera[pandas,polars]>=0.24.0",
+]
 # full: keep in sync with pyproject.full.toml dependencies (excluding lamindb-core).
 # If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
 full = [

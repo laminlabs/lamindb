@@ -29,6 +29,7 @@ from pandera.engines import pandas_engine
 from lamindb.base.dtypes import check_dtype, check_pandera_str
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.base.utils import get_registry_name
+from lamindb.core._compat import is_polars_dataframe
 from lamindb.models import (
     Artifact,
     Feature,
@@ -65,6 +66,9 @@ if TYPE_CHECKING:
 
     from anndata import AnnData
     from mudata import MuData
+    from pandera.api.polars.container import DataFrameSchema as PolarsDataFrameSchema
+    from polars import DataFrame as PolarsDataFrame
+    from polars import LazyFrame as PolarsLazyFrame
 
     try:
         from spatialdata import SpatialData
@@ -79,6 +83,8 @@ if TYPE_CHECKING:
 else:
     AnnData = Any
     MuData = Any
+    PolarsDataFrame = Any
+    PolarsLazyFrame = Any
     SpatialData = Any
     SOMAExperiment = Any
     ScverseDataStructures = Any
@@ -655,7 +661,8 @@ class SlotsCurator(Curator):
         if self._artifact is None:
             type_mapping = [
                 (
-                    lambda dataset: isinstance(dataset, pd.DataFrame),
+                    lambda dataset: isinstance(dataset, pd.DataFrame)
+                    or is_polars_dataframe(dataset),
                     Artifact.from_dataframe,
                 ),
                 (
@@ -783,7 +790,7 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
 class ComponentCurator(Curator):
     """Curator for `DataFrame`.
 
-    Provides all key functionality to validate Pandas DataFrames.
+    Provides all key functionality to validate pandas and Polars DataFrames.
     This class is not user facing unlike :class:`~lamindb.curators.DataFrameCurator` which extends this
     class with functionality to validate the `attrs` slot.
 
@@ -795,7 +802,7 @@ class ComponentCurator(Curator):
 
     def __init__(
         self,
-        dataset: pd.DataFrame | Artifact,
+        dataset: pd.DataFrame | PolarsDataFrame | PolarsLazyFrame | Artifact,
         schema: Schema,
         slot: str | None = None,
         require_saved_schema: bool = True,
@@ -805,6 +812,21 @@ class ComponentCurator(Curator):
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
         self._using = using
+        self._is_polars = is_polars_dataframe(self._dataset)
+        if self._is_polars:
+            from pandera import polars as polars_pandera
+
+            from ._polars import column as polars_column
+
+            if schema.index is not None:
+                raise InvalidArgument(
+                    "Polars frames do not have an index. Use a column feature instead of Schema.index."
+                )
+        dataset_columns = (
+            self._dataset.collect_schema().names()
+            if self._is_polars
+            else self._dataset.keys()
+        )
 
         categoricals = []
         features = []
@@ -820,9 +842,9 @@ class ComponentCurator(Curator):
                 # the unscoped "Feature" itype should not filter by type.
                 root_uid = itype[8:-1]  # len("Feature[") == 8
                 feature_type = Feature.connect(using).get(uid=root_uid)
-                qs = feature_type.query_features().filter(name__in=self._dataset.keys())
+                qs = feature_type.query_features().filter(name__in=dataset_columns)
             else:
-                qs = Feature.connect(using).filter(name__in=self._dataset.keys())
+                qs = Feature.connect(using).filter(name__in=dataset_columns)
             features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 
@@ -851,7 +873,9 @@ class ComponentCurator(Curator):
             assert schema.itype is not None  # noqa: S101
 
         pandera_columns = {}
-        self._pandera_schema = None
+        self._pandera_schema: pandera.DataFrameSchema | PolarsDataFrameSchema | None = (
+            None
+        )
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
@@ -863,7 +887,11 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                if (
+                if self._is_polars:
+                    pandera_columns[feature.name] = polars_column(
+                        feature, required, schema.coerce
+                    )
+                elif (
                     dtype_str.startswith("list[cat")
                     or self._dataset.attrs.get(feature.name) == "list_of_categories"
                 ):
@@ -950,7 +978,9 @@ class ComponentCurator(Curator):
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
-                    if (required or feature.name in self._dataset.keys()) and (
+                    if (
+                        self._is_polars or required or feature.name in dataset_columns
+                    ) and (
                         schema._index_feature_uid is None
                         or feature.uid != schema._index_feature_uid
                     ):
@@ -983,16 +1013,27 @@ class ComponentCurator(Curator):
                 index = None
             if schema.maximal_set:
                 # allow any columns starting with "__lamindb" even if maximal_set is True
-                pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = pandera.Column(
+                backend = polars_pandera if self._is_polars else pandera
+                pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = backend.Column(
                     regex=True, required=False, nullable=True
                 )
-            self._pandera_schema = pandera.DataFrameSchema(
-                pandera_columns,
-                coerce=schema.coerce,
-                strict=schema.maximal_set,
-                ordered=schema.ordered_set,
-                index=index,
-            )
+            if self._is_polars:
+                self._pandera_schema = polars_pandera.DataFrameSchema(
+                    pandera_columns,
+                    # Polars cannot coerce dtype=None columns. The schema flag
+                    # is propagated to typed columns by polars_column instead.
+                    coerce=False,
+                    strict=schema.maximal_set,
+                    ordered=schema.ordered_set,
+                )
+            else:
+                self._pandera_schema = pandera.DataFrameSchema(
+                    pandera_columns,
+                    index=index,
+                    coerce=schema.coerce,
+                    strict=schema.maximal_set,
+                    ordered=schema.ordered_set,
+                )
         if (
             schema.itype == "Composite"
         ):  # backward compat, should be migrated to Feature.name
@@ -1011,7 +1052,13 @@ class ComponentCurator(Curator):
             using=using,
             maximal_set=schema.maximal_set,
             schema=schema,
+            dataset_setter=self._set_dataset if self._is_polars else None,
         )
+
+    def _set_dataset(self, dataset) -> None:
+        self._dataset = dataset
+        self._cat_manager._dataset = dataset
+        self._is_validated = False
 
     @property
     @doc_args(CAT_MANAGER_DOCSTRING)
@@ -1031,6 +1078,31 @@ class ComponentCurator(Curator):
             )
 
         for feature in self._schema.members:
+            if self._is_polars:
+                import polars as pl
+
+                if feature.name not in self._dataset.collect_schema().names():
+                    if feature.default_value is None and not feature.nullable:
+                        raise ValidationError(
+                            f"Missing column {feature.name} cannot be added because is not nullable and has no default value"
+                        )
+                    self._set_dataset(
+                        self._dataset.with_columns(
+                            pl.repeat(pl.lit(feature.default_value), pl.len()).alias(
+                                feature.name
+                            )
+                        )
+                    )
+                    logger.important(
+                        f"added column {feature.name} with fill value {feature.default_value}"
+                    )
+                elif feature.default_value is not None:
+                    self._set_dataset(
+                        self._dataset.with_columns(
+                            pl.col(feature.name).fill_null(feature.default_value)
+                        )
+                    )
+                continue
             if feature.name not in self._dataset.columns:
                 if feature.default_value is not None or feature.nullable:
                     fill_value = (
@@ -1083,7 +1155,29 @@ class ComponentCurator(Curator):
         if self._pandera_schema is not None:
             try:
                 # first validate through pandera
-                self._pandera_schema.validate(self._dataset, lazy=True)
+                if self._is_polars:
+                    from pandera.config import ValidationDepth, config_context
+
+                    with config_context(
+                        validation_depth=ValidationDepth.SCHEMA_AND_DATA
+                    ):
+                        validated = self._pandera_schema.validate(
+                            self._dataset, lazy=True
+                        )
+                    self._set_dataset(validated)
+                else:
+                    validated = self._pandera_schema.validate(self._dataset, lazy=True)
+                    # keep the coerced values so that saved artifacts carry them,
+                    # but leave the caller's frame and in-place edits untouched otherwise
+                    if (
+                        isinstance(validated, pd.DataFrame)
+                        and isinstance(self._dataset, pd.DataFrame)
+                        and (
+                            not validated.dtypes.equals(self._dataset.dtypes)
+                            or not validated.index.dtype == self._dataset.index.dtype
+                        )
+                    ):
+                        self._set_dataset(validated)
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
             except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
@@ -1102,7 +1196,9 @@ class DataFrameCurator(SlotsCurator):
     """Curator for `DataFrame`.
 
     Args:
-        dataset: The DataFrame-like object to validate & annotate.
+        dataset: A pandas or Polars DataFrame, a Polars LazyFrame, or an Artifact.
+            LazyFrames remain lazy; value checks execute queries as needed.
+            The validated/coerced frame is available through `dataset`.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
         require_saved_schema: Whether the schema must be saved before curation.
@@ -1134,7 +1230,7 @@ class DataFrameCurator(SlotsCurator):
 
     def __init__(
         self,
-        dataset: pd.DataFrame | Artifact,
+        dataset: pd.DataFrame | PolarsDataFrame | PolarsLazyFrame | Artifact,
         schema: Schema,
         *,
         slot: str | None = None,
@@ -1158,10 +1254,15 @@ class DataFrameCurator(SlotsCurator):
             require_saved_schema=require_saved_schema,
             using=using,
         )
+        self._dataset = self._atomic_curator._dataset
         # Handle (nested) attrs
         if slot is None and schema.slots:
             for slot_name, slot_schema in schema.slots.items():
                 if slot_name.startswith("attrs"):
+                    if self._atomic_curator._is_polars:
+                        raise InvalidArgument(
+                            "Polars frames do not have an attrs slot. Use external features instead."
+                        )
                     path_parts = slot_name.split(":")
                     attrs_dict = getattr(self._dataset, "attrs", None)
                     if attrs_dict is not None:
@@ -1190,6 +1291,11 @@ class DataFrameCurator(SlotsCurator):
         """Manage categoricals by updating registries."""
         return self._atomic_curator.cat
 
+    @property
+    def dataset(self) -> pd.DataFrame | PolarsDataFrame | PolarsLazyFrame:
+        """The curated frame, preserving Polars LazyFrame inputs as LazyFrames."""
+        return self._atomic_curator._dataset
+
     def standardize(self) -> None:
         """Standardize the dataset.
 
@@ -1203,7 +1309,9 @@ class DataFrameCurator(SlotsCurator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}."""
+        self._is_validated = False
         self._atomic_curator.validate()
+        self._dataset = self.dataset
         self._is_validated = self._atomic_curator._is_validated
         super().validate()
 
@@ -1212,8 +1320,9 @@ class DataFrameCurator(SlotsCurator):
         self, *, key=None, description=None, revises=None, run=None
     ) -> Artifact:
         """{}."""
-        if not self._is_validated:
+        if not self._is_validated or not self._atomic_curator._is_validated:
             self.validate()
+        self._dataset = self.dataset
         self._slots["columns"] = self._atomic_curator
         try:
             return super().save_artifact(
@@ -2239,14 +2348,13 @@ class CatVector:
             self.validate()
         # get standardized values
         std_values = self._replace_synonyms()
+        self.values = std_values
         # update non_validated values
         self._non_validated = [
             i for i in self._non_validated if i not in self._synonyms.keys()
         ]
         # remove synonyms since they are now standardized
         self._synonyms = {}
-        # update the values with the standardized values
-        self.values = std_values
 
     def add_new(self, **create_kwargs) -> None:
         """Add new values to the registry."""
@@ -2278,7 +2386,7 @@ class DataFrameCatManager:
 
     def __init__(
         self,
-        df: pd.DataFrame | Artifact,
+        df: pd.DataFrame | PolarsDataFrame | PolarsLazyFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
@@ -2288,6 +2396,7 @@ class DataFrameCatManager:
         schema: Schema | None = None,
         using: str | None = None,
         validate_columns: bool = True,
+        dataset_setter: Callable | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -2308,20 +2417,27 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
         self._validate_columns = validate_columns
-        columns = self._dataset.keys()
+        self._is_polars = is_polars_dataframe(self._dataset)
+        self._dataset_setter = dataset_setter
+        self._unique_values: dict[str, pd.Series] | None = None
+        columns = (
+            self._dataset.collect_schema().names()
+            if self._is_polars
+            else self._dataset.keys()
+        )
         if maximal_set:
             columns = [
                 col for col in columns if not re.match(LAMINDB_COLUMN_PREFIX_REGEX, col)
             ]
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: columns,  # lambda ensures the inplace update
-            values_setter=lambda new_values: setattr(
-                self._dataset, "columns", pd.Index(new_values)
-            )
-            if isinstance(self._dataset, pd.DataFrame)
-            else None,
+            values_getter=lambda: self._get_polars_columns()
+            if self._is_polars
+            else columns,
+            values_setter=self._set_columns,
             field=columns_field,
-            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+            key="columns"
+            if isinstance(self._dataset, pd.DataFrame) or self._is_polars
+            else "keys",
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
@@ -2333,27 +2449,7 @@ class DataFrameCatManager:
             schema=schema,
             using=using,
         )
-        for feature in self._categoricals:
-            result = parse_dtype(feature._dtype_str)[0]
-            key = feature.name
-            # only create CatVector if the key exists in the DataFrame
-            if key in self._dataset.columns:
-                self._cat_vectors[key] = CatVector(
-                    values_getter=lambda k=key: self._dataset[
-                        k
-                    ],  # Capture key as default argument
-                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                        k, new_values
-                    ),
-                    field=result["field"],
-                    key=key,
-                    source=self._sources.get(key),
-                    feature=feature,
-                    cat_manager=self,
-                    filter_str=result["filter_str"],
-                    type_uid=result.get("type_uid"),
-                    using=using,
-                )
+        self._add_categorical_vectors()
         if index is not None and index._dtype_str.startswith("cat"):
             result = parse_dtype(index._dtype_str)[0]
             key = "index"
@@ -2370,6 +2466,109 @@ class DataFrameCatManager:
                 type_uid=result.get("type_uid"),
                 using=using,
             )
+
+    def _add_categorical_vectors(self) -> None:
+        columns = (
+            self._dataset.collect_schema().names()
+            if self._is_polars
+            else self._dataset.columns
+        )
+        for feature in self._categoricals:
+            result = parse_dtype(feature._dtype_str)[0]
+            key = feature.name
+            # only create CatVector if the key exists in the DataFrame
+            if key in columns and key not in self._cat_vectors:
+                self._cat_vectors[key] = CatVector(
+                    values_getter=lambda k=key: self._get_column(k),
+                    values_setter=lambda new_values, k=key: self._set_column(
+                        k, new_values
+                    ),
+                    field=result["field"],
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=feature,
+                    cat_manager=self,
+                    filter_str=result["filter_str"],
+                    type_uid=result.get("type_uid"),
+                    using=self._using,
+                )
+
+    def _update_dataset(self, dataset) -> None:
+        self._dataset = dataset
+        self._unique_values = None
+        if self._dataset_setter is not None:
+            self._dataset_setter(dataset)
+
+    def _get_polars_columns(self) -> pd.Index:
+        return pd.Index(
+            [
+                name
+                for name in self._dataset.collect_schema().names()
+                if not self._maximal_set
+                or not re.match(LAMINDB_COLUMN_PREFIX_REGEX, name)
+            ]
+        )
+
+    def _set_columns(self, values) -> None:
+        if self._is_polars:
+            renamed = self._dataset.rename(
+                dict(zip(self._get_polars_columns(), values))
+            )
+            self._update_dataset(renamed)
+        elif isinstance(self._dataset, pd.DataFrame):
+            self._dataset.columns = pd.Index(values)
+
+    def _get_column(self, key):
+        if self._is_polars:
+            return self._get_unique_values()[key]
+        return self._dataset[key]
+
+    def _get_unique_values(self) -> dict[str, pd.Series]:
+        """Distinct values of all registry columns, computed in one batched query.
+
+        Registry lookups only need distinct values, so memory is bound by the
+        cardinality of the columns instead of the number of rows. All columns are
+        resolved in a single pass over the (lazy) data and cached until the dataset changes.
+        """
+        import polars as pl
+
+        if self._unique_values is None:
+            keys = self._cat_vectors_keys()
+            if not keys:
+                return {}
+            query = self._dataset.select(
+                [pl.col(key).unique().implode().alias(key) for key in keys]
+            )
+            if isinstance(query, pl.LazyFrame):
+                try:
+                    query = query.collect(engine="streaming")
+                except TypeError:  # older polars
+                    query = query.collect()
+            self._unique_values = {
+                key: pd.Series(query[key][0].to_list(), name=key) for key in keys
+            }
+        return self._unique_values
+
+    def _cat_vectors_keys(self) -> list[str]:
+        columns = set(self._dataset.collect_schema().names())
+        return [
+            feature.name for feature in self._categoricals if feature.name in columns
+        ]
+
+    def _set_column(self, key, values) -> None:
+        if self._is_polars:
+            import polars as pl
+
+            dtype = self._dataset.collect_schema()[key]
+            synonyms = self._cat_vectors[key]._synonyms or {}
+            expression = pl.col(key)
+            if isinstance(dtype, pl.List):
+                expression = expression.list.eval(pl.element().replace(synonyms))
+            else:
+                expression = expression.replace(synonyms)
+            self._update_dataset(self._dataset.with_columns(expression.cast(dtype)))
+        else:
+            self._dataset[key] = values
 
     @property
     def non_validated(self) -> dict[str, list[str]]:
@@ -2426,6 +2625,8 @@ class DataFrameCatManager:
 
     def validate(self) -> bool:
         """Validate variables and categorical observations."""
+        if self._is_polars:
+            self._add_categorical_vectors()
         self._validate_category_error_messages = ""  # reset the error messages
         validated = True
         for key, cat_vector in self._cat_vectors.items():

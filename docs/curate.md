@@ -322,7 +322,7 @@ df['cell_type'] = df['cell_type'].astype('category')
 ln.Feature(name="cell_type", dtype=bt.CellType, coerce=True).save()
 ```
 
-`Feature.coerce=True` coerces that column. `Schema.coerce=True` coerces every column and the index, including features that leave `coerce` unset. Either flag is enough, the same way pandera combines `Column.coerce` and `DataFrameSchema.coerce`. `Feature.coerce=False` does not turn schema-level coercion off. For `int` and `float`, coercion is lossless (`"1"` and `1.0` become `int`; `1.1` does not) and does not change an existing integer or float width.
+`Feature.coerce=True` coerces that column. `Schema.coerce=True` coerces every column and the index, including features that leave `coerce` unset. Either flag is enough, the same way pandera combines `Column.coerce` and `DataFrameSchema.coerce`. `Feature.coerce=False` does not turn schema-level coercion off. For `int` and `float`, coercion is lossless (`"1"` and `1.0` become `int`; `1.1` does not) and does not change an existing integer or float width. Artifacts created from a `DataFrame` with `Artifact.from_dataframe()` or `curator.save_artifact()` store the coerced values; the frame you passed in is not modified.
 
 <!-- #endregion -->
 

@@ -184,6 +184,63 @@ curator = ln.curators.DataFrameCurator(df, lamindb_schema)
 curator.validate()
 ```
 
+#### Polars DataFrames and LazyFrames
+
+Install the optional backend with `pip install 'lamindb[polars]'` (or
+`'lamindb-core[full,polars]'` for the core distribution). The same LaminDB
+schema works with Polars through `pandera.polars`.
+
+```{code-block} python
+import polars as pl
+
+df = pl.DataFrame({"concentration": ["low", "high"]})
+schema = ln.Schema(
+    features=[ln.Feature(name="concentration", dtype=str).save()]
+).save()
+
+curator = ln.curators.DataFrameCurator(df.lazy(), schema)
+curator.validate()
+assert isinstance(curator.dataset, pl.LazyFrame)
+artifact = curator.save_artifact(key="polars/concentrations.parquet")
+```
+
+`DataFrameCurator` preserves the input backend: Polars `LazyFrame` inputs
+remain LazyFrames. Constructing a curator inspects the lazy schema without
+executing the frame. `validate()` checks both dtypes and values, including
+nullability and registry membership; it executes check queries rather than
+converting the full frame to pandas. Registry lookups only need distinct values,
+so the distinct values of all registry columns are computed in one batched
+(streaming where supported) query and cached. Memory is bound by the number of
+distinct labels, not by the number of rows.
+Saving a LazyFrame uses Polars' lazy CSV or Parquet sink.
+
+Both backends support required, optional, ordered, and strict columns.
+Polars string, categorical, and enum columns can reference LaminDB registries;
+list columns support list-valued features. Integer and float features accept
+all native widths. As with pandas, `Feature.coerce` or `Schema.coerce`
+enables numeric coercion, and float-to-integer coercion rejects fractional
+values. String, boolean, numeric-union, and list features use checks rather
+than coercion. Polars structs represent dictionary features.
+
+Polars operations return new frames. After `validate()`, `standardize()`, or
+`cat.standardize()`, use `curator.dataset` to access the updated frame or lazy
+plan; the original input is not modified. This also ensures coerced values
+are saved. Polars has neither a pandas index nor an `attrs` slot:
+use regular column features instead of `Schema.index`, and external features
+instead of `attrs`.
+
+If Polars is installed, `ln.Artifact.from_dataframe("data.parquet", schema=schema)`
+scans local and remote (`s3://`, `gs://`, `az://`, `https://`) `.parquet`, `.csv`,
+and `.tsv` files lazily and validates them without loading them into memory.
+If the schema or a feature enables `coerce`, the coerced lazy frame is streamed
+to storage so that the artifact carries the coerced values (`.tsv` files with
+coercion use the pandas loader). Otherwise, the original file is registered
+unchanged. If Polars cannot access a file, e.g. because of missing cloud
+credentials, LaminDB logs a warning and falls back to the pandas loader. Schemas
+with an index or `attrs` slot also use the pandas loader. To validate a stored
+artifact lazily, pass the LazyFrame obtained from
+`artifact.open(engine="polars")` to the curator.
+
 What was the cell type validation based on? Let's inspect the `CellType` registry.
 
 ```python

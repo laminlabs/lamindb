@@ -1,7 +1,14 @@
 import importlib.util
+import sys
 from typing import Any, Callable, TypeVar
 
 T = TypeVar("T")
+
+
+def is_polars_dataframe(obj: Any) -> bool:
+    """Recognize Polars frames without importing the optional dependency."""
+    polars = sys.modules.get("polars")
+    return polars is not None and isinstance(obj, (polars.DataFrame, polars.LazyFrame))
 
 
 def is_package_installed(package_name: str) -> bool:
