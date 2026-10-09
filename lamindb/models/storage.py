@@ -271,6 +271,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             "space_uuid": space_uuid,
             "skip_mark_storage_root": skip_mark_storage_root,
         }
+        # `type` is required to construct the record. `init_storage` confirms it on save.
+        if "type" not in kwargs:
+            kwargs["type"] = get_storage_type(kwargs["root"])
         super().__init__(**kwargs)
         self._old_space_id = self.space_id
 
