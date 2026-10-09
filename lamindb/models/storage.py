@@ -162,6 +162,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         app_label = "lamindb"
 
     _name_field: str = "root"
+    _TRACK_FIELDS = ("space_id",)
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -209,7 +210,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     ):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
-            self._old_space_id = self.space_id
             return None
         if args:
             assert len(args) == 1, (  # noqa: S101
@@ -238,7 +238,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db
 
             init_self_from_db(self, storage_record)
-            self._old_space_id = self.space_id
             return None
 
         skip_mark_storage_root = kwargs.pop("skip_mark_storage_root", False)
@@ -275,7 +274,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         if "type" not in kwargs:
             kwargs["type"] = get_storage_type(kwargs["root"])
         super().__init__(**kwargs)
-        self._old_space_id = self.space_id
 
     @property
     def host(self) -> str | None:
@@ -361,7 +359,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         """Save the storage record."""
         try:
             self._apply_init_storage()
-            if hasattr(self, "_old_space_id") and self._old_space_id != self.space_id:
+            # check_is_saved=False so a space change before the first save still updates the hub
+            if self._field_changed("space_id", check_is_saved=False):
                 update_storage_with_space(
                     storage_lnid=self.uid, space_lnid=self.space.uid
                 )
