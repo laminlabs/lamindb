@@ -1387,3 +1387,24 @@ def test_index_feature_exclusion_from_categoricals(df):
     # clean up
     schema.delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+def test_coerced_values_are_stored_in_artifact_pandas():
+    feature = ln.Feature(name="stored_coerce_int", dtype=int, coerce=True).save()
+    schema = ln.Schema(features=[feature], otype="DataFrame").save()
+    df = pd.DataFrame({"stored_coerce_int": ["1", "2"]})
+    artifact = ln.Artifact.from_dataframe(
+        df, key="stored_coerce/from_dataframe.parquet", schema=schema
+    ).save()
+    assert not pd.api.types.is_integer_dtype(df["stored_coerce_int"])  # input is not mutated
+    assert pd.read_parquet(artifact.path)["stored_coerce_int"].tolist() == [1, 2]
+
+    curator = ln.curators.DataFrameCurator(
+        pd.DataFrame({"stored_coerce_int": ["3", "4"]}), schema
+    )
+    artifact2 = curator.save_artifact(key="stored_coerce/curator.parquet")
+    assert pd.read_parquet(artifact2.path)["stored_coerce_int"].tolist() == [3, 4]
+    artifact.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)

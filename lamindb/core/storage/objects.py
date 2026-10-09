@@ -4,15 +4,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from lamindb.core._compat import (
+    is_polars_dataframe,
     with_package_obj,
 )
 
 if TYPE_CHECKING:
     from pandas import DataFrame
+    from polars import DataFrame as PolarsDataFrame
+    from polars import LazyFrame as PolarsLazyFrame
 
     from .types import ScverseDataStructures
 
-    SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
+    SupportedDataTypes: TypeAlias = (
+        DataFrame | PolarsDataFrame | PolarsLazyFrame | ScverseDataStructures
+    )
 else:
     SupportedDataTypes: TypeAlias = Any
 
@@ -21,6 +26,8 @@ def infer_suffix(
     dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None
 ) -> str:
     """Infer LaminDB storage file suffix from a data object."""
+    if is_polars_dataframe(dmem):
+        return _infer_dataframe_suffix(format)
     has_anndata, anndata_suffix = with_package_obj(
         dmem,
         "AnnData",
@@ -101,6 +108,20 @@ def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
 
 def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
+    if is_polars_dataframe(dmem):
+        import polars as pl
+
+        if isinstance(dmem, pl.LazyFrame):
+            if Path(filepath).suffix == ".csv":
+                dmem.sink_csv(filepath, **kwargs)
+            else:
+                dmem.sink_parquet(filepath, **kwargs)
+            return
+        if Path(filepath).suffix == ".csv":
+            dmem.write_csv(filepath, **kwargs)
+        else:
+            dmem.write_parquet(filepath, **kwargs)
+        return
     if with_package_obj(
         dmem,
         "AnnData",
