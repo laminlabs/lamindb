@@ -301,18 +301,17 @@ For more information, see {doc}`/setup`.
 
 ## Repositories
 
-LaminDB and its plugins consist in open-source Python libraries & publicly hosted metadata assets:
+LaminDB and its plugins consist in open-source Python libraries & publicly hosted metadata assets. The two central repositories are:
 
 - [lamindb](https://github.com/laminlabs/lamindb): Core library.
+- [lamin-docs](https://github.com/laminlabs/lamin-docs): Documentation for all tools.
 
-Tightly integrated dependencies are available as git submodules [here](https://github.com/laminlabs/lamindb/tree/main/sub), for instance,
+Two basic dependencies come with lamindb as git submodules [here](https://github.com/laminlabs/lamindb/tree/main/sub):
 
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB.
 - [lamin-cli](https://github.com/laminlabs/lamin-cli): The CLI.
 
-Agent skills ship in the package at [`lamindb/.agents`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents).
-
-Use cases / domain-specific repos:
+Some integrations and use cases are maintained in their own repositories:
 
 - [nf-lamin](https://github.com/laminlabs/nf-lamin): Nextflow integration with LaminDB.
 - [laminr](https://github.com/laminlabs/laminr): R client for LaminDB.
