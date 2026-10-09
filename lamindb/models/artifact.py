@@ -1336,39 +1336,15 @@ def _schema_coerces(schema: Any) -> bool:
 
 def _scan_dataframe_file(data: Any) -> Any | None:
     """Lazily scan a local or remote dataframe file, `None` if Polars can't access it."""
-    import polars as pl
+    from ..core.storage._polars_lazy_df import _open_polars_lazy_df
 
-    path_str = str(data)
-    storage_options = None
-    if "://" in path_str:
-        options = dict(getattr(data, "storage_options", None) or {})
-        # translate the common fsspec s3 credentials to the Polars/object_store names
-        mapping = {
-            "key": "aws_access_key_id",
-            "secret": "aws_secret_access_key",
-            "token": "aws_session_token",
-            "endpoint_url": "aws_endpoint_url",
-        }
-        storage_options = {
-            polars_name: options[fsspec_name]
-            for fsspec_name, polars_name in mapping.items()
-            if options.get(fsspec_name)
-        } or None
-    kwargs: dict[str, Any] = (
-        {"storage_options": storage_options} if storage_options else {}
-    )
     try:
-        if path_str.endswith(".parquet"):
-            lazy = pl.scan_parquet(path_str, **kwargs)
-        else:
-            if path_str.endswith(".tsv"):
-                kwargs["separator"] = "\t"
-            lazy = pl.scan_csv(path_str, **kwargs)
-        lazy.collect_schema()
+        with _open_polars_lazy_df(UPath(data)) as lazy:
+            lazy.collect_schema()
+        return lazy
     except Exception as e:
-        logger.warning(f"could not lazily scan {path_str} with Polars: {e}")
+        logger.warning(f"could not lazily scan {data} with Polars: {e}")
         return None
-    return lazy
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):

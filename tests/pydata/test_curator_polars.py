@@ -413,12 +413,15 @@ def test_polars_standardize_empty_frame_preserves_rows(as_frame):
     curator.validate()
 
 
-@pytest.mark.parametrize("suffix", [".parquet", ".csv"])
+@pytest.mark.parametrize("suffix", [".parquet", ".csv", ".tsv"])
 def test_from_dataframe_path_validates_lazily(monkeypatch, tmp_path, suffix):
     schema = make_schema([("pl_file", int, {})])
     path = tmp_path / f"file{suffix}"
     frame = pl.DataFrame({"pl_file": [1, 2, 3]})
-    frame.write_parquet(path) if suffix == ".parquet" else frame.write_csv(path)
+    if suffix == ".parquet":
+        frame.write_parquet(path)
+    else:
+        frame.write_csv(path, separator="\t" if suffix == ".tsv" else ",")
 
     def unexpected_load(*args, **kwargs):
         pytest.fail("The file must be scanned lazily, not loaded")
@@ -436,7 +439,10 @@ def test_from_dataframe_path_validates_lazily(monkeypatch, tmp_path, suffix):
 
     bad = tmp_path / f"bad{suffix}"
     bad_frame = pl.DataFrame({"pl_file": ["x"]})
-    bad_frame.write_parquet(bad) if suffix == ".parquet" else bad_frame.write_csv(bad)
+    if suffix == ".parquet":
+        bad_frame.write_parquet(bad)
+    else:
+        bad_frame.write_csv(bad, separator="\t" if suffix == ".tsv" else ",")
     with pytest.raises(ValidationError):
         ln.Artifact.from_dataframe(str(bad), key=f"polars/bad{suffix}", schema=schema)
 
