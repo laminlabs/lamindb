@@ -1,6 +1,9 @@
 import concurrent.futures
+from uuid import UUID
 
 import lamindb as ln
+import pytest
+from lamindb.models import SQLRecord
 
 
 # we need this test both in the core and the storage/cloud tests
@@ -26,3 +29,45 @@ def test_create_storage_locations_parallel():
 
     storage = ln.Storage.get(root__endswith=root)
     storage.delete()
+
+
+def test_storage_host_property(tmp_path):
+    local = ln.Storage(root=(tmp_path / "host-local").as_posix(), host="test-host")
+    assert local.host == "test-host"
+
+    cloud = ln.Storage(root="s3://lamindb-ci/test-host-property", type="s3")
+    assert cloud.host is None
+
+
+def test_save_deletes_hub_record_when_local_save_fails(tmp_path, monkeypatch):
+    instance_uid = ln.setup.settings.instance.uid
+
+    class _Settings:
+        root_as_str = (tmp_path / "rollback-hub").as_posix()
+        instance_uid = instance_uid
+        type = "local"
+        region = None
+        _uid = "abcdefghij12"
+        _uuid = UUID(int=1)
+
+    deleted = []
+    monkeypatch.setattr(
+        "lamindb.models.storage.init_storage",
+        lambda *args, **kwargs: (_Settings(), "hub-record-created"),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.storage.delete_storage_record",
+        lambda ssettings: deleted.append(ssettings),
+    )
+
+    def fail_save(self, *args, **kwargs):
+        raise RuntimeError("local save failed")
+
+    monkeypatch.setattr(SQLRecord, "save", fail_save)
+
+    storage = ln.Storage(root=_Settings.root_as_str, instance_uid=instance_uid)
+    with pytest.raises(RuntimeError, match="local save failed"):
+        storage.save()
+    assert len(deleted) == 1
+    assert deleted[0]._uuid == _Settings._uuid
+    assert storage._created_hub_record is False
