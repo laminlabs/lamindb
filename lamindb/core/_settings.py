@@ -20,6 +20,7 @@ from .subsettings._creation_settings import CreationSettings, creation_settings
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from datetime import datetime
     from pathlib import Path
 
     from lamindb_setup.types import AnyPathStr
@@ -60,6 +61,7 @@ class Settings:
     def __init__(self):
         self._verbosity_int: int = logger._verbosity
         self._sync_git_repo: str | None = None
+        self._target_date: str | datetime | None = None
 
     def __repr__(self) -> str:  # pragma: no cover
         if "sphinx" in sys.modules:
@@ -153,6 +155,20 @@ class Settings:
         self._sync_git_repo = sanitize_git_repo_url(value)
         if not self._sync_git_repo.startswith("https://"):  # pragma: nocover
             raise ValueError("git repository URL must start with 'https://'.")
+
+    @property
+    def target_date(self) -> str | datetime | None:
+        """Restrict `.filter()`/`.get()`/`.search()` queries to records created at or before this date.
+
+        Example::
+
+            ln.settings.target_date = "2024-01-01"
+        """
+        return self._target_date
+
+    @target_date.setter
+    def target_date(self, value: str | datetime | None) -> None:
+        self._target_date = value
 
     @property
     def storage(self) -> StorageSettings:

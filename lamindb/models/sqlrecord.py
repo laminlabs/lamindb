@@ -473,6 +473,24 @@ def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 
 
+def apply_target_date(cls, expressions: dict[str, Any]) -> dict[str, Any]:
+    """Inject `created_at__lte=ln.settings.target_date` unless already passed."""
+    from ..core._settings import settings
+
+    if settings.target_date is None or not any(
+        f.name == "created_at" for f in cls._meta.get_fields()
+    ):
+        return expressions
+    if "created_at__lte" in expressions:
+        logger.warning(
+            "`created_at__lte` was passed explicitly, "
+            "`ln.settings.target_date` will not be applied."
+        )
+    else:
+        expressions["created_at__lte"] = settings.target_date
+    return expressions
+
+
 class ValidateFields:
     pass
 
@@ -873,6 +891,8 @@ class Registry(ModelBase):
         if "using" in expressions:
             using = expressions.pop("using")
 
+        expressions = apply_target_date(cls, expressions)
+
         return QuerySet(model=cls, using=using).filter(*queries, **expressions)
 
     def get(
@@ -901,6 +921,8 @@ class Registry(ModelBase):
                 record = ln.Record.get(name="my-label")
         """
         from .query_set import QuerySet
+
+        expressions = apply_target_date(cls, expressions)
 
         return QuerySet(model=cls).get(idlike, **expressions)
 
@@ -977,7 +999,7 @@ class Registry(ModelBase):
     ) -> QuerySet:
         """{}"""  # noqa: D415
         return _search(
-            cls=cls,
+            cls=cls.filter(),
             string=string,
             field=field,
             limit=limit,
