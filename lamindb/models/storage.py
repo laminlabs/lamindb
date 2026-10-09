@@ -162,6 +162,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         app_label = "lamindb"
 
     _name_field: str = "root"
+    _TRACK_FIELDS = ("space_id",)
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -209,7 +210,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     ):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
-            self._old_space_id = self.space_id
             return None
         if args:
             assert len(args) == 1, (  # noqa: S101
@@ -238,7 +238,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db
 
             init_self_from_db(self, storage_record)
-            self._old_space_id = self.space_id
             return None
 
         skip_mark_storage_root = kwargs.pop("skip_mark_storage_root", False)
@@ -258,59 +257,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 )
             space_uuid = UUID(hub_space_record["id"])
 
-        # instance_id won't take effect if
-        # - there is no write access
-        # - the storage location is already managed by another instance
-        ssettings, _ = init_storage(
-            kwargs["root"],
-            instance_id=setup_settings.instance._id,
-            instance_slug=setup_settings.instance.slug,
-            register_hub=setup_settings.instance.is_on_hub,
-            region=kwargs.get("region", None),  # host was renamed to region already
-            space_uuid=space_uuid,
-            skip_mark_storage_root=skip_mark_storage_root,
-        )
-        # ssettings performed validation and normalization of the root path
-        kwargs["root"] = ssettings.root_as_str  # noqa: S101
-        if "instance_uid" in kwargs:
-            assert kwargs["instance_uid"] == ssettings.instance_uid  # noqa: S101
-        else:
-            kwargs["instance_uid"] = ssettings.instance_uid
-        if ssettings._uid is not None:  # need private attribute here
-            kwargs["uid"] = ssettings._uid
+        # init_storage validates the root and may insert the hub row. Run it on
+        # save so constructing a Storage does not write to the hub.
+        self._init_storage_args = {
+            "root": kwargs["root"],
+            "region": kwargs.get("region"),
+            "region_passed": "region" in kwargs,
+            "type": kwargs.get("type"),
+            "type_passed": "type" in kwargs,
+            "instance_uid": kwargs.get("instance_uid"),
+            "instance_uid_passed": "instance_uid" in kwargs,
+            "space_uuid": space_uuid,
+            "skip_mark_storage_root": skip_mark_storage_root,
+        }
+        # `type` is required to construct the record. `init_storage` confirms it on save.
         if "type" not in kwargs:
-            kwargs["type"] = ssettings.type
-        else:
-            assert kwargs["type"] == ssettings.type  # noqa: S101
-        if "region" in kwargs:
-            assert kwargs["region"] == ssettings.region  # noqa: S101
-        else:
-            kwargs["region"] = ssettings.region
-
-        is_managed_by_current_instance = (
-            ssettings.instance_uid == setup_settings.instance.uid
-        )
-        if ssettings.instance_uid is not None and not is_managed_by_current_instance:
-            is_managed_by_instance = (
-                f", is managed by instance with uid {ssettings.instance_uid}"
-            )
-        else:
-            is_managed_by_instance = ""
-        hub_message = ""
-        if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
-            instance_owner = setup_settings.instance.owner
-            ui_url = setup_settings.instance.ui_url
-            hub_message = f", see: {ui_url}/{instance_owner}/infrastructure"
-        managed_message = (
-            "created managed"
-            if is_managed_by_current_instance
-            else "referenced read-only"
-        )
-        logger.important(
-            f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
-        )
+            kwargs["type"] = get_storage_type(kwargs["root"])
         super().__init__(**kwargs)
-        self._old_space_id = self.space_id
 
     @property
     def host(self) -> str | None:
@@ -333,11 +296,87 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
 
+    def _apply_init_storage(self) -> None:
+        """Validate the root and register it on the hub when this record is new."""
+        self._created_hub_record = False
+        init_args = getattr(self, "_init_storage_args", None)
+        if init_args is None or not self._state.adding:
+            return
+        # instance_id won't take effect if
+        # - there is no write access
+        # - the storage location is already managed by another instance
+        ssettings, hub_record_status = init_storage(
+            init_args["root"],
+            instance_id=setup_settings.instance._id,
+            instance_slug=setup_settings.instance.slug,
+            register_hub=setup_settings.instance.is_on_hub,
+            region=init_args["region"],  # host was renamed to region already
+            space_uuid=init_args["space_uuid"],
+            skip_mark_storage_root=init_args["skip_mark_storage_root"],
+        )
+        self._inited_storage = ssettings
+        self._created_hub_record = hub_record_status == "hub-record-created"
+        # ssettings performed validation and normalization of the root path
+        self.root = ssettings.root_as_str
+        if init_args["instance_uid_passed"]:
+            assert init_args["instance_uid"] == ssettings.instance_uid  # noqa: S101
+        self.instance_uid = ssettings.instance_uid
+        if ssettings._uid is not None:  # need private attribute here
+            self.uid = ssettings._uid
+        if init_args["type_passed"]:
+            assert init_args["type"] == ssettings.type  # noqa: S101
+        else:
+            self.type = ssettings.type
+        if init_args["region_passed"]:
+            assert self.region == ssettings.region  # noqa: S101
+        else:
+            self.region = ssettings.region
+
+        is_managed_by_current_instance = (
+            ssettings.instance_uid == setup_settings.instance.uid
+        )
+        if ssettings.instance_uid is not None and not is_managed_by_current_instance:
+            is_managed_by_instance = (
+                f", is managed by instance with uid {ssettings.instance_uid}"
+            )
+        else:
+            is_managed_by_instance = ""
+        hub_message = ""
+        if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
+            instance_owner = setup_settings.instance.owner
+            ui_url = setup_settings.instance.ui_url
+            hub_message = f", see: {ui_url}/{instance_owner}/infrastructure"
+        managed_message = (
+            "created managed"
+            if is_managed_by_current_instance
+            else "referenced read-only"
+        )
+        logger.important(
+            f"{managed_message} storage location at {self.root}{is_managed_by_instance}{hub_message}"
+        )
+
     def save(self, *args, **kwargs):
         """Save the storage record."""
-        if hasattr(self, "_old_space_id") and self._old_space_id != self.space_id:
-            update_storage_with_space(storage_lnid=self.uid, space_lnid=self.space.uid)
-        super().save(*args, **kwargs)
+        try:
+            self._apply_init_storage()
+            # check_is_saved=False so a space change before the first save still updates the hub
+            if self._field_changed("space_id", check_is_saved=False):
+                update_storage_with_space(
+                    storage_lnid=self.uid, space_lnid=self.space.uid
+                )
+            super().save(*args, **kwargs)
+        except Exception:
+            # Drop a hub row inserted by this save when the local save does not finish.
+            ssettings = getattr(self, "_inited_storage", None)
+            if (
+                getattr(self, "_created_hub_record", False)
+                and ssettings is not None
+                and ssettings._uuid is not None
+            ):
+                delete_storage_record(ssettings)
+                self._created_hub_record = False
+            raise
+        self._init_storage_args = None
         return self
 
     def delete(self, permanent: bool | None = None) -> None:  # type: ignore
