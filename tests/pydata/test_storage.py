@@ -40,11 +40,11 @@ def test_storage_host_property(tmp_path):
 
 
 def test_save_deletes_hub_record_when_local_save_fails(tmp_path, monkeypatch):
-    instance_uid = ln.setup.settings.instance.uid
+    current_instance_uid = ln.setup.settings.instance.uid
 
     class _Settings:
         root_as_str = (tmp_path / "rollback-hub").as_posix()
-        instance_uid = instance_uid
+        instance_uid = current_instance_uid
         type = "local"
         region = None
         _uid = "abcdefghij12"
@@ -65,7 +65,7 @@ def test_save_deletes_hub_record_when_local_save_fails(tmp_path, monkeypatch):
 
     monkeypatch.setattr(SQLRecord, "save", fail_save)
 
-    storage = ln.Storage(root=_Settings.root_as_str, instance_uid=instance_uid)
+    storage = ln.Storage(root=_Settings.root_as_str, instance_uid=current_instance_uid)
     with pytest.raises(RuntimeError, match="local save failed"):
         storage.save()
     assert len(deleted) == 1
