@@ -616,6 +616,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "2": ("member_order", list[str]),
         # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
+        # display-only hidden feature uids; absent means show every member
+        "4": ("hidden_features", list[str]),
     }
 
     id: int = models.AutoField(primary_key=True)

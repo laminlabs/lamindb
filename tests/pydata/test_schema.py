@@ -510,14 +510,19 @@ def test_schema_add_remove_optional_features_api(
     schema = mini_immuno_schema_flexible
     initial_hash = schema.hash
     order_uids = ["display-order-uid"]
+    hidden_feature = schema.members.first()
+    hidden_uids = [hidden_feature.uid]
     aux = dict(schema._aux or {})
     af = dict(aux.get("af") or {})
     af["2"] = order_uids
+    af["4"] = hidden_uids
     aux["af"] = af
     schema._aux = aux
     schema.save(print_hash_mutation_warning=False)
     assert schema.hash == initial_hash
     assert schema._aux["af"]["2"] == order_uids
+    assert schema._aux["af"]["4"] == hidden_uids
+    assert hidden_feature in schema.members
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
@@ -536,6 +541,8 @@ def test_schema_add_remove_optional_features_api(
         schema.remove_optional_features([feature_batch])
     assert schema.hash == initial_hash
     assert schema._aux["af"]["2"] == order_uids
+    assert schema._aux["af"]["4"] == hidden_uids
+    assert hidden_feature in schema.members
 
     feature_project.delete(permanent=True)
     feature_program.delete(permanent=True)
