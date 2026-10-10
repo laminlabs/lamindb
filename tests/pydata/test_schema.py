@@ -350,6 +350,43 @@ def test_schema_update_reorders_features():
     assert schema._aux == {"zarr": {"zarr_format": 3}}
     assert schema.hash == merged_hash
 
+    # Dropping "2" keeps every other af key. A later features save with no "2"
+    # leaves that aux alone.
+    schema._aux = {
+        "af": {
+            "2": [feature_n.uid, feature_i.uid, feature_m.uid],
+            "4": [feature_i.uid],
+        },
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema._aux == {"af": {"4": [feature_i.uid]}, "zarr": {"zarr_format": 3}}
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash == merged_hash
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema._aux == {"af": {"4": [feature_i.uid]}, "zarr": {"zarr_format": 3}}
+
+    # An empty, non-list, blank, or non-string "2" is ignored.
+    link_names = ["feature_n", "feature_i", "feature_m"]
+    for bad_order in ([], {"uid": feature_n.uid}, [feature_n.uid, "  "], [None]):
+        schema._aux = {
+            "af": {"2": bad_order, "4": [feature_i.uid]},
+            "zarr": {"zarr_format": 3},
+        }
+        schema.save()
+        assert schema.members.to_list("name") == link_names
+        assert schema.hash == merged_hash
+    schema._aux = {"zarr": {"zarr_format": 3}}
+
     # describe() is the only display of "2" and "4". Without "2", the index is
     # lifted to the front. With "2", that order is kept and "4" is omitted,
     # except the index. Membership and the stored hash stay as they are.
