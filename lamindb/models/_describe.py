@@ -602,17 +602,20 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     # `_aux["af"]["4"]`. Rows follow "2" (the index stays where that list puts
     # it). Uids in "4" are omitted here only, except the index, which stays
     # visible. This does not change membership, validation, or the hash.
-    from .schema import _usable_hidden_feature_uids, _usable_member_order_uids
+    from .schema import _get_usable_feature_uid_list
 
     n_members = record.n_members
     is_feature_membership = record.itype in {None, "", "Feature"}
     members = list(record.members) if n_members else []
     if is_feature_membership and members:
-        if record.index is not None and _usable_member_order_uids(record._aux) is None:
+        if (
+            record.index is not None
+            and _get_usable_feature_uid_list(record._aux, "2") is None
+        ):
             index_uid = record.index.uid
             # Keep existing member order stable while lifting index to top.
             members.sort(key=lambda member: member.uid != index_uid)
-        hidden = _usable_hidden_feature_uids(record._aux)
+        hidden = _get_usable_feature_uid_list(record._aux, "4")
         if hidden is not None:
             index_uid = record.index.uid if record.index is not None else None
             hidden_uids = set(hidden)

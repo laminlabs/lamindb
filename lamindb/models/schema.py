@@ -99,10 +99,13 @@ def _resolve_pks_on_instance(
     return [uid_to_pk[uid] for uid in uids]
 
 
-def _usable_af_uid_list(aux: dict | None, key: str) -> list[str] | None:
+def _get_usable_feature_uid_list(aux: dict | None, key: str) -> list[str] | None:
     """UIDs in `_aux["af"][key]`, or None when the key is absent or unusable.
 
+    `key` is `"2"` for member display order or `"4"` for hidden features.
     A usable value is a non-empty list of non-empty strings. Duplicates are dropped.
+    `"4"` is display-only: `Schema.describe` omits those features and still shows
+    the index. Membership, validation, and the hash ignore it.
     """
     if not isinstance(aux, dict):
         return None
@@ -121,20 +124,6 @@ def _usable_af_uid_list(aux: dict | None, key: str) -> list[str] | None:
             seen.add(uid)
             ordered.append(uid)
     return ordered
-
-
-def _usable_member_order_uids(aux: dict | None) -> list[str] | None:
-    """Feature UIDs in `_aux["af"]["2"]`, or None when the key is absent or unusable."""
-    return _usable_af_uid_list(aux, "2")
-
-
-def _usable_hidden_feature_uids(aux: dict | None) -> list[str] | None:
-    """Feature UIDs in `_aux["af"]["4"]`, or None when the key is absent or unusable.
-
-    Display-only. `Schema.describe` is the only reader: it omits these features
-    and still shows the index. Membership, validation, and the hash ignore this key.
-    """
-    return _usable_af_uid_list(aux, "4")
 
 
 def _merge_uid_order(current: list[str], preferred: list[str] | None) -> list[str]:
@@ -1573,7 +1562,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if not member_ids:
             return related_manager.model.objects.using(using).none()
         if related_manager.model is Feature:
-            preferred = _usable_member_order_uids(self._aux)
+            preferred = _get_usable_feature_uid_list(self._aux, "2")
             if preferred:
                 id_by_uid = dict(
                     Feature.objects.using(using)
