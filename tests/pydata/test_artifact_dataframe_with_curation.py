@@ -285,7 +285,9 @@ def test_artifact_save_validates_schema_suffix():
     with open(csv_path, "w") as file:
         file.write("a,b\n1,2\n")
 
-    schema = ln.Schema(itype=ln.Feature, suffix=".csv").save()
+    # maximal_set keeps this hash distinct from the shared valid_features schema
+    # once suffix is cleared. That schema already has itype=Feature and no suffix.
+    schema = ln.Schema(itype=ln.Feature, suffix=".csv", maximal_set=True).save()
     artifact = ln.Artifact(csv_path, key=csv_path, schema=schema).save()
 
     schema.suffix = ".h5ad"
