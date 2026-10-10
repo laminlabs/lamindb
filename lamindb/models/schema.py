@@ -170,6 +170,20 @@ def _clear_feature_order(schema: Schema) -> None:
     schema._aux = aux or None
 
 
+def _members_in_link_id_order(schema: Schema) -> list:
+    """Members in link-id order. `_aux["af"]["2"]` is display order and is not hashed."""
+    aux = schema._aux
+    af = aux.get("af") if isinstance(aux, dict) else None
+    saved_order = af.pop("2") if isinstance(af, dict) and "2" in af else None
+    try:
+        if not schema.members.exists():
+            return []
+        return schema.members.to_list()
+    finally:
+        if saved_order is not None:
+            af["2"] = saved_order
+
+
 def get_features_config(
     features: list[SQLRecord] | tuple[SQLRecord, dict],
 ) -> tuple[list[SQLRecord], list[tuple[SQLRecord, dict]]]:
@@ -626,7 +640,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     _aux_fields: dict[str, tuple[str, type]] = {
         # define optional features in the schema as a list of their uids
         "1": ("optionals", list[str]),
-        # display order of feature uids; absent means link-id order
+        # display order of feature uids; absent means link-id order. Not a hash field.
         "2": ("member_order", list[str]),
         # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
@@ -1141,23 +1155,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 feature_list_for_hashing = [feature.uid for feature in features]
             if not ordered_set:  # order matters if ordered_set is True, if not sort
                 feature_list_for_hashing = sorted(feature_list_for_hashing)
-            else:
-                # `_aux["af"]["2"]` is not its own hash field. When it is present,
-                # it is the sequence already hashed here.
-                optional_suffix = f"({HASH_CODE['optional']})"
-                preferred = _usable_member_order_uids(getattr(self, "_aux", None))
-                tokens_by_uid = {
-                    (
-                        token[: -len(optional_suffix)]
-                        if token.endswith(optional_suffix)
-                        else token
-                    ): token
-                    for token in feature_list_for_hashing
-                }
-                ordered_uids = _merge_uid_order(list(tokens_by_uid), preferred)
-                # Dict preserves feature_list order for uids not in "2". Rebuild
-                # from the merged uid list so the optional marker stays attached.
-                feature_list_for_hashing = [tokens_by_uid[uid] for uid in ordered_uids]
             features_hash = hash_string(":".join(feature_list_for_hashing))
             list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
         if slots:
@@ -1382,8 +1379,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
             if hasattr(self, "_features"):
-                # The features argument is the order. Drop a UI override before
-                # hashing so an ordered set hashes that list, not `_aux["af"]["2"]`.
+                # The features argument replaces a UI order.
                 _clear_feature_order(self)
                 features = self._features[1]
                 if features != existing_features:
@@ -1391,7 +1387,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                         f for f in existing_features if f not in features
                     ]
             else:
-                features = existing_features
+                # `_aux["af"]["2"]` changes member order only. Hash the link-id order.
+                features = _members_in_link_id_order(self)
             index_feature = self.index
             index_feature_id = None if index_feature is None else index_feature.id
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(

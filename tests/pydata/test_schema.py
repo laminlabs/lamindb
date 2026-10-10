@@ -320,15 +320,14 @@ def test_schema_update_reorders_features():
     assert schema.members.to_list("name") == ["feature_i", "feature_m", "feature_n"]
     link_order_hash = schema.hash
 
-    # `_aux["af"]["2"]` overrides link order, and an ordered set hashes that sequence.
+    # `_aux["af"]["2"]` overrides member order. It does not change the hash.
     schema._aux = {
         "af": {"2": [feature_n.uid, feature_m.uid, feature_i.uid]},
         "zarr": {"zarr_format": 3},
     }
     schema.save()
     assert schema.members.to_list("name") == ["feature_n", "feature_m", "feature_i"]
-    assert schema.hash != link_order_hash
-    reversed_hash = schema.hash
+    assert schema.hash == link_order_hash
     assert schema._aux["zarr"] == {"zarr_format": 3}
 
     # A stale uid is skipped. A member missing from the list appends in link-id order.
@@ -338,8 +337,7 @@ def test_schema_update_reorders_features():
     }
     schema.save()
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
-    assert schema.hash != reversed_hash
-    merged_hash = schema.hash
+    assert schema.hash == link_order_hash
 
     schema = ln.Schema(
         name="TestSchemaA",
@@ -348,7 +346,8 @@ def test_schema_update_reorders_features():
     ).save()
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
     assert schema._aux == {"zarr": {"zarr_format": 3}}
-    assert schema.hash == merged_hash
+    assert schema.hash != link_order_hash
+    argument_order_hash = schema.hash
 
     # Dropping "2" keeps every other af key. A later features save with no "2"
     # leaves that aux alone.
@@ -367,7 +366,7 @@ def test_schema_update_reorders_features():
     ).save()
     assert schema._aux == {"af": {"4": [feature_i.uid]}, "zarr": {"zarr_format": 3}}
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
-    assert schema.hash == merged_hash
+    assert schema.hash == argument_order_hash
     schema = ln.Schema(
         name="TestSchemaA",
         features=[feature_n, feature_i, feature_m],
@@ -384,7 +383,7 @@ def test_schema_update_reorders_features():
         }
         schema.save()
         assert schema.members.to_list("name") == link_names
-        assert schema.hash == merged_hash
+        assert schema.hash == argument_order_hash
     schema._aux = {"zarr": {"zarr_format": 3}}
 
     # describe() is the only display of "2" and "4". Without "2", the index is
@@ -413,7 +412,7 @@ def test_schema_update_reorders_features():
     assert described_rows(described) == ["feature_n", "feature_m"]
     assert "(2 including index: feature_m)" in described
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
-    assert schema.hash == merged_hash
+    assert schema.hash == argument_order_hash
 
     # A non-feature itype still lifts the index to the front.
     schema.itype = f"Feature[{feature_i.uid}]"
