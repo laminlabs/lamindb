@@ -99,17 +99,17 @@ def _resolve_pks_on_instance(
     return [uid_to_pk[uid] for uid in uids]
 
 
-def _usable_member_order_uids(aux: dict | None) -> list[str] | None:
-    """Feature UIDs in `_aux["af"]["2"]`, or None when the key is absent or unusable.
+def _usable_af_uid_list(aux: dict | None, key: str) -> list[str] | None:
+    """UIDs in `_aux["af"][key]`, or None when the key is absent or unusable.
 
     A usable value is a non-empty list of non-empty strings. Duplicates are dropped.
     """
     if not isinstance(aux, dict):
         return None
     af = aux.get("af")
-    if not isinstance(af, dict) or "2" not in af:
+    if not isinstance(af, dict) or key not in af:
         return None
-    raw = af["2"]
+    raw = af[key]
     if not isinstance(raw, list) or len(raw) == 0:
         return None
     if any(not isinstance(uid, str) or uid.strip() == "" for uid in raw):
@@ -121,6 +121,20 @@ def _usable_member_order_uids(aux: dict | None) -> list[str] | None:
             seen.add(uid)
             ordered.append(uid)
     return ordered
+
+
+def _usable_member_order_uids(aux: dict | None) -> list[str] | None:
+    """Feature UIDs in `_aux["af"]["2"]`, or None when the key is absent or unusable."""
+    return _usable_af_uid_list(aux, "2")
+
+
+def _usable_hidden_feature_uids(aux: dict | None) -> list[str] | None:
+    """Feature UIDs in `_aux["af"]["4"]`, or None when the key is absent or unusable.
+
+    Display-only. `Schema.describe` is the only reader: it omits these features
+    and still shows the index. Membership, validation, and the hash ignore this key.
+    """
+    return _usable_af_uid_list(aux, "4")
 
 
 def _merge_uid_order(current: list[str], preferred: list[str] | None) -> list[str]:
@@ -616,7 +630,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "2": ("member_order", list[str]),
         # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
-        # display-only hidden feature uids; absent means show every member
+        # display-only hidden feature uids; Schema.describe omits them. Not a hash field.
         "4": ("hidden_features", list[str]),
     }
 
@@ -1828,7 +1842,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         include: None | Literal["comments"] = None,
         n_max_features: int | None = None,
     ) -> None | str:
-        """Describe schema."""
+        """Describe schema.
+
+        Feature rows follow `_aux["af"]["2"]` when that list is present, and omit
+        uids in `_aux["af"]["4"]`. The index feature stays visible. Neither list
+        is applied to any other display.
+        """
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(
                 cls_or_self,

@@ -598,12 +598,38 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     )
     add_two_column_items_to_tree(tree, two_column_items)
 
-    # Add features section
+    # Schema.describe is the only display that reads `_aux["af"]["2"]` and
+    # `_aux["af"]["4"]`. Rows follow "2" (the index stays where that list puts
+    # it). Uids in "4" are omitted here only, except the index, which stays
+    # visible. This does not change membership, validation, or the hash.
+    from .schema import _usable_hidden_feature_uids, _usable_member_order_uids
+
     n_members = record.n_members
-    index_info = (
-        f" including index: {record.index.name}" if record.index is not None else ""
+    is_feature_membership = record.itype in {None, "", "Feature"}
+    members = list(record.members) if n_members else []
+    if is_feature_membership and members:
+        if record.index is not None and _usable_member_order_uids(record._aux) is None:
+            index_uid = record.index.uid
+            # Keep existing member order stable while lifting index to top.
+            members.sort(key=lambda member: member.uid != index_uid)
+        hidden = _usable_hidden_feature_uids(record._aux)
+        if hidden is not None:
+            index_uid = record.index.uid if record.index is not None else None
+            hidden_uids = set(hidden)
+            members = [
+                member
+                for member in members
+                if member.uid == index_uid or member.uid not in hidden_uids
+            ]
+    elif record.index is not None and members:
+        index_uid = record.index.uid
+        members.sort(key=lambda member: member.uid != index_uid)
+    shown_count = len(members) if n_members else 0
+    index_is_shown = record.index is not None and any(
+        member.uid == record.index.uid for member in members
     )
-    members_count_display = f" ({n_members}{index_info})" if n_members else ""
+    index_info = f" including index: {record.index.name}" if index_is_shown else ""
+    members_count_display = f" ({shown_count}{index_info})" if shown_count else ""
     if n_members or (record.dtype and record.itype is not None):
         feature_section_title = (
             "Features" if record.itype in {None, "", "Feature"} else record.itype
@@ -630,11 +656,6 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("default_value", style="", no_wrap=True)
 
             optionals = record.optionals.get()
-            members = list(record.members)
-            if record.index is not None:
-                index_uid = record.index.uid
-                # Keep existing member order stable while lifting index to top.
-                members.sort(key=lambda member: member.uid != index_uid)
             for member in members:
                 feature_table.add_row(
                     Text(member.name),

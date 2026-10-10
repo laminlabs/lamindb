@@ -350,6 +350,34 @@ def test_schema_update_reorders_features():
     assert schema._aux == {"zarr": {"zarr_format": 3}}
     assert schema.hash == merged_hash
 
+    # describe() is the only display of "2" and "4". Without "2", the index is
+    # lifted to the front. With "2", that order is kept and "4" is omitted,
+    # except the index. Membership and the stored hash stay as they are.
+    def described_rows(described: str) -> list[str]:
+        return [
+            line.strip().split()[0]
+            for line in described.splitlines()
+            if line.strip().split()[:1]
+            and line.strip().split()[0].startswith("feature_")
+        ]
+
+    schema.index = feature_m
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_m", "feature_n", "feature_i"]
+    schema._aux = {
+        "af": {
+            "2": [feature_n.uid, feature_i.uid, feature_m.uid],
+            "3": feature_m.uid,
+            "4": [feature_m.uid, feature_i.uid, feature_i.uid],
+        },
+        "zarr": {"zarr_format": 3},
+    }
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_n", "feature_m"]
+    assert "(2 including index: feature_m)" in described
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash == merged_hash
+
     schema.delete(permanent=True)
     feature_i.delete(permanent=True)
     feature_m.delete(permanent=True)
@@ -523,6 +551,11 @@ def test_schema_add_remove_optional_features_api(
     assert schema._aux["af"]["2"] == order_uids
     assert schema._aux["af"]["4"] == hidden_uids
     assert hidden_feature in schema.members
+    described = schema.describe(return_str=True)
+    shown_count = schema.n_members - (
+        0 if schema.index is not None and schema.index.uid == hidden_feature.uid else 1
+    )
+    assert f"({shown_count}" in described
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
