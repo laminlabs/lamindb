@@ -415,6 +415,11 @@ def test_schema_update_reorders_features():
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
     assert schema.hash == merged_hash
 
+    # A non-feature itype still lifts the index to the front.
+    schema.itype = f"Feature[{feature_i.uid}]"
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_m", "feature_n", "feature_i"]
+
     schema.delete(permanent=True)
     feature_i.delete(permanent=True)
     feature_m.delete(permanent=True)
