@@ -99,6 +99,80 @@ def _resolve_pks_on_instance(
     return [uid_to_pk[uid] for uid in uids]
 
 
+def _get_usable_feature_uid_list(aux: dict | None, key: str) -> list[str] | None:
+    """UIDs in `_aux["af"][key]`, or None when the key is absent or unusable.
+
+    `key` is `"2"` for member display order or `"4"` for hidden features.
+    A usable value is a non-empty list of non-empty strings. Duplicates are dropped.
+    `"4"` is display-only: `Schema.describe` omits those features and still shows
+    the index. Membership, validation, and the hash ignore it.
+    """
+    if not isinstance(aux, dict):
+        return None
+    af = aux.get("af")
+    if not isinstance(af, dict) or key not in af:
+        return None
+    raw = af[key]
+    if not isinstance(raw, list) or len(raw) == 0:
+        return None
+    if any(not isinstance(uid, str) or uid.strip() == "" for uid in raw):
+        return None
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for uid in raw:
+        if uid not in seen:
+            seen.add(uid)
+            ordered.append(uid)
+    return ordered
+
+
+def _merge_uid_order(current: list[str], preferred: list[str] | None) -> list[str]:
+    """Preferred UIDs that occur in `current`, then the rest of `current`."""
+    if not preferred:
+        return current
+    current_set = set(current)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for uid in preferred:
+        if uid in current_set and uid not in seen:
+            ordered.append(uid)
+            seen.add(uid)
+    for uid in current:
+        if uid not in seen:
+            ordered.append(uid)
+            seen.add(uid)
+    return ordered
+
+
+def _clear_feature_order(schema: Schema) -> None:
+    """Drop `_aux["af"]["2"]`, keeping every other auxiliary key."""
+    aux = schema._aux
+    if not isinstance(aux, dict):
+        return
+    af = aux.get("af")
+    if not isinstance(af, dict) or "2" not in af:
+        return
+    af = {key: value for key, value in af.items() if key != "2"}
+    aux = {key: value for key, value in aux.items() if key != "af"}
+    if af:
+        aux["af"] = af
+    schema._aux = aux or None
+
+
+def _members_in_link_id_order(schema: Schema) -> list:
+    """Members in link-id order. `_aux["af"]["2"]` is display order and is not hashed."""
+    aux = schema._aux
+    af = aux.get("af") if isinstance(aux, dict) else None
+    saved_order = af.pop("2") if isinstance(af, dict) and "2" in af else None
+    try:
+        if not schema.members.exists():
+            return []
+        return schema.members.to_list()
+    finally:
+        if saved_order is not None:
+            af["2"] = saved_order
+
+
 def get_features_config(
     features: list[SQLRecord] | tuple[SQLRecord, dict],
 ) -> tuple[list[SQLRecord], list[tuple[SQLRecord, dict]]]:
@@ -555,8 +629,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     _aux_fields: dict[str, tuple[str, type]] = {
         # define optional features in the schema as a list of their uids
         "1": ("optionals", list[str]),
+        # display order of feature uids; absent means link-id order. Not a hash field.
+        "2": ("member_order", list[str]),
         # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
+        # display-only hidden feature uids; Schema.describe omits them. Not a hash field.
+        "4": ("hidden_features", list[str]),
     }
 
     id: int = models.AutoField(primary_key=True)
@@ -839,6 +917,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 validated_kwargs.pop("_aux", None)
                 update_attributes(self, validated_kwargs)
                 self.optionals.set(optional_features)
+                # An ordered set's hash already encodes this feature order. Keep it
+                # on `_features` so save() drops a UI order override and rewrites
+                # links when they still follow an older sequence.
+                if ordered_set and features:
+                    self._features = (get_related_name(features_registry), features)  # type: ignore
                 return None
         self._slots: dict[str, Schema] = {}
 
@@ -1039,7 +1122,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             for arg in hash_args
             if validated_kwargs[arg] is not None
         ]
-        # only include in hash if not default so that it's backward compatible with records for which flexible was never set
         if flexible != flexible_default:
             list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
         if coerce is not None and coerce != coerce_default:
@@ -1286,13 +1368,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
             if hasattr(self, "_features"):
+                # The features argument replaces a UI order.
+                _clear_feature_order(self)
                 features = self._features[1]
                 if features != existing_features:
                     features_to_delete = [
                         f for f in existing_features if f not in features
                     ]
             else:
-                features = existing_features
+                # `_aux["af"]["2"]` changes member order only. Hash the link-id order.
+                features = _members_in_link_id_order(self)
             index_feature = self.index
             index_feature_id = None if index_feature is None else index_feature.id
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
@@ -1320,6 +1405,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 optional_features_manual=self.optionals.get(),
             )
             if validated_kwargs["hash"] != self.hash:
+                if (
+                    Schema.objects.using(using)
+                    .filter(~Q(branch_id=-1), hash=validated_kwargs["hash"])
+                    .exclude(pk=self.pk)
+                    .exists()
+                ):
+                    raise ValidationError(
+                        "Another schema already has this hash. "
+                        "This feature order matches an existing schema."
+                    )
                 from .artifact import Artifact
 
                 datasets = Artifact.filter(schema=self)
@@ -1432,6 +1527,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         Unlike the many-to-many fields that relate the feature objects (`.features`, `.genes`, `.proteins`, etc.)
         the `.members` attribute returns an ordered `QuerySet` if the schema is saved or
         a `SQLRecordList` if the schema is unsaved.
+
+        Feature schemas follow `_aux["af"]["2"]` when that value is a list of feature
+        UIDs: named members first, then any member the list omits, in link-id order.
+        Otherwise, and for non-feature members, order is the link row id.
         """
         if self._state.adding:
             # this should return a queryset and not a list...
@@ -1462,6 +1561,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         )
         if not member_ids:
             return related_manager.model.objects.using(using).none()
+        if related_manager.model is Feature:
+            preferred = _get_usable_feature_uid_list(self._aux, "2")
+            if preferred:
+                id_by_uid = dict(
+                    Feature.objects.using(using)
+                    .filter(id__in=member_ids)
+                    .values_list("uid", "id")
+                )
+                uid_by_id = {member_id: uid for uid, member_id in id_by_uid.items()}
+                current_uids = [
+                    uid_by_id[member_id]
+                    for member_id in member_ids
+                    if member_id in uid_by_id
+                ]
+                ordered_uids = _merge_uid_order(current_uids, preferred)
+                member_ids = [id_by_uid[uid] for uid in ordered_uids]
         preserved_order = models.Case(
             *[
                 models.When(id=member_id, then=models.Value(idx))
@@ -1713,7 +1828,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         include: None | Literal["comments"] = None,
         n_max_features: int | None = None,
     ) -> None | str:
-        """Describe schema."""
+        """Describe schema.
+
+        Feature rows follow `_aux["af"]["2"]` when that list is present, and omit
+        uids in `_aux["af"]["4"]`. The index feature stays visible. Neither list
+        is applied to any other display.
+        """
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(
                 cls_or_self,

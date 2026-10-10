@@ -318,6 +318,26 @@ def test_schema_update_reorders_features():
         ordered_set=True,
     ).save()
     assert schema.members.to_list("name") == ["feature_i", "feature_m", "feature_n"]
+    link_order_hash = schema.hash
+
+    # `_aux["af"]["2"]` overrides member order. It does not change the hash.
+    schema._aux = {
+        "af": {"2": [feature_n.uid, feature_m.uid, feature_i.uid]},
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_m", "feature_i"]
+    assert schema.hash == link_order_hash
+    assert schema._aux["zarr"] == {"zarr_format": 3}
+
+    # A stale uid is skipped. A member missing from the list appends in link-id order.
+    schema._aux = {
+        "af": {"2": ["stale-uid", feature_n.uid, feature_n.uid]},
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash == link_order_hash
 
     schema = ln.Schema(
         name="TestSchemaA",
@@ -325,6 +345,79 @@ def test_schema_update_reorders_features():
         ordered_set=True,
     ).save()
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema._aux == {"zarr": {"zarr_format": 3}}
+    assert schema.hash != link_order_hash
+    argument_order_hash = schema.hash
+
+    # Dropping "2" keeps every other af key. A later features save with no "2"
+    # leaves that aux alone.
+    schema._aux = {
+        "af": {
+            "2": [feature_n.uid, feature_i.uid, feature_m.uid],
+            "4": [feature_i.uid],
+        },
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema._aux == {"af": {"4": [feature_i.uid]}, "zarr": {"zarr_format": 3}}
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash == argument_order_hash
+    schema = ln.Schema(
+        name="TestSchemaA",
+        features=[feature_n, feature_i, feature_m],
+        ordered_set=True,
+    ).save()
+    assert schema._aux == {"af": {"4": [feature_i.uid]}, "zarr": {"zarr_format": 3}}
+
+    # An empty, non-list, blank, or non-string "2" is ignored.
+    link_names = ["feature_n", "feature_i", "feature_m"]
+    for bad_order in ([], {"uid": feature_n.uid}, [feature_n.uid, "  "], [None]):
+        schema._aux = {
+            "af": {"2": bad_order, "4": [feature_i.uid]},
+            "zarr": {"zarr_format": 3},
+        }
+        schema.save()
+        assert schema.members.to_list("name") == link_names
+        assert schema.hash == argument_order_hash
+    schema._aux = {"zarr": {"zarr_format": 3}}
+
+    # describe() is the only display of "2" and "4". Without "2", the index is
+    # lifted to the front. With "2", that order is kept and "4" is omitted,
+    # except the index. Membership and the stored hash stay as they are.
+    def described_rows(described: str) -> list[str]:
+        return [
+            line.strip().split()[0]
+            for line in described.splitlines()
+            if line.strip().split()[:1]
+            and line.strip().split()[0].startswith("feature_")
+        ]
+
+    schema.index = feature_m
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_m", "feature_n", "feature_i"]
+    schema._aux = {
+        "af": {
+            "2": [feature_n.uid, feature_i.uid, feature_m.uid],
+            "3": feature_m.uid,
+            "4": [feature_m.uid, feature_i.uid, feature_i.uid],
+        },
+        "zarr": {"zarr_format": 3},
+    }
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_n", "feature_m"]
+    assert "(2 including index: feature_m)" in described
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash == argument_order_hash
+
+    # A non-feature itype still lifts the index to the front.
+    schema.itype = f"Feature[{feature_i.uid}]"
+    described = schema.describe(return_str=True)
+    assert described_rows(described) == ["feature_m", "feature_n", "feature_i"]
 
     schema.delete(permanent=True)
     feature_i.delete(permanent=True)
@@ -485,6 +578,25 @@ def test_schema_add_remove_optional_features_api(
 ):
     schema = mini_immuno_schema_flexible
     initial_hash = schema.hash
+    order_uids = ["display-order-uid"]
+    hidden_feature = schema.members.first()
+    hidden_uids = [hidden_feature.uid]
+    aux = dict(schema._aux or {})
+    af = dict(aux.get("af") or {})
+    af["2"] = order_uids
+    af["4"] = hidden_uids
+    aux["af"] = af
+    schema._aux = aux
+    schema.save(print_hash_mutation_warning=False)
+    assert schema.hash == initial_hash
+    assert schema._aux["af"]["2"] == order_uids
+    assert schema._aux["af"]["4"] == hidden_uids
+    assert hidden_feature in schema.members
+    described = schema.describe(return_str=True)
+    shown_count = schema.n_members - (
+        0 if schema.index is not None and schema.index.uid == hidden_feature.uid else 1
+    )
+    assert f"({shown_count}" in described
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
@@ -502,6 +614,9 @@ def test_schema_add_remove_optional_features_api(
     with pytest.warns(DeprecationWarning):
         schema.remove_optional_features([feature_batch])
     assert schema.hash == initial_hash
+    assert schema._aux["af"]["2"] == order_uids
+    assert schema._aux["af"]["4"] == hidden_uids
+    assert hidden_feature in schema.members
 
     feature_project.delete(permanent=True)
     feature_program.delete(permanent=True)
