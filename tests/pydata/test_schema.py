@@ -318,6 +318,28 @@ def test_schema_update_reorders_features():
         ordered_set=True,
     ).save()
     assert schema.members.to_list("name") == ["feature_i", "feature_m", "feature_n"]
+    link_order_hash = schema.hash
+
+    # `_aux["af"]["2"]` overrides link order, and an ordered set hashes that sequence.
+    schema._aux = {
+        "af": {"2": [feature_n.uid, feature_m.uid, feature_i.uid]},
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_m", "feature_i"]
+    assert schema.hash != link_order_hash
+    reversed_hash = schema.hash
+    assert schema._aux["zarr"] == {"zarr_format": 3}
+
+    # A stale uid is skipped. A member missing from the list appends in link-id order.
+    schema._aux = {
+        "af": {"2": ["stale-uid", feature_n.uid, feature_n.uid]},
+        "zarr": {"zarr_format": 3},
+    }
+    schema.save()
+    assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema.hash != reversed_hash
+    merged_hash = schema.hash
 
     schema = ln.Schema(
         name="TestSchemaA",
@@ -325,6 +347,8 @@ def test_schema_update_reorders_features():
         ordered_set=True,
     ).save()
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
+    assert schema._aux == {"zarr": {"zarr_format": 3}}
+    assert schema.hash == merged_hash
 
     schema.delete(permanent=True)
     feature_i.delete(permanent=True)
@@ -485,6 +509,15 @@ def test_schema_add_remove_optional_features_api(
 ):
     schema = mini_immuno_schema_flexible
     initial_hash = schema.hash
+    order_uids = ["display-order-uid"]
+    aux = dict(schema._aux or {})
+    af = dict(aux.get("af") or {})
+    af["2"] = order_uids
+    aux["af"] = af
+    schema._aux = aux
+    schema.save(print_hash_mutation_warning=False)
+    assert schema.hash == initial_hash
+    assert schema._aux["af"]["2"] == order_uids
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
@@ -502,6 +535,7 @@ def test_schema_add_remove_optional_features_api(
     with pytest.warns(DeprecationWarning):
         schema.remove_optional_features([feature_batch])
     assert schema.hash == initial_hash
+    assert schema._aux["af"]["2"] == order_uids
 
     feature_project.delete(permanent=True)
     feature_program.delete(permanent=True)
