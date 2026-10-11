@@ -1514,6 +1514,58 @@ def test_write_attaches_page_markdown_to_records():
     assert stats == {"records": 1, "pending": 0}
 
 
+def test_write_logs_notion_id_when_feature_validation_fails():
+    feature = _fake_feature("Role", "str")
+    schema = type("Schema", (), {"members": [feature], "itype": "Feature"})
+    rec_type = type("RecordType", (), {"name": "User stories", "schema": schema})()
+    rec = MagicMock()
+    rec.features.set_values.side_effect = ln.errors.ValidationError(
+        "expected series 'None' to have type str"
+    )
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+
+    with (
+        patch("lamindb.integrations.notion.logger.error") as log_error,
+        pytest.raises(
+            ln.errors.ValidationError, match="expected series 'None' to have type str"
+        ),
+    ):
+        _write(
+            reader,
+            [{"notion_id": "page-1", "Role": 123, "Name": "Checkout flow"}],
+            rec_type,
+            spec={"Role": {"type": "rich_text"}, "Name": {"type": "title"}},
+            by_id={"page-1": rec},
+        )
+
+    log_error.assert_called_once_with(
+        "notion sync: feature validation failed for notion_id=page-1"
+    )
+
+
+def test_set_values_validation_message_names_record_and_features():
+    from lamindb.models._feature_manager import FeatureManager
+
+    host = type("Record", (), {})()
+    host.name = "Checkout flow"
+    host.uid = "recuid"
+    host.type = type("Type", (), {"name": "User stories"})()
+    feature = type("Feature", (), {"name": "Role", "_dtype_str": "str"})()
+
+    message = FeatureManager(host)._feature_validation_message(
+        {"Role": 123},
+        [feature],
+        ln.errors.ValidationError("expected series 'None' to have type str"),
+    )
+
+    assert (
+        message == "Failed to set features on Record 'Checkout flow' "
+        "(uid=recuid, type='User stories'): 'Role' (str)=123. "
+        "expected series 'None' to have type str"
+    )
+
+
 def test_project_syncer_reports_unmapped_properties():
     syncer = ProjectSyncer(reader=MagicMock())
     report = SyncReport(apply=False)

@@ -2143,9 +2143,14 @@ class FeatureManager:
                 dictionary,
                 values_by_feature_uid,
             )
-            ExperimentalDictCurator(
-                dictionary, schema, using=self._host._state.db
-            ).validate()
+            try:
+                ExperimentalDictCurator(
+                    dictionary, schema, using=self._host._state.db
+                ).validate()
+            except ValidationError as error:
+                raise ValidationError(
+                    self._feature_validation_message(dictionary, feature_objects, error)
+                ) from error
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name
@@ -2199,6 +2204,38 @@ class FeatureManager:
             apply_inverted_values_through_writes(
                 self._host, inverted_writes, replace=True
             )
+
+    def _feature_validation_message(
+        self,
+        values: dict[str, Any],
+        features: list[Feature],
+        error: BaseException,
+    ) -> str:
+        """Name the host record and each feature assignment that failed validation."""
+        host_kind = get_registry_name(self._host)
+        name = getattr(self._host, "name", None)
+        identity = f"{host_kind} {name!r}" if name else host_kind
+        qualifiers: list[str] = []
+        uid = getattr(self._host, "uid", None)
+        if uid:
+            qualifiers.append(f"uid={uid}")
+        type_name = getattr(getattr(self._host, "type", None), "name", None)
+        if type_name:
+            qualifiers.append(f"type={type_name!r}")
+        if qualifiers:
+            identity += f" ({', '.join(qualifiers)})"
+        dtype_by_name = {
+            feature.name: feature._dtype_str
+            for feature in features
+            if isinstance(getattr(feature, "_dtype_str", None), str)
+        }
+        assignments = []
+        for key, value in values.items():
+            dtype = dtype_by_name.get(key)
+            dtype_label = f" ({dtype})" if dtype else ""
+            assignments.append(f"{key!r}{dtype_label}={value!r}")
+        feature_text = ", ".join(assignments) if assignments else "(none)"
+        return f"Failed to set features on {identity}: {feature_text}. {error}"
 
     def _get_external_schema(self) -> Schema | None:
         external_schema = None

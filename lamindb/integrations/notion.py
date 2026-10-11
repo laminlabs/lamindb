@@ -2097,7 +2097,14 @@ def _write(
             create_labels=False,
             skip_props=skip_props,
         )
-        rec.features.set_values(values)
+        try:
+            rec.features.set_values(values)
+        except ln.errors.ValidationError:
+            logger.error(
+                "notion sync: feature validation failed for "
+                f"notion_id={row.get('notion_id')}"
+            )
+            raise
         notion_id = row.get("notion_id")
         if isinstance(notion_id, str) and notion_id:
             markdown_content = markdown_by_notion_id.get(notion_id)
