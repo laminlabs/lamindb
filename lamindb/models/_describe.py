@@ -534,7 +534,11 @@ def describe_branch(record: Branch) -> Tree:
     return tree
 
 
-def describe_schema(record: Schema, slot: str | None = None) -> Tree:
+def describe_schema(
+    record: Schema,
+    slot: str | None = None,
+    include: None | Literal["hidden"] = None,
+) -> Tree:
     from ._feature_manager import format_dtype_for_display, strip_cat
 
     if record.type:
@@ -601,12 +605,16 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     # Schema.describe is the only display that reads `_aux["af"]["2"]` and
     # `_aux["af"]["4"]`. Rows follow "2" (the index stays where that list puts
     # it). Uids in "4" are omitted here only, except the index, which stays
-    # visible. This does not change membership, validation, or the hash.
+    # visible, unless include="hidden". This does not change membership,
+    # validation, or the hash.
     from .schema import _get_usable_feature_uid_list
 
     n_members = record.n_members
     is_feature_membership = record.itype in {None, "", "Feature"}
     members = list(record.members) if n_members else []
+    # Members in "4" that the default listing leaves out. The index stays
+    # visible, so it is not part of this count.
+    n_hidden = 0
     if is_feature_membership and members:
         if (
             record.index is not None
@@ -619,11 +627,17 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         if hidden is not None:
             index_uid = record.index.uid if record.index is not None else None
             hidden_uids = set(hidden)
-            members = [
-                member
+            n_hidden = sum(
+                1
                 for member in members
-                if member.uid == index_uid or member.uid not in hidden_uids
-            ]
+                if member.uid in hidden_uids and member.uid != index_uid
+            )
+            if include != "hidden":
+                members = [
+                    member
+                    for member in members
+                    if member.uid == index_uid or member.uid not in hidden_uids
+                ]
     elif record.index is not None and members:
         index_uid = record.index.uid
         members.sort(key=lambda member: member.uid != index_uid)
@@ -632,7 +646,13 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         member.uid == record.index.uid for member in members
     )
     index_info = f" including index: {record.index.name}" if index_is_shown else ""
-    members_count_display = f" ({shown_count}{index_info})" if shown_count else ""
+    hidden_info = f", {n_hidden} hidden" if n_hidden else ""
+    if shown_count:
+        members_count_display = f" ({shown_count}{index_info}{hidden_info})"
+    elif n_hidden:
+        members_count_display = f" ({n_hidden} hidden)"
+    else:
+        members_count_display = ""
     if n_members or (record.dtype and record.itype is not None):
         feature_section_title = (
             "Features" if record.itype in {None, "", "Feature"} else record.itype

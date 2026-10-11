@@ -104,8 +104,9 @@ def _get_usable_feature_uid_list(aux: dict | None, key: str) -> list[str] | None
 
     `key` is `"2"` for member display order or `"4"` for hidden features.
     A usable value is a non-empty list of non-empty strings. Duplicates are dropped.
-    `"4"` is display-only: `Schema.describe` omits those features and still shows
-    the index. Membership, validation, and the hash ignore it.
+    `"4"` is display-only: `Schema.describe` omits those features unless
+    `include="hidden"`, and still shows the index. Membership, validation,
+    and the hash ignore it.
     """
     if not isinstance(aux, dict):
         return None
@@ -633,7 +634,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "2": ("member_order", list[str]),
         # mark the feature that serves as the index via its uid
         "3": ("index_feature_uid", str),
-        # display-only hidden feature uids; Schema.describe omits them. Not a hash field.
+        # display-only hidden feature uids; Schema.describe omits them unless
+        # include="hidden". Not a hash field.
         "4": ("hidden_features", list[str]),
     }
 
@@ -1825,14 +1827,21 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def describe(
         cls_or_self,
         return_str: bool = False,
-        include: None | Literal["comments"] = None,
+        include: None | Literal["comments", "hidden"] = None,
         n_max_features: int | None = None,
     ) -> None | str:
         """Describe schema.
 
+        Args:
+            return_str: Return a string instead of printing.
+            include: Pass `"hidden"` to list features omitted by default.
+                Same idea as `to_dataframe(include=...)`: the extra content
+                stays out of the default view until requested.
+
         Feature rows follow `_aux["af"]["2"]` when that list is present, and omit
-        uids in `_aux["af"]["4"]`. The index feature stays visible. Neither list
-        is applied to any other display.
+        uids in `_aux["af"]["4"]` unless `include="hidden"`. The index feature
+        stays visible. The feature header notes how many features are hidden.
+        Neither list is applied to any other display.
         """
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(
@@ -1841,9 +1850,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             )  # type: ignore
         if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")
-        tree = describe_schema(cls_or_self)
+        show_hidden = include == "hidden"
+        tree = describe_schema(cls_or_self, include="hidden" if show_hidden else None)
         for slot, schema in cls_or_self.slots.items():
-            tree.add(describe_schema(schema, slot=slot))
+            tree.add(
+                describe_schema(
+                    schema, slot=slot, include="hidden" if show_hidden else None
+                )
+            )
         return format_rich_tree(tree, return_str=return_str)
 
 
