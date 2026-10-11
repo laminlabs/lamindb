@@ -4130,6 +4130,140 @@ def test_collect_database_ids_depth_includes_sibling_child_databases(syncer):
     assert db_ids == {"db-1", "db-2"}
 
 
+def _page_payload(
+    page_id: str,
+    title: str,
+    *,
+    parent_id: str | None = None,
+    emoji: str | None = None,
+):
+    payload: dict = {
+        "object": "page",
+        "id": page_id,
+        "properties": {"title": {"type": "title", "title": [{"plain_text": title}]}},
+    }
+    if parent_id is not None:
+        payload["parent"] = {"type": "page_id", "page_id": parent_id}
+    if emoji is not None:
+        payload["icon"] = {"type": "emoji", "emoji": emoji}
+    return payload
+
+
+def test_collect_database_ids_depth_one_includes_child_pages_without_databases(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    child_id = "11111111111111111111111111111111"
+    page_payload = _page_payload(page_id, "Parent")
+    child_payload = _page_payload(child_id, "Child", parent_id=page_id, emoji="📄")
+
+    def safe_call(path):
+        if path.startswith("/databases/"):
+            return None
+        compact = path.replace("-", "")
+        if page_id in compact:
+            return page_payload
+        if child_id in compact:
+            return child_payload
+        return None
+
+    blocks = [
+        {
+            "id": child_id,
+            "type": "child_page",
+            "has_children": False,
+            "child_page": {"title": "Child"},
+        }
+    ]
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", return_value=blocks),
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
+
+    assert db_ids == set()
+    assert parent_pages == {page_id: "Parent", child_id: "Child"}
+    assert syncer._parent_page_parents == {child_id: page_id}
+    assert syncer._parent_page_emojis[child_id] == "📄"
+
+
+def test_collect_database_ids_depth_one_includes_pages_and_database_schema_only(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    child_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    db_id = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    column_id = "column-1"
+    page_payload = _page_payload(page_id, "Parent", emoji="📁")
+    child_payload = _page_payload(child_id, "Notes", parent_id=page_id)
+
+    def safe_call(path):
+        if path.startswith("/databases/"):
+            return None
+        compact = path.replace("-", "")
+        if page_id in compact:
+            return page_payload
+        if child_id in compact:
+            return child_payload
+        return None
+
+    listed: list[str] = []
+
+    def children(block_id):
+        listed.append(block_id)
+        if block_id == page_id:
+            return [{"id": column_id, "type": "column", "has_children": True}]
+        if block_id == column_id:
+            return [
+                {
+                    "id": child_id,
+                    "type": "child_page",
+                    "has_children": True,
+                    "child_page": {"title": "Notes"},
+                },
+                {"id": db_id, "type": "child_database", "has_children": False},
+            ]
+        if block_id == child_id:
+            return []
+        raise AssertionError(f"unexpected block listing for {block_id}")
+
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", side_effect=children),
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert syncer._database_row_depth == {db_id: 0}
+    assert parent_pages[page_id] == "Parent"
+    assert parent_pages[child_id] == "Notes"
+    assert syncer._database_parent_pages == {db_id: page_id}
+    assert child_id not in listed
+
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", side_effect=children),
+    ):
+        syncer._collect_database_ids([page_id], depth=2)
+
+    assert syncer._database_row_depth == {db_id: 1}
+
+
+def test_collect_database_ids_on_database_uses_requested_row_depth(syncer):
+    db_id = "b86daf142a544728bda2496c5760d863"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(syncer.reader, "rows", return_value=[]) as rows,
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([db_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert parent_pages == {}
+    assert syncer._database_row_depth == {db_id: 1}
+    rows.assert_called_once_with(db_id)
+
+    with patch.object(syncer, "_safe_call", return_value={"id": db_id}):
+        syncer._collect_database_ids([db_id], depth=0)
+
+    assert syncer._database_row_depth == {db_id: 0}
+
+
 def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
     page_id = "7283894209c44522a7c79620795d0409"
     request = httpx.Request("GET", f"{BASE}/databases/{page_id}")
@@ -4778,6 +4912,65 @@ def test_notion_syncer_depth_zero_skips_database_rows(monkeypatch):
     assert report.databases == ["db-1"]
 
 
+def test_notion_syncer_depth_one_without_databases_syncs_pages(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"child-id": "Child", "parent-id": "Parent"}),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    assert report.discovered_pages == 2
+    assert report.databases == []
+    assert report.create_record_types == ["Child", "Parent"]
+
+
+def test_notion_syncer_depth_one_syncs_pages_and_skips_child_database_rows(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    rec_type = _fake_rec_type("Registry", ["Name"])
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 0}
+        return ({"db-1"}, {"child-id": "Notes", "parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_is_project_database", return_value=False),
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Registry"}]},
+        ),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    database_rows.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
+    assert report.create_record_types == ["Notes", "Parent"]
+
+
 def test_import_pages_passes_limit_to_database_discovery(syncer):
     rec_type = _fake_rec_type("People", ["Name"])
     rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
@@ -4938,6 +5131,81 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
     assert report.databases == []
     assert report.discovered == 0
     assert report.create_record_types == ["Parent"]
+
+
+def test_import_pages_depth_one_without_databases_syncs_child_pages(syncer):
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"child-id": "Child", "parent-id": "Parent"}),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    assert report.discovered_pages == 2
+    assert report.databases == []
+    assert report.discovered == 0
+    assert report.create_record_types == ["Child", "Parent"]
+
+
+def test_import_pages_depth_one_syncs_pages_and_skips_child_database_rows(syncer):
+    rec_type = _fake_rec_type("Registry", ["Name"])
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 0}
+        return ({"db-1"}, {"child-id": "Notes", "parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type) as resolve,
+        patch.object(syncer, "_validate_schema") as validate,
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    resolve.assert_called_once()
+    validate.assert_called_once()
+    database_rows.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
+    assert report.create_record_types == ["Notes", "Parent"]
+
+
+def test_import_pages_depth_two_includes_child_database_rows(syncer):
+    rec_type = _fake_rec_type("Registry", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 1}
+        return ({"db-1"}, {"parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows) as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=2)
+
+    database_rows.assert_called_once_with("db-1", include_page_emoji=False)
+    assert report.discovered == 1
+    assert report.created == 1
 
 
 def test_import_pages_apply_links_parent_page_hierarchy(syncer):

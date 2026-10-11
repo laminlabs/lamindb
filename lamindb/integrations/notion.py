@@ -2244,6 +2244,7 @@ class _NotionSyncer:
         self.workspace = workspace
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
+        self._database_row_depth: dict[str, int] = {}
         self._seed_page_ids_by_database: dict[str, set[str]] = {}
         self._parent_page_parents: dict[str, str] = {}
         self._formula_dtype_cache: dict[tuple[str, str], tuple[str, Any]] = {}
@@ -2376,6 +2377,84 @@ class _NotionSyncer:
                 return children
             cursor = payload.get("next_cursor")
 
+    def _set_database_row_depth(self, database_id: str, row_depth: int) -> None:
+        """Remember how many row levels remain once this database is reached."""
+        normalized = _normalize_notion_id(database_id) or database_id
+        current = self._database_row_depth.get(normalized)
+        if current is None or row_depth > current:
+            self._database_row_depth[normalized] = row_depth
+
+    def _database_content_depth(self, database_id: str, depth: int) -> int:
+        """Row levels to sync for this database.
+
+        Child databases store the depth left after the level that reached
+        them. A database id used as the sync root stores the requested depth.
+        When collection did not record one, `depth` applies.
+        """
+        normalized = _normalize_notion_id(database_id) or database_id
+        return self._database_row_depth.get(normalized, depth)
+
+    def _log_schema_only_database(self, database_id: str, depth: int) -> None:
+        compact = _compact_uuid(database_id)
+        if depth <= 0:
+            logger.important(
+                "notion sync: depth=0 syncs the record type only for "
+                f"db={compact}; pass --depth 1 to include its pages"
+            )
+            return
+        logger.important(
+            "notion sync: child database "
+            f"db={compact} is synced as its page and schema only; "
+            f"pass --depth {depth + 1} to include its pages"
+        )
+
+    def _register_discovered_page(
+        self,
+        page_id: str,
+        pages: dict[str, str],
+        page_emojis: dict[str, str | None],
+        *,
+        fallback_title: str | None = None,
+    ) -> str | None:
+        """Record a child page within the depth window.
+
+        Database rows are not pages in this sense: they belong to a database
+        and are synced only when that database's content depth allows it.
+        """
+        normalized = _normalize_notion_id(page_id) or page_id
+        if normalized in pages:
+            return normalized
+        payload = self._safe_call(f"/pages/{_notion_api_id(page_id)}")
+        if payload is not None and self._page_parent_database_id(payload) is not None:
+            return None
+        if payload is None:
+            title = (fallback_title or "").strip() or _compact_uuid(normalized)
+            pages[normalized] = title
+            page_emojis.setdefault(normalized, None)
+            return normalized
+        title = (
+            _page_title(payload).strip()
+            or (fallback_title or "").strip()
+            or _compact_uuid(normalized)
+        )
+        pages[normalized] = title
+        page_emojis[normalized] = self._database_emoji(payload)
+        ancestor = self._database_parent_page_id(payload)
+        if ancestor is None:
+            return normalized
+        self._parent_page_parents[normalized] = ancestor
+        if ancestor in pages:
+            return normalized
+        ancestor_payload = self._safe_call(f"/pages/{_notion_api_id(ancestor)}")
+        if ancestor_payload is None or self._page_parent_database_id(ancestor_payload):
+            return normalized
+        ancestor_title = _page_title(ancestor_payload).strip() or _compact_uuid(
+            ancestor
+        )
+        pages[ancestor] = ancestor_title
+        page_emojis[ancestor] = self._database_emoji(ancestor_payload)
+        return normalized
+
     def _collect_databases_from_block(
         self,
         block_id: str,
@@ -2384,33 +2463,80 @@ class _NotionSyncer:
         *,
         parent_page_id: str | None = None,
         depth: int = 0,
+        pages: dict[str, str] | None = None,
+        page_emojis: dict[str, str | None] | None = None,
     ) -> None:
-        """Collect child databases up to `depth` levels below this block.
+        """Collect child pages and databases up to `depth` levels below this block.
 
-        `depth<=0` does not enter it. A child database on this block is one
-        level; databases nested under it consume the remaining levels.
+        `depth<=0` does not enter the block. A child page or child database
+        consumes one level. Columns, toggles, and other layout blocks do not,
+        so a page or database nested in one is still a direct child. A child
+        database keeps the remaining depth for its rows: depth 1 includes the
+        database page and schema, and its rows need one more level.
         """
         if depth <= 0:
             return
-        next_depth = depth - 1
+        pages = pages if pages is not None else {}
+        page_emojis = page_emojis if page_emojis is not None else {}
         for block in self._iter_block_children(block_id):
             bid = block.get("id")
             if bid and bid in seen:
                 continue
             if bid:
                 seen.add(bid)
-            if block.get("type") == "child_database" and bid:
+            block_type = block.get("type")
+            if block_type == "child_database" and bid:
                 out.add(bid)
                 normalized_db_id = _normalize_notion_id(bid)
+                self._set_database_row_depth(bid, depth - 1)
                 if parent_page_id is not None and normalized_db_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
+                if block.get("has_children"):
+                    self._collect_databases_from_block(
+                        bid,
+                        seen,
+                        out,
+                        parent_page_id=parent_page_id,
+                        depth=depth - 1,
+                        pages=pages,
+                        page_emojis=page_emojis,
+                    )
+                continue
+            if block_type == "child_page" and bid:
+                child_payload = block.get("child_page")
+                fallback_title = (
+                    child_payload.get("title")
+                    if isinstance(child_payload, dict)
+                    else None
+                )
+                registered = self._register_discovered_page(
+                    bid,
+                    pages,
+                    page_emojis,
+                    fallback_title=fallback_title
+                    if isinstance(fallback_title, str)
+                    else None,
+                )
+                if registered is not None and block.get("has_children"):
+                    self._collect_databases_from_block(
+                        bid,
+                        seen,
+                        out,
+                        parent_page_id=registered,
+                        depth=depth - 1,
+                        pages=pages,
+                        page_emojis=page_emojis,
+                    )
+                continue
             if block.get("has_children") and bid:
                 self._collect_databases_from_block(
                     bid,
                     seen,
                     out,
                     parent_page_id=parent_page_id,
-                    depth=next_depth,
+                    depth=depth,
+                    pages=pages,
+                    page_emojis=page_emojis,
                 )
 
     def _collect_database_ids(
@@ -2422,6 +2548,7 @@ class _NotionSyncer:
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages = {}
+        self._database_row_depth = {}
         self._seed_page_ids_by_database = {}
         self._parent_page_parents = {}
         seen_blocks: set[str] = set()
@@ -2430,6 +2557,7 @@ class _NotionSyncer:
             if db_payload is not None:
                 database_ids.add(parent)
                 normalized_db_id = _normalize_notion_id(parent) or parent
+                self._set_database_row_depth(normalized_db_id, depth)
                 parent_page_id = self._database_parent_page_id(db_payload)
                 if parent_page_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
@@ -2457,6 +2585,8 @@ class _NotionSyncer:
                             database_ids,
                             parent_page_id=None,
                             depth=depth,
+                            pages=parent_pages,
+                            page_emojis=parent_page_emojis,
                         )
                 continue
             page_payload = self._safe_call(f"/pages/{parent}")
@@ -2489,6 +2619,8 @@ class _NotionSyncer:
                     database_ids,
                     parent_page_id=None,
                     depth=depth,
+                    pages=parent_pages,
+                    page_emojis=parent_page_emojis,
                 )
                 continue
 
@@ -2516,6 +2648,8 @@ class _NotionSyncer:
                 database_ids,
                 parent_page_id=parent_id,
                 depth=depth,
+                pages=parent_pages,
+                page_emojis=parent_page_emojis,
             )
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
@@ -4312,33 +4446,14 @@ class _NotionSyncer:
             out[notion_id] = _normalized_timestamp(getattr(record, "updated_at", None))
         return out
 
-    def import_page(
+    def _sync_discovered_pages(
         self,
-        notion_uuid: str,
+        parent_pages: dict[str, str],
         *,
-        apply: bool = False,
-        depth: int = 0,
-    ) -> SyncReport:
-        """Import one Notion page or database, validating schema before any write.
-
-        `notion_uuid` is a Notion page or database id. The sync discovers
-        databases under it, validates property parity against Lamin schemas,
-        then performs an idempotent upsert/materialize pass.
-
-        `depth=0` syncs this page only. A database id syncs its record type.
-        A page id syncs that page. A positive depth also includes that many
-        levels of child pages, and `1` on a database includes its pages.
-        """
-        parent_ids = [notion_uuid]
-
-        report = SyncReport(
-            apply=apply,
-            message="Dry run report -- nothing got created" if not apply else None,
-        )
-        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
-        db_ids = sorted(db_id_set)
-
-        # Parent pages can also map to LaminDB record types.
+        apply: bool,
+        report: SyncReport,
+    ) -> dict[str, Any]:
+        """Create or link record types for pages discovered in this sync."""
         parent_types_by_page_id: dict[str, Any] = {}
         for parent_id, parent_type_name in sorted(parent_pages.items()):
             parent_type = self._resolve_or_create_type_by_name(
@@ -4367,15 +4482,43 @@ class _NotionSyncer:
                 self._append_unique(report.updated_record_types, detail)
             else:
                 self._append_unique(report.update_record_types, detail)
+        return parent_types_by_page_id
+
+    def import_page(
+        self,
+        notion_uuid: str,
+        *,
+        apply: bool = False,
+        depth: int = 0,
+    ) -> SyncReport:
+        """Import one Notion page or database, validating schema before any write.
+
+        `notion_uuid` is a Notion page or database id. The sync discovers
+        pages and databases under it, validates property parity against Lamin
+        schemas, then performs an idempotent upsert/materialize pass.
+
+        `depth=0` syncs this page only. A database id syncs its record type,
+        and `1` on a database also syncs its pages. A positive depth on a page
+        includes that many levels of child pages. A child database counts as
+        one level for its page and schema; its rows are the next level, so
+        `1` on a parent page does not sync database content.
+        """
+        parent_ids = [notion_uuid]
+
+        report = SyncReport(
+            apply=apply,
+            message="Dry run report -- nothing got created" if not apply else None,
+        )
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
+        db_ids = sorted(db_id_set)
+
+        parent_types_by_page_id = self._sync_discovered_pages(
+            parent_pages, apply=apply, report=report
+        )
 
         if not db_ids:
             report.discovered_pages = len(parent_pages)
-            if depth == 0:
-                return report
-            raise ValueError(
-                "No child databases discovered under this page. In phase 1, sync operates "
-                "on page trees that include at least one Notion database."
-            )
+            return report
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Step 1: resolve and validate schema parity before any write.
@@ -4419,11 +4562,8 @@ class _NotionSyncer:
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
-                elif depth <= 0:
-                    logger.important(
-                        "notion sync: depth=0 syncs the record type only for "
-                        f"db={_compact_uuid(db_id)}; pass --depth 1 to include its pages"
-                    )
+                elif self._database_content_depth(db_id, depth) <= 0:
+                    self._log_schema_only_database(db_id, depth)
                     to_write[db_id] = []
                     after_maps[db_id] = {}
                     planned_transfers_by_db[db_id] = {}
@@ -5512,18 +5652,13 @@ class NotionSyncer(RecordSyncer):
         db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
         db_ids = sorted(db_id_set)
         if not db_ids:
+            self._sync_discovered_pages(parent_pages, apply=apply, report=report)
             report.discovered_pages = len(parent_pages)
-            if depth == 0:
-                return report
-            raise ValueError(
-                "No child databases discovered under this page. In phase 1, sync operates "
-                "on page trees that include at least one Notion database."
-            )
+            return report
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         db_payloads: dict[str, dict[str, Any]] = {}
         project_db_ids: set[str] = set()
-        record_db_ids: set[str] = set()
         project_type_by_db_id: dict[str, Any | None] = {}
         for db_id in db_ids:
             payload = self.reader._call("GET", f"/databases/{db_id}")
@@ -5538,38 +5673,10 @@ class NotionSyncer(RecordSyncer):
                     )
                 else:
                     project_type_by_db_id[db_id] = None
-            else:
-                record_db_ids.add(db_id)
 
-        parent_types_by_page_id: dict[str, Any] = {}
-        if record_db_ids:
-            for parent_id, parent_type_name in sorted(parent_pages.items()):
-                parent_type = self._resolve_or_create_type_by_name(
-                    parent_type_name,
-                    emoji=self._parent_page_emojis.get(parent_id),
-                    apply=apply,
-                    report=report,
-                )
-                if parent_type is not None:
-                    parent_types_by_page_id[parent_id] = parent_type
-            for child_page_id, ancestor_page_id in sorted(
-                self._parent_page_parents.items()
-            ):
-                child_type = parent_types_by_page_id.get(child_page_id)
-                ancestor_type = parent_types_by_page_id.get(ancestor_page_id)
-                if child_type is None or ancestor_type is None:
-                    continue
-                if getattr(child_type, "type_id", None) == getattr(
-                    ancestor_type, "id", None
-                ):
-                    continue
-                detail = self._record_type_move_detail(child_type, ancestor_type)
-                if apply:
-                    child_type.type = ancestor_type
-                    child_type.save(update_fields=["type"])
-                    self._append_unique(report.updated_record_types, detail)
-                else:
-                    self._append_unique(report.update_record_types, detail)
+        parent_types_by_page_id = self._sync_discovered_pages(
+            parent_pages, apply=apply, report=report
+        )
 
         rec_types: dict[str, Any] = {}
         db_specs: dict[str, dict[str, Any]] = {}
@@ -5623,11 +5730,8 @@ class NotionSyncer(RecordSyncer):
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
-                elif depth <= 0:
-                    logger.important(
-                        "notion sync: depth=0 syncs the record type only for "
-                        f"db={_compact_uuid(db_id)}; pass --depth 1 to include its pages"
-                    )
+                elif self._database_content_depth(db_id, depth) <= 0:
+                    self._log_schema_only_database(db_id, depth)
                     to_write[db_id] = []
                     after_maps[db_id] = {}
                     planned_transfers_by_db[db_id] = {}
@@ -5833,8 +5937,10 @@ def sync_objects_from_notion(
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
             `0` syncs only this page. A database id syncs its record type,
-            and a page id syncs that page. A positive integer also walks
-            that many levels of children. `1` on a database includes its pages.
+            and `1` on a database also syncs its pages. On a page, a positive
+            depth walks that many levels of child pages. A child database is
+            one level for its page and schema; its rows are the next level,
+            so `1` on a parent page does not sync database content.
         workspace: Notion workspace slug used in page URLs, for example
             `laminlabs` when the current database is `laminlabs/lamindata`.
             Defaults to the account handle of the current database.
