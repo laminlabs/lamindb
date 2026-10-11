@@ -792,6 +792,22 @@ class _NotionReader:
                 # Notion paragraph blocks map to separate markdown paragraphs.
                 # Keep a blank line separator so adjacent paragraph blocks don't collapse.
                 lines.append("")
+        elif block_type == "callout":
+            # Callouts are note blocks. Without a trailing blank line their text
+            # is only a soft break and runs into the following paragraph.
+            icon = ""
+            if isinstance(payload, dict):
+                icon_payload = payload.get("icon")
+                if (
+                    isinstance(icon_payload, dict)
+                    and icon_payload.get("type") == "emoji"
+                    and isinstance(icon_payload.get("emoji"), str)
+                ):
+                    icon = icon_payload["emoji"].strip()
+            body = f"{icon} {text}".strip() if icon else text
+            if body:
+                lines.append(f"{indent}{body}".rstrip())
+                lines.append("")
         elif block_type == "bulleted_list_item":
             lines.append(f"{indent}- {text}".rstrip())
         elif block_type == "numbered_list_item":

@@ -987,6 +987,57 @@ def test_page_markdown_keeps_blank_lines_between_paragraph_blocks(reader):
     )
 
 
+def test_page_markdown_exports_callout_as_its_own_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "callout-1",
+                        "type": "callout",
+                        "has_children": False,
+                        "callout": {
+                            "icon": {"type": "emoji", "emoji": "💡"},
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Richard cannot come due to US travel limitations. "
+                                        "😔 / 👋 Mark Pitman just started on Sep 22nd and "
+                                        "it'd be a 12 hour flight."
+                                    )
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "id": "p1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Lamin team (arrival Mon afternoon → "
+                                        "departure Fri morning):"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "💡 Richard cannot come due to US travel limitations. "
+        "😔 / 👋 Mark Pitman just started on Sep 22nd and it'd be a 12 hour flight.\n"
+        "\n"
+        "Lamin team (arrival Mon afternoon → departure Fri morning):"
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
