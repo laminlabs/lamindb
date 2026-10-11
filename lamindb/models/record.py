@@ -1009,7 +1009,7 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Structured records with support for notes.
+    """Notes and structured metadata.
 
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
     and other custom entities.

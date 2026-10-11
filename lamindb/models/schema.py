@@ -433,7 +433,7 @@ KNOWN_SCHEMAS = {  # by hash
 
 
 class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Schemas to impose structure on artifacts and records.
+    """Data models that impose structure on artifacts and records.
 
     The simplest example for a schema is the set of columns of a `DataFrame`.
     LaminDB's schemas generalize those of pyarrow, pydantic, and pandera in two important ways:
