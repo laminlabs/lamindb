@@ -2573,8 +2573,11 @@ class _NotionSyncer:
                             parent_page_emojis[parent_page_id] = self._database_emoji(
                                 parent_page_payload
                             )
-                # recurse through rows as pages to discover nested child databases
-                if depth == 0:
+                # Rows are this database's pages. Pages and databases nested
+                # inside those rows are another level, so depth 1 syncs the
+                # rows only and does not import schemas from databases that
+                # live on them.
+                if depth <= 1:
                     continue
                 for row in self.reader.rows(parent):
                     notion_id = row.get("notion_id")
@@ -2584,7 +2587,7 @@ class _NotionSyncer:
                             seen_blocks,
                             database_ids,
                             parent_page_id=None,
-                            depth=depth,
+                            depth=depth - 1,
                             pages=parent_pages,
                             page_emojis=parent_page_emojis,
                         )
@@ -4498,10 +4501,11 @@ class _NotionSyncer:
         schemas, then performs an idempotent upsert/materialize pass.
 
         `depth=0` syncs this page only. A database id syncs its record type,
-        and `1` on a database also syncs its pages. A positive depth on a page
-        includes that many levels of child pages. A child database counts as
-        one level for its page and schema; its rows are the next level, so
-        `1` on a parent page does not sync database content.
+        and `1` on a database also syncs its pages. Databases nested inside
+        those pages need another level. A positive depth on a page includes
+        that many levels of child pages. A child database counts as one level
+        for its page and schema; its rows are the next level, so `1` on a
+        parent page does not sync database content.
         """
         parent_ids = [notion_uuid]
 
@@ -5937,7 +5941,8 @@ def sync_objects_from_notion(
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
             `0` syncs only this page. A database id syncs its record type,
-            and `1` on a database also syncs its pages. On a page, a positive
+            and `1` on a database also syncs its pages. Databases nested
+            inside those pages need another level. On a page, a positive
             depth walks that many levels of child pages. A child database is
             one level for its page and schema; its rows are the next level,
             so `1` on a parent page does not sync database content.

@@ -4256,12 +4256,62 @@ def test_collect_database_ids_on_database_uses_requested_row_depth(syncer):
     assert db_ids == {db_id}
     assert parent_pages == {}
     assert syncer._database_row_depth == {db_id: 1}
-    rows.assert_called_once_with(db_id)
+    rows.assert_not_called()
 
     with patch.object(syncer, "_safe_call", return_value={"id": db_id}):
         syncer._collect_database_ids([db_id], depth=0)
 
     assert syncer._database_row_depth == {db_id: 0}
+
+
+def test_collect_database_ids_database_depth_one_ignores_databases_nested_in_rows(
+    syncer,
+):
+    db_id = "e3a8308f03254b01a0f3e97c7d0fe643"
+    nested_db_id = "52878d3ec93748aeb91dea04543650ad"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(
+            syncer.reader,
+            "rows",
+            return_value=[{"notion_id": "row-page"}],
+        ) as rows,
+        patch.object(syncer, "_iter_block_children") as children,
+    ):
+        db_ids, _ = syncer._collect_database_ids([db_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert nested_db_id not in db_ids
+    rows.assert_not_called()
+    children.assert_not_called()
+
+
+def test_collect_database_ids_database_depth_two_includes_nested_database_schema_only(
+    syncer,
+):
+    db_id = "e3a8308f03254b01a0f3e97c7d0fe643"
+    nested_db_id = "52878d3ec93748aeb91dea04543650ad"
+    row_id = "11111111111111111111111111111111"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(syncer.reader, "rows", return_value=[{"notion_id": row_id}]),
+        patch.object(
+            syncer,
+            "_iter_block_children",
+            return_value=[
+                {
+                    "id": nested_db_id,
+                    "type": "child_database",
+                    "has_children": False,
+                }
+            ],
+        ),
+    ):
+        db_ids, _ = syncer._collect_database_ids([db_id], depth=2)
+
+    assert db_ids == {db_id, nested_db_id}
+    assert syncer._database_row_depth[db_id] == 2
+    assert syncer._database_row_depth[nested_db_id] == 0
 
 
 def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
