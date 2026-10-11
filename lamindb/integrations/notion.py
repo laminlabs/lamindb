@@ -2609,6 +2609,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return bool
+        if notion_type == "date":
+            return date
         if notion_type in {"created_time", "last_edited_time"}:
             return datetime
         if notion_type in {"created_by", "last_edited_by"}:
@@ -2629,6 +2631,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return "bool"
+        if notion_type == "date":
+            return "date"
         if notion_type in {"created_time", "last_edited_time"}:
             return "datetime64[ns, UTC]"
         if notion_type in {"created_by", "last_edited_by"}:

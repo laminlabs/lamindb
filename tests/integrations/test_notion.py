@@ -3209,6 +3209,23 @@ def test_feature_dtype_for_people_values_through_user_list(syncer):
     assert dtype.__args__[0] is ln.User
 
 
+def test_feature_dtype_for_date_values_through_date(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("date")
+    assert syncer._feature_dtype_label_from_notion_type("date") == "date"
+    assert dtype is date
+    assert syncer._serialize_feature_dtype(dtype) == "date"
+
+
+def test_dtype_from_notion_property_maps_date_to_date(syncer):
+    dtype_label, dtype = syncer._dtype_from_notion_property(
+        "Meetings",
+        "date",
+        {"type": "date"},
+    )
+    assert dtype_label == "date"
+    assert dtype is date
+
+
 def test_dtype_from_notion_property_maps_people_to_user_list(syncer):
     dtype_label, dtype = syncer._dtype_from_notion_property(
         "Meetings",
