@@ -834,29 +834,34 @@ class _NotionReader:
             lines.append(f"{indent}<!-- display-table-of-contents -->")
         elif block_type == "divider":
             lines.append(f"{indent}---")
-        else:
-            if text:
-                prefix = f"{indent}1. " if parent_is_numbered else indent
-                lines.append(f"{prefix}{text}".rstrip())
-
-        if block_type == "toggle":
+        elif block_type == "toggle":
+            # The summary is the toggle title. Emitting `text` here as well
+            # duplicates it as a paragraph above the <details> block.
+            # Children stay at this indent, with a blank line after <summary>,
+            # so the markdown renderer parses lists and images inside <details>
+            # instead of treating an extra indent level as a code block.
             lines.append(f"{indent}<details>")
             summary = text.strip() or "Details"
             lines.append(f"{indent}<summary>{summary}</summary>")
-            lines.append(f"{indent}<p>")
+            lines.append("")
             if block.get("has_children") and block.get("id"):
                 child_blocks = self._iter_block_children(block["id"])
                 for child in child_blocks:
                     lines.extend(
                         self._block_to_markdown_lines(
                             child,
-                            depth=depth + 1,
+                            depth=depth,
                             parent_is_numbered=False,
                         )
                     )
-            lines.append(f"{indent}</p>")
+            if lines[-1] != "":
+                lines.append("")
             lines.append(f"{indent}</details>")
             return lines
+        else:
+            if text:
+                prefix = f"{indent}1. " if parent_is_numbered else indent
+                lines.append(f"{prefix}{text}".rstrip())
 
         if block_type == "table":
             table_rows = (

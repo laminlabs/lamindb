@@ -1017,12 +1017,90 @@ def test_page_markdown_exports_toggle_as_details_html(reader):
         ),
     ]
     markdown = reader.page_markdown("page-1")
-    assert "<details>" in markdown
-    assert "<summary>Details</summary>" in markdown
-    assert "<p>" in markdown
-    assert "  Inner note" in markdown
-    assert "</p>" in markdown
-    assert "</details>" in markdown
+    assert markdown == (
+        "<details>\n<summary>Details</summary>\n\nInner note\n\n</details>"
+    )
+
+
+def test_page_markdown_toggle_summary_is_not_also_a_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "heading-1",
+                        "type": "heading_3",
+                        "has_children": True,
+                        "heading_3": {"rich_text": [{"plain_text": "Ebad"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-1",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {"rich_text": [{"plain_text": "Good things"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-1",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Everything is seamless, quick"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-2",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Auto PR reviews are really cool"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-3",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Plugins are helpful to ingest data"}
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "### Ebad\n"
+        "  <details>\n"
+        "  <summary>Good things</summary>\n"
+        "\n"
+        "  - Everything is seamless, quick\n"
+        "  - Auto PR reviews are really cool\n"
+        "  - Plugins are helpful to ingest data\n"
+        "\n"
+        "  </details>"
+    )
+    assert markdown.count("Good things") == 1
 
 
 def test_page_markdown_exports_image_and_file_blocks(reader):
