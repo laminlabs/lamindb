@@ -463,6 +463,20 @@ def _assign_notion_timestamps(
         record.updated_at = updated_at
 
 
+def _sibling_list_marker(blocks: list[dict]) -> str | None:
+    """Marker that keeps a toggle inside a sibling list, or None when there is no list."""
+    list_types = {
+        block.get("type")
+        for block in blocks
+        if block.get("type") in {"bulleted_list_item", "numbered_list_item", "to_do"}
+    }
+    if not list_types:
+        return None
+    if list_types == {"numbered_list_item"}:
+        return "1. "
+    return "- "
+
+
 def _normalized_timestamp(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -771,7 +785,12 @@ class _NotionReader:
         return lines
 
     def _block_to_markdown_lines(
-        self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
+        self,
+        block: dict,
+        *,
+        depth: int = 0,
+        parent_is_numbered: bool = False,
+        list_marker: str | None = None,
     ) -> list[str]:
         block_type = block.get("type")
         payload = block.get(block_type) if isinstance(block_type, str) else None
@@ -851,28 +870,40 @@ class _NotionReader:
         elif block_type == "divider":
             lines.append(f"{indent}---")
         elif block_type == "toggle":
-            # The summary is the toggle title. Emitting `text` here as well
-            # duplicates it as a paragraph above the <details> block.
-            # Children stay at this indent, with a blank line after <summary>,
-            # so the markdown renderer parses lists and images inside <details>
-            # instead of treating an extra indent level as a code block.
-            lines.append(f"{indent}<details>")
+            # The summary is the toggle title. Children are rendered from column 0
+            # and then indented with the toggle, so a nested list stays valid
+            # markdown. A blank line after <summary> lets the renderer parse that
+            # list inside <details>. A toggle sitting among list items is itself
+            # a list item; a column-0 <details> would end the surrounding list.
             summary = text.strip() or "Details"
-            lines.append(f"{indent}<summary>{summary}</summary>")
-            lines.append("")
+            detail_lines = [f"<summary>{summary}</summary>"]
+            child_blocks: list[dict] = []
             if block.get("has_children") and block.get("id"):
                 child_blocks = self._iter_block_children(block["id"])
+            if child_blocks:
+                detail_lines.append("")
+                sibling_marker = _sibling_list_marker(child_blocks)
                 for child in child_blocks:
-                    lines.extend(
+                    detail_lines.extend(
                         self._block_to_markdown_lines(
                             child,
-                            depth=depth,
+                            depth=0,
                             parent_is_numbered=False,
+                            list_marker=(
+                                sibling_marker
+                                if child.get("type") == "toggle"
+                                else None
+                            ),
                         )
                     )
-            if lines[-1] != "":
-                lines.append("")
-            lines.append(f"{indent}</details>")
+            if detail_lines[-1] != "":
+                detail_lines.append("")
+            detail_lines.append("</details>")
+            marker = list_marker or ""
+            pad = indent + (" " * len(marker))
+            lines.append(f"{indent}{marker}<details>")
+            for line in detail_lines:
+                lines.append("" if line.strip() == "" else f"{pad}{line}")
             return lines
         else:
             if text:

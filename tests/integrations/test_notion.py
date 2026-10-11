@@ -1154,6 +1154,120 @@ def test_page_markdown_toggle_summary_is_not_also_a_paragraph(reader):
     assert markdown.count("Good things") == 1
 
 
+def test_page_markdown_nests_toggles_inside_sibling_list(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-scale",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [{"plain_text": "How to scale Lamin?"}]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-price",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "How to price the product?"}]
+                        },
+                    },
+                    {
+                        "id": "toggle-adoption",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow adoption within existing customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-pharma",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we win all of big Pharma as customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "toggle-revenue",
+                        "type": "toggle",
+                        "has_children": False,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow revenue beyond western big Pharma?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-nested",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Start with the teams we know"}
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "<details>\n"
+        "<summary>How to scale Lamin?</summary>\n"
+        "\n"
+        "- How to price the product?\n"
+        "- <details>\n"
+        "  <summary>How do we grow adoption within existing customers?</summary>\n"
+        "\n"
+        "  - Start with the teams we know\n"
+        "\n"
+        "  </details>\n"
+        "- How do we win all of big Pharma as customers?\n"
+        "- <details>\n"
+        "  <summary>How do we grow revenue beyond western big Pharma?</summary>\n"
+        "\n"
+        "  </details>\n"
+        "\n"
+        "</details>"
+    )
+
+
 def test_page_markdown_exports_image_and_file_blocks(reader):
     reader.s.request.side_effect = [
         _make_response(
