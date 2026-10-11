@@ -3448,6 +3448,78 @@ def test_plan_metadata_dry_run_reports_values_through_update(syncer):
     assert any("People / meetings" in detail for detail in report.update_features)
 
 
+def test_backward_relation_skips_feature_that_already_has_forward_marker(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {"rf": "IybQndDiN91C"}
+
+    with patch("builtins.input") as ask:
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
+
+
+def test_backward_relation_skips_when_source_already_points_at_local_feature(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {}
+    successors = MagicMock()
+    successors.name = "successors"
+    successors.uid = "IybQndDiN91C"
+    successors._aux = {"vf": "YMl5WvCjaODD"}
+    meetings_type = MagicMock()
+    meetings_type.name = "Meetings"
+    meetings_type.schema = None
+
+    with (
+        patch.object(
+            syncer, "_relation_target_name_candidates", return_value=["Meetings"]
+        ),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=meetings_type,
+        ),
+        patch.object(
+            syncer, "_relation_feature_matches_target_type", return_value=True
+        ),
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("builtins.input") as ask,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.one_or_none.return_value = MagicMock()
+        source_qs = MagicMock()
+        source_qs.one_or_none.return_value = successors
+        Feature.filter.side_effect = [feature_type_qs, source_qs]
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
+
+
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
     with patch.object(
         syncer, "_resolve_record_type_by_name_candidates"
