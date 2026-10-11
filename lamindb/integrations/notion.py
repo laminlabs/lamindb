@@ -463,6 +463,20 @@ def _assign_notion_timestamps(
         record.updated_at = updated_at
 
 
+def _sibling_list_marker(blocks: list[dict]) -> str | None:
+    """Marker that keeps a toggle inside a sibling list, or None when there is no list."""
+    list_types = {
+        block.get("type")
+        for block in blocks
+        if block.get("type") in {"bulleted_list_item", "numbered_list_item", "to_do"}
+    }
+    if not list_types:
+        return None
+    if list_types == {"numbered_list_item"}:
+        return "1. "
+    return "- "
+
+
 def _normalized_timestamp(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -771,7 +785,12 @@ class _NotionReader:
         return lines
 
     def _block_to_markdown_lines(
-        self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
+        self,
+        block: dict,
+        *,
+        depth: int = 0,
+        parent_is_numbered: bool = False,
+        list_marker: str | None = None,
     ) -> list[str]:
         block_type = block.get("type")
         payload = block.get(block_type) if isinstance(block_type, str) else None
@@ -791,6 +810,22 @@ class _NotionReader:
                 lines.append(f"{indent}{text}".rstrip())
                 # Notion paragraph blocks map to separate markdown paragraphs.
                 # Keep a blank line separator so adjacent paragraph blocks don't collapse.
+                lines.append("")
+        elif block_type == "callout":
+            # Callouts are note blocks. Without a trailing blank line their text
+            # is only a soft break and runs into the following paragraph.
+            icon = ""
+            if isinstance(payload, dict):
+                icon_payload = payload.get("icon")
+                if (
+                    isinstance(icon_payload, dict)
+                    and icon_payload.get("type") == "emoji"
+                    and isinstance(icon_payload.get("emoji"), str)
+                ):
+                    icon = icon_payload["emoji"].strip()
+            body = f"{icon} {text}".strip() if icon else text
+            if body:
+                lines.append(f"{indent}{body}".rstrip())
                 lines.append("")
         elif block_type == "bulleted_list_item":
             lines.append(f"{indent}- {text}".rstrip())
@@ -834,29 +869,46 @@ class _NotionReader:
             lines.append(f"{indent}<!-- display-table-of-contents -->")
         elif block_type == "divider":
             lines.append(f"{indent}---")
+        elif block_type == "toggle":
+            # The summary is the toggle title. Children are rendered from column 0
+            # and then indented with the toggle, so a nested list stays valid
+            # markdown. A blank line after <summary> lets the renderer parse that
+            # list inside <details>. A toggle sitting among list items is itself
+            # a list item; a column-0 <details> would end the surrounding list.
+            summary = text.strip() or "Details"
+            detail_lines = [f"<summary>{summary}</summary>"]
+            child_blocks: list[dict] = []
+            if block.get("has_children") and block.get("id"):
+                child_blocks = self._iter_block_children(block["id"])
+            if child_blocks:
+                detail_lines.append("")
+                sibling_marker = _sibling_list_marker(child_blocks)
+                for child in child_blocks:
+                    detail_lines.extend(
+                        self._block_to_markdown_lines(
+                            child,
+                            depth=0,
+                            parent_is_numbered=False,
+                            list_marker=(
+                                sibling_marker
+                                if child.get("type") == "toggle"
+                                else None
+                            ),
+                        )
+                    )
+            if detail_lines[-1] != "":
+                detail_lines.append("")
+            detail_lines.append("</details>")
+            marker = list_marker or ""
+            pad = indent + (" " * len(marker))
+            lines.append(f"{indent}{marker}<details>")
+            for line in detail_lines:
+                lines.append("" if line.strip() == "" else f"{pad}{line}")
+            return lines
         else:
             if text:
                 prefix = f"{indent}1. " if parent_is_numbered else indent
                 lines.append(f"{prefix}{text}".rstrip())
-
-        if block_type == "toggle":
-            lines.append(f"{indent}<details>")
-            summary = text.strip() or "Details"
-            lines.append(f"{indent}<summary>{summary}</summary>")
-            lines.append(f"{indent}<p>")
-            if block.get("has_children") and block.get("id"):
-                child_blocks = self._iter_block_children(block["id"])
-                for child in child_blocks:
-                    lines.extend(
-                        self._block_to_markdown_lines(
-                            child,
-                            depth=depth + 1,
-                            parent_is_numbered=False,
-                        )
-                    )
-            lines.append(f"{indent}</p>")
-            lines.append(f"{indent}</details>")
-            return lines
 
         if block_type == "table":
             table_rows = (
@@ -2609,6 +2661,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return bool
+        if notion_type == "date":
+            return date
         if notion_type in {"created_time", "last_edited_time"}:
             return datetime
         if notion_type in {"created_by", "last_edited_by"}:
@@ -2629,6 +2683,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return "bool"
+        if notion_type == "date":
+            return "date"
         if notion_type in {"created_time", "last_edited_time"}:
             return "datetime64[ns, UTC]"
         if notion_type in {"created_by", "last_edited_by"}:
@@ -3067,6 +3123,38 @@ class _NotionSyncer:
                 mappings[feature_name] = record_field
         return mappings
 
+    @staticmethod
+    def _aux_relation_uid(feature: Any, key: str) -> str | None:
+        aux = getattr(feature, "_aux", None)
+        if not isinstance(aux, dict):
+            return None
+        value = aux.get(key)
+        if isinstance(value, str) and value:
+            return value
+        return None
+
+    def _relation_pair_already_identified(
+        self, local_feature: Any, source_feature: Any | None = None
+    ) -> bool:
+        """Whether a Notion dual relation is already stored on either feature.
+
+        ``vf`` marks the backward-derived feature and ``rf`` marks its forward
+        source. Either marker means the pair should not be prompted again.
+        """
+        if self._aux_relation_uid(local_feature, "vf") or self._aux_relation_uid(
+            local_feature, "rf"
+        ):
+            return True
+        if source_feature is None:
+            return False
+        local_uid = getattr(local_feature, "uid", None)
+        if not isinstance(local_uid, str):
+            return False
+        return local_uid in {
+            self._aux_relation_uid(source_feature, "vf"),
+            self._aux_relation_uid(source_feature, "rf"),
+        }
+
     def _relation_property_matches_target_names(
         self, property_name: str, target_names: list[str]
     ) -> bool:
@@ -3113,6 +3201,12 @@ class _NotionSyncer:
                 logger.important(
                     "backward relation: skip relation "
                     f"{property_name!r} reason=local-feature-missing"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified"
                 )
                 continue
             dual = property_spec.get("dual")
@@ -3209,6 +3303,13 @@ class _NotionSyncer:
                     f"{property_name!r} reason=source-feature-unresolved "
                     f"target_type={getattr(target_type, 'name', target_type)!r} "
                     f"synced_property={synced_property_name.strip()!r}"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature, source_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified "
+                    f"source_uid={getattr(source_feature, 'uid', None)!r}"
                 )
                 continue
             logger.important(
@@ -3752,7 +3853,7 @@ class _NotionSyncer:
                         aux_source_uid = aux.get("vf")
                         if isinstance(aux_source_uid, str):
                             source_uid = aux_source_uid
-                if source_uid is not None:
+                if source_uid is not None or self._aux_relation_uid(feature, "rf"):
                     locked_feature_names.add(feature_name)
 
         backward_features_by_name: dict[str, Any] = {}

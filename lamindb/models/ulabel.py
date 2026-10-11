@@ -53,7 +53,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     For cell lines, cell types, tissues, and other biological entities,
     use the ontology sources in :mod:`bionty`.
-    `ULabel`does not sync from external ontologies.
+    `ULabel` does not sync from external ontologies.
     Use it to build a universal label ontology.
 
     Args:

@@ -987,6 +987,57 @@ def test_page_markdown_keeps_blank_lines_between_paragraph_blocks(reader):
     )
 
 
+def test_page_markdown_exports_callout_as_its_own_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "callout-1",
+                        "type": "callout",
+                        "has_children": False,
+                        "callout": {
+                            "icon": {"type": "emoji", "emoji": "💡"},
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Richard cannot come due to US travel limitations. "
+                                        "😔 / 👋 Mark Pitman just started on Sep 22nd and "
+                                        "it'd be a 12 hour flight."
+                                    )
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "id": "p1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Lamin team (arrival Mon afternoon → "
+                                        "departure Fri morning):"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "💡 Richard cannot come due to US travel limitations. "
+        "😔 / 👋 Mark Pitman just started on Sep 22nd and it'd be a 12 hour flight.\n"
+        "\n"
+        "Lamin team (arrival Mon afternoon → departure Fri morning):"
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -1017,12 +1068,204 @@ def test_page_markdown_exports_toggle_as_details_html(reader):
         ),
     ]
     markdown = reader.page_markdown("page-1")
-    assert "<details>" in markdown
-    assert "<summary>Details</summary>" in markdown
-    assert "<p>" in markdown
-    assert "  Inner note" in markdown
-    assert "</p>" in markdown
-    assert "</details>" in markdown
+    assert markdown == (
+        "<details>\n<summary>Details</summary>\n\nInner note\n\n</details>"
+    )
+
+
+def test_page_markdown_toggle_summary_is_not_also_a_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "heading-1",
+                        "type": "heading_3",
+                        "has_children": True,
+                        "heading_3": {"rich_text": [{"plain_text": "Ebad"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-1",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {"rich_text": [{"plain_text": "Good things"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-1",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Everything is seamless, quick"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-2",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Auto PR reviews are really cool"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-3",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Plugins are helpful to ingest data"}
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "### Ebad\n"
+        "  <details>\n"
+        "  <summary>Good things</summary>\n"
+        "\n"
+        "  - Everything is seamless, quick\n"
+        "  - Auto PR reviews are really cool\n"
+        "  - Plugins are helpful to ingest data\n"
+        "\n"
+        "  </details>"
+    )
+    assert markdown.count("Good things") == 1
+
+
+def test_page_markdown_nests_toggles_inside_sibling_list(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-scale",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [{"plain_text": "How to scale Lamin?"}]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-price",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "How to price the product?"}]
+                        },
+                    },
+                    {
+                        "id": "toggle-adoption",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow adoption within existing customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-pharma",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we win all of big Pharma as customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "toggle-revenue",
+                        "type": "toggle",
+                        "has_children": False,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow revenue beyond western big Pharma?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-nested",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Start with the teams we know"}
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "<details>\n"
+        "<summary>How to scale Lamin?</summary>\n"
+        "\n"
+        "- How to price the product?\n"
+        "- <details>\n"
+        "  <summary>How do we grow adoption within existing customers?</summary>\n"
+        "\n"
+        "  - Start with the teams we know\n"
+        "\n"
+        "  </details>\n"
+        "- How do we win all of big Pharma as customers?\n"
+        "- <details>\n"
+        "  <summary>How do we grow revenue beyond western big Pharma?</summary>\n"
+        "\n"
+        "  </details>\n"
+        "\n"
+        "</details>"
+    )
 
 
 def test_page_markdown_exports_image_and_file_blocks(reader):
@@ -3209,6 +3452,23 @@ def test_feature_dtype_for_people_values_through_user_list(syncer):
     assert dtype.__args__[0] is ln.User
 
 
+def test_feature_dtype_for_date_values_through_date(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("date")
+    assert syncer._feature_dtype_label_from_notion_type("date") == "date"
+    assert dtype is date
+    assert syncer._serialize_feature_dtype(dtype) == "date"
+
+
+def test_dtype_from_notion_property_maps_date_to_date(syncer):
+    dtype_label, dtype = syncer._dtype_from_notion_property(
+        "Meetings",
+        "date",
+        {"type": "date"},
+    )
+    assert dtype_label == "date"
+    assert dtype is date
+
+
 def test_dtype_from_notion_property_maps_people_to_user_list(syncer):
     dtype_label, dtype = syncer._dtype_from_notion_property(
         "Meetings",
@@ -3429,6 +3689,78 @@ def test_plan_metadata_dry_run_reports_values_through_update(syncer):
 
     meetings_feature.save.assert_not_called()
     assert any("People / meetings" in detail for detail in report.update_features)
+
+
+def test_backward_relation_skips_feature_that_already_has_forward_marker(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {"rf": "IybQndDiN91C"}
+
+    with patch("builtins.input") as ask:
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
+
+
+def test_backward_relation_skips_when_source_already_points_at_local_feature(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {}
+    successors = MagicMock()
+    successors.name = "successors"
+    successors.uid = "IybQndDiN91C"
+    successors._aux = {"vf": "YMl5WvCjaODD"}
+    meetings_type = MagicMock()
+    meetings_type.name = "Meetings"
+    meetings_type.schema = None
+
+    with (
+        patch.object(
+            syncer, "_relation_target_name_candidates", return_value=["Meetings"]
+        ),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=meetings_type,
+        ),
+        patch.object(
+            syncer, "_relation_feature_matches_target_type", return_value=True
+        ),
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("builtins.input") as ask,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.one_or_none.return_value = MagicMock()
+        source_qs = MagicMock()
+        source_qs.one_or_none.return_value = successors
+        Feature.filter.side_effect = [feature_type_qs, source_qs]
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
 
 
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
