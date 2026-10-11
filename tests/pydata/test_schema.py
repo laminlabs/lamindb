@@ -388,7 +388,8 @@ def test_schema_update_reorders_features():
 
     # describe() is the only display of "2" and "4". Without "2", the index is
     # lifted to the front. With "2", that order is kept and "4" is omitted,
-    # except the index. Membership and the stored hash stay as they are.
+    # except the index, unless include="hidden". The header counts omitted
+    # features. Membership and the stored hash stay as they are.
     def described_rows(described: str) -> list[str]:
         return [
             line.strip().split()[0]
@@ -410,7 +411,14 @@ def test_schema_update_reorders_features():
     }
     described = schema.describe(return_str=True)
     assert described_rows(described) == ["feature_n", "feature_m"]
-    assert "(2 including index: feature_m)" in described
+    assert "(2 including index: feature_m, 1 hidden)" in described
+    described_with_hidden = schema.describe(return_str=True, include="hidden")
+    assert described_rows(described_with_hidden) == [
+        "feature_n",
+        "feature_i",
+        "feature_m",
+    ]
+    assert "(3 including index: feature_m, 1 hidden)" in described_with_hidden
     assert schema.members.to_list("name") == ["feature_n", "feature_i", "feature_m"]
     assert schema.hash == argument_order_hash
 
@@ -593,10 +601,20 @@ def test_schema_add_remove_optional_features_api(
     assert schema._aux["af"]["4"] == hidden_uids
     assert hidden_feature in schema.members
     described = schema.describe(return_str=True)
-    shown_count = schema.n_members - (
-        0 if schema.index is not None and schema.index.uid == hidden_feature.uid else 1
+    index_is_hidden = (
+        schema.index is not None and schema.index.uid == hidden_feature.uid
     )
+    shown_count = schema.n_members - (0 if index_is_hidden else 1)
+    n_hidden = 0 if index_is_hidden else 1
     assert f"({shown_count}" in described
+    if n_hidden:
+        assert f", {n_hidden} hidden)" in described
+        described_with_hidden = schema.describe(return_str=True, include="hidden")
+        assert hidden_feature.name in described_with_hidden
+        assert f"({schema.n_members}" in described_with_hidden
+        assert f", {n_hidden} hidden)" in described_with_hidden
+    else:
+        assert " hidden)" not in described
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
