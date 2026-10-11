@@ -3071,6 +3071,38 @@ class _NotionSyncer:
                 mappings[feature_name] = record_field
         return mappings
 
+    @staticmethod
+    def _aux_relation_uid(feature: Any, key: str) -> str | None:
+        aux = getattr(feature, "_aux", None)
+        if not isinstance(aux, dict):
+            return None
+        value = aux.get(key)
+        if isinstance(value, str) and value:
+            return value
+        return None
+
+    def _relation_pair_already_identified(
+        self, local_feature: Any, source_feature: Any | None = None
+    ) -> bool:
+        """Whether a Notion dual relation is already stored on either feature.
+
+        ``vf`` marks the backward-derived feature and ``rf`` marks its forward
+        source. Either marker means the pair should not be prompted again.
+        """
+        if self._aux_relation_uid(local_feature, "vf") or self._aux_relation_uid(
+            local_feature, "rf"
+        ):
+            return True
+        if source_feature is None:
+            return False
+        local_uid = getattr(local_feature, "uid", None)
+        if not isinstance(local_uid, str):
+            return False
+        return local_uid in {
+            self._aux_relation_uid(source_feature, "vf"),
+            self._aux_relation_uid(source_feature, "rf"),
+        }
+
     def _relation_property_matches_target_names(
         self, property_name: str, target_names: list[str]
     ) -> bool:
@@ -3117,6 +3149,12 @@ class _NotionSyncer:
                 logger.important(
                     "backward relation: skip relation "
                     f"{property_name!r} reason=local-feature-missing"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified"
                 )
                 continue
             dual = property_spec.get("dual")
@@ -3213,6 +3251,13 @@ class _NotionSyncer:
                     f"{property_name!r} reason=source-feature-unresolved "
                     f"target_type={getattr(target_type, 'name', target_type)!r} "
                     f"synced_property={synced_property_name.strip()!r}"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature, source_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified "
+                    f"source_uid={getattr(source_feature, 'uid', None)!r}"
                 )
                 continue
             logger.important(
@@ -3756,7 +3801,7 @@ class _NotionSyncer:
                         aux_source_uid = aux.get("vf")
                         if isinstance(aux_source_uid, str):
                             source_uid = aux_source_uid
-                if source_uid is not None:
+                if source_uid is not None or self._aux_relation_uid(feature, "rf"):
                     locked_feature_names.add(feature_name)
 
         backward_features_by_name: dict[str, Any] = {}
