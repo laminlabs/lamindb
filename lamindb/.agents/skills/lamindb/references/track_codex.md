@@ -12,7 +12,9 @@ Run this now from the session working directory resolved in [SKILL.md](../SKILL.
 lamin track codex --name "<one sentence describing this session's task>"
 ```
 
-Escalate to the fallback below only if this command errors (non-zero exit status) — under no other circumstance (not a lamindb warning, not wanting to double-check, not comparing against a local virtualenv version) should you run any additional command before or instead of accepting this result. A command error here usually means `lamin` is likely only installed in a project-local virtualenv rather than on `PATH`:
+Codex's sandbox keeps `.codex` read-only. Run this command, the fallback below, and the later `lamin finish` with `sandbox_permissions=require_escalated` on the first call. Do not run any of them in the default sandbox first. If one still prints `Operation not permitted` for `.codex`, rerun that same command once with `sandbox_permissions=require_escalated`.
+
+Escalate to the fallback below only if this command errors (non-zero exit status). The `.codex` permission warning above is the one warning that must be rerun. Under no other circumstance (not another lamindb warning, not wanting to double-check, not comparing against a local virtualenv version) should you run any additional command before or instead of accepting this result. A command error here usually means `lamin` is likely only installed in a project-local virtualenv rather than on `PATH`:
 
 ```bash
 LAMIN_BIN=$(find . -maxdepth 6 -type f -name lamin 2>/dev/null | head -1)
@@ -56,4 +58,4 @@ Replace `<matching-python-executable>` with the exact interpreter described abov
 
 A zero exit status means the direct files were attached successfully, even if the command prints no explicit artifact confirmation. Do not search the filesystem for tracking state or query LaminDB merely to reconfirm success. If the command fails, handle its reported error directly.
 
-Then close the session per [SKILL.md](../SKILL.md) Step 3 (`lamin finish`). A later finish in the same Codex conversation updates this Run's report and cumulative metrics.
+Then close the session per [SKILL.md](../SKILL.md) Step 3 (`lamin finish`), with `sandbox_permissions=require_escalated` as stated in Step 1. A later finish in the same Codex conversation updates this Run's report and cumulative metrics.
