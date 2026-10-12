@@ -463,8 +463,40 @@ def _assign_notion_timestamps(
         record.updated_at = updated_at
 
 
-def _log_sync_progress(db_name: str, phase: str, done: int, total: int) -> None:
-    logger.important(f"notion sync: {db_name} {phase} {done}/{total}")
+def _row_page_title(
+    row: dict[str, Any],
+    *,
+    spec: dict | None = None,
+    title_property: str | None = None,
+) -> str | None:
+    """Title of one Notion row, from its title property when the schema is known."""
+    candidates: list[Any] = []
+    if isinstance(title_property, str) and title_property:
+        candidates.append(row.get(title_property))
+    if spec:
+        for name, metadata in spec.items():
+            if isinstance(metadata, dict) and metadata.get("type") == "title":
+                candidates.append(row.get(name))
+    for value in candidates:
+        if isinstance(value, str):
+            title = value.strip()
+            if title:
+                return title
+    return None
+
+
+def _log_sync_progress(
+    db_name: str,
+    phase: str,
+    done: int,
+    total: int,
+    *,
+    page_title: str | None = None,
+) -> None:
+    message = f"notion sync: {db_name} {phase} {done}/{total}"
+    if isinstance(page_title, str) and page_title:
+        message += f" page={page_title!r}"
+    logger.important(message)
 
 
 def _stamp_synced_updated_at(record: Any, row: dict[str, Any]) -> None:
@@ -2073,6 +2105,13 @@ def _write(
     note_total = len(rows)
     _log_sync_progress(db_name, "notes", 0, note_total)
     for note_index, row in enumerate(rows, start=1):
+        _log_sync_progress(
+            db_name,
+            "notes",
+            note_index,
+            note_total,
+            page_title=_row_page_title(row, spec=spec),
+        )
         notion_id = row.get("notion_id")
         if isinstance(notion_id, str) and notion_id:
             markdown_content = reader.page_markdown(notion_id)
@@ -2083,7 +2122,6 @@ def _write(
             for url, detail in per_page_transfer_map.items():
                 embedded_file_urls.add(url)
                 embedded_transfer_details_by_url.setdefault(url, detail)
-        _log_sync_progress(db_name, "notes", note_index, note_total)
     missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
     if missing_embedded_urls:
         artifacts_by_url.update(
@@ -2154,7 +2192,13 @@ def _write(
             )
         _stamp_synced_updated_at(rec, row)
         records += 1
-        _log_sync_progress(db_name, "synced", records, sync_total)
+        _log_sync_progress(
+            db_name,
+            "synced",
+            records,
+            sync_total,
+            page_title=_row_page_title(row, spec=spec),
+        )
     return {"records": records, "pending": relation_pending}
 
 
@@ -5308,8 +5352,16 @@ class ProjectSyncer:
         embedded_transfer_details_by_url: dict[str, str] = {}
         embedded_file_urls: set[str] = set()
         note_total = len(rows)
+        title_property = mapping.get("title")
         _log_sync_progress(db_name, "notes", 0, note_total)
         for note_index, row in enumerate(rows, start=1):
+            _log_sync_progress(
+                db_name,
+                "notes",
+                note_index,
+                note_total,
+                page_title=_row_page_title(row, title_property=title_property),
+            )
             notion_id = row.get("notion_id")
             if isinstance(notion_id, str) and notion_id:
                 markdown_content = self.reader.page_markdown(notion_id)
@@ -5320,7 +5372,6 @@ class ProjectSyncer:
                 for url, detail in per_page_transfer_map.items():
                     embedded_file_urls.add(url)
                     embedded_transfer_details_by_url.setdefault(url, detail)
-            _log_sync_progress(db_name, "notes", note_index, note_total)
         missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
         if missing_embedded_urls:
             artifacts_by_url.update(
@@ -5586,7 +5637,13 @@ class ProjectSyncer:
             )
             _stamp_synced_updated_at(project, row)
             records += 1
-            _log_sync_progress(db_name, "synced", records, sync_total)
+            _log_sync_progress(
+                db_name,
+                "synced",
+                records,
+                sync_total,
+                page_title=_row_page_title(row, title_property=title_property),
+            )
         if report is not None:
             for people_property, stats in sorted(people_link_stats.items()):
                 resolved_count = len(stats["resolved"])

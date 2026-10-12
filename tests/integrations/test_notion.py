@@ -1548,9 +1548,9 @@ def test_write_stamps_updated_at_after_the_row_is_materialized():
     progress = [call.args[0] for call in sync_logger.important.call_args_list]
     assert progress == [
         "notion sync: Meetings notes 0/1",
-        "notion sync: Meetings notes 1/1",
+        "notion sync: Meetings notes 1/1 page='A'",
         "notion sync: Meetings synced 0/1",
-        "notion sync: Meetings synced 1/1",
+        "notion sync: Meetings synced 1/1 page='A'",
     ]
 
 
