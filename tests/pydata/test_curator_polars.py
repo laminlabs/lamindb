@@ -45,6 +45,8 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
             ("pl_bool", bool, {}),
             ("pl_num", "num", {}),
             ("pl_list", list[str], {}),
+            ("pl_list_int", list[int], {}),
+            ("pl_list_float", list[float], {}),
             ("pl_dict", dict, {}),
             ("pl_date", date, {}),
             ("pl_datetime", datetime, {}),
@@ -60,6 +62,8 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
             "pl_bool": [True, False],
             "pl_num": [1, 2],
             "pl_list": [["a"], ["b"]],
+            "pl_list_int": pl.Series([[1], [2]], dtype=pl.List(pl.Int16)),
+            "pl_list_float": pl.Series([[1.0], [2.0]], dtype=pl.List(pl.Float32)),
             "pl_dict": [{"a": 1}, {"a": 2}],
             "pl_date": [date(2024, 1, 1)] * 2,
             "pl_datetime": [datetime(2024, 1, 1)] * 2,
@@ -73,6 +77,8 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
     assert eager(curator.dataset).equals(df)
     assert curator.dataset.collect_schema()["pl_int"] == pl.Int16
     assert curator.dataset.collect_schema()["pl_float"] == pl.Float32
+    assert curator.dataset.collect_schema()["pl_list_int"] == pl.List(pl.Int16)
+    assert curator.dataset.collect_schema()["pl_list_float"] == pl.List(pl.Float32)
 
 
 @pytest.mark.parametrize(
@@ -83,7 +89,10 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
         (str, [1]),
         (bool, [1]),
         (list[str], [[1]]),
+        (list[int], [["a"]]),
+        (list[float], [["a"]]),
         (dict, ["a"]),
+        ("list[object]", [["a"]]),
     ],
 )
 def test_polars_invalid_dtype(as_frame, dtype, values):
@@ -97,18 +106,28 @@ def test_polars_invalid_dtype(as_frame, dtype, values):
 
 
 @pytest.mark.parametrize("coerce_on", ["feature", "schema"])
-@pytest.mark.parametrize("dtype,expected", [(int, pl.Int64), (float, pl.Float64)])
-def test_polars_coercion(as_frame, coerce_on, dtype, expected):
+@pytest.mark.parametrize(
+    "dtype,values,expected_dtype,expected_values",
+    [
+        (int, ["1", "2"], pl.Int64, [1, 2]),
+        (float, ["1", "2"], pl.Float64, [1.0, 2.0]),
+        (float, pl.Series([1.0, 2.0], dtype=pl.Float32), pl.Float32, [1.0, 2.0]),
+    ],
+    ids=["int-from-str", "float-from-str", "float32-preserved"],
+)
+def test_polars_coercion(
+    as_frame, coerce_on, dtype, values, expected_dtype, expected_values
+):
     schema = make_schema(
         [("pl_coerce", dtype, {"coerce": coerce_on == "feature"})],
         coerce=coerce_on == "schema",
     )
-    df = pl.DataFrame({"pl_coerce": ["1", "2"]})
+    df = pl.DataFrame({"pl_coerce": values})
     curator = ln.curators.DataFrameCurator(as_frame(df), schema)
     curator.validate()
     assert type(curator.dataset) is type(as_frame(df))
-    assert curator.dataset.collect_schema()["pl_coerce"] == expected
-    assert eager(curator.dataset)["pl_coerce"].to_list() == [1, 2]
+    assert curator.dataset.collect_schema()["pl_coerce"] == expected_dtype
+    assert eager(curator.dataset)["pl_coerce"].to_list() == expected_values
 
 
 def test_polars_coercion_is_lossless(as_frame):

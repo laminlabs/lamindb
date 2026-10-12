@@ -89,8 +89,6 @@ def _matches_dtype(dtype, expected: str) -> bool:
         return isinstance(dtype, pl.List) and _matches_dtype(
             dtype.inner, expected[5:-1]
         )
-    if expected == "list":
-        return isinstance(dtype, pl.List)
     if expected in {"str", "path", "url"} or expected.startswith("cat"):
         return dtype == pl.String or isinstance(dtype, (pl.Categorical, pl.Enum))
     if expected == "int":
