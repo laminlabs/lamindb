@@ -905,6 +905,40 @@ def test_page_markdown_exports_nested_blocks(reader):
     assert "  v1 in October" in markdown
 
 
+def test_page_markdown_skips_unreadable_nested_block(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "069c60d3-f362-4f6f-af1c-69b48d5f7f62",
+                        "type": "bulleted_list_item",
+                        "has_children": True,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "Hidden children"}]
+                        },
+                    },
+                    {
+                        "id": "after",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "Still here"}]},
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response({}, 404),
+    ]
+    with patch("lamindb.integrations.notion.logger") as sync_logger:
+        markdown = reader.page_markdown("page-1")
+    assert "- Hidden children" in markdown
+    assert "Still here" in markdown
+    warning = sync_logger.warning.call_args.args[0]
+    assert "069c60d3f3624f6faf1c69b48d5f7f62" in warning
+    assert "404" in warning
+
+
 def test_page_markdown_exports_multiline_quote_blocks(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -1483,6 +1517,41 @@ def test_attach_project_markdown_adds_readme_only_when_changed():
         _attach_project_markdown(project, "old notes")
     ProjectBlock.assert_not_called()
     project.ablocks.add.assert_not_called()
+
+
+def test_write_stamps_updated_at_after_the_row_is_materialized():
+    rec = MagicMock()
+    rec.notes = None
+    rec.updated_at = None
+    rows = [
+        {
+            "notion_id": "page-1",
+            "Name": "A",
+            "last_edited_time": "2024-01-03T10:00:00Z",
+        }
+    ]
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+    rec_type = _fake_rec_type("Meetings", ["Name"])
+
+    with patch("lamindb.integrations.notion.logger") as sync_logger:
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}},
+            by_id={"page-1": rec},
+        )
+
+    assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
+    rec.save.assert_called_with(update_fields=["updated_at"])
+    progress = [call.args[0] for call in sync_logger.important.call_args_list]
+    assert progress == [
+        "notion sync: Meetings notes 0/1",
+        "notion sync: Meetings notes 1/1",
+        "notion sync: Meetings synced 0/1",
+        "notion sync: Meetings synced 1/1",
+    ]
 
 
 def test_write_attaches_page_markdown_to_records():
@@ -5306,7 +5375,7 @@ def test_upsert_all_populates_created_and_updated_from_notion():
         out = _upsert_all(rec_type=object(), rows=rows)
     assert out["page-1"] is rec
     assert rec.created_at == _ts("2024-01-01T08:00:00Z")
-    assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
+    assert not isinstance(rec.updated_at, datetime)
 
 
 def test_upsert_all_normalizes_existing_dashed_notion_reference():

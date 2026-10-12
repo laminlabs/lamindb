@@ -463,6 +463,27 @@ def _assign_notion_timestamps(
         record.updated_at = updated_at
 
 
+def _log_sync_progress(db_name: str, phase: str, done: int, total: int) -> None:
+    logger.important(f"notion sync: {db_name} {phase} {done}/{total}")
+
+
+def _stamp_synced_updated_at(record: Any, row: dict[str, Any]) -> None:
+    """Set Notion's last-edited time only after this row has finished syncing.
+
+    ``updated_at`` is the cursor that later syncs use to skip unchanged rows.
+    Stamping it during identity upsert marks a half-written row as done.
+    """
+    updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
+    if updated_at is None:
+        return
+    if _normalized_timestamp(
+        getattr(record, "updated_at", None)
+    ) == _normalized_timestamp(updated_at):
+        return
+    record.updated_at = updated_at
+    record.save(update_fields=["updated_at"])
+
+
 def _sibling_list_marker(blocks: list[dict]) -> str | None:
     """Marker that keeps a toggle inside a sibling list, or None when there is no list."""
     list_types = {
@@ -938,9 +959,21 @@ class _NotionReader:
             params: dict[str, Any] = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
-            payload = self._call(
-                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
-            )
+            try:
+                payload = self._call(
+                    "GET",
+                    f"/blocks/{_notion_api_id(block_id)}/children",
+                    params=params,
+                )
+            except LookupError as error:
+                # A nested block can 404 when it is a child page, a synced
+                # block, or otherwise not shared, even though the parent page
+                # is readable. Keep the markdown already collected.
+                logger.warning(
+                    "notion sync: skip block children "
+                    f"block={_compact_uuid(block_id)} ({error})"
+                )
+                return children
             children.extend(payload.get("results", []))
             if not payload.get("has_more"):
                 return children
@@ -2036,18 +2069,21 @@ def _write(
     markdown_by_notion_id: dict[str, str] = {}
     embedded_transfer_details_by_url: dict[str, str] = {}
     embedded_file_urls: set[str] = set()
-    for row in rows:
+    db_name = getattr(rec_type, "name", None) or "records"
+    note_total = len(rows)
+    _log_sync_progress(db_name, "notes", 0, note_total)
+    for note_index, row in enumerate(rows, start=1):
         notion_id = row.get("notion_id")
-        if not isinstance(notion_id, str) or not notion_id:
-            continue
-        markdown_content = reader.page_markdown(notion_id)
-        markdown_by_notion_id[notion_id] = markdown_content
-        per_page_transfer_map, _ = _planned_embedded_file_transfers(
-            markdown_content, notion_id
-        )
-        for url, detail in per_page_transfer_map.items():
-            embedded_file_urls.add(url)
-            embedded_transfer_details_by_url.setdefault(url, detail)
+        if isinstance(notion_id, str) and notion_id:
+            markdown_content = reader.page_markdown(notion_id)
+            markdown_by_notion_id[notion_id] = markdown_content
+            per_page_transfer_map, _ = _planned_embedded_file_transfers(
+                markdown_content, notion_id
+            )
+            for url, detail in per_page_transfer_map.items():
+                embedded_file_urls.add(url)
+                embedded_transfer_details_by_url.setdefault(url, detail)
+        _log_sync_progress(db_name, "notes", note_index, note_total)
     missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
     if missing_embedded_urls:
         artifacts_by_url.update(
@@ -2081,6 +2117,8 @@ def _write(
         by_id = _existing_by_ref(rec_type)
 
     records = 0
+    sync_total = len(rows)
+    _log_sync_progress(db_name, "synced", 0, sync_total)
     for row in rows:
         rec = by_id.get(row["notion_id"])
         if rec is None:  # not imported yet — nothing to write
@@ -2114,7 +2152,9 @@ def _write(
                 rec,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
+        _stamp_synced_updated_at(rec, row)
         records += 1
+        _log_sync_progress(db_name, "synced", records, sync_total)
     return {"records": records, "pending": relation_pending}
 
 
@@ -2187,7 +2227,7 @@ def _upsert_all(rec_type, rows) -> dict:
             continue
         nid = _normalize_notion_id(raw_nid) or raw_nid
         row_emoji = row.get("__notion_emoji__")
-        created_at, updated_at = _notion_timestamps(
+        created_at, _updated_at = _notion_timestamps(
             row.get("created_time"), row.get("last_edited_time")
         )
         rec = by_id.get(nid)
@@ -2199,7 +2239,8 @@ def _upsert_all(rec_type, rows) -> dict:
                 reference_type="notion",
             )
             rec._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-            _assign_notion_timestamps(rec, created_at, updated_at)
+            # created_at is not the skip cursor. updated_at is stamped in _write.
+            _assign_notion_timestamps(rec, created_at, None)
             by_id[nid] = rec.save()
             continue
 
@@ -2215,11 +2256,6 @@ def _upsert_all(rec_type, rows) -> dict:
         ) != _normalized_timestamp(created_at):
             rec.created_at = created_at
             changed_fields.append("created_at")
-        if updated_at is not None and _normalized_timestamp(
-            rec.updated_at
-        ) != _normalized_timestamp(updated_at):
-            rec.updated_at = updated_at
-            changed_fields.append("updated_at")
         merged_aux = _NotionSyncer._merge_aux_with_emoji(
             getattr(rec, "_aux", None), row_emoji
         )
@@ -2363,19 +2399,7 @@ class _NotionSyncer:
             raise
 
     def _iter_block_children(self, block_id: str) -> list[dict]:
-        children: list[dict] = []
-        cursor: str | None = None
-        while True:
-            params: dict[str, Any] = {"page_size": 100}
-            if cursor:
-                params["start_cursor"] = cursor
-            payload = self.reader._call(
-                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
-            )
-            children.extend(payload.get("results", []))
-            if not payload.get("has_more"):
-                return children
-            cursor = payload.get("next_cursor")
+        return self.reader._iter_block_children(block_id)
 
     def _set_database_row_depth(self, database_id: str, row_depth: int) -> None:
         """Remember how many row levels remain once this database is reached."""
@@ -5154,7 +5178,7 @@ class ProjectSyncer:
             notion_id = _normalize_notion_id(raw_notion_id) or raw_notion_id
             project_url = self._notion_project_url(notion_id)
             row_emoji = row.get("__notion_emoji__")
-            created_at, updated_at = _notion_timestamps(
+            created_at, _updated_at = _notion_timestamps(
                 row.get("created_time"), row.get("last_edited_time")
             )
             row_name = row.get(title_property) if title_property else row.get("name")
@@ -5168,7 +5192,8 @@ class ProjectSyncer:
                     project_kwargs["type"] = project_type
                 project = ln.Project(**project_kwargs)
                 project._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-                _assign_notion_timestamps(project, created_at, updated_at)
+                # created_at is not the skip cursor. updated_at is stamped in write_projects.
+                _assign_notion_timestamps(project, created_at, None)
                 by_id[notion_id] = project.save()
                 continue
             changed_fields: list[str] = []
@@ -5188,11 +5213,6 @@ class ProjectSyncer:
             ) != _normalized_timestamp(created_at):
                 project.created_at = created_at
                 changed_fields.append("created_at")
-            if updated_at is not None and _normalized_timestamp(
-                project.updated_at
-            ) != _normalized_timestamp(updated_at):
-                project.updated_at = updated_at
-                changed_fields.append("updated_at")
             merged_aux = _NotionSyncer._merge_aux_with_emoji(
                 getattr(project, "_aux", None), row_emoji
             )
@@ -5287,18 +5307,20 @@ class ProjectSyncer:
         markdown_by_notion_id: dict[str, str] = {}
         embedded_transfer_details_by_url: dict[str, str] = {}
         embedded_file_urls: set[str] = set()
-        for row in rows:
+        note_total = len(rows)
+        _log_sync_progress(db_name, "notes", 0, note_total)
+        for note_index, row in enumerate(rows, start=1):
             notion_id = row.get("notion_id")
-            if not isinstance(notion_id, str) or not notion_id:
-                continue
-            markdown_content = self.reader.page_markdown(notion_id)
-            markdown_by_notion_id[notion_id] = markdown_content
-            per_page_transfer_map, _ = _planned_embedded_file_transfers(
-                markdown_content, notion_id
-            )
-            for url, detail in per_page_transfer_map.items():
-                embedded_file_urls.add(url)
-                embedded_transfer_details_by_url.setdefault(url, detail)
+            if isinstance(notion_id, str) and notion_id:
+                markdown_content = self.reader.page_markdown(notion_id)
+                markdown_by_notion_id[notion_id] = markdown_content
+                per_page_transfer_map, _ = _planned_embedded_file_transfers(
+                    markdown_content, notion_id
+                )
+                for url, detail in per_page_transfer_map.items():
+                    embedded_file_urls.add(url)
+                    embedded_transfer_details_by_url.setdefault(url, detail)
+            _log_sync_progress(db_name, "notes", note_index, note_total)
         missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
         if missing_embedded_urls:
             artifacts_by_url.update(
@@ -5402,6 +5424,8 @@ class ProjectSyncer:
                 record_link_features[prop_name] = feature
 
         records = 0
+        sync_total = len(rows)
+        _log_sync_progress(db_name, "synced", 0, sync_total)
         for row in rows:
             raw_notion_id = row.get("notion_id")
             if not isinstance(raw_notion_id, str) or not raw_notion_id:
@@ -5445,17 +5469,11 @@ class ProjectSyncer:
                         project.created_by = resolved_user
                         changed_fields.append("created_by")
             created_at = _parse_notion_timestamp(row.get("created_time"))
-            updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
             if created_at is not None and _normalized_timestamp(
                 getattr(project, "created_at", None)
             ) != _normalized_timestamp(created_at):
                 project.created_at = created_at
                 changed_fields.append("created_at")
-            if updated_at is not None and _normalized_timestamp(
-                getattr(project, "updated_at", None)
-            ) != _normalized_timestamp(updated_at):
-                project.updated_at = updated_at
-                changed_fields.append("updated_at")
 
             start_date: date | None = None
             end_date: date | None = None
@@ -5566,7 +5584,9 @@ class ProjectSyncer:
                 project,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
+            _stamp_synced_updated_at(project, row)
             records += 1
+            _log_sync_progress(db_name, "synced", records, sync_total)
         if report is not None:
             for people_property, stats in sorted(people_link_stats.items()):
                 resolved_count = len(stats["resolved"])
