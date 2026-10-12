@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from polars import LazyFrame as PolarsLazyFrame
     from upath import UPath
 
-POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
+POLARS_SUFFIXES = (".parquet", ".csv", ".tsv", ".ndjson", ".ipc")
 
 
 def _polars_options(storepath: UPath) -> dict:
@@ -81,6 +81,7 @@ def _open_polars_lazy_df(
     scans = {
         ".parquet": pl.scan_parquet,
         ".csv": pl.scan_csv,
+        ".tsv": pl.scan_csv,
         ".ndjson": pl.scan_ndjson,
         ".ipc": pl.scan_ipc,
     }
@@ -110,6 +111,8 @@ def _open_polars_lazy_df(
         for path in path_list:
             open_files.append(path.open(mode="rb") if use_fsspec else path.as_posix())
 
+        if path_list[0].suffix == ".tsv":
+            kwargs.setdefault("separator", "\t")
         yield scans[path_list[0].suffix](open_files, **kwargs)
     finally:
         if use_fsspec:

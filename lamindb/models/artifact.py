@@ -51,7 +51,11 @@ from ..base.fields import (
 )
 from ..base.users import current_user_id
 from ..base.utils import deprecated, strict_classmethod
-from ..core._compat import with_package_obj
+from ..core._compat import (
+    is_package_installed,
+    is_polars_dataframe,
+    with_package_obj,
+)
 from ..core._settings import settings
 from ..errors import (
     FieldValidationError,
@@ -158,6 +162,7 @@ if TYPE_CHECKING:
     from fsspec import AbstractFileSystem
     from lamindb_setup.types import AnyPathStr
     from mudata import MuData  # noqa: TC004
+    from polars import DataFrame as PolarsDataFrame
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
@@ -200,6 +205,7 @@ else:
     SOMAExperiment = Any
     SOMAMeasurement = Any
     PyArrowDataset = Any
+    PolarsDataFrame = Any
     PolarsLazyFrame = Any
     AbstractFileSystem = Any
     ArtifactKind = Any
@@ -779,7 +785,10 @@ def log_storage_hint(
 def data_is_dataframe(data: Any) -> bool:
     # TODO: maybe check also for pandas.DataFrame subclasses,
     # but in this case also infer_suffix should be updated
-    return with_package_obj(data, "DataFrame", "pandas", lambda obj: True)[0]
+    return (
+        is_polars_dataframe(data)
+        or with_package_obj(data, "DataFrame", "pandas", lambda obj: True)[0]
+    )
 
 
 def data_is_scversedatastructure(
@@ -1296,6 +1305,46 @@ def _get_artifact_by_automanaged_path(
         if folder_path is None:
             raise
         return registry_or_queryset.get(path=folder_path)
+
+
+_SCANNABLE_SUFFIXES = (".parquet", ".csv", ".tsv")
+_POLARS_REMOTE_PROTOCOLS = ("s3://", "gs://", "gcs://", "az://", "abfs://", "https://")
+
+
+def _can_scan_lazily(data: Any, schema: Any) -> bool:
+    """Whether a dataframe file can be validated with Polars without loading it."""
+    if not isinstance(data, (str, PurePath)) and not hasattr(data, "protocol"):
+        return False
+    path_str = str(data)
+    if "://" in path_str and not path_str.startswith(_POLARS_REMOTE_PROTOCOLS):
+        return False
+    if not path_str.endswith(_SCANNABLE_SUFFIXES):
+        return False
+    if not is_package_installed("polars"):
+        return False
+    if not isinstance(schema, Schema) or schema.index is not None:
+        return False
+    if path_str.endswith(".tsv") and _schema_coerces(schema):
+        # coerced values can only be written back as csv or parquet
+        return False
+    return not any(slot.startswith("attrs") for slot in schema.slots)
+
+
+def _schema_coerces(schema: Any) -> bool:
+    return bool(schema.coerce or any(f.coerce for f in schema.members))
+
+
+def _scan_dataframe_file(data: Any) -> Any | None:
+    """Lazily scan a local or remote dataframe file, `None` if Polars can't access it."""
+    from ..core.storage._polars_lazy_df import _open_polars_lazy_df
+
+    try:
+        with _open_polars_lazy_df(UPath(data)) as lazy:
+            lazy.collect_schema()
+        return lazy
+    except Exception as e:
+        logger.warning(f"could not lazily scan {data} with Polars: {e}")
+        return None
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
@@ -2332,7 +2381,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame | AnyPathStr,
+        df: pd.DataFrame | PolarsDataFrame | PolarsLazyFrame | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2349,7 +2398,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
 
         Args:
-            df: A `DataFrame` object or an `AnyPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
+            df: A pandas or Polars `DataFrame`, a Polars `LazyFrame`, or an
+                `AnyPathStr` pointing to a dataframe in storage. Polars LazyFrames
+                remain lazy during validation and are serialized with lazy sinks.
             key: A relative path within default storage, e.g., `"myfolder/myfile.parquet"`.
             description: A description.
             revises: An old version of the artifact.
@@ -2385,6 +2436,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
+        is_polars = is_polars_dataframe(df)
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
         if schema == "valid_features":
@@ -2392,6 +2444,39 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             schema = examples.schemas.valid_features()
 
+        polars_curator = None
+        if is_polars and schema is not None:
+            from lamindb.curators.core import DataFrameCurator
+
+            polars_curator = DataFrameCurator(df, schema, features=features)
+            polars_curator.validate()
+            df = polars_curator.dataset
+        elif (
+            schema is not None
+            and isinstance(schema, Schema)
+            and data_is_dataframe(df)
+            and _schema_coerces(schema)
+        ):
+            from lamindb.curators.core import DataFrameCurator
+
+            # the artifact must be created from the coerced values
+            coerced = DataFrameCurator(df, schema, features=features)
+            coerced.validate()
+            df = coerced.dataset
+        elif schema is not None and _can_scan_lazily(df, schema):
+            from lamindb.curators.core import DataFrameCurator
+
+            lazy = _scan_dataframe_file(df)
+            if lazy is not None:
+                path_suffix = "." + str(df).rsplit(".", 1)[-1]
+                polars_curator = DataFrameCurator(lazy, schema, features=features)
+                polars_curator.validate()
+                if _schema_coerces(schema):
+                    # the stored file must carry the coerced values
+                    df = polars_curator.dataset
+                    is_polars = True
+                    kwargs.setdefault("format", path_suffix)
+                # otherwise the original file is registered as is
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             path=df,
@@ -2404,7 +2489,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
-        if data_is_dataframe(df):
+        if is_polars:
+            import polars as pl
+
+            artifact.n_observations = (
+                df.select(pl.len()).collect().item()
+                if isinstance(df, pl.LazyFrame)
+                else df.height
+            )
+        elif data_is_dataframe(df):
             artifact.n_observations = len(df)
         else:
             # must be a str or path
@@ -2429,8 +2522,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            curator = DataFrameCurator(artifact, schema, features=features)
-            curator.validate()
+            if polars_curator is not None:
+                curator = polars_curator
+                curator._artifact = artifact
+            else:
+                curator = DataFrameCurator(artifact, schema, features=features)
+                curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact
