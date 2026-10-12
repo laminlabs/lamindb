@@ -1918,6 +1918,32 @@ def _ensure_artifacts(
     return artifacts
 
 
+def _store_page_embedded_artifacts(
+    markdown_content: str,
+    notion_id: str,
+    artifacts_by_url: dict[str, Any],
+    *,
+    report: SyncReport | None = None,
+) -> None:
+    """Register embedded files for one page before that page is saved."""
+    per_page_transfer_map, _ = _planned_embedded_file_transfers(
+        markdown_content, notion_id
+    )
+    missing = {url for url in per_page_transfer_map if url not in artifacts_by_url}
+    if not missing:
+        return
+    artifacts_by_url.update(
+        _ensure_artifacts(
+            missing,
+            transfer_details_by_url=per_page_transfer_map,
+            report=report,
+            with_key=False,
+            kind="__easset__",
+            description="imported from Notion",
+        )
+    )
+
+
 def _batch_artifacts(
     rows: list[dict],
     file_props: set[str],
@@ -2098,42 +2124,7 @@ def _write(
         transfer_details_by_url=transfer_details_by_url,
         report=report,
     )
-    markdown_by_notion_id: dict[str, str] = {}
-    embedded_transfer_details_by_url: dict[str, str] = {}
-    embedded_file_urls: set[str] = set()
     db_name = getattr(rec_type, "name", None) or "records"
-    note_total = len(rows)
-    _log_sync_progress(db_name, "notes", 0, note_total)
-    for note_index, row in enumerate(rows, start=1):
-        _log_sync_progress(
-            db_name,
-            "notes",
-            note_index,
-            note_total,
-            page_title=_row_page_title(row, spec=spec),
-        )
-        notion_id = row.get("notion_id")
-        if isinstance(notion_id, str) and notion_id:
-            markdown_content = reader.page_markdown(notion_id)
-            markdown_by_notion_id[notion_id] = markdown_content
-            per_page_transfer_map, _ = _planned_embedded_file_transfers(
-                markdown_content, notion_id
-            )
-            for url, detail in per_page_transfer_map.items():
-                embedded_file_urls.add(url)
-                embedded_transfer_details_by_url.setdefault(url, detail)
-    missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
-    if missing_embedded_urls:
-        artifacts_by_url.update(
-            _ensure_artifacts(
-                missing_embedded_urls,
-                transfer_details_by_url=embedded_transfer_details_by_url,
-                report=report,
-                with_key=False,
-                kind="__easset__",
-                description="imported from Notion",
-            )
-        )
 
     relation_pending = 0
     if rel:
@@ -2156,11 +2147,20 @@ def _write(
 
     records = 0
     sync_total = len(rows)
-    _log_sync_progress(db_name, "synced", 0, sync_total)
     for row in rows:
         rec = by_id.get(row["notion_id"])
         if rec is None:  # not imported yet — nothing to write
             continue
+        notion_id = row.get("notion_id")
+        markdown_content = ""
+        if isinstance(notion_id, str) and notion_id:
+            markdown_content = reader.page_markdown(notion_id)
+            _store_page_embedded_artifacts(
+                markdown_content,
+                notion_id,
+                artifacts_by_url,
+                report=report,
+            )
         values, _ = _row_values(
             row,
             rel,
@@ -2181,11 +2181,7 @@ def _write(
                 f"notion_id={row.get('notion_id')}"
             )
             raise
-        notion_id = row.get("notion_id")
         if isinstance(notion_id, str) and notion_id:
-            markdown_content = markdown_by_notion_id.get(notion_id)
-            if markdown_content is None:
-                markdown_content = reader.page_markdown(notion_id)
             _attach_page_markdown(
                 rec,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
@@ -5348,42 +5344,7 @@ class ProjectSyncer:
             transfer_details_by_url=transfer_details_by_url,
             report=report,
         )
-        markdown_by_notion_id: dict[str, str] = {}
-        embedded_transfer_details_by_url: dict[str, str] = {}
-        embedded_file_urls: set[str] = set()
-        note_total = len(rows)
         title_property = mapping.get("title")
-        _log_sync_progress(db_name, "notes", 0, note_total)
-        for note_index, row in enumerate(rows, start=1):
-            _log_sync_progress(
-                db_name,
-                "notes",
-                note_index,
-                note_total,
-                page_title=_row_page_title(row, title_property=title_property),
-            )
-            notion_id = row.get("notion_id")
-            if isinstance(notion_id, str) and notion_id:
-                markdown_content = self.reader.page_markdown(notion_id)
-                markdown_by_notion_id[notion_id] = markdown_content
-                per_page_transfer_map, _ = _planned_embedded_file_transfers(
-                    markdown_content, notion_id
-                )
-                for url, detail in per_page_transfer_map.items():
-                    embedded_file_urls.add(url)
-                    embedded_transfer_details_by_url.setdefault(url, detail)
-        missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
-        if missing_embedded_urls:
-            artifacts_by_url.update(
-                _ensure_artifacts(
-                    missing_embedded_urls,
-                    transfer_details_by_url=embedded_transfer_details_by_url,
-                    report=report,
-                    with_key=False,
-                    kind="__easset__",
-                    description="imported from Notion",
-                )
-            )
 
         relation_props = (
             set(mapping["parents_rel"])
@@ -5476,7 +5437,6 @@ class ProjectSyncer:
 
         records = 0
         sync_total = len(rows)
-        _log_sync_progress(db_name, "synced", 0, sync_total)
         for row in rows:
             raw_notion_id = row.get("notion_id")
             if not isinstance(raw_notion_id, str) or not raw_notion_id:
@@ -5485,6 +5445,13 @@ class ProjectSyncer:
             project = by_id.get(notion_id)
             if project is None:
                 continue
+            markdown_content = self.reader.page_markdown(notion_id)
+            _store_page_embedded_artifacts(
+                markdown_content,
+                notion_id,
+                artifacts_by_url,
+                report=report,
+            )
             changed_fields: list[str] = []
             title_property = mapping.get("title")
             if title_property:
@@ -5628,9 +5595,6 @@ class ProjectSyncer:
                         stats["unresolved"].add(normalized_user_id)
                 self._sync_project_user_role(project, role=role, users=users)
 
-            markdown_content = markdown_by_notion_id.get(notion_id)
-            if markdown_content is None:
-                markdown_content = self.reader.page_markdown(notion_id)
             _attach_project_markdown(
                 project,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
