@@ -493,6 +493,84 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     perturbation_type.delete(permanent=True)
 
 
+def test_artifact_order_by_feature():
+    from django.core.exceptions import FieldError
+
+    temperature = ln.Feature(name="order_by_temperature", dtype=float).save()
+    note = ln.Feature(name="order_by_note", dtype=str).save()
+    perturbation = ln.Feature(name="order_by_perturbation", dtype=ln.ULabel).save()
+    list_feature = ln.Feature(name="order_by_list", dtype=list[int]).save()
+    low = ln.Artifact(
+        ".gitignore", key="order-by-feature-low", skip_hash_lookup=True
+    ).save()
+    mid = ln.Artifact(
+        ".gitignore", key="order-by-feature-mid", skip_hash_lookup=True
+    ).save()
+    high = ln.Artifact(
+        ".gitignore", key="order-by-feature-high", skip_hash_lookup=True
+    ).save()
+    missing = ln.Artifact(
+        ".gitignore", key="order-by-feature-missing", skip_hash_lookup=True
+    ).save()
+    # 2, 10, 3 catches lexicographic JSON ordering (10 before 2).
+    low.features.set_values({temperature: 2.0, note: "b"})
+    mid.features.set_values({temperature: 10.0, note: "a"})
+    high.features.set_values({temperature: 3.0, note: "c"})
+
+    qs = ln.Artifact.filter(key__startswith="order-by-feature-")
+    assert list(qs.order_by(temperature)) == [low, high, mid, missing]
+    assert list(qs.order_by(-temperature)) == [mid, high, low, missing]
+    assert qs.order_by(temperature).count() == 4
+    assert list(qs.order_by(note)) == [mid, low, high, missing]
+    assert list(qs.order_by(temperature, "key")) == [low, high, mid, missing]
+    assert list(
+        ln.Artifact.order_by(temperature).filter(key__startswith="order-by-feature-")
+    ) == [low, high, mid, missing]
+
+    # `include="features"` encodes registry fields, so assert order on the index.
+    frame = qs.order_by(temperature).to_dataframe(include="features", limit=None)
+    assert list(frame.index) == [low.id, high.id, mid.id, missing.id]
+    assert frame.loc[low.id, "order_by_temperature"] == 2.0
+    assert frame.loc[mid.id, "order_by_temperature"] == 10.0
+    limited = qs.order_by(-temperature).to_dataframe(include="features")
+    assert list(limited.index) == [mid.id, high.id, low.id, missing.id]
+
+    with pytest.raises(FieldError, match="scalar non-categorical"):
+        qs.order_by(perturbation)
+    with pytest.raises(FieldError, match="scalar non-categorical"):
+        qs.order_by(list_feature)
+    with pytest.raises(FieldError, match="only supported"):
+        ln.ULabel.filter().order_by(temperature)
+
+    for record in (low, mid, high, missing):
+        record.delete(permanent=True)
+    for feature in (temperature, note, perturbation, list_feature):
+        feature.delete(permanent=True)
+
+
+def test_run_order_by_feature():
+    temperature = ln.Feature(name="order_by_run_temperature", dtype=int).save()
+    transform = ln.Transform(key="order-by-run-transform").save()
+    cool = ln.Run(transform, name="order-by-run-cool").save()
+    warm = ln.Run(transform, name="order-by-run-warm").save()
+    cool.features.set_values({temperature: 2})
+    warm.features.set_values({temperature: 10})
+
+    ordered = list(
+        ln.Run.filter(name__startswith="order-by-run-").order_by(temperature)
+    )
+    assert ordered == [cool, warm]
+    assert (
+        ln.Run.filter(name__startswith="order-by-run-").order_by(-temperature).first()
+        == warm
+    )
+
+    cool.delete(permanent=True)
+    warm.delete(permanent=True)
+    transform.delete(permanent=True)
+    temperature.delete(permanent=True)
+
+
 def test_feature_predicate_queries_safe_hybrid():
     lab_a_type = ln.Feature(name="PredLabA", is_type=True).save()
     feature_a = ln.Feature(name="pred_name", dtype=str, type=lab_a_type).save()

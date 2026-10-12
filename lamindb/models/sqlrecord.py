@@ -875,6 +875,21 @@ class Registry(ModelBase):
 
         return QuerySet(model=cls, using=using).filter(*queries, **expressions)
 
+    def order_by(cls, *field_names) -> QuerySet:
+        """Order records by fields or feature values.
+
+        See :meth:`~lamindb.models.QuerySet.order_by`.
+
+        Example::
+
+            temperature = ln.Feature.get(name="temperature")
+            ln.Artifact.order_by(temperature)
+            ln.Artifact.order_by(-temperature, "key")
+        """
+        from .query_set import QuerySet
+
+        return QuerySet(model=cls).order_by(*field_names)
+
     def get(
         cls: type[T],
         idlike: int | str | None = None,

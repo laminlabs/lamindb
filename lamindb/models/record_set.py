@@ -91,7 +91,12 @@ class RecordSet(Iterable):
         if _record_type is not None:
             record_type = _record_type
         else:
-            type_ids = list(qs.values_list("type_id", flat=True).distinct()[:2])
+            # Clear ordering first. An expression in ORDER BY (for example a
+            # feature subquery) is added to the SELECT of a DISTINCT query, so
+            # rows that share a type_id no longer collapse.
+            type_ids = list(
+                qs.order_by().values_list("type_id", flat=True).distinct()[:2]
+            )
             if len(type_ids) != 1 or type_ids[0] is None:
                 # Sheet-style export requires a single concrete record type context.
                 logger.warning(
@@ -236,6 +241,9 @@ class RecordSet(Iterable):
             run_for_input_linking._status_code = 0
             run_for_input_linking.save()
         qs._record_export_run = run_for_input_linking if use_export_run else None
+        # Sheet export sorts by index unless the caller already ordered the queryset.
+        if qs.query.order_by:
+            return df
         return df.sort_index()
 
     def to_artifact(
