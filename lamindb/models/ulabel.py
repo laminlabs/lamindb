@@ -49,7 +49,12 @@ if TYPE_CHECKING:
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Simple labels.
 
-    Is similar to :class:`~lamindb.Record`, but has no ability to store features.
+    Is similar to :class:`~lamindb.Record`, but without the ability to link features.
+
+    For cell lines, cell types, tissues, and other biological entities,
+    use the ontology sources in :mod:`bionty`.
+    `ULabel` does not sync from external ontologies.
+    Use it to build a universal label ontology.
 
     Args:
         name: `str` A name.
@@ -58,7 +63,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If `None`, uses the current space.
-
 
     See Also:
         :class:`~lamindb.Record`
@@ -87,10 +91,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         t_cell = ln.ULabel(name="T Cell", type=cell_type).save()
         cd4_t_cell = ln.ULabel(name="CD4+ T Cell", type=cell_type).save()
         t_cell.children.add(cd4_t_cell)
-
-    If you work with basic biological entities like cell lines, cell types, tissues,
-    consider building on the public biological ontologies in :mod:`bionty`,
-    which work in the same way.
 
     """
 

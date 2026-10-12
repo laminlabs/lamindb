@@ -1348,7 +1348,7 @@ def _scan_dataframe_file(data: Any) -> Any | None:
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    """Datasets & models stored as files, folders, or arrays.
+    """Files and folders.
 
     Some artifacts are table- or array-like, e.g., when stored as `.parquet`, `.h5ad`, `.zarr`, or `.tiledb`.
 

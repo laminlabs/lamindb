@@ -664,7 +664,7 @@ sh my_script.sh
 The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --skill lamindb` so your agent can read it. It will call:
 
 ```
-lamin track claude   # or: lamin track copilot, or: lamin track cursor
+lamin track claude   # or: lamin track copilot, lamin track cursor, or lamin track codex
 # work with the agent
 lamin finish
 ```
@@ -692,6 +692,7 @@ Options:
 
 Commands:
   claude   Start tracking a Claude Code session in LaminDB.
+  codex    Start or resume tracking a Codex session in LaminDB.
   copilot  Start tracking a GitHub Copilot session in LaminDB.
   cursor   Start or resume tracking a Cursor IDE Agent session in LaminDB.
 ```
@@ -702,7 +703,7 @@ Commands:
 
 Finish a tracked session.
 
-This can be a shell script run, a Claude Code, Copilot, or Cursor session.
+This can be a shell script run, or a Claude Code, Copilot, Cursor, or Codex session.
 
 Options:
 

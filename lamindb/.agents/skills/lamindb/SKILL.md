@@ -2,7 +2,7 @@
 name: lamindb
 description: "Should invoke if an agent session is about to write data to a LaminDB instance to track this agent session as a run. Should also invoke when tasked to curate datasets."
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # LaminDB
@@ -11,7 +11,7 @@ Run `lamin --skill-version` only after the user agrees to use this skill, from t
 
 ## Concepts
 
-- **Transform**: code, not data. Each coding agent/harness has its own fixed Transform for the whole project representing that harness's sessions (the "agent run") — internally keyed `__claudecode__` for Claude Code, `__copilot__` for Copilot, and `__cursor__` for Cursor. **These are internal database identifiers only, never CLI arguments or command names** — the actual commands are `lamin track claude`, `lamin track copilot`, and `lamin track cursor`; see your harness's reference file for the exact syntax. **Any script you write to accomplish the user's task (`.py`/`.ipynb`/`.R`/`.Rmd`/`.qmd`) is its own separate Transform, tracked automatically the moment it runs** — never save a script as a plain Artifact. Getting this backwards destroys the lineage from script to the data it produced, which is the entire point of LaminDB.
+- **Transform**: code, not data. Each coding agent/harness has its own fixed Transform for the whole project representing that harness's sessions (the "agent run") — internally keyed `__claudecode__` for Claude Code, `__copilot__` for Copilot, `__cursor__` for Cursor, and `__codex__` for Codex. **These are internal database identifiers only, never CLI arguments or command names** — the actual commands are `lamin track claude`, `lamin track copilot`, `lamin track cursor`, and `lamin track codex`; see your harness's reference file for the exact syntax. **Any script you write to accomplish the user's task (`.py`/`.ipynb`/`.R`/`.Rmd`/`.qmd`) is its own separate Transform, tracked automatically the moment it runs** — never save a script as a plain Artifact. Getting this backwards destroys the lineage from script to the data it produced, which is the entire point of LaminDB.
 - **Run**: an execution. Each harness conversation gets one Run of your harness's fixed Transform (the **agent run**) per LaminDB instance. If the user sends a follow-up after you already ran `lamin finish`, run `lamin track <agent>` again: it resumes that same agent Run using the harness session ID (Cursor uses its generated session marker to resolve the conversation in its local chat database) instead of creating a duplicate, and the next `lamin finish` replaces its report with the complete conversation. Every script you write self-tracks its _own_ Run the instant it executes, linked back to the agent run via `initiated_by_run` — see "Self-tracking scripts" below. You never construct the script's Transform/Run by hand from outside.
 - **Two distinct link fields — do not conflate them**: `Run.initiated_by_run` (on the _Run_ model) says "this execution was triggered by that other run" — it only exists once a script actually executes, and renders in its own "This run initiated" panel in the UI, not as an output. `Transform.run` (on the _Transform_ model, separate field) says "this piece of code was authored/produced during that run" — it's what makes a script show up in the agent run's **Output** column (alongside artifacts), the way a plain output file does. `ln.track()` never sets `Transform.run` on its own — `lamin finish` stamps it explicitly at session close, so a script counts as a session output even if it's the _only_ thing produced.
 - **Never save a script as a plain Artifact.** Scripts (`.py`/`.ipynb`/`.R`/`.Rmd`/`.qmd`) must use `ln.track()` inside them. If you call `ln.Artifact("script.py").save()` you destroy the lineage between the code and the data it produced — that is the entire point of LaminDB and must never happen.
@@ -214,5 +214,6 @@ If Step 1 printed `NOT_FOUND`, there is no run to close — skip Step 3 entirely
 - [Track Claude Code sessions](references/track_claude.md).
 - [Track Copilot sessions](references/track_copilot.md). If this Copilot chat spawned a child, read that file first and skip dev-dir / branch / track.
 - [Track Cursor IDE sessions](references/track_cursor.md).
+- [Track Codex sessions](references/track_codex.md).
 - [Curate a dataframe](references/curate_a_dataframe.md).
 - [LaminDB guide](references/docs-map.md). This skill is the tracking procedure. The guide ships inside the installed package and, in a git checkout, lives at `docs/`.

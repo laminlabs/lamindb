@@ -463,6 +463,73 @@ def _assign_notion_timestamps(
         record.updated_at = updated_at
 
 
+def _row_page_title(
+    row: dict[str, Any],
+    *,
+    spec: dict | None = None,
+    title_property: str | None = None,
+) -> str | None:
+    """Title of one Notion row, from its title property when the schema is known."""
+    candidates: list[Any] = []
+    if isinstance(title_property, str) and title_property:
+        candidates.append(row.get(title_property))
+    if spec:
+        for name, metadata in spec.items():
+            if isinstance(metadata, dict) and metadata.get("type") == "title":
+                candidates.append(row.get(name))
+    for value in candidates:
+        if isinstance(value, str):
+            title = value.strip()
+            if title:
+                return title
+    return None
+
+
+def _log_sync_progress(
+    db_name: str,
+    phase: str,
+    done: int,
+    total: int,
+    *,
+    page_title: str | None = None,
+) -> None:
+    message = f"notion sync: {db_name} {phase} {done}/{total}"
+    if isinstance(page_title, str) and page_title:
+        message += f" page={page_title!r}"
+    logger.important(message)
+
+
+def _stamp_synced_updated_at(record: Any, row: dict[str, Any]) -> None:
+    """Set Notion's last-edited time only after this row has finished syncing.
+
+    ``updated_at`` is the cursor that later syncs use to skip unchanged rows.
+    Stamping it during identity upsert marks a half-written row as done.
+    """
+    updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
+    if updated_at is None:
+        return
+    if _normalized_timestamp(
+        getattr(record, "updated_at", None)
+    ) == _normalized_timestamp(updated_at):
+        return
+    record.updated_at = updated_at
+    record.save(update_fields=["updated_at"])
+
+
+def _sibling_list_marker(blocks: list[dict]) -> str | None:
+    """Marker that keeps a toggle inside a sibling list, or None when there is no list."""
+    list_types = {
+        block.get("type")
+        for block in blocks
+        if block.get("type") in {"bulleted_list_item", "numbered_list_item", "to_do"}
+    }
+    if not list_types:
+        return None
+    if list_types == {"numbered_list_item"}:
+        return "1. "
+    return "- "
+
+
 def _normalized_timestamp(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -771,7 +838,12 @@ class _NotionReader:
         return lines
 
     def _block_to_markdown_lines(
-        self, block: dict, *, depth: int = 0, parent_is_numbered: bool = False
+        self,
+        block: dict,
+        *,
+        depth: int = 0,
+        parent_is_numbered: bool = False,
+        list_marker: str | None = None,
     ) -> list[str]:
         block_type = block.get("type")
         payload = block.get(block_type) if isinstance(block_type, str) else None
@@ -791,6 +863,22 @@ class _NotionReader:
                 lines.append(f"{indent}{text}".rstrip())
                 # Notion paragraph blocks map to separate markdown paragraphs.
                 # Keep a blank line separator so adjacent paragraph blocks don't collapse.
+                lines.append("")
+        elif block_type == "callout":
+            # Callouts are note blocks. Without a trailing blank line their text
+            # is only a soft break and runs into the following paragraph.
+            icon = ""
+            if isinstance(payload, dict):
+                icon_payload = payload.get("icon")
+                if (
+                    isinstance(icon_payload, dict)
+                    and icon_payload.get("type") == "emoji"
+                    and isinstance(icon_payload.get("emoji"), str)
+                ):
+                    icon = icon_payload["emoji"].strip()
+            body = f"{icon} {text}".strip() if icon else text
+            if body:
+                lines.append(f"{indent}{body}".rstrip())
                 lines.append("")
         elif block_type == "bulleted_list_item":
             lines.append(f"{indent}- {text}".rstrip())
@@ -834,29 +922,46 @@ class _NotionReader:
             lines.append(f"{indent}<!-- display-table-of-contents -->")
         elif block_type == "divider":
             lines.append(f"{indent}---")
+        elif block_type == "toggle":
+            # The summary is the toggle title. Children are rendered from column 0
+            # and then indented with the toggle, so a nested list stays valid
+            # markdown. A blank line after <summary> lets the renderer parse that
+            # list inside <details>. A toggle sitting among list items is itself
+            # a list item; a column-0 <details> would end the surrounding list.
+            summary = text.strip() or "Details"
+            detail_lines = [f"<summary>{summary}</summary>"]
+            child_blocks: list[dict] = []
+            if block.get("has_children") and block.get("id"):
+                child_blocks = self._iter_block_children(block["id"])
+            if child_blocks:
+                detail_lines.append("")
+                sibling_marker = _sibling_list_marker(child_blocks)
+                for child in child_blocks:
+                    detail_lines.extend(
+                        self._block_to_markdown_lines(
+                            child,
+                            depth=0,
+                            parent_is_numbered=False,
+                            list_marker=(
+                                sibling_marker
+                                if child.get("type") == "toggle"
+                                else None
+                            ),
+                        )
+                    )
+            if detail_lines[-1] != "":
+                detail_lines.append("")
+            detail_lines.append("</details>")
+            marker = list_marker or ""
+            pad = indent + (" " * len(marker))
+            lines.append(f"{indent}{marker}<details>")
+            for line in detail_lines:
+                lines.append("" if line.strip() == "" else f"{pad}{line}")
+            return lines
         else:
             if text:
                 prefix = f"{indent}1. " if parent_is_numbered else indent
                 lines.append(f"{prefix}{text}".rstrip())
-
-        if block_type == "toggle":
-            lines.append(f"{indent}<details>")
-            summary = text.strip() or "Details"
-            lines.append(f"{indent}<summary>{summary}</summary>")
-            lines.append(f"{indent}<p>")
-            if block.get("has_children") and block.get("id"):
-                child_blocks = self._iter_block_children(block["id"])
-                for child in child_blocks:
-                    lines.extend(
-                        self._block_to_markdown_lines(
-                            child,
-                            depth=depth + 1,
-                            parent_is_numbered=False,
-                        )
-                    )
-            lines.append(f"{indent}</p>")
-            lines.append(f"{indent}</details>")
-            return lines
 
         if block_type == "table":
             table_rows = (
@@ -886,9 +991,21 @@ class _NotionReader:
             params: dict[str, Any] = {"page_size": 100}
             if cursor:
                 params["start_cursor"] = cursor
-            payload = self._call(
-                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
-            )
+            try:
+                payload = self._call(
+                    "GET",
+                    f"/blocks/{_notion_api_id(block_id)}/children",
+                    params=params,
+                )
+            except LookupError as error:
+                # A nested block can 404 when it is a child page, a synced
+                # block, or otherwise not shared, even though the parent page
+                # is readable. Keep the markdown already collected.
+                logger.warning(
+                    "notion sync: skip block children "
+                    f"block={_compact_uuid(block_id)} ({error})"
+                )
+                return children
             children.extend(payload.get("results", []))
             if not payload.get("has_more"):
                 return children
@@ -1801,6 +1918,32 @@ def _ensure_artifacts(
     return artifacts
 
 
+def _store_page_embedded_artifacts(
+    markdown_content: str,
+    notion_id: str,
+    artifacts_by_url: dict[str, Any],
+    *,
+    report: SyncReport | None = None,
+) -> None:
+    """Register embedded files for one page before that page is saved."""
+    per_page_transfer_map, _ = _planned_embedded_file_transfers(
+        markdown_content, notion_id
+    )
+    missing = {url for url in per_page_transfer_map if url not in artifacts_by_url}
+    if not missing:
+        return
+    artifacts_by_url.update(
+        _ensure_artifacts(
+            missing,
+            transfer_details_by_url=per_page_transfer_map,
+            report=report,
+            with_key=False,
+            kind="__easset__",
+            description="imported from Notion",
+        )
+    )
+
+
 def _batch_artifacts(
     rows: list[dict],
     file_props: set[str],
@@ -1981,33 +2124,7 @@ def _write(
         transfer_details_by_url=transfer_details_by_url,
         report=report,
     )
-    markdown_by_notion_id: dict[str, str] = {}
-    embedded_transfer_details_by_url: dict[str, str] = {}
-    embedded_file_urls: set[str] = set()
-    for row in rows:
-        notion_id = row.get("notion_id")
-        if not isinstance(notion_id, str) or not notion_id:
-            continue
-        markdown_content = reader.page_markdown(notion_id)
-        markdown_by_notion_id[notion_id] = markdown_content
-        per_page_transfer_map, _ = _planned_embedded_file_transfers(
-            markdown_content, notion_id
-        )
-        for url, detail in per_page_transfer_map.items():
-            embedded_file_urls.add(url)
-            embedded_transfer_details_by_url.setdefault(url, detail)
-    missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
-    if missing_embedded_urls:
-        artifacts_by_url.update(
-            _ensure_artifacts(
-                missing_embedded_urls,
-                transfer_details_by_url=embedded_transfer_details_by_url,
-                report=report,
-                with_key=False,
-                kind="__easset__",
-                description="imported from Notion",
-            )
-        )
+    db_name = getattr(rec_type, "name", None) or "records"
 
     relation_pending = 0
     if rel:
@@ -2029,10 +2146,21 @@ def _write(
         by_id = _existing_by_ref(rec_type)
 
     records = 0
+    sync_total = len(rows)
     for row in rows:
         rec = by_id.get(row["notion_id"])
         if rec is None:  # not imported yet — nothing to write
             continue
+        notion_id = row.get("notion_id")
+        markdown_content = ""
+        if isinstance(notion_id, str) and notion_id:
+            markdown_content = reader.page_markdown(notion_id)
+            _store_page_embedded_artifacts(
+                markdown_content,
+                notion_id,
+                artifacts_by_url,
+                report=report,
+            )
         values, _ = _row_values(
             row,
             rel,
@@ -2045,17 +2173,28 @@ def _write(
             create_labels=False,
             skip_props=skip_props,
         )
-        rec.features.set_values(values)
-        notion_id = row.get("notion_id")
+        try:
+            rec.features.set_values(values)
+        except ln.errors.ValidationError:
+            logger.error(
+                "notion sync: feature validation failed for "
+                f"notion_id={row.get('notion_id')}"
+            )
+            raise
         if isinstance(notion_id, str) and notion_id:
-            markdown_content = markdown_by_notion_id.get(notion_id)
-            if markdown_content is None:
-                markdown_content = reader.page_markdown(notion_id)
             _attach_page_markdown(
                 rec,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
+        _stamp_synced_updated_at(rec, row)
         records += 1
+        _log_sync_progress(
+            db_name,
+            "synced",
+            records,
+            sync_total,
+            page_title=_row_page_title(row, spec=spec),
+        )
     return {"records": records, "pending": relation_pending}
 
 
@@ -2128,7 +2267,7 @@ def _upsert_all(rec_type, rows) -> dict:
             continue
         nid = _normalize_notion_id(raw_nid) or raw_nid
         row_emoji = row.get("__notion_emoji__")
-        created_at, updated_at = _notion_timestamps(
+        created_at, _updated_at = _notion_timestamps(
             row.get("created_time"), row.get("last_edited_time")
         )
         rec = by_id.get(nid)
@@ -2140,7 +2279,8 @@ def _upsert_all(rec_type, rows) -> dict:
                 reference_type="notion",
             )
             rec._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-            _assign_notion_timestamps(rec, created_at, updated_at)
+            # created_at is not the skip cursor. updated_at is stamped in _write.
+            _assign_notion_timestamps(rec, created_at, None)
             by_id[nid] = rec.save()
             continue
 
@@ -2156,11 +2296,6 @@ def _upsert_all(rec_type, rows) -> dict:
         ) != _normalized_timestamp(created_at):
             rec.created_at = created_at
             changed_fields.append("created_at")
-        if updated_at is not None and _normalized_timestamp(
-            rec.updated_at
-        ) != _normalized_timestamp(updated_at):
-            rec.updated_at = updated_at
-            changed_fields.append("updated_at")
         merged_aux = _NotionSyncer._merge_aux_with_emoji(
             getattr(rec, "_aux", None), row_emoji
         )
@@ -2185,6 +2320,7 @@ class _NotionSyncer:
         self.workspace = workspace
         self._parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages: dict[str, str] = {}
+        self._database_row_depth: dict[str, int] = {}
         self._seed_page_ids_by_database: dict[str, set[str]] = {}
         self._parent_page_parents: dict[str, str] = {}
         self._formula_dtype_cache: dict[tuple[str, str], tuple[str, Any]] = {}
@@ -2303,19 +2439,85 @@ class _NotionSyncer:
             raise
 
     def _iter_block_children(self, block_id: str) -> list[dict]:
-        children: list[dict] = []
-        cursor: str | None = None
-        while True:
-            params: dict[str, Any] = {"page_size": 100}
-            if cursor:
-                params["start_cursor"] = cursor
-            payload = self.reader._call(
-                "GET", f"/blocks/{_notion_api_id(block_id)}/children", params=params
+        return self.reader._iter_block_children(block_id)
+
+    def _set_database_row_depth(self, database_id: str, row_depth: int) -> None:
+        """Remember how many row levels remain once this database is reached."""
+        normalized = _normalize_notion_id(database_id) or database_id
+        current = self._database_row_depth.get(normalized)
+        if current is None or row_depth > current:
+            self._database_row_depth[normalized] = row_depth
+
+    def _database_content_depth(self, database_id: str, depth: int) -> int:
+        """Row levels to sync for this database.
+
+        Child databases store the depth left after the level that reached
+        them. A database id used as the sync root stores the requested depth.
+        When collection did not record one, `depth` applies.
+        """
+        normalized = _normalize_notion_id(database_id) or database_id
+        return self._database_row_depth.get(normalized, depth)
+
+    def _log_schema_only_database(self, database_id: str, depth: int) -> None:
+        compact = _compact_uuid(database_id)
+        if depth <= 0:
+            logger.important(
+                "notion sync: depth=0 syncs the record type only for "
+                f"db={compact}; pass --depth 1 to include its pages"
             )
-            children.extend(payload.get("results", []))
-            if not payload.get("has_more"):
-                return children
-            cursor = payload.get("next_cursor")
+            return
+        logger.important(
+            "notion sync: child database "
+            f"db={compact} is synced as its page and schema only; "
+            f"pass --depth {depth + 1} to include its pages"
+        )
+
+    def _register_discovered_page(
+        self,
+        page_id: str,
+        pages: dict[str, str],
+        page_emojis: dict[str, str | None],
+        *,
+        fallback_title: str | None = None,
+    ) -> str | None:
+        """Record a child page within the depth window.
+
+        Database rows are not pages in this sense: they belong to a database
+        and are synced only when that database's content depth allows it.
+        """
+        normalized = _normalize_notion_id(page_id) or page_id
+        if normalized in pages:
+            return normalized
+        payload = self._safe_call(f"/pages/{_notion_api_id(page_id)}")
+        if payload is not None and self._page_parent_database_id(payload) is not None:
+            return None
+        if payload is None:
+            title = (fallback_title or "").strip() or _compact_uuid(normalized)
+            pages[normalized] = title
+            page_emojis.setdefault(normalized, None)
+            return normalized
+        title = (
+            _page_title(payload).strip()
+            or (fallback_title or "").strip()
+            or _compact_uuid(normalized)
+        )
+        pages[normalized] = title
+        page_emojis[normalized] = self._database_emoji(payload)
+        ancestor = self._database_parent_page_id(payload)
+        if ancestor is None:
+            return normalized
+        self._parent_page_parents[normalized] = ancestor
+        if ancestor in pages:
+            return normalized
+        ancestor_payload = self._safe_call(f"/pages/{_notion_api_id(ancestor)}")
+        if ancestor_payload is None or self._page_parent_database_id(ancestor_payload):
+            return normalized
+        ancestor_title = _page_title(ancestor_payload).strip() or _compact_uuid(
+            ancestor
+        )
+        pages[ancestor] = ancestor_title
+        page_emojis[ancestor] = self._database_emoji(ancestor_payload)
+        return normalized
 
     def _collect_databases_from_block(
         self,
@@ -2325,33 +2527,80 @@ class _NotionSyncer:
         *,
         parent_page_id: str | None = None,
         depth: int = 0,
+        pages: dict[str, str] | None = None,
+        page_emojis: dict[str, str | None] | None = None,
     ) -> None:
-        """Collect child databases up to `depth` levels below this block.
+        """Collect child pages and databases up to `depth` levels below this block.
 
-        `depth<=0` does not enter it. A child database on this block is one
-        level; databases nested under it consume the remaining levels.
+        `depth<=0` does not enter the block. A child page or child database
+        consumes one level. Columns, toggles, and other layout blocks do not,
+        so a page or database nested in one is still a direct child. A child
+        database keeps the remaining depth for its rows: depth 1 includes the
+        database page and schema, and its rows need one more level.
         """
         if depth <= 0:
             return
-        next_depth = depth - 1
+        pages = pages if pages is not None else {}
+        page_emojis = page_emojis if page_emojis is not None else {}
         for block in self._iter_block_children(block_id):
             bid = block.get("id")
             if bid and bid in seen:
                 continue
             if bid:
                 seen.add(bid)
-            if block.get("type") == "child_database" and bid:
+            block_type = block.get("type")
+            if block_type == "child_database" and bid:
                 out.add(bid)
                 normalized_db_id = _normalize_notion_id(bid)
+                self._set_database_row_depth(bid, depth - 1)
                 if parent_page_id is not None and normalized_db_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
+                if block.get("has_children"):
+                    self._collect_databases_from_block(
+                        bid,
+                        seen,
+                        out,
+                        parent_page_id=parent_page_id,
+                        depth=depth - 1,
+                        pages=pages,
+                        page_emojis=page_emojis,
+                    )
+                continue
+            if block_type == "child_page" and bid:
+                child_payload = block.get("child_page")
+                fallback_title = (
+                    child_payload.get("title")
+                    if isinstance(child_payload, dict)
+                    else None
+                )
+                registered = self._register_discovered_page(
+                    bid,
+                    pages,
+                    page_emojis,
+                    fallback_title=fallback_title
+                    if isinstance(fallback_title, str)
+                    else None,
+                )
+                if registered is not None and block.get("has_children"):
+                    self._collect_databases_from_block(
+                        bid,
+                        seen,
+                        out,
+                        parent_page_id=registered,
+                        depth=depth - 1,
+                        pages=pages,
+                        page_emojis=page_emojis,
+                    )
+                continue
             if block.get("has_children") and bid:
                 self._collect_databases_from_block(
                     bid,
                     seen,
                     out,
                     parent_page_id=parent_page_id,
-                    depth=next_depth,
+                    depth=depth,
+                    pages=pages,
+                    page_emojis=page_emojis,
                 )
 
     def _collect_database_ids(
@@ -2363,6 +2612,7 @@ class _NotionSyncer:
         parent_pages: dict[str, str] = {}
         parent_page_emojis: dict[str, str | None] = {}
         self._database_parent_pages = {}
+        self._database_row_depth = {}
         self._seed_page_ids_by_database = {}
         self._parent_page_parents = {}
         seen_blocks: set[str] = set()
@@ -2371,6 +2621,7 @@ class _NotionSyncer:
             if db_payload is not None:
                 database_ids.add(parent)
                 normalized_db_id = _normalize_notion_id(parent) or parent
+                self._set_database_row_depth(normalized_db_id, depth)
                 parent_page_id = self._database_parent_page_id(db_payload)
                 if parent_page_id is not None:
                     self._database_parent_pages[normalized_db_id] = parent_page_id
@@ -2386,8 +2637,11 @@ class _NotionSyncer:
                             parent_page_emojis[parent_page_id] = self._database_emoji(
                                 parent_page_payload
                             )
-                # recurse through rows as pages to discover nested child databases
-                if depth == 0:
+                # Rows are this database's pages. Pages and databases nested
+                # inside those rows are another level, so depth 1 syncs the
+                # rows only and does not import schemas from databases that
+                # live on them.
+                if depth <= 1:
                     continue
                 for row in self.reader.rows(parent):
                     notion_id = row.get("notion_id")
@@ -2397,7 +2651,9 @@ class _NotionSyncer:
                             seen_blocks,
                             database_ids,
                             parent_page_id=None,
-                            depth=depth,
+                            depth=depth - 1,
+                            pages=parent_pages,
+                            page_emojis=parent_page_emojis,
                         )
                 continue
             page_payload = self._safe_call(f"/pages/{parent}")
@@ -2430,6 +2686,8 @@ class _NotionSyncer:
                     database_ids,
                     parent_page_id=None,
                     depth=depth,
+                    pages=parent_pages,
+                    page_emojis=parent_page_emojis,
                 )
                 continue
 
@@ -2457,6 +2715,8 @@ class _NotionSyncer:
                 database_ids,
                 parent_page_id=parent_id,
                 depth=depth,
+                pages=parent_pages,
+                page_emojis=parent_page_emojis,
             )
         self._parent_page_emojis = parent_page_emojis
         return database_ids, parent_pages
@@ -2609,6 +2869,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return bool
+        if notion_type == "date":
+            return date
         if notion_type in {"created_time", "last_edited_time"}:
             return datetime
         if notion_type in {"created_by", "last_edited_by"}:
@@ -2629,6 +2891,8 @@ class _NotionSyncer:
             return "url"
         if notion_type == "checkbox":
             return "bool"
+        if notion_type == "date":
+            return "date"
         if notion_type in {"created_time", "last_edited_time"}:
             return "datetime64[ns, UTC]"
         if notion_type in {"created_by", "last_edited_by"}:
@@ -3067,6 +3331,38 @@ class _NotionSyncer:
                 mappings[feature_name] = record_field
         return mappings
 
+    @staticmethod
+    def _aux_relation_uid(feature: Any, key: str) -> str | None:
+        aux = getattr(feature, "_aux", None)
+        if not isinstance(aux, dict):
+            return None
+        value = aux.get(key)
+        if isinstance(value, str) and value:
+            return value
+        return None
+
+    def _relation_pair_already_identified(
+        self, local_feature: Any, source_feature: Any | None = None
+    ) -> bool:
+        """Whether a Notion dual relation is already stored on either feature.
+
+        ``vf`` marks the backward-derived feature and ``rf`` marks its forward
+        source. Either marker means the pair should not be prompted again.
+        """
+        if self._aux_relation_uid(local_feature, "vf") or self._aux_relation_uid(
+            local_feature, "rf"
+        ):
+            return True
+        if source_feature is None:
+            return False
+        local_uid = getattr(local_feature, "uid", None)
+        if not isinstance(local_uid, str):
+            return False
+        return local_uid in {
+            self._aux_relation_uid(source_feature, "vf"),
+            self._aux_relation_uid(source_feature, "rf"),
+        }
+
     def _relation_property_matches_target_names(
         self, property_name: str, target_names: list[str]
     ) -> bool:
@@ -3113,6 +3409,12 @@ class _NotionSyncer:
                 logger.important(
                     "backward relation: skip relation "
                     f"{property_name!r} reason=local-feature-missing"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified"
                 )
                 continue
             dual = property_spec.get("dual")
@@ -3209,6 +3511,13 @@ class _NotionSyncer:
                     f"{property_name!r} reason=source-feature-unresolved "
                     f"target_type={getattr(target_type, 'name', target_type)!r} "
                     f"synced_property={synced_property_name.strip()!r}"
+                )
+                continue
+            if self._relation_pair_already_identified(local_feature, source_feature):
+                logger.important(
+                    "backward relation: skip relation "
+                    f"{property_name!r} reason=already-identified "
+                    f"source_uid={getattr(source_feature, 'uid', None)!r}"
                 )
                 continue
             logger.important(
@@ -3752,7 +4061,7 @@ class _NotionSyncer:
                         aux_source_uid = aux.get("vf")
                         if isinstance(aux_source_uid, str):
                             source_uid = aux_source_uid
-                if source_uid is not None:
+                if source_uid is not None or self._aux_relation_uid(feature, "rf"):
                     locked_feature_names.add(feature_name)
 
         backward_features_by_name: dict[str, Any] = {}
@@ -4204,29 +4513,14 @@ class _NotionSyncer:
             out[notion_id] = _normalized_timestamp(getattr(record, "updated_at", None))
         return out
 
-    def import_page(
+    def _sync_discovered_pages(
         self,
-        notion_uuid: str,
+        parent_pages: dict[str, str],
         *,
-        apply: bool = False,
-        depth: int = 0,
-    ) -> SyncReport:
-        """Import one Notion page or database, validating schema before any write.
-
-        `notion_uuid` is a Notion page or database id. The sync discovers
-        databases under it, validates property parity against Lamin schemas,
-        then performs an idempotent upsert/materialize pass.
-        """
-        parent_ids = [notion_uuid]
-
-        report = SyncReport(
-            apply=apply,
-            message="Dry run report -- nothing got created" if not apply else None,
-        )
-        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
-        db_ids = sorted(db_id_set)
-
-        # Parent pages can also map to LaminDB record types.
+        apply: bool,
+        report: SyncReport,
+    ) -> dict[str, Any]:
+        """Create or link record types for pages discovered in this sync."""
         parent_types_by_page_id: dict[str, Any] = {}
         for parent_id, parent_type_name in sorted(parent_pages.items()):
             parent_type = self._resolve_or_create_type_by_name(
@@ -4255,15 +4549,44 @@ class _NotionSyncer:
                 self._append_unique(report.updated_record_types, detail)
             else:
                 self._append_unique(report.update_record_types, detail)
+        return parent_types_by_page_id
+
+    def import_page(
+        self,
+        notion_uuid: str,
+        *,
+        apply: bool = False,
+        depth: int = 0,
+    ) -> SyncReport:
+        """Import one Notion page or database, validating schema before any write.
+
+        `notion_uuid` is a Notion page or database id. The sync discovers
+        pages and databases under it, validates property parity against Lamin
+        schemas, then performs an idempotent upsert/materialize pass.
+
+        `depth=0` syncs this page only. A database id syncs its record type,
+        and `1` on a database also syncs its pages. Databases nested inside
+        those pages need another level. A positive depth on a page includes
+        that many levels of child pages. A child database counts as one level
+        for its page and schema; its rows are the next level, so `1` on a
+        parent page does not sync database content.
+        """
+        parent_ids = [notion_uuid]
+
+        report = SyncReport(
+            apply=apply,
+            message="Dry run report -- nothing got created" if not apply else None,
+        )
+        db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
+        db_ids = sorted(db_id_set)
+
+        parent_types_by_page_id = self._sync_discovered_pages(
+            parent_pages, apply=apply, report=report
+        )
 
         if not db_ids:
             report.discovered_pages = len(parent_pages)
-            if depth == 0:
-                return report
-            raise ValueError(
-                "No child databases discovered under this page. In phase 1, sync operates "
-                "on page trees that include at least one Notion database."
-            )
+            return report
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         # Step 1: resolve and validate schema parity before any write.
@@ -4307,6 +4630,12 @@ class _NotionSyncer:
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
+                elif self._database_content_depth(db_id, depth) <= 0:
+                    self._log_schema_only_database(db_id, depth)
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    planned_transfers_by_db[db_id] = {}
+                    continue
                 else:
                     rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
@@ -4889,7 +5218,7 @@ class ProjectSyncer:
             notion_id = _normalize_notion_id(raw_notion_id) or raw_notion_id
             project_url = self._notion_project_url(notion_id)
             row_emoji = row.get("__notion_emoji__")
-            created_at, updated_at = _notion_timestamps(
+            created_at, _updated_at = _notion_timestamps(
                 row.get("created_time"), row.get("last_edited_time")
             )
             row_name = row.get(title_property) if title_property else row.get("name")
@@ -4903,7 +5232,8 @@ class ProjectSyncer:
                     project_kwargs["type"] = project_type
                 project = ln.Project(**project_kwargs)
                 project._aux = _NotionSyncer._merge_aux_with_emoji(None, row_emoji)
-                _assign_notion_timestamps(project, created_at, updated_at)
+                # created_at is not the skip cursor. updated_at is stamped in write_projects.
+                _assign_notion_timestamps(project, created_at, None)
                 by_id[notion_id] = project.save()
                 continue
             changed_fields: list[str] = []
@@ -4923,11 +5253,6 @@ class ProjectSyncer:
             ) != _normalized_timestamp(created_at):
                 project.created_at = created_at
                 changed_fields.append("created_at")
-            if updated_at is not None and _normalized_timestamp(
-                project.updated_at
-            ) != _normalized_timestamp(updated_at):
-                project.updated_at = updated_at
-                changed_fields.append("updated_at")
             merged_aux = _NotionSyncer._merge_aux_with_emoji(
                 getattr(project, "_aux", None), row_emoji
             )
@@ -5019,33 +5344,7 @@ class ProjectSyncer:
             transfer_details_by_url=transfer_details_by_url,
             report=report,
         )
-        markdown_by_notion_id: dict[str, str] = {}
-        embedded_transfer_details_by_url: dict[str, str] = {}
-        embedded_file_urls: set[str] = set()
-        for row in rows:
-            notion_id = row.get("notion_id")
-            if not isinstance(notion_id, str) or not notion_id:
-                continue
-            markdown_content = self.reader.page_markdown(notion_id)
-            markdown_by_notion_id[notion_id] = markdown_content
-            per_page_transfer_map, _ = _planned_embedded_file_transfers(
-                markdown_content, notion_id
-            )
-            for url, detail in per_page_transfer_map.items():
-                embedded_file_urls.add(url)
-                embedded_transfer_details_by_url.setdefault(url, detail)
-        missing_embedded_urls = embedded_file_urls - set(artifacts_by_url)
-        if missing_embedded_urls:
-            artifacts_by_url.update(
-                _ensure_artifacts(
-                    missing_embedded_urls,
-                    transfer_details_by_url=embedded_transfer_details_by_url,
-                    report=report,
-                    with_key=False,
-                    kind="__easset__",
-                    description="imported from Notion",
-                )
-            )
+        title_property = mapping.get("title")
 
         relation_props = (
             set(mapping["parents_rel"])
@@ -5137,6 +5436,7 @@ class ProjectSyncer:
                 record_link_features[prop_name] = feature
 
         records = 0
+        sync_total = len(rows)
         for row in rows:
             raw_notion_id = row.get("notion_id")
             if not isinstance(raw_notion_id, str) or not raw_notion_id:
@@ -5145,6 +5445,13 @@ class ProjectSyncer:
             project = by_id.get(notion_id)
             if project is None:
                 continue
+            markdown_content = self.reader.page_markdown(notion_id)
+            _store_page_embedded_artifacts(
+                markdown_content,
+                notion_id,
+                artifacts_by_url,
+                report=report,
+            )
             changed_fields: list[str] = []
             title_property = mapping.get("title")
             if title_property:
@@ -5180,17 +5487,11 @@ class ProjectSyncer:
                         project.created_by = resolved_user
                         changed_fields.append("created_by")
             created_at = _parse_notion_timestamp(row.get("created_time"))
-            updated_at = _parse_notion_timestamp(row.get("last_edited_time"))
             if created_at is not None and _normalized_timestamp(
                 getattr(project, "created_at", None)
             ) != _normalized_timestamp(created_at):
                 project.created_at = created_at
                 changed_fields.append("created_at")
-            if updated_at is not None and _normalized_timestamp(
-                getattr(project, "updated_at", None)
-            ) != _normalized_timestamp(updated_at):
-                project.updated_at = updated_at
-                changed_fields.append("updated_at")
 
             start_date: date | None = None
             end_date: date | None = None
@@ -5294,14 +5595,19 @@ class ProjectSyncer:
                         stats["unresolved"].add(normalized_user_id)
                 self._sync_project_user_role(project, role=role, users=users)
 
-            markdown_content = markdown_by_notion_id.get(notion_id)
-            if markdown_content is None:
-                markdown_content = self.reader.page_markdown(notion_id)
             _attach_project_markdown(
                 project,
                 _rewrite_embedded_file_refs(markdown_content, artifacts_by_url),
             )
+            _stamp_synced_updated_at(project, row)
             records += 1
+            _log_sync_progress(
+                db_name,
+                "synced",
+                records,
+                sync_total,
+                page_title=_row_page_title(row, title_property=title_property),
+            )
         if report is not None:
             for people_property, stats in sorted(people_link_stats.items()):
                 resolved_count = len(stats["resolved"])
@@ -5391,18 +5697,13 @@ class NotionSyncer(RecordSyncer):
         db_id_set, parent_pages = self._collect_database_ids(parent_ids, depth=depth)
         db_ids = sorted(db_id_set)
         if not db_ids:
+            self._sync_discovered_pages(parent_pages, apply=apply, report=report)
             report.discovered_pages = len(parent_pages)
-            if depth == 0:
-                return report
-            raise ValueError(
-                "No child databases discovered under this page. In phase 1, sync operates "
-                "on page trees that include at least one Notion database."
-            )
+            return report
         report.databases = [_compact_uuid(db_id) for db_id in db_ids]
 
         db_payloads: dict[str, dict[str, Any]] = {}
         project_db_ids: set[str] = set()
-        record_db_ids: set[str] = set()
         project_type_by_db_id: dict[str, Any | None] = {}
         for db_id in db_ids:
             payload = self.reader._call("GET", f"/databases/{db_id}")
@@ -5417,38 +5718,10 @@ class NotionSyncer(RecordSyncer):
                     )
                 else:
                     project_type_by_db_id[db_id] = None
-            else:
-                record_db_ids.add(db_id)
 
-        parent_types_by_page_id: dict[str, Any] = {}
-        if record_db_ids:
-            for parent_id, parent_type_name in sorted(parent_pages.items()):
-                parent_type = self._resolve_or_create_type_by_name(
-                    parent_type_name,
-                    emoji=self._parent_page_emojis.get(parent_id),
-                    apply=apply,
-                    report=report,
-                )
-                if parent_type is not None:
-                    parent_types_by_page_id[parent_id] = parent_type
-            for child_page_id, ancestor_page_id in sorted(
-                self._parent_page_parents.items()
-            ):
-                child_type = parent_types_by_page_id.get(child_page_id)
-                ancestor_type = parent_types_by_page_id.get(ancestor_page_id)
-                if child_type is None or ancestor_type is None:
-                    continue
-                if getattr(child_type, "type_id", None) == getattr(
-                    ancestor_type, "id", None
-                ):
-                    continue
-                detail = self._record_type_move_detail(child_type, ancestor_type)
-                if apply:
-                    child_type.type = ancestor_type
-                    child_type.save(update_fields=["type"])
-                    self._append_unique(report.updated_record_types, detail)
-                else:
-                    self._append_unique(report.update_record_types, detail)
+        parent_types_by_page_id = self._sync_discovered_pages(
+            parent_pages, apply=apply, report=report
+        )
 
         rec_types: dict[str, Any] = {}
         db_specs: dict[str, dict[str, Any]] = {}
@@ -5502,6 +5775,12 @@ class NotionSyncer(RecordSyncer):
                     rows = self._rows_for_seed_pages(
                         db_id, seed_page_ids, include_page_emoji=apply
                     )
+                elif self._database_content_depth(db_id, depth) <= 0:
+                    self._log_schema_only_database(db_id, depth)
+                    to_write[db_id] = []
+                    after_maps[db_id] = {}
+                    planned_transfers_by_db[db_id] = {}
+                    continue
                 else:
                     rows = self.reader.rows(db_id, include_page_emoji=apply)
                 report.discovered += len(rows)
@@ -5702,8 +5981,12 @@ def sync_objects_from_notion(
         token: Notion API token. Defaults to the `NOTION_TOKEN` environment variable.
         apply: Write to LaminDB. By default this is a dry run.
         depth: How many levels of child pages and databases to walk.
-            `0` syncs only this page. A positive integer walks that many
-            levels below it.
+            `0` syncs only this page. A database id syncs its record type,
+            and `1` on a database also syncs its pages. Databases nested
+            inside those pages need another level. On a page, a positive
+            depth walks that many levels of child pages. A child database is
+            one level for its page and schema; its rows are the next level,
+            so `1` on a parent page does not sync database content.
         workspace: Notion workspace slug used in page URLs, for example
             `laminlabs` when the current database is `laminlabs/lamindata`.
             Defaults to the account handle of the current database.

@@ -905,6 +905,40 @@ def test_page_markdown_exports_nested_blocks(reader):
     assert "  v1 in October" in markdown
 
 
+def test_page_markdown_skips_unreadable_nested_block(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "069c60d3-f362-4f6f-af1c-69b48d5f7f62",
+                        "type": "bulleted_list_item",
+                        "has_children": True,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "Hidden children"}]
+                        },
+                    },
+                    {
+                        "id": "after",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {"rich_text": [{"plain_text": "Still here"}]},
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response({}, 404),
+    ]
+    with patch("lamindb.integrations.notion.logger") as sync_logger:
+        markdown = reader.page_markdown("page-1")
+    assert "- Hidden children" in markdown
+    assert "Still here" in markdown
+    warning = sync_logger.warning.call_args.args[0]
+    assert "069c60d3f3624f6faf1c69b48d5f7f62" in warning
+    assert "404" in warning
+
+
 def test_page_markdown_exports_multiline_quote_blocks(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -987,6 +1021,57 @@ def test_page_markdown_keeps_blank_lines_between_paragraph_blocks(reader):
     )
 
 
+def test_page_markdown_exports_callout_as_its_own_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "callout-1",
+                        "type": "callout",
+                        "has_children": False,
+                        "callout": {
+                            "icon": {"type": "emoji", "emoji": "💡"},
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Richard cannot come due to US travel limitations. "
+                                        "😔 / 👋 Mark Pitman just started on Sep 22nd and "
+                                        "it'd be a 12 hour flight."
+                                    )
+                                }
+                            ],
+                        },
+                    },
+                    {
+                        "id": "p1",
+                        "type": "paragraph",
+                        "has_children": False,
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "Lamin team (arrival Mon afternoon → "
+                                        "departure Fri morning):"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        )
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "💡 Richard cannot come due to US travel limitations. "
+        "😔 / 👋 Mark Pitman just started on Sep 22nd and it'd be a 12 hour flight.\n"
+        "\n"
+        "Lamin team (arrival Mon afternoon → departure Fri morning):"
+    )
+
+
 def test_page_markdown_exports_toggle_as_details_html(reader):
     reader.s.request.side_effect = [
         _make_response(
@@ -1017,12 +1102,204 @@ def test_page_markdown_exports_toggle_as_details_html(reader):
         ),
     ]
     markdown = reader.page_markdown("page-1")
-    assert "<details>" in markdown
-    assert "<summary>Details</summary>" in markdown
-    assert "<p>" in markdown
-    assert "  Inner note" in markdown
-    assert "</p>" in markdown
-    assert "</details>" in markdown
+    assert markdown == (
+        "<details>\n<summary>Details</summary>\n\nInner note\n\n</details>"
+    )
+
+
+def test_page_markdown_toggle_summary_is_not_also_a_paragraph(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "heading-1",
+                        "type": "heading_3",
+                        "has_children": True,
+                        "heading_3": {"rich_text": [{"plain_text": "Ebad"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-1",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {"rich_text": [{"plain_text": "Good things"}]},
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-1",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Everything is seamless, quick"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-2",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Auto PR reviews are really cool"}
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-3",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Plugins are helpful to ingest data"}
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "### Ebad\n"
+        "  <details>\n"
+        "  <summary>Good things</summary>\n"
+        "\n"
+        "  - Everything is seamless, quick\n"
+        "  - Auto PR reviews are really cool\n"
+        "  - Plugins are helpful to ingest data\n"
+        "\n"
+        "  </details>"
+    )
+    assert markdown.count("Good things") == 1
+
+
+def test_page_markdown_nests_toggles_inside_sibling_list(reader):
+    reader.s.request.side_effect = [
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "toggle-scale",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [{"plain_text": "How to scale Lamin?"}]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-price",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [{"plain_text": "How to price the product?"}]
+                        },
+                    },
+                    {
+                        "id": "toggle-adoption",
+                        "type": "toggle",
+                        "has_children": True,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow adoption within existing customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "item-pharma",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we win all of big Pharma as customers?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "id": "toggle-revenue",
+                        "type": "toggle",
+                        "has_children": False,
+                        "toggle": {
+                            "rich_text": [
+                                {
+                                    "plain_text": (
+                                        "How do we grow revenue beyond western big Pharma?"
+                                    )
+                                }
+                            ]
+                        },
+                    },
+                ],
+                "has_more": False,
+            }
+        ),
+        _make_response(
+            {
+                "results": [
+                    {
+                        "id": "item-nested",
+                        "type": "bulleted_list_item",
+                        "has_children": False,
+                        "bulleted_list_item": {
+                            "rich_text": [
+                                {"plain_text": "Start with the teams we know"}
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        ),
+    ]
+    markdown = reader.page_markdown("page-1")
+    assert markdown == (
+        "<details>\n"
+        "<summary>How to scale Lamin?</summary>\n"
+        "\n"
+        "- How to price the product?\n"
+        "- <details>\n"
+        "  <summary>How do we grow adoption within existing customers?</summary>\n"
+        "\n"
+        "  - Start with the teams we know\n"
+        "\n"
+        "  </details>\n"
+        "- How do we win all of big Pharma as customers?\n"
+        "- <details>\n"
+        "  <summary>How do we grow revenue beyond western big Pharma?</summary>\n"
+        "\n"
+        "  </details>\n"
+        "\n"
+        "</details>"
+    )
 
 
 def test_page_markdown_exports_image_and_file_blocks(reader):
@@ -1242,6 +1519,38 @@ def test_attach_project_markdown_adds_readme_only_when_changed():
     project.ablocks.add.assert_not_called()
 
 
+def test_write_stamps_updated_at_after_the_row_is_materialized():
+    rec = MagicMock()
+    rec.notes = None
+    rec.updated_at = None
+    rows = [
+        {
+            "notion_id": "page-1",
+            "Name": "A",
+            "last_edited_time": "2024-01-03T10:00:00Z",
+        }
+    ]
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+    rec_type = _fake_rec_type("Meetings", ["Name"])
+
+    with patch("lamindb.integrations.notion.logger") as sync_logger:
+        _write(
+            reader,
+            rows,
+            rec_type,
+            spec={"Name": {"type": "title"}},
+            by_id={"page-1": rec},
+        )
+
+    assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
+    rec.save.assert_called_with(update_fields=["updated_at"])
+    progress = [call.args[0] for call in sync_logger.important.call_args_list]
+    assert progress == [
+        "notion sync: Meetings synced 1/1 page='A'",
+    ]
+
+
 def test_write_attaches_page_markdown_to_records():
     rec = MagicMock()
     rec.notes = None
@@ -1269,6 +1578,58 @@ def test_write_attaches_page_markdown_to_records():
     reader.page_markdown.assert_called_once_with("page-1")
     rec.ablocks.add.assert_called_once_with(saved_block, bulk=False)
     assert stats == {"records": 1, "pending": 0}
+
+
+def test_write_logs_notion_id_when_feature_validation_fails():
+    feature = _fake_feature("Role", "str")
+    schema = type("Schema", (), {"members": [feature], "itype": "Feature"})
+    rec_type = type("RecordType", (), {"name": "User stories", "schema": schema})()
+    rec = MagicMock()
+    rec.features.set_values.side_effect = ln.errors.ValidationError(
+        "expected series 'None' to have type str"
+    )
+    reader = MagicMock()
+    reader.page_markdown.return_value = ""
+
+    with (
+        patch("lamindb.integrations.notion.logger.error") as log_error,
+        pytest.raises(
+            ln.errors.ValidationError, match="expected series 'None' to have type str"
+        ),
+    ):
+        _write(
+            reader,
+            [{"notion_id": "page-1", "Role": 123, "Name": "Checkout flow"}],
+            rec_type,
+            spec={"Role": {"type": "rich_text"}, "Name": {"type": "title"}},
+            by_id={"page-1": rec},
+        )
+
+    log_error.assert_called_once_with(
+        "notion sync: feature validation failed for notion_id=page-1"
+    )
+
+
+def test_set_values_validation_message_names_record_and_features():
+    from lamindb.models._feature_manager import FeatureManager
+
+    host = type("Record", (), {})()
+    host.name = "Checkout flow"
+    host.uid = "recuid"
+    host.type = type("Type", (), {"name": "User stories"})()
+    feature = type("Feature", (), {"name": "Role", "_dtype_str": "str"})()
+
+    message = FeatureManager(host)._feature_validation_message(
+        {"Role": 123},
+        [feature],
+        ln.errors.ValidationError("expected series 'None' to have type str"),
+    )
+
+    assert (
+        message == "Failed to set features on Record 'Checkout flow' "
+        "(uid=recuid, type='User stories'): 'Role' (str)=123. "
+        "expected series 'None' to have type str"
+    )
 
 
 def test_project_syncer_reports_unmapped_properties():
@@ -3209,6 +3570,23 @@ def test_feature_dtype_for_people_values_through_user_list(syncer):
     assert dtype.__args__[0] is ln.User
 
 
+def test_feature_dtype_for_date_values_through_date(syncer):
+    dtype = syncer._feature_dtype_from_notion_type("date")
+    assert syncer._feature_dtype_label_from_notion_type("date") == "date"
+    assert dtype is date
+    assert syncer._serialize_feature_dtype(dtype) == "date"
+
+
+def test_dtype_from_notion_property_maps_date_to_date(syncer):
+    dtype_label, dtype = syncer._dtype_from_notion_property(
+        "Meetings",
+        "date",
+        {"type": "date"},
+    )
+    assert dtype_label == "date"
+    assert dtype is date
+
+
 def test_dtype_from_notion_property_maps_people_to_user_list(syncer):
     dtype_label, dtype = syncer._dtype_from_notion_property(
         "Meetings",
@@ -3429,6 +3807,78 @@ def test_plan_metadata_dry_run_reports_values_through_update(syncer):
 
     meetings_feature.save.assert_not_called()
     assert any("People / meetings" in detail for detail in report.update_features)
+
+
+def test_backward_relation_skips_feature_that_already_has_forward_marker(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {"rf": "IybQndDiN91C"}
+
+    with patch("builtins.input") as ask:
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
+
+
+def test_backward_relation_skips_when_source_already_points_at_local_feature(syncer):
+    predecessors = MagicMock()
+    predecessors.name = "predecessors"
+    predecessors.uid = "YMl5WvCjaODD"
+    predecessors._aux = {}
+    successors = MagicMock()
+    successors.name = "successors"
+    successors.uid = "IybQndDiN91C"
+    successors._aux = {"vf": "YMl5WvCjaODD"}
+    meetings_type = MagicMock()
+    meetings_type.name = "Meetings"
+    meetings_type.schema = None
+
+    with (
+        patch.object(
+            syncer, "_relation_target_name_candidates", return_value=["Meetings"]
+        ),
+        patch.object(
+            syncer,
+            "_resolve_record_type_by_name_candidates",
+            return_value=meetings_type,
+        ),
+        patch.object(
+            syncer, "_relation_feature_matches_target_type", return_value=True
+        ),
+        patch("lamindb.integrations.notion.ln.Feature") as Feature,
+        patch("builtins.input") as ask,
+    ):
+        feature_type_qs = MagicMock()
+        feature_type_qs.one_or_none.return_value = MagicMock()
+        source_qs = MagicMock()
+        source_qs.one_or_none.return_value = successors
+        Feature.filter.side_effect = [feature_type_qs, source_qs]
+        result = syncer._infer_notion_backward_relation_features(
+            {
+                "predecessors": {
+                    "type": "relation",
+                    "target": "meetings-ds",
+                    "dual": {"synced_property_name": "successors"},
+                }
+            },
+            {"predecessors": predecessors},
+            current_type_name="Meetings",
+        )
+
+    assert result == {}
+    ask.assert_not_called()
 
 
 def test_relation_dtype_with_target_does_not_fallback_to_property_name(syncer):
@@ -3744,6 +4194,190 @@ def test_collect_database_ids_depth_includes_sibling_child_databases(syncer):
     db_ids, _ = syncer._collect_database_ids([page_id], depth=1)
 
     assert db_ids == {"db-1", "db-2"}
+
+
+def _page_payload(
+    page_id: str,
+    title: str,
+    *,
+    parent_id: str | None = None,
+    emoji: str | None = None,
+):
+    payload: dict = {
+        "object": "page",
+        "id": page_id,
+        "properties": {"title": {"type": "title", "title": [{"plain_text": title}]}},
+    }
+    if parent_id is not None:
+        payload["parent"] = {"type": "page_id", "page_id": parent_id}
+    if emoji is not None:
+        payload["icon"] = {"type": "emoji", "emoji": emoji}
+    return payload
+
+
+def test_collect_database_ids_depth_one_includes_child_pages_without_databases(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    child_id = "11111111111111111111111111111111"
+    page_payload = _page_payload(page_id, "Parent")
+    child_payload = _page_payload(child_id, "Child", parent_id=page_id, emoji="📄")
+
+    def safe_call(path):
+        if path.startswith("/databases/"):
+            return None
+        compact = path.replace("-", "")
+        if page_id in compact:
+            return page_payload
+        if child_id in compact:
+            return child_payload
+        return None
+
+    blocks = [
+        {
+            "id": child_id,
+            "type": "child_page",
+            "has_children": False,
+            "child_page": {"title": "Child"},
+        }
+    ]
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", return_value=blocks),
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
+
+    assert db_ids == set()
+    assert parent_pages == {page_id: "Parent", child_id: "Child"}
+    assert syncer._parent_page_parents == {child_id: page_id}
+    assert syncer._parent_page_emojis[child_id] == "📄"
+
+
+def test_collect_database_ids_depth_one_includes_pages_and_database_schema_only(syncer):
+    page_id = "7283894209c44522a7c79620795d0409"
+    child_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    db_id = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    column_id = "column-1"
+    page_payload = _page_payload(page_id, "Parent", emoji="📁")
+    child_payload = _page_payload(child_id, "Notes", parent_id=page_id)
+
+    def safe_call(path):
+        if path.startswith("/databases/"):
+            return None
+        compact = path.replace("-", "")
+        if page_id in compact:
+            return page_payload
+        if child_id in compact:
+            return child_payload
+        return None
+
+    listed: list[str] = []
+
+    def children(block_id):
+        listed.append(block_id)
+        if block_id == page_id:
+            return [{"id": column_id, "type": "column", "has_children": True}]
+        if block_id == column_id:
+            return [
+                {
+                    "id": child_id,
+                    "type": "child_page",
+                    "has_children": True,
+                    "child_page": {"title": "Notes"},
+                },
+                {"id": db_id, "type": "child_database", "has_children": False},
+            ]
+        if block_id == child_id:
+            return []
+        raise AssertionError(f"unexpected block listing for {block_id}")
+
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", side_effect=children),
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([page_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert syncer._database_row_depth == {db_id: 0}
+    assert parent_pages[page_id] == "Parent"
+    assert parent_pages[child_id] == "Notes"
+    assert syncer._database_parent_pages == {db_id: page_id}
+    assert child_id not in listed
+
+    with (
+        patch.object(syncer, "_safe_call", side_effect=safe_call),
+        patch.object(syncer, "_iter_block_children", side_effect=children),
+    ):
+        syncer._collect_database_ids([page_id], depth=2)
+
+    assert syncer._database_row_depth == {db_id: 1}
+
+
+def test_collect_database_ids_on_database_uses_requested_row_depth(syncer):
+    db_id = "b86daf142a544728bda2496c5760d863"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(syncer.reader, "rows", return_value=[]) as rows,
+    ):
+        db_ids, parent_pages = syncer._collect_database_ids([db_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert parent_pages == {}
+    assert syncer._database_row_depth == {db_id: 1}
+    rows.assert_not_called()
+
+    with patch.object(syncer, "_safe_call", return_value={"id": db_id}):
+        syncer._collect_database_ids([db_id], depth=0)
+
+    assert syncer._database_row_depth == {db_id: 0}
+
+
+def test_collect_database_ids_database_depth_one_ignores_databases_nested_in_rows(
+    syncer,
+):
+    db_id = "e3a8308f03254b01a0f3e97c7d0fe643"
+    nested_db_id = "52878d3ec93748aeb91dea04543650ad"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(
+            syncer.reader,
+            "rows",
+            return_value=[{"notion_id": "row-page"}],
+        ) as rows,
+        patch.object(syncer, "_iter_block_children") as children,
+    ):
+        db_ids, _ = syncer._collect_database_ids([db_id], depth=1)
+
+    assert db_ids == {db_id}
+    assert nested_db_id not in db_ids
+    rows.assert_not_called()
+    children.assert_not_called()
+
+
+def test_collect_database_ids_database_depth_two_includes_nested_database_schema_only(
+    syncer,
+):
+    db_id = "e3a8308f03254b01a0f3e97c7d0fe643"
+    nested_db_id = "52878d3ec93748aeb91dea04543650ad"
+    row_id = "11111111111111111111111111111111"
+    with (
+        patch.object(syncer, "_safe_call", return_value={"id": db_id}),
+        patch.object(syncer.reader, "rows", return_value=[{"notion_id": row_id}]),
+        patch.object(
+            syncer,
+            "_iter_block_children",
+            return_value=[
+                {
+                    "id": nested_db_id,
+                    "type": "child_database",
+                    "has_children": False,
+                }
+            ],
+        ),
+    ):
+        db_ids, _ = syncer._collect_database_ids([db_id], depth=2)
+
+    assert db_ids == {db_id, nested_db_id}
+    assert syncer._database_row_depth[db_id] == 2
+    assert syncer._database_row_depth[nested_db_id] == 0
 
 
 def test_collect_database_ids_limit_zero_skips_child_database_traversal(syncer):
@@ -4133,8 +4767,8 @@ def test_import_pages_dry_run_does_not_write(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
-    collect_ids.assert_called_once_with(["parent"], depth=0)
+        report = syncer.import_page("parent", apply=False, depth=1)
+    collect_ids.assert_called_once_with(["parent"], depth=1)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered_pages == 4
@@ -4163,7 +4797,7 @@ def test_import_pages_dry_run_counts_rows_for_missing_record_type(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.apply is False
     assert report.message == "Dry run report -- nothing got created"
     assert report.discovered == 2
@@ -4198,7 +4832,7 @@ def test_import_pages_dry_run_reports_pending_file_transfers(syncer):
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.create_artifacts == [
         f"{_short_file_source('https://example.com/a.pdf')} <- a:Attachment"
     ]
@@ -4228,7 +4862,7 @@ def test_import_pages_dry_run_reports_pending_embedded_note_file_transfers(synce
         patch("lamindb.integrations.notion._upsert_all") as upsert_all,
         patch("lamindb.integrations.notion._write") as write,
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.create_artifacts == [
         f'{_short_file_source("https://files.notion.site/a.png")} <- a:notes (key=None, kind="__easset__")'
     ]
@@ -4260,7 +4894,7 @@ def test_import_pages_dry_run_includes_parent_page_type(syncer):
         qs = MagicMock()
         qs.count.return_value = 0
         Record.filter.return_value = qs
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert "Import metrics" in report.create_record_types
     upsert_all.assert_not_called()
     write.assert_not_called()
@@ -4287,7 +4921,7 @@ def test_import_pages_report_compacts_database_ids(syncer):
             return_value={"records": 0, "pending": 0},
         ),
     ):
-        report = syncer.import_page("parent", apply=False)
+        report = syncer.import_page("parent", apply=False, depth=1)
     assert report.databases == ["3b2d2040857e4febbb68d2bec9d6ba09"]
 
 
@@ -4324,13 +4958,133 @@ def test_import_pages_writes_only_created_or_changed(syncer):
             return_value={"records": 2, "pending": 1},
         ) as write,
     ):
-        report = syncer.import_page("parent", apply=True)
+        report = syncer.import_page("parent", apply=True, depth=1)
     write_rows = write.call_args[0][1]
     assert [r["notion_id"] for r in write_rows] == ["b", "c"]
     assert report.created == 1
     assert report.updated == 1
     assert report.unchanged == 1
     assert report.pending_relations == 1
+
+
+def test_import_pages_depth_zero_skips_database_rows(syncer):
+    rec_type = _fake_rec_type("People", ["Name"])
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=({"db-1"}, {}),
+        ),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type) as resolve,
+        patch.object(syncer, "_validate_schema") as validate,
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref") as existing,
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_page("db-1", apply=True, depth=0)
+
+    resolve.assert_called_once()
+    validate.assert_called_once()
+    database_rows.assert_not_called()
+    existing.assert_not_called()
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+    assert report.discovered == 0
+    assert report.created == 0
+    assert report.databases == ["db-1"]
+
+
+def test_notion_syncer_depth_zero_skips_database_rows(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    rec_type = _fake_rec_type("People", ["Name"])
+    with (
+        patch.object(syncer, "_collect_database_ids", return_value=({"db-1"}, {})),
+        patch.object(syncer, "_is_project_database", return_value=False),
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "People"}]},
+        ),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch("lamindb.integrations.notion._existing_by_ref") as existing,
+        patch("lamindb.integrations.notion._upsert_all") as upsert_all,
+        patch("lamindb.integrations.notion._write") as write,
+    ):
+        report = syncer.import_page("db-1", apply=True, depth=0)
+
+    database_rows.assert_not_called()
+    existing.assert_not_called()
+    upsert_all.assert_not_called()
+    write.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
+
+
+def test_notion_syncer_depth_one_without_databases_syncs_pages(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"child-id": "Child", "parent-id": "Parent"}),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    assert report.discovered_pages == 2
+    assert report.databases == []
+    assert report.create_record_types == ["Child", "Parent"]
+
+
+def test_notion_syncer_depth_one_syncs_pages_and_skips_child_database_rows(monkeypatch):
+    monkeypatch.setenv("NOTION_TOKEN", "env-token")
+    with patch("httpx.Client") as MockSession:
+        MockSession.return_value = MagicMock()
+        syncer = NotionSyncer()
+    rec_type = _fake_rec_type("Registry", ["Name"])
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 0}
+        return ({"db-1"}, {"child-id": "Notes", "parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_is_project_database", return_value=False),
+        patch.object(
+            syncer.reader,
+            "_call",
+            return_value={"title": [{"plain_text": "Registry"}]},
+        ),
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    database_rows.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
+    assert report.create_record_types == ["Notes", "Parent"]
 
 
 def test_import_pages_passes_limit_to_database_discovery(syncer):
@@ -4495,6 +5249,81 @@ def test_import_pages_limit_zero_ingests_only_parent_pages(syncer):
     assert report.create_record_types == ["Parent"]
 
 
+def test_import_pages_depth_one_without_databases_syncs_child_pages(syncer):
+    with (
+        patch.object(
+            syncer,
+            "_collect_database_ids",
+            return_value=(set(), {"child-id": "Child", "parent-id": "Parent"}),
+        ),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    assert report.discovered_pages == 2
+    assert report.databases == []
+    assert report.discovered == 0
+    assert report.create_record_types == ["Child", "Parent"]
+
+
+def test_import_pages_depth_one_syncs_pages_and_skips_child_database_rows(syncer):
+    rec_type = _fake_rec_type("Registry", ["Name"])
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 0}
+        return ({"db-1"}, {"child-id": "Notes", "parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type) as resolve,
+        patch.object(syncer, "_validate_schema") as validate,
+        patch.object(syncer.reader, "rows") as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=1)
+
+    resolve.assert_called_once()
+    validate.assert_called_once()
+    database_rows.assert_not_called()
+    assert report.discovered == 0
+    assert report.databases == ["db-1"]
+    assert report.create_record_types == ["Notes", "Parent"]
+
+
+def test_import_pages_depth_two_includes_child_database_rows(syncer):
+    rec_type = _fake_rec_type("Registry", ["Name"])
+    rows = [{"notion_id": "a", "last_edited_time": "2024-01-01T00:00:00Z", "Name": "A"}]
+
+    def collect(_parents, depth=0):
+        syncer._database_row_depth = {"db-1": 1}
+        return ({"db-1"}, {"parent-id": "Parent"})
+
+    with (
+        patch.object(syncer, "_collect_database_ids", side_effect=collect),
+        patch.object(syncer, "_resolve_record_type", return_value=rec_type),
+        patch.object(syncer, "_validate_schema"),
+        patch.object(syncer.reader, "rows", return_value=rows) as database_rows,
+        patch.object(syncer.reader, "schema", return_value={}),
+        patch("lamindb.integrations.notion._existing_by_ref", return_value={}),
+        patch("lamindb.integrations.notion.ln.Record") as Record,
+    ):
+        qs = MagicMock()
+        qs.count.return_value = 0
+        Record.filter.return_value = qs
+        report = syncer.import_page("parent", apply=False, depth=2)
+
+    database_rows.assert_called_once_with("db-1", include_page_emoji=False)
+    assert report.discovered == 1
+    assert report.created == 1
+
+
 def test_import_pages_apply_links_parent_page_hierarchy(syncer):
     child_type = MagicMock()
     child_type.name = "Child"
@@ -4543,7 +5372,7 @@ def test_upsert_all_populates_created_and_updated_from_notion():
         out = _upsert_all(rec_type=object(), rows=rows)
     assert out["page-1"] is rec
     assert rec.created_at == _ts("2024-01-01T08:00:00Z")
-    assert rec.updated_at == _ts("2024-01-03T10:00:00Z")
+    assert not isinstance(rec.updated_at, datetime)
 
 
 def test_upsert_all_normalizes_existing_dashed_notion_reference():
