@@ -24,10 +24,6 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
-polars = [
-    "polars>=1.23",
-    "pandera[pandas,polars]>=0.24.0",
-]
 full = [
     # LaminDB optional modules, included to avoid users forgetting about extras
     "bionty>=2.3.1,<3",  # 30kB pure python, no dependencies
@@ -54,6 +50,10 @@ gcp = [
 zarr_v2 = [  # remove for lamindb v3
     "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
     "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
+]
+polars = [
+    "polars>=1.23",
+    "pandera[pandas,polars]>=0.24.0",
 ]
 fcs = [  # remove for lamindb v3
     "readfcs",
