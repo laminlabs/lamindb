@@ -1627,3 +1627,30 @@ class QuerySet(BasicQuerySet):
                 qs._to_class(BasicQuerySet, copy=True), feature_predicates
             )._to_class(type(qs), copy=False)
         return qs
+
+    def order_by(self, *field_names) -> QuerySet:
+        """Order by registry fields or by feature values.
+
+        A :class:`~lamindb.Feature` orders by that feature's annotated value.
+        ``-feature`` orders descending. Records without that annotation sort
+        last. Field names still work and can be mixed in the same call.
+
+        Example::
+
+            temperature = ln.Feature.get(name="temperature")
+            ln.Artifact.filter().order_by(-temperature, "key")
+        """
+        from .feature import Feature, FeatureOrder
+
+        if not any(isinstance(item, (Feature, FeatureOrder)) for item in field_names):
+            return super().order_by(*field_names)
+
+        from ._feature_manager import feature_order_expressions
+
+        expressions: list[Any] = []
+        for item in field_names:
+            if isinstance(item, Feature):
+                expressions.append(FeatureOrder(item))
+            else:
+                expressions.append(item)
+        return super().order_by(*feature_order_expressions(self, expressions))

@@ -94,6 +94,23 @@ class FeaturePredicate:
         )
 
 
+@dataclass(frozen=True)
+class FeatureOrder:
+    """Order expression generated from a Feature.
+
+    Built by :meth:`Feature.__neg__`. Pass it to :meth:`~lamindb.models.QuerySet.order_by`.
+    """
+
+    feature: Feature
+    descending: bool = False
+
+    def __bool__(self) -> bool:
+        raise TypeError(
+            "Feature order expressions cannot be used as booleans. "
+            "Pass them into `.order_by(...)`."
+        )
+
+
 def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
@@ -1510,6 +1527,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     def __le__(self, value: Any) -> FeaturePredicate:
         return FeaturePredicate(self, "__lte", value)
+
+    def __neg__(self) -> FeatureOrder:
+        """Descending order expression for :meth:`~lamindb.models.QuerySet.order_by`."""
+        return FeatureOrder(self, descending=True)
 
     def is_null(self, value: bool = True) -> FeaturePredicate:
         """Build a predicate for null-style feature presence checks.
