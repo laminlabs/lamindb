@@ -2682,6 +2682,91 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b.delete(permanent=True)
 
 
+def test_record_add_values_enforces_scalar_categorical():
+    """A scalar categorical on a record accepts one value.
+
+    One name that matches several records, or a later add_values with a different
+    value, must raise and write nothing new. set_values remains the replace API.
+    A list dtype can still accumulate values.
+    """
+    sex_type = ln.Record(name="SexTypeCardinality", is_type=True).save()
+    male = ln.Record(name="male-cardinality", type=sex_type).save()
+    female = ln.Record(name="female-cardinality", type=sex_type).save()
+    # `Record()` dedupes by name within a type. Duplicates still exist when that
+    # lookup is skipped, which is the state that made one `add_values` call link
+    # three scalar values.
+    unknowns = [
+        ln.Record(name="unknown-cardinality", type=sex_type, _search_names=False).save()
+        for _ in range(3)
+    ]
+    sex = ln.Feature(name="sex-cardinality", dtype=sex_type).save()
+    diseases_type = ln.Record(name="DiseaseTypeCardinality", is_type=True).save()
+    flu = ln.Record(name="flu-cardinality", type=diseases_type).save()
+    cold = ln.Record(name="cold-cardinality", type=diseases_type).save()
+    diseases = ln.Feature(name="diseases-cardinality", dtype=list[diseases_type]).save()
+    sample = ln.Record(name="SampleCardinality").save()
+
+    sample.features.add_values({"sex-cardinality": "male-cardinality"})
+    sample.features.add_values({"sex-cardinality": male})
+    male_links = ln.models.RecordRecord.filter(record=sample, feature=sex)
+    assert male_links.count() == 1
+    assert male_links.one().value_id == male.id
+
+    with pytest.raises(
+        ln.errors.ValidationError, match="already has a different value"
+    ):
+        sample.features.add_values({"sex-cardinality": "female-cardinality"})
+    assert male_links.count() == 1
+    assert male_links.one().value_id == male.id
+
+    with pytest.raises(ln.errors.ValidationError, match="requires at most one value"):
+        sample.features.add_values({sex: [male, female]})
+    assert male_links.count() == 1
+
+    sample.features.set_values({"sex-cardinality": female})
+    assert ln.models.RecordRecord.filter(record=sample, feature=sex).one().value_id == (
+        female.id
+    )
+
+    ambiguous = ln.Record(name="SampleCardinalityAmbiguous").save()
+    with pytest.raises(
+        ln.errors.ValidationError,
+        match="Ambiguous match for Record 'unknown-cardinality'",
+    ):
+        ambiguous.features.add_values({"sex-cardinality": "unknown-cardinality"})
+    assert ln.models.RecordRecord.filter(record=ambiguous, feature=sex).count() == 0
+    # Objects skip the name lookup, so this is the add_values cardinality check.
+    with pytest.raises(ln.errors.ValidationError, match="requires at most one value"):
+        ambiguous.features.add_values({sex: unknowns})
+    assert ln.models.RecordRecord.filter(record=ambiguous, feature=sex).count() == 0
+
+    # The same name in another type must not fail or be linked.
+    other_type = ln.Record(name="OtherTypeCardinality", is_type=True).save()
+    other_male = ln.Record(name="male-cardinality", type=other_type).save()
+    cross_type = ln.Record(name="SampleCardinalityCrossType").save()
+    cross_type.features.add_values({"sex-cardinality": "male-cardinality"})
+    cross_links = ln.models.RecordRecord.filter(record=cross_type, feature=sex)
+    assert cross_links.count() == 1
+    assert cross_links.one().value_id == male.id
+
+    sample.features.add_values({"diseases-cardinality": ["flu-cardinality"]})
+    sample.features.add_values({"diseases-cardinality": [cold]})
+    disease_links = ln.models.RecordRecord.filter(record=sample, feature=diseases)
+    assert disease_links.count() == 2
+    assert set(disease_links.values_list("value_id", flat=True)) == {flu.id, cold.id}
+
+    cross_type.delete(permanent=True)
+    ambiguous.delete(permanent=True)
+    sample.delete(permanent=True)
+    diseases.delete(permanent=True)
+    sex.delete(permanent=True)
+    for record in (flu, cold, male, female, other_male, *unknowns):
+        record.delete(permanent=True)
+    other_type.delete(permanent=True)
+    diseases_type.delete(permanent=True)
+    sex_type.delete(permanent=True)
+
+
 def test_set_values_accepts_user_records_for_user_dtype():
     user_feature = ln.Feature(
         name="feature_user_record_input", dtype=list[ln.User]

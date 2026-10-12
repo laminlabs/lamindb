@@ -195,6 +195,176 @@ def get_categorical_link_info(
     return (link_model, value_field, filter_accessor)
 
 
+def _is_scalar_categorical(feature: Feature) -> bool:
+    """A categorical feature that is not a list. List categoricals may have many values."""
+    dtype = feature.dtype_as_str
+    return bool(dtype) and dtype.startswith("cat")
+
+
+def _distinct_labels(label_records: Iterable[SQLRecord]) -> list[SQLRecord]:
+    distinct: list[SQLRecord] = []
+    seen: set[int] = set()
+    for label in label_records:
+        key = label.pk if label.pk is not None else id(label)
+        if key in seen:
+            continue
+        seen.add(key)
+        distinct.append(label)
+    return distinct
+
+
+def _format_matched_labels(labels: list[SQLRecord]) -> str:
+    shown: list[str] = []
+    for label in labels[:5]:
+        name = getattr(label, "name", None)
+        uid = getattr(label, "uid", None)
+        if name is not None and uid is not None:
+            shown.append(f"{name} ({uid})")
+        elif uid is not None:
+            shown.append(str(uid))
+        else:
+            shown.append(repr(label))
+    extra = f" (+{len(labels) - 5} more)" if len(labels) > 5 else ""
+    return ", ".join(shown) + extra
+
+
+def _explicit_record_values(value: Any) -> bool:
+    """True when the caller passed records, not names to look up."""
+    if isinstance(value, SQLRecord):
+        return True
+    if isinstance(value, (str, bytes)) or not isinstance(value, Iterable):
+        return False
+    items = list(value)
+    return bool(items) and all(isinstance(item, SQLRecord) for item in items)
+
+
+def _scope_labels_to_feature_type(
+    feature: Feature, labels: list[SQLRecord]
+) -> list[SQLRecord]:
+    """Keep labels in the feature dtype's type, including subtypes.
+
+    `from_values` matches `name` across every type. A scalar feature is scoped to
+    one type, the same way the curator looks names up.
+    """
+    parsed = parse_dtype(feature._dtype_str)
+    if not parsed:
+        return labels
+    type_uid = parsed[0].get("type_uid")
+    if not type_uid:
+        return labels
+    registry = parsed[0]["registry"]
+    type_record = registry.objects.using(feature._state.db).get(uid=type_uid)
+    query_relatives = getattr(
+        type_record, f"query_{get_registry_name(registry).lower()}s", None
+    )
+    if query_relatives is None:
+        return labels
+    allowed_ids = set(query_relatives().values_list("id", flat=True))
+    return [label for label in labels if label.pk in allowed_ids]
+
+
+def _raise_if_scalar_categorical_has_many_labels(
+    feature: Feature,
+    value: Any,
+    label_records: Iterable[SQLRecord],
+) -> None:
+    """Reject one scalar categorical write that already resolved to several labels.
+
+    `Record.name` is not unique, and `from_values` returns every name match. Linking
+    each match would store several values for a feature whose dtype is not a list.
+    """
+    distinct = _distinct_labels(label_records)
+    if len(distinct) <= 1:
+        return
+    matched = _format_matched_labels(distinct)
+    if isinstance(value, str):
+        detail = f"{value!r} matched {len(distinct)} records: {matched}"
+    else:
+        detail = f"received {len(distinct)} values: {matched}"
+    raise ValidationError(
+        f"Feature {feature.name!r} is a scalar categorical ({feature.dtype_as_str}) "
+        f"and requires at most one value; {detail}. "
+        "Pass one record, or use a list dtype for several values."
+    )
+
+
+def _resolve_scalar_categorical_labels(
+    feature: Feature,
+    value: Any,
+    label_records: Iterable[SQLRecord],
+) -> list[SQLRecord]:
+    """One label for a scalar categorical.
+
+    Explicit records are not narrowed: two objects are two values. Name lookups are
+    narrowed to the feature type, then to the least specific match, matching the
+    curator. Several remaining labels are an error.
+    """
+    if not _is_scalar_categorical(feature):
+        return list(label_records)
+    distinct = _distinct_labels(label_records)
+    if len(distinct) <= 1:
+        return distinct
+    if _explicit_record_values(value):
+        _raise_if_scalar_categorical_has_many_labels(feature, value, distinct)
+    scoped = _scope_labels_to_feature_type(feature, distinct)
+    if not scoped:
+        _raise_if_scalar_categorical_has_many_labels(feature, value, distinct)
+    if len(scoped) > 1 and all(hasattr(label, "type_id") for label in scoped):
+        scoped = list(keep_topmost_matches(scoped))
+    if len(scoped) > 1:
+        _raise_if_scalar_categorical_has_many_labels(feature, value, scoped)
+    return scoped
+
+
+def _assert_scalar_record_links_do_not_append(
+    record: SQLRecord,
+    links_by_model: dict[type[SQLRecord], list[SQLRecord]],
+    features_by_id: dict[int, Feature],
+) -> None:
+    """Reject appending a different value onto a scalar categorical.
+
+    Re-adding the same value is allowed: the existing unique key makes that insert
+    a no-op. `set_values()` remains the replace API because it deletes links first.
+    """
+    db = record._state.db
+    for link_model, links in links_by_model.items():
+        incoming_by_feature: dict[int, set[int]] = defaultdict(set)
+        for link in links:
+            feature = features_by_id.get(link.feature_id)
+            if feature is None or not _is_scalar_categorical(feature):
+                continue
+            incoming_by_feature[link.feature_id].add(link.value_id)
+        if not incoming_by_feature or record.pk is None:
+            continue
+        rows = (
+            link_model.objects.using(db)
+            .filter(record_id=record.pk, feature_id__in=incoming_by_feature)
+            .values_list("feature_id", "value_id")
+        )
+        existing_by_feature: dict[int, set[int]] = defaultdict(set)
+        for feature_id, value_id in rows:
+            existing_by_feature[feature_id].add(value_id)
+        for feature_id, incoming in incoming_by_feature.items():
+            existing = existing_by_feature.get(feature_id, set())
+            if incoming.issubset(existing):
+                continue
+            if not existing and len(incoming) <= 1:
+                continue
+            feature = features_by_id[feature_id]
+            if existing:
+                detail = (
+                    "This record already has a different value. "
+                    "Use set_values() to replace it."
+                )
+            else:
+                detail = f"received {len(incoming)} values."
+            raise ValidationError(
+                f"Feature {feature.name!r} is a scalar categorical "
+                f"({feature.dtype_as_str}) and requires at most one value. "
+                f"{detail}"
+            )
+
+
 def strip_cat(feature_dtype: str) -> str:
     if "cat[" in feature_dtype:
         parts = feature_dtype.split("cat[")
@@ -1770,6 +1940,9 @@ class FeatureManager:
                         raise ValidationError(
                             f"Some of these values for {result['registry_str']} do not exist: {values}"
                         )
+            label_records = _resolve_scalar_categorical_labels(
+                feature, value, label_records
+            )
             for label_record in label_records:
                 if label_record._state.adding:
                     raise ValidationError(
@@ -1797,8 +1970,13 @@ class FeatureManager:
     ) -> None:
         """Add values for features.
 
-        Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations at the danger
-        of violating multiplicity of categorical dtypes (see warning below).
+        Like `set_values()`, but does not remove previously-existing feature annotations.
+
+        On a record, a scalar categorical requires at most one value. A second distinct
+        value, or one input that resolves to several records, raises `ValidationError`.
+        Re-adding the same value does nothing. Use `set_values()` to replace a value.
+        Artifacts still accept several values for a non-list categorical, because those
+        links aggregate a column.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
@@ -1809,37 +1987,31 @@ class FeatureManager:
 
         .. warning::
 
-            If you run::
+            For an artifact, these calls annotate two values even if the dtype is not a `list`::
 
-                obj.features.add_values({"my_categorical": "my_category1"})
-                obj.features.add_values({"my_categorical": "my_category2"})
+                artifact.features.add_values({"cell_type": "B cell"})
+                artifact.features.add_values({"cell_type": "T cell"})
 
-            you will annotate the object with two different values for the same feature even if its dtype is not a `list`.
-            That is, `add_values()` does **not** validate the `dtype` of a categorical feature across multiple calls.
+            That aggregation is intentional. `add_values()` does not enforce scalar cardinality for artifacts.
 
-            To avoid this, please use `set_values()`.
+            For a record, the same pattern raises `ValidationError`. Use `set_values()` to replace the value.
 
-        .. dropdown:: Why is multiplicity of categorical dtypes not validated?
+        .. dropdown:: Why artifacts still allow several categorical values
 
-            For simple data types like `int`, `date`, `dict`, etc., `add_values()` ensures that there is only
-            one value for a given `Record` and feature.
+            For simple data types like `int`, `date`, `dict`, etc., `add_values()` stores one
+            value per record and feature.
 
-            But for categorical/relational features or for simple dtypes in the context of annotating an `Artifact`, the underlying link table allows linking multiple
-            values to the same object and feature, so that both `list` dtypes and `set`-like aggregations on an object
-            can be represented with relational integrity.
+            Categorical values are stored as link rows. A `list` dtype needs one row per value.
+            An artifact can also link several values for a non-list dtype, because the links
+            aggregate a column rather than state one observation::
 
-            Examples::
-
-                # the following needs to be allowed even if `cell_type` has dtype `CellType`, and not `list[CellType]`
-                # this is because the artifact might be a `DataFrame` with a column `cell_type` that has dtype `CellType`
-                # and the annotations on the artifact-level represent the aggregation of all values in that column
                 artifact.features.add_values({"cell_type": "B cell"})
                 artifact.features.add_values({"cell_type": "T cell"})
                 artifact.features.add_values({"cell_type": "NK cell"})
 
-                # now an example for Record
-                # while a record will never represent an aggregation, we still want to express
-                # lists of values with relational integrity, for instance, this
+            A record is one observation. A scalar categorical therefore rejects a second value.
+            A list dtype still accepts several values::
+
                 record.features.add_values({"cell_types": ["B cell", "T cell", "NK cell"]})
 
         """
@@ -1957,6 +2129,11 @@ class FeatureManager:
                 not_validated_values=record_not_validated_values,
             )
             self._raise_not_validated_values(record_not_validated_values)
+            _assert_scalar_record_links_do_not_append(
+                self._host,
+                links_by_model,
+                {feature.id: feature for feature in feature_objects},
+            )
             if feature_json_values:
                 save(feature_json_values, using=host_db)
             for links in links_by_model.values():
