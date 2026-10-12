@@ -226,6 +226,12 @@ def test_polars_standardize(as_frame):
     assert eager(curator.dataset)["pl_missing"].to_list() == [None, None]
     curator.validate()
 
+    required = make_schema([("pl_required_missing", int, {"nullable": False})])
+    with pytest.raises(ValidationError, match="pl_required_missing"):
+        ln.curators.DataFrameCurator(
+            as_frame(pl.DataFrame({"other": [1]})), required
+        ).standardize()
+
 
 def test_polars_index_not_supported(as_frame):
     index = ln.Feature(name="pl_index", dtype=str).save()
@@ -308,6 +314,37 @@ def test_polars_invalid_coercion(as_frame, dtype):
         ln.curators.DataFrameCurator(
             as_frame(pl.DataFrame({"pl_bad_cast": ["not a number"]})), schema
         ).validate()
+
+
+def test_polars_standardize_column_synonym(as_frame):
+    feature = ln.Feature(name="pl_canonical_col", dtype=int).save()
+    feature.add_synonym("pl_alias_col")
+    schema = ln.Schema(itype=ln.Feature).save()
+    curator = ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_alias_col": [1]})), schema
+    )
+    curator.cat.standardize("columns")
+    assert list(curator.dataset.collect_schema().names()) == ["pl_canonical_col"]
+
+
+def test_polars_biorecord_source_filter():
+    from lamindb.curators.core import DataFrameCatManager
+
+    source = bt.Source.get(entity="bionty.CellType", name="cl")
+    schema = make_schema([("pl_cell_source", bt.CellType, {})])
+    manager = DataFrameCatManager(
+        pl.DataFrame({"pl_cell_source": ["T cell"]}),
+        categoricals=list(schema.members),
+        sources={"pl_cell_source": source},
+        schema=schema,
+    )
+    assert manager._cat_vectors["pl_cell_source"]._filter_kwargs["source"] == source
+
+
+def test_polars_unique_values_without_registry_columns():
+    schema = make_schema([("pl_no_cat", int, {})])
+    curator = ln.curators.DataFrameCurator(pl.DataFrame({"pl_no_cat": [1]}), schema)
+    assert curator.cat._get_unique_values() == {}
 
 
 @pytest.mark.parametrize("list_values", [False, True])
@@ -522,11 +559,24 @@ def test_scan_dataframe_file_falls_back_on_failure(tmp_path):
     assert _scan_dataframe_file(str(tmp_path / "missing.parquet")) is None
 
 
-def test_remote_paths_are_scannable():
+def test_remote_paths_are_scannable(monkeypatch):
     from lamindb.models.artifact import _can_scan_lazily
 
     schema = make_schema([("pl_remote", int, {})])
     assert _can_scan_lazily("s3://bucket/data.parquet", schema)
     assert _can_scan_lazily("gs://bucket/data.csv", schema)
+    assert _can_scan_lazily("s3://bucket/data.tsv", schema)
     assert not _can_scan_lazily("s3://bucket/data.h5ad", schema)
     assert not _can_scan_lazily("ftp://host/data.parquet", schema)
+
+    coercing = make_schema([("pl_remote_coerce", int, {"coerce": True})])
+    assert not _can_scan_lazily("s3://bucket/data.tsv", coercing)
+
+    index = ln.Feature(name="pl_scan_index", dtype=str).save()
+    indexed = ln.Schema(itype=ln.Feature, index=index).save()
+    assert not _can_scan_lazily("s3://bucket/data.parquet", indexed)
+
+    monkeypatch.setattr(
+        "lamindb.models.artifact.is_package_installed", lambda _name: False
+    )
+    assert not _can_scan_lazily("s3://bucket/data.parquet", schema)
