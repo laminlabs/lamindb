@@ -364,11 +364,14 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     def _remember_deferred_space_id(self) -> None:
         """Store the database space when a deferred record was assigned a new one."""
         original_values = getattr(self, "_original_values", None)
+        # A missing key is not a deferred field. Transfer deletes tracked ids so a
+        # remapped space is not treated as a change; reloading it would query a row
+        # that is not in the target database yet.
         if (
             original_values is None
             or self._state.adding
             or "space_id" not in self.__dict__
-            or original_values.get("space_id", DEFERRED) is not DEFERRED
+            or original_values.get("space_id") is not DEFERRED
         ):
             return
         # Drop the caller's space so the deferred field loads the database value.
