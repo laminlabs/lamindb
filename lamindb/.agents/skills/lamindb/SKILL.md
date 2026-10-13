@@ -189,7 +189,7 @@ Before any command in this step, write the session summary in this reply. `lamin
 
 If you created output files directly (no script involved), attach them first — see your harness's reference file for the exact command to resolve your run and attach files to it.
 
-If the branch for this task is not `main`, open its change request as its own tool call from the session working directory. Skip this when that branch is `main`.
+If the branch for this task is `standalone`, `draft`, or `review`, open its change request as its own tool call from the session working directory. Skip this when that branch is `main` or `merged`.
 
 ```bash
 lamin update branch --status review
