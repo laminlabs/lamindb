@@ -428,6 +428,40 @@ def process_data(
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
+def _validate_stats(
+    stats: dict[str, Any],
+) -> tuple[int | None, str | None, str | None, int | None]:
+    """Validates precomputed stats passed via `Artifact(_stats=...)`."""
+    if not isinstance(stats, dict):
+        raise ValueError(f"_stats must be a dict, got {type(stats).__name__}")
+    unknown = set(stats) - {"size", "hash", "hash_type", "n_files"}
+    if unknown:
+        raise ValueError(f"_stats has unknown keys: {sorted(unknown)}")
+    size = stats.get("size")
+    hash = stats.get("hash")
+    hash_type = stats.get("hash_type")
+    n_files = stats.get("n_files")
+    for name, value in (("size", size), ("n_files", n_files)):
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+        ):
+            raise ValueError(
+                f"_stats['{name}'] must be a non-negative integer, got {value!r}"
+            )
+    if hash is not None:
+        if not isinstance(hash, str) or not 0 < len(hash) <= HASH_LENGTH:
+            raise ValueError(
+                f"_stats['hash'] must be a string of at most {HASH_LENGTH} characters, got {hash!r}"
+            )
+        if not isinstance(hash_type, str) or not 0 < len(hash_type) <= 30:
+            raise ValueError(
+                f"_stats['hash_type'] is required with a hash and must be at most 30 characters, got {hash_type!r}"
+            )
+    elif hash_type is not None:
+        raise ValueError("_stats['hash_type'] requires _stats['hash']")
+    return size, hash, hash_type, n_files
+
+
 def get_stat_or_artifact(
     path: UPath,
     storage: Record,
@@ -438,12 +472,18 @@ def get_stat_or_artifact(
     skip_hash_lookup: bool = False,
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
+    stats: dict[str, Any] | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
-    if settings.creation.artifact_skip_size_hash:
+    if stats is not None:
+        size, hash, hash_type, n_files = _validate_stats(stats)
+        if hash is None:
+            # without a hash there is nothing to deduplicate against
+            return size, hash, hash_type, n_files, None
+    elif settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
-    if not isinstance(path, LocalPathClasses):
+    elif not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         try:
             stat = path.stat()  # one network request
@@ -611,6 +651,7 @@ def get_artifact_kwargs_from_data(
     key_is_virtual: bool | None = None,
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
+    stats: dict[str, Any] | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -654,6 +695,7 @@ def get_artifact_kwargs_from_data(
         skip_hash_lookup=effective_skip_hash_lookup,
         skip_key_revises_lookup=skip_key_revises_lookup,
         target_branch_id=target_branch_id,
+        stats=stats,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -1837,6 +1879,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             _key_is_virtual = key_is_virtual
 
         _is_internal_call = kwargs.pop("_is_internal_call", False)
+        # precomputed size/hash/hash_type/n_files, e.g. via API
+        stats: dict[str, Any] | None = kwargs.pop("_stats", None)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
         if key is not None and _s().AUTO_KEY_PREFIX in key:
@@ -2032,6 +2076,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             key_is_virtual=_key_is_virtual,
             skip_key_revises_lookup=revises is not None,
             target_branch_id=branch.id,
+            stats=stats,
         )
 
         def set_private_attributes():
