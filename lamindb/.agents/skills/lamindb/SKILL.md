@@ -189,7 +189,7 @@ Before any command in this step, write the session summary in this reply. `lamin
 
 If you created output files directly (no script involved), attach them first — see your harness's reference file for the exact command to resolve your run and attach files to it.
 
-If the branch chosen in Step 1 is `main`, skip the status check and the review update.
+If the branch chosen in Step 1 is `main`, `trash`, or `archive`, skip the status check and the review update.
 
 Otherwise read the current branch status from the session working directory as its own tool call. If it errors, rerun it with the `$LAMIN_BIN` fallback below, using `get branch --status` in place of `update branch --status review`.
 
