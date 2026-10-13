@@ -427,14 +427,8 @@ class SchemaOptionals:
         if len(features) == 0 or self.schema.minimal_set is False:
             return
 
-        member_uids: set[str] = set()
-        if self.schema.pk is not None:
-            member_uids = set(
-                self.schema.features.filter(
-                    uid__in=[feature.uid for feature in features]
-                ).values_list("uid", flat=True)
-            )
-        if any(feature.uid not in member_uids for feature in features):
+        members = self.schema.members
+        if any(feature not in members for feature in features):
             raise ValueError(
                 "Feature not part of the schema, please use schema.add() instead."
             )
