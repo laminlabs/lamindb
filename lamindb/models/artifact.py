@@ -431,12 +431,12 @@ def process_data(
 def _validate_stats(
     stats: dict[str, Any],
 ) -> tuple[int | None, str | None, str | None, int | None]:
-    """Validates precomputed stats passed via `Artifact(stats=...)`."""
+    """Validates precomputed stats passed via `Artifact(_stats=...)`."""
     if not isinstance(stats, dict):
-        raise ValueError(f"stats must be a dict, got {type(stats).__name__}")
+        raise ValueError(f"_stats must be a dict, got {type(stats).__name__}")
     unknown = set(stats) - {"size", "hash", "hash_type", "n_files"}
     if unknown:
-        raise ValueError(f"stats has unknown keys: {sorted(unknown)}")
+        raise ValueError(f"_stats has unknown keys: {sorted(unknown)}")
     size = stats.get("size")
     hash = stats.get("hash")
     hash_type = stats.get("hash_type")
@@ -446,19 +446,19 @@ def _validate_stats(
             isinstance(value, bool) or not isinstance(value, int) or value < 0
         ):
             raise ValueError(
-                f"stats['{name}'] must be a non-negative integer, got {value!r}"
+                f"_stats['{name}'] must be a non-negative integer, got {value!r}"
             )
     if hash is not None:
         if not isinstance(hash, str) or not 0 < len(hash) <= HASH_LENGTH:
             raise ValueError(
-                f"stats['hash'] must be a string of at most {HASH_LENGTH} characters, got {hash!r}"
+                f"_stats['hash'] must be a string of at most {HASH_LENGTH} characters, got {hash!r}"
             )
         if not isinstance(hash_type, str) or not 0 < len(hash_type) <= 30:
             raise ValueError(
-                f"stats['hash_type'] is required with a hash and must be at most 30 characters, got {hash_type!r}"
+                f"_stats['hash_type'] is required with a hash and must be at most 30 characters, got {hash_type!r}"
             )
     elif hash_type is not None:
-        raise ValueError("stats['hash_type'] requires stats['hash']")
+        raise ValueError("_stats['hash_type'] requires _stats['hash']")
     return size, hash, hash_type, n_files
 
 
@@ -1360,8 +1360,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_hash_lookup: `bool | None = None` Controls hash-based deduplication.
             If `None`, de-duplicates new artifacts but skips deduplication for paths already in registered storage.
             If `True`, never deduplicates. If `False`, always deduplicates. Empty files are never deduplicated.
-        stats: `dict | None = None` Precomputed `size`, `hash`, `hash_type` and `n_files` of the path, used instead of reading it.
-            For callers that can read a storage location the current process cannot; hashes must be computed like lamindb does.
         key_is_virtual: `bool = True` Whether to use a virtual storage key.
             If `True`, the real storage path is auto-generated from the artifact `uid` in `.lamindb/`.
             If `False`, `key` is treated as part of the real storage path.
@@ -1824,7 +1822,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key_is_virtual: bool = True,
         branch: Branch | None = None,
         space: Space | None = None,
-        stats: dict[str, Any] | None = None,
     ): ...
 
     @overload
@@ -1871,7 +1868,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
-        stats: dict[str, Any] | None = kwargs.pop("stats", None)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
 
@@ -1883,6 +1879,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             _key_is_virtual = key_is_virtual
 
         _is_internal_call = kwargs.pop("_is_internal_call", False)
+        # precomputed size/hash/hash_type/n_files, e.g. via API
+        stats: dict[str, Any] | None = kwargs.pop("_stats", None)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
         if key is not None and _s().AUTO_KEY_PREFIX in key:

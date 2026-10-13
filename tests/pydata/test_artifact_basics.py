@@ -581,7 +581,7 @@ def test_stats_override_skips_hashing(tmp_path, monkeypatch):
 
     monkeypatch.setattr(artifact_module, "hash_file", no_hashing)
     stats = {"size": 3, "hash": "kAFQmDzST7DWlj99KOF_cg", "hash_type": "md5"}
-    artifact = ln.Artifact(filepath, key="uploads/stats.txt", stats=stats)
+    artifact = ln.Artifact(filepath, key="uploads/stats.txt", _stats=stats)
     assert artifact.size == 3
     assert artifact.hash == "kAFQmDzST7DWlj99KOF_cg"
     assert artifact._hash_type == "md5"
@@ -594,6 +594,18 @@ def test_stats_override_skips_hashing(tmp_path, monkeypatch):
     artifact.delete(permanent=True)
 
 
+def test_stats_is_not_public(tmp_path):
+    from lamindb.errors import FieldValidationError
+    from lamindb.models.sqlrecord import _get_record_kwargs
+
+    assert "stats" not in [name for name, _ in _get_record_kwargs(ln.Artifact)]
+    assert "_stats" not in [name for name, _ in _get_record_kwargs(ln.Artifact)]
+    filepath = tmp_path / "public.txt"
+    filepath.write_text("public")
+    with pytest.raises(FieldValidationError):
+        ln.Artifact(filepath, key="uploads/public.txt", stats={"size": 6})
+
+
 def test_stats_folder_sets_overwrite_versions(tmp_path):
     folder = tmp_path / "stats-folder"
     folder.mkdir()
@@ -604,7 +616,7 @@ def test_stats_folder_sets_overwrite_versions(tmp_path):
         "hash_type": "md5-d",
         "n_files": 2,
     }
-    artifact = ln.Artifact(folder, key="uploads/stats-folder", stats=stats)
+    artifact = ln.Artifact(folder, key="uploads/stats-folder", _stats=stats)
     assert artifact.n_files == 2
     assert artifact._overwrite_versions
 
@@ -622,7 +634,7 @@ def test_stats_dedups_by_hash(tmp_path):
         "hash_type": artifact_1._hash_type,
     }
     artifact_2 = ln.Artifact(
-        other, key="uploads/other.txt", stats=stats, skip_hash_lookup=False
+        other, key="uploads/other.txt", _stats=stats, skip_hash_lookup=False
     )
     assert not artifact_2._state.adding
     assert artifact_2.id == artifact_1.id
@@ -633,7 +645,7 @@ def test_stats_dedups_by_hash(tmp_path):
 def test_stats_without_hash_creates_new_artifact(tmp_path):
     filepath = tmp_path / "nohash.txt"
     filepath.write_text("nohash")
-    artifact = ln.Artifact(filepath, key="uploads/nohash.txt", stats={"size": 6})
+    artifact = ln.Artifact(filepath, key="uploads/nohash.txt", _stats={"size": 6})
     assert artifact._state.adding
     assert artifact.size == 6
     assert artifact.hash is None
@@ -643,20 +655,20 @@ def test_stats_without_hash_creates_new_artifact(tmp_path):
 def test_stats_invalid_raises(tmp_path):
     filepath = tmp_path / "bad.txt"
     filepath.write_text("bad")
-    with pytest.raises(ValueError, match="hash"):
+    with pytest.raises(ValueError, match=r"_stats\['hash'\]"):
         ln.Artifact(
             filepath,
             key="uploads/bad.txt",
-            stats={"size": 3, "hash": "x" * 23, "hash_type": "md5"},
+            _stats={"size": 3, "hash": "x" * 23, "hash_type": "md5"},
         )
-    with pytest.raises(ValueError, match="hash_type"):
+    with pytest.raises(ValueError, match=r"_stats\['hash_type'\]"):
         ln.Artifact(
             filepath,
             key="uploads/bad.txt",
-            stats={"size": 3, "hash": "kAFQmDzST7DWlj99KOF_cg"},
+            _stats={"size": 3, "hash": "kAFQmDzST7DWlj99KOF_cg"},
         )
-    with pytest.raises(ValueError, match="size"):
-        ln.Artifact(filepath, key="uploads/bad.txt", stats={"size": -1})
+    with pytest.raises(ValueError, match=r"_stats\['size'\]"):
+        ln.Artifact(filepath, key="uploads/bad.txt", _stats={"size": -1})
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
