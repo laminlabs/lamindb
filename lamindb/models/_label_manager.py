@@ -122,7 +122,7 @@ def describe_labels(
             )
     tree = None
     if labels_table.rows:  # we might not have rows even if labels_data was non-empty
-        tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
+        tree = Tree(Text("Entities", style="bold green_yellow"), guide_style="dim")
         tree.add(labels_table)
     return tree
 
@@ -175,9 +175,11 @@ def save_validated_records(
 class LabelManager:
     """Label manager.
 
-    This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
-    typed labels (e.g., :class:`~bionty.CellLine`) and associate labels
-    with features.
+    Link and summarize simple labels :class:`~lamindb.ULabel` and arbitrary
+    other label-like entities (like :class:`~lamindb.Record` or :class:`~bionty.CellLine`)
+    for an artifact.
+
+    Is mostly a utility class.
     """
 
     def __init__(self, sqlrecord: Artifact | Collection) -> None:

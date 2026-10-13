@@ -1601,8 +1601,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return FeatureManager(self)
 
     @property
+    @deprecated("relation accessors such as .ulabels and .records, or .features")
     def labels(self) -> LabelManager:
         """Label manager.
+
+        .. deprecated::
+           Use relation accessors such as `.ulabels` and `.records`, or `.features`.
 
         A way to access all label annotations of an artifact, irrespective of their type.
 

@@ -19,6 +19,13 @@ def adata():
     return adata
 
 
+def test_labels_accessor_deprecated(get_mini_csv: Path):  # noqa: F811
+    artifact = ln.Artifact(get_mini_csv, description="test")
+    with pytest.warns(DeprecationWarning, match="instead of labels"):
+        manager = artifact.labels
+    assert manager._host is artifact
+
+
 def test_labels_add(adata):
     label = ln.Record(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test").save()

@@ -237,7 +237,7 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     else:
         description_tree = describe_sqlite(artifact)
     labels_node = description_tree.children[-1].label
-    assert labels_node.label.plain == "Labels"
+    assert labels_node.label.plain == "Entities"
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
