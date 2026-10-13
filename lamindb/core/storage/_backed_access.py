@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather", ".ipc")
-POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -87,6 +86,7 @@ def backed_access(
 ):
     from lamindb.models import Artifact
 
+    from ._polars_lazy_df import POLARS_SUFFIXES
     from .paths import filepath_from_artifact
 
     if isinstance(artifact_or_filepath, Artifact):
@@ -95,6 +95,7 @@ def backed_access(
     else:
         artifact = None
         objectpath = artifact_or_filepath
+
     name = objectpath.name
     suffix = objectpath.suffix
     non_gz_suffix = _non_gz_suffix(objectpath.suffixes)
