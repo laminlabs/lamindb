@@ -330,7 +330,9 @@ def test_polars_standardize_column_synonym(as_frame):
 def test_polars_biorecord_source_filter():
     from lamindb.curators.core import DataFrameCatManager
 
-    source = bt.Source.get(entity="bionty.CellType", name="cl")
+    source = bt.Source(
+        entity="bionty.CellType", organism="all", name="polars-cl", version="1"
+    ).save()
     schema = make_schema([("pl_cell_source", bt.CellType, {})])
     manager = DataFrameCatManager(
         pl.DataFrame({"pl_cell_source": ["T cell"]}),
