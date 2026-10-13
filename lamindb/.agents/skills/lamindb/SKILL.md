@@ -195,6 +195,18 @@ If the branch for this task is `standalone`, `draft`, or `review`, open its chan
 lamin update branch --status review
 ```
 
+Escalate to the fallback below only if this command errors (non-zero exit status). Skip the fallback when this step skipped the command. A command error here usually means `lamin` is only installed in a project-local virtualenv rather than on `PATH`. Use the same `sandbox_permissions` the harness reference requires for this command:
+
+```bash
+LAMIN_BIN=$(find . -maxdepth 6 -type f -name lamin 2>/dev/null | head -1)
+[ -z "$LAMIN_BIN" ] && LAMIN_BIN=$(command -v lamin 2>/dev/null)
+if [ -z "$LAMIN_BIN" ]; then
+  echo "NOT_FOUND: lamin"
+else
+  "$LAMIN_BIN" update branch --status review
+fi
+```
+
 Then close the session from the immutable session working directory as its own tool call. Use the required environment prefix from the harness reference when one is prescribed; otherwise run:
 
 ```bash
