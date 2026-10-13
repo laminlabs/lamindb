@@ -1334,12 +1334,12 @@ def _schema_coerces(schema: Any) -> bool:
     return bool(schema.coerce or any(f.coerce for f in schema.members))
 
 
-def _scan_dataframe_file(data: Any) -> Any | None:
+def _scan_dataframe_file(data: UPath) -> PolarsLazyFrame | None:
     """Lazily scan a local or remote dataframe file, `None` if Polars can't access it."""
     from ..core.storage._polars_lazy_df import _open_polars_lazy_df
 
     try:
-        with _open_polars_lazy_df(UPath(data)) as lazy:
+        with _open_polars_lazy_df(data) as lazy:
             lazy.collect_schema()
         return lazy
     except Exception as e:
@@ -2466,9 +2466,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         elif schema is not None and _can_scan_lazily(df, schema):
             from lamindb.curators.core import DataFrameCurator
 
+            df = create_path(df)
+
             lazy = _scan_dataframe_file(df)
             if lazy is not None:
-                path_suffix = "." + str(df).rsplit(".", 1)[-1]
+                path_suffix = df.suffix
                 polars_curator = DataFrameCurator(lazy, schema, features=features)
                 polars_curator.validate()
                 if _schema_coerces(schema):

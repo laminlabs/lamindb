@@ -5,6 +5,7 @@ import lamindb as ln
 import pytest
 from django.db import transaction
 from lamindb.errors import InvalidArgument, ValidationError
+from upath import UPath
 
 pl = pytest.importorskip("polars")
 pa = pytest.importorskip("pandera.polars")
@@ -558,7 +559,7 @@ def test_from_dataframe_path_stores_coerced_values(tmp_path, suffix):
 def test_scan_dataframe_file_falls_back_on_failure(tmp_path):
     from lamindb.models.artifact import _scan_dataframe_file
 
-    assert _scan_dataframe_file(str(tmp_path / "missing.parquet")) is None
+    assert _scan_dataframe_file(UPath(tmp_path / "missing.parquet")) is None
 
 
 def test_remote_paths_are_scannable(monkeypatch):
