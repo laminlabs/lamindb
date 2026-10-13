@@ -1339,7 +1339,8 @@ def _scan_dataframe_file(data: UPath) -> PolarsLazyFrame | None:
     from ..core.storage._polars_lazy_df import _open_polars_lazy_df
 
     try:
-        with _open_polars_lazy_df(data) as lazy:
+        with _open_polars_lazy_df(data, use_fsspec=False) as lazy:
+            # probe readability; use_fsspec is false, so this scans a path string and closes nothing
             lazy.collect_schema()
         return lazy
     except Exception as e:
