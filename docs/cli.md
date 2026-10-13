@@ -25,6 +25,7 @@ This command updates your local configuration to target the specified instance:
 all subsequent CLI commands and Python/R sessions will auto-connect to this instance.
 
 You can pass a slug (`account/name`) or URL (`https://lamin.ai/account/name`).
+Pass `--use-proxy-db` to connect through the database proxy specified in the hub.
 
 ```
 # set a default database for the current directory (recommended)
@@ -33,6 +34,8 @@ lamin connect laminlabs/cellxgene --here
 lamin connect laminlabs/cellxgene
 # use a URL instead of a slug
 lamin connect https://lamin.ai/laminlabs/cellxgene
+# connect through the database proxy specified in the hub
+lamin connect laminlabs/cellxgene --use-proxy-db
 ```
 
 Options:
@@ -41,9 +44,10 @@ Options:
 lamin connect [OPTIONS] INSTANCE
 
 Options:
-  --here  Connect in the current directory without changing the global default
-          instance.
-  --help  Show this message and exit.
+  --here          Connect in the current directory without changing the global
+                  default instance.
+  --use-proxy-db  Use the proxy database connection specified in the hub.
+  --help          Show this message and exit.
 ```
 
 → Python/R alternative: create a database object via {class}`~lamindb.DB` or set the default database of your Python/R session via {func}`~lamindb.connect`
@@ -731,6 +735,7 @@ Get or set the following settings:
 - `space` → current {attr}`~lamindb.setup.core.SetupSettings.space`
 - `mount` → read-only mounts of storage locations, used by `lamin run` to read inputs in place
 - `run-where` → default place for `lamin run` (overridden by `$LAMIN_RUN_WHERE` and `--where`)
+- `run-access` → default access methods for inputs of `lamin run` (overridden by `$LAMIN_RUN_ACCESS` and `--access`)
 
 You can display your current settings by running: `lamin info`
 
@@ -762,6 +767,10 @@ lamin settings mount unset ./mnt
 lamin settings run-where get
 lamin settings run-where set modal
 lamin settings run-where unset
+# run-access
+lamin settings run-access get
+lamin settings run-access set mount,presigned,credentials
+lamin settings run-access unset
 ```
 
 Options:
@@ -773,11 +782,12 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  cache-dir  Get, set, reset, or clear the cache directory.
-  dev-dir    Get or find development directories.
-  modules    Get or set environment schema modules.
-  mount      Mount storage locations read-only via an installed FUSE...
-  run-where  Get or set where `lamin run` runs by default.
+  cache-dir   Get, set, reset, or clear the cache directory.
+  dev-dir     Get or find development directories.
+  modules     Get or set environment schema modules.
+  mount       Mount storage locations read-only via an installed FUSE...
+  run-access  Get or set how `lamin run` hands inputs to the target by...
+  run-where   Get or set where `lamin run` runs by default.
 ```
 
 → Python/R alternative: {attr}`~lamindb.setup.core.SetupSettings.dev_dir`, {attr}`~lamindb.setup.core.SetupSettings.cache_dir`, {attr}`~lamindb.setup.core.SetupSettings.modules`, {attr}`~lamindb.setup.core.SetupSettings.branch`, and {attr}`~lamindb.setup.core.SetupSettings.space`
@@ -929,6 +939,45 @@ lamin run --where modal --project my_project my_script.py
 lamin run --dry-run align.sh -- --out out.bam
 ```
 
+`--access` lists, in order, which methods may hand an input to the target. Each
+URI gets the first one that can serve it, and the log shows which one did and why
+earlier ones could not:
+
+- `mount`: a path inside a mount of its storage location, or in local storage
+- `cache`: a path in the cache, downloading the artifact if needed
+- `presigned`: a time-limited https URL (see `--presign-expiry`); files only
+- `credentials`: the unsigned storage URL, e.g. `s3://bucket/key` or
+  `gs://bucket/key`, with credentials for the target: `AWS_*` variables (s3) or
+  an access token in `CLOUDSDK_AUTH_ACCESS_TOKEN` and `GOOGLE_OAUTH_ACCESS_TOKEN`
+  (gs)
+
+The default is `mount,cache`, so a target always gets local paths unless URLs are
+allowed. If no allowed method can serve a URI, nothing runs and the error lists
+why each failed. The list is as much about what to forbid as about order:
+`mount,presigned` never downloads, `mount,cache` never hands out URLs. Set a
+default with `$LAMIN_RUN_ACCESS` or `lamin settings run-access`.
+
+A process holds one AWS identity and one GCS token, so `credentials` serves
+inputs in argument order until one needs other credentials than an earlier one;
+that input falls through to the next allowed method. Mounts and presigned URLs
+carry per-location authorization, so allow one of them when inputs live in
+storage locations with different credentials.
+
+Environment variables are fixed when the target starts. For long runs on s3, pass
+`--credentials-via file`: lamin writes an AWS credentials file, refreshes it from
+LaminHub while the target runs, and points `AWS_SHARED_CREDENTIALS_FILE` at it,
+which helps tools that re-read it. AWS SDKs (boto3, aws cli) cache what they
+read, so use `--credentials-via process` for them instead: `AWS_CONFIG_FILE` then
+names a profile whose `credential_process` runs lamin to fetch fresh credentials
+whenever the SDK needs them. Tools with their own S3 client that read neither
+need `env`, or a mount (`lamin settings mount`).
+
+```
+lamin run --access mount,presigned samtools -- view lamin://acme/data/artifact/key/a.bam
+lamin run --access credentials aws -- s3 cp lamin://acme/data/artifact/3TrLu3AbQx9dZq2K -
+lamin run --access mount,presigned,credentials,cache tool.sh -- lamin://... lamin://...
+```
+
 URIs take two forms. The uid form matches nf-lamin; the key form accepts
 `space`, `branch` and `version` qualifiers:
 
@@ -962,29 +1011,54 @@ Options:
 lamin run [OPTIONS] TARGET
 
 Options:
-  --where [local|modal]   Where to run. Defaults to $LAMIN_RUN_WHERE, then
-                          `lamin settings run-where`, then local.
-  --project TEXT          A valid project name or uid to link the run to. On
-                          Modal, also names the app.
-  --register-output TEXT  Register a file the target writes as an output
-                          artifact. Repeatable.
-  --remount               Remount a storage location if it serves stale
-                          metadata for an input.
-  --image-url TEXT        Modal only: a URL to the base docker image.
-  --packages TEXT         Modal only: a comma-separated list of additional
-                          packages.
-  --cpu FLOAT             Modal only: CPU configuration.
-  --gpu TEXT              Modal only: the type of GPU (cuda images only).
-  --branch TEXT           A branch name or uid for the transform, run and any
-                          outputs. Defaults to the current local branch.
-  --space TEXT            A space name or uid for the transform, run and any
-                          outputs. Defaults to the current local space.
-  --upload-outputs        Force outputs to upload even if the instance keeps
-                          artifacts local by default.
-  --dry-run               Report what would be linked as inputs and registered
-                          as outputs, without executing the target or saving
-                          anything. Local only.
-  --help                  Show this message and exit.
+  --where [local|modal]           Where to run. Defaults to $LAMIN_RUN_WHERE,
+                                  then `lamin settings run-where`, then local.
+  --project TEXT                  A valid project name or uid to link the run
+                                  to. On Modal, also names the app.
+  --register-output TEXT          Register a file the target writes as an
+                                  output artifact. Repeatable.
+  --access TEXT                   Ordered, comma-separated access methods for
+                                  `lamin://` URIs in the arguments; each URI
+                                  gets the first that can serve it: `mount`
+                                  (path in a mount or local storage), `cache`
+                                  (path in the cache, downloading),
+                                  `presigned` (https URL), `credentials`
+                                  (storage URL plus credentials). Defaults to
+                                  $LAMIN_RUN_ACCESS, then `lamin settings run-
+                                  access`, then mount,cache.
+  --presign-expiry INTEGER RANGE  Seconds a presigned URL stays valid. Only
+                                  when --access allows presigned.  [default:
+                                  3600; x>=1]
+  --credentials-via [env|file|process]
+                                  How credentials reach the target when
+                                  --access allows credentials: `env`
+                                  (environment variables, fixed at launch),
+                                  `file` (an AWS credentials file that lamin
+                                  keeps fresh), `process` (an AWS config whose
+                                  credential_process fetches fresh
+                                  credentials; AWS SDKs only). Use file or
+                                  process for long runs. s3 only for file and
+                                  process.  [default: env]
+  --remount                       Remount a storage location if it serves
+                                  stale metadata for an input.
+  --image-url TEXT                Modal only: a URL to the base docker image.
+  --packages TEXT                 Modal only: a comma-separated list of
+                                  additional packages.
+  --cpu FLOAT                     Modal only: CPU configuration.
+  --gpu TEXT                      Modal only: the type of GPU (cuda images
+                                  only).
+  --branch TEXT                   A branch name or uid for the transform, run
+                                  and any outputs. Defaults to the current
+                                  local branch.
+  --space TEXT                    A space name or uid for the transform, run
+                                  and any outputs. Defaults to the current
+                                  local space.
+  --upload-outputs                Force outputs to upload even if the instance
+                                  keeps artifacts local by default.
+  --dry-run                       Report what would be linked as inputs and
+                                  registered as outputs, without executing the
+                                  target or saving anything. Local only.
+  --help                          Show this message and exit.
 ```
 
 → Python/R alternative: no equivalent
