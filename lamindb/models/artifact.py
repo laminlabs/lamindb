@@ -1446,6 +1446,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
         ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage).save()  # upload to s3://my_bucket
 
+    To annotate an artifact with entities::
+
+        # with a project
+        project_a = ln.Project(name="Project A").save()
+        artifact.projects.add(project_a)
+        # with a universal label
+        raw_data = ln.ULabel(name="raw_data").save()
+        artifact.ulabels.add(raw_data)
+        # requires bionty to be installed and mounted on the database
+        alzheimers_disease = bt.Disease.from_source(name="Alzheimer's disease").save()
+        artifact.diseases.add(alzheimers_disease)
+
     Notes
     -----
 
@@ -1601,17 +1613,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return FeatureManager(self)
 
     @property
+    @deprecated("relation accessors such as .ulabels and .records, or .features")
     def labels(self) -> LabelManager:
         """Label manager.
 
+        .. deprecated::
+           Use relation accessors such as `.ulabels` and `.records`, or `.features`.
+
         A way to access all label annotations of an artifact, irrespective of their type.
-
-        To annotate with labels, use the type-specific accessor, for example::
-
-            ulabel = ln.ULabel(name="raw_data").save()
-            artifact.ulabels.add(ulabel)
-            project = ln.Project(name="Project A").save()
-            artifact.projects.add(project)
         """
         from ._label_manager import LabelManager
 

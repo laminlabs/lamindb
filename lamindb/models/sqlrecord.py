@@ -1744,15 +1744,21 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 and transfer_config == "annotations"
             ):
                 transfer_record_feature_values(self, db, pk_on_db, using, transfer_logs)
-            if hasattr(self, "labels") and transfer_config == "annotations":
+            # `Artifact.labels` is deprecated, so do not touch the accessor here.
+            if (
+                isinstance(getattr(type(self), "labels", None), property)
+                and transfer_config == "annotations"
+            ):
                 from copy import copy
+
+                from ._label_manager import LabelManager
 
                 # here we go back to original record on the source database
                 self_on_db = copy(self)
                 self_on_db._state.db = db
                 self_on_db.pk = pk_on_db  # manually set the primary key
                 self.features._add_from(self_on_db, transfer_logs=transfer_logs)
-                self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
+                LabelManager(self).add_from(self_on_db, transfer_logs=transfer_logs)
             if summarize:
                 log_transferred_record(
                     self, transfer_logs, mapped_before, transferred_before

@@ -122,7 +122,7 @@ def describe_labels(
             )
     tree = None
     if labels_table.rows:  # we might not have rows even if labels_data was non-empty
-        tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
+        tree = Tree(Text("Entities", style="bold green_yellow"), guide_style="dim")
         tree.add(labels_table)
     return tree
 
@@ -175,9 +175,11 @@ def save_validated_records(
 class LabelManager:
     """Label manager.
 
-    This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
-    typed labels (e.g., :class:`~bionty.CellLine`) and associate labels
-    with features.
+    Link and summarize simple labels :class:`~lamindb.ULabel` and arbitrary
+    other label-like entities (like :class:`~lamindb.Record` or :class:`~bionty.CellLine`)
+    for an artifact.
+
+    Is mostly a utility class.
     """
 
     def __init__(self, sqlrecord: Artifact | Collection) -> None:
@@ -232,12 +234,14 @@ class LabelManager:
 
             ::
 
+                from lamindb.models import LabelManager
+
                 artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
                 artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
                 records = ln.ULabel.from_values(["Label1", "Label2"], field="name").save()
                 labels = ln.ULabel.filter(name__icontains = "label")
-                artifact1.ulabels.set(labels)  # using the ManyToMany relationship `.ulabels`
-                artifact2.labels.add_from(artifact1)  # using the `.labels` accessor that understands any label type
+                artifact1.ulabels.set(labels)
+                LabelManager(artifact2).add_from(artifact1)
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
