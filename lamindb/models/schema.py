@@ -409,19 +409,44 @@ class SchemaOptionals:
                     self.schema._aux["af"]["1"].remove(feature.uid)
 
     def add(self, features: Feature | list[Feature]) -> None:
-        """Make one or multiple features optional by adding them to the set of optional features."""
-        self.schema._aux = self.schema._aux or {}
+        """Make one or multiple features optional.
+
+        A feature that is not yet part of the schema is added through
+        :meth:`~lamindb.Schema.add`. When ``minimal_set`` is false, every
+        feature is already optional, so this only ensures membership.
+        """
         if not isinstance(features, list):
             features = [features]
         if not all(isinstance(f, Feature) for f in features):
             raise TypeError("features must be a list of Feature records!")
-        if len(features) > 0:
-            if "1" not in self.schema._aux.setdefault("af", {}):
-                self.set(features)
-            else:
-                self.schema._aux.setdefault("af", {})["1"].extend(
-                    [f.uid for f in features]
-                )
+        if len(features) == 0:
+            return
+
+        member_uids: set[str] = set()
+        if self.schema.pk is not None:
+            member_uids = set(
+                self.schema.features.filter(
+                    uid__in=[feature.uid for feature in features]
+                ).values_list("uid", flat=True)
+            )
+        missing = [feature for feature in features if feature.uid not in member_uids]
+        if missing:
+            # Links the feature and, unless minimal_set is false, marks it optional.
+            self.schema.add(missing)
+        if self.schema.minimal_set is False:
+            return
+
+        # Features just added above are already marked by Schema.add().
+        to_mark = [feature for feature in features if feature.uid in member_uids]
+        if not to_mark:
+            return
+        self.schema._aux = self.schema._aux or {}
+        if "1" not in self.schema._aux.setdefault("af", {}):
+            self.set(to_mark)
+        else:
+            self.schema._aux.setdefault("af", {})["1"].extend(
+                [feature.uid for feature in to_mark]
+            )
 
 
 KNOWN_SCHEMAS = {  # by hash

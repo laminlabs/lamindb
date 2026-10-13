@@ -722,6 +722,15 @@ def test_schema_optionals():
         schema.optionals.add("test")
     schema.optionals.add(ln.Feature.get(name="sample_name"))
     assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
+    # a feature that is not yet a member is added, then marked optional
+    extra = ln.Feature(name="sample_extra", dtype=int).save()
+    schema.optionals.add(extra)
+    assert extra in schema.features.all()
+    assert set(schema.optionals.get().to_list("name")) == {
+        "sample_name",
+        "sample_type",
+        "sample_extra",
+    }
 
     # clean up
     ln.Schema.filter().delete(permanent=True)
