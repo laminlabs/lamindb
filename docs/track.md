@@ -38,6 +38,8 @@ For **Claude Code**, `n_tokens` is the full billed total (input + output + cache
 
 For **GitHub Copilot**, `n_tokens` presently is an output-tokens-only lower bound, not a full billed total. Don't compare `n_tokens` across the two agents directly.
 
+For **Codex**, finish records `n_steps` and `n_tool_calls` only.
+
 :::
 
 ### Plans

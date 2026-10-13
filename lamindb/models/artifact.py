@@ -3440,7 +3440,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # Check storage change before space change. If both change and are consistent,
         # move here and sync tracked values so the space-change flow below is skipped.
         if self._field_changed("storage_id"):
-            old_storage_id = self._original_values["storage_id"]
+            old_storage_id: int = self._original_values["storage_id"]
             new_storage = self.storage
             if new_storage.space_id != self.space_id:
                 raise ValueError(
