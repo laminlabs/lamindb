@@ -189,7 +189,13 @@ Before any command in this step, write the session summary in this reply. `lamin
 
 If you created output files directly (no script involved), attach them first — see your harness's reference file for the exact command to resolve your run and attach files to it.
 
-If the branch for this task is `standalone`, `draft`, or `review`, open its change request as its own tool call from the session working directory. Skip this when that branch is `main` or `merged`.
+Read the current branch status from the session working directory immediately before opening the change request. Run it as its own tool call. If it errors, rerun it with the `$LAMIN_BIN` fallback below, using `get branch --status` in place of `update branch --status review`.
+
+```bash
+lamin get branch --status
+```
+
+If the printed status is `standalone`, `draft`, or `review`, open its change request as its own tool call. Skip the update when the printed status is `main`, `merged`, or `closed`.
 
 ```bash
 lamin update branch --status review
