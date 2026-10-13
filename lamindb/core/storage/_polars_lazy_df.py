@@ -106,14 +106,15 @@ def _open_polars_lazy_df(
         kwargs.update(_polars_options(path0))
 
     open_files = []
+    suffix = path_list[0].suffix
 
     try:
         for path in path_list:
             open_files.append(path.open(mode="rb") if use_fsspec else path.as_posix())
 
-        if path_list[0].suffix == ".tsv":
+        if suffix == ".tsv":
             kwargs.setdefault("separator", "\t")
-        yield scans[path_list[0].suffix](open_files, **kwargs)
+        yield scans[suffix](open_files, **kwargs)
     finally:
         if use_fsspec:
             for open_file in open_files:
