@@ -107,7 +107,7 @@ fi
 
 Determine which coding agent you are running as and follow the matching file under Quick reference below. Those references assume the session directory is already chosen; they do not run `dev-dir get` or `find` themselves.
 
-The session working directory is immutable after it is resolved. `lamin switch` cannot change the parent agent process's working directory. The harness session folder may stay outside the dev-dir; that is fine. Therefore, **run every later LaminDB command and every task command from the session working directory**, using the execution tool's working-directory option when available or an explicit `cd "<session-working-dir>" &&` prefix otherwise. This includes `lamin track`, lineage verification, scripts and notebooks, direct-output attachment, tests, and `lamin finish`. Never set dev-dir to the harness session folder.
+The session working directory is immutable after it is resolved. `lamin switch` cannot change the parent agent process's working directory. The harness session folder may stay outside the dev-dir; that is fine. Therefore, **run every later LaminDB command and every task command from the session working directory**, using the execution tool's working-directory option when available or an explicit `cd "<session-working-dir>" &&` prefix otherwise. This includes `lamin track`, lineage verification, scripts and notebooks, direct-output attachment, tests, `lamin update branch --status review`, and `lamin finish`. Never set dev-dir to the harness session folder.
 
 ### Command hygiene
 
@@ -118,7 +118,7 @@ Keep every prescribed command free of diagnostic shell noise. Required working-d
 - commands that inspect or print harness session IDs, including `echo`, `printenv`, `env`, or a Python command — except for the single Cursor marker command prescribed in its reference file; a session-id environment variable may appear only inside a required state-file path;
 - convenience aliases such as `LAMIN=...` or `PYBIN=...` — invoke the required `lamin` or matching Python executable directly.
 
-Run `lamin track` and `lamin finish` as standalone substantive commands: do not place another diagnostic or task command before or after either one in the same tool call.
+Run `lamin track`, `lamin update branch --status review`, and `lamin finish` as standalone substantive commands: do not place another diagnostic or task command before or after any of them in the same tool call.
 
 For a follow-up prompt in the same harness conversation after Step 3 completed, do not ask again or create/switch another branch. Return to the same session working directory and run the same `lamin track <agent>` command before doing the follow-up work. The CLI uses the harness session ID to resume the existing agent Run and restores the active UID file needed for child-run lineage.
 
@@ -185,7 +185,15 @@ If lineage cannot be fixed without changing what the script does, stop and ask t
 
 User confirmation is not required. Always do Step 3. **Run the commands below exactly as shown — do not skip this step, and do not consider the task done until `lamin finish` has actually been run.**
 
+Before any command in this step, write the session summary in this reply. `lamin finish` renders the transcript when its own tool call is on disk, so a summary written after it returns is missing from the report. Do not write another summary after `lamin finish`.
+
 If you created output files directly (no script involved), attach them first — see your harness's reference file for the exact command to resolve your run and attach files to it.
+
+If the branch for this task is not `main`, open its change request as its own tool call from the session working directory. Skip this when that branch is `main`.
+
+```bash
+lamin update branch --status review
+```
 
 Then close the session from the immutable session working directory as its own tool call. Use the required environment prefix from the harness reference when one is prescribed; otherwise run:
 
