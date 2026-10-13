@@ -659,12 +659,25 @@ def test_schema_add_remove_optional_features_minimal_set_false(
     assert schema.optionals.get_uids() == []
     assert schema.hash != initial_hash
 
+    # minimal_set=False: every feature is already optional, so optionals.add
+    # changes nothing, including for a feature that is not a member.
+    feature_outside = ln.Feature(name="outside_minimal_set_false", dtype=str).save()
+    n_members = schema.n_members
+    hash_with_project = schema.hash
+    schema.optionals.add(feature_outside)
+    schema.optionals.add(feature_project)
+    assert feature_outside not in schema.features.all()
+    assert schema.optionals.get_uids() == []
+    assert schema.n_members == n_members
+    assert schema.hash == hash_with_project
+
     schema.remove(feature_project)
     assert feature_project not in schema.features.all()
     assert schema.optionals.get_uids() == []
     assert schema.hash == initial_hash
 
     feature_project.delete(permanent=True)
+    feature_outside.delete(permanent=True)
     schema.delete(permanent=True)
 
 

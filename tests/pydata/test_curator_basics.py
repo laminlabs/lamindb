@@ -722,6 +722,16 @@ def test_schema_optionals():
         schema.optionals.add("test")
     schema.optionals.add(ln.Feature.get(name="sample_name"))
     assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
+    extra = ln.Feature(name="sample_extra", dtype=int).save()
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Feature not part of the schema, please use schema.add() instead."
+        ),
+    ):
+        schema.optionals.add(extra)
+    assert extra not in schema.features.all()
+    assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
 
     # clean up
     ln.Schema.filter().delete(permanent=True)
