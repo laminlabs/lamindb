@@ -106,7 +106,7 @@ def _open_polars_lazy_df(
         kwargs.update(_polars_options(path0))
 
     open_files = []
-    suffix = path_list[0].suffix
+    suffix = path0.suffix
 
     try:
         for path in path_list:
