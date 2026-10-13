@@ -56,4 +56,4 @@ Replace `<matching-python-executable>` with the exact interpreter described abov
 
 A zero exit status means the direct files were attached successfully, even if the command prints no explicit artifact confirmation. Do not search the filesystem for tracking state or query LaminDB merely to reconfirm success. If the command fails, handle its reported error directly.
 
-Then close the session per [SKILL.md](../SKILL.md) Step 3 (`lamin update branch --status review`, then `lamin finish`). A later finish in the same Claude Code conversation updates this Run's report and cumulative metrics.
+Then follow [SKILL.md](../SKILL.md) Step 3 in order, including its branch-status check and popup, and finish with `lamin finish`. A later finish in the same Claude Code conversation updates this Run's report and cumulative metrics.

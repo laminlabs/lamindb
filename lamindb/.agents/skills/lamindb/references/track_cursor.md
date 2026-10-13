@@ -48,7 +48,7 @@ ln.Artifact('output.csv', key='<meaningful/folder/path>/output.csv', description
 "
 ```
 
-Substitute the exact Run UID printed earlier; do not include angle brackets. Then follow [SKILL.md](../SKILL.md) Step 3: write the summary, run `lamin update branch --status review` when that step says to, and close with this command as its own tool call:
+Substitute the exact Run UID printed earlier; do not include angle brackets. Then follow [SKILL.md](../SKILL.md) Step 3 in order: write the summary, check the branch status, ask before opening a change request when that step says to, and close with this command as its own tool call:
 
 ```bash
 LAMIN_CURSOR_SESSION_ID=<generated value> lamin finish
