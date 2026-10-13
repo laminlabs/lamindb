@@ -2445,12 +2445,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = examples.schemas.valid_features()
 
         polars_curator = None
+        # df is a Polars DataFrame or LazyFrame
         if is_polars and schema is not None:
             from lamindb.curators.core import DataFrameCurator
 
             polars_curator = DataFrameCurator(df, schema, features=features)
             polars_curator.validate()
             df = polars_curator.dataset
+        # df is a pandas DataFrame; validate only when the schema coerces values
         elif (
             schema is not None
             and isinstance(schema, Schema)
@@ -2463,6 +2465,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             coerced = DataFrameCurator(df, schema, features=features)
             coerced.validate()
             df = coerced.dataset
+        # df is a local or remote .parquet, .csv, or .tsv path
         elif schema is not None and _can_scan_lazily(df, schema):
             from lamindb.curators.core import DataFrameCurator
 
@@ -2474,11 +2477,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 polars_curator = DataFrameCurator(lazy, schema, features=features)
                 polars_curator.validate()
                 if _schema_coerces(schema):
-                    # the stored file must carry the coerced values
+                    # replace the path with the coerced frame and store that instead
                     df = polars_curator.dataset
                     is_polars = True
                     kwargs.setdefault("format", path_suffix)
-                # otherwise the original file is registered as is
+                # a non-coercing schema keeps the original file
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             path=df,
@@ -2492,6 +2495,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         if is_polars:
+            # df is a Polars DataFrame or LazyFrame, including one coerced from a scanned file
             import polars as pl
 
             artifact.n_observations = (
@@ -2500,9 +2504,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else df.height
             )
         elif data_is_dataframe(df):
+            # df is a pandas DataFrame
             artifact.n_observations = len(df)
         else:
-            # must be a str or path
+            # df is still a file path, either the original path or the UPath from the lazy scan
             path = create_path(df)
             if path.suffix == ".parquet":
                 import pyarrow.parquet as pq
