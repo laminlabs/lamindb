@@ -7,6 +7,7 @@ from _dataset_fixtures import (  # noqa
     get_mini_csv,
 )
 from lamindb.errors import ValidationError
+from lamindb.models import LabelManager
 from lamindb.models.artifact import add_labels
 
 
@@ -31,20 +32,20 @@ def test_labels_add(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     experiment = ln.Feature(name="experiment", dtype=ln.Record)
     with pytest.raises(ValueError) as error:
-        artifact.labels.add("experiment_1", experiment)
+        LabelManager(artifact).add("experiment_1", experiment)
     assert (
         error.exconly()
         == "ValueError: Please pass a record (a `SQLRecord` object), not a string, e.g.,"
         " via: label = ln.Record(name='experiment_1')"
     )
     with pytest.raises(ValidationError) as error:
-        artifact.labels.add(label, experiment)
+        LabelManager(artifact).add(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
     with pytest.raises(TypeError) as error:
-        artifact.labels.add(label, "experiment 1")
+        LabelManager(artifact).add(label, "experiment 1")
     with pytest.raises(ValidationError) as error:
-        artifact.labels.add(label, feature=experiment)
+        LabelManager(artifact).add(label, feature=experiment)
     assert (
         error.exconly()
         == "lamindb.errors.ValidationError: Feature not validated. If it looks"
@@ -53,38 +54,38 @@ def test_labels_add(adata):
     experiment.save()
 
     # try to pass list of length zero
-    artifact.labels.add([], feature=experiment)
+    LabelManager(artifact).add([], feature=experiment)
     # now pass a single label
-    artifact.labels.add(label, feature=experiment)
+    LabelManager(artifact).add(label, feature=experiment)
     # check that the feature was updated with type = "Record"
     feature = ln.Feature.get(name="experiment")
     assert feature._dtype_str == "cat[Record]"
     with pytest.raises(TypeError):
-        experiments = artifact.labels.get("experiment")
+        experiments = LabelManager(artifact).get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    experiments = artifact.labels.get(experiment)
+    experiments = LabelManager(artifact).get(experiment)
     assert experiments.one().name == "Experiment 1"
 
     # try adding the same label again, nothing should happen
-    artifact.labels.add(label, feature=experiment)
+    LabelManager(artifact).add(label, feature=experiment)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    experiments = artifact.labels.get(experiment)
+    experiments = LabelManager(artifact).get(experiment)
     assert experiments.get().name == "Experiment 1"
 
     # running from_values to load validated label records under the hood
     experiment = ln.Feature(name="experiment_with_reg", dtype="cat[Record]").save()
     ln.Record(name="Experiment 2").save()
-    artifact.labels.add("Experiment 2", experiment)
-    experiments = artifact.labels.get(experiment)
+    LabelManager(artifact).add("Experiment 2", experiment)
+    experiments = LabelManager(artifact).get(experiment)
     assert experiments.get().name == "Experiment 2"
 
     # now, try adding a new label
     project = ln.Record(name="project 1").save()
     ln.Feature(name="project", dtype=ln.Record).save()
     features = ln.Feature.lookup()
-    artifact.labels.add(project, feature=features.project)
+    LabelManager(artifact).add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    projects = artifact.labels.get(features.project)
+    projects = LabelManager(artifact).get(features.project)
     assert projects.get().name == "project 1"
 
     # test add_from
@@ -92,8 +93,8 @@ def test_labels_add(adata):
     adata2.uns["mutated"] = True
     artifact2 = ln.Artifact(adata2, description="My new artifact").save()
 
-    artifact2.labels.add_from(artifact)
-    experiments = artifact2.labels.get(experiment)
+    LabelManager(artifact2).add_from(artifact)
+    experiments = LabelManager(artifact2).get(experiment)
     assert experiments.get().name == "Experiment 2"
 
     artifact2.delete(permanent=True)
@@ -151,7 +152,7 @@ def test_labels_add_using_anndata(adata):
     ln.Feature(name="organism", dtype=bt.Organism).save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
-        artifact.labels.add(organism, feature=features.organism)
+        LabelManager(artifact).add(organism, feature=features.organism)
     assert (
         error.exconly()
         == "ValueError: Please save the artifact/collection before adding a label!"
@@ -161,9 +162,9 @@ def test_labels_add_using_anndata(adata):
     # now, we add organism and run checks
     features = ln.Feature.lookup()
     with pytest.raises(ln.errors.ValidationError):
-        artifact.labels.add(organism, feature=features.organism)
+        LabelManager(artifact).add(organism, feature=features.organism)
     organism.save()
-    artifact.labels.add(organism, feature=features.organism)
+    LabelManager(artifact).add(organism, feature=features.organism)
     organism_link = artifact.links_organism.first()
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
@@ -203,45 +204,51 @@ def test_labels_add_using_anndata(adata):
     experiment_1 = ln.Record(name="experiment_1").save()
     ln.Feature(name="experiment", dtype=ln.Record).save()
     features = ln.Feature.lookup()
-    artifact.labels.add(experiment_1, feature=features.experiment)
+    LabelManager(artifact).add(experiment_1, feature=features.experiment)
 
-    assert set(artifact.labels.get(features.experiment).to_list("name")) == {
+    assert set(LabelManager(artifact).get(features.experiment).to_list("name")) == {
         "experiment_1"
     }
-    assert set(artifact.labels.get(features.disease).to_list("name")) == {
+    assert set(LabelManager(artifact).get(features.disease).to_list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(artifact.labels.get(features.organism).to_list("name")) == {"mouse"}
+    assert set(LabelManager(artifact).get(features.organism).to_list("name")) == {
+        "mouse"
+    }
     assert set(
-        artifact.labels.get(features.tissue)["bionty.Tissue"].to_list("name")
+        LabelManager(artifact).get(features.tissue)["bionty.Tissue"].to_list("name")
     ) == {
         "liver",
         "heart",
         "kidney",
         "brain",
     }
-    assert set(artifact.labels.get(features.tissue)["Record"].to_list("name")) == {
+    assert set(
+        LabelManager(artifact).get(features.tissue)["Record"].to_list("name")
+    ) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
-    assert set(artifact.labels.get(features.cell_type).to_list("name")) == {
+    assert set(LabelManager(artifact).get(features.cell_type).to_list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(artifact.labels.get(features.cell_type, flat_names=True)) == {
+    assert set(LabelManager(artifact).get(features.cell_type, flat_names=True)) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(artifact.labels.get(features.cell_type_by_expert).to_list("name")) == {
+    assert set(
+        LabelManager(artifact).get(features.cell_type_by_expert).to_list("name")
+    ) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -269,7 +276,7 @@ def test_labels_get(get_mini_csv: Path):  # noqa: F811
     artifact = ln.Artifact(get_mini_csv, description="test")
     # feature doesn't exist
     with pytest.raises(TypeError):
-        artifact.labels.get("x")  # type: ignore
+        LabelManager(artifact).get("x")  # type: ignore
     # no linked labels
     feature_name_feature = ln.Feature(name="feature name", dtype=ln.ULabel).save()
     schema = ln.Schema(features=[feature_name_feature]).save()
@@ -308,15 +315,15 @@ def test_add_from(get_test_artifacts):
     ln.save(cell_lines)
 
     # pass a list of length 0
-    artifact2.labels.add([])
+    LabelManager(artifact2).add([])
     # now actually pass the labels
-    artifact2.labels.add(records)
+    LabelManager(artifact2).add(records)
     # here test add without passing a feature
-    artifact2.labels.add(cell_lines)
+    LabelManager(artifact2).add(cell_lines)
     assert artifact2.cell_lines.count() == len(cell_lines)
 
     assert artifact1.records.exists() is False
-    artifact1.labels.add_from(artifact2)
+    LabelManager(artifact1).add_from(artifact2)
     assert artifact1.records.count() == artifact2.records.count()
     assert artifact1.cell_lines.count() == artifact2.cell_lines.count()
 
