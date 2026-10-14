@@ -153,67 +153,55 @@ def _create_tracked_decorator(
                 key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)
             previous_space = global_context._space
-            context._track(
-                uid,
-                path=path,
-                key=key,
-                source_code=source_code,
-                kind=transform_kind,
-                entrypoint=func.__qualname__,
-                params=params,
-                expected_param_types=expected_param_types,
-                new_run=True,
-                project=track_kwargs.get("project"),
-                space=track_kwargs.get("space"),
-                branch=track_kwargs.get("branch"),
-                plan=track_kwargs.get("plan"),
-                initiated_by_run=initiated_by_run,
-                stream_tracking=is_flow,
-            )
+            try:
+                context._track(
+                    uid,
+                    path=path,
+                    key=key,
+                    source_code=source_code,
+                    kind=transform_kind,
+                    entrypoint=func.__qualname__,
+                    params=params,
+                    expected_param_types=expected_param_types,
+                    new_run=True,
+                    project=track_kwargs.get("project"),
+                    space=track_kwargs.get("space"),
+                    branch=track_kwargs.get("branch"),
+                    plan=track_kwargs.get("plan"),
+                    initiated_by_run=initiated_by_run,
+                    stream_tracking=is_flow,
+                )
+            except Exception:
+                if global_run != "memorize" and context.space is not None:
+                    global_context._space = previous_space
+                raise
             token = current_tracked_run.set(context.run)
             if global_run in {"memorize", "clear"}:
                 global_context._run = context.run
-            # Publish alongside the run, after _track has saved the source
-            # artifact in the space that was already current.
-            if context.space is not None:
-                global_context._space = context.space
-
-            def restore_space_for_flow_artifacts() -> None:
-                # Run reports are artifacts and need a storage location. Keep
-                # them in the space that was current before this call.
-                if context.space is not None:
-                    global_context._space = previous_space
-
             try:
-                try:
-                    result = func(*args, **kwargs)
-                except Exception:
-                    restore_space_for_flow_artifacts()
-                    run = context.run
-                    if is_flow:
-                        # For flow runs, stream tracking is enabled and cleanup persists
-                        # errored status together with the run report upload.
-                        context._stream_tracker.cleanup()
-                    else:
-                        run.finished_at = datetime.now(timezone.utc)
-                        run._status_code = 1  # errored
-                        run.save()
-                    raise
-                restore_space_for_flow_artifacts()
+                result = func(*args, **kwargs)
                 context._finish()
                 return result
+            except Exception:
+                run = context.run
+                if is_flow:
+                    # For flow runs, stream tracking is enabled and cleanup persists
+                    # errored status together with the run report upload.
+                    context._stream_tracker.cleanup()
+                else:
+                    run.finished_at = datetime.now(timezone.utc)
+                    run._status_code = 1  # errored
+                    run.save()
+                raise
             finally:
                 if (
                     global_run == "clear"
                     and global_context.run == current_tracked_run.get()
                 ):
                     global_context._run = None
-                # `memorize` leaves the run on the global context, and the
-                # space stays with it. Every other mode restores the previous
-                # space, including a flow that clears its run.
-                if global_run == "memorize" and context.space is not None:
-                    global_context._space = context.space
-                elif context.space is not None:
+                # Same lifetime as the run: `memorize` keeps the space,
+                # every other mode puts the previous space back.
+                if global_run != "memorize" and context.space is not None:
                     global_context._space = previous_space
                 current_tracked_run.reset(token)
 
@@ -249,8 +237,9 @@ def flow(
         track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
             `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
             for reproducibility. A `space` argument is published on the global run context for the call, same as
-            the run, so records created in the function use that space. With `global_run="memorize"` that space
-            stays; otherwise the previous space is restored afterward. Pass `False` to disable this mapping.
+            the run, so the run and everything created during it, including its report, use that space.
+            With `global_run="memorize"` that space stays; otherwise the previous space is restored afterward.
+            Pass `False` to disable this mapping.
 
     Examples
     --------

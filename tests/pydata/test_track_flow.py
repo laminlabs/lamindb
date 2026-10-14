@@ -107,10 +107,30 @@ def _delete_flow_run(run: ln.Run | None) -> None:
         transform.delete(permanent=True)
 
 
+def _storage_in_space(space: ln.Space, tmp_path: Path) -> ln.Storage:
+    """A local storage location in `space` so artifacts created there can be saved."""
+    root = (tmp_path / space.uid).resolve().as_posix()
+    storage = ln.Storage(root).save()
+    ln.Storage.filter(id=storage.id).update(
+        space_id=space.id,
+        instance_uid=ln.setup.settings.instance.uid,
+    )
+    storage.refresh_from_db()
+    return storage
+
+
+def _delete_space_storage(storage: ln.Storage | None) -> None:
+    if storage is None:
+        return
+    ln.Artifact.filter(storage=storage).delete(permanent=True)
+    storage.delete(permanent=True)
+
+
 @pytest.mark.parametrize("pass_uid", [False, True])
-def test_flow_space_hits_global_context_and_restores(pass_uid: bool):
+def test_flow_space_hits_global_context_and_restores(pass_uid: bool, tmp_path: Path):
     suffix = time.time_ns()
     inner = ln.Space(name=f"inner-flow-space-{suffix}").save()
+    storage = _storage_in_space(inner, tmp_path)
     previous = ln.context.space
     record = None
     run = None
@@ -129,7 +149,10 @@ def test_flow_space_hits_global_context_and_restores(pass_uid: bool):
         space_arg = inner.uid if pass_uid else inner.name
         run = ln.Run.get(uid=flow_with_space(space=space_arg))
         record = ln.Record.get(name=record_name)
+        assert run.space_id == inner.id
         assert record.space_id == inner.id
+        assert run.report is not None
+        assert run.report.space_id == inner.id
         assert ln.context.space is previous
         assert ln.context.run is None
     finally:
@@ -138,12 +161,14 @@ def test_flow_space_hits_global_context_and_restores(pass_uid: bool):
         if record is not None:
             record.delete(permanent=True)
         _delete_flow_run(run)
+        _delete_space_storage(storage)
         inner.delete(permanent=True)
 
 
-def test_flow_space_restores_after_error():
+def test_flow_space_restores_after_error(tmp_path: Path):
     suffix = time.time_ns()
     inner = ln.Space(name=f"inner-flow-error-space-{suffix}").save()
+    storage = _storage_in_space(inner, tmp_path)
     previous = ln.context.space
     run = None
     try:
@@ -161,12 +186,18 @@ def test_flow_space_restores_after_error():
             flow_with_space(space=inner.name)
         assert ln.context.space is previous
         assert ln.context.run is None
+        saved = ln.Run.get(uid=run.uid)
+        assert saved.space_id == inner.id
+        assert saved.report is not None
+        assert saved.report.space_id == inner.id
+        run = saved
     finally:
         ln.context._run = None
         ln.context._space = previous
         if run is not None:
             run = ln.Run.get(uid=run.uid)
         _delete_flow_run(run)
+        _delete_space_storage(storage)
         inner.delete(permanent=True)
 
 
@@ -222,9 +253,10 @@ def test_flow_without_space_leaves_global_space():
         _delete_flow_run(run)
 
 
-def test_flow_memorize_keeps_space_on_global_context():
+def test_flow_memorize_keeps_space_on_global_context(tmp_path: Path):
     suffix = time.time_ns()
     space = ln.Space(name=f"memorized-flow-space-{suffix}").save()
+    storage = _storage_in_space(space, tmp_path)
     run = None
     try:
 
@@ -236,14 +268,18 @@ def test_flow_memorize_keeps_space_on_global_context():
             return ln.context.run.uid
 
         run = ln.Run.get(uid=flow_with_space(space=space.name))
+        assert run.space_id == space.id
         assert ln.context.space is not None
         assert ln.context.space.uid == space.uid
         assert ln.context.run is not None
         assert ln.context.run.uid == run.uid
+        assert ln.context.run.report is not None
+        assert ln.context.run.report.space_id == space.id
     finally:
         ln.context._run = None
         ln.context._space = None
         _delete_flow_run(run)
+        _delete_space_storage(storage)
         space.delete(permanent=True)
 
 

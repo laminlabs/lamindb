@@ -914,6 +914,11 @@ class Context:
                         f"Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
                     )
             self._space = space_record
+            # @ln.flow tracks a separate Context and copies its run onto the
+            # global context. Constructors read that same global context, so
+            # the space has to be there before this run is created.
+            if self is not context:
+                context._space = space_record
         if branch is not None:
             if isinstance(branch, Branch):
                 assert branch._state.adding is False, (  # noqa: S101
