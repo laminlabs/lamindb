@@ -95,6 +95,158 @@ def test_flow_track_arg_aliases_implicit():
     )
 
 
+def _delete_flow_run(run: ln.Run | None) -> None:
+    if run is None:
+        return
+    report = run.report
+    transform = run.transform
+    run.delete(permanent=True)
+    if report is not None:
+        report.delete(permanent=True)
+    if transform is not None:
+        transform.delete(permanent=True)
+
+
+@pytest.mark.parametrize("pass_uid", [False, True])
+def test_flow_space_hits_global_context_and_restores(pass_uid: bool):
+    suffix = time.time_ns()
+    inner = ln.Space(name=f"inner-flow-space-{suffix}").save()
+    previous = ln.context.space
+    record = None
+    run = None
+    record_name = f"flow-space-record-{suffix}-{pass_uid}"
+    try:
+
+        @ln.flow(global_run="clear")
+        def flow_with_space(space: str) -> str:
+            assert ln.context.space is not None
+            assert ln.context.space.uid == inner.uid
+            assert ln.context.run is not None
+            created = ln.Record(name=record_name).save()
+            assert created.space_id == inner.id
+            return ln.context.run.uid
+
+        space_arg = inner.uid if pass_uid else inner.name
+        run = ln.Run.get(uid=flow_with_space(space=space_arg))
+        record = ln.Record.get(name=record_name)
+        assert record.space_id == inner.id
+        assert ln.context.space is previous
+        assert ln.context.run is None
+    finally:
+        ln.context._run = None
+        ln.context._space = previous
+        if record is not None:
+            record.delete(permanent=True)
+        _delete_flow_run(run)
+        inner.delete(permanent=True)
+
+
+def test_flow_space_restores_after_error():
+    suffix = time.time_ns()
+    inner = ln.Space(name=f"inner-flow-error-space-{suffix}").save()
+    previous = ln.context.space
+    run = None
+    try:
+
+        @ln.flow(global_run="clear")
+        def flow_with_space(space: str) -> None:
+            nonlocal run
+            assert ln.context.space is not None
+            assert ln.context.space.uid == inner.uid
+            assert ln.context.run is not None
+            run = ln.context.run
+            raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            flow_with_space(space=inner.name)
+        assert ln.context.space is previous
+        assert ln.context.run is None
+    finally:
+        ln.context._run = None
+        ln.context._space = previous
+        if run is not None:
+            run = ln.Run.get(uid=run.uid)
+        _delete_flow_run(run)
+        inner.delete(permanent=True)
+
+
+def test_flow_unknown_space_leaves_global_context():
+    suffix = time.time_ns()
+    outer = ln.Space(name=f"outer-unknown-space-{suffix}").save()
+    ln.context._space = outer
+    missing = f"missing-flow-space-{suffix}"
+    try:
+
+        @ln.flow(global_run="clear")
+        def flow_with_space(space: str) -> None:
+            raise AssertionError("should not run")
+
+        with pytest.raises(InvalidArgument, match=missing):
+            flow_with_space(space=missing)
+        assert ln.context.space is outer
+        assert ln.context.run is None
+    finally:
+        ln.context._run = None
+        ln.context._space = None
+        outer.delete(permanent=True)
+
+
+def test_flow_without_space_leaves_global_space():
+    suffix = time.time_ns()
+    # The current space manages storage, so the flow can save its source artifact.
+    current = ln.setup.settings.space
+    ln.context._space = current
+    record = None
+    run = None
+    try:
+
+        @ln.flow(global_run="clear")
+        def flow_without_space() -> str:
+            assert ln.context.space is not None
+            assert ln.context.space.uid == current.uid
+            created = ln.Record(name=f"kept-flow-space-record-{suffix}").save()
+            assert created.space_id == current.id
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run = ln.Run.get(uid=flow_without_space())
+        record = ln.Record.get(name=f"kept-flow-space-record-{suffix}")
+        assert record.space_id == current.id
+        assert ln.context.space is current
+        assert ln.context.run is None
+    finally:
+        ln.context._run = None
+        ln.context._space = None
+        if record is not None:
+            record.delete(permanent=True)
+        _delete_flow_run(run)
+
+
+def test_flow_memorize_keeps_space_on_global_context():
+    suffix = time.time_ns()
+    space = ln.Space(name=f"memorized-flow-space-{suffix}").save()
+    run = None
+    try:
+
+        @ln.flow(global_run="memorize")
+        def flow_with_space(space: str) -> str:
+            assert ln.context.space is not None
+            assert ln.context.space.uid == ln.Space.get(name=space).uid
+            assert ln.context.run is not None
+            return ln.context.run.uid
+
+        run = ln.Run.get(uid=flow_with_space(space=space.name))
+        assert ln.context.space is not None
+        assert ln.context.space.uid == space.uid
+        assert ln.context.run is not None
+        assert ln.context.run.uid == run.uid
+    finally:
+        ln.context._run = None
+        ln.context._space = None
+        _delete_flow_run(run)
+        space.delete(permanent=True)
+
+
 def test_flow_track_arg_aliases_false():
     unique = time.time_ns()
     missing_project = f"missing-flow-project-{unique}"

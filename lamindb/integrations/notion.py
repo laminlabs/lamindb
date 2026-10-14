@@ -5973,6 +5973,7 @@ def sync_objects_from_notion(
     apply: bool = False,
     depth: int = 0,
     workspace: str | None = None,
+    space: str | None = None,
 ) -> SyncReport:
     """Sync a Notion page to LaminDB records.
 
@@ -5990,6 +5991,9 @@ def sync_objects_from_notion(
         workspace: Notion workspace slug used in page URLs, for example
             `laminlabs` when the current database is `laminlabs/lamindata`.
             Defaults to the account handle of the current database.
+        space: LaminDB space name or uid for records created by this sync.
+            Defaults to the current space. Passed through to `ln.track` by
+            `@ln.flow`, which publishes it on the global run context.
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")

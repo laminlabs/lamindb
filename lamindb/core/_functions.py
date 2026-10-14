@@ -152,6 +152,7 @@ def _create_tracked_decorator(
             ):
                 key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)
+            previous_space = global_context._space
             context._track(
                 uid,
                 path=path,
@@ -172,27 +173,48 @@ def _create_tracked_decorator(
             token = current_tracked_run.set(context.run)
             if global_run in {"memorize", "clear"}:
                 global_context._run = context.run
+            # Publish alongside the run, after _track has saved the source
+            # artifact in the space that was already current.
+            if context.space is not None:
+                global_context._space = context.space
+
+            def restore_space_for_flow_artifacts() -> None:
+                # Run reports are artifacts and need a storage location. Keep
+                # them in the space that was current before this call.
+                if context.space is not None:
+                    global_context._space = previous_space
+
             try:
-                result = func(*args, **kwargs)
+                try:
+                    result = func(*args, **kwargs)
+                except Exception:
+                    restore_space_for_flow_artifacts()
+                    run = context.run
+                    if is_flow:
+                        # For flow runs, stream tracking is enabled and cleanup persists
+                        # errored status together with the run report upload.
+                        context._stream_tracker.cleanup()
+                    else:
+                        run.finished_at = datetime.now(timezone.utc)
+                        run._status_code = 1  # errored
+                        run.save()
+                    raise
+                restore_space_for_flow_artifacts()
                 context._finish()
                 return result
-            except Exception:
-                run = context.run
-                if is_flow:
-                    # For flow runs, stream tracking is enabled and cleanup persists
-                    # errored status together with the run report upload.
-                    context._stream_tracker.cleanup()
-                else:
-                    run.finished_at = datetime.now(timezone.utc)
-                    run._status_code = 1  # errored
-                    run.save()
-                raise
             finally:
                 if (
                     global_run == "clear"
                     and global_context.run == current_tracked_run.get()
                 ):
                     global_context._run = None
+                # `memorize` leaves the run on the global context, and the
+                # space stays with it. Every other mode restores the previous
+                # space, including a flow that clears its run.
+                if global_run == "memorize" and context.space is not None:
+                    global_context._space = context.space
+                elif context.space is not None:
+                    global_context._space = previous_space
                 current_tracked_run.reset(token)
 
         return wrapper_tracked
@@ -226,7 +248,9 @@ def flow(
             Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
         track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
             `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
-            for reproducibility. Pass `False` to disable this mapping.
+            for reproducibility. A `space` argument is published on the global run context for the call, same as
+            the run, so records created in the function use that space. With `global_run="memorize"` that space
+            stays; otherwise the previous space is restored afterward. Pass `False` to disable this mapping.
 
     Examples
     --------

@@ -868,7 +868,7 @@ Examples:
 
 ```
 lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27
-lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 1 --apply
+lamin integrations notion sync db7c1d2ec3a6495e859f8d21d533dd27 --depth 1 --space my-space --apply
 ```
 
 Options:
