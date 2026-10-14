@@ -23,6 +23,9 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
+polars = [
+    "lamindb-core[polars]",
+]
 gcp = [
     "lamindb-core[gcp]",
 ]

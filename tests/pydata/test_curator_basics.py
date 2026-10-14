@@ -1,5 +1,6 @@
 import re
 import textwrap
+from datetime import date
 
 import bionty as bt
 import lamindb as ln
@@ -1397,3 +1398,92 @@ def test_index_feature_exclusion_from_categoricals(df):
     # clean up
     schema.delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+def test_coerced_values_are_stored_in_artifact_pandas():
+    feature = ln.Feature(name="stored_coerce_int", dtype=int, coerce=True).save()
+    schema = ln.Schema(features=[feature], otype="DataFrame").save()
+    df = pd.DataFrame({"stored_coerce_int": ["1", "2"]})
+    artifact = ln.Artifact.from_dataframe(
+        df, key="stored_coerce/from_dataframe.parquet", schema=schema
+    ).save()
+    assert not pd.api.types.is_integer_dtype(
+        df["stored_coerce_int"]
+    )  # input is not mutated
+    assert pd.read_parquet(artifact.path)["stored_coerce_int"].tolist() == [1, 2]
+
+    curator = ln.curators.DataFrameCurator(
+        pd.DataFrame({"stored_coerce_int": ["3", "4"]}), schema
+    )
+    artifact2 = curator.save_artifact(key="stored_coerce/curator.parquet")
+    assert pd.read_parquet(artifact2.path)["stored_coerce_int"].tolist() == [3, 4]
+    artifact.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("coerce_level", ["feature", "schema"])
+def test_coerced_dates_keep_values_when_dtype_is_unchanged(coerce_level):
+    feature_coerce = True if coerce_level == "feature" else None
+    schema_coerce = True if coerce_level == "schema" else None
+    feature = ln.Feature(
+        name="stored_coerce_date", dtype=date, coerce=feature_coerce
+    ).save()
+    schema = ln.Schema(
+        features=[feature], otype="DataFrame", coerce=schema_coerce
+    ).save()
+    df = pd.DataFrame({"stored_coerce_date": ["2024-01-01", "2024-01-02"]})
+    try:
+        curator = ln.curators.DataFrameCurator(df, schema)
+        curator.validate()
+        assert df["stored_coerce_date"].tolist() == ["2024-01-01", "2024-01-02"]
+        assert curator.dataset["stored_coerce_date"].tolist() == [
+            date(2024, 1, 1),
+            date(2024, 1, 2),
+        ]
+        artifact = ln.Artifact.from_dataframe(
+            df, key=f"stored_coerce/dates_{coerce_level}.parquet", schema=schema
+        ).save()
+        assert pd.read_parquet(artifact.path)["stored_coerce_date"].tolist() == [
+            date(2024, 1, 1),
+            date(2024, 1, 2),
+        ]
+        artifact.delete(permanent=True)
+    finally:
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def test_noop_coercion_keeps_caller_frame_for_inplace_edits():
+    number = ln.Feature(name="keep_frame_num", dtype="num", coerce=True).save()
+    ln.ULabel(name="keep frame known").save()
+    ln.ULabel(name="keep frame canonical").save()
+    label = ln.Feature(name="keep_frame_label", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[number, label], otype="DataFrame").save()
+    df = pd.DataFrame(
+        {
+            "keep_frame_num": [1, 2],
+            "keep_frame_label": pd.Categorical(["keep frame known", "keep frame typo"]),
+        }
+    )
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="keep frame typo"):
+            curator.validate()
+        assert curator.dataset is df
+        df["keep_frame_label"] = df["keep_frame_label"].cat.rename_categories(
+            {"keep frame typo": "keep frame canonical"}
+        )
+        curator.validate()
+        assert df["keep_frame_label"].tolist() == [
+            "keep frame known",
+            "keep frame canonical",
+        ]
+    finally:
+        schema.delete(permanent=True)
+        number.delete(permanent=True)
+        label.delete(permanent=True)
+        ln.ULabel.filter(name__in=["keep frame known", "keep frame canonical"]).delete(
+            permanent=True
+        )

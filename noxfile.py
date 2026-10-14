@@ -105,6 +105,7 @@ def install_ci(session, group):
     extras = ""
     if group in ["unit-pydata-sqlite", "unit-pydata-postgres"]:
         extras += "fcs"
+        run(session, "uv pip install --system 'pandera[polars]>=0.24.0'")
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system mudata")
         run(session, "uv pip install --system marimo")
