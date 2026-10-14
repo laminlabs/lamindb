@@ -234,6 +234,25 @@ def test_polars_standardize(as_frame):
         ).standardize()
 
 
+@pytest.mark.parametrize(
+    "dtype,expected",
+    [
+        (date, pl.Date),
+        (datetime, pl.Datetime()),
+        ("datetime64[ns, UTC]", pl.Datetime(time_unit="ns", time_zone="UTC")),
+    ],
+)
+def test_polars_standardize_nullable_temporal_column(as_frame, dtype, expected):
+    schema = make_schema([("pl_missing_temporal", dtype, {"nullable": True})])
+    curator = ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_other": [1]})), schema
+    )
+    curator.standardize()
+    assert curator.dataset.collect_schema()["pl_missing_temporal"] == expected
+    assert eager(curator.dataset)["pl_missing_temporal"].to_list() == [None]
+    curator.validate()
+
+
 def test_polars_index_not_supported(as_frame):
     index = ln.Feature(name="pl_index", dtype=str).save()
     schema = ln.Schema(itype=ln.Feature, index=index).save()

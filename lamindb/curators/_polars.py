@@ -104,6 +104,21 @@ def _matches_dtype(dtype, expected: str) -> bool:
     return False
 
 
+def polars_dtype(dtype_str: str):
+    """Polars dtype Pandera matches exactly, or None when a custom check is used.
+
+    Date and datetime columns reject an untyped ``pl.Null`` column even when the
+    feature is nullable. Strings, numbers, lists, and categoricals do not.
+    """
+    if dtype_str == "datetime64[ns, UTC]":
+        return pl.Datetime(time_unit="ns", time_zone="UTC")
+    if dtype_str == "datetime":
+        return pl.Datetime
+    if dtype_str == "date":
+        return pl.Date
+    return None
+
+
 def column(feature, required: bool, schema_coerce: bool = False):
     """Translate a Lamin feature into a native Polars Pandera column."""
     dtype_str = feature._dtype_str
@@ -154,13 +169,4 @@ def column(feature, required: bool, schema_coerce: bool = False):
             ),
             **kwargs,
         )
-    dtype = (
-        pl.Datetime(time_unit="ns", time_zone="UTC")
-        if dtype_str == "datetime64[ns, UTC]"
-        else pl.Datetime
-        if dtype_str == "datetime"
-        else pl.Date
-        if dtype_str == "date"
-        else dtype_str
-    )
-    return pandera.Column(dtype, **kwargs)
+    return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)

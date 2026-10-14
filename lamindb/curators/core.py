@@ -1083,16 +1083,23 @@ class ComponentCurator(Curator):
             if self._is_polars:
                 import polars as pl
 
+                from ._polars import polars_dtype
+
                 if feature.name not in self._dataset.collect_schema().names():
                     if feature.default_value is None and not feature.nullable:
                         raise ValidationError(
                             f"Missing column {feature.name} cannot be added because is not nullable and has no default value"
                         )
+                    fill = pl.lit(feature.default_value)
+                    # pl.lit(None) is an untyped Null column. Typed date and
+                    # datetime checks reject that even when the feature is nullable.
+                    if feature.default_value is None:
+                        dtype = polars_dtype(feature._dtype_str)
+                        if dtype is not None:
+                            fill = fill.cast(dtype)
                     self._set_dataset(
                         self._dataset.with_columns(
-                            pl.repeat(pl.lit(feature.default_value), pl.len()).alias(
-                                feature.name
-                            )
+                            pl.repeat(fill, pl.len()).alias(feature.name)
                         )
                     )
                     logger.important(
