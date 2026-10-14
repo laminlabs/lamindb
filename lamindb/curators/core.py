@@ -822,6 +822,10 @@ class ComponentCurator(Curator):
                 raise InvalidArgument(
                     "Polars frames do not have an index. Use a column feature instead of Schema.index."
                 )
+            if schema.flexible:
+                raise InvalidArgument(
+                    "Polars frames cannot be curated with a flexible schema. Pass an explicit list of features, or use pandas."
+                )
         dataset_columns = (
             self._dataset.collect_schema().names()
             if self._is_polars

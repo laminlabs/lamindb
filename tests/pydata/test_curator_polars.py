@@ -339,7 +339,7 @@ def test_polars_invalid_coercion(as_frame, dtype):
 def test_polars_standardize_column_synonym(as_frame):
     feature = ln.Feature(name="pl_canonical_col", dtype=int).save()
     feature.add_synonym("pl_alias_col")
-    schema = ln.Schema(itype=ln.Feature).save()
+    schema = ln.Schema(features=[feature]).save()
     curator = ln.curators.DataFrameCurator(
         as_frame(pl.DataFrame({"pl_alias_col": [1]})), schema
     )
@@ -517,13 +517,14 @@ def test_polars_attrs_not_supported(as_frame):
         )
 
 
-def test_polars_flexible_schema(as_frame):
+def test_polars_flexible_schema_is_rejected(as_frame):
     ln.Feature(name="pl_flexible", dtype=int).save()
     schema = ln.Schema(itype=ln.Feature).save()
-    ln.curators.DataFrameCurator(
-        as_frame(pl.DataFrame({"pl_flexible": [1], "unregistered_column": ["a"]})),
-        schema,
-    ).validate()
+    with pytest.raises(InvalidArgument, match="flexible schema"):
+        ln.curators.DataFrameCurator(
+            as_frame(pl.DataFrame({"pl_flexible": [1], "unregistered_column": ["a"]})),
+            schema,
+        )
 
 
 def test_polars_schema_coerce_with_check_columns(as_frame):
@@ -656,6 +657,20 @@ def test_from_dataframe_path_stores_coerced_values(tmp_path, suffix):
     assert stored["pl_file_coerce"].dtype == pl.Int64
 
 
+def test_flexible_schema_path_uses_pandas(tmp_path):
+    ln.Feature(name="pl_flexible_file", dtype=int).save()
+    schema = ln.Schema(itype=ln.Feature).save()
+    path = tmp_path / "flexible.parquet"
+    pl.DataFrame({"pl_flexible_file": [1], "extra": ["a"]}).write_parquet(path)
+    artifact = ln.Artifact.from_dataframe(
+        str(path), key="polars/flexible.parquet", schema=schema
+    )
+    assert not isinstance(artifact._curator.dataset, (pl.DataFrame, pl.LazyFrame))
+    artifact.save()
+    assert artifact.schema == schema
+    assert artifact.path.read_bytes() == path.read_bytes()
+
+
 def test_scan_dataframe_file_falls_back_on_failure(tmp_path):
     from lamindb.models.artifact import _scan_dataframe_file
 
@@ -678,6 +693,9 @@ def test_remote_paths_are_scannable(monkeypatch):
     index = ln.Feature(name="pl_scan_index", dtype=str).save()
     indexed = ln.Schema(itype=ln.Feature, index=index).save()
     assert not _can_scan_lazily("s3://bucket/data.parquet", indexed)
+
+    flexible = ln.Schema(itype=ln.Feature).save()
+    assert not _can_scan_lazily("s3://bucket/data.parquet", flexible)
 
     monkeypatch.setattr(
         "lamindb.models.artifact.is_package_installed", lambda _name: False

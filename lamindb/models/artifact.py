@@ -1364,7 +1364,8 @@ def _can_scan_lazily(data: Any, schema: Any) -> bool:
         return False
     if not is_package_installed("polars"):
         return False
-    if not isinstance(schema, Schema) or schema.index is not None:
+    # Flexible schemas resolve features outside schema.members, so keep the pandas curator.
+    if not isinstance(schema, Schema) or schema.index is not None or schema.flexible:
         return False
     if path_str.endswith(".tsv") and _schema_coerces(schema):
         # coerced values can only be written back as csv or parquet
