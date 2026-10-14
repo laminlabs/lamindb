@@ -92,7 +92,7 @@ pip install lamindb-core
 
 </details>
 
-Agent? See `.agents/` in [`lamindb/`](https://github.com/laminlabs/lamindb/tree/main/lamindb). Docs: See [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) or [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents). Docs: See [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) or [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & datasets
 
