@@ -2574,11 +2574,35 @@ class DataFrameCatManager:
         if self._is_polars:
             import polars as pl
 
+            def enum_including(enum_dtype, synonyms):
+                # Enum categories are fixed, so a canonical label has to be
+                # added before the replaced values can be cast back.
+                categories = list(enum_dtype.categories)
+                known = set(categories)
+                for value in dict.fromkeys(synonyms.values()):
+                    if value not in known:
+                        categories.append(value)
+                        known.add(value)
+                if len(categories) == len(enum_dtype.categories):
+                    return enum_dtype
+                return pl.Enum(categories)
+
             dtype = self._dataset.collect_schema()[key]
             synonyms = self._cat_vectors[key]._synonyms or {}
             expression = pl.col(key)
             if isinstance(dtype, pl.List):
-                expression = expression.list.eval(pl.element().replace(synonyms))
+                if isinstance(dtype.inner, pl.Enum):
+                    dtype = pl.List(enum_including(dtype.inner, synonyms))
+                    expression = expression.list.eval(
+                        pl.element().cast(pl.String).replace(synonyms)
+                    )
+                else:
+                    expression = expression.list.eval(pl.element().replace(synonyms))
+            elif isinstance(dtype, pl.Enum):
+                dtype = enum_including(dtype, synonyms)
+                # replace() casts new labels to the original enum and fails
+                # when the canonical value is not already a category.
+                expression = expression.cast(pl.String).replace(synonyms)
             else:
                 expression = expression.replace(synonyms)
             self._update_dataset(self._dataset.with_columns(expression.cast(dtype)))

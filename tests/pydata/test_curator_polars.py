@@ -387,6 +387,37 @@ def test_polars_registry_synonyms(as_frame, list_values):
     curator.validate()
 
 
+@pytest.mark.parametrize("list_values", [False, True])
+def test_polars_enum_synonyms(as_frame, list_values):
+    label = bt.CellType(
+        name="polars enum canonical", synonyms="polars enum synonym"
+    ).save()
+    dtype = list[bt.CellType] if list_values else bt.CellType
+    schema = make_schema([("pl_enum_synonym", dtype, {})])
+    values = ["polars enum synonym"]
+    enum = pl.Enum(values)
+    series_dtype = pl.List(enum) if list_values else enum
+    series_values = [["polars enum synonym"]] if list_values else values
+    curator = ln.curators.DataFrameCurator(
+        as_frame(
+            pl.DataFrame(
+                {"pl_enum_synonym": pl.Series(series_values, dtype=series_dtype)}
+            )
+        ),
+        schema,
+    )
+    with pytest.raises(ValidationError):
+        curator.validate()
+    curator.cat.standardize("pl_enum_synonym")
+    expected = [[label.name]] if list_values else [label.name]
+    assert eager(curator.dataset)["pl_enum_synonym"].to_list() == expected
+    restored = curator.dataset.collect_schema()["pl_enum_synonym"]
+    restored_enum = restored.inner if list_values else restored
+    assert isinstance(restored_enum, pl.Enum)
+    assert list(restored_enum.categories) == ["polars enum synonym", label.name]
+    curator.validate()
+
+
 def test_polars_standardize_missing_registry_column(as_frame):
     schema = make_schema(
         [
