@@ -872,6 +872,13 @@ class ComponentCurator(Curator):
         else:
             assert schema.itype is not None  # noqa: S101
 
+        # Pandera coerces when the schema or the feature requests it.
+        self._coercion_requested = bool(schema.coerce) or any(
+            feature.coerce for feature in features
+        )
+        if schema.index is not None and schema.index.coerce:
+            self._coercion_requested = True
+
         pandera_columns = {}
         self._pandera_schema: pandera.DataFrameSchema | PolarsDataFrameSchema | None = (
             None
@@ -1176,13 +1183,15 @@ class ComponentCurator(Curator):
                     self._set_dataset(validated)
                 else:
                     validated = self._pandera_schema.validate(self._dataset, lazy=True)
-                    # keep the coerced values so that saved artifacts carry them,
-                    # but leave the caller's frame and in-place edits untouched otherwise
+                    # Keep coerced values so saved artifacts carry them. Some
+                    # coercions, such as ISO strings to datetime.date, leave the
+                    # dtype unchanged. Leave the caller's frame in place otherwise.
                     if (
                         isinstance(validated, pd.DataFrame)
                         and isinstance(self._dataset, pd.DataFrame)
                         and (
-                            not validated.dtypes.equals(self._dataset.dtypes)
+                            self._coercion_requested
+                            or not validated.dtypes.equals(self._dataset.dtypes)
                             or not validated.index.dtype == self._dataset.index.dtype
                         )
                     ):
