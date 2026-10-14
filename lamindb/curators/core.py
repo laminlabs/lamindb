@@ -1058,6 +1058,8 @@ class ComponentCurator(Curator):
     def _set_dataset(self, dataset) -> None:
         self._dataset = dataset
         self._cat_manager._dataset = dataset
+        # Cached distinct values belong to the previous frame.
+        self._cat_manager._unique_values = None
         self._is_validated = False
 
     @property

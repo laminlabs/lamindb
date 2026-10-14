@@ -387,6 +387,56 @@ def test_polars_standardize_missing_registry_column(as_frame):
         curator.validate()
 
 
+def test_polars_revalidate_after_filling_unregistered_default(as_frame):
+    ln.ULabel(name="polars cached label").save()
+    schema = make_schema(
+        [
+            (
+                "pl_cached_label",
+                ln.ULabel,
+                {
+                    "nullable": True,
+                    "default_value": "unregistered cached default",
+                },
+            )
+        ]
+    )
+    curator = ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_cached_label": ["polars cached label", None]})),
+        schema,
+    )
+    curator.validate()
+    assert curator.cat._unique_values is not None
+    curator.standardize()
+    assert curator.cat._unique_values is None
+    with pytest.raises(ValidationError, match="unregistered cached default"):
+        curator.validate()
+    assert not ln.ULabel.filter(name="unregistered cached default").exists()
+
+
+def test_polars_revalidate_after_adding_categorical_column(as_frame):
+    known = ln.ULabel(name="polars present label").save()
+    present = ln.Feature(name="pl_present_label", dtype=ln.ULabel).save()
+    missing = ln.Feature(
+        name="pl_added_label",
+        dtype=ln.ULabel,
+        nullable=True,
+        default_value="unregistered added label",
+    ).save()
+    schema = ln.Schema(
+        features=[present, missing.with_config(optional=True)],
+    ).save()
+    curator = ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_present_label": [known.name]})),
+        schema,
+    )
+    curator.validate()
+    curator.standardize()
+    assert "pl_added_label" in curator.dataset.collect_schema().names()
+    with pytest.raises(ValidationError, match="unregistered added label"):
+        curator.validate()
+
+
 def test_polars_csv_artifact(as_frame):
     schema = make_schema([("pl_csv", int, {"coerce": True})])
     frame = as_frame(pl.DataFrame({"pl_csv": ["1", "2"]}))
