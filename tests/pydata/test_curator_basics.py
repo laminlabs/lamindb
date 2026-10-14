@@ -1453,3 +1453,37 @@ def test_coerced_dates_keep_values_when_dtype_is_unchanged(coerce_level):
     finally:
         schema.delete(permanent=True)
         feature.delete(permanent=True)
+
+
+def test_noop_coercion_keeps_caller_frame_for_inplace_edits():
+    number = ln.Feature(name="keep_frame_num", dtype="num", coerce=True).save()
+    ln.ULabel(name="keep frame known").save()
+    ln.ULabel(name="keep frame canonical").save()
+    label = ln.Feature(name="keep_frame_label", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[number, label], otype="DataFrame").save()
+    df = pd.DataFrame(
+        {
+            "keep_frame_num": [1, 2],
+            "keep_frame_label": pd.Categorical(["keep frame known", "keep frame typo"]),
+        }
+    )
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="keep frame typo"):
+            curator.validate()
+        assert curator.dataset is df
+        df["keep_frame_label"] = df["keep_frame_label"].cat.rename_categories(
+            {"keep frame typo": "keep frame canonical"}
+        )
+        curator.validate()
+        assert df["keep_frame_label"].tolist() == [
+            "keep frame known",
+            "keep frame canonical",
+        ]
+    finally:
+        schema.delete(permanent=True)
+        number.delete(permanent=True)
+        label.delete(permanent=True)
+        ln.ULabel.filter(name__in=["keep frame known", "keep frame canonical"]).delete(
+            permanent=True
+        )

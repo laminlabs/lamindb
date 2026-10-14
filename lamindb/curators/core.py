@@ -1189,14 +1189,19 @@ class ComponentCurator(Curator):
                     validated = self._pandera_schema.validate(self._dataset, lazy=True)
                     # Keep coerced values so saved artifacts carry them. Some
                     # coercions, such as ISO strings to datetime.date, leave the
-                    # dtype unchanged. Leave the caller's frame in place otherwise.
+                    # dtype unchanged. An unchanged copy must stay the caller's
+                    # frame so later in-place edits remain visible.
                     if (
                         isinstance(validated, pd.DataFrame)
                         and isinstance(self._dataset, pd.DataFrame)
+                        and validated is not self._dataset
                         and (
-                            self._coercion_requested
-                            or not validated.dtypes.equals(self._dataset.dtypes)
+                            not validated.dtypes.equals(self._dataset.dtypes)
                             or not validated.index.dtype == self._dataset.index.dtype
+                            or (
+                                self._coercion_requested
+                                and not validated.equals(self._dataset)
+                            )
                         )
                     ):
                         self._set_dataset(validated)
