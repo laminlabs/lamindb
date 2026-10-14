@@ -47,14 +47,15 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Simple labels.
+    """Universal labels.
 
-    Is similar to :class:`~lamindb.Record`, but without the ability to link features.
+    Use this registry to manage simple labels.
+    For more complex entities with features, use :class:`~lamindb.Record` instead.
 
     For cell lines, cell types, tissues, and other biological entities,
     use the ontology sources in :mod:`bionty`.
-    `ULabel` does not sync from external ontologies.
-    Use it to build a universal label ontology.
+    `ULabel` does not sync from external ontologies but can hold its own
+    universal label ontology.
 
     Args:
         name: `str` A name.

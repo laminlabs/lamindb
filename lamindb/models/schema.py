@@ -409,19 +409,34 @@ class SchemaOptionals:
                     self.schema._aux["af"]["1"].remove(feature.uid)
 
     def add(self, features: Feature | list[Feature]) -> None:
-        """Make one or multiple features optional by adding them to the set of optional features."""
-        self.schema._aux = self.schema._aux or {}
+        """Add one or multiple existing features to the optional features.
+
+        This is a low-level method and it assumes that the features already belong to the schema.
+
+        To add a feature to the schema, use the high-level
+        :meth:`~lamindb.Schema.add`, which also marks a feature as optional
+        unless `optional=False` is passed.
+
+        If `minimal_set` is false, every feature is already optional and this method
+        does nothing.
+        """
         if not isinstance(features, list):
             features = [features]
         if not all(isinstance(f, Feature) for f in features):
             raise TypeError("features must be a list of Feature records!")
-        if len(features) > 0:
-            if "1" not in self.schema._aux.setdefault("af", {}):
-                self.set(features)
-            else:
-                self.schema._aux.setdefault("af", {})["1"].extend(
-                    [f.uid for f in features]
-                )
+        if len(features) == 0 or self.schema.minimal_set is False:
+            return
+
+        members = self.schema.members
+        if any(feature not in members for feature in features):
+            raise ValueError(
+                "Feature not part of the schema, please use schema.add() instead."
+            )
+        self.schema._aux = self.schema._aux or {}
+        if "1" not in self.schema._aux.setdefault("af", {}):
+            self.set(features)
+        else:
+            self.schema._aux.setdefault("af", {})["1"].extend([f.uid for f in features])
 
 
 KNOWN_SCHEMAS = {  # by hash

@@ -5,6 +5,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.models import LabelManager
 from lamindb.models.feature import (
     FeaturePredicate,
     _format_cat_filter_value,
@@ -383,14 +384,14 @@ def test_feature_from_dataframe():
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
     with pytest.raises(ValidationError) as err:
-        artifact.labels.add(labels, feature=feature)
+        LabelManager(artifact).add(labels, feature=feature)
     assert (
         err.exconly()
         == "lamindb.errors.ValidationError: Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
     )
     extfeature = ln.Feature(name="extfeat", dtype="str").save()
     with pytest.raises(ValidationError) as err:
-        artifact.labels.add(labels, feature=extfeature)
+        LabelManager(artifact).add(labels, feature=extfeature)
     assert (
         err.exconly()
         == f"lamindb.errors.ValidationError: Feature {extfeature.name} needs dtype='cat' for label annotation, currently has dtype='str'"
