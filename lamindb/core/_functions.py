@@ -152,23 +152,29 @@ def _create_tracked_decorator(
             ):
                 key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)
-            context._track(
-                uid,
-                path=path,
-                key=key,
-                source_code=source_code,
-                kind=transform_kind,
-                entrypoint=func.__qualname__,
-                params=params,
-                expected_param_types=expected_param_types,
-                new_run=True,
-                project=track_kwargs.get("project"),
-                space=track_kwargs.get("space"),
-                branch=track_kwargs.get("branch"),
-                plan=track_kwargs.get("plan"),
-                initiated_by_run=initiated_by_run,
-                stream_tracking=is_flow,
-            )
+            previous_space = global_context._space
+            try:
+                context._track(
+                    uid,
+                    path=path,
+                    key=key,
+                    source_code=source_code,
+                    kind=transform_kind,
+                    entrypoint=func.__qualname__,
+                    params=params,
+                    expected_param_types=expected_param_types,
+                    new_run=True,
+                    project=track_kwargs.get("project"),
+                    space=track_kwargs.get("space"),
+                    branch=track_kwargs.get("branch"),
+                    plan=track_kwargs.get("plan"),
+                    initiated_by_run=initiated_by_run,
+                    stream_tracking=is_flow,
+                )
+            except Exception:
+                if global_run != "memorize" and context.space is not None:
+                    global_context._space = previous_space
+                raise
             token = current_tracked_run.set(context.run)
             if global_run in {"memorize", "clear"}:
                 global_context._run = context.run
@@ -193,6 +199,10 @@ def _create_tracked_decorator(
                     and global_context.run == current_tracked_run.get()
                 ):
                     global_context._run = None
+                # Same lifetime as the run: `memorize` keeps the space,
+                # every other mode puts the previous space back.
+                if global_run != "memorize" and context.space is not None:
+                    global_context._space = previous_space
                 current_tracked_run.reset(token)
 
         return wrapper_tracked
@@ -226,7 +236,10 @@ def flow(
             Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
         track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
             `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
-            for reproducibility. Pass `False` to disable this mapping.
+            for reproducibility. A `space` argument is published on the global run context for the call, same as
+            the run, so the run and everything created during it, including its report, use that space.
+            With `global_run="memorize"` that space stays; otherwise the previous space is restored afterward.
+            Pass `False` to disable this mapping.
 
     Examples
     --------
