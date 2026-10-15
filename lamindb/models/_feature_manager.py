@@ -2556,6 +2556,28 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
 
+def _null_sentinel_for_pandas_dtype(dtype: Any) -> Any:
+    """Missing value accepted by `pd.Series(..., dtype=dtype)`.
+
+    Extension dtypes (`string`, `boolean`, `Int64`) accept `pd.NA` and reject
+    `None`. Numpy floating dtypes accept `NaN` and reject `pd.NA`.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(dtype, pd.api.extensions.ExtensionDtype):
+        return pd.NA
+    resolved = dtype
+    if not isinstance(resolved, np.dtype):
+        try:
+            resolved = pd.api.types.pandas_dtype(dtype)
+        except (TypeError, ValueError):
+            return pd.NA
+    if isinstance(resolved, np.dtype) and resolved.kind == "f":
+        return np.nan
+    return pd.NA
+
+
 def bulk_set_features_in_records(
     records: Iterable[Record], using: str | None = None
 ) -> None:
@@ -2649,13 +2671,20 @@ def bulk_set_features_in_records(
     data: dict[str, pd.Series] = {}
     multivalued_columns: list[str] = []
     for column in ordered_columns:
-        # None from entirely-null columns is not a valid sentinel for extension
-        # dtypes (StringDtype, BooleanDtype, Int64Dtype) — convert to pd.NA
-        values = [
-            pd.NA if v is None else v
-            for v in (row.get(column, pd.NA) for row in prepared_rows)
-        ]
         target_dtype = feature_dtype_by_name.get(column)
+        # Per-row dicts drop null cells, and entirely-null columns are stored as
+        # None. Extension dtypes need pd.NA. Numpy floats reject pd.NA
+        # (`float() argument must be a ... number, not 'NAType'`), so those
+        # columns use NaN, which is also what a nullable float64 frame stores.
+        missing = (
+            _null_sentinel_for_pandas_dtype(target_dtype)
+            if target_dtype is not None
+            else pd.NA
+        )
+        values = [
+            missing if v is None or v is pd.NA else v
+            for v in (row.get(column, missing) for row in prepared_rows)
+        ]
         is_multivalued = any(
             isinstance(v, (list, tuple, set, np.ndarray)) for v in values
         )
