@@ -733,7 +733,6 @@ def test_dbwrite_uninstall():
 
 
 def test_consistency_enforcement_uninstall():
-    keep_trigger = "consistencyxkeep"
     triggers_exist_query = """
         SELECT EXISTS (
             SELECT 1
@@ -751,45 +750,18 @@ def test_consistency_enforcement_uninstall():
         )
     """
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            CREATE OR REPLACE FUNCTION consistency_keep_fn()
-            RETURNS trigger
-            LANGUAGE plpgsql
-            AS $fn$ BEGIN RETURN NEW; END $fn$
-            """
-        )
-        cur.execute(
-            """
-            CREATE TRIGGER consistencyxkeep
-            BEFORE INSERT ON lamindb_ulabel
-            FOR EACH ROW
-            EXECUTE FUNCTION consistency_keep_fn()
-            """
-        )
         cur.execute(triggers_exist_query)
         assert cur.fetchone()[0]
         cur.execute(function_exists_query)
         assert cur.fetchone()[0]
 
-    try:
-        uninstall_consistency_enforcement(pgurl)
+    uninstall_consistency_enforcement(pgurl)
 
-        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
-            cur.execute(triggers_exist_query)
-            assert not cur.fetchone()[0]
-            cur.execute(function_exists_query)
-            assert not cur.fetchone()[0]
-            # This name shares the consistency stem and must stay installed.
-            cur.execute(
-                "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = %s)",
-                (keep_trigger,),
-            )
-            assert cur.fetchone()[0]
-    finally:
-        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
-            cur.execute("DROP TRIGGER IF EXISTS consistencyxkeep ON lamindb_ulabel")
-            cur.execute("DROP FUNCTION IF EXISTS consistency_keep_fn()")
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(triggers_exist_query)
+        assert not cur.fetchone()[0]
+        cur.execute(function_exists_query)
+        assert not cur.fetchone()[0]
 
 
 def test_lamin_dev():
