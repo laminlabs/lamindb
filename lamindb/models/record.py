@@ -975,7 +975,7 @@ class RecordBatch:
 
         Args:
             using: Optional slug of a target instance to write the whole batch
-                (records, scalar features, and multi-valued link rows) to, with
+                (records, to-one feature values, and to-many link rows) to, with
                 the same semantics as ``ln.save(..., using=...)``. The batch's
                 record type must already exist on that instance.
         """

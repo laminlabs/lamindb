@@ -1799,25 +1799,26 @@ class FeatureManager:
 
         Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations
 
-        On a `Record`, non-`None` values are only accepted for features with a `list[...]` dtype.
-        For scalar features, use `set_values()` to replace all feature annotations.
+        On a `Record`, non-`None` values are only accepted for to-many features,
+        declared with a `list[...]` dtype. For to-one features, use `set_values()`
+        to replace all feature annotations.
         An `Artifact` or `Run` can be annotated with multiple values for a feature,
-        including features with scalar dtypes, to represent aggregated values.
+        including to-one features, to represent aggregated values.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
-                Values of `None` are skipped, including for scalar features, and leave
+                Values of `None` are skipped, including for to-one features, and leave
                 existing annotations unchanged. Feature keys are still resolved and validated.
             feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
 
         Examples::
 
-            # Aggregate values from a dataset's scalar cell_type feature.
+            # Aggregate values from a dataset's to-one cell_type feature.
             artifact.features.add_values({"cell_type": "B cell"})
             artifact.features.add_values({"cell_type": "T cell"})
 
-            # Annotate a Record's list-valued cell_types feature.
+            # Annotate a Record's to-many cell_types feature.
             record.features.add_values({"cell_types": ["B cell", "T cell"]})
         """
         from lamindb.curators.core import ExperimentalDictCurator
