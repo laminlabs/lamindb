@@ -1942,6 +1942,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # precomputed size/hash/hash_type/n_files, e.g. via API
         stats: dict[str, Any] | None = kwargs.pop("_stats", None)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
+        if overwrite_versions is True and not _is_internal_call:
+            logger.warning(
+                "`overwrite_versions=True` in the Artifact constructor saves storage cost but means that artifact versions are overwritten in storage"
+            )
 
         if key is not None and _s().AUTO_KEY_PREFIX in key:
             raise ValueError(
