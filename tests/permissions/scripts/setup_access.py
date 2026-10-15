@@ -8,8 +8,11 @@ from hubmodule.dev.setup.install import (
     _setup_secret,
     _setup_utils_db_modules,
 )
-from hubmodule.sql_generators._rls import RLSGenerator
+from hubmodule.sql_generators._consistency_enforcement import (
+    install_consistency_enforcement,
+)
 from hubmodule.sql_generators._dbwrite import install_dbwrite
+from hubmodule.sql_generators._rls import RLSGenerator
 from laminhub_instancedb.postgres import DbRoleHandler
 from pathlib import Path
 
@@ -49,6 +52,10 @@ print("Created jwt db connection")
 install_dbwrite(pgurl)
 
 print("Installed dbwrite")
+
+install_consistency_enforcement(pgurl)
+
+print("Installed consistency enforcement")
 
 # create models
 

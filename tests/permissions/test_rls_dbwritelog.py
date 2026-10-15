@@ -1,5 +1,6 @@
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,6 +10,9 @@ import psycopg2
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
+from hubmodule.sql_generators._consistency_enforcement import (
+    uninstall_consistency_enforcement,
+)
 from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models._lineage import track_run_inputs
@@ -504,6 +508,181 @@ def test_tracking_error():
     assert "You’re not allowed to write to the instance " in str(e)
 
 
+def test_consistency_enforcement():
+    # Far from the statement clock, so a kept value cannot be a fresh stamp.
+    forged_created_at = datetime(2001, 1, 1, tzinfo=timezone.utc)
+    forged_updated_at = datetime(2001, 1, 2, tzinfo=timezone.utc)
+    admin_created_at = datetime(1999, 5, 6, tzinfo=timezone.utc)
+    admin_updated_at = datetime(1999, 7, 8, tzinfo=timezone.utc)
+    account_id = uuid4().hex
+    jwt_db = ln.setup.settings.instance.db
+    actor_id = None
+    original_name = None
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM lamindb_space WHERE name = 'full access'")
+        space_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            SELECT u.id, u.name, u.created_at
+            FROM lamindb_user u
+            JOIN hubmodule_account a ON a.uid = u.uid
+            WHERE a.id = %s
+            """,
+            (user_uuid,),
+        )
+        actor_id, original_name, user_created_at = cur.fetchone()
+        cur.execute("SELECT id FROM lamindb_user WHERE handle = 'testuser'")
+        other_user_id = cur.fetchone()[0]
+        # authenticated account with no lamindb user: writes must fail closed
+        cur.execute(
+            """
+            INSERT INTO hubmodule_account (id, uid, role)
+            VALUES (%s, 'nouser01', 'read')
+            """,
+            (account_id,),
+        )
+        cur.execute(
+            """
+            INSERT INTO hubmodule_accessspace (account_id, space_id, role)
+            VALUES (%s, %s, 'write')
+            """,
+            (account_id, space_id),
+        )
+
+    try:
+        token_no_user = sign_jwt(
+            pgurl,
+            {"account_id": account_id, "exp": expiration, "type": "collaborator"},
+        )
+        with psycopg2.connect(jwt_db) as conn, conn.cursor() as cur:
+            cur.execute("SELECT set_token(%s);", (token_no_user,))
+            with pytest.raises(psycopg2.errors.RaiseException) as exc:
+                cur.execute(
+                    """
+                    INSERT INTO lamindb_ulabel (uid, name, space_id, created_by_id)
+                    VALUES ('noaccess', 'missing user label', %s, %s)
+                    """,
+                    (space_id, other_user_id),
+                )
+            assert "lamin user id is not set" in str(exc.value)
+            conn.rollback()
+
+        with psycopg2.connect(jwt_db) as conn, conn.cursor() as cur:
+            cur.execute("SELECT set_token(%s);", (token,))
+            # A later statement must not reuse the transaction start time.
+            cur.execute("SELECT pg_sleep(0.01)")
+            cur.execute(
+                """
+                INSERT INTO lamindb_ulabel (
+                    uid, name, space_id, created_by_id, created_at, updated_at
+                )
+                VALUES ('forged01', 'forged label', %s, %s, %s, %s)
+                RETURNING created_by_id, created_at, updated_at,
+                          statement_timestamp(), transaction_timestamp()
+                """,
+                (
+                    space_id,
+                    other_user_id,
+                    forged_created_at,
+                    forged_updated_at,
+                ),
+            )
+            created_by_id, created_at, updated_at, statement_ts, transaction_ts = (
+                cur.fetchone()
+            )
+            assert created_by_id == actor_id
+            assert created_at == statement_ts
+            assert updated_at == statement_ts
+            assert created_at > transaction_ts
+            assert created_at != forged_created_at
+            assert updated_at != forged_updated_at
+
+            cur.execute("SELECT pg_sleep(0.01)")
+            cur.execute(
+                """
+                UPDATE lamindb_ulabel
+                SET name = 'forged label update',
+                    created_by_id = %s,
+                    created_at = %s,
+                    updated_at = %s
+                WHERE uid = 'forged01'
+                RETURNING created_by_id, created_at, updated_at, statement_timestamp()
+                """,
+                (other_user_id, forged_created_at, forged_updated_at),
+            )
+            updated_by_id, updated_created_at, updated_at, statement_ts = cur.fetchone()
+            assert updated_by_id == actor_id
+            assert updated_created_at == created_at
+            assert updated_at == statement_ts
+            assert updated_at > created_at
+
+            cur.execute("SELECT pg_sleep(0.01)")
+            cur.execute(
+                """
+                UPDATE lamindb_user
+                SET name = 'consistency', created_at = %s, updated_at = %s
+                WHERE id = %s
+                RETURNING created_at, updated_at, statement_timestamp()
+                """,
+                (forged_created_at, forged_updated_at, actor_id),
+            )
+            kept_created_at, user_updated_at, statement_ts = cur.fetchone()
+            assert kept_created_at == user_created_at
+            assert user_updated_at == statement_ts
+            assert user_updated_at != forged_updated_at
+            cur.execute(
+                "UPDATE lamindb_user SET name = %s WHERE id = %s",
+                (original_name, actor_id),
+            )
+
+        # no lamin user row: a migration session keeps the values it sent
+        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO lamindb_ulabel (
+                    uid, name, space_id, created_by_id, created_at, updated_at
+                )
+                VALUES ('admin001', 'admin kept label', %s, %s, %s, %s)
+                RETURNING created_by_id, created_at, updated_at
+                """,
+                (space_id, other_user_id, forged_created_at, forged_updated_at),
+            )
+            assert cur.fetchone() == (
+                other_user_id,
+                forged_created_at,
+                forged_updated_at,
+            )
+            cur.execute(
+                """
+                UPDATE lamindb_ulabel
+                SET created_by_id = %s, created_at = %s, updated_at = %s
+                WHERE uid = 'admin001'
+                RETURNING created_by_id, created_at, updated_at
+                """,
+                (actor_id, admin_created_at, admin_updated_at),
+            )
+            assert cur.fetchone() == (actor_id, admin_created_at, admin_updated_at)
+    finally:
+        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM lamindb_ulabel
+                WHERE uid IN ('forged01', 'admin001', 'noaccess')
+                """
+            )
+            if actor_id is not None:
+                cur.execute(
+                    "UPDATE lamindb_user SET name = %s WHERE id = %s",
+                    (original_name, actor_id),
+                )
+            cur.execute(
+                "DELETE FROM hubmodule_accessspace WHERE account_id = %s",
+                (account_id,),
+            )
+            cur.execute("DELETE FROM hubmodule_account WHERE id = %s", (account_id,))
+
+
 def test_token_reset():
     # create the temp tables in this session before dropping the token
     ln.ULabel.filter().exists()
@@ -551,6 +730,66 @@ def test_dbwrite_uninstall():
         cur.execute(table_exists_query)
         table_exists = cur.fetchone()[0]
     assert not table_exists
+
+
+def test_consistency_enforcement_uninstall():
+    keep_trigger = "consistencyxkeep"
+    triggers_exist_query = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_trigger
+            WHERE starts_with(tgname, 'consistency_')
+              AND NOT tgisinternal
+        )
+    """
+    function_exists_query = """
+        SELECT EXISTS (
+            SELECT 1
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'consistency_enforcement'
+        )
+    """
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE OR REPLACE FUNCTION consistency_keep_fn()
+            RETURNS trigger
+            LANGUAGE plpgsql
+            AS $fn$ BEGIN RETURN NEW; END $fn$
+            """
+        )
+        cur.execute(
+            """
+            CREATE TRIGGER consistencyxkeep
+            BEFORE INSERT ON lamindb_ulabel
+            FOR EACH ROW
+            EXECUTE FUNCTION consistency_keep_fn()
+            """
+        )
+        cur.execute(triggers_exist_query)
+        assert cur.fetchone()[0]
+        cur.execute(function_exists_query)
+        assert cur.fetchone()[0]
+
+    try:
+        uninstall_consistency_enforcement(pgurl)
+
+        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+            cur.execute(triggers_exist_query)
+            assert not cur.fetchone()[0]
+            cur.execute(function_exists_query)
+            assert not cur.fetchone()[0]
+            # This name shares the consistency stem and must stay installed.
+            cur.execute(
+                "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = %s)",
+                (keep_trigger,),
+            )
+            assert cur.fetchone()[0]
+    finally:
+        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+            cur.execute("DROP TRIGGER IF EXISTS consistencyxkeep ON lamindb_ulabel")
+            cur.execute("DROP FUNCTION IF EXISTS consistency_keep_fn()")
 
 
 def test_lamin_dev():
