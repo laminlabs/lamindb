@@ -1920,7 +1920,7 @@ def test_record_features_add_remove_values():
         "feature_description": "row stored on Record.description",
     }
 
-    test_record.features.add_values(test_values)
+    test_record.features.set_values(test_values)
     assert test_record.features.get_values() == test_values
 
     # --- Query by features (same data as above) ---
@@ -1974,7 +1974,7 @@ def test_record_features_add_remove_values():
     assert "Did not find" in error.exconly()
     # __contains returns multiple (add second record, assert, then remove)
     value_record = ln.Record(name="query_test_value_record").save()
-    value_record.features.add_values({"feature_type1": "entity2"})
+    value_record.features.set_values({"feature_type1": "entity2"})
     assert len(ln.Record.filter(feature_type1__contains="entity")) == 2
     value_record.features.remove_values("feature_type1")
     value_record.delete(permanent=True)
@@ -2196,7 +2196,7 @@ def test_record_features_add_remove_values():
     feature_date.coerce = True  # have to allow coercion because we're passing a string
     feature_date.save()
     test_values["feature_date"] = "2024-01-02"
-    test_record2.features.add_values(test_values)
+    test_record2.features.set_values(test_values)
     test_record2.type = sheet
     test_record2.save()
     test_values["feature_date"] = date(2024, 1, 2)
@@ -2278,13 +2278,15 @@ def test_record_features_add_remove_values():
     test_values.pop("feature_run")
     assert test_record.features.get_values() == test_values
 
-    # test passing None has no effect, does not lead to annotation
+    # None is skipped for both scalar and list features without changing annotations.
 
     sheet.schema = None
     sheet.save()
     schema.delete(permanent=True)
 
-    test_record.features.add_values({"feature_int": None, "feature_type1": None})
+    test_record.features.add_values(
+        {"feature_int": None, "feature_type1": None, "feature_list_int": None}
+    )
     assert test_record.features.get_values() == test_values
 
     # schema validation
@@ -2295,7 +2297,7 @@ def test_record_features_add_remove_values():
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
     test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
     with pytest.raises(ln.errors.ValidationError) as error:
-        test_record_in_form.features.add_values({"feature_type1": "entity1"})
+        test_record_in_form.features.set_values({"feature_type1": "entity1"})
     assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
@@ -2383,7 +2385,7 @@ def test_date_and_datetime_corruption():
         "feature_datetime": "2024-01-01T12:00:00Z",
         "feature_date": "2025-01-17",
     }
-    record.features.add_values(test_values)
+    record.features.set_values(test_values)
     date_value = ln.models.RecordJson.get(record=record, feature=feature_date)
     # manually corrupt the value
     date_value.value = "2025-01-17T00:00:00.000Z"
@@ -2420,7 +2422,7 @@ def test_timezone_aware_datetime_feature():
     record = ln.Record(name="test_record_datetime_tz", type=test_sheet).save()
     timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 
-    record.features.add_values({"feature_datetime_tz": timestamp})
+    record.features.set_values({"feature_datetime_tz": timestamp})
     assert record.features.get_values() == {"feature_datetime_tz": timestamp}
 
     df = test_sheet.to_dataframe()
@@ -2515,8 +2517,8 @@ def test_record_feature_predicate_query():
     record_a = ln.Record(name="pred_record_a", type=record_type).save()
     record_b = ln.Record(name="pred_record_b", type=record_type).save()
     record_c = ln.Record(name="pred_record_c", type=record_type).save()
-    record_a.features.add_values({"pred_record_age": 42})
-    record_b.features.add_values({"pred_record_age": 10})
+    record_a.features.set_values({"pred_record_age": 42})
+    record_b.features.set_values({"pred_record_age": 10})
 
     assert ln.Record.filter(age > 40).one() == record_a
     assert ln.Record.filter(age <= 10).one() == record_b
@@ -2543,7 +2545,8 @@ def test_record_features_accept_feature_object_keys():
     feature_tag = ln.Feature(name="record_feature_object_tag", dtype=str).save()
     record = ln.Record(name="record_feature_object_test").save()
 
-    record.features.add_values({feature_score: 7, "record_feature_object_tag": "a"})
+    record.features.set_values({feature_score: 7, "record_feature_object_tag": "a"})
+    record.features.add_values({feature_score: None, "record_feature_object_tag": None})
     assert record.features.get_values() == {
         "record_feature_object_score": 7,
         "record_feature_object_tag": "a",
@@ -2553,7 +2556,19 @@ def test_record_features_accept_feature_object_keys():
     record.features.set_values({feature_tag: "b"})
     assert record.features.get_values() == {"record_feature_object_tag": "b"}
 
-    record.features.add_values({feature_score: 9})
+    expected_error = (
+        "Cannot use add_values() for features with scalar dtypes on a Record: "
+        f"{[feature_score.name]}. Use set_values() to replace all feature annotations."
+    )
+    for feature_key in (feature_score, feature_score.name):
+        with pytest.raises(ln.errors.ValidationError) as error:
+            record.features.add_values({feature_key: 9})
+        assert str(error.value) == expected_error
+        assert record.features.get_values() == {"record_feature_object_tag": "b"}
+
+    current_values = record.features.get_values()
+    current_values[feature_score] = 9
+    record.features.set_values(current_values)
     assert record.features.get_values() == {
         "record_feature_object_score": 9,
         "record_feature_object_tag": "b",
@@ -2658,25 +2673,27 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
     record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
     feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
+    schema = ln.Schema([feature]).save()
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.add_values({feature: record_b})
+        sample.features.set_values({feature: record_b}, schema=schema)
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.add_values({feature: [record_a, record_b]})
+        sample.features.set_values({feature: [record_a, record_b]}, schema=schema)
 
     # cleanup
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
+    schema.delete(permanent=True)
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)

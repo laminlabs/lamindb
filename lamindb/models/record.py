@@ -1430,7 +1430,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         super().save(*args, **kwargs)
         if hasattr(self, "_features"):
             pending_features = self._features
-            self.features.add_values(pending_features)
+            self.features.set_values(pending_features)
             del self._features
         return self
 
