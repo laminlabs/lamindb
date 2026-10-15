@@ -169,7 +169,7 @@ def test_repr_describe():
 def test_record_describe_includes_features():
     record = ln.Record(name="describe record").save()
     feature = ln.Feature(name="describe_metric", dtype=float).save()
-    record.features.add_values({"describe_metric": 1.23})
+    record.features.set_values({"describe_metric": 1.23})
 
     output = record.describe(return_str=True)
     assert "Features" in output

@@ -1797,51 +1797,31 @@ class FeatureManager:
     ) -> None:
         """Add values for features.
 
-        Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations at the danger
-        of violating multiplicity of categorical dtypes (see warning below).
+        Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations
+
+        On a `Record`, `add_values()` accepts to-many features, declared with a
+        `list[...]` dtype. Values of `None` are skipped for all features.
+
+        To annotate to-one features, use `set_values()` instead.
+
+        On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
+        allowing multiple values to represent aggregated measurements.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
-                If a value is `None`, it will be skipped.
+                Values of `None` are skipped, including for to-one features, and leave
+                existing annotations unchanged. Feature keys are still resolved and validated.
             feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
-            schema: Schema to validate against.
 
-        .. warning::
+        Examples::
 
-            If you run::
+            # Aggregate values from a dataset's to-one cell_type feature.
+            artifact.features.add_values({"cell_type": "B cell"})
+            artifact.features.add_values({"cell_type": "T cell"})
 
-                obj.features.add_values({"my_categorical": "my_category1"})
-                obj.features.add_values({"my_categorical": "my_category2"})
-
-            you will annotate the object with two different values for the same feature even if its dtype is not a `list`.
-            That is, `add_values()` does **not** validate the `dtype` of a categorical feature across multiple calls.
-
-            To avoid this, please use `set_values()`.
-
-        .. dropdown:: Why is multiplicity of categorical dtypes not validated?
-
-            For simple data types like `int`, `date`, `dict`, etc., `add_values()` ensures that there is only
-            one value for a given `Record` and feature.
-
-            But for categorical/relational features or for simple dtypes in the context of annotating an `Artifact`, the underlying link table allows linking multiple
-            values to the same object and feature, so that both `list` dtypes and `set`-like aggregations on an object
-            can be represented with relational integrity.
-
-            Examples::
-
-                # the following needs to be allowed even if `cell_type` has dtype `CellType`, and not `list[CellType]`
-                # this is because the artifact might be a `DataFrame` with a column `cell_type` that has dtype `CellType`
-                # and the annotations on the artifact-level represent the aggregation of all values in that column
-                artifact.features.add_values({"cell_type": "B cell"})
-                artifact.features.add_values({"cell_type": "T cell"})
-                artifact.features.add_values({"cell_type": "NK cell"})
-
-                # now an example for Record
-                # while a record will never represent an aggregation, we still want to express
-                # lists of values with relational integrity, for instance, this
-                record.features.add_values({"cell_types": ["B cell", "T cell", "NK cell"]})
-
+            # Annotate a Record's to-many cell_types feature.
+            record.features.add_values({"cell_types": ["B cell", "T cell"]})
         """
         from lamindb.curators.core import ExperimentalDictCurator
 
@@ -1894,6 +1874,22 @@ class FeatureManager:
                 explicit_features, looked_up_features
             )
             schema = Schema(feature_objects)
+        if host_is_record:
+            scalar_features = [
+                feature.name
+                for feature in feature_objects
+                if (
+                    feature.dtype_as_str is None
+                    or not feature.dtype_as_str.startswith("list[")
+                )
+                and values_by_feature_uid.get(feature.uid, dictionary[feature.name])
+                is not None
+            ]
+            if scalar_features:
+                raise ValidationError(
+                    "Cannot use add_values() for to-one features on a Record: "
+                    f"{scalar_features}. Use set_values() to replace all feature annotations."
+                )
         self._normalize_user_feature_values(
             feature_objects,
             dictionary,

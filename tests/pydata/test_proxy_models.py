@@ -97,7 +97,7 @@ def test_proxy_record_links_a_proxy_label_on_the_record_table():
     host = ProxyRecord(name="proxy-models-host").save()
     label = ProxyRecord(name="proxy-models-label").save()
     try:
-        host.features.add_values({"proxy_models_sample": label})
+        host.features.set_values({"proxy_models_sample": label})
         assert ln.models.RecordRecord.filter(
             record_id=host.id, feature=feature, value_id=label.id
         ).exists()

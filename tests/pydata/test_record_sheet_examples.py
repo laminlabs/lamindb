@@ -37,7 +37,7 @@ def test_float_int_casting():
     test_schema = ln.Schema([feature_int, feature_float], name="test_schema").save()
     sheet = ln.Record(name="TestSheet", is_type=True, schema=test_schema).save()
     record = ln.Record(name="test_record", type=sheet).save()
-    record.features.add_values({"feature_int": 5, "feature_float": 3.0})
+    record.features.set_values({"feature_int": 5, "feature_float": 3.0})
     record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
     record_json.value = 3
     record_json.save()
@@ -463,7 +463,7 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     sheet = ln.Record(name="SheetWithDataId", is_type=True, schema=schema).save()
     # Name is intentionally omitted to mirror sheet records in real-world pipelines.
     record = ln.Record(type=sheet).save()
-    record.features.add_values({"data_id": "D1"})
+    record.features.set_values({"data_id": "D1"})
 
     artifact = sheet.to_artifact()
     assert artifact.space_id == sheet.space_id
@@ -609,13 +609,13 @@ def test_record_export_applies_feature_predicate_filters():
     export_filter_url = ln.Feature(
         name="export_filter_url", dtype=str, values_through="reference"
     ).save()
-    sample1.features.add_values(
+    sample1.features.set_values(
         {
             "export_filter_score": 10,
             "export_filter_url": "https://records.example/sample1",
         }
     )
-    sample2.features.add_values(
+    sample2.features.set_values(
         {
             "export_filter_score": 20,
             "export_filter_url": "https://records.example/sample2",
