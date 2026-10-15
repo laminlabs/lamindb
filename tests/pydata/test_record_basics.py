@@ -2819,30 +2819,45 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
     record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
     feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
-    schema = ln.Schema([feature]).save()
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: record_b}, schema=schema)
+        sample.features.set_values({feature: record_b})
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: [record_a, record_b]}, schema=schema)
+        sample.features.set_values({feature: [record_a, record_b]})
 
     # cleanup
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
-    schema.delete(permanent=True)
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_dtype_without_schema(method):
+    feature = ln.Feature(name=f"{method}_no_schema_numbers", dtype="list[int]").save()
+    record = ln.Record(name=f"{method}-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [1, 2]})
+
+        with pytest.raises(ln.errors.ValidationError):
+            update_values({feature: ["wrong"]})
+
+        assert record.features.get_values() == {feature.name: [1, 2]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_set_values_accepts_user_records_for_user_dtype():
