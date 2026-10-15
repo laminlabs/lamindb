@@ -1799,11 +1799,13 @@ class FeatureManager:
 
         Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations
 
-        On a `Record`, non-`None` values are only accepted for to-many features,
-        declared with a `list[...]` dtype. For to-one features, use `set_values()`
-        to replace all feature annotations.
-        An `Artifact` or `Run` can be annotated with multiple values for a feature,
-        including to-one features, to represent aggregated values.
+        On a `Record`, `add_values()` accepts to-many features, declared with a
+        `list[...]` dtype. Values of `None` are skipped for all features.
+
+        To annotate to-one features, use `set_values()` instead.
+
+        On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
+        allowing multiple values to represent aggregated measurements.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
@@ -1885,7 +1887,7 @@ class FeatureManager:
             ]
             if scalar_features:
                 raise ValidationError(
-                    "Cannot use add_values() for features with scalar dtypes on a Record: "
+                    "Cannot use add_values() for to-one features on a Record: "
                     f"{scalar_features}. Use set_values() to replace all feature annotations."
                 )
         self._normalize_user_feature_values(

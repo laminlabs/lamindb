@@ -2557,7 +2557,7 @@ def test_record_features_accept_feature_object_keys():
     assert record.features.get_values() == {"record_feature_object_tag": "b"}
 
     expected_error = (
-        "Cannot use add_values() for features with scalar dtypes on a Record: "
+        "Cannot use add_values() for to-one features on a Record: "
         f"{[feature_score.name]}. Use set_values() to replace all feature annotations."
     )
     for feature_key in (feature_score, feature_score.name):

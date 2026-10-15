@@ -993,7 +993,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
         ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
 
-    A to-many feature uses a `list[...]` dtype::
+    A list `dtype`::
 
         ln.Feature(
             name="cell_types",
