@@ -26,7 +26,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str
+from lamindb.base.dtypes import check_dtype, check_pandera_str, is_dict_value
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.base.utils import get_registry_name
 from lamindb.core._compat import is_polars_dataframe
@@ -962,10 +962,8 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                         checks=pandera.Check(
-                            lambda s: s.dropna()
-                            .apply(lambda x: isinstance(x, dict))
-                            .all(),
-                            error="Non-null values must be dicts",
+                            lambda s: s.dropna().apply(is_dict_value).all(),
+                            error="Non-null values must be dicts or strings representing dicts",
                         ),
                     )
                 else:
