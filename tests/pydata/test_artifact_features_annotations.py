@@ -685,19 +685,19 @@ Here is how to create a feature:
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
+        "lamindb.errors.ValidationError: Failed to add features on Artifact"
     )
-    # set_values() does not run the dict curator unless a schema is passed.
-    # Unknown categories are rejected inside _add_values, before any link is written.
+    assert "'experiment' (cat[Record])='Experiment 1'" in str(error.value)
+    assert "1 term not validated in feature 'experiment'" in str(error.value)
+    # Both methods validate unknown categories through the dict curator.
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.set_values({"experiment": "Experiment 1"})
-    assert (
-        error.exconly()
-        == """lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['Experiment 1'])}
-Here is how to create objects for them:
-
-  objects = ln.Record.from_values(['Experiment 1'], field='name', create=True).save()"""
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: Failed to set features on Artifact"
     )
+    assert "'experiment' (cat[Record])='Experiment 1'" in str(error.value)
+    assert "1 term not validated in feature 'experiment'" in str(error.value)
+
     assert artifact.links_record.count() == 0
     ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
@@ -754,11 +754,8 @@ Here is how to create a feature:
     ln.Feature(name="organism", dtype=bt.Organism).save()
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
-    assert (
-        # ensure the label is saved
-        error.exconly()
-        == "lamindb.errors.ValidationError: Organism mouse is not saved."
-    )
+    # Ensure unsaved labels are rejected, allowing the added validation context.
+    assert str(error.value).endswith("Organism mouse is not saved.")
     mouse.save()
     artifact.features.add_values({"organism": mouse})
     assert artifact.organisms.get().name == "mouse"
@@ -969,8 +966,8 @@ def test_add_list_of_cat_features():
                 "single_label_of_type1": "invalid",
             }
         )
-    assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: 1 term not validated in feature 'single_label_of_type1': 'invalid'"
+    assert "1 term not validated in feature 'single_label_of_type1': 'invalid'" in str(
+        error.value
     )
     # now for list of labels
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -979,8 +976,8 @@ def test_add_list_of_cat_features():
                 "list_of_labels_of_type1": ["invalid", "invalid2"],
             }
         )
-    assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: 2 terms not validated in feature 'list_of_labels_of_type1':"
+    assert "2 terms not validated in feature 'list_of_labels_of_type1':" in str(
+        error.value
     )
     artifact.delete(permanent=True)
     # now with schema
