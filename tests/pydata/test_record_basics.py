@@ -2714,6 +2714,36 @@ def test_record_features_validate_dtype_without_schema(method):
         feature.delete(permanent=True)
 
 
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_record_dtype_without_schema(method):
+    expected_type = ln.Record(name=f"{method}_expected_type", is_type=True).save()
+    other_type = ln.Record(name=f"{method}_other_type", is_type=True).save()
+    valid_value = ln.Record(name=f"{method}_valid_value", type=expected_type).save()
+    invalid_value = ln.Record(name=f"{method}_invalid_value", type=other_type).save()
+    feature = ln.Feature(
+        name=f"{method}_no_schema_records", dtype=list[expected_type]
+    ).save()
+    record = ln.Record(name=f"{method}-record-dtype-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [valid_value]})
+
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match=f"Expected a record of type '{expected_type.name}'",
+        ):
+            update_values({feature: [valid_value, invalid_value]})
+
+        assert record.features.get_values() == {feature.name: [valid_value.name]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+        valid_value.delete(permanent=True)
+        invalid_value.delete(permanent=True)
+        expected_type.delete(permanent=True)
+        other_type.delete(permanent=True)
+
+
 def test_set_values_accepts_user_records_for_user_dtype():
     user_feature = ln.Feature(
         name="feature_user_record_input", dtype=list[ln.User]
