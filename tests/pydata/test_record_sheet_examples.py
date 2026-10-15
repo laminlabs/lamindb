@@ -463,7 +463,7 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     sheet = ln.Record(name="SheetWithDataId", is_type=True, schema=schema).save()
     # Name is intentionally omitted to mirror sheet records in real-world pipelines.
     record = ln.Record(type=sheet).save()
-    record.features.add_values({"data_id": "D1"})
+    record.features.set_values({"data_id": "D1"})
 
     artifact = sheet.to_artifact()
     assert artifact.space_id == sheet.space_id
