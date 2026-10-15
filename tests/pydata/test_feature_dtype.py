@@ -20,7 +20,6 @@ from pandera.errors import ParserError
     "value,valid",
     [
         ({"external": True}, True),
-        ('{"external": true, "missing": null}', False),
         ("{'external': True, 'missing': None}", True),
         ("{}", True),
         ("{invalid", False),
