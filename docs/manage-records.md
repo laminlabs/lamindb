@@ -39,7 +39,7 @@ You can now launch the transform via the small "Launch" button, directly from th
    <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/tGS4pGEXqkXVscP90000.png" style="width: 50%;"/>
    </div>
 
-## Export record frames as artifacts
+## Export a record frame as an artifact
 
 Click on "Export to Artifact" to save all data records under a type as an artifact.
 
