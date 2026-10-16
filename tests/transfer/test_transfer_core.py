@@ -225,6 +225,109 @@ def test_dtype_transfers_record_stub_and_schema():
     assert ln.Schema.get(uid=sheet.uid).name == sheet_name
 
 
+def test_transfer_branch_and_created_on():
+    """Branch foreign keys map by uid, and fall back to the current branch.
+
+    A contribution branch that exists only on the source is not inserted.
+    `space` is the other special case and is covered by
+    `test_transfer_missing_space_errors`: a missing space raises.
+    """
+    from lamindb.models.sqlrecord import get_current_branch
+
+    user_handle = ln.setup.settings.user.handle
+    missing_branch_name = "transfer_ci_branch_missing"
+    shared_branch_name = "transfer_ci_branch_shared"
+    current_branch_name = "transfer_ci_branch_current"
+    shared_uid = "brnchxfer01"
+    type_name = "transfer_ci_branch_type"
+    child_name = "transfer_ci_branch_child"
+    merged_name = "transfer_ci_branch_merged"
+    on_branch_name = "transfer_ci_branch_feature"
+
+    ln.connect("testdb1")
+    missing = ln.Branch.filter(name=missing_branch_name).one_or_none()
+    if missing is None:
+        missing = ln.Branch(name=missing_branch_name).save()
+    shared = ln.Branch.filter(uid=shared_uid).one_or_none()
+    if shared is None:
+        shared = ln.Branch(name=shared_branch_name)
+        shared.uid = shared_uid
+        shared.save()
+
+    feature_type = ln.Feature.filter(name=type_name, branch_id=None).one_or_none()
+    if feature_type is None:
+        # Still on the contribution branch: both foreign keys are instance-local ids.
+        feature_type = ln.Feature(name=type_name, is_type=True, branch=missing).save()
+    child = ln.Feature.filter(name=child_name, branch_id=None).one_or_none()
+    if child is None:
+        child = ln.Feature(name=child_name, dtype=str, type=feature_type).save()
+    merged = ln.Feature.filter(name=merged_name, branch_id=None).one_or_none()
+    if merged is None:
+        merged = ln.Feature(name=merged_name, dtype=str, branch=missing).save()
+        # Merged onto main. `created_on` stays the contribution branch.
+        merged.branch = ln.Branch.get(name="main")
+        merged.save()
+    on_branch = ln.Feature.filter(name=on_branch_name, branch_id=None).one_or_none()
+    if on_branch is None:
+        on_branch = ln.Feature(name=on_branch_name, dtype=str, branch=shared).save()
+
+    assert feature_type.branch_id == missing.id
+    assert feature_type.created_on_id == missing.id
+    assert merged.branch_id == 1
+    assert merged.created_on_id == missing.id
+    assert on_branch.branch_id == shared.id
+    assert on_branch.created_on_id == shared.id
+    missing_uid = missing.uid
+
+    ln.connect("testdb2")
+    ln.Feature.filter(
+        name__in=[child_name, merged_name, on_branch_name],
+        branch_id=None,
+    ).delete(permanent=True)
+    ln.Feature.filter(name=type_name, branch_id=None).delete(permanent=True)
+    for branch in ln.Branch.filter(
+        name__in=[missing_branch_name, shared_branch_name, current_branch_name]
+    ):
+        branch.delete(permanent=True)
+    existing_shared = ln.Branch.filter(uid=shared_uid).one_or_none()
+    if existing_shared is not None:
+        existing_shared.delete(permanent=True)
+
+    target_shared = ln.Branch(name=shared_branch_name)
+    target_shared.uid = shared_uid
+    target_shared.save()
+    main = ln.Branch.get(name="main")
+    db1 = ln.DB(f"{user_handle}/testdb1")
+
+    # The feature type is stubbed. Its source branch id does not exist here.
+    db1.Feature.get(child.uid).save()
+    stub = ln.Feature.get(uid=feature_type.uid)
+    assert stub.branch_id == main.id
+    assert stub.created_on_id == main.id
+    assert ln.Branch.filter(uid=missing_uid).one_or_none() is None
+    assert ln.Branch.filter(name=missing_branch_name).one_or_none() is None
+
+    current = ln.Branch(name=current_branch_name).save()
+    previous = ln.setup.settings.branch
+    ln.setup.settings.branch = current
+    try:
+        assert get_current_branch().id == current.id
+        transferred_merged = db1.Feature.get(merged.uid).save()
+        # Source `branch` is main, so it maps. Source `created_on` does not.
+        assert transferred_merged.branch_id == main.id
+        assert transferred_merged.created_on_id == current.id
+        assert ln.Branch.filter(uid=missing_uid).one_or_none() is None
+    finally:
+        ln.setup.settings.branch = previous
+
+    transferred_on_branch = db1.Feature.get(on_branch.uid).save()
+    assert transferred_on_branch.branch.uid == shared_uid
+    assert transferred_on_branch.created_on.uid == shared_uid
+    assert transferred_on_branch.branch_id == target_shared.id
+    assert transferred_on_branch.created_on_id == target_shared.id
+    assert ln.Branch.filter(uid=shared_uid).count() == 1
+
+
 def test_feature_type_is_stubbed():
     user_handle = ln.setup.settings.user.handle
     type_name = "transfer_ci_experiment_view"
