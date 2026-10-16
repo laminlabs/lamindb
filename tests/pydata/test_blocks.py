@@ -361,4 +361,9 @@ def test_branch_notes_returns_latest_readme_content():
     ).save()
     assert branch.notes == "branch notes v2"
 
+    branch.emoji = " 🧬 "
+    assert branch.emoji == "🧬"
+    branch.emoji = None
+    assert branch.emoji is None
+
     branch.delete(permanent=True)
