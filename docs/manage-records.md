@@ -39,22 +39,22 @@ sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 sample1.describe()
 ```
 
-## Group records on a notes page
+## Organize records by type
 
-A notes page is a type (`record.is_page`): `is_type=True` and no schema. It groups other records and can act like a folder.
+To create and use a record type call:
 
 ```python
 experiments = ln.Record(name="Experiments", is_type=True).save()
 experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
 ```
 
-A feature whose `dtype` is that notes page links data records to it:
+You can define a feature whose `dtype` is a record type:
 
 ```python
 experiment = ln.Feature(name="experiment", dtype=experiments).save()
 ```
 
-{meth}`~lamindb.Record.to_dataframe` exports the data records of a type:
+{meth}`~lamindb.Record.to_dataframe` exports:
 
 ```python
 experiments.to_dataframe()
@@ -62,7 +62,7 @@ experiments.to_dataframe()
 
 ## Constrain a type with a schema
 
-A {class}`~lamindb.Schema` turns the type into a record frame and validates the feature values of its data records.
+A {class}`~lamindb.Schema` turns the type into a frame and validates the features of its data records:
 
 ```python
 schema = ln.Schema(
@@ -91,9 +91,9 @@ except ln.errors.ValidationError as error:
     print(error)
 ```
 
-## Use a feature as the row key
+## Use a feature as an index
 
-{attr}`~lamindb.Schema.index` selects the feature that identifies each row. That value is stored on {attr}`~lamindb.Record.name`.
+You can set an index for a schema via {attr}`~lamindb.Schema.index`.
 
 ```python
 sample_id = ln.Feature(name="sample_id", dtype=str).save()
@@ -109,21 +109,11 @@ record = ln.Record(
 record.name
 ```
 
+Inspect the dataframe:
+
 ```python
 indexed_frame.to_dataframe()
 ```
-
-:::{dropdown} How an index feature is stored
-
-When a record frame schema defines {attr}`~lamindb.Schema.index`, the index feature is the row key. It maps to the index of a `DataFrame` and to {attr}`~lamindb.Record.name`:
-
-- **Write.** `Record(features=...)`, `features.add_values()`, and {meth}`~lamindb.Record.from_dataframe` store the index feature on {attr}`~lamindb.Record.name`.
-- **Read.** `features.get_values()` injects the index from `Record.name`.
-- **Export.** {meth}`~lamindb.Record.to_dataframe` puts the index on `df.index`, named after the index feature. Record frames without an index export encoded metadata columns instead (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`).
-- **Import.** {meth}`~lamindb.Record.from_dataframe` accepts a dataframe whose index matches the schema index feature, or that feature as a column.
-- **CSV.** {meth}`~lamindb.Record.to_artifact` writes with `index=True` when an index is configured.
-
-:::
 
 ## Import records from a dataframe
 
@@ -197,5 +187,5 @@ Click on "Export to Artifact" to save all data records under a type as an artifa
 In the API, call {meth}`~lamindb.Record.to_artifact()` on a record frame:
 
 ```python
-samplesheet.to_artifact()
+experiments.to_artifact()
 ```
