@@ -1820,6 +1820,9 @@ class FeatureManager:
         On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
         allowing multiple values to represent aggregated measurements.
 
+        An empty dictionary leaves annotations unchanged, subject to any supplied
+        or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -1860,6 +1863,8 @@ class FeatureManager:
         if host_is_artifact:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
+        if not dictionary and schema is None:
+            return None
         if schema is not None:
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
@@ -2105,6 +2110,9 @@ class FeatureManager:
         Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
         the artifact's external feature annotations.
 
+        An empty dictionary clears external feature annotations, subject to any
+        supplied or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -2149,6 +2157,9 @@ class FeatureManager:
             schema = self._host.type.schema  # type: ignore
         if host_is_artifact:
             schema = self._get_external_schema()
+        if not dictionary and schema is None:
+            self._remove_values()
+            return None
         if schema is not None:
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
