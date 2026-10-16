@@ -70,7 +70,7 @@ ln <- ln$connect("account/instance")
 :::
 ::::
 
-For more configuration, see {doc}`/setup`. LaminDB instances work standalone but can optionally be managed by Lamin.
+For more configuration, see {doc}`/setup`. LaminDB instances work standalone but can optionally be managed by LaminHub.
 
 On a high level, LaminDB's architecture has the following properties:
 
