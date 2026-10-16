@@ -893,7 +893,7 @@ Log into the hub.
 
 `lamin login` prompts for your API key unless you set it via environment variable `LAMIN_API_KEY`.
 
-You can create your API key in your account settings on LaminHub (top right corner).
+You can create your API key in your account settings on the hub (top right corner).
 
 After authenticating once, you can re-authenticate and switch between accounts via `lamin login myhandle`.
 

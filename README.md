@@ -282,7 +282,7 @@ A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
 
-You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq) on LaminHub or [here](https://github.com/laminlabs/schmidt22) on GitHub.
+You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq) on Lamin or [here](https://github.com/laminlabs/schmidt22) on GitHub.
 
 </details>
 
