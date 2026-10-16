@@ -1903,11 +1903,19 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is None
 
     # The UI stores the type-space policy as the string "1", not the int 1.
+    # A new record also inherits the type emoji, and keeps an explicit one.
     constrained_type.space = restricted_space
-    constrained_type._aux = {"ss": "1"}
+    constrained_type._aux = {"ss": "1", "ei": " 🧬 "}
     constrained_type.save()
     child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
+    assert child._aux == {"ei": "🧬"}
+    explicit = ln.Record(
+        name=f"ExplicitEmoji-{suffix}",
+        type=constrained_type,
+        _aux={"ei": "🧪", "foo": 1},
+    )
+    assert explicit._aux == {"ei": "🧪", "foo": 1}
     child.save()
     child.delete(permanent=True)
 

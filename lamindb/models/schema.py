@@ -639,7 +639,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
-    # Top-level `_aux` keys beyond HasType's `ss`:
+    # Top-level `_aux` keys beyond HasType's `ss` (single space) and `ei` (emoji):
     #   af: auxiliary feature config — see `_aux_fields`
     #   zarr: format constraints — see Schema.formats.zarr
     _aux_fields: dict[str, tuple[str, type]] = {

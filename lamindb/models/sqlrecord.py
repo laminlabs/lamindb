@@ -216,6 +216,9 @@ class HasType(models.Model):
         experiment_type = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+
+    A newly created record inherits the emoji of its `type` (`_aux["ei"]`)
+    when it does not set one itself.
     """
 
     class Meta:
@@ -400,6 +403,52 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     if isinstance(ss, str) and ss:
         return Space.get(ss)
     return None
+
+
+def _type_emoji(type_record: HasType) -> str | None:
+    """Trimmed HasType emoji stored at `_aux["ei"]`."""
+    aux = getattr(type_record, "_aux", None)
+    if not isinstance(aux, dict):
+        return None
+    emoji = aux.get("ei")
+    if not isinstance(emoji, str):
+        return None
+    emoji = emoji.strip()
+    return emoji or None
+
+
+def _inherit_type_emoji(kwargs: dict[str, Any]) -> None:
+    """Copy `type._aux["ei"]` onto a new HasType record.
+
+    An explicit non-empty emoji on the new record is kept. Other `_aux` keys
+    stay in place. This matches the frontend `withInheritedTypeEmoji` helper.
+    """
+    type_record = kwargs.get("type", UNSET)
+    if not isinstance(type_record, HasType):
+        return
+    emoji = _type_emoji(type_record)
+    if emoji is None:
+        return
+    existing_aux = kwargs.get("_aux")
+    if isinstance(existing_aux, dict):
+        existing_emoji = existing_aux.get("ei")
+        if isinstance(existing_emoji, str) and existing_emoji.strip():
+            return
+        merged = dict(existing_aux)
+        merged["ei"] = emoji
+        kwargs["_aux"] = merged
+        return
+    if existing_aux is None:
+        kwargs["_aux"] = {"ei": emoji}
+
+
+def _prepare_hastype_create_kwargs(record: models.Model, kwargs: dict) -> None:
+    """Inherit the type emoji, then drop an unset `type` before Django init."""
+    if not isinstance(record, HasType):
+        return
+    _inherit_type_emoji(kwargs)
+    if kwargs["type"] is UNSET:
+        kwargs.pop("type")
 
 
 def deferred_attribute__repr__(self):
@@ -1284,9 +1333,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the current one), so the record is created on that branch.
                     kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
-                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
-                if isinstance(self, HasType) and kwargs["type"] is UNSET:
-                    kwargs.pop("type")
+                # FK descriptors reject UNSET; inherit emoji before that strip.
+                _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
             else:
                 from ..core._settings import settings
@@ -1343,9 +1391,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             # track original values after replacing with the existing record
                             self._populate_tracked_fields()
                             return None
-                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
-                if isinstance(self, HasType) and kwargs["type"] is UNSET:
-                    kwargs.pop("type")
+                # FK descriptors reject UNSET; inherit emoji before that strip.
+                _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators
