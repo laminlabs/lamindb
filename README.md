@@ -18,7 +18,7 @@ Especially in life sciences, hard-to-verify tasks are abundant, data formats are
 
 Traditional data infrastructure doesn't solve these issues because it was built for business analytics rather than complex AI workflows.
 While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs.
-LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel, and schema evolution — to multimodal data (`parquet`, `zarr`, `AnnData`, images) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query with your favorite compute engines (Polars, DuckDB, ...).
+LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel, and schema evolution — to multimodal data (`parquet`, `zarr`, `AnnData`, ...) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query and load with your favorite engines (Polars, DuckDB, `annbatch`, ...).
 
 </details>
 
