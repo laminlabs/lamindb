@@ -158,6 +158,15 @@ You can query for whether a dataset is annotated by a feature:
 db.Artifact.filter(perturbation.is_null(False)).to_dataframe(include="features")
 ```
 
+Order by a feature value the same way. `-temperature` is descending. Artifacts without that annotation sort last. Field names can be mixed in. Categorical features such as `perturbation` cannot be ordered this way, because one artifact can carry several labels.
+
+```python
+db.Artifact.order_by(temperature).to_dataframe(include="features")
+db.Artifact.filter(temperature > 21).order_by(-temperature, "-created_at").to_dataframe(
+    include="features"
+)
+```
+
 ## Cheat sheet: comparators
 
 You can qualify the type of comparison in a query by using a comparator.
@@ -195,6 +204,11 @@ db.Artifact.filter().order_by("-created_at").to_dataframe()
 
 ```python
 db.Artifact.filter().order_by("key").to_dataframe()
+```
+
+```python
+# order by a non-categorical feature value; -temperature is descending
+db.Artifact.order_by(temperature).to_dataframe(include="features")
 ```
 
 ```python

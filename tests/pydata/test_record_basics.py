@@ -2679,6 +2679,30 @@ def test_record_feature_predicate_query():
     age.delete(permanent=True)
 
 
+def test_record_order_by_feature(ccaplog):
+    age = ln.Feature(name="order_record_age", dtype=int).save()
+    record_type = ln.Record(name="OrderRecordType", is_type=True).save()
+    older = ln.Record(name="order_record_older", type=record_type).save()
+    younger = ln.Record(name="order_record_younger", type=record_type).save()
+    missing = ln.Record(name="order_record_missing", type=record_type).save()
+    older.features.add_values({age: 10})
+    younger.features.add_values({age: 2})
+
+    qs = ln.Record.filter(type=record_type)
+    assert list(qs.order_by(age)) == [younger, older, missing]
+    assert list(qs.order_by(-age)) == [older, younger, missing]
+    frame = qs.order_by(age).to_dataframe(include="features", limit=None)
+    assert "falling back to generic Record queryset export" not in ccaplog.text
+    assert list(frame.index) == [younger.id, older.id, missing.id]
+    assert frame.loc[younger.id, "order_record_age"] == 2
+
+    missing.delete(permanent=True)
+    older.delete(permanent=True)
+    younger.delete(permanent=True)
+    record_type.delete(permanent=True)
+    age.delete(permanent=True)
+
+
 def test_record_features_accept_feature_object_keys():
     feature_score = ln.Feature(name="record_feature_object_score", dtype=int).save()
     feature_tag = ln.Feature(name="record_feature_object_tag", dtype=str).save()
