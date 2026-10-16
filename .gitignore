@@ -78,7 +78,6 @@ curate.tiledbsoma
 small_dataset.tiledbsoma
 nonregistered_storage
 registered_storage
-registered_storage_suffix_fixture/
 tests/pydata/notebooks/no-uid-renamed.ipynb
 
 # General
