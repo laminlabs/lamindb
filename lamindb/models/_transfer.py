@@ -21,7 +21,9 @@ from .sqlrecord import BaseSQLRecord, Space, SQLRecord
 if TYPE_CHECKING:
     from .run import Run
 
-REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
+# Registries match by uid. Storage matches by root because the same location
+# can already be registered on the target under a different uid.
+REGISTRY_UNIQUE_FIELD = {"storage": "root"}
 
 
 def update_fk_to_default_db(

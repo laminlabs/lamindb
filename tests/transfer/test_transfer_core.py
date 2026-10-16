@@ -403,37 +403,64 @@ def test_record_transfer_links_same_name_feature_by_uid():
     assert links[0].value == "kept-on-uid"
 
 
-def test_schema_transfer_feature_uid_conflict_by_name():
+def _named_record(registry_name: str, name: str):
+    registry = getattr(ln, registry_name)
+    record = registry.filter(name=name).one_or_none()
+    if record is not None:
+        return record
+    if registry_name == "Feature":
+        return registry(name=name, dtype=str).save()
+    return registry(name=name).save()
+
+
+@pytest.mark.parametrize("registry_name", ["Feature", "ULabel", "Record"])
+def test_transfer_matches_by_uid_not_name(registry_name):
+    """A same-name row on the target is not the transferred row. Identity is the uid."""
+    from lamindb.models._label_manager import _save_validated_records
+
     user_handle = ln.setup.settings.user.handle
+    name = f"transfer_ci_same_name_{registry_name.lower()}"
 
     ln.connect("testdb1")
-    source_feature = ln.Feature(name="tissue", dtype=str).save()
-    source_feature_uid = source_feature.uid
-    source_schema = ln.Schema(
-        name="transfer_schema_feature_uid_conflict",
-        features=[source_feature],
-    ).save()
-    schema_uid = source_schema.uid
-    assert source_schema.members.get(name="tissue").uid == source_feature_uid
+    source = _named_record(registry_name, name)
+    source_uid = source.uid
+    schema_uid = None
+    if registry_name == "Feature":
+        schema = ln.Schema.filter(features__uid=source_uid).first()
+        if schema is None:
+            schema = ln.Schema(
+                name="transfer_schema_feature_uid_conflict",
+                features=[source],
+            ).save()
+        schema_uid = schema.uid
 
     ln.connect("testdb2")
+    registry = getattr(ln, registry_name)
+    if schema_uid is not None:
+        existing_schema = ln.Schema.filter(uid=schema_uid).one_or_none()
+        if existing_schema is not None:
+            existing_schema.delete(permanent=True)
+    for existing in registry.filter(name=name, branch_id=None):
+        existing.delete(permanent=True)
+    decoy = _named_record(registry_name, name)
+    assert decoy.uid != source_uid
+
     db1 = ln.DB(f"{user_handle}/testdb1")
+    source_on_db1 = getattr(db1, registry_name).get(source_uid)
+    # Label lookup and schema membership both read REGISTRY_UNIQUE_FIELD.
+    new_records = _save_validated_records([source_on_db1])
+    assert [record.uid for record in new_records] == [source_uid]
 
-    existing_local = ln.Schema.filter(uid=schema_uid).one_or_none()
-    if existing_local is not None:
-        existing_local.delete(permanent=True)
-
-    existing_tissue_features = ln.Feature.filter(name="tissue")
-    if existing_tissue_features.exists():
-        existing_tissue_features.delete(permanent=True)
-
-    local_tissue = ln.Feature(name="tissue", dtype=str).save()
-    assert local_tissue.uid != source_feature_uid
-
-    transferred = db1.Schema.get(schema_uid).save()
-    transferred_tissue = transferred.members.get(name="tissue")
-    assert transferred_tissue.uid == source_feature_uid
-    assert transferred_tissue.uid != local_tissue.uid
+    if schema_uid is not None:
+        transferred_schema = db1.Schema.get(schema_uid).save()
+        transferred_member = transferred_schema.members.get(name=name)
+        assert transferred_member.uid == source_uid
+        assert transferred_member.id != decoy.id
+    else:
+        getattr(db1, registry_name).get(source_uid).save()
+    transferred = registry.get(source_uid)
+    assert transferred.id != decoy.id
+    assert registry.filter(name=name, branch_id=None).count() == 2
 
 
 SHEET_NAME = "transfer_ci_runs"
