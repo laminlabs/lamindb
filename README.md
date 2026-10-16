@@ -27,16 +27,16 @@ LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **lakehouse** → manage datasets in any format (`parquet`, `zarr`, ...) with time travel, schema evolution & [ACID guarantees](https://docs.lamin.ai/acid); query with your favorite engine (Polars, DuckDB, ...)
+- **lakehouse** → manage datasets in any format (`parquet`, `zarr`, ...) with time travel, schema evolution & [ACID guarantees](https://docs.lamin.ai/acid); load/query with your favorite engine (Polars, DuckDB, `annbatch`, ...)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, …
-- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & by versioning data + code
+- **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & versioning
 
 Architecture?
 
 - **zero lock-in** → open source, using open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → `pip install lamindb` or `install.packages('laminr')` - no Docker required, no separate backend
+- **simple** → `pip install lamindb` or `install.packages('laminr')` · no Docker required, no separate backend
 - **unified access** → local, S3, GCP, etc. · Postgres, SQLite · ontologies
 - **distributed** → [zero-copy data sharing across databases & storage](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
@@ -53,7 +53,7 @@ Read more: [docs.lamin.ai/architecture](https://docs.lamin.ai/architecture).
 
 Scientists and engineers at leading research institutions and biotech companies, including:
 
-- **Industry** → Pfizer, Altos Labs, Ensocell Therapeutics, ...
+- **Industry** → Pfizer, Altos Labs, RefinedScience, Ensocell Therapeutics, ...
 - **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
 - **Research Hospitals** → Global Immunological Swarm Learning Network: Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
 
@@ -69,7 +69,7 @@ biosamples & species | 10⁵ & 10²
 
 </details>
 
-UI, permissions, audit logs? LaminHub is a collaboration hub built on LaminDB similar to how GitHub is built on git.
+UI, permissions, audit logs? [Lamin](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 ## Quickstart
 
@@ -92,7 +92,7 @@ pip install lamindb-core
 
 </details>
 
-Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents). Docs: See [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) or [llms.txt](https://docs.lamin.ai/llms.txt).
+Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents), [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) and [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases & datasets
 
