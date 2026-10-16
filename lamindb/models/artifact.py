@@ -2993,6 +2993,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         The sanitized source URL, endpoint, size, and hash are recorded in
         `extra_data["source"]`; credentials and query strings are never stored.
 
+        Folder members are copied in parallel; set the number of concurrent files
+        with `save(store_kwargs={"max_workers": n})` (default: 32).
+
         Args:
             path: A remote file or folder, optionally a `UPath` with credentials.
             key: A relative storage key, e.g., `"imports/data.csv"`.

@@ -151,3 +151,42 @@ def test_from_remote_failed_copy_leaves_no_record(source, target_storage):
             artifact.save()
     assert not ln.Artifact.filter(uid=artifact.uid).exists()
     assert not list(Path(target_storage.root).rglob("file.txt"))
+
+
+@pytest.mark.parametrize("print_progress", [False, True])
+def test_from_remote_forwards_progress_and_store_kwargs(
+    source, target_storage, capsys, print_progress
+):
+    from lamindb.core.storage import paths
+
+    artifact = ln.Artifact.from_remote(
+        source / "folder", key="imports/folder", storage=target_storage
+    )
+    capsys.readouterr()
+    with patch.object(
+        paths, "_store_from_remote", wraps=paths._store_from_remote
+    ) as store:
+        artifact.save(print_progress=print_progress, store_kwargs={"autocommit": True})
+    assert store.call_args.kwargs == {
+        "print_progress": print_progress,
+        "autocommit": True,
+    }
+    assert ("uploading folder: 100.0%" in capsys.readouterr().out) == print_progress
+
+
+def test_from_remote_copies_folder_members_in_parallel(source, target_storage):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from lamindb.core.storage import paths
+
+    for i in range(20):
+        (source / "many" / f"{i}.txt").write_bytes(str(i).encode())
+    artifact = ln.Artifact.from_remote(
+        source / "many", key="imports/many", storage=target_storage
+    )
+    with patch.object(paths, "ThreadPoolExecutor", wraps=ThreadPoolExecutor) as pool:
+        artifact.save(store_kwargs={"max_workers": 4})
+    pool.assert_called_once_with(max_workers=4)
+    assert artifact.n_files == 20
+    for i in range(20):
+        assert (artifact.path / f"{i}.txt").read_text() == str(i)

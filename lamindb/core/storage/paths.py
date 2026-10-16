@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Lock
 from typing import TYPE_CHECKING
 
 import fsspec
+from fsspec.callbacks import NoOpCallback
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core.upath import (
     LocalPathClasses,
+    ProgressCallback,
     UPath,
 )
 
@@ -149,7 +153,9 @@ def store_file_or_folder(
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
     if not isinstance(local_path, LocalPathClasses):
-        _store_from_remote(local_path, storage_path)
+        _store_from_remote(
+            local_path, storage_path, print_progress=print_progress, **kwargs
+        )
         return None
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
@@ -185,7 +191,11 @@ def store_file_or_folder(
             shutil.copytree(local_path, storage_path)
 
 
-def _store_from_remote(source_path: UPath, storage_path: UPath) -> None:
+def _store_from_remote(
+    source_path: UPath, storage_path: UPath, print_progress: bool = True, **kwargs
+) -> None:
+    # each worker buffers up to one multipart chunk of the target filesystem
+    max_workers = kwargs.pop("max_workers", 32)
     source_fs, target_fs = source_path.fs, storage_path.fs
     source, target = source_path.as_posix(), storage_path.as_posix()
     is_dir = source_path.is_dir()
@@ -193,22 +203,43 @@ def _store_from_remote(source_path: UPath, storage_path: UPath) -> None:
         # like local folder uploads, don't let stale members survive
         target_fs.rm(target, recursive=True)
     if source_fs is target_fs:
-        source_fs.copy(source, target, recursive=True)
+        source_fs.copy(source, target, recursive=True, **kwargs)
         return None
     if is_dir:
         root = source_fs._strip_protocol(source).rstrip("/")
         pairs = [
-            (file, f"{target.rstrip('/')}/{file[len(root) + 1 :]}")
-            for file in source_fs.find(source)
+            (file, f"{target.rstrip('/')}/{file[len(root) + 1 :]}", info["size"])
+            for file, info in source_fs.find(source, detail=True).items()
         ]
     else:
-        pairs = [(source, target)]
-    for source_file, target_file in pairs:
+        pairs = [(source, target, source_fs.size(source))]
+    callback = (
+        ProgressCallback(source_path.name or source_path.drive, "uploading")
+        if print_progress
+        else NoOpCallback()
+    )
+    callback.set_size(sum(size or 0 for *_, size in pairs))
+    lock = Lock()
+
+    def copy_file(pair: tuple[str, str, int | None]) -> None:
+        source_file, target_file, _ = pair
         if isinstance(storage_path, LocalPathClasses):
             Path(target_file).parent.mkdir(parents=True, exist_ok=True)
         with source_fs.open(source_file, "rb") as fsrc:
-            with target_fs.open(target_file, "wb") as fdst:
-                shutil.copyfileobj(fsrc, fdst, length=2**22)
+            with target_fs.open(target_file, "wb", **kwargs) as fdst:
+                while chunk := fsrc.read(2**22):
+                    fdst.write(chunk)
+                    with lock:
+                        # ProgressCallback ignores relative_update()
+                        callback.value += len(chunk)
+                        callback.call()
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        try:
+            list(executor.map(copy_file, pairs))
+        except BaseException:
+            executor.shutdown(cancel_futures=True)
+            raise
 
 
 def delete_storage_using(
