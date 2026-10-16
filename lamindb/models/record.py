@@ -1037,11 +1037,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     See Also:
         :class:`~lamindb.Feature`
-            Measurable properties.
+            Dataset dimensions.
         :class:`~lamindb.Schema`
-            Constrain record frame features; :attr:`~lamindb.Schema.index` is the `DataFrame` index.
+            Constrain features.
         :class:`~lamindb.ULabel`
-            Simple labels.
+            Universal labels.
 
     Examples
     --------
@@ -1060,8 +1060,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     .. dropdown:: An index feature maps onto the name field of a data record.
 
         When a record frame schema defines :attr:`~lamindb.Schema.index`, the
-        index feature is the `DataFrame` index and is stored on
-        :attr:`~lamindb.Record.name`:
+        index feature is stored on :attr:`~lamindb.Record.name`:
 
         - **Write**: `Record(features=...)`, `features.add_values()`, and
           :meth:`~lamindb.Record.from_dataframe` route the index feature to
