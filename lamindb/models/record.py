@@ -64,7 +64,8 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-# keep docstring in sync with test_record_docstring_examples in test_record_basics.py
+# API walkthrough lives in docs/manage-records.md.
+# test_record_docstring_examples covers that same flow.
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
 ALLOWED_RECORD_FEATURE_FIELDS = set(get_args(SQLRecordFieldName))
@@ -1045,104 +1046,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
-    Also see the guide: :doc:`/manage-records`.
+    Create a data record with one feature. Notes pages, record frames, import, and queries are in :doc:`/manage-records`.
 
-    Create a **data record** with a single feature::
+    ::
 
-        # create a feature if you don't yet have one
         gc_content = ln.Feature(name="gc_content", dtype=float).save()
-
-        # create a data record to track a sample
         sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
-
-        # describe the data record
         sample1.describe()
-
-    Group data records under a **record type**, optionally turning it into a **record frame** with a :class:`~lamindb.Schema`::
-
-        # create an Experiments record page
-        experiments = ln.Record(name="Experiments", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
-
-        # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiments).save()
-
-        # create a record frame by constraining a record page with a schema
-        schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
-        samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
-
-        # move the data record into the record frame
-        sample1.type = samplesheet
-        sample1.save()
-
-        # reset the feature values for the data record including the experiment
-        sample1.features.set_values({gc_content: 0.5,
-            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
-        })
-
-    Export all data records of a type to a `DataFrame`::
-
-        experiments.to_dataframe()
-        #> __lamindb_record_name__   ...
-        #>            Experiment 1   ...
-        #>            Experiment 2   ...
-
-    Use :attr:`~lamindb.Schema.index` on a schema to define row keys::
-
-        sample_id = ln.Feature(name="sample_id", dtype=str).save()
-        score = ln.Feature(name="score", dtype=float).save()
-        schema = ln.Schema(features=[score], index=sample_id).save()
-        indexed_frame = ln.Record(name="Indexed samples", is_type=True, schema=schema).save()
-
-        record = ln.Record(type=indexed_frame, features={"sample_id": "S-001", "score": 1.5}).save()
-        assert record.name == "S-001"
-
-        df = indexed_frame.to_dataframe()
-        assert df.index.name == "sample_id"
-        assert "sample_id" not in df.columns
-
-    Import data records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
-
-        records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a record frame my_df with inferred schema
-
-    If you try to set incomplete features on a data record in a record frame, you'll get a validation error::
-
-        sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
-        sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
-
-    Query data records by features:
-
-    .. code-block:: python
-
-        ln.Record.filter(gc_content == 0.55)  # exact match
-        ln.Record.filter(gc_content > 0.5)    # greater than
-
-    Query data records by field::
-
-        ln.Record.filter(type=samplesheet)   # just the data records in the record frame
 
     Notes
     -----
-
-    .. dropdown:: An index feature maps onto the name field of a data record.
-
-        When a record frame schema defines :attr:`~lamindb.Schema.index`, the
-        index feature acts as the row key and maps to the `index` in a `DataFrame` and to the
-        :attr:`~lamindb.Record.name` field of a `Record`:
-
-        - **Write**: `Record(features=...)`, `features.add_values()`, and
-          :meth:`~lamindb.Record.from_dataframe` route the index feature to
-          :attr:`~lamindb.Record.name` and do not write it to link tables.
-        - **Read**: `features.get_values()` injects the index from `Record.name`.
-        - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
-          (named after the index feature) and omits encoded metadata columns
-          (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
-          Record frames without `index` keep the previous export behavior.
-        - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
-          matches the schema index feature (or the index feature as a column).
-        - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
-          is configured.
-
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
