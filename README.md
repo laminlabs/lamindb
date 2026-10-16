@@ -94,7 +94,7 @@ pip install lamindb-core
 
 Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents), [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) and [llms.txt](https://docs.lamin.ai/llms.txt).
 
-### Query databases & datasets
+### Query databases
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
@@ -127,9 +127,9 @@ accessor = artifact.open()     # return a streaming accessor
 
 For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
 
-### Save files & folders
+### Create artifacts
 
-You can create a database at [lamin.ai](https://lamin.ai) and invite collaborators.
+You can create a hosted database at [lamin.ai](https://lamin.ai) and invite collaborators.
 To connect to an existing database, run:
 
 ```shell
@@ -140,7 +140,7 @@ lamin connect account/name  # tip: add flag `--here` to scope to current directo
 <details>
 <summary>Or init a new database instead (no login required).</summary>
 
-Navigate into a development direcotry, just like you'd do for `git init`, and run:
+Navigate into a development directory, just like you'd do for `git init`, and run:
 
 ```shell
 lamin init --modules bionty
@@ -178,9 +178,9 @@ Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Trace data, code & agents
 
-The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --skill lamindb` so your agent can read it. It will then track agent sessions.
+To track agent sessions, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
 
-To create a dataset in a script or notebook while tracking source code, inputs, outputs, logs, and environment:
+To track source code, inputs, outputs, logs, and environment of a script, use `ln.track()` and `ln.finish()`:
 
 ```python
 import lamindb as ln
@@ -192,7 +192,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ln.finish()                                             # mark run as finished
 ```
 
-Running this snippet as a script (`python create_fasta.py`) produces the following data lineage:
+If running this snippet as a script (`python create_fasta.py`), you'll get the following data lineage:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -286,24 +286,24 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 </details>
 
-### Label artifacts
+### Annotate & query artifacts
 
 You can label an artifact by running:
 
 ```python
 my_label = ln.ULabel(name="My label").save()   # a universal label
-project = ln.Project(name="My project").save() # a project label
+my_project = ln.Project(name="My project").save()  # a project label
 artifact.ulabels.add(my_label)
-artifact.projects.add(project)
+artifact.projects.add(my_project)
 ```
 
 Query for it:
 
 ```python
-ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
+ln.Artifact.filter(ulabels=my_label, projects=my_project).to_dataframe()
 ```
 
-You can also query by the metadata that lamindb automatically collects:
+You can also query by automatically generated metadata:
 
 ```python
 ln.Artifact.filter(run=run).to_dataframe()              # by creating run
@@ -317,16 +317,6 @@ If you want to include more information into the resulting dataframe, pass `incl
 ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
 ```
 
-The query syntax for `DB` objects and for your default database is the same.
-
-Here is an overview that illustrates how artifacts can be labeled by other entities:
-
-<img width="700px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
-
-Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
-
-### Manage features & records
-
 Let's define some features:
 
 ```python
@@ -337,7 +327,7 @@ experiment_note = ln.Feature(name="experiment_note", dtype=str).save()
 experiment_date = ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
-The most basic thing you can do with features is annotating artifacts, records, or runs with them:
+The most basic thing you can do with features is annotating artifacts, records, or runs:
 
 ```python
 artifact.features.set_values({
@@ -350,16 +340,20 @@ artifact.features.set_values({
 ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
 ```
 
+Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
+
+# Create records & notes
+
 You can create **records** for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
 ```python
 ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
 ```
 
-You can create record pages, record frames, and relationships:
+You can create record types:
 
 ```python
-# create an Experiments record page
+# create an Experiments record type
 experiments = ln.Record(name="Experiments", is_type=True).save()
 
 # create a data record of that type
@@ -375,9 +369,23 @@ ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: experiment1}).
 experiments.to_dataframe()
 ```
 
+In your development directory, you can save markdown notes as records:
+
+```shell
+lamin save <topic>/<my-note.md>
+```
+
+To load a record back as a markdown file, run:
+
+```shell
+lamin load https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox
+```
+
 Watch a mini video: [youtu.be/NRzVQXJaRH8](https://youtu.be/NRzVQXJaRH8)
 
-### Lakehouse
+Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
+
+### Validate datasets
 
 Here is how you ingest a `DataFrame`:
 
@@ -393,7 +401,7 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
+The simplest way to validate & annotate the content of the dataframe is the built-in schema `valid_features`:
 
 ```python
 ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
@@ -405,9 +413,9 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
-Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
-
 You can filter for datasets by schema and then launch distributed queries or batch load distributed datasets. For tables, see: [docs.lamin.ai/tables](https://docs.lamin.ai/tables). For arrays, see: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
+
+Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
 To validate an `AnnData`, call:
 
@@ -431,7 +439,7 @@ artifact.describe()
 
 To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
-### Branching & versioning
+### Use branching & versioning
 
 LaminDB co-versions code and datasets for you.
 If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
@@ -473,7 +481,7 @@ Read more: [docs.lamin.ai/manage-changes](https://docs.lamin.ai/manage-changes).
 
 Watch a mini video: [youtu.be/rzRwcMj6-fc](https://youtu.be/rzRwcMj6-fc)
 
-### Data sharing
+### Share datasets
 
 To share data in a lineage-aware way, transfer objects from a source database to your default database:
 
@@ -485,7 +493,7 @@ artifact.save()
 
 This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/transfer](https://docs.lamin.ai/transfer).
 
-### Ontologies
+### Manage ontologies
 
 Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
 
@@ -506,11 +514,3 @@ artifact.cell_types.add(t_cell)
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
 Watch a mini video: [youtu.be/3vpWjHj3Kw8](https://youtu.be/3vpWjHj3Kw8)
-
-### Manage notes
-
-When in your development directory, you can save markdown files as records:
-
-```shell
-lamin save <topic>/<my-note.md>
-```
