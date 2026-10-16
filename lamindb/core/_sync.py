@@ -60,7 +60,7 @@ def sync(
     `space`, `branch`, and `created_on` are handled differently from those foreign keys.
 
     - `space` is mapped by uid. Transfer raises
-      :class:`~lamindb.errors.NoWriteAccess` when that space is not attached to the target
+      :class:`~lamindb.setup.errors.NoWriteAccess` when that space is not attached to the target
       database. Attach the space, then re-run the sync. Transfer does not create a space.
     - `branch` and `created_on` are each mapped by uid when that branch already exists
       on the target. The built-in branches `main`, `archive`, and `trash` always do.

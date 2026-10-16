@@ -761,8 +761,6 @@ def _branch_on_target(source_branch, transfer_logs: dict):
     """
     from .sqlrecord import get_current_branch
 
-    if source_branch is None:
-        return get_current_branch()
     found = _cached_or_load(source_branch, transfer_logs)
     if found is not None:
         return found
