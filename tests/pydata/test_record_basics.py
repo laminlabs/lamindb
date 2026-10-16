@@ -1903,11 +1903,42 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is None
 
     # The UI stores the type-space policy as the string "1", not the int 1.
+    # A new record inherits .emoji unless it already has one.
     constrained_type.space = restricted_space
     constrained_type._aux = {"ss": "1"}
+    assert constrained_type.emoji is None
+    constrained_type.emoji = None
+    assert constrained_type._aux == {"ss": "1"}
+    no_emoji = ln.Record(name=f"NoEmoji-{suffix}", type=constrained_type)
+    assert no_emoji.space_id == restricted_space.id
+    assert no_emoji.emoji is None
+    constrained_type.emoji = " 🧬 "
+    assert constrained_type.emoji == "🧬"
+    assert constrained_type._aux["ss"] == "1"
     constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.emoji == "🧬"
     child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
+    assert child.emoji == "🧬"
+    explicit = ln.Record(
+        name=f"ExplicitEmoji-{suffix}",
+        type=constrained_type,
+        _aux={"ei": "🧪", "foo": 1},
+    )
+    assert explicit.emoji == "🧪"
+    assert explicit._aux["foo"] == 1
+    constrained_type.emoji = "🧪"
+    assert constrained_type.emoji == "🧪"
+    assert constrained_type._aux["ss"] == "1"
+    constrained_type.emoji = None
+    assert constrained_type.emoji is None
+    assert constrained_type._aux == {"ss": "1"}
+    child.emoji = None
+    assert child.emoji is None
+    assert child._aux is None
+    with pytest.raises(ValueError, match="emoji must be a str or None"):
+        constrained_type.emoji = 1  # type: ignore[assignment]
     child.save()
     child.delete(permanent=True)
 
