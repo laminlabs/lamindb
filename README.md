@@ -342,7 +342,7 @@ ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="featur
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
 
-# Create records & notes
+### Create records & notes
 
 You can create **records** for entities underlying your experiments (samples, perturbations, instruments, etc.):
 
