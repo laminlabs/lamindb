@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import fsspec
@@ -101,6 +102,9 @@ def filepath_from_artifact(
     artifact: Artifact, using: str | None = None
 ) -> tuple[UPath, StorageSettings | None]:
     if (local_filepath := getattr(artifact, "_local_filepath", None)) is not None:
+        if not isinstance(local_filepath, LocalPathClasses):
+            # a remote source not yet copied into storage (Artifact.from_remote)
+            return local_filepath, None
         return local_filepath.resolve(), None
     storage_key = auto_storage_key_from_artifact(artifact)
     path, storage_settings = attempt_accessing_path(artifact, storage_key, using=using)
@@ -144,6 +148,9 @@ def store_file_or_folder(
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
+    if not isinstance(local_path, LocalPathClasses):
+        _store_from_remote(local_path, storage_path)
+        return None
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
         if local_path.is_dir():
@@ -176,6 +183,32 @@ def store_file_or_folder(
             if storage_path.exists():
                 shutil.rmtree(storage_path)
             shutil.copytree(local_path, storage_path)
+
+
+def _store_from_remote(source_path: UPath, storage_path: UPath) -> None:
+    source_fs, target_fs = source_path.fs, storage_path.fs
+    source, target = source_path.as_posix(), storage_path.as_posix()
+    is_dir = source_path.is_dir()
+    if is_dir and storage_path.exists():
+        # like local folder uploads, don't let stale members survive
+        target_fs.rm(target, recursive=True)
+    if source_fs is target_fs:
+        source_fs.copy(source, target, recursive=True)
+        return None
+    if is_dir:
+        root = source_fs._strip_protocol(source).rstrip("/")
+        pairs = [
+            (file, f"{target.rstrip('/')}/{file[len(root) + 1 :]}")
+            for file in source_fs.find(source)
+        ]
+    else:
+        pairs = [(source, target)]
+    for source_file, target_file in pairs:
+        if isinstance(storage_path, LocalPathClasses):
+            Path(target_file).parent.mkdir(parents=True, exist_ok=True)
+        with source_fs.open(source_file, "rb") as fsrc:
+            with target_fs.open(target_file, "wb") as fdst:
+                shutil.copyfileobj(fsrc, fdst, length=2**22)
 
 
 def delete_storage_using(

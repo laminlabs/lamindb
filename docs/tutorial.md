@@ -671,6 +671,7 @@ artifact
 ```
 
 As you see from {attr}`~lamindb.Artifact.path`, the folder was merely registered in its present storage location without copying it.
+To copy a remote file or folder into managed storage instead, use {meth}`~lamindb.Artifact.from_remote`.
 
 ```python
 artifact.path
