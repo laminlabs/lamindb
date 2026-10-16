@@ -340,7 +340,7 @@ artifact.features.set_values({
 ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
 ```
 
-Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
+Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize) or [docs.lamin.ai/query-search](https://docs.lamin.ai/query-search)
 
 ### Create records & notes
 
@@ -383,7 +383,7 @@ lamin load https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox
 
 Watch a mini video: [youtu.be/NRzVQXJaRH8](https://youtu.be/NRzVQXJaRH8)
 
-Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
+Read more: [docs.lamin.ai/manage-records](https://docs.lamin.ai/manage-records).
 
 ### Validate datasets
 

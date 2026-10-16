@@ -1014,11 +1014,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
     and other custom entities.
 
-    A record is one of three kinds:
+    Any `Record` object represents either a notes page, a record frame, or a data record:
 
-    - **Record page** — a notes page in a hierarchy, which can act like a folder for other records (`record.is_page`)
-    - **Record frame** — a schema-validated collection of data records (`record.is_frame`)
-    - **Data record** — a simple data record (`record.is_data`)
+    - `record.is_page` — a notes page in a hierarchy, which can act like a folder for other records
+    - `record.is_frame` — a schema-validated collection of data records
+    - `record.is_data` — a simple data record
 
     Record pages and frames are record types, in analogy to all other entities that inherit from :class:`~lamindb.models.HasType`.
 

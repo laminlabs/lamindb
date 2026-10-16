@@ -3,12 +3,6 @@
 Many use cases involving records management are primarily UI-based. However, the API allows you to perform all UI actions, too, see {class}`~lamindb.Record`.
 Use cases involving ontology management are largely API-based and documented here: {doc}`/manage-ontologies`.
 
-A {class}`~lamindb.Record` is one of three kinds:
-
-- **Record page** — a type without a schema (`record.is_page`)
-- **Record frame** — a type constrained by a schema (`record.is_frame`)
-- **Data record** — a record that is not a type (`record.is_data`)
-
 The following video provides an overview of the interplay of flexible records and ontology management on the UI:
 
 ```{toctree}
