@@ -5,7 +5,7 @@
 LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
 Like git, LaminDB is a distributed system that runs anywhere and captures all relevant context about your work.
 This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
-You can install LaminDB and create a database on your laptop in about a minute, or create one in Postgres and cloud storage.
+It takes about a minute to install LaminDB and create a database on your laptop or in the cloud.
 
 <details>
 <summary>Why?</summary>
