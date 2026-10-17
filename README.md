@@ -441,7 +441,7 @@ To validate a `SpatialData` or any other array-like dataset, you need to constru
 ### Use branching & versioning
 
 LaminDB co-versions code and datasets for you.
-If edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
+If you edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
 
 <details>
 <summary>The edited script</summary>
