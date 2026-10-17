@@ -754,8 +754,8 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
         index_feature is not None and df.index.name == index_feature.name
     )
     for feature in schema.members:
-        # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        if feature.dtype_as_str.startswith("cat"):
+        # Validate categorical record types for both to-one and to-many features.
+        if feature.dtype_as_str.startswith(("cat", "list[cat")):
             if feature.name in df.columns:
                 value = (
                     df[feature.name].iloc[0]
@@ -772,7 +772,9 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                         )
                     if isinstance(value, SQLRecord):
                         _check_sqlrecord_type(value, feature)
-                    df[feature.name] = pd.Categorical(df[feature.name])
+                    # List-valued cells are unhashable and cannot be pandas categories.
+                    if not feature.dtype_as_str.startswith("list["):
+                        df[feature.name] = pd.Categorical(df[feature.name])
         elif feature.dtype_as_str == "dict" and feature.name in df.columns:
             # pandas 3 infers strings as str; dict validation expects object.
             df[feature.name] = df[feature.name].astype(object)
