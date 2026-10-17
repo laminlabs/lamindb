@@ -221,6 +221,38 @@ def test_record_type_assignment_requires_schema_features():
     experiment.delete(permanent=True)
 
 
+def test_loading_record_does_not_revalidate_stored_type():
+    experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
+    experiment = ln.Feature(name="load_type_experiment", dtype=experiment_type).save()
+    schema = ln.Schema([experiment], name="load_type_schema").save()
+    samplesheet = ln.Record(name="LoadTypeSamples", is_type=True, schema=schema).save()
+    other_sheet = ln.Record(name="LoadTypeOther", is_type=True, schema=schema).save()
+    experiment1 = ln.Record(name="LoadTypeExperiment1", type=experiment_type).save()
+    sample = ln.Record(
+        name="LoadTypeSample",
+        type=samplesheet,
+        features={experiment: experiment1},
+    ).save()
+    sample.features.remove_values(experiment)
+
+    loaded = list(samplesheet.records.all())
+    assert [record.name for record in loaded] == ["LoadTypeSample"]
+    assert loaded[0].type == samplesheet
+    loaded[0].type = samplesheet
+
+    with pytest.raises(ln.errors.ValidationError, match="load_type_experiment"):
+        loaded[0].type = other_sheet
+    assert loaded[0].type == samplesheet
+
+    sample.delete(permanent=True)
+    other_sheet.delete(permanent=True)
+    samplesheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    experiment1.delete(permanent=True)
+    experiment_type.delete(permanent=True)
+    experiment.delete(permanent=True)
+
+
 def test_record_lazy_features_on_save():
     score_feature = ln.Feature(name="lazy_score", dtype=float).save()
     record = ln.Record(name="lazy-record", features={"lazy_score": 0.7}).save()

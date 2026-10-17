@@ -1662,12 +1662,7 @@ class FeatureManager:
                     index_value = values_by_feature_uid[feature.uid]
                 else:
                     index_value = dictionary[feature.name]
-                apply_index_feature_to_record(
-                    record,
-                    feature,
-                    index_value,
-                    persist=False,
-                )
+                apply_index_feature_to_record(record, feature, index_value)
                 continue
             if (
                 values_by_feature_uid is not None

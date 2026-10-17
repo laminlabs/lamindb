@@ -81,13 +81,6 @@ def get_type_schema_index(record_type: Record | None) -> Feature | None:
     return schema.index
 
 
-def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
-    if schema is None:
-        return False
-    index_feature = schema.index
-    return index_feature is not None and feature.uid == index_feature.uid
-
-
 def validate_record_sheet_index_feature(index_feature: Feature) -> None:
     """Ensure a record frame index feature can be stored on `Record.name`."""
     if index_feature.dtype_as_str != "str":
@@ -169,19 +162,20 @@ def _required_schema_feature_names(
 
 
 def _record_type_assignment_label(record: Record) -> str:
-    name = getattr(record, "name", None)
-    if name:
-        return f"Record {name!r}"
-    uid = getattr(record, "uid", None)
-    if uid:
-        return f"Record uid={uid}"
-    return "Record"
+    if record.name:
+        return f"Record {record.name!r}"
+    return f"Record uid={record.uid}"
 
 
 def _overlay_values_through_features(
     record: Record, features: list[Feature], dictionary: dict[str, Any]
 ) -> None:
-    """Fill schema features stored on record fields or reverse links."""
+    """Fill schema features stored on record fields.
+
+    Reverse ``values_through`` links are already included by ``get_values()``
+    once a record is saved. Unsaved records have no primary key, so they have
+    no reverse links yet.
+    """
     features_by_uid = {feature.uid: feature for feature in features}
     for feature_uid, field_name in get_feature_record_field_mappings(features).items():
         feature = features_by_uid[feature_uid]
@@ -190,28 +184,6 @@ def _overlay_values_through_features(
         value = _feature_value_from_mapped_record_field(record, feature, field_name)
         if not _missing_feature_value(value):
             dictionary[feature.name] = value
-    values_feature_uids = get_feature_values_through_uids(features)
-    if not values_feature_uids or getattr(record, "pk", None) is None:
-        return
-    source_features = {
-        feature.uid: feature
-        for feature in Feature.objects.using(record._state.db).filter(
-            uid__in=set(values_feature_uids.values())
-        )
-    }
-    for target_uid, source_uid in values_feature_uids.items():
-        target_feature = features_by_uid[target_uid]
-        if target_feature.name in dictionary:
-            continue
-        source_feature = source_features.get(source_uid)
-        if source_feature is None:
-            continue
-        value = _feature_value_from_backward_record_links(
-            record, target_feature, source_feature
-        )
-        if value is None or value == [] or value == set():
-            continue
-        dictionary[target_feature.name] = value
 
 
 def _feature_dictionary_for_type_assignment(
@@ -247,6 +219,19 @@ def _feature_dictionary_for_type_assignment(
         record, _schema_member_features(schema), dictionary
     )
     return dictionary
+
+
+def _assigns_stored_type(record: Record, record_type: Record | None) -> bool:
+    """Whether ``record_type`` is the type already stored on this row.
+
+    Queryset iteration assigns that object through ``__setattr__`` to fill the
+    relation cache. That is not a new assignment.
+    """
+    if record_type is None or getattr(record._state, "adding", True):
+        return False
+    type_id = record.__dict__.get("type_id")
+    type_pk = getattr(record_type, "pk", None)
+    return type_id is not None and type_pk is not None and type_id == type_pk
 
 
 def validate_data_record_type_assignment(
@@ -327,13 +312,9 @@ def apply_index_feature_to_record(
     record: Record,
     feature: Feature,
     value: Any,
-    *,
-    persist: bool = True,
 ) -> None:
     """Set `record.name` from an index feature value."""
     record.name = coerce_index_value_to_record_name(value, feature)
-    if persist and record.pk is not None:
-        persist_record_name(record)
 
 
 def persist_record_name(record: Record) -> None:
@@ -852,9 +833,7 @@ def strip_index_for_record_persistence(
             index_value = dictionary[index_feature.name]
 
         if index_value is not None:
-            apply_index_feature_to_record(
-                record, index_feature, index_value, persist=False
-            )
+            apply_index_feature_to_record(record, index_feature, index_value)
 
     dictionary = dict(dictionary)
     update_fields = set(getattr(record, "_mapped_feature_update_fields", set()))
@@ -1585,7 +1564,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self._defer_type_schema_check = False
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name == "type" and not self.__dict__.get("_defer_type_schema_check", False):
+        if (
+            name == "type"
+            and not self.__dict__.get("_defer_type_schema_check", False)
+            and not _assigns_stored_type(self, value)
+        ):
             validate_data_record_type_assignment(self, value)
         super().__setattr__(name, value)
 
