@@ -79,12 +79,25 @@ try:
 except ln.errors.ValidationError as error:
     print(error)
 
+# move sample1 into the samplesheet
+sample1.type = samplesheet
+sample1.save()
 sample1.features.set_values({
     gc_content: 0.5,
     experiment: experiment1,
 })
 sample1.type = samplesheet
 sample1.save()
+```
+
+`experiment` is required, so setting only `gc_content` raises {class}`~lamindb.errors.ValidationError`:
+
+```python
+sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
+try:
+    sample2.features.set_values({gc_content: 0.6})
+except ln.errors.ValidationError as error:
+    print(error)
 ```
 
 ## Use a feature as an index
