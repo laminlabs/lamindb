@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
@@ -395,6 +395,38 @@ def get_categoricals_postgres(
     return dict(result)
 
 
+def _python_scalar(value: Any) -> Any:
+    """Unwrap a numpy scalar so it matches the string or number that was passed in."""
+    import numpy as np
+
+    if isinstance(value, np.generic):
+        return value.item()
+    return value
+
+
+def _label_records_in_value_order(label_records, values, field_name: str) -> list:
+    """Order label records to follow ``values``.
+
+    ``from_values`` and ``__in`` filters return database order. PostgreSQL does
+    not promise that order, so a list feature was stored in whatever order the
+    lookup happened to return.
+    """
+    records = list(label_records)
+    if isinstance(values, (str, bytes)) or not hasattr(values, "__iter__"):
+        return records
+    buckets: dict[Any, list] = defaultdict(list)
+    for record in records:
+        buckets[_python_scalar(getattr(record, field_name, None))].append(record)
+    ordered: list = []
+    for value in values:
+        bucket = buckets.get(_python_scalar(value))
+        if bucket:
+            ordered.append(bucket.pop(0))
+    for bucket in buckets.values():
+        ordered.extend(bucket)
+    return ordered
+
+
 def get_categoricals_sqlite(
     self: Artifact | Collection,
 ) -> dict[tuple[str, str], set[str]]:
@@ -403,6 +435,9 @@ def get_categoricals_sqlite(
 
     result = {}  # type: ignore
     for _, links in _get_labels(self, links=True, instance=self._state.db).items():
+        # Link-table pk order is the order the list was written in.
+        if hasattr(links, "order_by"):
+            links = links.order_by("pk")
         for link in links:
             if link.__class__.__name__ == "RecordJson":
                 continue
@@ -1662,12 +1697,7 @@ class FeatureManager:
                     index_value = values_by_feature_uid[feature.uid]
                 else:
                     index_value = dictionary[feature.name]
-                apply_index_feature_to_record(
-                    record,
-                    feature,
-                    index_value,
-                    persist=False,
-                )
+                apply_index_feature_to_record(record, feature, index_value)
                 continue
             if (
                 values_by_feature_uid is not None
@@ -1783,6 +1813,10 @@ class FeatureManager:
                         raise ValidationError(
                             f"Some of these values for {result['registry_str']} do not exist: {values}"
                         )
+                if feature._dtype_str.startswith("list[cat"):
+                    label_records = _label_records_in_value_order(
+                        label_records, values, cast(str, result["field_str"])
+                    )
             for label_record in label_records:
                 if label_record._state.adding:
                     raise ValidationError(
@@ -2061,6 +2095,10 @@ class FeatureManager:
                             raise ValidationError(
                                 f"Some of these values for {result['registry_str']} do not exist: {values}"
                             )
+                    if feature._dtype_str.startswith("list[cat"):
+                        label_records = _label_records_in_value_order(
+                            label_records, values, cast(str, result["field_str"])
+                        )
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
