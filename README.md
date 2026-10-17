@@ -339,7 +339,7 @@ ln.Artifact.to_dataframe(include=["transform__key", "storage__root"])
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize) or [docs.lamin.ai/query-search](https://docs.lamin.ai/query-search)
 
-### Create records & notes - ELN & LIMS
+### Create records & notes
 
 You can create **record types** to model metadata for any entity:
 

@@ -2073,9 +2073,15 @@ def test_record_features_add_remove_values():
         ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
         == test_record
     )
-    # Datetime and date (filter uses ISO strings as stored in JSON)
+    # Datetime and date are stored as ISO strings; date and datetime objects match too
     assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert (
+        ln.Record.filter(feature_datetime=datetime(2024, 1, 1, 12, 0, 0)).one()
+        == test_record
+    )
     assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    assert ln.Record.filter(feature_date=date(2024, 1, 1)).one() == test_record
+    assert ln.Record.filter(feature_date == date(2024, 1, 1)).one() == test_record
     # __contains (categorical)
     assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
     assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
@@ -2132,6 +2138,7 @@ def test_record_features_add_remove_values():
     assert ln.Record.filter(feature_num__gt=10.0).one_or_none() is None
     # Date and datetime comparators (ISO strings)
     assert ln.Record.filter(feature_date__lt="2024-01-02").one() == test_record
+    assert ln.Record.filter(feature_date__lt=date(2024, 1, 2)).one() == test_record
     assert ln.Record.filter(feature_date__gt="2023-12-31").one() == test_record
     assert ln.Record.filter(feature_date__gt="2024-01-02").one_or_none() is None
     assert (
