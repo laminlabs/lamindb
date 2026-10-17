@@ -144,9 +144,9 @@ Every `SQLRecord` object has an attribute `._state.db` which can take the follow
 ```
 
 ```python tags=["hide-cell"]
-assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
-assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
-assert artifact.transform.uid == "4XIuR0tvaiXM0000"
+assert artifact.run.transform.description == "Transfer from `laminlabs/lamindata`"
+assert artifact.run.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
+assert artifact.run.transform.uid == "4XIuR0tvaiXM0000"
 assert artifact.run.initiated_by_run.transform.description.startswith("Transfer & sync")
 assert artifact.features.slots
 for schema in artifact.features.slots.values():

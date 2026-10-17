@@ -978,6 +978,18 @@ def infer_convert_dtype_key_value(
     return "?", value, message
 
 
+def _json_temporal_lookup_value(value: Any, dtype_str: str, feature_name: str) -> Any:
+    """Serialize date and datetime lookups to the ISO strings stored in JSON."""
+    if not isinstance(value, date):
+        return value
+    if dtype_str not in {"date", "datetime", "datetime64[ns, UTC]"}:
+        return value
+    _, converted, _ = infer_convert_dtype_key_value(
+        key=feature_name, value=value, dtype_str=dtype_str
+    )
+    return converted
+
+
 def _filter_one_feature_clause(
     queryset: BasicQuerySet,
     feature: Feature,
@@ -1047,6 +1059,7 @@ def _filter_one_feature_clause(
                 accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
         else:
+            value = _json_temporal_lookup_value(value, dtype_str, feature.name)
             if connections[feature._state.db].vendor == "sqlite" and comparator in {
                 "__gt",
                 "__lt",

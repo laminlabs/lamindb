@@ -94,7 +94,7 @@ def test_transfer_from_lamin_dev(connected_bionty):
     artifact2 = ln.Artifact.connect("laminlabs/lamin-dev").get("qz35YaRk")
     id_remote = artifact2.id
     run_remote = artifact2.run
-    transform_remote = artifact2.transform
+    transform_remote = artifact2.run.transform if artifact2.run is not None else None
     created_by_remote = artifact2.created_by
     storage_remote = artifact2.storage
     organism_remote = artifact2.organisms.get(name="mouse")
@@ -106,8 +106,9 @@ def test_transfer_from_lamin_dev(connected_bionty):
         assert artifact2.run is not None
         assert run_remote.uid != artifact2.run.uid
     if transform_remote is not None:
-        assert artifact2.transform is not None
-        assert transform_remote.uid != artifact2.transform.uid
+        assert artifact2.run is not None
+        assert artifact2.run.transform is not None
+        assert transform_remote.uid != artifact2.run.transform.uid
     assert created_by_remote.uid == artifact2.created_by.uid
     assert created_by_remote.handle == artifact2.created_by.handle
     assert storage_remote.uid == artifact2.storage.uid
