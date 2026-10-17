@@ -1820,6 +1820,9 @@ class FeatureManager:
         On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
         allowing multiple values to represent aggregated measurements.
 
+        An empty dictionary leaves annotations unchanged, subject to any supplied
+        or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -1860,6 +1863,8 @@ class FeatureManager:
         if host_is_artifact:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
+        if not dictionary and schema is None:
+            return None
         if schema is not None:
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
@@ -1908,12 +1913,19 @@ class FeatureManager:
             dictionary,
             values_by_feature_uid,
         )
-        ExperimentalDictCurator(
-            dictionary,
-            schema,
-            require_saved_schema=False,
-            using=self._host._state.db,
-        ).validate()
+        try:
+            ExperimentalDictCurator(
+                dictionary,
+                schema,
+                require_saved_schema=False,
+                using=self._host._state.db,
+            ).validate()
+        except ValidationError as error:
+            raise ValidationError(
+                self._feature_validation_message(
+                    dictionary, feature_objects, error, action="add"
+                )
+            ) from error
         if host_is_record:
             from .record import (
                 apply_inverted_values_through_writes,
@@ -2098,6 +2110,9 @@ class FeatureManager:
         Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
         the artifact's external feature annotations.
 
+        An empty dictionary clears external feature annotations, subject to any
+        supplied or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -2142,24 +2157,10 @@ class FeatureManager:
             schema = self._host.type.schema  # type: ignore
         if host_is_artifact:
             schema = self._get_external_schema()
+        if not dictionary and schema is None:
+            self._remove_values()
+            return None
         if schema is not None:
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-            self._normalize_user_feature_values(
-                feature_objects,
-                dictionary,
-                values_by_feature_uid,
-            )
-            try:
-                ExperimentalDictCurator(
-                    dictionary, schema, using=self._host._state.db
-                ).validate()
-            except ValidationError as error:
-                raise ValidationError(
-                    self._feature_validation_message(dictionary, feature_objects, error)
-                ) from error
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
                 feature.name
@@ -2171,6 +2172,10 @@ class FeatureManager:
                     "These feature keys are not in the provided schema: "
                     f"{features_not_in_schema}"
                 )
+            looked_up_features = schema.members.filter(name__in=keys)
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
         else:
             if string_key_values:
                 looked_up_features = self._get_feature_objects(
@@ -2181,11 +2186,23 @@ class FeatureManager:
             feature_objects = self._merge_feature_objects(
                 explicit_features, looked_up_features
             )
-            self._normalize_user_feature_values(
-                feature_objects,
+            schema = Schema(feature_objects)
+        self._normalize_user_feature_values(
+            feature_objects,
+            dictionary,
+            values_by_feature_uid,
+        )
+        try:
+            ExperimentalDictCurator(
                 dictionary,
-                values_by_feature_uid,
-            )
+                schema,
+                require_saved_schema=False,
+                using=self._host._state.db,
+            ).validate()
+        except ValidationError as error:
+            raise ValidationError(
+                self._feature_validation_message(dictionary, feature_objects, error)
+            ) from error
         if host_is_record:
             from .record import (
                 apply_inverted_values_through_writes,
@@ -2219,6 +2236,8 @@ class FeatureManager:
         values: dict[str, Any],
         features: list[Feature],
         error: BaseException,
+        *,
+        action: str = "set",
     ) -> str:
         """Name the host record and each feature assignment that failed validation."""
         host_kind = get_registry_name(self._host)
@@ -2244,7 +2263,7 @@ class FeatureManager:
             dtype_label = f" ({dtype})" if dtype else ""
             assignments.append(f"{key!r}{dtype_label}={value!r}")
         feature_text = ", ".join(assignments) if assignments else "(none)"
-        return f"Failed to set features on {identity}: {feature_text}. {error}"
+        return f"Failed to {action} features on {identity}: {feature_text}. {error}"
 
     def _get_external_schema(self) -> Schema | None:
         external_schema = None

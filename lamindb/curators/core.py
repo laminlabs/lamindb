@@ -26,7 +26,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str
+from lamindb.base.dtypes import check_dtype, check_pandera_str, is_dict_value
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.base.utils import get_registry_name
 from lamindb.core._compat import is_polars_dataframe
@@ -773,6 +773,9 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                     if isinstance(value, SQLRecord):
                         _check_sqlrecord_type(value, feature)
                     df[feature.name] = pd.Categorical(df[feature.name])
+        elif feature.dtype_as_str == "dict" and feature.name in df.columns:
+            # pandas 3 infers strings as str; dict validation expects object.
+            df[feature.name] = df[feature.name].astype(object)
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
             feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
@@ -962,10 +965,8 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                         checks=pandera.Check(
-                            lambda s: s.dropna()
-                            .apply(lambda x: isinstance(x, dict))
-                            .all(),
-                            error="Non-null values must be dicts",
+                            lambda s: s.dropna().apply(is_dict_value).all(),
+                            error="Non-null values must be dicts or strings representing dicts",
                         ),
                     )
                 else:
