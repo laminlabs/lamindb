@@ -288,88 +288,86 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 ### Annotate & query artifacts
 
-You can label an artifact by running:
+To annotate and query by **labels**:
 
 ```python
-my_label = ln.ULabel(name="My label").save()   # a universal label
-my_project = ln.Project(name="My project").save()  # a project label
+# define labels
+my_label = ln.ULabel(name="My label").save()
+my_project = ln.Project(name="My project").save()
+
+# annotate
 artifact.ulabels.add(my_label)
 artifact.projects.add(my_project)
-```
 
-Query for it:
-
-```python
+# query
 ln.Artifact.filter(ulabels=my_label, projects=my_project).to_dataframe()
 ```
 
-You can also query by automatically generated metadata:
-
-```python
-ln.Artifact.filter(run=run).to_dataframe()              # by creating run
-ln.Artifact.filter(transform=transform).to_dataframe()  # by creating transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()         # size greater than 1MB
-```
-
-If you want to include more information into the resulting dataframe, pass `include`.
-
-```python
-ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
-```
-
-Let's define some features:
+To annotate & query by **features**:
 
 ```python
 from datetime import date
 
+# define features
 gc_content = ln.Feature(name="gc_content", dtype=float).save()
-experiment_note = ln.Feature(name="experiment_note", dtype=str).save()
-experiment_date = ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
-```
+seq_date = ln.Feature(name="seq_date", dtype=date).save()
 
-The most basic thing you can do with features is annotating artifacts, records, or runs:
-
-```python
+# annotate
 artifact.features.set_values({
     gc_content: 0.55,
-    experiment_note: "Looks great",
-    experiment_date: "2025-10-24",
+    seq_date: date.today(),
 })
 
 # query
-ln.Artifact.filter(experiment_date == "2025-10-24").to_dataframe(include="features")  # query all artifacts annotated with `experiment_date`
+ln.Artifact.filter(seq_date == date.today()).to_dataframe(include="features")
+```
+
+To query by **auto-tracked metadata**:
+
+```python
+# by storage location and size
+ln.Artifact.filter(storage=ln.settings.storage)
+ln.Artifact.filter(size__gt=1e6).to_dataframe()
+
+# by data lineage
+ln.Artifact.filter(transform=transform).to_dataframe()
+ln.Artifact.filter(run=run).to_dataframe()
+
+# include more information in resulting dataframe
+ln.Artifact.to_dataframe(include=["transform__key", "storage__root"])
 ```
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize) or [docs.lamin.ai/query-search](https://docs.lamin.ai/query-search)
 
-### Create records & notes
+### Create records & notes - ELN & LIMS
 
-You can create **records** for entities underlying your experiments (samples, perturbations, instruments, etc.):
-
-```python
-ln.Record(name="Sample 1", features={gc_content: 0.5}).save()
-```
-
-You can create record types:
+You can create **record types** to model metadata for any entity:
 
 ```python
-# create an Experiments record type
-experiments = ln.Record(name="Experiments", is_type=True).save()
+# create record types
+experiment_type = ln.Record(name="Experiments", is_type=True).save()
+sample_type = ln.Record(name="Samples", is_type=True).save()
 
-# create a data record of that type
-experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
+# create an experiment
+experiment1 = ln.Record(
+    name="Experiment 1",
+    features={seq_date: date.today()}
+    type=experiment_type
+).save()
 
-# create a feature that links experiments (a relationship)
-experiment = ln.Feature(name="experiment", dtype=experiments).save()
+# create a sample that links to "Experiment 1" via a feature
+experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+sample1 = ln.Record(
+    features={gc_content: 0.5, experiment: experiment1},
+    type=sample_type
+).save()
 
-# create a sample record
-ln.Record(name="Sample 2", features={gc_content: 0.5, experiment: experiment1}).save()
-
-# export all experiments
-experiments.to_dataframe()
+# export all experiments and all samples
+experiment_type.to_dataframe()
+sample_type.to_dataframe()
 ```
 
-In your development directory, you can save markdown notes as records:
+You can save **markdown notes** as records:
 
 ```shell
 lamin save <topic>/<my-note.md>
@@ -393,10 +391,10 @@ Here is how you ingest a `DataFrame`:
 import pandas as pd
 
 df = pd.DataFrame({
-    "sequence_str": ["ACGT", "TGCA"],
+    "seq_str": ["ACGT", "TGCA"],
     "gc_content": [0.55, 0.54],
     "experiment_note": ["Looks great", "Ok"],
-    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
+    "seq_date": [date(2025, 10, 24), date(2025, 10, 25)],
 })
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
@@ -404,7 +402,8 @@ ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no
 The simplest way to validate & annotate the content of the dataframe is the built-in schema `valid_features`:
 
 ```python
-ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
+ln.Feature(name="seq_str", dtype=str).save()  # define remaining features
+ln.Feature(name="experiment_note", dtype=str).save()
 artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",

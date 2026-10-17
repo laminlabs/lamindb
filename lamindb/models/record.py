@@ -1046,13 +1046,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
-    Create a data record with one feature. Notes pages, record frames, import, and queries are in :doc:`/manage-records`.
+    Create a data record with one feature.
 
     ::
 
         gc_content = ln.Feature(name="gc_content", dtype=float).save()
-        sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
-        sample1.describe()
+        sample1 = ln.Record(features={gc_content: 0.5}).save()
+
+    For more examples, see :doc:`/manage-records`.
 
     Notes
     -----
