@@ -99,7 +99,8 @@ def validate_record_type_schema_index(schema: Schema | None) -> None:
 
 
 def _missing_feature_value(value: Any) -> bool:
-    if value is None:
+    """Whether this value does not yet satisfy a required feature."""
+    if value is None or value == [] or value == set():
         return True
     import pandas as pd
 

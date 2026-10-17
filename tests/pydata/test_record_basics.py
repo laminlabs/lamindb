@@ -205,10 +205,40 @@ def test_record_type_assignment_requires_schema_features():
     untyped = ln.Record(name="TypeAssignPageRow", type=page).save()
     assert untyped.type == page
 
+    # A required feature stored on a record field is visible before save.
+    stored_note = ln.Feature(
+        name="type_assign_stored_note", dtype=str, values_through="description"
+    ).save()
+    note_schema = ln.Schema(
+        [stored_note],
+        name="type_assign_note_schema",
+    ).save()
+    note_sheet = ln.Record(
+        name="TypeAssignNotes", is_type=True, schema=note_schema
+    ).save()
+    with pytest.raises(ln.errors.ValidationError, match="type_assign_stored_note"):
+        ln.Record(name="TypeAssignNoNote", type=note_sheet)
+    noted = ln.Record(
+        name="TypeAssignNoted",
+        description="has a note",
+        type=note_sheet,
+    ).save()
+    assert noted.type == note_sheet
+    assert noted.description == "has a note"
+    assert noted.features.get_values()["type_assign_stored_note"] == "has a note"
+    saved_note = ln.Record(name="TypeAssignSavedNote", description="saved note").save()
+    saved_note.type = note_sheet
+    assert saved_note.type == note_sheet
+
     complete.delete(permanent=True)
     blank.delete(permanent=True)
     sample.delete(permanent=True)
     untyped.delete(permanent=True)
+    noted.delete(permanent=True)
+    saved_note.delete(permanent=True)
+    note_sheet.delete(permanent=True)
+    note_schema.delete(permanent=True)
+    stored_note.delete(permanent=True)
     optional_sheet.delete(permanent=True)
     optional_schema.delete(permanent=True)
     samplesheet.delete(permanent=True)
@@ -514,6 +544,8 @@ def test_record_schema_index_stored_on_name():
         coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
     with pytest.raises(TypeError, match="must be a string"):
         coerce_index_value_to_record_name(7, sample_id)
+    assert coerce_index_value_to_record_name(None, sample_id) is None
+    assert coerce_index_value_to_record_name(pd.NA, sample_id) is None
 
     name, features = pop_index_from_feature_dictionary(
         {"sample_id": "S-001", "score": 1.5},
@@ -746,6 +778,34 @@ def test_record_schema_index_stored_on_name():
     schema.delete(permanent=True)
     sample_id.delete(permanent=True)
     score.delete(permanent=True)
+
+    # An index marker that is not a schema member is still required, even when
+    # minimal_set is false and the other columns are not.
+    bare_key = ln.Feature(name="bare_row_key", dtype=str).save()
+    bare_score = ln.Feature(name="bare_score", dtype=float).save()
+    bare_schema = ln.Schema(
+        features=[bare_score],
+        minimal_set=False,
+        name="bare-index-schema",
+    ).save()
+    bare_schema.index = bare_key
+    bare_schema.save()
+    assert bare_key not in bare_schema.members.all()
+    bare_sheet = ln.Record(
+        name="bare-index-sheet", is_type=True, schema=bare_schema
+    ).save()
+    with pytest.raises(ln.errors.ValidationError, match="bare_row_key"):
+        ln.Record(type=bare_sheet, features={"bare_score": 1.0})
+    bare_record = ln.Record(
+        type=bare_sheet,
+        features={"bare_row_key": "row-1", "bare_score": 1.0},
+    ).save()
+    assert bare_record.name == "row-1"
+    ln.Record.filter(type=bare_sheet).delete(permanent=True)
+    bare_sheet.delete(permanent=True)
+    bare_schema.delete(permanent=True)
+    bare_key.delete(permanent=True)
+    bare_score.delete(permanent=True)
 
 
 def test_record_schema_index_name_conflict_resolution():
@@ -1297,14 +1357,33 @@ def test_record_feature_values_through_reads_reverse_links():
         "attendees", []
     )
 
+    # Joining a frame that requires the reverse feature uses links that already exist.
+    required_people_schema = ln.Schema(
+        features=[attended_meetings_feature],
+        name="values-from-people-required-schema",
+    ).save()
+    required_people_sheet = ln.Record(
+        name="values-from-people-required-sheet",
+        is_type=True,
+        schema=required_people_schema,
+    ).save()
+    unlinked = ln.Record(name="values-from-unlinked").save()
+    with pytest.raises(ln.errors.ValidationError, match="attended_meetings"):
+        unlinked.type = required_people_sheet
+    alice.type = required_people_sheet
+    assert alice.type == required_people_sheet
+
     meeting_1.delete(permanent=True)
     meeting_2.delete(permanent=True)
     alice.delete(permanent=True)
     bob.delete(permanent=True)
+    unlinked.delete(permanent=True)
     meetings_sheet.delete(permanent=True)
     people_sheet.delete(permanent=True)
+    required_people_sheet.delete(permanent=True)
     meetings_schema.delete(permanent=True)
     people_schema.delete(permanent=True)
+    required_people_schema.delete(permanent=True)
     attendees_feature.delete(permanent=True)
     attended_meetings_feature.delete(permanent=True)
 
