@@ -46,20 +46,20 @@ sample1.describe()
 To create and use a record type call:
 
 ```python
-experiments = ln.Record(name="Experiments", is_type=True).save()
-experiment1 = ln.Record(name="Experiment 1", type=experiments).save()
+experiment_type = ln.Record(name="Experiments", is_type=True).save()
+experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 ```
 
 You can define a feature whose `dtype` is a record type:
 
 ```python
-experiment = ln.Feature(name="experiment", dtype=experiments).save()
+experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 ```
 
 {meth}`~lamindb.Record.to_dataframe` exports:
 
 ```python
-experiments.to_dataframe()
+experiment_type.to_dataframe()
 ```
 
 ## Constrain records with a schema
@@ -188,5 +188,5 @@ Click on "Export to Artifact" to save all data records under a type as an artifa
 In the API, call {meth}`~lamindb.Record.to_artifact()` on a record frame:
 
 ```python
-experiments.to_artifact()
+experiment_type.to_artifact()
 ```
