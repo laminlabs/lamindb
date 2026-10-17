@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
@@ -404,15 +404,13 @@ def _python_scalar(value: Any) -> Any:
     return value
 
 
-def _label_records_in_value_order(label_records, values, field_name: object) -> list:
+def _label_records_in_value_order(label_records, values, field_name: str) -> list:
     """Order label records to follow ``values``.
 
     ``from_values`` and ``__in`` filters return database order. PostgreSQL does
     not promise that order, so a list feature was stored in whatever order the
     lookup happened to return.
     """
-    if not isinstance(field_name, str):
-        field_name = "name"
     records = list(label_records)
     if isinstance(values, (str, bytes)) or not hasattr(values, "__iter__"):
         return records
@@ -1816,9 +1814,8 @@ class FeatureManager:
                             f"Some of these values for {result['registry_str']} do not exist: {values}"
                         )
                 if feature._dtype_str.startswith("list[cat"):
-                    field_name = result.get("field_str") or "name"
                     label_records = _label_records_in_value_order(
-                        label_records, values, field_name
+                        label_records, values, cast(str, result["field_str"])
                     )
             for label_record in label_records:
                 if label_record._state.adding:
@@ -2099,9 +2096,8 @@ class FeatureManager:
                                 f"Some of these values for {result['registry_str']} do not exist: {values}"
                             )
                     if feature._dtype_str.startswith("list[cat"):
-                        field_name = result.get("field_str") or "name"
                         label_records = _label_records_in_value_order(
-                            label_records, values, field_name
+                            label_records, values, cast(str, result["field_str"])
                         )
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
