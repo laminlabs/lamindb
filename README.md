@@ -208,8 +208,8 @@ Watch a mini video: [youtu.be/yK3ODFZLL1A](https://youtu.be/yK3ODFZLL1A)
 <summary>Access run & transform.</summary>
 
 ```python
-run = artifact.run              # get the run object
-transform = artifact.transform  # get the transform object
+run = artifact.run                     # get the run object
+transform = artifact.run.transform     # get the transform object
 run.describe()                  # context of the run
 ```
 
@@ -460,7 +460,7 @@ ln.finish()
 ```python
 artifact_latest = ln.Artifact.get(key="sample.fasta")  # pass version for a previous version: ln.Artifact.get(key="sample.fasta", version="1.0")
 artifact_latest.versions.to_dataframe()                # all versions of that artifact
-artifact_latest.transform.versions.to_dataframe()      # all versions of the transform that created the artifact
+artifact_latest.run.transform.versions.to_dataframe()  # all versions of the transform that created the artifact
 ```
 
 To isolate changes, create a contribution branch and switch to it as in `git`:

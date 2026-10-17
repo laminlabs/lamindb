@@ -157,8 +157,8 @@ def test_record_example_compound_treatment(
         "project",
     ]
     assert artifact.run.input_records.count() == 3
-    assert artifact.transform.kind == "function"
-    assert artifact.transform.key == "__lamindb_record_export__"
+    assert artifact.run.transform.kind == "function"
+    assert artifact.run.transform.key == "__lamindb_record_export__"
     assert artifact.run.status == "completed"
     assert artifact.run.started_at is not None
     assert artifact.run.finished_at is not None
@@ -689,8 +689,8 @@ def test_record_export_reuses_legacy_transform_uid(
     artifact = sample_sheet.to_artifact()
     try:
         legacy_transform_reloaded = ln.Transform.get(id=legacy_transform.id)
-        assert artifact.transform.uid == "v6KpQx9mRt2B0000"
-        assert artifact.transform.id == legacy_transform.id
+        assert artifact.run.transform.uid == "v6KpQx9mRt2B0000"
+        assert artifact.run.transform.id == legacy_transform.id
         assert artifact.run is not None
         assert artifact.run.finished_at is not None
         assert artifact.run.status == "completed"
@@ -716,7 +716,7 @@ def test_record_export_populates_initiated_by_run(
 
     artifact = sample_sheet.to_artifact()
     try:
-        assert artifact.transform.key == "__lamindb_record_export__"
+        assert artifact.run.transform.key == "__lamindb_record_export__"
         assert artifact.run is not None
         assert artifact.run.initiated_by_run is not None
         assert artifact.run.initiated_by_run.id == initiating_run.id

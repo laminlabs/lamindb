@@ -2234,6 +2234,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         super().__init__(**kwargs)
 
     @property
+    @deprecated("run.transform")
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None

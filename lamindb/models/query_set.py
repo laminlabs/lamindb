@@ -150,6 +150,7 @@ def map_query_kwargs(queryset, expressions):
         name_mappings = {}
 
     if model is Artifact:
+        # backward compatibility with old conventions
         name_mappings.update(
             {
                 "transform": "run__transform",
