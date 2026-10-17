@@ -16,6 +16,34 @@ from lamindb.models.feature import (
 from pandera.errors import ParserError
 
 
+@pytest.mark.parametrize(
+    "value,valid",
+    [
+        ({"external": True}, True),
+        ("{'external': True, 'missing': None}", True),
+        ("{}", True),
+        ("{invalid", False),
+        ("[1, 2]", False),
+        ("42", False),
+        ('"text"', False),
+        ("null", False),
+    ],
+)
+def test_dict_dtype_accepts_dictionary_strings(value: dict | str, valid: bool) -> None:
+    from lamindb.curators.core import ExperimentalDictCurator
+
+    feature = ln.Feature(name="dict_string_validation", dtype=dict).save()
+    try:
+        schema = ln.Schema([feature])
+        if valid:
+            ExperimentalDictCurator({feature.name: value}, schema).validate()
+        else:
+            with pytest.raises(ValidationError, match="strings representing dicts"):
+                ExperimentalDictCurator({feature.name: value}, schema).validate()
+    finally:
+        feature.delete(permanent=True)
+
+
 @pytest.fixture
 def organism():
     organism = bt.Organism(name="test_organism")
