@@ -817,6 +817,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ordered_set: bool = False,
         coerce: bool | None = None,
         n_members: int | None = None,
+        lookup: bool = True,
         branch: Branch | None = None,
         space: Space | None = None,
     ): ...
@@ -865,6 +866,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         else:
             coerce_dtype = kwargs.pop("coerce", None)
         using: str | None = kwargs.pop("using", None)
+        # Validation already holds the feature objects. Skip the hash lookup that
+        # would reload an equivalent saved schema and its members.
+        lookup: bool = kwargs.pop("lookup", True)
         if "n" in kwargs:
             warnings.warn(
                 "`n` argument was renamed to `n_members` and will be removed in a future release.",
@@ -917,7 +921,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             raise InvalidArgument(
                 "Please pass features or slots or itype or set is_type=True"
             )
-        if not is_type:
+        if lookup and not is_type:
             schema = (
                 Schema.objects.using(using)
                 .filter(

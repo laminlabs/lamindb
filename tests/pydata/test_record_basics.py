@@ -230,7 +230,9 @@ def test_record_type_assignment_requires_schema_features():
     saved_note.type = note_sheet
     assert saved_note.type == note_sheet
 
-    # The same feature name under two types is two features.
+    # The same feature name under two types is two features. Saving that schema
+    # is allowed. Using it as a record frame is not: validation stops before
+    # reading any values.
     scope_a = ln.Feature(name="TypeAssignScopeA", is_type=True).save()
     scope_b = ln.Feature(name="TypeAssignScopeB", is_type=True).save()
     conc_a = ln.Feature(name="type_assign_conc", dtype=float, type=scope_a).save()
@@ -239,22 +241,18 @@ def test_record_type_assignment_requires_schema_features():
     clash_sheet = ln.Record(
         name="TypeAssignClash", is_type=True, schema=clash_schema
     ).save()
-    with pytest.raises(ln.errors.ValidationError, match=conc_b.uid) as missing_conc:
+    with pytest.raises(
+        ln.errors.ValidationError, match="type_assign_conc"
+    ) as pending_clash:
         ln.Record(
             name="TypeAssignClashPending",
             type=clash_sheet,
             features={conc_a: 1.5},
         )
-    assert conc_a.uid not in str(missing_conc.value)
+    assert "share a name" in str(pending_clash.value)
     saved = ln.Record(name="TypeAssignClashSaved", features={conc_a: 1.5}).save()
-    with pytest.raises(ln.errors.ValidationError, match=conc_b.uid) as missing_saved:
+    with pytest.raises(ln.errors.ValidationError, match="share a name"):
         saved.type = clash_sheet
-    assert conc_a.uid not in str(missing_saved.value)
-    from lamindb.models.record import RecordJson
-
-    RecordJson(record=saved, feature=conc_b, value=2).save()
-    saved.type = clash_sheet
-    assert saved.type == clash_sheet
 
     complete.delete(permanent=True)
     blank.delete(permanent=True)
@@ -2998,9 +2996,13 @@ def test_record_empty_feature_values_respect_schema(method, inherited_schema):
     record_type = ln.Record(
         name="empty-values-type", is_type=True, schema=schema
     ).save()
-    record = ln.Record(
-        name="empty-values-record", type=record_type if inherited_schema else None
-    ).save()
+    # A typed record has to satisfy required features when it joins the frame.
+    # The empty-dictionary check below starts from a record that already does.
+    record_kwargs = {"name": "empty-values-record"}
+    if inherited_schema:
+        record_kwargs["type"] = record_type
+        record_kwargs["features"] = {feature: [1, 2]}
+    record = ln.Record(**record_kwargs).save()
     kwargs = {} if inherited_schema else {"schema": schema}
     try:
         record.features.set_values({feature: [1, 2]}, **kwargs)
@@ -3013,6 +3015,32 @@ def test_record_empty_feature_values_respect_schema(method, inherited_schema):
         record.delete(permanent=True)
         record_type.delete(permanent=True)
         schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def _feature_name_lookup(queries) -> bool:
+    """Whether a query resolves features by name rather than by the passed object."""
+    return any('"lamindb_feature"."name" IN' in query["sql"] for query in queries)
+
+
+def test_set_values_feature_objects_skip_name_lookup():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    feature = ln.Feature(name="set_values_skip_lookup", dtype=float).save()
+    record = ln.Record(name="set-values-skip-lookup").save()
+    try:
+        with CaptureQueriesContext(connection) as feature_keys:
+            record.features.set_values({feature: 1.5})
+        assert not _feature_name_lookup(feature_keys.captured_queries)
+        assert record.features.get_values()[feature.name] == 1.5
+
+        with CaptureQueriesContext(connection) as string_keys:
+            record.features.set_values({feature.name: 2.5})
+        assert _feature_name_lookup(string_keys.captured_queries)
+        assert record.features.get_values()[feature.name] == 2.5
+    finally:
+        record.delete(permanent=True)
         feature.delete(permanent=True)
 
 
@@ -3123,10 +3151,11 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
 
     # An unsaved record has no primary key, so it cannot be resolved through a sheet.
     unsaved_b = ln.Record(name="unsaved_b_mismatch", type=type_b)
+    mismatch_schema = ln.Schema([feature], name="mismatch_schema").save()
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: [unsaved_b]}, schema=schema)
+        sample.features.set_values({feature: [unsaved_b]}, schema=mismatch_schema)
 
     # Registries without query_<registry>s cannot match a record under a subtype.
     from lamindb.curators.core import _sqlrecord_matches_feature_type
@@ -3139,6 +3168,7 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
+    mismatch_schema.delete(permanent=True)
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)

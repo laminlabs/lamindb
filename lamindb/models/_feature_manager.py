@@ -37,7 +37,7 @@ from lamindb.models.feature import (
 )
 from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
-from lamindb.models.schema import DICT_KEYS_TYPE, Schema
+from lamindb.models.schema import Schema
 from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
@@ -1269,6 +1269,19 @@ def filter_with_features(
     return qs
 
 
+def _index_feature_from_members(
+    schema: Schema, members: list[Feature]
+) -> Feature | None:
+    """Index feature from members already loaded, without querying ``schema.index``."""
+    index_uid = schema._index_feature_uid
+    if index_uid is None:
+        return None
+    for feature in members:
+        if feature.uid == index_uid:
+            return feature
+    return schema.index
+
+
 class FeatureManager:
     """Feature manager."""
 
@@ -1836,6 +1849,64 @@ class FeatureManager:
                 )
         return None
 
+    def _curation_features(
+        self,
+        *,
+        schema: Schema | None,
+        explicit_features: list[Feature],
+        string_key_values: dict[str, Any],
+        feature_field,
+    ) -> tuple[Schema, list[Feature], list[Feature], Feature | None]:
+        """Return the schema, the features to write, the member list, and the index.
+
+        Keys that are already `Feature` objects are not looked up by name. String
+        keys are. A schema's members are loaded once and reused for both the
+        membership check and `DictCurator`.
+        """
+        if schema is not None:
+            members = list(schema.members)
+            member_ids = {feature.id for feature in members}
+            features_not_in_schema = [
+                feature.name
+                for feature in explicit_features
+                if feature.id not in member_ids
+            ]
+            if features_not_in_schema:
+                raise ValidationError(
+                    "These feature keys are not in the provided schema: "
+                    f"{features_not_in_schema}"
+                )
+            looked_up = (
+                [feature for feature in members if feature.name in string_key_values]
+                if string_key_values
+                else []
+            )
+            return (
+                schema,
+                self._merge_feature_objects(explicit_features, looked_up),
+                members,
+                _index_feature_from_members(schema, members),
+            )
+        looked_up = (
+            self._get_feature_objects(string_key_values, feature_field)
+            if string_key_values
+            else []
+        )
+        feature_objects = self._merge_feature_objects(explicit_features, looked_up)
+        # String keys still need the hash lookup so an equivalent saved schema is
+        # reused. Feature keys already identify the columns, so validation uses
+        # them directly.
+        if string_key_values:
+            schema = Schema(feature_objects)
+        else:
+            schema = Schema(feature_objects, lookup=False)
+        return (
+            schema,
+            feature_objects,
+            feature_objects,
+            _index_feature_from_members(schema, feature_objects),
+        )
+
     def add_values(
         self,
         values: dict[str | Feature, Any],
@@ -1873,7 +1944,7 @@ class FeatureManager:
             # Annotate a Record's to-many cell_types feature.
             record.features.add_values({"cell_types": ["B cell", "T cell"]})
         """
-        from lamindb.curators.core import ExperimentalDictCurator
+        from lamindb.curators.core import DictCurator
 
         host_is_record = get_registry_name(self._host) == "Record"
         host_is_artifact = get_registry_name(self._host) == "Artifact"
@@ -1884,9 +1955,6 @@ class FeatureManager:
             explicit_features,
             values_by_feature_uid,
         ) = self._resolve_feature_value_dictionary(values)
-        keys = dictionary.keys()
-        if isinstance(keys, DICT_KEYS_TYPE):
-            keys = list(keys)  # type: ignore
         if (
             host_is_record
             and self._host.type is not None
@@ -1899,33 +1967,12 @@ class FeatureManager:
                 raise ValueError("Cannot add values if artifact has external schema.")
         if not dictionary and schema is None:
             return None
-        if schema is not None:
-            member_ids = set(schema.members.values_list("id", flat=True))
-            features_not_in_schema = [
-                feature.name
-                for feature in explicit_features
-                if feature.id not in member_ids
-            ]
-            if features_not_in_schema:
-                raise ValidationError(
-                    "These feature keys are not in the provided schema: "
-                    f"{features_not_in_schema}"
-                )
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-        else:
-            if string_key_values:
-                looked_up_features = self._get_feature_objects(
-                    string_key_values, feature_field
-                )
-            else:
-                looked_up_features = Feature.objects.none()
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-            schema = Schema(feature_objects)
+        schema, feature_objects, members, index_feature = self._curation_features(
+            schema=schema,
+            explicit_features=explicit_features,
+            string_key_values=string_key_values,
+            feature_field=feature_field,
+        )
         if host_is_record:
             scalar_features = [
                 feature.name
@@ -1948,11 +1995,13 @@ class FeatureManager:
             values_by_feature_uid,
         )
         try:
-            ExperimentalDictCurator(
+            DictCurator(
                 dictionary,
                 schema,
                 require_saved_schema=False,
                 using=self._host._state.db,
+                members=members,
+                index=index_feature,
             ).validate()
         except ValidationError as error:
             raise ValidationError(
@@ -2172,7 +2221,7 @@ class FeatureManager:
                 schema = ln.Schema([species]).save()
                 artifact.features.set_values({species: "bird"}, schema=schema)
         """
-        from lamindb.curators.core import ExperimentalDictCurator
+        from lamindb.curators.core import DictCurator
 
         host_is_record = get_registry_name(self._host) == "Record"
         host_is_artifact = get_registry_name(self._host) == "Artifact"
@@ -2183,9 +2232,6 @@ class FeatureManager:
             explicit_features,
             values_by_feature_uid,
         ) = self._resolve_feature_value_dictionary(values)
-        keys = dictionary.keys()
-        if isinstance(keys, DICT_KEYS_TYPE):
-            keys = list(keys)  # type: ignore
         if (
             host_is_record
             and self._host.type is not None
@@ -2198,44 +2244,25 @@ class FeatureManager:
         if not dictionary and schema is None:
             self._remove_values()
             return None
-        if schema is not None:
-            member_ids = set(schema.members.values_list("id", flat=True))
-            features_not_in_schema = [
-                feature.name
-                for feature in explicit_features
-                if feature.id not in member_ids
-            ]
-            if features_not_in_schema:
-                raise ValidationError(
-                    "These feature keys are not in the provided schema: "
-                    f"{features_not_in_schema}"
-                )
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-        else:
-            if string_key_values:
-                looked_up_features = self._get_feature_objects(
-                    string_key_values, feature_field
-                )
-            else:
-                looked_up_features = Feature.objects.none()
-            feature_objects = self._merge_feature_objects(
-                explicit_features, looked_up_features
-            )
-            schema = Schema(feature_objects)
+        schema, feature_objects, members, index_feature = self._curation_features(
+            schema=schema,
+            explicit_features=explicit_features,
+            string_key_values=string_key_values,
+            feature_field=feature_field,
+        )
         self._normalize_user_feature_values(
             feature_objects,
             dictionary,
             values_by_feature_uid,
         )
         try:
-            ExperimentalDictCurator(
+            DictCurator(
                 dictionary,
                 schema,
                 require_saved_schema=False,
                 using=self._host._state.db,
+                members=members,
+                index=index_feature,
             ).validate()
         except ValidationError as error:
             raise ValidationError(
