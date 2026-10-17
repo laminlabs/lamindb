@@ -79,8 +79,6 @@ except ln.errors.ValidationError as error:
     print(error)
 
 # move sample1 into the samplesheet
-sample1.type = samplesheet
-sample1.save()
 sample1.features.set_values({
     gc_content: 0.5,
     experiment: experiment1,
