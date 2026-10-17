@@ -292,8 +292,8 @@ To annotate and query by **labels**:
 
 ```python
 # define labels
-my_label = ln.ULabel(name="My label").save()
-my_project = ln.Project(name="My project").save()
+my_label = ln.ULabel(name="My universal label").save()
+my_project = ln.Project(name="My project label").save()
 
 # annotate
 artifact.ulabels.add(my_label)
@@ -326,7 +326,7 @@ To query by **auto-tracked metadata**:
 
 ```python
 # by storage location and size
-ln.Artifact.filter(storage=ln.settings.storage)
+ln.Artifact.filter(storage__root=ln.settings.storage.root)
 ln.Artifact.filter(size__gt=1e6).to_dataframe()
 
 # by data lineage
@@ -351,7 +351,7 @@ sample_type = ln.Record(name="Samples", is_type=True).save()
 # create an experiment
 experiment1 = ln.Record(
     name="Experiment 1",
-    features={seq_date: date.today()}
+    features={seq_date: date.today()},
     type=experiment_type
 ).save()
 
