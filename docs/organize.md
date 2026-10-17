@@ -129,7 +129,8 @@ To annotate with non-categorical data types or to disambiguate categorical annot
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiments_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
+experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+ln.Record(name="Experiment 1", type=experiments_registry).save()
 gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
 experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()  # define a feature with dtype `Experiments`
 artifact1.features.set_values({

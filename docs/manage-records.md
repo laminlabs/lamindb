@@ -71,30 +71,37 @@ schema = ln.Schema(
     [experiment, gc_content.with_config(optional=True)],
 ).save()
 samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
-
-# experiment is required, so moving sample1 in with only gc_content fails
-try:
-    sample1.type = samplesheet
-except ln.errors.ValidationError as error:
-    print(error)
-
-# move sample1 into the samplesheet
-sample1.features.set_values({
-    gc_content: 0.5,
-    experiment: experiment1,
-})
-sample1.type = samplesheet
-sample1.save()
 ```
 
 `experiment` is required, so setting only `gc_content` raises {class}`~lamindb.errors.ValidationError`:
 
 ```python
-sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
 try:
-    sample2.features.set_values({gc_content: 0.6})
+    sample2 = ln.Record(
+        name="Sample 2",
+        type=samplesheet,
+        features={gc_content: 0.6},
+    ).save()
 except ln.errors.ValidationError as error:
     print(error)
+```
+
+Also moving `sample` into `samplesheet` raises since it only has `gc_content`:
+
+```
+try:
+    sample1.type = samplesheet
+except ln.errors.ValidationError as error:
+    print(error)
+
+# set required featured on sample1
+sample1.features.set_values({
+    experiment: experiment1,
+    gc_content: 0.5,
+})
+# move sample1 into the samplesheet
+sample1.type = samplesheet
+sample1.save()
 ```
 
 ## Use a feature as an index
