@@ -722,13 +722,36 @@ def _check_sqlrecord_type(value: SQLRecord, feature: Feature) -> None:
         return
     registry = parsed[0]["registry"]
     type_record = registry.objects.using(feature._state.db).get(uid=type_uid)
-    if value.type_id != type_record.id:
-        actual = getattr(value, "type", None)
-        raise ValidationError(
-            f"Expected a record of type '{type_record.name}' "
-            f"for feature '{feature.name}', but received "
-            f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
-        )
+    if _sqlrecord_matches_feature_type(value, type_record):
+        return
+    actual = getattr(value, "type", None)
+    raise ValidationError(
+        f"Expected a record of type '{type_record.name}' "
+        f"for feature '{feature.name}', but received "
+        f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
+    )
+
+
+def _sqlrecord_matches_feature_type(value: SQLRecord, type_record: SQLRecord) -> bool:
+    """Whether ``value`` is ``type_record`` or a record on a sheet under it.
+
+    Name lookup already accepts those sheet records via ``query_records``. The
+    SQLRecord fast path has to use the same rule, or linking a row from a
+    record frame fails even though the label string would pass.
+    """
+    if getattr(value, "type_id", None) == type_record.id:
+        return True
+    if value.pk is None:
+        return False
+    from lamindb.base.utils import get_registry_name
+
+    query_subtypes = getattr(
+        type_record, f"query_{get_registry_name(type_record).lower()}s", None
+    )
+    if query_subtypes is None:
+        return False
+    # Record queries reject `pk`; the primary key field is `id`.
+    return query_subtypes().filter(id=value.id).exists()
 
 
 def _check_sqlrecord_type_in_list(values: list, feature: Feature) -> None:

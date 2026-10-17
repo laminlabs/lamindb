@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 import bionty as bt
 import lamindb as ln
@@ -36,8 +37,11 @@ def test_float_int_casting():
     feature_float = ln.Feature(name="feature_float", dtype=float).save()
     test_schema = ln.Schema([feature_int, feature_float], name="test_schema").save()
     sheet = ln.Record(name="TestSheet", is_type=True, schema=test_schema).save()
-    record = ln.Record(name="test_record", type=sheet).save()
-    record.features.set_values({"feature_int": 5, "feature_float": 3.0})
+    record = ln.Record(
+        name="test_record",
+        type=sheet,
+        features={"feature_int": 5, "feature_float": 3.0},
+    ).save()
     record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
     record_json.value = 3
     record_json.save()
@@ -189,30 +193,40 @@ Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
 
     # Two linked Treatment records can share a display name; indexed export resolves
     # by schema index (df.index), not __lamindb_record_uid__.
-    treatment_feature = ln.Feature.get(name="treatment")
-    cell_line_feature = ln.Feature.get(name="cell_line")
     hek293t = bt.CellLine.filter(name="HEK293T").one()
+    project1 = ln.Project.get(name="Project 1")
     treatment_dup_a = ln.Record(name="shared_treatment", type=treatments_sheet).save()
     treatment_dup_b = ln.Record(type=treatments_sheet).save()
     treatment_dup_b.name = "shared_treatment"
     treatment_dup_b.save()
-    row_a = ln.Record(name="Sample 3", type=sample_sheet1).save()
-    row_b = ln.Record(name="Sample 4", type=sample_sheet1).save()
+    row_a = ln.Record(
+        name="Sample 3",
+        type=sample_sheet1,
+        features={
+            "name": "Sample 3",
+            "id": 3,
+            "uid": "S3",
+            "treatment": treatment_dup_a,
+            "cell_line": hek293t,
+            "preparation_date": datetime.fromisoformat("2025-06-03T05:00:00"),
+            "project": project1,
+        },
+    ).save()
+    row_b = ln.Record(
+        name="Sample 4",
+        type=sample_sheet1,
+        features={
+            "name": "Sample 4",
+            "id": 4,
+            "uid": "S4",
+            "treatment": treatment_dup_b,
+            "cell_line": hek293t,
+            "preparation_date": datetime.fromisoformat("2025-06-03T05:00:00"),
+            "project": project1,
+        },
+    ).save()
     artifact_dup = None
     try:
-        ln.models.RecordRecord(
-            record=row_a, feature=treatment_feature, value=treatment_dup_a
-        ).save()
-        ln.models.RecordRecord(
-            record=row_b, feature=treatment_feature, value=treatment_dup_b
-        ).save()
-        bt.models.RecordCellLine(
-            record=row_a, feature=cell_line_feature, value=hek293t
-        ).save()
-        bt.models.RecordCellLine(
-            record=row_b, feature=cell_line_feature, value=hek293t
-        ).save()
-
         dup_rows = sample_sheet1.to_dataframe()
         dup_rows = dup_rows[dup_rows["treatment"] == "shared_treatment"]
         assert len(dup_rows) == 2
@@ -326,37 +340,40 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
     )
 
     # Two linked BioSample records can share a display name; export resolves by row uid.
-    features = ln.Feature.lookup()
     samples_sheet = ln.Record.get(name="Sample_X").type
-    sample_dup_a = ln.Record(name="poolsample1", type=samples_sheet).save()
-    sample_dup_b = ln.Record(type=samples_sheet).save()
+    biosample_features = {
+        "species": "human",
+        "cell_type": "T cell",
+        "tissue": "blood",
+    }
+    sample_dup_a = ln.Record(
+        name="poolsample1", type=samples_sheet, features=biosample_features
+    ).save()
+    sample_dup_b = ln.Record(type=samples_sheet, features=biosample_features).save()
     sample_dup_b.name = "poolsample1"
     sample_dup_b.save()
     assert sample_dup_a.id != sample_dup_b.id
 
-    row_a = ln.Record(type=nextflow_sheet).save()
-    row_b = ln.Record(type=nextflow_sheet).save()
+    row_a = ln.Record(
+        type=nextflow_sheet,
+        features={
+            "sample": sample_dup_a,
+            "fastq_1": "read_a",
+            "fastq_2": "read_a2",
+            "expected_cells": 5000,
+        },
+    ).save()
+    row_b = ln.Record(
+        type=nextflow_sheet,
+        features={
+            "sample": sample_dup_b,
+            "fastq_1": "read_b",
+            "fastq_2": "read_b2",
+            "expected_cells": 5000,
+        },
+    ).save()
     artifact_dup = None
     try:
-        ln.models.RecordRecord(
-            record=row_a, feature=features.sample, value=sample_dup_a
-        ).save()
-        ln.models.RecordRecord(
-            record=row_b, feature=features.sample, value=sample_dup_b
-        ).save()
-        ln.models.RecordJson(
-            record=row_a, feature=features.fastq_1, value="read_a"
-        ).save()
-        ln.models.RecordJson(
-            record=row_b, feature=features.fastq_1, value="read_b"
-        ).save()
-        ln.models.RecordJson(
-            record=row_a, feature=features.expected_cells, value=5000
-        ).save()
-        ln.models.RecordJson(
-            record=row_b, feature=features.expected_cells, value=5000
-        ).save()
-
         dup_rows = nextflow_sheet.to_dataframe()
         dup_rows = dup_rows[dup_rows["sample"] == "poolsample1"]
         assert len(dup_rows) == 2
@@ -419,9 +436,10 @@ def test_annotate_with_user_feature():
         coerce=True,
     ).save()
     sheet = ln.Record(name="A sheet with users", is_type=True, schema=schema).save()
-    record = ln.Record(name="first user", type=sheet).save()
     user = ln.User(uid="abcdefgh", handle="test-user").save()
-    ln.models.RecordUser(record=record, feature=user_feature, value=user).save()
+    record = ln.Record(
+        name="first user", type=sheet, features={user_feature: user}
+    ).save()
 
     df = sheet.to_dataframe()
     assert df.index.name == "__lamindb_record_id__"
@@ -462,8 +480,7 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     ).save()
     sheet = ln.Record(name="SheetWithDataId", is_type=True, schema=schema).save()
     # Name is intentionally omitted to mirror sheet records in real-world pipelines.
-    record = ln.Record(type=sheet).save()
-    record.features.set_values({"data_id": "D1"})
+    record = ln.Record(type=sheet, features={"data_id": "D1"}).save()
 
     artifact = sheet.to_artifact()
     assert artifact.space_id == sheet.space_id
