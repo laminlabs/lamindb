@@ -168,9 +168,9 @@ Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Trace data, code & agents
 
-To track agent sessions, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
+To track **agent sessions**, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
 
-To track source code, inputs, outputs, logs, and environment of a script, use `ln.track()` and `ln.finish()`:
+To track source code, inputs, outputs, logs, and environment of a **script or notebook**, use `ln.track()` and `ln.finish()`:
 
 ```python
 import lamindb as ln
@@ -213,35 +213,7 @@ transform.describe()  # context of the transform
 
 </details>
 
-<details>
-<summary>Track a project or an agent plan.</summary>
-
-Pass a project/artifact to `ln.track()`, for example:
-
-```python
-ln.track(project="My project", plan="./plans/curate-dataset-x.md")
-```
-
-Note that you have to create a project or save the agent plan in case they don't yet exist:
-
-```shell
-# create a project with the CLI
-lamin create project "My project"
-
-# save an agent plan with the CLI
-lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
-lamin save /path/to/.claude/plans/curate-dataset-x.md
-```
-
-Or in Python:
-
-```python
-ln.Project(name="My project").save()  # create a project in Python
-```
-
-</details>
-
-You can track **workflows** by decorating functions:
+To track a **workflow**, decorate a function:
 
 <!-- #skip_laminr -->
 
@@ -264,7 +236,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is an automatically generated re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is a re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
