@@ -133,9 +133,33 @@ See :doc:`docs:track` or :func:`~lamindb.flow` for examples.
 
 """
 
+import ast
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Callable
+
+
+def parse_dict_value(value: Any) -> dict:
+    """Parse a dictionary or a Python dictionary literal string."""
+    if isinstance(value, str):
+        try:
+            value = ast.literal_eval(value)
+        except (ValueError, SyntaxError) as error:
+            raise ValueError(
+                "Value must be a dict or a string representing a dict"
+            ) from error
+    if not isinstance(value, dict):
+        raise ValueError("Value must be a dict or a string representing a dict")
+    return value
+
+
+def is_dict_value(value: Any) -> bool:
+    """Check whether a value can be parsed as a dictionary."""
+    try:
+        parse_dict_value(value)
+    except ValueError:
+        return False
+    return True
 
 
 def is_list_of_type(value: Any, expected_type: Any) -> bool:

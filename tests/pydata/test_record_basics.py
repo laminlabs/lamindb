@@ -2969,9 +2969,51 @@ def test_record_features_accept_feature_object_keys():
     record.features.remove_values({feature_score: 9, feature_tag: None})
     assert record.features.get_values() == {}
 
+    # test empty dict input
+    record.features.set_values({feature_score: 9, feature_tag: "b"})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary adds nothing and preserves existing annotations.
+    record.features.add_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary clears all existing feature annotations.
+    record.features.set_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {}
+
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["add_values", "set_values"])
+@pytest.mark.parametrize("inherited_schema", [False, True])
+def test_record_empty_feature_values_respect_schema(method, inherited_schema):
+    feature = ln.Feature(name="empty_values_required", dtype="list[int]").save()
+    schema = ln.Schema([feature]).save()
+    record_type = ln.Record(
+        name="empty-values-type", is_type=True, schema=schema
+    ).save()
+    record = ln.Record(
+        name="empty-values-record", type=record_type if inherited_schema else None
+    ).save()
+    kwargs = {} if inherited_schema else {"schema": schema}
+    try:
+        record.features.set_values({feature: [1, 2]}, **kwargs)
+        with pytest.raises(ln.errors.ValidationError, match="COLUMN_NOT_IN_DATAFRAME"):
+            getattr(record.features, method)({}, **kwargs)
+        assert ln.Record.get(id=record.id).features.get_values() == {
+            feature.name: [1, 2]
+        }
+    finally:
+        record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_from_dataframe_save_query_count_is_not_n_plus_one():
@@ -3064,21 +3106,20 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
     record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
     feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
-    schema = ln.Schema([feature]).save()
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: record_b}, schema=schema)
+        sample.features.set_values({feature: record_b})
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: [record_a, record_b]}, schema=schema)
+        sample.features.set_values({feature: [record_a, record_b]})
 
     # An unsaved record has no primary key, so it cannot be resolved through a sheet.
     unsaved_b = ln.Record(name="unsaved_b_mismatch", type=type_b)
@@ -3098,10 +3139,56 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
-    schema.delete(permanent=True)
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_dtype_without_schema(method):
+    feature = ln.Feature(name=f"{method}_no_schema_numbers", dtype="list[int]").save()
+    record = ln.Record(name=f"{method}-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [1, 2]})
+
+        with pytest.raises(ln.errors.ValidationError):
+            update_values({feature: ["wrong"]})
+
+        assert record.features.get_values() == {feature.name: [1, 2]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_record_dtype_without_schema(method):
+    expected_type = ln.Record(name=f"{method}_expected_type", is_type=True).save()
+    other_type = ln.Record(name=f"{method}_other_type", is_type=True).save()
+    valid_value = ln.Record(name=f"{method}_valid_value", type=expected_type).save()
+    invalid_value = ln.Record(name=f"{method}_invalid_value", type=other_type).save()
+    feature = ln.Feature(
+        name=f"{method}_no_schema_records", dtype=list[expected_type]
+    ).save()
+    record = ln.Record(name=f"{method}-record-dtype-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [valid_value]})
+
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match=f"Expected a record of type '{expected_type.name}'",
+        ):
+            update_values({feature: [valid_value, invalid_value]})
+
+        assert record.features.get_values() == {feature.name: [valid_value.name]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+        valid_value.delete(permanent=True)
+        invalid_value.delete(permanent=True)
+        expected_type.delete(permanent=True)
+        other_type.delete(permanent=True)
 
 
 def test_set_values_accepts_user_records_for_user_dtype():
