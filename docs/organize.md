@@ -50,7 +50,7 @@ What if an artifact is relevant to multiple projects?
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem with the `artifact.projects` relationship that links the {class}`~lamindb.Project` to {class}`~lamindb.Artifact`:
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
 
 Here is how to annotate one artifact with two projects:
 
@@ -124,7 +124,7 @@ artifact1.cell_types.add(cell_type1)         # annotate artifact1
 
 Richer annotation is possible with {class}`~lamindb.Feature` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
 
 Here is how to define features and annotate an artifact with feature values:
 
@@ -155,7 +155,7 @@ Below is an example from the {doc}`/tutorial` illustrating how you get, e.g., ce
 
 When you call {func}`~lamindb.track` or decorate a function with {func}`~lamindb.flow`, you automatically annotate artifacts with {class}`~lamindb.Run` and {class}`~lamindb.Transform` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
 
 Here is how:
 
@@ -200,7 +200,7 @@ artifacts = ln.Artifact.filter(
 If you want to group artifacts by metadata and version the entire set, use {class}`~lamindb.Collection`.
 If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See {doc}`/architecture`.
 
-<img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
+<img width="160" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
 
 Unlike during annotation, you have to pass an entire group of artifacts to a `Collection` constructor:
 
