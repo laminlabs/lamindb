@@ -149,16 +149,23 @@ def test_revise_blocks():
     block.delete(permanent=True)
 
 
-def test_record_block_readme_always_new_version():
-    """Readme always creates a new version (no content-hash dedup)."""
+def test_record_block_readme_same_hash_returns_existing_version():
+    """Same readme content on a record returns the latest block."""
     record = ln.Record(name="test-record-blocks").save()
     block1 = ln.models.RecordBlock(record=record, content="1", kind="readme").save()
     block2 = ln.models.RecordBlock(record=record, content="1", kind="readme")
-    assert block1.stem_uid == block2.stem_uid
-    assert block1.uid != block2.uid  # new version each time
+    assert block1 == block2
+    assert block1.uid == block2.uid
+    changed = ln.models.RecordBlock(record=record, content="2", kind="readme")
+    assert changed.stem_uid == block1.stem_uid
+    assert changed.uid != block1.uid
+    other = ln.Record(name="test-record-blocks-other").save()
+    other_block = ln.models.RecordBlock(record=other, content="1", kind="readme")
+    assert other_block.uid != block1.uid
     block1.delete()  # BaseSQLRecord has no soft delete; this is permanent
     block2 = ln.models.RecordBlock(record=record, content="1", kind="readme")
     assert block1 != block2  # block2 is a new block (block1 was removed)
+    other.delete(permanent=True)
     record.delete(permanent=True)
 
 
@@ -240,11 +247,11 @@ def test_revise_record_blocks():
     assert block_r3.version_tag == "2"
     assert block_r3.version == "2"
 
-    # readme always creates a new version (no hash-based dedup)
+    # same content as the latest readme returns that block
     block_r3.save()  # so next readme for this record gets revises=block_r3
     block_same = ln.models.RecordBlock(record=record, content="v3", kind="readme")
-    assert block_same.stem_uid == block_r3.stem_uid
-    assert block_same.uid != block_r3.uid  # new version (0003)
+    assert block_same.uid == block_r3.uid
+    assert block_same.id == block_r3.id
 
     # comment does not accept revises
     with pytest.raises(ValueError) as error:
@@ -353,5 +360,10 @@ def test_branch_notes_returns_latest_readme_content():
         branch=branch, content="branch comment", kind="comment"
     ).save()
     assert branch.notes == "branch notes v2"
+
+    branch.emoji = " 🧬 "
+    assert branch.emoji == "🧬"
+    branch.emoji = None
+    assert branch.emoji is None
 
     branch.delete(permanent=True)

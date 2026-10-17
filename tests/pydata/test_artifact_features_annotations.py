@@ -141,12 +141,18 @@ def test_artifact_features_add_remove_query():
         ln.Artifact.filter(feature_str="a string value", feature_int=42).one()
         == test_artifact
     )
-    # Datetime and date (filter uses ISO strings as stored in JSON)
+    # Datetime and date are stored as ISO strings; date and datetime objects match too
     assert (
         ln.Artifact.filter(feature_datetime="2024-01-01T12:00:00").one()
         == test_artifact
     )
+    assert (
+        ln.Artifact.filter(feature_datetime=datetime(2024, 1, 1, 12, 0, 0)).one()
+        == test_artifact
+    )
     assert ln.Artifact.filter(feature_date="2024-01-01").one() == test_artifact
+    assert ln.Artifact.filter(feature_date=date(2024, 1, 1)).one() == test_artifact
+    assert ln.Artifact.filter(feature_date == date(2024, 1, 1)).one() == test_artifact
     # __contains (categorical)
     assert ln.Artifact.filter(feature_cell_line__contains="HEK").one() == test_artifact
     assert ln.Artifact.filter(feature_type1__contains="entity").one() == test_artifact
@@ -202,6 +208,7 @@ def test_artifact_features_add_remove_query():
     assert ln.Artifact.filter(feature_num__gt=10.0).one_or_none() is None
     # Date and datetime comparators (ISO strings)
     assert ln.Artifact.filter(feature_date__lt="2024-01-02").one() == test_artifact
+    assert ln.Artifact.filter(feature_date__lt=date(2024, 1, 2)).one() == test_artifact
     assert ln.Artifact.filter(feature_date__gt="2023-12-31").one() == test_artifact
     assert ln.Artifact.filter(feature_date__gt="2024-01-02").one_or_none() is None
     assert (

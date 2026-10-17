@@ -474,7 +474,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether this is a schema type.
-        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices.
+        index: `Feature | None = None` Index analogous to a `DataFrame` index. In `DataFrame` curation, validates `df.index`.
             When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
@@ -639,7 +639,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
-    # Top-level `_aux` keys beyond HasType's `ss`:
+    # Top-level `_aux` keys beyond HasType's `ss` (single space) and `ei` (emoji):
     #   af: auxiliary feature config — see `_aux_fields`
     #   zarr: format constraints — see Schema.formats.zarr
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -1346,7 +1346,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """Save schema.
 
         When the schema hash changes because `schema.index` was set or unset on a
-        record frame schema, row keys are migrated between :attr:`~lamindb.Record.name`
+        record frame schema, index values are migrated between :attr:`~lamindb.Record.name`
         and the link table in bulk. If `Record.name` and the link-table index value
         both exist and differ, you are prompted to keep `Record.name` (`y`) or use
         the feature values (`n`); pass `index_name_conflict="keep_name"` or

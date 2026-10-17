@@ -15,6 +15,7 @@ Mixins for registries
 
 .. autoclass:: IsVersioned
 .. autoclass:: HasType
+.. autoclass:: HasEmoji
 .. autoclass:: HasParents
 .. autoclass:: CanCurate
 .. autoclass:: HasSynonyms
@@ -157,6 +158,7 @@ from .sqlrecord import (
     ValidateFields,
     format_field_value,
     IsLink,
+    HasEmoji,
     HasType,
 )
 from .storage import Storage

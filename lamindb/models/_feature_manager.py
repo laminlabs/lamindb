@@ -978,6 +978,18 @@ def infer_convert_dtype_key_value(
     return "?", value, message
 
 
+def _json_temporal_lookup_value(value: Any, dtype_str: str, feature_name: str) -> Any:
+    """Serialize date and datetime lookups to the ISO strings stored in JSON."""
+    if not isinstance(value, date):
+        return value
+    if dtype_str not in {"date", "datetime", "datetime64[ns, UTC]"}:
+        return value
+    _, converted, _ = infer_convert_dtype_key_value(
+        key=feature_name, value=value, dtype_str=dtype_str
+    )
+    return converted
+
+
 def _filter_one_feature_clause(
     queryset: BasicQuerySet,
     feature: Feature,
@@ -1047,6 +1059,7 @@ def _filter_one_feature_clause(
                 accessor = "json_values" if model in {Artifact, Run} else "values_json"
                 return queryset.filter(**{f"{accessor}__id__in": json_values})
         else:
+            value = _json_temporal_lookup_value(value, dtype_str, feature.name)
             if connections[feature._state.db].vendor == "sqlite" and comparator in {
                 "__gt",
                 "__lt",
@@ -1807,6 +1820,9 @@ class FeatureManager:
         On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
         allowing multiple values to represent aggregated measurements.
 
+        An empty dictionary leaves annotations unchanged, subject to any supplied
+        or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -1847,6 +1863,8 @@ class FeatureManager:
         if host_is_artifact:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
+        if not dictionary and schema is None:
+            return None
         if schema is not None:
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
@@ -2092,6 +2110,9 @@ class FeatureManager:
         Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
         the artifact's external feature annotations.
 
+        An empty dictionary clears external feature annotations, subject to any
+        supplied or inherited schema's validation requirements.
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
@@ -2136,6 +2157,9 @@ class FeatureManager:
             schema = self._host.type.schema  # type: ignore
         if host_is_artifact:
             schema = self._get_external_schema()
+        if not dictionary and schema is None:
+            self._remove_values()
+            return None
         if schema is not None:
             member_ids = set(schema.members.values_list("id", flat=True))
             features_not_in_schema = [
@@ -2564,6 +2588,28 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
 
+def _null_sentinel_for_pandas_dtype(dtype: Any) -> Any:
+    """Missing value accepted by `pd.Series(..., dtype=dtype)`.
+
+    Extension dtypes (`string`, `boolean`, `Int64`) accept `pd.NA` and reject
+    `None`. Numpy floating dtypes accept `NaN` and reject `pd.NA`.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(dtype, pd.api.extensions.ExtensionDtype):
+        return pd.NA
+    resolved = dtype
+    if not isinstance(resolved, np.dtype):
+        try:
+            resolved = pd.api.types.pandas_dtype(dtype)
+        except (TypeError, ValueError):
+            return pd.NA
+    if isinstance(resolved, np.dtype) and resolved.kind == "f":
+        return np.nan
+    return pd.NA
+
+
 def bulk_set_features_in_records(
     records: Iterable[Record], using: str | None = None
 ) -> None:
@@ -2657,13 +2703,20 @@ def bulk_set_features_in_records(
     data: dict[str, pd.Series] = {}
     multivalued_columns: list[str] = []
     for column in ordered_columns:
-        # None from entirely-null columns is not a valid sentinel for extension
-        # dtypes (StringDtype, BooleanDtype, Int64Dtype) — convert to pd.NA
-        values = [
-            pd.NA if v is None else v
-            for v in (row.get(column, pd.NA) for row in prepared_rows)
-        ]
         target_dtype = feature_dtype_by_name.get(column)
+        # Per-row dicts drop null cells, and entirely-null columns are stored as
+        # None. Extension dtypes need pd.NA. Numpy floats reject pd.NA
+        # (`float() argument must be a ... number, not 'NAType'`), so those
+        # columns use NaN, which is also what a nullable float64 frame stores.
+        missing = (
+            _null_sentinel_for_pandas_dtype(target_dtype)
+            if target_dtype is not None
+            else pd.NA
+        )
+        values = [
+            missing if v is None or v is pd.NA else v
+            for v in (row.get(column, missing) for row in prepared_rows)
+        ]
         is_multivalued = any(
             isinstance(v, (list, tuple, set, np.ndarray)) for v in values
         )

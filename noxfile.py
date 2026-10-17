@@ -43,6 +43,7 @@ GROUPS["guide"] = [
     "track.ipynb",
     "acid.ipynb",
     "idempotency.ipynb",
+    "manage-records.ipynb",
 ]
 GROUPS["tiledbsoma"] = [
     "curate.ipynb",

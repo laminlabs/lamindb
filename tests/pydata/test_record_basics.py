@@ -245,6 +245,114 @@ def test_record_from_dataframe_partial_null_bool_int():
     empty.delete(permanent=True)
 
 
+def test_record_from_dataframe_partial_null_float_and_other_dtypes():
+    """Partial-null scalar features survive the from_dataframe save round-trip.
+
+    Plain `None` in a float column is stored as `NaN` on `float64`.
+    Rebuilding that column with `pd.NA` raises `TypeError` because numpy
+    floats cannot cast `NAType`. `num` uses the same numpy float dtype.
+    `str` / `int` / `bool` use nullable extension dtypes, and
+    `datetime` / `date` / `dict` accept `pd.NA`.
+    """
+    label = ln.Feature(name="from-df-na-label", dtype=str).save()
+    score = ln.Feature(name="from-df-na-score", dtype=float).save()
+    amount = ln.Feature(name="from-df-na-amount", dtype="num").save()
+    count = ln.Feature(name="from-df-na-count", dtype=int).save()
+    flag = ln.Feature(name="from-df-na-flag", dtype=bool).save()
+    when = ln.Feature(name="from-df-na-when", dtype=datetime).save()
+    day = ln.Feature(name="from-df-na-day", dtype=date).save()
+    payload = ln.Feature(name="from-df-na-payload", dtype=dict).save()
+    empty_float = ln.Feature(name="from-df-na-empty-float", dtype=float).save()
+    schema = ln.Schema(
+        [label, score, amount, count, flag, when, day, payload, empty_float],
+        name="from-df-na-schema",
+    ).save()
+    sheet = ln.Record(name="from-df-na-sheet", is_type=True, schema=schema).save()
+
+    # None, not an explicit nullable dtype: this is the reported float64 failure.
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-na-a", "from-df-na-b", "from-df-na-c"],
+            "from-df-na-label": ["a", None, "c"],
+            "from-df-na-score": [1.1, None, None],
+            "from-df-na-amount": [1, None, 2.5],
+            "from-df-na-count": [1, None, 3],
+            "from-df-na-flag": [True, None, False],
+            "from-df-na-when": [datetime(2024, 1, 1), None, datetime(2024, 1, 3)],
+            "from-df-na-day": [date(2024, 1, 1), None, date(2024, 1, 3)],
+            "from-df-na-payload": [{"k": 1}, None, {"k": 3}],
+            "from-df-na-empty-float": [None, None, None],
+        }
+    )
+    assert df["from-df-na-score"].dtype.name == "float64"
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 3
+    records.save()
+
+    values_a = ln.Record.get(name="from-df-na-a").features.get_values()
+    values_b = ln.Record.get(name="from-df-na-b").features.get_values()
+    values_c = ln.Record.get(name="from-df-na-c").features.get_values()
+
+    assert values_a["from-df-na-label"] == "a"
+    assert "from-df-na-label" not in values_b
+    assert values_c["from-df-na-label"] == "c"
+    assert values_a["from-df-na-score"] == 1.1
+    assert "from-df-na-score" not in values_b
+    assert "from-df-na-score" not in values_c
+    assert values_a["from-df-na-amount"] == 1
+    assert "from-df-na-amount" not in values_b
+    assert values_c["from-df-na-amount"] == 2.5
+    assert values_a["from-df-na-count"] == 1
+    assert "from-df-na-count" not in values_b
+    assert values_c["from-df-na-count"] == 3
+    assert values_a["from-df-na-flag"] is True
+    assert "from-df-na-flag" not in values_b
+    assert values_c["from-df-na-flag"] is False
+    assert values_a["from-df-na-when"] == datetime(2024, 1, 1)
+    assert "from-df-na-when" not in values_b
+    assert values_c["from-df-na-when"] == datetime(2024, 1, 3)
+    assert values_a["from-df-na-day"] == date(2024, 1, 1)
+    assert "from-df-na-day" not in values_b
+    assert values_c["from-df-na-day"] == date(2024, 1, 3)
+    assert values_a["from-df-na-payload"] == {"k": 1}
+    assert "from-df-na-payload" not in values_b
+    assert values_c["from-df-na-payload"] == {"k": 3}
+    assert "from-df-na-empty-float" not in values_a
+    assert "from-df-na-empty-float" not in values_b
+    assert "from-df-na-empty-float" not in values_c
+
+    exported = sheet.to_dataframe()
+    assert exported["from-df-na-score"].dtype.name == "float64"
+    assert exported["from-df-na-amount"].dtype.name == "float64"
+    assert exported["from-df-na-count"].dtype.name == "Int64"
+    assert exported["from-df-na-flag"].dtype.name == "boolean"
+    assert exported["from-df-na-empty-float"].isna().all()
+    assert exported["from-df-na-empty-float"].dtype.name == "float64"
+
+    from lamindb.models.record import RecordJson
+
+    assert RecordJson.objects.filter(feature=empty_float).count() == 0
+
+    ln.Record.filter(name__in=["from-df-na-a", "from-df-na-b", "from-df-na-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-na-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    for feature in (
+        label,
+        score,
+        amount,
+        count,
+        flag,
+        when,
+        day,
+        payload,
+        empty_float,
+    ):
+        feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_bulk_save_paths():
     score = ln.Feature(name="from-df-score", dtype=float).save()
     schema = ln.Schema([score], name="from-df-schema").save()
@@ -1795,11 +1903,42 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is None
 
     # The UI stores the type-space policy as the string "1", not the int 1.
+    # A new record inherits .emoji unless it already has one.
     constrained_type.space = restricted_space
     constrained_type._aux = {"ss": "1"}
+    assert constrained_type.emoji is None
+    constrained_type.emoji = None
+    assert constrained_type._aux == {"ss": "1"}
+    no_emoji = ln.Record(name=f"NoEmoji-{suffix}", type=constrained_type)
+    assert no_emoji.space_id == restricted_space.id
+    assert no_emoji.emoji is None
+    constrained_type.emoji = " 🧬 "
+    assert constrained_type.emoji == "🧬"
+    assert constrained_type._aux["ss"] == "1"
     constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.emoji == "🧬"
     child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
+    assert child.emoji == "🧬"
+    explicit = ln.Record(
+        name=f"ExplicitEmoji-{suffix}",
+        type=constrained_type,
+        _aux={"ei": "🧪", "foo": 1},
+    )
+    assert explicit.emoji == "🧪"
+    assert explicit._aux["foo"] == 1
+    constrained_type.emoji = "🧪"
+    assert constrained_type.emoji == "🧪"
+    assert constrained_type._aux["ss"] == "1"
+    constrained_type.emoji = None
+    assert constrained_type.emoji is None
+    assert constrained_type._aux == {"ss": "1"}
+    child.emoji = None
+    assert child.emoji is None
+    assert child._aux is None
+    with pytest.raises(ValueError, match="emoji must be a str or None"):
+        constrained_type.emoji = 1  # type: ignore[assignment]
     child.save()
     child.delete(permanent=True)
 
@@ -1934,9 +2073,15 @@ def test_record_features_add_remove_values():
         ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
         == test_record
     )
-    # Datetime and date (filter uses ISO strings as stored in JSON)
+    # Datetime and date are stored as ISO strings; date and datetime objects match too
     assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert (
+        ln.Record.filter(feature_datetime=datetime(2024, 1, 1, 12, 0, 0)).one()
+        == test_record
+    )
     assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    assert ln.Record.filter(feature_date=date(2024, 1, 1)).one() == test_record
+    assert ln.Record.filter(feature_date == date(2024, 1, 1)).one() == test_record
     # __contains (categorical)
     assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
     assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
@@ -1993,6 +2138,7 @@ def test_record_features_add_remove_values():
     assert ln.Record.filter(feature_num__gt=10.0).one_or_none() is None
     # Date and datetime comparators (ISO strings)
     assert ln.Record.filter(feature_date__lt="2024-01-02").one() == test_record
+    assert ln.Record.filter(feature_date__lt=date(2024, 1, 2)).one() == test_record
     assert ln.Record.filter(feature_date__gt="2023-12-31").one() == test_record
     assert ln.Record.filter(feature_date__gt="2024-01-02").one_or_none() is None
     assert (
@@ -2578,9 +2724,51 @@ def test_record_features_accept_feature_object_keys():
     record.features.remove_values({feature_score: 9, feature_tag: None})
     assert record.features.get_values() == {}
 
+    # test empty dict input
+    record.features.set_values({feature_score: 9, feature_tag: "b"})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary adds nothing and preserves existing annotations.
+    record.features.add_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary clears all existing feature annotations.
+    record.features.set_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {}
+
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["add_values", "set_values"])
+@pytest.mark.parametrize("inherited_schema", [False, True])
+def test_record_empty_feature_values_respect_schema(method, inherited_schema):
+    feature = ln.Feature(name="empty_values_required", dtype="list[int]").save()
+    schema = ln.Schema([feature]).save()
+    record_type = ln.Record(
+        name="empty-values-type", is_type=True, schema=schema
+    ).save()
+    record = ln.Record(
+        name="empty-values-record", type=record_type if inherited_schema else None
+    ).save()
+    kwargs = {} if inherited_schema else {"schema": schema}
+    try:
+        record.features.set_values({feature: [1, 2]}, **kwargs)
+        with pytest.raises(ln.errors.ValidationError, match="COLUMN_NOT_IN_DATAFRAME"):
+            getattr(record.features, method)({}, **kwargs)
+        assert ln.Record.get(id=record.id).features.get_values() == {
+            feature.name: [1, 2]
+        }
+    finally:
+        record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_from_dataframe_save_query_count_is_not_n_plus_one():
