@@ -330,11 +330,11 @@ ln.Artifact.filter(storage__root=ln.settings.storage.root)
 ln.Artifact.filter(size__gt=1e6).to_dataframe()
 
 # by data lineage
-ln.Artifact.filter(transform=transform).to_dataframe()
 ln.Artifact.filter(run=run).to_dataframe()
+ln.Artifact.filter(run__transform=transform).to_dataframe()
 
 # include more information in resulting dataframe
-ln.Artifact.to_dataframe(include=["transform__key", "storage__root"])
+ln.Artifact.to_dataframe(include=["run__transform__key", "storage__root"])
 ```
 
 Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize) or [docs.lamin.ai/query-search](https://docs.lamin.ai/query-search)
