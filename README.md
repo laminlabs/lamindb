@@ -129,28 +129,18 @@ For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.l
 
 ### Create artifacts
 
-You can create a hosted database at [lamin.ai](https://lamin.ai) and invite collaborators.
-To connect to an existing database, run:
+To initialize a new database in a development directory, run:
+
+```shell
+lamin init --modules bionty  # mount module bionty
+```
+
+To connect to an existing database - you can create one at [lamin.ai](https://lamin.ai) - run:
 
 ```shell
 lamin login
 lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
-
-<details>
-<summary>Or init a new database instead (no login required).</summary>
-
-Navigate into a development directory, just like you'd do for `git init`, and run:
-
-```shell
-lamin init --modules bionty
-```
-
-For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
-
-</details>
-
-On the terminal and in a Python session, `lamindb` will now auto-connect.
 
 To save a file or folder via the API:
 

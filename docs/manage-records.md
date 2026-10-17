@@ -125,7 +125,7 @@ record = ln.Record(
 Inspect the dataframe:
 
 ```python
-indexed_frame.to_dataframe()
+frame_with_index.to_dataframe()
 ```
 
 ## Import records from a dataframe
