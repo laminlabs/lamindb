@@ -23,13 +23,15 @@ public-ontologies
 </div>
 ```
 
-## Create a data record
-
-A data record stores values for {class}`~lamindb.Feature` objects.
+If you haven't connected a database, create one in a development directory:
 
 ```bash
 lamin init
 ```
+
+## Create a data record
+
+A data record stores values for {class}`~lamindb.Feature` objects.
 
 ```python
 import lamindb as ln
@@ -60,7 +62,7 @@ experiment = ln.Feature(name="experiment", dtype=experiments).save()
 experiments.to_dataframe()
 ```
 
-## Constrain a type with a schema
+## Constrain records with a schema
 
 A {class}`~lamindb.Schema` turns the type into a frame and validates the features of its data records:
 
@@ -71,14 +73,13 @@ schema = ln.Schema(
 ).save()
 samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
+# move sample1 into the samplesheet
 sample1.type = samplesheet
 sample1.save()
-sample1.features.set_values(
-    {
-        gc_content: 0.5,
-        experiment: "Experiment 1",  # resolved by name; a Record object works too
-    }
-)
+sample1.features.set_values({
+    gc_content: 0.5,
+    experiment: experiment1,
+})
 ```
 
 `experiment` is required, so setting only `gc_content` raises {class}`~lamindb.errors.ValidationError`:
