@@ -99,6 +99,7 @@ sample1.features.set_values({
     experiment: experiment1,
     gc_content: 0.5,
 })
+
 # move sample1 into the samplesheet
 sample1.type = samplesheet
 sample1.save()
