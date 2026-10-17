@@ -106,20 +106,19 @@ sample1.save()
 
 ## Use a feature as an index
 
-You can set an index for a schema via {attr}`~lamindb.Schema.index`.
+You can set an index for a schema via {attr}`~lamindb.Schema.index`:
 
 ```python
 sample_abbr = ln.Feature(name="sample_abbr", dtype=str).save()
 score = ln.Feature(name="score", dtype=float).save()
-indexed_schema = ln.Schema(features=[score], index=sample_abbr).save()
-indexed_frame = ln.Record(
-    name="Indexed samples", is_type=True, schema=indexed_schema
+schema_with_index = ln.Schema(features=[score], index=sample_abbr).save()
+frame_with_index = ln.Record(
+    name="Indexed samples", is_type=True, schema=schema_with_index
 ).save()
-
 record = ln.Record(
-    type=indexed_frame, features={"sample_abbr": "S-001", "score": 1.5}
+    features={"sample_abbr": "S-001", "score": 1.5},
+    type=frame_with_index,
 ).save()
-record.name
 ```
 
 Inspect the dataframe:
