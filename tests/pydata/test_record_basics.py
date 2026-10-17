@@ -230,6 +230,32 @@ def test_record_type_assignment_requires_schema_features():
     saved_note.type = note_sheet
     assert saved_note.type == note_sheet
 
+    # The same feature name under two types is two features.
+    scope_a = ln.Feature(name="TypeAssignScopeA", is_type=True).save()
+    scope_b = ln.Feature(name="TypeAssignScopeB", is_type=True).save()
+    conc_a = ln.Feature(name="type_assign_conc", dtype=float, type=scope_a).save()
+    conc_b = ln.Feature(name="type_assign_conc", dtype=int, type=scope_b).save()
+    clash_schema = ln.Schema([conc_a, conc_b], name="type_assign_clash_schema").save()
+    clash_sheet = ln.Record(
+        name="TypeAssignClash", is_type=True, schema=clash_schema
+    ).save()
+    with pytest.raises(ln.errors.ValidationError, match=conc_b.uid) as missing_conc:
+        ln.Record(
+            name="TypeAssignClashPending",
+            type=clash_sheet,
+            features={conc_a: 1.5},
+        )
+    assert conc_a.uid not in str(missing_conc.value)
+    saved = ln.Record(name="TypeAssignClashSaved", features={conc_a: 1.5}).save()
+    with pytest.raises(ln.errors.ValidationError, match=conc_b.uid) as missing_saved:
+        saved.type = clash_sheet
+    assert conc_a.uid not in str(missing_saved.value)
+    from lamindb.models.record import RecordJson
+
+    RecordJson(record=saved, feature=conc_b, value=2).save()
+    saved.type = clash_sheet
+    assert saved.type == clash_sheet
+
     complete.delete(permanent=True)
     blank.delete(permanent=True)
     sample.delete(permanent=True)
@@ -249,6 +275,13 @@ def test_record_type_assignment_requires_schema_features():
     optional_note.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
+    saved.delete(permanent=True)
+    clash_sheet.delete(permanent=True)
+    clash_schema.delete(permanent=True)
+    conc_a.delete(permanent=True)
+    conc_b.delete(permanent=True)
+    scope_a.delete(permanent=True)
+    scope_b.delete(permanent=True)
 
 
 def test_loading_record_does_not_revalidate_stored_type():

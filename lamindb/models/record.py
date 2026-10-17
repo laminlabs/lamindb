@@ -107,17 +107,6 @@ def _missing_feature_value(value: Any) -> bool:
     return bool(pd.api.types.is_scalar(value) and pd.isna(value))
 
 
-def _pending_feature_dictionary(pending: dict[str | Feature, Any]) -> dict[str, Any]:
-    resolved: dict[str, Any] = {}
-    for key, value in pending.items():
-        if _missing_feature_value(value):
-            continue
-        name = key.name if isinstance(key, Feature) else key
-        if isinstance(name, str):
-            resolved[name] = value
-    return resolved
-
-
 def _cached_schema_index_feature(schema: Schema) -> Feature | None:
     """``schema.index`` fetched once per schema instance.
 
@@ -146,20 +135,31 @@ def _schema_member_features(schema: Schema) -> list[Feature]:
     return features
 
 
-def _required_schema_feature_names(
-    schema: Schema, features: list[Feature]
-) -> list[str]:
+def _required_schema_features(schema: Schema, features: list[Feature]) -> list[Feature]:
     """Features a data record must already have to join this record frame."""
-    names: list[str] = []
     if schema.minimal_set:
         optional_uids = set(schema.optionals.get_uids())
-        names.extend(
-            feature.name for feature in features if feature.uid not in optional_uids
-        )
+        required = [feature for feature in features if feature.uid not in optional_uids]
+    else:
+        required = []
     index_feature = _cached_schema_index_feature(schema)
-    if index_feature is not None and index_feature.name not in names:
-        names.append(index_feature.name)
-    return names
+    if index_feature is not None and all(
+        feature.uid != index_feature.uid for feature in required
+    ):
+        required.append(index_feature)
+    return required
+
+
+def _unique_features_by_name(features: list[Feature]) -> dict[str, Feature]:
+    """Features whose name occurs once in this list.
+
+    A repeated name does not identify a feature. Callers that have a `Feature`
+    object use its uid instead.
+    """
+    counts: dict[str, int] = {}
+    for feature in features:
+        counts[feature.name] = counts.get(feature.name, 0) + 1
+    return {feature.name: feature for feature in features if counts[feature.name] == 1}
 
 
 def _record_type_assignment_label(record: Record) -> str:
@@ -169,7 +169,7 @@ def _record_type_assignment_label(record: Record) -> str:
 
 
 def _overlay_values_through_features(
-    record: Record, features: list[Feature], dictionary: dict[str, Any]
+    record: Record, features: list[Feature], values_by_uid: dict[str, Any]
 ) -> None:
     """Fill schema features stored on record fields.
 
@@ -180,46 +180,160 @@ def _overlay_values_through_features(
     features_by_uid = {feature.uid: feature for feature in features}
     for feature_uid, field_name in get_feature_record_field_mappings(features).items():
         feature = features_by_uid[feature_uid]
-        if feature.name in dictionary:
+        if feature.uid in values_by_uid:
             continue
         value = _feature_value_from_mapped_record_field(record, feature, field_name)
         if not _missing_feature_value(value):
-            dictionary[feature.name] = value
+            values_by_uid[feature.uid] = value
 
 
-def _feature_dictionary_for_type_assignment(
-    record: Record, schema: Schema
+def _assign_name_keyed_values(
+    name_values: dict[str, Any],
+    features_by_name: dict[str, Feature],
+    schema_names: set[str],
+    values_by_uid: dict[str, Any],
+    extra_by_name: dict[str, Any],
+) -> None:
+    """Apply values keyed by feature name.
+
+    A name that belongs to one schema feature is stored on that feature. A name
+    that belongs to none of them stays available for schema-level validation.
+    A name shared by several schema features is ignored here.
+    """
+    for name, value in name_values.items():
+        if _missing_feature_value(value):
+            continue
+        feature = features_by_name.get(name)
+        if feature is not None:
+            values_by_uid[feature.uid] = value
+        elif name not in schema_names:
+            extra_by_name[name] = value
+
+
+def _saved_feature_values_by_uid(
+    record: Record, features: list[Feature]
 ) -> dict[str, Any]:
-    """Feature values that will be checked against ``schema``."""
-    dictionary: dict[str, Any] = {}
+    """Values stored for these features, keyed by feature uid.
+
+    ``get_values()`` is keyed by name, so it cannot separate two features that
+    share a name. Link rows carry the feature id.
+    """
+    from datetime import datetime
+
+    import pandas as pd
+
+    from lamindb.models._feature_manager import get_link_attr
+    from lamindb.models._label_manager import _get_labels
+
+    features_by_id = {feature.id: feature for feature in features}
+    collected: dict[str, Any] = {}
+    json_rows = (
+        RecordJson.objects.using(record._state.db)
+        .filter(record_id=record.pk, feature_id__in=features_by_id)
+        .values_list("feature_id", "feature___dtype_str", "value")
+    )
+    for feature_id, dtype, value in json_rows:
+        if dtype == "date" and isinstance(value, str):
+            value = pd.to_datetime(value, format="ISO8601").date()
+        elif dtype in {"datetime", "datetime64[ns, UTC]"} and isinstance(value, str):
+            value = datetime.fromisoformat(value)
+        collected[features_by_id[feature_id].uid] = value
+
+    list_values: dict[str, list[Any]] = {}
+    for _, links in _get_labels(record, links=True, instance=record._state.db).items():
+        if hasattr(links, "order_by"):
+            links = links.order_by("pk")
+        for link in links:
+            if link.__class__.__name__ == "RecordJson":
+                continue
+            feature = features_by_id.get(getattr(link, "feature_id", None))
+            if feature is None:
+                continue
+            parsed = parse_dtype(feature._dtype_str)
+            field_name = parsed[0]["field_str"] if parsed else "name"
+            label = getattr(link, get_link_attr(link, record))
+            if hasattr(
+                label, "branch_id"
+            ) and label.branch_id not in get_default_branch_ids(db=record._state.db):
+                continue
+            list_values.setdefault(feature.uid, []).append(getattr(label, field_name))
+
+    for feature in features:
+        labels = list_values.get(feature.uid)
+        if not labels:
+            continue
+        dtype = feature._dtype_str or ""
+        if dtype.startswith("list"):
+            collected[feature.uid] = labels
+        elif len(labels) == 1:
+            collected[feature.uid] = labels[0]
+        else:
+            collected[feature.uid] = set(labels)
+    return {
+        uid: value
+        for uid, value in collected.items()
+        if not _missing_feature_value(value)
+    }
+
+
+def _feature_values_for_type_assignment(
+    record: Record, schema: Schema, features: list[Feature]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Schema-feature values keyed by uid, plus other values keyed by name."""
+    features_by_name = _unique_features_by_name(features)
+    schema_names = {feature.name for feature in features}
+    values_by_uid: dict[str, Any] = {}
+    extra_by_name: dict[str, Any] = {}
     state = getattr(record, "_state", None)
-    if (
+    saved = (
         state is not None
         and not state.adding
         and getattr(record, "pk", None) is not None
-    ):
-        dictionary.update(record.features.get_values())
+    )
+    if saved:
+        _assign_name_keyed_values(
+            record.features.get_values(),
+            features_by_name,
+            schema_names,
+            values_by_uid,
+            extra_by_name,
+        )
+        shared = [
+            feature for feature in features if feature.name not in features_by_name
+        ]
+        if shared:
+            for uid, value in _saved_feature_values_by_uid(record, shared).items():
+                values_by_uid.setdefault(uid, value)
     pending = getattr(record, "_features", None)
     if pending:
-        dictionary.update(_pending_feature_dictionary(pending))
-    dictionary = {
-        key: value
-        for key, value in dictionary.items()
+        for key, value in pending.items():
+            if isinstance(key, Feature):
+                if not _missing_feature_value(value):
+                    values_by_uid[key.uid] = value
+            elif isinstance(key, str):
+                _assign_name_keyed_values(
+                    {key: value},
+                    features_by_name,
+                    schema_names,
+                    values_by_uid,
+                    extra_by_name,
+                )
+    values_by_uid = {
+        uid: value
+        for uid, value in values_by_uid.items()
         if not _missing_feature_value(value)
     }
     index_feature = _cached_schema_index_feature(schema)
     if (
         index_feature is not None
-        and index_feature.name not in dictionary
+        and index_feature.uid not in values_by_uid
         and record.name is not None
     ):
-        dictionary[index_feature.name] = index_value_from_record_name(
+        values_by_uid[index_feature.uid] = index_value_from_record_name(
             record.name, index_feature
         )
-    _overlay_values_through_features(
-        record, _schema_member_features(schema), dictionary
-    )
-    return dictionary
+    _overlay_values_through_features(record, features, values_by_uid)
+    return values_by_uid, extra_by_name
 
 
 def _assigns_stored_type(record: Record, record_type: Record | None) -> bool:
@@ -251,40 +365,84 @@ def validate_data_record_type_assignment(
     if schema is None:
         return
     features = _schema_member_features(schema)
-    dictionary = _feature_dictionary_for_type_assignment(record, schema)
-    required_names = _required_schema_feature_names(schema, features)
-    missing = [name for name in required_names if name not in dictionary]
+    values_by_uid, extra_by_name = _feature_values_for_type_assignment(
+        record, schema, features
+    )
+    features_by_name = _unique_features_by_name(features)
+    missing = [
+        feature
+        for feature in _required_schema_features(schema, features)
+        if feature.uid not in values_by_uid
+    ]
     label = _record_type_assignment_label(record)
     type_name = record_type.name
     if missing:
-        rendered = ", ".join(repr(name) for name in missing)
+        rendered = ", ".join(
+            repr(feature.name)
+            if feature.name in features_by_name
+            else f"{feature.name!r} ({feature.uid})"
+            for feature in missing
+        )
         raise ValidationError(
             f"Cannot set type to {type_name!r} on {label}: "
             f"missing required features {rendered}"
         )
-    if not dictionary or getattr(record, "_skip_type_curator", False):
+    if (not values_by_uid and not extra_by_name) or getattr(
+        record, "_skip_type_curator", False
+    ):
         return
     from lamindb.curators.core import ExperimentalDictCurator
     from lamindb.models._feature_manager import FeatureManager
 
     # User objects are stored by handle. set_values normalizes them before the
     # curator; do the same here so assignment accepts the same values.
-    FeatureManager._normalize_user_feature_values(features, dictionary, {})
-    # Dict insertion order is not a column order. Ordered schemas compare the
-    # curator's one-row frame against member order.
-    ordered = {
-        feature.name: dictionary.pop(feature.name)
-        for feature in features
-        if feature.name in dictionary
-    }
-    ordered.update(dictionary)
-    dictionary = ordered
+    if len(features_by_name) == len(features):
+        dictionary = {
+            feature.name: values_by_uid[feature.uid]
+            for feature in features
+            if feature.uid in values_by_uid
+        }
+        dictionary.update(extra_by_name)
+        FeatureManager._normalize_user_feature_values(features, dictionary, {})
+        # Dict insertion order is not a column order. Ordered schemas compare the
+        # curator's one-row frame against member order.
+        ordered = {
+            feature.name: dictionary.pop(feature.name)
+            for feature in features
+            if feature.name in dictionary
+        }
+        ordered.update(dictionary)
+        dictionary = ordered
+        dictionaries = [(dictionary, schema)]
+    else:
+        # A shared name is one dataframe column, so the schema curator cannot
+        # tell those features apart. Check each present feature on its own.
+        from .schema import Schema
+
+        dictionaries = []
+        for feature in features:
+            if feature.uid not in values_by_uid:
+                continue
+            one_feature = {feature.name: values_by_uid[feature.uid]}
+            FeatureManager._normalize_user_feature_values(
+                [feature], one_feature, {feature.uid: values_by_uid[feature.uid]}
+            )
+            dictionaries.append((one_feature, Schema([feature])))
+        if extra_by_name and schema.maximal_set:
+            rendered = ", ".join(repr(name) for name in extra_by_name)
+            raise ValidationError(
+                f"Cannot set type to {type_name!r} on {label}: "
+                f"features {rendered} are not in the schema"
+            )
 
     try:
         # An unsaved record still points at the default connection. The schema
         # may already live on another instance when the caller will save(using=...).
         schema_db = getattr(getattr(schema, "_state", None), "db", None)
-        ExperimentalDictCurator(dictionary, schema, using=schema_db).validate()
+        for dictionary, curator_schema in dictionaries:
+            ExperimentalDictCurator(
+                dictionary, curator_schema, using=schema_db
+            ).validate()
     except ValidationError as error:
         raise ValidationError(
             f"Cannot set type to {type_name!r} on {label}: {error}"
