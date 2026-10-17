@@ -88,7 +88,7 @@ except ln.errors.ValidationError as error:
 
 Also moving `sample` into `samplesheet` raises since it only has `gc_content`:
 
-```
+```python
 try:
     sample1.type = samplesheet
 except ln.errors.ValidationError as error:
