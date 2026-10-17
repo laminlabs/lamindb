@@ -3047,6 +3047,20 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     ):
         sample.features.set_values({feature: [record_a, record_b]}, schema=schema)
 
+    # An unsaved record has no primary key, so it cannot be resolved through a sheet.
+    unsaved_b = ln.Record(name="unsaved_b_mismatch", type=type_b)
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
+        sample.features.set_values({feature: [unsaved_b]}, schema=schema)
+
+    # Registries without query_<registry>s cannot match a record under a subtype.
+    from lamindb.curators.core import _sqlrecord_matches_feature_type
+
+    assert not _sqlrecord_matches_feature_type(
+        record_b, ln.User.get(id=ln.setup.settings.user.id)
+    )
+
     # cleanup
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
