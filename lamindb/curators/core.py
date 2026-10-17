@@ -1443,10 +1443,7 @@ class DictCurator(DataFrameCurator):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
         if isinstance(dataset, Artifact):
             assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
-            loaded = dataset.load(is_run_input=False)
-            if not isinstance(loaded, dict):
-                raise InvalidArgument("Artifact must contain a dictionary.")
-            d = loaded
+            d = cast(dict, dataset.load(is_run_input=False))
         else:
             d = dataset
         if members is None:

@@ -45,9 +45,13 @@ def test_dict_dtype_accepts_dictionary_strings(value: dict | str, valid: bool) -
 
 
 def test_dict_curator_rejects_shared_names_and_reuses_members():
+    import json
+    from pathlib import Path
+
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
     from lamindb.curators.core import DictCurator
+    from lamindb.errors import InvalidArgument
 
     scope_a = ln.Feature(name="DictCuratorScopeA", is_type=True).save()
     scope_b = ln.Feature(name="DictCuratorScopeB", is_type=True).save()
@@ -76,6 +80,21 @@ def test_dict_curator_rejects_shared_names_and_reuses_members():
             or "lamindb_schemafeature" in query["sql"]
         ]
         assert member_queries == []
+
+        with pytest.raises(InvalidArgument, match="dict or dict-like artifact"):
+            DictCurator([], ok_schema)  # type: ignore[arg-type]
+
+        # The same dictionary, stored as an artifact, follows the load path.
+        path = Path("dict_curator_number.json")
+        path.write_text(json.dumps({number.name: 1.5}))
+        artifact = ln.Artifact(
+            path, otype="dict", description="dict curator values"
+        ).save()
+        try:
+            DictCurator(artifact, ok_schema, members=members, index=index).validate()
+        finally:
+            artifact.delete(permanent=True)
+            path.unlink(missing_ok=True)
     finally:
         ok_schema.delete(permanent=True)
         number.delete(permanent=True)
