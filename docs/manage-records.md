@@ -104,15 +104,15 @@ except ln.errors.ValidationError as error:
 You can set an index for a schema via {attr}`~lamindb.Schema.index`.
 
 ```python
-sample_id = ln.Feature(name="sample_id", dtype=str).save()
+sample_abbr = ln.Feature(name="sample_abbr", dtype=str).save()
 score = ln.Feature(name="score", dtype=float).save()
-indexed_schema = ln.Schema(features=[score], index=sample_id).save()
+indexed_schema = ln.Schema(features=[score], index=sample_abbr).save()
 indexed_frame = ln.Record(
     name="Indexed samples", is_type=True, schema=indexed_schema
 ).save()
 
 record = ln.Record(
-    type=indexed_frame, features={"sample_id": "S-001", "score": 1.5}
+    type=indexed_frame, features={"sample_abbr": "S-001", "score": 1.5}
 ).save()
 record.name
 ```

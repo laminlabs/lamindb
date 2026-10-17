@@ -1248,12 +1248,32 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
-    Create a data record with one feature.
-
-    ::
+    Create a data record with one feature::
 
         gc_content = ln.Feature(name="gc_content", dtype=float).save()
         sample1 = ln.Record(features={gc_content: 0.5}).save()
+
+    A record frame only accepts a data record that satisfies its schema::
+
+        experiment = ln.Feature(name="experiment", dtype=str).save()
+        schema = ln.Schema(
+            [experiment, gc_content.with_config(optional=True)],
+        ).save()
+        samples = ln.Record(name="Samples", is_type=True, schema=schema).save()
+
+        sample1.type = samples  # ValidationError: missing required feature 'experiment'
+
+        sample1.features.set_values({experiment: "exp1"})
+        sample1.type = samples
+        sample1.save()
+
+        ln.Record(name="Sample 2", type=samples)  # ValidationError: no required features
+
+    A schema with no required features::
+
+        optional = ln.Schema([gc_content], minimal_set=False).save()
+        sheet = ln.Record(name="Optional", is_type=True, schema=optional).save()
+        ln.Record(name="blank", type=sheet).save()
 
     For more examples, see :doc:`/manage-records`.
 
