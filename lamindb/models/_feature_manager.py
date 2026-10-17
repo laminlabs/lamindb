@@ -1686,32 +1686,14 @@ class FeatureManager:
         not_validated_values: dict[str, tuple[str, list[str]]],
         resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]]
         | None = None,
-        index_feature: Feature | None = None,
     ) -> None:
         import numpy as np
 
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
-        from .record import (
-            RecordJson,
-            apply_index_feature_to_record,
-            get_type_schema_index,
-        )
-
-        if index_feature is None:
-            index_feature = get_type_schema_index(record.type)  # type: ignore
+        from .record import RecordJson
 
         for feature in feature_objects:
-            if index_feature is not None and feature.uid == index_feature.uid:
-                if (
-                    values_by_feature_uid is not None
-                    and feature.uid in values_by_feature_uid
-                ):
-                    index_value = values_by_feature_uid[feature.uid]
-                else:
-                    index_value = dictionary[feature.name]
-                apply_index_feature_to_record(record, feature, index_value)
-                continue
             if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
@@ -1822,19 +1804,11 @@ class FeatureManager:
                     label_records = result["registry"].filter(  # type: ignore
                         **{f"{result['field_str']}__in": values}
                     )
-                    if len(label_records) != len(values):
-                        raise ValidationError(
-                            f"Some of these values for {result['registry_str']} do not exist: {values}"
-                        )
                 if feature._dtype_str.startswith("list[cat"):
                     label_records = _label_records_in_value_order(
                         label_records, values, cast(str, result["field_str"])
                     )
             for label_record in label_records:
-                if label_record._state.adding:
-                    raise ValidationError(
-                        f"Please save {label_record} before annotation."
-                    )
                 link_model, value_field_name, _ = get_categorical_link_info(
                     record.__class__,
                     label_record.__class__,
@@ -2887,7 +2861,6 @@ def bulk_set_features_in_records(
             links_by_model=links_by_model,
             not_validated_values=not_validated_values,
             resolved_records_by_feature_id=resolved_records_by_feature_id,
-            index_feature=batch_schema_index,
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
