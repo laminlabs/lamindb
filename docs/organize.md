@@ -122,20 +122,20 @@ artifact1.cell_types.add(cell_type1)         # annotate artifact1
 
 ### Annotating with features
 
-To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
+Richer annotation is possible with {class}`~lamindb.Feature` objects.
 
 <img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
 
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiments_registry = ln.Record(name="Experiments", is_type=True).save()
-ln.Record(name="Experiment 1", type=experiments_registry).save()
-gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
-experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()  # define a feature with dtype `Experiments`
+experiments_type = ln.Record(name="Experiments", is_type=True).save()
+experiment1 = ln.Record(name="Experiment 1", type=experiments_type).save()
+gc_content = ln.Feature(name="gc_content", dtype=float).save()
+experiment = ln.Feature(name="experiment", dtype=experiments_type).save()
 artifact1.features.set_values({
-    gc_content: 0.55,   # validated to be a float
-    experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
+    gc_content: 0.55,
+    experiment: experiment1,
 })
 ```
 
