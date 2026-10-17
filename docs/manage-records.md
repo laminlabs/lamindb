@@ -69,7 +69,6 @@ A {class}`~lamindb.Schema` turns the type into a frame and validates the feature
 ```python
 schema = ln.Schema(
     [experiment, gc_content.with_config(optional=True)],
-    name="sample_schema",
 ).save()
 samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
