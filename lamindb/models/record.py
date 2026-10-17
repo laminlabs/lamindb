@@ -295,9 +295,10 @@ def validate_data_record_type_assignment(
     dictionary = ordered
 
     try:
-        ExperimentalDictCurator(
-            dictionary, schema, using=getattr(record._state, "db", None)
-        ).validate()
+        # An unsaved record still points at the default connection. The schema
+        # may already live on another instance when the caller will save(using=...).
+        schema_db = getattr(getattr(schema, "_state", None), "db", None)
+        ExperimentalDictCurator(dictionary, schema, using=schema_db).validate()
     except ValidationError as error:
         raise ValidationError(
             f"Cannot set type to {type_name!r} on {label}: {error}"
