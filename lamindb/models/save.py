@@ -144,6 +144,17 @@ def save(
         for record in artifacts:
             _prepare_cross_instance_create(record, using)
         _ensure_using_connection(Artifact, using)
+        ordinary_artifacts = []
+        for record in artifacts:
+            local_filepath = getattr(record, "_local_filepath", None)
+            if local_filepath is not None and not isinstance(
+                local_filepath, LocalPathClasses
+            ):
+                # remote sources are copied before insertion, see Artifact.save()
+                record.save(using=using)
+            else:
+                ordinary_artifacts.append(record)
+        artifacts = ordinary_artifacts
         with transaction.atomic():
             for record in artifacts:
                 # will switch to True after the successful upload / saving
@@ -564,6 +575,17 @@ def upload_artifact(
             print_progress=print_progress,
             **kwargs,
         )
+        if not isinstance(artifact._local_filepath, LocalPathClasses):
+            from .artifact import get_stat_or_artifact
+
+            # copying can change e.g. multipart ETags, so describe the stored copy
+            size, stored_hash, hash_type, n_files, _ = get_stat_or_artifact(
+                storage_path, artifact.storage, check_hash=False
+            )
+            artifact.size = size
+            artifact.hash = stored_hash
+            artifact._hash_type = hash_type
+            artifact.n_files = n_files
 
     if isinstance(storage_path, LocalPathClasses):
         cache_path = None

@@ -16,6 +16,7 @@ from typing import (
     Union,
     overload,
 )
+from urllib.parse import urlsplit, urlunsplit
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -87,7 +88,7 @@ from .feature import Feature, JsonValue
 from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
-from .save import check_and_attempt_clearing, check_and_attempt_upload
+from .save import check_and_attempt_clearing, check_and_attempt_upload, upload_artifact
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -236,6 +237,7 @@ def process_pathlike(
     storage: Storage,
     using: str | None,
     skip_existence_check: bool = False,
+    copy_to_storage: bool = False,
 ) -> tuple[Storage, bool]:
     """Determines the appropriate storage for a given path and whether to use an existing storage key."""
     if not skip_existence_check:
@@ -254,6 +256,17 @@ def process_pathlike(
         else:
             if not exists:
                 raise FileNotFoundError(filepath)
+    if copy_to_storage:
+        if storage.instance_uid != setup_settings.instance.uid:
+            raise ValueError(
+                "Cannot create an artifact in a storage location that is not managed by the current instance."
+            )
+        if _s().check_path_is_child_of_root(filepath, storage.root):
+            raise ValueError(
+                f"Path {filepath} is already in storage {storage.root}, "
+                "use `Artifact(path)` to register it in place."
+            )
+        return storage, False
     if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
@@ -357,6 +370,7 @@ def process_data(
     skip_existence_check: bool = False,
     is_replace: bool = False,
     to_disk_kwargs: dict[str, Any] | None = None,
+    copy_to_storage: bool = False,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory.
 
@@ -396,6 +410,7 @@ def process_data(
             storage=storage,
             using=using,
             skip_existence_check=skip_existence_check,
+            copy_to_storage=copy_to_storage,
         )
         suffix, raw_suffix = CanonicalSuffix.extract_from_path(path)
         memory_rep = None
@@ -479,12 +494,13 @@ def get_stat_or_artifact(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    copy_to_storage: bool = False,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
     if stats is not None:
         size, hash, hash_type, n_files = _validate_stats(stats)
-        if hash is None:
+        if hash is None and not copy_to_storage:
             # without a hash there is nothing to deduplicate against
             return size, hash, hash_type, n_files, None
     elif settings.creation.artifact_skip_size_hash:
@@ -509,7 +525,9 @@ def get_stat_or_artifact(
             return None, None, None, None, None
         if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, hash, hash_type, n_files, None
+            # copies into storage still need key-based version inference
+            if not copy_to_storage:
+                return size, hash, hash_type, n_files, None
     else:
         if path.is_dir():
             size, hash, hash_type, n_files = hash_dir(path)
@@ -519,8 +537,12 @@ def get_stat_or_artifact(
         return size, hash, hash_type, n_files, None
     # Empty files all share the same content hash; skip cross-artifact hash
     # lookup so creating a new empty file path yields a new artifact.
-    if n_files is None and size == 0:
+    if hash is None or (n_files is None and size == 0):
         skip_hash_lookup = True
+    same_hash = Q(hash=hash)
+    if copy_to_storage:
+        # earlier copies store the source hash in provenance, `hash` describes the copy
+        same_hash |= Q(extra_data__source__hash=hash)
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
     # Only run key-based latest version lookup when creating a new artifact version from key.
@@ -550,7 +572,7 @@ def get_stat_or_artifact(
         # storage locations and keys
         # if this is not desired, set skip_hash_lookup=True
         if key is None or is_replace:
-            queryset_same_hash = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
+            queryset_same_hash = artifacts_qs.filter(~Q(branch_id=-1), same_hash)
             artifact_with_same_hash_exists = queryset_same_hash.exists()
         else:
             # the following query achieves one more thing beyond hash lookup
@@ -560,13 +582,13 @@ def get_stat_or_artifact(
             # see the `previous_artifact_version` variable below
             queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
-                (Q(hash=hash) | Q(key=key, storage=storage))
+                (same_hash | Q(key=key, storage=storage))
                 # Key lookup is conditionally included only for inferred latest version. For
                 # explicit `revises`, we only need hash dedup and should skip key latest version lookup.
                 if should_lookup_key_version
-                else Q(hash=hash),
+                else same_hash,
             ).order_by("-created_at", "-id")
-            queryset_same_hash = queryset_same_hash_or_same_key.filter(hash=hash)
+            queryset_same_hash = queryset_same_hash_or_same_key.filter(same_hash)
             artifact_with_same_hash_exists = queryset_same_hash.exists()
     if key is not None and not is_replace:
         if (
@@ -658,6 +680,7 @@ def get_artifact_kwargs_from_data(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    copy_to_storage: bool = False,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -669,6 +692,7 @@ def get_artifact_kwargs_from_data(
         skip_check_exists,
         is_replace=is_replace,
         to_disk_kwargs=to_disk_kwargs,
+        copy_to_storage=copy_to_storage,
     )
 
     check_path_in_storage = False
@@ -702,13 +726,15 @@ def get_artifact_kwargs_from_data(
         skip_key_revises_lookup=skip_key_revises_lookup,
         target_branch_id=target_branch_id,
         stats=stats,
+        copy_to_storage=copy_to_storage,
     )
-    if not isinstance(path, LocalPathClasses):
-        local_filepath = None
-        cloud_filepath = path
-    else:
+    # a remote source to copy is uploaded like a local file upon save()
+    if copy_to_storage or isinstance(path, LocalPathClasses):
         local_filepath = path
         cloud_filepath = None
+    else:
+        local_filepath = None
+        cloud_filepath = path
     privates = {
         "local_filepath": local_filepath,
         "cloud_filepath": cloud_filepath,
@@ -1928,6 +1954,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
+        copy_to_storage: bool = kwargs.pop("_copy_to_storage", False)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
 
@@ -1948,8 +1975,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f"Do not pass key that contains a managed storage path in `{_s().AUTO_KEY_PREFIX}`"
             )
 
-        if isinstance(path, (str, Path, UPath)) and _s().AUTO_KEY_PREFIX in (
-            path_str := path if isinstance(path, str) else path.as_posix()
+        if (
+            not copy_to_storage
+            and isinstance(path, (str, Path, UPath))
+            and _s().AUTO_KEY_PREFIX
+            in (path_str := path if isinstance(path, str) else path.as_posix())
         ):
             if not _is_internal_call:
                 # just check for 2 writable cloud protocols, maybe change in the future
@@ -2137,6 +2167,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_key_revises_lookup=revises is not None,
             target_branch_id=branch.id,
             stats=stats,
+            copy_to_storage=copy_to_storage,
         )
 
         def set_private_attributes():
@@ -2944,6 +2975,82 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return artifact
 
     @classmethod
+    def from_remote(
+        cls,
+        path: AnyPathStr,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Copy a remote file or folder into managed storage upon `save()`.
+
+        Unlike `Artifact(path)`, which registers remote paths in place, this copies
+        them into `storage` (default: the instance storage) and keeps the source.
+        Local paths behave like `Artifact(path)`.
+
+        The sanitized source URL, endpoint, size, and hash are recorded in
+        `extra_data["source"]`; credentials and query strings are never stored.
+
+        Folder members are copied in parallel; set the number of concurrent files
+        with `save(store_kwargs={"max_workers": n})` (default: 32).
+
+        Args:
+            path: A remote file or folder, optionally a `UPath` with credentials.
+            key: A relative storage key, e.g., `"imports/data.csv"`.
+            description: A description.
+            run: The run that creates the artifact.
+            revises: An old version of the artifact.
+            **kwargs: Other `Artifact()` arguments, e.g., `storage` or `extra_data`.
+
+        Examples::
+
+            source = ln.UPath("s3://external-bucket/images", anon=True)
+            artifact = ln.Artifact.from_remote(source, key="imported/images").save()
+            artifact.extra_data["source"]
+        """
+        if not isinstance(path, (str, Path, UPath)):
+            raise TypeError(
+                "Pass a path; use `from_dataframe()` or another constructor for in-memory objects."
+            )
+        kwargs.update(key=key, description=description, run=run, revises=revises)
+        source_path = create_path(path)
+        if isinstance(source_path, LocalPathClasses):
+            return cls(path, **kwargs)
+        extra_data = kwargs.pop("extra_data", None)
+        artifact = cls(source_path, _copy_to_storage=True, **kwargs)
+
+        def sanitized_url(value: str) -> str:
+            parts = urlsplit(value)
+            netloc = parts.netloc.rsplit("@", 1)[-1]
+            return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+
+        existing_extra_data = artifact.extra_data or {}
+        if not artifact._state.adding and "source" in existing_extra_data:
+            # a deduplicated artifact keeps its original provenance
+            source = existing_extra_data["source"]
+        else:
+            source = {"url": sanitized_url(source_path.as_posix())}
+            options = source_path.storage_options
+            endpoint_url = options.get("endpoint_url") or options.get(
+                "client_kwargs", {}
+            ).get("endpoint_url")
+            if endpoint_url is not None:
+                source["endpoint_url"] = sanitized_url(str(endpoint_url))
+            # before save(), the artifact's statistics describe the source
+            source.update(
+                size=artifact.size, hash=artifact.hash, hash_type=artifact._hash_type
+            )
+        artifact.extra_data = {
+            **existing_extra_data,
+            **(extra_data or {}),
+            "source": source,
+        }
+        return artifact
+
+    @classmethod
     def from_dir(
         cls,
         path: AnyPathStr,
@@ -3724,6 +3831,41 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise FileNotFoundError(
                 f"Unable to save the artifact because the local path {local_filepath} does not exist."
             )
+
+        if (
+            has_local_filepath
+            and not isinstance(local_filepath, LocalPathClasses)
+            and getattr(self, "_to_store", False)
+        ):
+            # copy remote sources before inserting: their stored hash can match an
+            # existing artifact even if the source hash did not
+            using = kwargs.get("using")
+            storage_path, _ = upload_artifact(
+                self,
+                using,
+                access_token=access_token,
+                print_progress=print_progress,
+                **store_kwargs,
+            )
+            existing = (
+                Artifact.objects.using(using)
+                .filter(
+                    ~Q(branch_id=-1), storage=self.storage, key=self.key, hash=self.hash
+                )
+                .first()
+                if self.hash is not None
+                else None
+            )
+            if existing is not None:
+                from .sqlrecord import init_self_from_db
+
+                if storage_path != existing.path:
+                    _s().delete_storage(storage_path)
+                logger.important(f"returning artifact with same hash & key: {existing}")
+                init_self_from_db(self, existing)
+                return self
+            del self._local_filepath
+            has_local_filepath = False
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
         if flag_complete:
