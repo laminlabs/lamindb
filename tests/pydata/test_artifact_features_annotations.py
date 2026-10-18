@@ -561,6 +561,40 @@ def test_artifact_order_by_feature():
         feature.delete(permanent=True)
 
 
+@pytest.mark.parametrize("model", [ln.Artifact, ln.Run, ln.Record])
+def test_order_by_feature_rejects_values_through(model):
+    from django.core.exceptions import FieldError
+
+    mapped = ln.Feature(
+        name="order_mapped_reference", dtype=str, values_through="reference"
+    ).save()
+    source = ln.Feature(name="order_values_source", dtype=ln.Record).save()
+    reverse = ln.Feature(
+        name="order_values_reverse", dtype=list[ln.Record], values_through=source
+    ).save()
+    record = None
+    try:
+        if model is ln.Record:
+            record = ln.Record(
+                name="order_mapped_record", features={mapped.name: "ABC-123"}
+            ).save()
+            assert record.reference == "ABC-123"
+        for configured in (mapped, reverse):
+            # Cover both newly saved features and persisted mapping metadata.
+            for feature in (configured, ln.Feature.get(id=configured.id)):
+                for ordering in (feature, -feature):
+                    with pytest.raises(FieldError, match="values_through"):
+                        model.filter().order_by(ordering)
+        if record is not None:
+            assert list(model.filter(id=record.id).order_by("reference")) == [record]
+    finally:
+        if record is not None:
+            record.delete(permanent=True)
+        reverse.delete(permanent=True)
+        source.delete(permanent=True)
+        mapped.delete(permanent=True)
+
+
 def test_run_order_by_feature():
     temperature = ln.Feature(name="order_by_run_temperature", dtype=int).save()
     transform = ln.Transform(key="order-by-run-transform").save()

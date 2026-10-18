@@ -1314,6 +1314,11 @@ def feature_order_expressions(
             expressions.append(item)
             continue
         feature = _feature_on_queryset_db(queryset, item.feature)
+        if feature.values_through is not None:
+            raise FieldError(
+                f"Cannot order by feature '{feature.name}' configured with values_through. "
+                "Ordering features with values_through is not supported."
+            )
         if feature._dtype_str not in _ORDERABLE_FEATURE_DTYPES:
             raise FieldError(
                 f"Cannot order by feature '{feature.name}' with dtype {feature._dtype_str!r}. "

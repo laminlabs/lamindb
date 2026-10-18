@@ -1646,6 +1646,7 @@ class QuerySet(BasicQuerySet):
 
         Values use the database's native JSON ordering, without conversion to
         the feature dtype. On PostgreSQL, dates and datetimes compare as strings.
+        Features configured with `values_through` cannot be used for ordering.
 
         Example::
 
@@ -1668,4 +1669,4 @@ class QuerySet(BasicQuerySet):
         if self.query.is_sliced:
             raise TypeError("Cannot reorder a query once a slice has been taken.")
         queryset, expressions = feature_order_expressions(self, expressions)
-        return super(QuerySet, cast(QuerySet, queryset)).order_by(*expressions)
+        return super(QuerySet, cast("QuerySet", queryset)).order_by(*expressions)
