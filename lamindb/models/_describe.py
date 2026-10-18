@@ -418,7 +418,14 @@ def describe_run(
             max_lines=4,
         )
     if record.report_id:
-        report = record.report.load(is_run_input=False)
+        if record.report.n_files is not None:
+            from ..core.loaders import load_to_memory
+
+            report = load_to_memory(
+                record.report.cache(is_run_input=False) / "index.html"
+            )
+        else:
+            report = record.report.load(is_run_input=False)
         if report:
             report_str = report if isinstance(report, str) else str(report)
             display_text(
