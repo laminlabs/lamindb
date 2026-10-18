@@ -310,6 +310,76 @@ def test_artifact_save_validates_schema_suffix():
     Path(csv_path).unlink(missing_ok=True)
 
 
+def test_artifact_constructor_does_not_attach_unvalidated_schema(tmp_path: Path):
+    gene = ln.Feature(name="attach_schema_gene", dtype=str).save()
+    score = ln.Feature(name="attach_schema_score", dtype=float).save()
+    schema = ln.Schema(
+        name="attach_schema_needs_gene_score",
+        features=[gene, score],
+    ).save()
+    bad = pd.DataFrame({"attach_schema_gene": ["a", "b"], "other": [1, 2]})
+    parquet = tmp_path / "bad.parquet"
+    csv = tmp_path / "bad.csv"
+    text = tmp_path / "notes.txt"
+    json_path = tmp_path / "data.json"
+    bad.to_parquet(parquet)
+    bad.to_csv(csv, index=False)
+    text.write_text("not a table")
+    json_path.write_text('{"x": 1}')
+
+    with pytest.raises(ln.errors.ValidationError):
+        ln.Artifact.from_dataframe(bad, key="attach-schema/a.parquet", schema=schema)
+
+    for path, key in (
+        (parquet, "attach-schema/b.parquet"),
+        (csv, "attach-schema/c.csv"),
+    ):
+        with pytest.raises(ln.errors.InvalidArgument) as error:
+            ln.Artifact(path, key=key, schema=schema)
+        assert "from_dataframe" in error.exconly()
+        assert not ln.Artifact.filter(key=key).exists()
+
+    for path, key in (
+        (text, "attach-schema/d.txt"),
+        (json_path, "attach-schema/e.json"),
+    ):
+        with pytest.raises(ln.errors.ValidationError) as error:
+            ln.Artifact(path, key=key, schema=schema)
+        assert "no feature values were provided" in error.exconly()
+        assert not ln.Artifact.filter(key=key).exists()
+
+    # same hash as `parquet`, so this is the deduplication path
+    saved = ln.Artifact(parquet, key="attach-schema/existing.parquet").save()
+    assert saved.schema is None
+    with pytest.raises(ln.errors.InvalidArgument):
+        ln.Artifact(parquet, key="attach-schema/existing.parquet", schema=schema)
+    assert ln.Artifact.get(id=saved.id).schema_id is None
+    assert schema.validated_artifacts.count() == 0
+
+    with pytest.raises(ln.errors.ValidationError):
+        ln.Artifact(
+            text,
+            key="attach-schema/d.txt",
+            schema=schema,
+            features={"attach_schema_gene": "a"},
+        )
+
+    annotated = ln.Artifact(
+        text,
+        key="attach-schema/d.txt",
+        schema=schema,
+        features={"attach_schema_gene": "a", "attach_schema_score": 1.0},
+    ).save()
+    assert annotated.schema == schema
+    assert schema.validated_artifacts.count() == 1
+
+    annotated.delete(permanent=True)
+    saved.delete(permanent=True)
+    schema.delete(permanent=True)
+    gene.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_external_only_schema_on_any_artifact(
     two_external_features: tuple[ln.Feature, ln.Feature],
     tmp_path: Path,

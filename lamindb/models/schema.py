@@ -1914,18 +1914,32 @@ def is_external_only_schema(schema: Schema) -> bool:
     return not schema.n_members
 
 
+def is_flat_feature_schema(schema: Schema) -> bool:
+    """True when the schema names concrete features and has no slots.
+
+    On an unstructured artifact this is the external schema, so `Artifact()`
+    has to validate `features`. On a typed or tabular artifact it describes
+    dataset content, which only a `from_*` constructor validates.
+    """
+    if schema.slots:
+        return False
+    return bool(schema.n_members)
+
+
 def schema_requires_content_curator(schema: Schema) -> bool:
     """True when `Artifact()` would skip dataset-content validation.
 
-    Flat schemas stay attachable. They are the external schema when `otype` is
-    `None`, and a suffix constraint otherwise. A composite schema with content
-    slots, or with members alongside `__external__`, has to go through the
-    matching `from_*` constructor.
+    External-only schemas are validated separately. A flat schema with no
+    members and no `otype` is a suffix or itype constraint and stays
+    attachable. A schema with an `otype` or with content slots has to go
+    through the matching `from_*` constructor. Flat feature schemas
+    (`otype` is `None`) are handled separately.
     """
-    slots = schema.slots
-    if any(slot != EXTERNAL_SLOT for slot in slots):
+    if is_external_only_schema(schema):
+        return False
+    if schema.slots:
         return True
-    if EXTERNAL_SLOT in slots and not is_external_only_schema(schema):
+    if schema.otype is not None:
         return True
     return False
 

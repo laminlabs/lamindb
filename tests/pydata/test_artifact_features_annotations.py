@@ -652,6 +652,7 @@ def test_artifact_feature_cat_filters_schema_end_to_end():
         ".gitignore",
         key="artifact_with_required_schema",
         schema=required_schema,
+        features={"schema_filter_column_e2e": "included"},
         skip_hash_lookup=True,
     ).save()
 
