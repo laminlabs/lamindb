@@ -250,10 +250,10 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 ### Annotate & query artifacts
 
-To annotate and query by **labels**:
+To annotate and query by **entities**:
 
 ```python
-# define labels
+# create entities
 my_label = ln.ULabel(name="My universal label").save()
 my_project = ln.Project(name="My project label").save()
 
@@ -263,6 +263,22 @@ artifact.projects.add(my_project)
 
 # query
 ln.Artifact.filter(ulabels=my_label, projects=my_project).to_dataframe()
+```
+
+This also works for custom entities, for example, ontology terms:
+
+```python
+import bionty as bt
+
+hek293 = bt.CellLine.from_source(name="HEK293").save()
+gtpase = bt.Protein.from_source(name="GTPase HRas", organism="human").save()
+
+# annotate
+artifact.cell_lines.add(hek293)
+artifact.proteins.add(gtpase)
+
+# query
+ln.Artifact.filter(cell_lines=hek293, proteins=gtpase).to_dataframe()
 ```
 
 To annotate & query by **features**:
@@ -456,7 +472,7 @@ This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/
 
 ### Manage ontologies
 
-Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
+`bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. The `Gene` registry was used to validate the `ENSG` ids in the `adata` just before. Here is how you import a public ontology source into the `CellType` registry:
 
 ```python
 import bionty as bt

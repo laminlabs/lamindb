@@ -74,10 +74,11 @@ def sync(
     .. code-block:: mermaid
 
        flowchart TD
-         artifact("Artifact") -->|storage| storage("Storage")
+         artifact("Artifact"):::focal -->|storage| storage("Storage")
          artifact -->|created_by| user("User")
          artifact -->|run| run("Run")
          artifact -->|schema| schema("Schema")
+         classDef focal fill:#10b981,color:#ffffff,stroke:#047857
 
     If you pass `transfer="annotations"` upon transferring an artifact, its many-to-many relationships are transferred.
     Those contain all label & feature annotations but also inferred schemas via `.schemas`.
@@ -86,13 +87,14 @@ def sync(
     .. code-block:: mermaid
 
        flowchart TD
-         artifact("Artifact") -->|ulabels| ulabels("ULabel")
+         artifact("Artifact"):::focal -->|ulabels| ulabels("ULabel")
          artifact -->|records| records("Record")
          artifact -->|projects| projects("Project")
          artifact -->|users| users("User")
          artifact -->|artifacts| linked("Artifact")
          artifact -->|schemas| schemas("Schema")
          artifact -->|json_values| json_values("JsonValue")
+         classDef focal fill:#10b981,color:#ffffff,stroke:#047857
 
     The related objects themselves are **transferred** without their own annotations to avoid an infinite recursion.
     You have to transfer the related object itself if you want to transfer it with its own annotations.
