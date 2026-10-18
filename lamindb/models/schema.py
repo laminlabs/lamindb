@@ -1895,7 +1895,7 @@ def get_type_str(dtype: str | None) -> str | None:
 
 
 def external_slot_schema(schema: Schema | None) -> Schema | None:
-    """Return the ``__external__`` slot schema, if this schema defines one."""
+    """Return the `__external__` slot schema, if this schema defines one."""
     if schema is None:
         return None
     return schema.slots.get(EXTERNAL_SLOT)
@@ -1904,8 +1904,8 @@ def external_slot_schema(schema: Schema | None) -> Schema | None:
 def is_external_only_schema(schema: Schema) -> bool:
     """True when the schema validates external metadata and no dataset content.
 
-    That is: no members, no ``itype``, and the only slot is ``__external__``.
-    ``otype`` is ignored so the schema can apply to any artifact.
+    That is: no members, no `itype`, and the only slot is `__external__`.
+    `otype` is ignored so the schema can apply to any artifact.
     """
     if schema.itype is not None:
         return False
@@ -1915,12 +1915,12 @@ def is_external_only_schema(schema: Schema) -> bool:
 
 
 def schema_requires_content_curator(schema: Schema) -> bool:
-    """True when ``Artifact()`` would skip dataset-content validation.
+    """True when `Artifact()` would skip dataset-content validation.
 
-    Flat schemas stay attachable. They are the external schema when ``otype`` is
-    ``None``, and a suffix constraint otherwise. A composite schema with content
-    slots, or with members alongside ``__external__``, has to go through the
-    matching ``from_*`` constructor.
+    Flat schemas stay attachable. They are the external schema when `otype` is
+    `None`, and a suffix constraint otherwise. A composite schema with content
+    slots, or with members alongside `__external__`, has to go through the
+    matching `from_*` constructor.
     """
     slots = schema.slots
     if any(slot != EXTERNAL_SLOT for slot in slots):

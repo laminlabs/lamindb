@@ -75,7 +75,7 @@ def sync(
        :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|storage| storage("Storage")
+         artifact("Artifact"):::focal -->|storage| storage("Storage")
          artifact -->|created_by| user("User")
          artifact -->|run| run("Run")
          artifact -->|schema| schema("Schema")
@@ -88,7 +88,7 @@ def sync(
        :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|ulabels| ulabels("ULabel")
+         artifact("Artifact"):::focal -->|ulabels| ulabels("ULabel")
          artifact -->|records| records("Record")
          artifact -->|projects| projects("Project")
          artifact -->|users| users("User")

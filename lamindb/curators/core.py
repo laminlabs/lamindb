@@ -1465,10 +1465,10 @@ def validate_external_features(
     features: dict[str, Any] | None,
     artifact: Artifact | None = None,
 ) -> dict[str, Any] | None:
-    """Validate features against a schema's ``__external__`` slot.
+    """Validate features against a schema's `__external__` slot.
 
     Returns the feature dictionary when the slot exists, including values read
-    from a saved artifact when none were passed. Returns ``None`` when the schema
+    from a saved artifact when none were passed. Returns `None` when the schema
     has no external slot.
     """
     slot_schema = external_slot_schema(schema)
@@ -1594,7 +1594,7 @@ class AnnDataCurator(SlotsCurator):
     Args:
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        features: External feature values for the ``__external__`` slot.
+        features: External feature values for the `__external__` slot.
 
     Examples:
 
@@ -1708,7 +1708,7 @@ class MuDataCurator(SlotsCurator):
     Args:
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        features: External feature values for the ``__external__`` slot.
+        features: External feature values for the `__external__` slot.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1799,7 +1799,7 @@ class SpatialDataCurator(SlotsCurator):
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        features: External feature values for the ``__external__`` slot.
+        features: External feature values for the `__external__` slot.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -1909,7 +1909,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
     Args:
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        features: External feature values for the ``__external__`` slot.
+        features: External feature values for the `__external__` slot.
 
     Example:
 
