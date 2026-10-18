@@ -2023,10 +2023,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if features is not None:
             self._external_features = features
             if schema is not None:
-                from lamindb.curators.core import ExperimentalDictCurator
+                from lamindb.curators.core import DictCurator
 
                 validation_schema = schema
-                ExperimentalDictCurator(features, validation_schema).validate()
+                DictCurator(features, validation_schema).validate()
         # check_type is False because run can be False also, see get_run
         run: Run | None | bool = _sqlrecord_or_id(
             Run, kwargs.pop("run", None), kwargs.pop("run_id", None), check_type=False

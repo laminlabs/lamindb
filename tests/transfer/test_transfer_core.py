@@ -533,7 +533,9 @@ def _source_on_testdb1() -> tuple[str, str]:
         ln.Feature(name=FEAT_USER, dtype=ln.User).save(),
         ln.Feature(name=FEAT_SAMPLE, dtype=sample_type).save(),
     ]
-    schema = ln.Schema(name=f"{SHEET_NAME}_schema", features=features).save()
+    schema = ln.Schema(
+        name=f"{SHEET_NAME}_schema", features=features, minimal_set=False
+    ).save()
     sheet = ln.Record(name=SHEET_NAME, is_type=True, schema=schema).save()
     source = ln.Record(
         name=REC_NAME,

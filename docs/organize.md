@@ -50,7 +50,7 @@ What if an artifact is relevant to multiple projects?
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem with the `artifact.projects` relationship that links the {class}`~lamindb.Project` to {class}`~lamindb.Artifact`:
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
 
 Here is how to annotate one artifact with two projects:
 
@@ -122,19 +122,20 @@ artifact1.cell_types.add(cell_type1)         # annotate artifact1
 
 ### Annotating with features
 
-To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
+Richer annotation is possible with {class}`~lamindb.Feature` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
 
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiments_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
-gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
-experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()  # define a feature with dtype `Experiments`
+experiments_type = ln.Record(name="Experiments", is_type=True).save()
+experiment1 = ln.Record(name="Experiment 1", type=experiments_type).save()
+gc_content = ln.Feature(name="gc_content", dtype=float).save()
+experiment = ln.Feature(name="experiment", dtype=experiments_type).save()
 artifact1.features.set_values({
-    gc_content: 0.55,   # validated to be a float
-    experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
+    gc_content: 0.55,
+    experiment: experiment1,
 })
 ```
 
@@ -154,7 +155,7 @@ Below is an example from the {doc}`/tutorial` illustrating how you get, e.g., ce
 
 When you call {func}`~lamindb.track` or decorate a function with {func}`~lamindb.flow`, you automatically annotate artifacts with {class}`~lamindb.Run` and {class}`~lamindb.Transform` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
 
 Here is how:
 
@@ -199,7 +200,7 @@ artifacts = ln.Artifact.filter(
 If you want to group artifacts by metadata and version the entire set, use {class}`~lamindb.Collection`.
 If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See {doc}`/architecture`.
 
-<img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
+<img width="160" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
 
 Unlike during annotation, you have to pass an entire group of artifacts to a `Collection` constructor:
 

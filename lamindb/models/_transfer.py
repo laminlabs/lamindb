@@ -731,7 +731,7 @@ def transfer_record_feature_values(
         prepared_by_uid[local_feature.uid] = _prepare(value, local_feature)
         feature_objects.append(local_feature)
 
-    # Do not run ExperimentalDictCurator: source values are already valid, and
+    # Do not run DictCurator: source values are already valid, and
     # the target session may not have every module (e.g. bionty) imported.
     # set so _add_values can `del` it (normal set_values always sets this attr)
     record_on_default._mapped_feature_update_fields = set()

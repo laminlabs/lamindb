@@ -81,13 +81,6 @@ def get_type_schema_index(record_type: Record | None) -> Feature | None:
     return schema.index
 
 
-def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
-    if schema is None:
-        return False
-    index_feature = schema.index
-    return index_feature is not None and feature.uid == index_feature.uid
-
-
 def validate_record_sheet_index_feature(index_feature: Feature) -> None:
     """Ensure a record frame index feature can be stored on `Record.name`."""
     if index_feature.dtype_as_str != "str":
@@ -103,6 +96,254 @@ def validate_record_type_schema_index(schema: Schema | None) -> None:
     index_feature = schema.index
     if index_feature is not None:
         validate_record_sheet_index_feature(index_feature)
+
+
+def _missing_feature_value(value: Any) -> bool:
+    """Whether this value does not yet satisfy a required feature."""
+    if value is None or value == [] or value == set():
+        return True
+    import pandas as pd
+
+    return bool(pd.api.types.is_scalar(value) and pd.isna(value))
+
+
+def _with_index_feature(
+    features: list[Feature], index_feature: Feature | None
+) -> list[Feature]:
+    """Append the index feature when it is not already a schema member."""
+    if index_feature is None or any(
+        feature.uid == index_feature.uid for feature in features
+    ):
+        return features
+    return [*features, index_feature]
+
+
+def _schema_features(schema: Schema) -> tuple[Feature | None, list[Feature]]:
+    """Index feature and schema members, fetched once per schema instance.
+
+    ``schema.index`` queries ``Feature`` and ``schema.members`` queries the link
+    table. Batch import checks one record per row. The cache is dropped when the
+    index uid changes; adding a member on this same instance does not.
+    """
+    index_uid = schema._index_feature_uid
+    cached = schema.__dict__.get("_type_check_features")
+    if cached is not None and cached[0] == index_uid:
+        return cached[1], cached[2]
+    index_feature = schema.index
+    features = _with_index_feature(list(schema.members), index_feature)
+    schema._type_check_features = (index_uid, index_feature, features)
+    return index_feature, features
+
+
+def _required_schema_features(
+    schema: Schema, features: list[Feature], index_feature: Feature | None
+) -> list[Feature]:
+    """Features a data record must already have to join this record frame.
+
+    The index feature is the row key stored on ``Record.name``, so it stays
+    required when ``minimal_set`` is false.
+    """
+    if schema.minimal_set:
+        optional_uids = set(schema.optionals.get_uids())
+        required = [feature for feature in features if feature.uid not in optional_uids]
+    else:
+        required = []
+    return _with_index_feature(required, index_feature)
+
+
+def _duplicate_feature_names(features: list[Feature]) -> list[str]:
+    """Names used by more than one feature in this list."""
+    counts: dict[str, int] = {}
+    for feature in features:
+        counts[feature.name] = counts.get(feature.name, 0) + 1
+    return [name for name, count in counts.items() if count > 1]
+
+
+def _record_type_assignment_label(record: Record) -> str:
+    if record.name:
+        return f"Record {record.name!r}"
+    return f"Record uid={record.uid}"
+
+
+def _overlay_values_through_features(
+    record: Record, features: list[Feature], values_by_uid: dict[str, Any]
+) -> None:
+    """Fill schema features stored on record fields.
+
+    Reverse ``values_through`` links are already included by ``get_values()``
+    once a record is saved. Unsaved records have no primary key, so they have
+    no reverse links yet.
+    """
+    features_by_uid = {feature.uid: feature for feature in features}
+    for feature_uid, field_name in get_feature_record_field_mappings(features).items():
+        feature = features_by_uid[feature_uid]
+        if feature.uid in values_by_uid:
+            continue
+        value = _feature_value_from_mapped_record_field(record, feature, field_name)
+        if not _missing_feature_value(value):
+            values_by_uid[feature.uid] = value
+
+
+def _assign_name_keyed_values(
+    name_values: dict[str, Any],
+    features_by_name: dict[str, Feature],
+    values_by_uid: dict[str, Any],
+    extra_by_name: dict[str, Any],
+) -> None:
+    """Apply values keyed by feature name.
+
+    A name that belongs to a schema feature is stored on that feature. Any other
+    name stays available for schema-level validation.
+    """
+    for name, value in name_values.items():
+        if _missing_feature_value(value):
+            continue
+        feature = features_by_name.get(name)
+        if feature is not None:
+            values_by_uid[feature.uid] = value
+        else:
+            extra_by_name[name] = value
+
+
+def _feature_values_for_type_assignment(
+    record: Record,
+    features: list[Feature],
+    index_feature: Feature | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Schema-feature values keyed by uid, plus other values keyed by name.
+
+    Feature names on a record frame are unique. Callers pass `Feature` objects
+    through ``_features``; saved values still come back from ``get_values()``
+    keyed by name.
+    """
+    features_by_name = {feature.name: feature for feature in features}
+    values_by_uid: dict[str, Any] = {}
+    extra_by_name: dict[str, Any] = {}
+    state = getattr(record, "_state", None)
+    saved = (
+        state is not None
+        and not state.adding
+        and getattr(record, "pk", None) is not None
+    )
+    if saved:
+        _assign_name_keyed_values(
+            record.features.get_values(),
+            features_by_name,
+            values_by_uid,
+            extra_by_name,
+        )
+    pending = getattr(record, "_features", None)
+    if pending:
+        named: dict[str, Any] = {}
+        for key, value in pending.items():
+            if isinstance(key, Feature):
+                if not _missing_feature_value(value):
+                    values_by_uid[key.uid] = value
+            elif isinstance(key, str):
+                named[key] = value
+        if named:
+            _assign_name_keyed_values(
+                named,
+                features_by_name,
+                values_by_uid,
+                extra_by_name,
+            )
+    if (
+        index_feature is not None
+        and index_feature.uid not in values_by_uid
+        and record.name is not None
+    ):
+        values_by_uid[index_feature.uid] = index_value_from_record_name(
+            record.name, index_feature
+        )
+    _overlay_values_through_features(record, features, values_by_uid)
+    return values_by_uid, extra_by_name
+
+
+def _assigns_stored_type(record: Record, record_type: Record | None) -> bool:
+    """Whether ``record_type`` is the type already stored on this row.
+
+    Queryset iteration assigns that object through ``__setattr__`` to fill the
+    relation cache. That is not a new assignment.
+    """
+    if record_type is None or getattr(record._state, "adding", True):
+        return False
+    type_id = record.__dict__.get("type_id")
+    type_pk = getattr(record_type, "pk", None)
+    return type_id is not None and type_pk is not None and type_id == type_pk
+
+
+def validate_data_record_type_assignment(
+    record: Record, record_type: Record | None
+) -> None:
+    """Reject a data record joining a record frame it does not already satisfy.
+
+    Blank rows fail when the schema has required features. Schemas with no
+    required features, and record pages without a schema, are unchanged.
+    """
+    if record_type is None or not getattr(record_type, "is_type", False):
+        return
+    if getattr(record, "is_type", False):
+        return
+    schema = record_type.schema
+    if schema is None:
+        return
+    index_feature, features = _schema_features(schema)
+    label = _record_type_assignment_label(record)
+    type_name = record_type.name
+    duplicates = _duplicate_feature_names(features)
+    if duplicates:
+        rendered = ", ".join(repr(name) for name in duplicates)
+        raise ValidationError(
+            f"Cannot set type to {type_name!r} on {label}: "
+            f"features {rendered} share a name"
+        )
+    values_by_uid, extra_by_name = _feature_values_for_type_assignment(
+        record, features, index_feature
+    )
+    missing = [
+        feature
+        for feature in _required_schema_features(schema, features, index_feature)
+        if feature.uid not in values_by_uid
+    ]
+    if missing:
+        rendered = ", ".join(repr(feature.name) for feature in missing)
+        raise ValidationError(
+            f"Cannot set type to {type_name!r} on {label}: "
+            f"missing required features {rendered}"
+        )
+    if (not values_by_uid and not extra_by_name) or getattr(
+        record, "_skip_type_curator", False
+    ):
+        return
+    from lamindb.curators.core import DictCurator
+    from lamindb.models._feature_manager import FeatureManager
+
+    # User objects are stored by handle. set_values normalizes them before the
+    # curator; do the same here so assignment accepts the same values.
+    # Member order is the column order an ordered schema compares against.
+    dictionary = {
+        feature.name: values_by_uid[feature.uid]
+        for feature in features
+        if feature.uid in values_by_uid
+    }
+    dictionary.update(extra_by_name)
+    FeatureManager._normalize_user_feature_values(features, dictionary, {})
+    try:
+        # An unsaved record still points at the default connection. The schema
+        # may already live on another instance when the caller will save(using=...).
+        schema_db = getattr(getattr(schema, "_state", None), "db", None)
+        DictCurator(
+            dictionary,
+            schema,
+            using=schema_db,
+            members=features,
+            index=index_feature,
+        ).validate()
+    except ValidationError as error:
+        raise ValidationError(
+            f"Cannot set type to {type_name!r} on {label}: {error}"
+        ) from error
 
 
 def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
@@ -127,13 +368,9 @@ def apply_index_feature_to_record(
     record: Record,
     feature: Feature,
     value: Any,
-    *,
-    persist: bool = True,
 ) -> None:
     """Set `record.name` from an index feature value."""
     record.name = coerce_index_value_to_record_name(value, feature)
-    if persist and record.pk is not None:
-        persist_record_name(record)
 
 
 def persist_record_name(record: Record) -> None:
@@ -652,9 +889,7 @@ def strip_index_for_record_persistence(
             index_value = dictionary[index_feature.name]
 
         if index_value is not None:
-            apply_index_feature_to_record(
-                record, index_feature, index_value, persist=False
-            )
+            apply_index_feature_to_record(record, index_feature, index_value)
 
     dictionary = dict(dictionary)
     update_fields = set(getattr(record, "_mapped_feature_update_fields", set()))
@@ -965,6 +1200,9 @@ class RecordBatch:
             record_kwargs: dict[str, Any] = {
                 "type": self._resolved_type,
                 "_search_names": False,
+                # The batch save validates the whole frame once. Per-row curator
+                # checks would query the schema again for every record.
+                "_skip_type_curator": True,
             }
             if features:
                 record_kwargs["features"] = features
@@ -1046,12 +1284,32 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Examples
     --------
 
-    Create a data record with one feature.
-
-    ::
+    Create a data record with one feature::
 
         gc_content = ln.Feature(name="gc_content", dtype=float).save()
         sample1 = ln.Record(features={gc_content: 0.5}).save()
+
+    A record frame only accepts a data record that satisfies its schema::
+
+        experiment = ln.Feature(name="experiment", dtype=str).save()
+        schema = ln.Schema(
+            [experiment, gc_content.with_config(optional=True)],
+        ).save()
+        samples = ln.Record(name="Samples", is_type=True, schema=schema).save()
+
+        sample1.type = samples  # ValidationError: missing required feature 'experiment'
+
+        sample1.features.set_values({experiment: "exp1"})
+        sample1.type = samples
+        sample1.save()
+
+        ln.Record(name="Sample 2", type=samples)  # ValidationError: no required features
+
+    A schema with no required features::
+
+        optional = ln.Schema([gc_content], minimal_set=False).save()
+        sheet = ln.Record(name="Optional", is_type=True, schema=optional).save()
+        ln.Record(name="blank", type=sheet).save()
 
     For more examples, see :doc:`/manage-records`.
 
@@ -1323,6 +1581,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: str | None = kwargs.pop("reference_type", None)
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
+        _skip_type_curator = kwargs.pop("_skip_type_curator", False)
         _aux = kwargs.pop("_aux", None)
         _search_names = kwargs.pop("_search_names", None)
         if len(kwargs) > 0:
@@ -1333,8 +1592,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True
-        if features is not None:
-            self._features = features
         super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
@@ -1349,7 +1606,27 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         )
         if _search_names is not None:
             super_kwargs["_search_names"] = _search_names
-        super().__init__(**super_kwargs)
+        # `type` is assigned before `description` / `reference` during Django init.
+        # Defer the schema check until those fields and `_features` are populated.
+        self._defer_type_schema_check = True
+        try:
+            if features is not None:
+                self._features = features
+            if _skip_type_curator:
+                self._skip_type_curator = True
+            super().__init__(**super_kwargs)
+            validate_data_record_type_assignment(self, self.type)
+        finally:
+            self._defer_type_schema_check = False
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if (
+            name == "type"
+            and not self.__dict__.get("_defer_type_schema_check", False)
+            and not _assigns_stored_type(self, value)
+        ):
+            validate_data_record_type_assignment(self, value)
+        super().__setattr__(name, value)
 
     def save(self, *args, **kwargs) -> Record:
         """Save.

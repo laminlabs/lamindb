@@ -69,51 +69,63 @@ A {class}`~lamindb.Schema` turns the type into a frame and validates the feature
 ```python
 schema = ln.Schema(
     [experiment, gc_content.with_config(optional=True)],
-    name="sample_schema",
 ).save()
 samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
-
-# move sample1 into the samplesheet
-sample1.type = samplesheet
-sample1.save()
-sample1.features.set_values({
-    gc_content: 0.5,
-    experiment: experiment1,
-})
 ```
 
 `experiment` is required, so setting only `gc_content` raises {class}`~lamindb.errors.ValidationError`:
 
 ```python
-sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
 try:
-    sample2.features.set_values({gc_content: 0.6})
+    sample2 = ln.Record(
+        name="Sample 2",
+        type=samplesheet,
+        features={gc_content: 0.6},
+    ).save()
 except ln.errors.ValidationError as error:
     print(error)
 ```
 
-## Use a feature as an index
-
-You can set an index for a schema via {attr}`~lamindb.Schema.index`.
+Also moving `sample` into `samplesheet` raises since it only has `gc_content`:
 
 ```python
-sample_id = ln.Feature(name="sample_id", dtype=str).save()
-score = ln.Feature(name="score", dtype=float).save()
-indexed_schema = ln.Schema(features=[score], index=sample_id).save()
-indexed_frame = ln.Record(
-    name="Indexed samples", is_type=True, schema=indexed_schema
-).save()
+try:
+    sample1.type = samplesheet
+except ln.errors.ValidationError as error:
+    print(error)
 
-record = ln.Record(
-    type=indexed_frame, features={"sample_id": "S-001", "score": 1.5}
+# set required featured on sample1
+sample1.features.set_values({
+    experiment: experiment1,
+    gc_content: 0.5,
+})
+
+# move sample1 into the samplesheet
+sample1.type = samplesheet
+sample1.save()
+```
+
+## Use a feature as an index
+
+You can set an index for a schema via {attr}`~lamindb.Schema.index`:
+
+```python
+sample_abbr = ln.Feature(name="sample_abbr", dtype=str).save()
+score = ln.Feature(name="score", dtype=float).save()
+schema_with_index = ln.Schema(features=[score], index=sample_abbr).save()
+frame_with_index = ln.Record(
+    name="Indexed samples", is_type=True, schema=schema_with_index
 ).save()
-record.name
+record = ln.Record(
+    features={"sample_abbr": "S-001", "score": 1.5},
+    type=frame_with_index,
+).save()
 ```
 
 Inspect the dataframe:
 
 ```python
-indexed_frame.to_dataframe()
+frame_with_index.to_dataframe()
 ```
 
 ## Import records from a dataframe

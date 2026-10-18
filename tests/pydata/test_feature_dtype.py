@@ -30,18 +30,79 @@ from pandera.errors import ParserError
     ],
 )
 def test_dict_dtype_accepts_dictionary_strings(value: dict | str, valid: bool) -> None:
-    from lamindb.curators.core import ExperimentalDictCurator
+    from lamindb.curators.core import DictCurator
 
     feature = ln.Feature(name="dict_string_validation", dtype=dict).save()
     try:
         schema = ln.Schema([feature])
         if valid:
-            ExperimentalDictCurator({feature.name: value}, schema).validate()
+            DictCurator({feature.name: value}, schema).validate()
         else:
             with pytest.raises(ValidationError, match="strings representing dicts"):
-                ExperimentalDictCurator({feature.name: value}, schema).validate()
+                DictCurator({feature.name: value}, schema).validate()
     finally:
         feature.delete(permanent=True)
+
+
+def test_dict_curator_rejects_shared_names_and_reuses_members():
+    import json
+    from pathlib import Path
+
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from lamindb.curators.core import DictCurator
+    from lamindb.errors import InvalidArgument
+
+    scope_a = ln.Feature(name="DictCuratorScopeA", is_type=True).save()
+    scope_b = ln.Feature(name="DictCuratorScopeB", is_type=True).save()
+    shared_a = ln.Feature(name="dict_curator_shared", dtype=float, type=scope_a).save()
+    shared_b = ln.Feature(name="dict_curator_shared", dtype=int, type=scope_b).save()
+    clash_schema = ln.Schema([shared_a, shared_b], name="dict_curator_clash").save()
+    number = ln.Feature(name="dict_curator_number", dtype=float).save()
+    ok_schema = ln.Schema([number], name="dict_curator_ok").save()
+    try:
+        with pytest.raises(ValidationError, match="share a name"):
+            DictCurator({"dict_curator_shared": 1.0}, clash_schema).validate()
+
+        members = list(ok_schema.members)
+        index = ok_schema.index
+        with CaptureQueriesContext(connection) as captured:
+            DictCurator(
+                {number.name: 1.5},
+                ok_schema,
+                members=members,
+                index=index,
+            ).validate()
+        member_queries = [
+            query["sql"]
+            for query in captured.captured_queries
+            if "lamindb_feature" in query["sql"]
+            or "lamindb_schemafeature" in query["sql"]
+        ]
+        assert member_queries == []
+
+        with pytest.raises(InvalidArgument, match="dict or dict-like artifact"):
+            DictCurator([], ok_schema)  # type: ignore[arg-type]
+
+        # The same dictionary, stored as an artifact, follows the load path.
+        path = Path("dict_curator_number.json")
+        path.write_text(json.dumps({number.name: 1.5}))
+        artifact = ln.Artifact(
+            path, otype="dict", description="dict curator values"
+        ).save()
+        try:
+            DictCurator(artifact, ok_schema, members=members, index=index).validate()
+        finally:
+            artifact.delete(permanent=True)
+            path.unlink(missing_ok=True)
+    finally:
+        ok_schema.delete(permanent=True)
+        number.delete(permanent=True)
+        clash_schema.delete(permanent=True)
+        shared_a.delete(permanent=True)
+        shared_b.delete(permanent=True)
+        scope_a.delete(permanent=True)
+        scope_b.delete(permanent=True)
 
 
 @pytest.fixture

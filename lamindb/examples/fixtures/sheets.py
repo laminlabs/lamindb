@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import bionty as bt
 import pandas as pd
 import pytest
@@ -80,25 +82,33 @@ def populate_sheets_compound_treatment():
     hek293t = bt.CellLine.from_source("HEK293T").save()
 
     # populate sample1
-    sample1 = ln.Record(name="Sample 1", type=sample_sheet1).save()
-    ln.models.RecordJson(record=sample1, feature=id_feature, value=1).save()
-    ln.models.RecordJson(record=sample1, feature=uid_feature, value="S1").save()
-    ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(record=sample1, feature=cell_line, value=hek293t).save()
-    ln.models.RecordJson(
-        record=sample1, feature=preparation_date, value="2025-06-01T05:00:00"
+    sample1 = ln.Record(
+        name="Sample 1",
+        type=sample_sheet1,
+        features={
+            name_feature: "Sample 1",
+            id_feature: 1,
+            uid_feature: "S1",
+            treatment: treatment1,
+            cell_line: hek293t,
+            preparation_date: datetime.fromisoformat("2025-06-01T05:00:00"),
+            project: project1,
+        },
     ).save()
-    ln.models.RecordProject(record=sample1, feature=project, value=project1).save()
     # populate sample2
-    sample2 = ln.Record(name="Sample 2", type=sample_sheet1).save()
-    ln.models.RecordJson(record=sample2, feature=id_feature, value=2).save()
-    ln.models.RecordJson(record=sample2, feature=uid_feature, value="S2").save()
-    ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(record=sample2, feature=cell_line, value=hek293t).save()
-    ln.models.RecordJson(
-        record=sample2, feature=preparation_date, value="2025-06-01T06:00:00"
+    sample2 = ln.Record(
+        name="Sample 2",
+        type=sample_sheet1,
+        features={
+            name_feature: "Sample 2",
+            id_feature: 2,
+            uid_feature: "S2",
+            treatment: treatment2,
+            cell_line: hek293t,
+            preparation_date: datetime.fromisoformat("2025-06-01T06:00:00"),
+            project: project1,
+        },
     ).save()
-    ln.models.RecordProject(record=sample2, feature=project, value=project1).save()
 
     # another sheet for samples
     sample_note = ln.Feature(name="sample_note", dtype="str").save()
@@ -111,21 +121,25 @@ def populate_sheets_compound_treatment():
         name="My samples 2025-07", schema=sample_schema2, type=sample_type
     ).save()
     # populate sample3
-    sample3 = ln.Record(type=sample_sheet2).save()  # no name
-    ln.models.RecordRecord(record=sample3, feature=treatment, value=treatment1).save()
-    bt.models.RecordCellLine(record=sample3, feature=cell_line, value=hek293t).save()
-    ln.models.RecordJson(
-        record=sample3, feature=preparation_date, value="2025-06-02T05:00:00Z"
+    sample3 = ln.Record(
+        type=sample_sheet2,
+        features={
+            treatment: treatment1,
+            cell_line: hek293t,
+            sample_note: "note3",
+            project: project1,
+        },
     ).save()
-    ln.models.RecordProject(record=sample3, feature=project, value=project1).save()
     # populate sample4
-    sample4 = ln.Record(type=sample_sheet2).save()
-    ln.models.RecordRecord(record=sample4, feature=treatment, value=treatment2).save()
-    bt.models.RecordCellLine(record=sample4, feature=cell_line, value=hek293t).save()
-    ln.models.RecordJson(
-        record=sample4, feature=preparation_date, value="2025-06-02T06:00:00Z"
+    sample4 = ln.Record(
+        type=sample_sheet2,
+        features={
+            treatment: treatment2,
+            cell_line: hek293t,
+            sample_note: "note4",
+            project: project1,
+        },
     ).save()
-    ln.models.RecordProject(record=sample4, feature=project, value=project1).save()
 
     yield treatments_sheet, sample_sheet1
 
@@ -172,24 +186,27 @@ def populate_nextflow_sheet_with_samples():
     samples_sheet = ln.Record(
         name="My samples 2025-04", schema=samples_schema, type=biosample_type
     ).save()
-    sample_x = ln.Record(name="Sample_X", type=samples_sheet).save()
-    sample_y = ln.Record(name="Sample_Y", type=samples_sheet).save()
-
     organism_human = bt.Organism.from_source(name="human").save()
     celltype_tcell = bt.CellType.from_source(name="T cell").save()
     tissue_blood = bt.Tissue.from_source(name="blood").save()
-
-    features = ln.Feature.lookup()
-    for sample in [sample_x, sample_y]:
-        bt.models.RecordOrganism(
-            record=sample, feature=features.species, value=organism_human
-        ).save()
-        bt.models.RecordCellType(
-            record=sample, feature=features.cell_type, value=celltype_tcell
-        ).save()
-        bt.models.RecordTissue(
-            record=sample, feature=features.tissue, value=tissue_blood
-        ).save()
+    sample_x = ln.Record(
+        name="Sample_X",
+        type=samples_sheet,
+        features={
+            "species": organism_human,
+            "cell_type": celltype_tcell,
+            "tissue": tissue_blood,
+        },
+    ).save()
+    sample_y = ln.Record(
+        name="Sample_Y",
+        type=samples_sheet,
+        features={
+            "species": organism_human,
+            "cell_type": celltype_tcell,
+            "tissue": tissue_blood,
+        },
+    ).save()
 
     # Nextflow samplesheet schema
     nextflow_schema = ln.Schema(
@@ -231,22 +248,16 @@ def populate_nextflow_sheet_with_samples():
     features = ln.Feature.lookup()
     nextflow_samples = []
     for _, row in df.iterrows():
-        sample = ln.Record(type=nextflow_sheet).save()
+        sample = ln.Record(
+            type=nextflow_sheet,
+            features={
+                features.sample: ln.Record.get(name=row["sample"]),
+                features.fastq_1: row["fastq_1"],
+                features.fastq_2: row["fastq_2"],
+                features.expected_cells: row["expected_cells"],
+            },
+        ).save()
         nextflow_samples.append(sample)
-        ln.models.RecordRecord(
-            record=sample,
-            feature=features.sample,
-            value=ln.Record.get(name=row["sample"]),
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.fastq_1, value=row["fastq_1"]
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.fastq_2, value=row["fastq_2"]
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.expected_cells, value=row["expected_cells"]
-        ).save()
 
     yield nextflow_sheet
 

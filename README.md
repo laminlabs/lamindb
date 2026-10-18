@@ -5,7 +5,7 @@
 LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
 Like git, LaminDB is a distributed system that runs anywhere and captures all relevant context about your work.
 This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
-It takes a few seconds to install LaminDB and create a database on your laptop.
+It takes about a minute to install LaminDB and create a database on your laptop or in the cloud.
 
 <details>
 <summary>Why?</summary>
@@ -129,28 +129,18 @@ For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.l
 
 ### Create artifacts
 
-You can create a hosted database at [lamin.ai](https://lamin.ai) and invite collaborators.
-To connect to an existing database, run:
+To initialize a new database in a development directory, run:
+
+```shell
+lamin init --modules bionty  # mount module bionty
+```
+
+To connect to an existing database - you can create one at [lamin.ai](https://lamin.ai) - run:
 
 ```shell
 lamin login
 lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
-
-<details>
-<summary>Or init a new database instead (no login required).</summary>
-
-Navigate into a development directory, just like you'd do for `git init`, and run:
-
-```shell
-lamin init --modules bionty
-```
-
-For more configuration, see [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
-
-</details>
-
-On the terminal and in a Python session, `lamindb` will now auto-connect.
 
 To save a file or folder via the API:
 
@@ -178,9 +168,9 @@ Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Trace data, code & agents
 
-To track agent sessions, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
+To track **agent sessions**, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
 
-To track source code, inputs, outputs, logs, and environment of a script, use `ln.track()` and `ln.finish()`:
+To track source code, inputs, outputs, logs, and environment of a **script or notebook**, use `ln.track()` and `ln.finish()`:
 
 ```python
 import lamindb as ln
@@ -223,35 +213,7 @@ transform.describe()  # context of the transform
 
 </details>
 
-<details>
-<summary>Track a project or an agent plan.</summary>
-
-Pass a project/artifact to `ln.track()`, for example:
-
-```python
-ln.track(project="My project", plan="./plans/curate-dataset-x.md")
-```
-
-Note that you have to create a project or save the agent plan in case they don't yet exist:
-
-```shell
-# create a project with the CLI
-lamin create project "My project"
-
-# save an agent plan with the CLI
-lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
-lamin save /path/to/.claude/plans/curate-dataset-x.md
-```
-
-Or in Python:
-
-```python
-ln.Project(name="My project").save()  # create a project in Python
-```
-
-</details>
-
-You can track **workflows** by decorating functions:
+To track a **workflow**, decorate a function:
 
 <!-- #skip_laminr -->
 
@@ -274,7 +236,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is an automatically generated re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is a re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
@@ -503,7 +465,7 @@ bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
 ```
 
-You can then create objects, e.g. for labeling, analogous to `ULabel`, `Project`, or `Record`:
+You can then create objects, e.g. for labeling, analogous to `ULabel` or `Project`:
 
 ```python
 t_cell = bt.CellType.get(name="T cell")
