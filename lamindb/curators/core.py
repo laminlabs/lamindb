@@ -472,7 +472,10 @@ class Curator:
         # self._dataset is set below, it is opened or loaded if dataset is an Artifact
         if isinstance(dataset, Artifact):
             self._artifact = dataset
-            if self._artifact.otype in {
+            if self._artifact.otype == "tiledbsoma":
+                # A SOMA store stays on disk. Open it instead of loading a copy.
+                self._dataset = self._artifact.open(mode="r")
+            elif self._artifact.otype in {
                 "DataFrame",
                 "AnnData",
                 "MuData",

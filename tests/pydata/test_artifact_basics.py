@@ -669,6 +669,12 @@ def test_stats_invalid_raises(tmp_path):
         )
     with pytest.raises(ValueError, match=r"_stats\['size'\]"):
         ln.Artifact(filepath, key="uploads/bad.txt", _stats={"size": -1})
+    with pytest.raises(ValueError, match="must be a dict"):
+        ln.Artifact(filepath, key="uploads/bad.txt", _stats=["size"])
+    with pytest.raises(ValueError, match="unknown keys"):
+        ln.Artifact(filepath, key="uploads/bad.txt", _stats={"size": 3, "md5": "abc"})
+    with pytest.raises(ValueError, match=r"requires _stats\['hash'\]"):
+        ln.Artifact(filepath, key="uploads/bad.txt", _stats={"hash_type": "md5"})
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
