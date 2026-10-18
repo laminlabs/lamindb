@@ -270,15 +270,18 @@ This also works for custom entities, for example, ontology terms:
 ```python
 import bionty as bt
 
+# import an entity from a public ontology source, e.g., by name or an ontology ID
 hek293 = bt.CellLine.from_source(name="HEK293").save()
-gtpase = bt.Protein.from_source(name="GTPase HRas", organism="human").save()
+gtpase = bt.Protein.from_source(uniprotkb_id="P01112").save()
 
 # annotate
 artifact.cell_lines.add(hek293)
 artifact.proteins.add(gtpase)
 
 # query
-ln.Artifact.filter(cell_lines=hek293, proteins=gtpase).to_dataframe()
+ln.Artifact.filter(cell_lines=hek293, proteins=gtpase).to_dataframe(
+    include=["cell_lines__name", "proteins__name"]
+)
 ```
 
 To annotate & query by **features**:
