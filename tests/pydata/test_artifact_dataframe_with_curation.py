@@ -372,6 +372,11 @@ def test_external_only_schema_on_any_artifact(
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.set_values(unknown_values)
     assert "not in the provided schema" in error.exconly()
+    # string keys outside the schema take the same path as Feature objects
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.set_values({**values, "not_in_external_schema": "z"})
+    assert "not in the provided schema" in error.exconly()
+    assert artifact.features.get_values() == values
     artifact.features.set_values({"feature_a": "z", "feature_b": "y"})
     assert artifact.features.get_values()["feature_a"] == "z"
     with pytest.raises(ValueError) as error:
@@ -428,6 +433,50 @@ def test_external_only_schema_on_any_artifact(
     schema.delete(permanent=True)
     external.delete(permanent=True)
     extra.delete(permanent=True)
+
+
+def test_set_values_rejects_string_keys_outside_external_schema():
+    """Out-of-schema string keys must fail before any external value is deleted."""
+    is_sorted = ln.Feature(name="is_sorted", dtype=bool).save()
+    study = ln.Feature(name="study", dtype=str).save()
+    n_total = ln.Feature(name="n_total", dtype=int).save()
+    x = ln.Feature(name="x", dtype=int).save()
+    external = ln.Schema(features=[study, is_sorted], name="external").save()
+    schema = ln.Schema(
+        otype="DataFrame",
+        features=[x],
+        slots={"__external__": external},
+        name="annotated",
+    ).save()
+    artifact = ln.Artifact.from_dataframe(
+        pd.DataFrame({"x": [1, 2]}), key="repro_external_set_values.parquet"
+    ).save()
+    artifact.features.add_values({"study": "S1", "is_sorted": False, "n_total": 10})
+    artifact.schema = schema
+    artifact.save()
+    before = {"is_sorted": False, "n_total": 10, "study": "S1"}
+    assert artifact.features.get_values() == before
+
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.set_values({"study": "S1", "is_sorted": True, "n_total": 10})
+    assert "['n_total']" in error.exconly()
+    assert "not in the provided schema" in error.exconly()
+    assert ln.Artifact.get(artifact.uid).features.get_values() == before
+
+    # a successful call still replaces external annotations with the passed schema members
+    artifact.features.set_values({"study": "S1", "is_sorted": True})
+    assert ln.Artifact.get(artifact.uid).features.get_values() == {
+        "is_sorted": True,
+        "study": "S1",
+    }
+
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    external.delete(permanent=True)
+    x.delete(permanent=True)
+    n_total.delete(permanent=True)
+    study.delete(permanent=True)
+    is_sorted.delete(permanent=True)
 
 
 def test_from_anndata_with_external_schema(

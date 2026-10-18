@@ -2177,6 +2177,12 @@ class FeatureManager:
         Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
         the artifact's external feature annotations.
 
+        A call replaces those external annotations with `values`. Annotations for
+        features omitted from `values` are removed. When a schema applies (an
+        artifact's external schema, a record type schema, or `schema`), every key
+        must be a member of that schema. String keys and `Feature` objects that
+        are not members raise `ValidationError` before any annotation is removed.
+
         An empty dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
 
@@ -2230,6 +2236,16 @@ class FeatureManager:
             string_key_values=string_key_values,
             feature_field=feature_field,
         )
+        # `_curation_features` only resolves string keys that are schema members.
+        # Reject the rest before `_remove_values()`, which would otherwise delete
+        # those annotations and never write them back.
+        if schema is not None and string_key_values:
+            member_names = {feature.name for feature in members}
+            missing_keys = [key for key in string_key_values if key not in member_names]
+            if missing_keys:
+                raise ValidationError(
+                    f"These feature keys are not in the provided schema: {missing_keys}"
+                )
         self._normalize_user_feature_values(
             feature_objects,
             dictionary,
