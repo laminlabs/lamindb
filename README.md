@@ -22,7 +22,7 @@ LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel
 
 </details>
 
-<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
+<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
 How?
 
