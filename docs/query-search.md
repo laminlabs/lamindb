@@ -158,10 +158,12 @@ You can query for whether a dataset is annotated by a feature:
 db.Artifact.filter(perturbation.is_null(False)).to_dataframe(include="features")
 ```
 
-Order by a feature value the same way. `-temperature` is descending. Artifacts without that annotation sort last. Field names can be mixed in. Categorical features such as `perturbation` cannot be ordered this way, because one artifact can carry several labels.
+Order by a feature value the same way. `-temperature` is descending. Artifacts without that annotation are excluded; stored JSON `null` is retained. Multiple values produce multiple rows of the same artifact. An existing filter on the feature restricts which values are used for ordering. Field names can be mixed in. Only scalar non-categorical features are supported.
+
+Values are ordered as stored JSON without conversion to the feature dtype. PostgreSQL uses JSONB ordering; dates and datetimes are compared as strings.
 
 ```python
-db.Artifact.order_by(temperature).to_dataframe(include="features")
+db.Artifact.filter().order_by(temperature).to_dataframe(include="features")
 db.Artifact.filter(temperature > 21).order_by(-temperature, "-created_at").to_dataframe(
     include="features"
 )
@@ -208,7 +210,7 @@ db.Artifact.filter().order_by("key").to_dataframe()
 
 ```python
 # order by a non-categorical feature value; -temperature is descending
-db.Artifact.order_by(temperature).to_dataframe(include="features")
+db.Artifact.filter().order_by(temperature).to_dataframe(include="features")
 ```
 
 ```python

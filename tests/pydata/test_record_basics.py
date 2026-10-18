@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import IntegrityError, InternalError
+from django.db import IntegrityError, InternalError, connections
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
@@ -2956,11 +2956,15 @@ def test_record_order_by_feature(ccaplog):
     younger.features.add_values({age: 2})
 
     qs = ln.Record.filter(type=record_type)
-    assert list(qs.order_by(age)) == [younger, older, missing]
-    assert list(qs.order_by(-age)) == [older, younger, missing]
+    ascending = (
+        [older, younger] if connections[qs.db].vendor == "sqlite" else [younger, older]
+    )
+    assert list(qs.order_by(age)) == ascending
+    assert list(qs.order_by(-age)) == list(reversed(ascending))
+    assert list(qs.filter(age > 5).order_by(age)) == [older]
     frame = qs.order_by(age).to_dataframe(include="features", limit=None)
     assert "falling back to generic Record queryset export" not in ccaplog.text
-    assert list(frame.index) == [younger.id, older.id, missing.id]
+    assert list(frame.index) == [record.id for record in ascending]
     assert frame.loc[younger.id, "order_record_age"] == 2
 
     missing.delete(permanent=True)

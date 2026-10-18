@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate, F, FloatField, OuterRef, Subquery
-from django.db.models.expressions import Func, OrderBy, RawSQL
+from django.db.models import Aggregate, Subquery
+from django.db.models.expressions import OrderBy, RawSQL
 from django.db.utils import IntegrityError
 from lamindb_setup import logger
 from lamindb_setup.core.upath import UPath
@@ -1177,10 +1177,11 @@ def filter_with_feature_predicates(
     return qs
 
 
-# Scalar dtypes that can be ordered from the JSON value column.
-# Categorical and list values are not one row per host, so they are rejected.
-_ORDERABLE_NUMERIC_DTYPES = {"int", "float", "num"}
-_ORDERABLE_LEXICAL_DTYPES = {
+# Supported scalar dtypes; values retain their native database JSON ordering.
+_ORDERABLE_FEATURE_DTYPES = {
+    "int",
+    "float",
+    "num",
     "str",
     "bool",
     "datetime",
@@ -1191,122 +1192,149 @@ _ORDERABLE_LEXICAL_DTYPES = {
 }
 
 
-class _JsonScalarAsFloat(Func):
-    """Cast a JSON scalar to float, with a qualified column reference."""
-
-    output_field = FloatField()
-
-    def as_sqlite(self, compiler, connection, **extra_context):
-        return super().as_sql(
-            compiler,
-            connection,
-            template="CAST(json_extract(%(expressions)s, '$') AS REAL)",
-            **extra_context,
-        )
-
-    def as_postgresql(self, compiler, connection, **extra_context):
-        return super().as_sql(
-            compiler,
-            connection,
-            template="CAST((%(expressions)s) #>> '{}' AS DOUBLE PRECISION)",
-            **extra_context,
-        )
-
-    def as_sql(self, compiler, connection, **extra_context):
-        from django.core.exceptions import FieldError
-
-        raise FieldError(f"Feature ordering is not supported on {connection.vendor}.")
-
-
 def _feature_on_queryset_db(queryset: BasicQuerySet, feature: Feature) -> Feature:
     if queryset.db is not None and feature._state.db != queryset.db:
         return Feature.connect(queryset.db).get(uid=feature.uid)
     return feature
 
 
-def _feature_value_queryset(queryset: BasicQuerySet, feature: Feature) -> BasicQuerySet:
-    """One JSON value row per host, correlated on the outer primary key."""
-    from django.core.exceptions import FieldError
+def _positive_filter_clauses(where):
+    """Yield conjunctive restrictions, without borrowing joins from exclusions."""
+    from django.db.models.sql.where import WhereNode
 
-    from lamindb.models import Artifact, Run
-    from lamindb.models.record import Record, RecordJson
+    if where.negated or where.connector != "AND":
+        return
+    for child in where.children:
+        if isinstance(child, WhereNode):
+            yield from _positive_filter_clauses(child)
+        else:
+            yield child
 
-    model = concrete_model(queryset.model)
-    db = queryset.db
-    if model is Record:
-        return RecordJson.objects.using(db).filter(
-            feature=feature,
-            record_id=OuterRef("pk"),
+
+def _feature_order_column(query, feature: Feature, accessor: str, value_model):
+    """Reuse the annotation rows selected by an existing feature filter."""
+    from django.db.models.lookups import Exact, In
+    from django.db.models.sql.query import Query
+
+    feature_field = value_model._meta.get_field("feature")
+    value_field = value_model._meta.get_field("value")
+    column = None
+    matching_filters = []
+    for clause in _positive_filter_clauses(query.where):
+        lhs = getattr(clause, "lhs", None)
+        if isinstance(clause, Exact) and getattr(lhs, "target", None) is feature_field:
+            if clause.rhs == feature.pk:
+                column = value_field.get_col(lhs.alias)
+        elif (
+            isinstance(clause, In)
+            and isinstance(clause.rhs, Query)
+            and clause.rhs.model is value_model
+            and getattr(lhs, "target", None) is not None
+            and (
+                lhs.target is value_model._meta.pk
+                or lhs.target.related_model is value_model
+            )
+        ):
+            for restriction in _positive_filter_clauses(clause.rhs.where):
+                if (
+                    isinstance(restriction, Exact)
+                    and getattr(restriction.lhs, "target", None) is feature_field
+                    and restriction.rhs == feature.pk
+                ):
+                    matching_filters.append(clause)
+                    break
+    if matching_filters:
+        first = matching_filters[0]
+        for clause in matching_filters[1:]:
+            if clause.lhs.alias != first.lhs.alias:
+                # Chained filters can use separate annotation joins. The value
+                # used for ordering must satisfy every filter on this feature.
+                restriction = In(first.lhs, clause.rhs)
+                if restriction not in query.where.children:
+                    query.where.add(restriction, "AND")
+        # Artifact/Run filters can reference the through-table FK without
+        # joining JsonValue itself. Resolve from that exact annotation join.
+        column = query.resolve_ref(f"{accessor}__value", reuse={first.lhs.alias})
+    return column
+
+
+class FeatureValueOrder(OrderBy):
+    """Ordering bound to a particular annotation join."""
+
+    def for_dataframe(self, queryset: BasicQuerySet) -> OrderBy:
+        """Preserve the first matching value when export rebuilds the query."""
+        from django.db.models import Case, IntegerField, OuterRef, When
+
+        from lamindb.models import BasicQuerySet
+
+        if queryset.query.is_sliced:
+            # Correlating a sliced query would change the meaning of its offset.
+            # Preserve the first occurrence of each selected record instead.
+            ids = dict.fromkeys(queryset.values_list("pk", flat=True))
+            return OrderBy(
+                Case(
+                    *[When(pk=pk, then=position) for position, pk in enumerate(ids)],
+                    output_field=IntegerField(),
+                )
+            )
+        matching = BasicQuerySet.filter(queryset, pk=OuterRef("pk")).annotate(
+            _feature_order_value=self.expression
         )
-    if model is Artifact:
-        from lamindb.models.feature import JsonValue
-
-        return JsonValue.objects.using(db).filter(
-            feature=feature,
-            links_artifact__artifact_id=OuterRef("pk"),
+        return OrderBy(
+            Subquery(matching.values("_feature_order_value")[:1]),
+            descending=self.descending,
         )
-    if model is Run:
-        from lamindb.models.feature import JsonValue
-
-        return JsonValue.objects.using(db).filter(
-            feature=feature,
-            links_run__run_id=OuterRef("pk"),
-        )
-    raise FieldError(
-        "Feature ordering is only supported for Artifact, Run, and Record, "
-        f"not {model.__name__}."
-    )
-
-
-def _feature_order_subquery(queryset: BasicQuerySet, feature: Feature) -> Subquery:
-    """Scalar subquery so ordering does not multiply host rows."""
-    from django.core.exceptions import FieldError
-    from django.db.models import JSONField
-
-    dtype_str = feature._dtype_str
-    if dtype_str is None or dtype_str.startswith(("cat", "list")):
-        raise FieldError(
-            f"Cannot order by feature '{feature.name}' with dtype {dtype_str!r}. "
-            "Ordering supports scalar non-categorical features only."
-        )
-    value_qs = _feature_value_queryset(queryset, feature).order_by("id")
-    if dtype_str in _ORDERABLE_NUMERIC_DTYPES:
-        value_qs = value_qs.annotate(
-            _feature_order_value=_JsonScalarAsFloat(F("value"))
-        )
-        return Subquery(
-            value_qs.values("_feature_order_value")[:1],
-            output_field=FloatField(),
-        )
-    if dtype_str in _ORDERABLE_LEXICAL_DTYPES:
-        return Subquery(value_qs.values("value")[:1], output_field=JSONField())
-    raise FieldError(
-        f"Cannot order by feature '{feature.name}' with dtype {dtype_str!r}. "
-        "Ordering supports scalar non-categorical features only."
-    )
 
 
 def feature_order_expressions(
     queryset: BasicQuerySet,
     items: list[Any],
-) -> list[Any]:
-    """Replace FeatureOrder items with OrderBy(Subquery) expressions."""
+) -> tuple[BasicQuerySet, list[Any]]:
+    """Join JSON annotations, reusing feature filters when already present."""
+    from django.core.exceptions import FieldError
+    from django.db.models import F
+
+    from lamindb.models import Artifact, BasicQuerySet, Run
+    from lamindb.models.record import Record, RecordJson
+
     from .feature import FeatureOrder
 
+    model = concrete_model(queryset.model)
+    if model not in {Artifact, Run, Record}:
+        raise FieldError(
+            "Feature ordering is only supported for Artifact, Run, and Record, "
+            f"not {model.__name__}."
+        )
+    accessor = "values_json" if model is Record else "json_values"
+    value_model = RecordJson if model is Record else JsonValue
+    queryset = queryset.all()
     expressions: list[Any] = []
     for item in items:
         if not isinstance(item, FeatureOrder):
             expressions.append(item)
             continue
         feature = _feature_on_queryset_db(queryset, item.feature)
-        expressions.append(
-            OrderBy(
-                _feature_order_subquery(queryset, feature),
-                descending=item.descending,
-                nulls_last=True,
+        if feature._dtype_str not in _ORDERABLE_FEATURE_DTYPES:
+            raise FieldError(
+                f"Cannot order by feature '{feature.name}' with dtype {feature._dtype_str!r}. "
+                "Ordering supports scalar non-categorical features only."
             )
-        )
-    return expressions
+        column = _feature_order_column(queryset.query, feature, accessor, value_model)
+        if column is None:
+            # Require an annotation row, not a non-null JSON value. Stored JSON
+            # null participates in ordering; an absent annotation does not.
+            queryset = BasicQuerySet.filter(
+                queryset, **{f"{accessor}__feature": feature}
+            )
+            column = _feature_order_column(
+                queryset.query, feature, accessor, value_model
+            )
+        # Named expressions are relabeled by Django when this query becomes a
+        # subquery. A bare Col in order_by would retain its outer table alias.
+        alias = f"_feature_order_{feature.uid}"
+        queryset = queryset.alias(**{alias: column})
+        expressions.append(FeatureValueOrder(F(alias), descending=item.descending))
+    return queryset, expressions
 
 
 def filter_base(
