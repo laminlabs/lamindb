@@ -372,11 +372,20 @@ def test_external_only_schema_on_any_artifact(
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.set_values(unknown_values)
     assert "not in the provided schema" in error.exconly()
-    # a string key outside the schema must fail before existing values are deleted
+    # The out-of-schema annotation already exists when the schema is attached.
+    preannotated = ln.Artifact(
+        fastq, key="seq/preannotated.fastq.gz", otype="FASTQ", skip_hash_lookup=True
+    ).save()
+    preannotated.features.add_values({**values, "not_in_external_schema": "z"})
+    preannotated.schema = schema
+    preannotated.save()
+    before = {**values, "not_in_external_schema": "z"}
+    assert preannotated.features.get_values() == before
     with pytest.raises(ln.errors.ValidationError) as error:
-        artifact.features.set_values({**values, "not_in_external_schema": "z"})
+        preannotated.features.set_values({**values, "not_in_external_schema": "z"})
     assert "not_in_external_schema" in error.exconly()
-    assert artifact.features.get_values() == values
+    assert ln.Artifact.get(preannotated.uid).features.get_values() == before
+    preannotated.delete(permanent=True)
     artifact.features.set_values({"feature_a": "z", "feature_b": "y"})
     assert artifact.features.get_values()["feature_a"] == "z"
     with pytest.raises(ValueError) as error:
