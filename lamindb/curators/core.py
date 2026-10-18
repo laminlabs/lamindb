@@ -54,6 +54,7 @@ from lamindb.models.feature import (
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
+from lamindb.models.schema import EXTERNAL_SLOT, external_slot_schema
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -622,21 +623,11 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if "__external__" in self._schema.slots:
-            validation_schema = self._schema.slots["__external__"]
-            if not self._external_features:
-                if self._artifact is not None and not self._artifact._state.adding:
-                    logger.important(
-                        "no new external features provided, using existing external features of artifact for validation"
-                    )
-                    self._external_features = self._artifact.features.get_values(
-                        external_only=True
-                    )
-                else:
-                    raise ValidationError(
-                        "External features slot is defined in schema but no external features were provided."
-                    )
-            DictCurator(self._external_features, validation_schema).validate()
+        external_features = validate_external_features(
+            self._schema, self._external_features, self._artifact
+        )
+        if external_features is not None:
+            self._external_features = external_features
         for slot, curator in self._slots.items():
             logger.debug(f"validating slot {slot} ...")
             curator.validate()
@@ -1372,7 +1363,7 @@ class DataFrameCurator(SlotsCurator):
                             require_saved_schema=require_saved_schema,
                             using=using,
                         )
-                elif slot_name != "__external__":
+                elif slot_name != EXTERNAL_SLOT:
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
                     )
@@ -1467,6 +1458,34 @@ class DictCurator(DataFrameCurator):
         )
         self._atomic_curator.cat._cat_vectors["columns"]._key = key_label
         self._atomic_curator.cat._validate_columns = validate_keys
+
+
+def validate_external_features(
+    schema: Schema,
+    features: dict[str, Any] | None,
+    artifact: Artifact | None = None,
+) -> dict[str, Any] | None:
+    """Validate features against a schema's ``__external__`` slot.
+
+    Returns the feature dictionary when the slot exists, including values read
+    from a saved artifact when none were passed. Returns ``None`` when the schema
+    has no external slot.
+    """
+    slot_schema = external_slot_schema(schema)
+    if slot_schema is None:
+        return None
+    if not features:
+        if artifact is not None and not artifact._state.adding:
+            logger.important(
+                "no new external features provided, using existing external features of artifact for validation"
+            )
+            features = artifact.features.get_values(external_only=True)
+        else:
+            raise ValidationError(
+                "External features slot is defined in schema but no external features were provided."
+            )
+    DictCurator(features, slot_schema).validate()
+    return features
 
 
 def _resolve_schema_slot_path(
@@ -1575,6 +1594,7 @@ class AnnDataCurator(SlotsCurator):
     Args:
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the ``__external__`` slot.
 
     Examples:
 
@@ -1598,14 +1618,18 @@ class AnnDataCurator(SlotsCurator):
         self,
         dataset: AnnData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             if slot not in {"var", "var.T", "obs"} and not slot.startswith("uns"):
                 raise ValueError(
                     f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns', not {slot}"
@@ -1684,6 +1708,7 @@ class MuDataCurator(SlotsCurator):
     Args:
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the ``__external__`` slot.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1698,14 +1723,18 @@ class MuDataCurator(SlotsCurator):
         self,
         dataset: MuData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             # Handle slots: "mdata.uns", "modality:uns"
             if "uns" in slot:
                 df, modality, modality_slot = _handle_dict_slots(self._dataset, slot)
@@ -1770,6 +1799,7 @@ class SpatialDataCurator(SlotsCurator):
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the ``__external__`` slot.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -1785,14 +1815,18 @@ class SpatialDataCurator(SlotsCurator):
         self,
         dataset: SpatialData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             # Handle slots: "sdata:attrs"
             if slot.startswith("attrs"):
                 df, table_key, table_slot = _handle_dict_slots(self._dataset, slot)
@@ -1875,6 +1909,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
     Args:
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the ``__external__`` slot.
 
     Example:
 
@@ -1890,14 +1925,18 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         self,
         dataset: SOMAExperiment | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_soma_experiment(self._dataset):
             raise InvalidArgument("dataset must be SOMAExperiment-like.")
         if schema.otype != "tiledbsoma":
             raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             if slot.startswith("ms:"):
                 _, modality_slot = slot.split(":")
                 schema_dataset = (

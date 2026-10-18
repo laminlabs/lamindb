@@ -704,6 +704,24 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
         ).save()
     assert str(error.value) == "Please pass otype != None for composite schemas"
 
+    external_feature = ln.Feature(name="external_only_sample", dtype=str).save()
+    external_schema = ln.Schema(features=[external_feature]).save()
+    external_only = ln.Schema(
+        name="external_only_no_otype",
+        slots={"__external__": external_schema},
+    ).save()
+    assert external_only.otype is None
+    assert set(external_only.slots) == {"__external__"}
+    with pytest.raises(InvalidArgument) as error:
+        ln.Schema(
+            features=[external_feature],
+            slots={"__external__": external_schema},
+        ).save()
+    assert str(error.value) == "Please pass otype != None for composite schemas"
+    external_only.delete(permanent=True)
+    external_schema.delete(permanent=True)
+    external_feature.delete(permanent=True)
+
     anndata_schema = ln.Schema(
         name="mini_immuno_anndata_schema",
         otype="AnnData",
