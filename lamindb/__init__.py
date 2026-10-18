@@ -54,7 +54,7 @@ to construct big sharded datasets across many `parquet` files or `zarr` stores.
 All other registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts.
 Here is an overview of the core data model:
 
-.. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg
+.. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg
     :width: 800px
 
 
