@@ -72,9 +72,10 @@ def sync(
     `space`, `branch`, and `created_on` follow the rules above.
 
     .. code-block:: mermaid
+       :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|storage| storage("Storage")
+         artifact("Artifact"):::focal -->|storage| storage("Storage")
          artifact -->|created_by| user("User")
          artifact -->|run| run("Run")
          artifact -->|schema| schema("Schema")
@@ -84,9 +85,10 @@ def sync(
     Some of the many-to-many relationships of an artifact are shown below:
 
     .. code-block:: mermaid
+       :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|ulabels| ulabels("ULabel")
+         artifact("Artifact"):::focal -->|ulabels| ulabels("ULabel")
          artifact -->|records| records("Record")
          artifact -->|projects| projects("Project")
          artifact -->|users| users("User")

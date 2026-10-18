@@ -37,7 +37,7 @@ from lamindb.models.feature import (
 )
 from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
-from lamindb.models.schema import Schema
+from lamindb.models.schema import Schema, external_slot_schema
 from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
@@ -910,10 +910,16 @@ def describe_features(
             dataset_features_tree.add(child)
     external_features_tree = None
     if external_features_tree_children:
+        has_external_slot = (
+            get_registry_name(self) == "Artifact"
+            and self.schema is not None
+            and external_slot_schema(self.schema) is not None
+        )
         external_features_text = (
             "External features"
             if (
-                get_registry_name(self) == "Artifact" and dataset_features_tree_children
+                get_registry_name(self) == "Artifact"
+                and (dataset_features_tree_children or has_external_slot)
             )
             else "Features"
         )
@@ -2305,12 +2311,17 @@ class FeatureManager:
         return f"Failed to {action} features on {identity}: {feature_text}. {error}"
 
     def _get_external_schema(self) -> Schema | None:
-        external_schema = None
-        if self._host.otype is None:
-            external_schema = self._host.schema
-        elif self._host.schema is not None:
-            external_schema = self._host.schema.slots.get("__external__", None)
-        return external_schema
+        schema = self._host.schema
+        if schema is None:
+            return None
+        # The external slot wins for every otype, including unstructured files.
+        slot_schema = external_slot_schema(schema)
+        if slot_schema is not None:
+            return slot_schema
+        # A flat schema on an unstructured artifact is itself the external schema.
+        if self._host.otype is None and not schema.slots:
+            return schema
+        return None
 
     def remove_values(
         self,

@@ -308,3 +308,174 @@ def test_artifact_save_validates_schema_suffix():
 
     schema.delete(permanent=True)
     Path(csv_path).unlink(missing_ok=True)
+
+
+def test_external_only_schema_on_any_artifact(
+    two_external_features: tuple[ln.Feature, ln.Feature],
+    tmp_path: Path,
+):
+    feat_a, feat_b = two_external_features
+    # maximal_set rejects features that are not in the schema
+    external = ln.Schema(features=[feat_a, feat_b], maximal_set=True).save()
+    schema = ln.Schema(
+        name="external_only_any_artifact",
+        slots={"__external__": external},
+    ).save()
+    assert schema.otype is None
+
+    fastq = tmp_path / "reads.fastq.gz"
+    fastq.write_bytes(b"@read1\nACGT\n+\n!!!!\n")
+    key = "seq/reads.fastq.gz"
+    values = {"feature_a": "x", "feature_b": "y"}
+
+    with pytest.raises(ln.errors.ValidationError) as error:
+        ln.Artifact(fastq, key=key, otype="FASTQ", schema=schema)
+    assert (
+        "External features slot is defined in schema but no external features were provided."
+        in error.exconly()
+    )
+    with pytest.raises(ln.errors.ValidationError):
+        ln.Artifact(
+            fastq,
+            key=key,
+            otype="FASTQ",
+            features={"feature_a": 1, "feature_b": "y"},
+            schema=schema,
+        )
+    extra = ln.Feature(name="not_in_external_schema", dtype=str).save()
+    with pytest.raises(ln.errors.ValidationError):
+        ln.Artifact(
+            fastq,
+            key=key,
+            otype="FASTQ",
+            features={**values, "not_in_external_schema": "z"},
+            schema=schema,
+        )
+
+    artifact = ln.Artifact(
+        fastq,
+        key=key,
+        otype="FASTQ",
+        features=values,
+        schema=schema,
+    ).save()
+    assert artifact.otype == "FASTQ"
+    assert artifact.schema == schema
+    assert artifact.features.get_values() == values
+    described = artifact.features.describe(return_str=True)
+    assert "External features" in described
+    assert "feature_a" in described
+
+    with pytest.raises(ln.errors.ValidationError):
+        artifact.features.set_values({"feature_a": 1, "feature_b": "y"})
+    unknown_values: dict[str | ln.Feature, str] = {**values, extra: "z"}
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.set_values(unknown_values)
+    assert "not in the provided schema" in error.exconly()
+    artifact.features.set_values({"feature_a": "z", "feature_b": "y"})
+    assert artifact.features.get_values()["feature_a"] == "z"
+    with pytest.raises(ValueError) as error:
+        artifact.features.remove_values("feature_a", value="z")
+    assert "Cannot remove values if artifact has external schema." in error.exconly()
+
+    again = ln.Artifact(fastq, key=key, otype="FASTQ", schema=schema).save()
+    assert again.uid == artifact.uid
+    assert again.features.get_values() == {"feature_a": "z", "feature_b": "y"}
+
+    folder = tmp_path / "sample_folder"
+    folder.mkdir()
+    (folder / "notes.txt").write_text("later")
+    folder_artifact = ln.Artifact(
+        folder,
+        key="seq/sample_folder",
+        features=values,
+        schema=schema,
+    ).save()
+    assert folder_artifact.otype is None
+    assert folder_artifact.schema == schema
+    assert folder_artifact.features.get_values() == values
+
+    content_feature = ln.Feature(name="obs_col_block", dtype=str).save()
+    obs_schema = ln.Schema(features=[content_feature]).save()
+    content_schema = ln.Schema(
+        otype="AnnData",
+        slots={"obs": obs_schema, "__external__": external},
+    ).save()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact(fastq, key="seq/blocked.fastq.gz", schema=content_schema)
+    assert "from_anndata" in error.exconly()
+
+    column_schema = ln.Schema(
+        features=[feat_a],
+        slots={"__external__": external},
+        otype="DataFrame",
+    ).save()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact(
+            fastq,
+            key="seq/blocked-df.fastq.gz",
+            features=values,
+            schema=column_schema,
+        )
+    assert "from_dataframe" in error.exconly()
+
+    folder_artifact.delete(permanent=True)
+    artifact.delete(permanent=True)
+    column_schema.delete(permanent=True)
+    content_schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)
+    content_feature.delete(permanent=True)
+    schema.delete(permanent=True)
+    external.delete(permanent=True)
+    extra.delete(permanent=True)
+
+
+def test_from_anndata_with_external_schema(
+    two_external_features: tuple[ln.Feature, ln.Feature],
+):
+    import anndata as ad
+    import numpy as np
+
+    feat_a, feat_b = two_external_features
+    obs_feature = ln.Feature(name="obs_note_external_slot", dtype=str).save()
+    obs_schema = ln.Schema(features=[obs_feature]).save()
+    external = ln.Schema(features=[feat_a, feat_b]).save()
+    schema = ln.Schema(
+        name="anndata_with_external_slot",
+        otype="AnnData",
+        slots={"obs": obs_schema, "__external__": external},
+    ).save()
+    adata = ad.AnnData(
+        np.array([[1.0, 2.0], [3.0, 4.0]]),
+        obs=pd.DataFrame({"obs_note_external_slot": ["a", "b"]}),
+    )
+
+    with pytest.raises(ln.errors.ValidationError) as error:
+        ln.Artifact.from_anndata(adata, key="external_slot.h5ad", schema=schema)
+    assert (
+        "External features slot is defined in schema but no external features were provided."
+        in error.exconly()
+    )
+
+    artifact = ln.Artifact.from_anndata(
+        adata,
+        key="external_slot.h5ad",
+        schema=schema,
+        features={"feature_a": "x", "feature_b": "y"},
+    ).save()
+    assert artifact.features.get_values()["feature_a"] == "x"
+    assert artifact.features.get_values()["feature_b"] == "y"
+    described = artifact.features.describe(return_str=True)
+    assert "External features" in described
+    assert "obs" in described
+
+    inferred = list(artifact.schemas.all())
+    for inferred_schema in inferred:
+        artifact.schemas.remove(inferred_schema)
+        if inferred_schema.id not in {schema.id, obs_schema.id, external.id}:
+            inferred_schema.delete(permanent=True)
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)
+    external.delete(permanent=True)
+    obs_feature.delete(permanent=True)
