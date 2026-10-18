@@ -272,15 +272,15 @@ import bionty as bt
 
 # import an entity from a public ontology source, e.g., by name or an ontology ID
 hek293 = bt.CellLine.from_source(name="HEK293").save()
-gtpase = bt.Protein.from_source(uniprotkb_id="P01112").save()
+hras = bt.Gene.from_source(ensembl_gene_id="ENSG00000174775").save()
 
 # annotate
 artifact.cell_lines.add(hek293)
-artifact.proteins.add(gtpase)
+artifact.genes.add(hras)
 
 # query
-ln.Artifact.filter(cell_lines=hek293, proteins=gtpase).to_dataframe(
-    include=["cell_lines__name", "proteins__name"]
+ln.Artifact.filter(cell_lines=hek293, genes=hras).to_dataframe(
+    include=["cell_lines__name", "genes__symbol"]
 )
 ```
 
