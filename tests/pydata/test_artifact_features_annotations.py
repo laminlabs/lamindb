@@ -811,7 +811,7 @@ def test_order_by_feature_json_null(model):
             null.json_values.add(
                 ln.models.JsonValue.objects.create(feature=temperature, value=json_null)
             )
-        number.features.add_values({temperature: 22})
+        number.features.set_values({temperature: 22})
         subset = model.filter(id__in=[record.id for record in records])
         assert list(subset.order_by(temperature)) == [null, number]
         assert list(subset.order_by(-temperature)) == [number, null]

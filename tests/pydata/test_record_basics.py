@@ -2952,8 +2952,8 @@ def test_record_order_by_feature(ccaplog):
     older = ln.Record(name="order_record_older", type=record_type).save()
     younger = ln.Record(name="order_record_younger", type=record_type).save()
     missing = ln.Record(name="order_record_missing", type=record_type).save()
-    older.features.add_values({age: 10})
-    younger.features.add_values({age: 2})
+    older.features.set_values({age: 10})
+    younger.features.set_values({age: 2})
 
     qs = ln.Record.filter(type=record_type)
     ascending = (
