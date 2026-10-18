@@ -317,13 +317,18 @@ def test_artifact_constructor_does_not_attach_unvalidated_schema(tmp_path: Path)
         name="attach_schema_needs_gene_score",
         features=[gene, score],
     ).save()
+    # maximal_set keeps this hash distinct from `schema`, and the missing name
+    # exercises the unlabeled error
+    unnamed = ln.Schema(features=[gene, score], maximal_set=True).save()
     bad = pd.DataFrame({"attach_schema_gene": ["a", "b"], "other": [1, 2]})
     parquet = tmp_path / "bad.parquet"
     csv = tmp_path / "bad.csv"
+    tsv = tmp_path / "bad.tsv"
     text = tmp_path / "notes.txt"
     json_path = tmp_path / "data.json"
     bad.to_parquet(parquet)
     bad.to_csv(csv, index=False)
+    bad.to_csv(tsv, sep="\t", index=False)
     text.write_text("not a table")
     json_path.write_text('{"x": 1}')
 
@@ -337,7 +342,14 @@ def test_artifact_constructor_does_not_attach_unvalidated_schema(tmp_path: Path)
         with pytest.raises(ln.errors.InvalidArgument) as error:
             ln.Artifact(path, key=key, schema=schema)
         assert "from_dataframe" in error.exconly()
+        assert "attach_schema_needs_gene_score" in error.exconly()
         assert not ln.Artifact.filter(key=key).exists()
+
+    # `.tsv` does not get otype="DataFrame", so the tabular-suffix branch runs
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact(tsv, key="attach-schema/c.tsv", schema=unnamed)
+    assert "from_dataframe" in error.exconly()
+    assert "Schema '" not in error.exconly()
 
     for path, key in (
         (text, "attach-schema/d.txt"),
@@ -347,6 +359,11 @@ def test_artifact_constructor_does_not_attach_unvalidated_schema(tmp_path: Path)
             ln.Artifact(path, key=key, schema=schema)
         assert "no feature values were provided" in error.exconly()
         assert not ln.Artifact.filter(key=key).exists()
+
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact(text, key="attach-schema/d.txt", otype="FASTQ", schema=schema)
+    assert "otype 'FASTQ'" in error.exconly()
+    assert "__external__" in error.exconly()
 
     # same hash as `parquet`, so this is the deduplication path
     saved = ln.Artifact(parquet, key="attach-schema/existing.parquet").save()
@@ -373,9 +390,18 @@ def test_artifact_constructor_does_not_attach_unvalidated_schema(tmp_path: Path)
     assert annotated.schema == schema
     assert schema.validated_artifacts.count() == 1
 
+    # existing artifact supplies the feature values
+    again = ln.Artifact(text, key="attach-schema/d.txt", schema=schema).save()
+    assert again.uid == annotated.uid
+    assert again.features.get_values() == {
+        "attach_schema_gene": "a",
+        "attach_schema_score": 1.0,
+    }
+
     annotated.delete(permanent=True)
     saved.delete(permanent=True)
     schema.delete(permanent=True)
+    unnamed.delete(permanent=True)
     gene.delete(permanent=True)
     score.delete(permanent=True)
 
