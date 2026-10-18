@@ -8,6 +8,8 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from django.core.exceptions import FieldError
+from django.db import connections
+from django.db.models import JSONField, Value
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
@@ -138,6 +140,7 @@ def test_run_to_dataframe_includes_json_features():
     transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
     run = ln.Run(transform=transform).save()
     feature = ln.Feature(name="run_json_feature", dtype=str).save()
+    score = ln.Feature(name="run_json_score", dtype=int).save()
     dict_feature = ln.Feature(name="run_json_dict_feature", dtype=dict).save()
     dict_as_string_feature = ln.Feature(
         name="run_json_dict_as_string_feature", dtype=dict
@@ -148,6 +151,7 @@ def test_run_to_dataframe_includes_json_features():
             "run_json_feature": "hello",
             dict_feature: {"key": "value"},
             dict_as_string_feature: "{'external': True}",
+            score: 2,
         }
     )
     df = ln.Run.filter(id=run.id).to_dataframe(include="features")
@@ -157,9 +161,49 @@ def test_run_to_dataframe_includes_json_features():
     assert df[dict_feature.name].iloc[0] == {"key": "value"}
     assert df[dict_as_string_feature.name].iloc[0] == {"external": True}
 
+    second = ln.Run(transform=transform).save()
+    missing = ln.Run(transform=transform).save()
+    second.features.set_values({feature: "world", score: 10})
+    subset = ln.Run.filter(id__in=[run.id, second.id, missing.id])
+    ascending = (
+        [second, run] if connections[subset.db].vendor == "sqlite" else [run, second]
+    )
+    assert list(subset.order_by(score)) == ascending
+    assert subset.order_by(-score).first() == ascending[-1]
+    ordered_frame = subset.order_by(score).to_dataframe(include="features", limit=None)
+    assert ordered_frame.index.tolist() == [record.id for record in ascending]
+
+    if connections[subset.db].vendor == "postgresql":
+        stored_null = ln.Run(transform=transform).save()
+        try:
+            stored_null.json_values.add(
+                ln.models.JsonValue.objects.create(
+                    feature=score, value=Value(None, output_field=JSONField())
+                )
+            )
+            with_null = ln.Run.filter(
+                id__in=[run.id, second.id, missing.id, stored_null.id]
+            )
+            assert list(with_null.order_by(score)) == [stored_null, *ascending]
+            assert list(with_null.order_by(-score)) == [
+                *reversed(ascending),
+                stored_null,
+            ]
+            assert list(with_null.filter(score < 1).order_by(score)) == [stored_null]
+            assert list(with_null.filter(score.is_null()).order_by(score)) == []
+            assert list(with_null.filter(score.is_null(False)).order_by(score)) == [
+                stored_null,
+                *ascending,
+            ]
+        finally:
+            stored_null.delete(permanent=True)
+
+    missing.delete(permanent=True)
+    second.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
     feature.delete(permanent=True)
+    score.delete(permanent=True)
     dict_feature.delete(permanent=True)
     dict_as_string_feature.delete(permanent=True)
 
@@ -594,7 +638,33 @@ def test_get_filter_branch():
     assert get_default_branch_ids(branch) == [branch.id, 1]
     assert get_default_branch_ids(ln.Branch.get(name="main")) == [1]
 
+    # Feature ordering preserves the same default and explicit branch scope,
+    # including exclusion of archived and trashed artifacts.
+    score = ln.Feature(name="branch_order_score", dtype=int).save()
+    artifact.features.set_values({score: 22})
+    scoped_artifacts = []
+    for label, branch_id in (("main", 1), ("trash", -1), ("archive", 0)):
+        scoped = ln.Artifact(
+            ".gitignore", key=f"df_test_get_order_{label}", skip_hash_lookup=True
+        ).save()
+        scoped.features.set_values({score: 22})
+        ln.Artifact.objects.filter(pk=scoped.id).update(branch_id=branch_id)
+        scoped_artifacts.append(scoped)
+    subset = ln.Artifact.filter(key__startswith="df_test_get")
+    assert list(subset.order_by(score)) == [scoped_artifacts[0]]
+    assert list(subset.order_by(-score)) == [scoped_artifacts[0]]
+    assert list(
+        ln.Artifact.filter(key__startswith="df_test_get", branch=branch).order_by(score)
+    ) == [artifact]
+    with set_branch(branch):
+        assert set(
+            ln.Artifact.filter(key__startswith="df_test_get").order_by(score)
+        ) == {artifact, scoped_artifacts[0]}
+
     artifact.delete(permanent=True)
+    for scoped in scoped_artifacts:
+        scoped.delete(permanent=True)
+    score.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
     branch.delete()

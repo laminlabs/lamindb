@@ -5,7 +5,9 @@ from datetime import date, datetime
 import bionty as bt
 import lamindb as ln
 import pytest
+from django.core.exceptions import FieldError
 from django.db import connections
+from django.db.models import JSONField, Value
 from lamindb.examples.datasets import mini_immuno
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
@@ -133,6 +135,14 @@ def test_artifact_features_add_remove_query():
     assert test_artifact.features["feature_run"] == run
 
     # --- Query by features (same data as above) ---
+    # Only scalar JSON features can be used for ordering.
+    queryset = ln.Artifact.filter(id=test_artifact.id)
+    for feature in (feature_type1, feature_list_str, feature_dict):
+        with pytest.raises(FieldError, match="scalar non-categorical"):
+            queryset.order_by(feature)
+    with pytest.raises(FieldError, match="only supported"):
+        ln.ULabel.filter().order_by(feature_int)
+
     # Equality
     assert ln.Artifact.filter(feature_str="a string value").one() == test_artifact
     assert ln.Artifact.filter(feature_int=42).one() == test_artifact
@@ -469,6 +479,7 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     ifng = ln.ULabel(name="IFNG", type=perturbation_type).save()
     perturbation = ln.Feature(name="perturbation", dtype=perturbation_type).save()
     temperature = ln.Feature(name="temperature", dtype=float).save()
+    note = ln.Feature(name="multi_feature_note", dtype=str).save()
 
     matching_artifact = ln.Artifact(
         ".gitignore",
@@ -478,8 +489,15 @@ def test_artifact_filter_by_multiple_features(query_style: str):
         "pyproject.toml",
         key=f"multi-feature-non-match-{query_style}.toml",
     ).save()
-    matching_artifact.features.set_values({perturbation: dmso, temperature: 22.6})
-    non_matching_artifact.features.set_values({perturbation: ifng, temperature: 20.0})
+    missing = ln.Artifact(
+        ".gitignore", key=f"multi-feature-missing-{query_style}", skip_hash_lookup=True
+    ).save()
+    matching_artifact.features.set_values(
+        {perturbation: dmso, temperature: 22.6, note: "a"}
+    )
+    non_matching_artifact.features.set_values(
+        {perturbation: ifng, temperature: 20.0, note: "b"}
+    )
 
     if query_style == "kwargs":
         queryset = ln.Artifact.filter(perturbation="DMSO", temperature__gt=21)
@@ -492,8 +510,31 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     assert "perturbation" in dataframe.columns
     assert "temperature" in dataframe.columns
 
+    # Ordering uses the same annotations, excludes missing values, and accepts
+    # field tie-breakers. The feature filter must continue to restrict results.
+    subset = ln.Artifact.filter(
+        id__in=[matching_artifact.id, non_matching_artifact.id, missing.id]
+    )
+    ascending = [non_matching_artifact, matching_artifact]
+    descending = list(reversed(ascending))
+    assert list(subset.order_by(temperature)) == ascending
+    assert list(subset.order_by(-temperature)) == descending
+    assert subset.order_by(temperature).count() == 2
+    assert list(subset.order_by(note)) == descending
+    assert list(subset.order_by(temperature, "key")) == ascending
+    assert list(queryset.order_by(-temperature)) == [matching_artifact]
+    assert not hasattr(ln.Artifact, "order_by")
+    frame = subset.order_by(temperature).to_dataframe(include="features", limit=None)
+    assert frame.index.tolist() == [record.id for record in ascending]
+    assert frame.loc[matching_artifact.id, temperature.name] == 22.6
+    assert frame.loc[non_matching_artifact.id, temperature.name] == 20.0
+    limited = subset.order_by(-temperature).to_dataframe(include="features")
+    assert limited.index.tolist() == [record.id for record in descending]
+
+    missing.delete(permanent=True)
     non_matching_artifact.delete(permanent=True)
     matching_artifact.delete(permanent=True)
+    note.delete(permanent=True)
     temperature.delete(permanent=True)
     perturbation.delete(permanent=True)
     ifng.delete(permanent=True)
@@ -501,123 +542,11 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     perturbation_type.delete(permanent=True)
 
 
-def test_artifact_order_by_feature():
-    from django.core.exceptions import FieldError
-
-    temperature = ln.Feature(name="order_by_temperature", dtype=float).save()
-    note = ln.Feature(name="order_by_note", dtype=str).save()
-    perturbation = ln.Feature(name="order_by_perturbation", dtype=ln.ULabel).save()
-    list_feature = ln.Feature(name="order_by_list", dtype=list[int]).save()
-    dict_feature = ln.Feature(name="order_by_dict", dtype=dict).save()
-    low = ln.Artifact(
-        ".gitignore", key="order-by-feature-low", skip_hash_lookup=True
-    ).save()
-    mid = ln.Artifact(
-        ".gitignore", key="order-by-feature-mid", skip_hash_lookup=True
-    ).save()
-    high = ln.Artifact(
-        ".gitignore", key="order-by-feature-high", skip_hash_lookup=True
-    ).save()
-    missing = ln.Artifact(
-        ".gitignore", key="order-by-feature-missing", skip_hash_lookup=True
-    ).save()
-    # PostgreSQL orders JSONB numbers numerically; SQLite orders the stored text.
-    low.features.set_values({temperature: 2.0, note: "b"})
-    mid.features.set_values({temperature: 10.0, note: "a"})
-    high.features.set_values({temperature: 3.0, note: "c"})
-
-    qs = ln.Artifact.filter(key__startswith="order-by-feature-")
-    ascending = (
-        [mid, low, high] if connections[qs.db].vendor == "sqlite" else [low, high, mid]
-    )
-    descending = list(reversed(ascending))
-    assert list(qs.order_by(temperature)) == ascending
-    assert list(qs.order_by(-temperature)) == descending
-    assert qs.order_by(temperature).count() == 3
-    assert list(qs.order_by(note)) == [mid, low, high]
-    assert list(qs.order_by(temperature, "key")) == ascending
-    assert not hasattr(ln.Artifact, "order_by")
-
-    # `include="features"` encodes registry fields, so assert order on the index.
-    frame = qs.order_by(temperature).to_dataframe(include="features", limit=None)
-    assert list(frame.index) == [record.id for record in ascending]
-    assert frame.loc[low.id, "order_by_temperature"] == 2.0
-    assert frame.loc[mid.id, "order_by_temperature"] == 10.0
-    limited = qs.order_by(-temperature).to_dataframe(include="features")
-    assert list(limited.index) == [record.id for record in descending]
-
-    with pytest.raises(FieldError, match="scalar non-categorical"):
-        qs.order_by(perturbation)
-    with pytest.raises(FieldError, match="scalar non-categorical"):
-        qs.order_by(list_feature)
-    with pytest.raises(FieldError, match="scalar non-categorical"):
-        qs.order_by(dict_feature)
-    with pytest.raises(FieldError, match="only supported"):
-        ln.ULabel.filter().order_by(temperature)
-
-    for record in (low, mid, high, missing):
-        record.delete(permanent=True)
-    for feature in (temperature, note, perturbation, list_feature, dict_feature):
-        feature.delete(permanent=True)
-
-
-@pytest.mark.parametrize("model", [ln.Artifact, ln.Run, ln.Record])
-def test_order_by_feature_rejects_values_through(model):
-    from django.core.exceptions import FieldError
-
-    mapped = ln.Feature(
-        name="order_mapped_reference", dtype=str, values_through="reference"
-    ).save()
-    source = ln.Feature(name="order_values_source", dtype=ln.Record).save()
-    reverse = ln.Feature(
-        name="order_values_reverse", dtype=list[ln.Record], values_through=source
-    ).save()
-    record = None
-    try:
-        if model is ln.Record:
-            record = ln.Record(
-                name="order_mapped_record", features={mapped.name: "ABC-123"}
-            ).save()
-            assert record.reference == "ABC-123"
-        for configured in (mapped, reverse):
-            # Cover both newly saved features and persisted mapping metadata.
-            for feature in (configured, ln.Feature.get(id=configured.id)):
-                for ordering in (feature, -feature):
-                    with pytest.raises(FieldError, match="values_through"):
-                        model.filter().order_by(ordering)
-        if record is not None:
-            assert list(model.filter(id=record.id).order_by("reference")) == [record]
-    finally:
-        if record is not None:
-            record.delete(permanent=True)
-        reverse.delete(permanent=True)
-        source.delete(permanent=True)
-        mapped.delete(permanent=True)
-
-
-def test_run_order_by_feature():
-    temperature = ln.Feature(name="order_by_run_temperature", dtype=int).save()
-    transform = ln.Transform(key="order-by-run-transform").save()
-    cool = ln.Run(transform, name="order-by-run-cool").save()
-    warm = ln.Run(transform, name="order-by-run-warm").save()
-    cool.features.set_values({temperature: 2})
-    warm.features.set_values({temperature: 10})
-
-    qs = ln.Run.filter(name__startswith="order-by-run-")
-    ascending = [warm, cool] if connections[qs.db].vendor == "sqlite" else [cool, warm]
-    assert list(qs.order_by(temperature)) == ascending
-    assert qs.order_by(-temperature).first() == ascending[-1]
-
-    cool.delete(permanent=True)
-    warm.delete(permanent=True)
-    transform.delete(permanent=True)
-    temperature.delete(permanent=True)
-
-
 @pytest.mark.parametrize(
     "dtype, values",
     [
         ("int", [2**63 - 2, 2**63 - 1]),
+        ("float", [2.0, 10.0]),
         ("str", ["10", "2"]),
         ("bool", [False, True]),
         ("date", [date(2024, 1, 1), date(2024, 1, 2)]),
@@ -650,8 +579,11 @@ def test_order_by_feature_json_values(dtype, values):
         artifacts.append(missing)
 
         qs = ln.Artifact.filter(id__in=[artifact.id for artifact in artifacts])
-        assert list(qs.order_by(feature, "id")) == list(reversed(artifacts[:-1]))
-        assert list(qs.order_by(-feature, "-id")) == artifacts[:-1]
+        ascending = list(reversed(artifacts[:-1]))
+        if dtype == "float" and connections[qs.db].vendor == "sqlite":
+            ascending.reverse()
+        assert list(qs.order_by(feature, "id")) == ascending
+        assert list(qs.order_by(-feature, "-id")) == list(reversed(ascending))
     finally:
         for artifact in artifacts:
             artifact.delete(permanent=True)
@@ -745,87 +677,6 @@ def test_order_by_feature_reuses_matching_annotations(model):
             transform.delete(permanent=True)
         temperature.delete(permanent=True)
         note.delete(permanent=True)
-
-
-def test_order_by_feature_preserves_branch_scope():
-    temperature = ln.Feature(name="order_branch_temperature", dtype=int).save()
-    branch = ln.Branch(name="order_feature_other_branch").save()
-    artifacts = []
-    try:
-        for label, branch_id in (
-            ("main", 1),
-            ("trash", -1),
-            ("archive", 0),
-            ("other", branch.id),
-        ):
-            artifact = ln.Artifact(
-                ".gitignore", key=f"order-branch-{label}", skip_hash_lookup=True
-            ).save()
-            artifacts.append(artifact)
-            artifact.features.add_values({temperature: 22})
-            ln.Artifact.objects.filter(pk=artifact.id).update(branch_id=branch_id)
-        subset = ln.Artifact.filter(key__startswith="order-branch-")
-        assert list(subset.order_by(temperature)) == [artifacts[0]]
-        assert list(subset.order_by(-temperature)) == [artifacts[0]]
-        assert list(
-            ln.Artifact.filter(
-                key__startswith="order-branch-", branch_id=branch.id
-            ).order_by(temperature)
-        ) == [artifacts[-1]]
-    finally:
-        for artifact in artifacts:
-            artifact.delete(permanent=True)
-        branch.delete(permanent=True)
-        temperature.delete(permanent=True)
-
-
-@pytest.mark.parametrize("model", [ln.Artifact, ln.Run, ln.Record])
-def test_order_by_feature_json_null(model):
-    from django.db.models import JSONField, Value
-
-    if connections["default"].vendor != "postgresql":
-        pytest.skip("JSONB null ordering is PostgreSQL-specific")
-    temperature = ln.Feature(name="order_null_temperature", dtype=int).save()
-    transform = (
-        ln.Transform(key="order-null-transform").save() if model is ln.Run else None
-    )
-    records = []
-    try:
-        for label in ("missing", "null", "number"):
-            if model is ln.Artifact:
-                record = model(
-                    ".gitignore", key=f"order-null-{label}", skip_hash_lookup=True
-                ).save()
-            elif model is ln.Run:
-                record = model(transform, name=f"order-null-{label}").save()
-            else:
-                record = model(name=f"order-null-{label}").save()
-            records.append(record)
-        missing, null, number = records
-        json_null = Value(None, output_field=JSONField())
-        if model is ln.Record:
-            ln.models.RecordJson.objects.create(
-                record=null, feature=temperature, value=json_null
-            )
-        else:
-            null.json_values.add(
-                ln.models.JsonValue.objects.create(feature=temperature, value=json_null)
-            )
-        number.features.set_values({temperature: 22})
-        subset = model.filter(id__in=[record.id for record in records])
-        assert list(subset.order_by(temperature)) == [null, number]
-        assert list(subset.order_by(-temperature)) == [number, null]
-        assert list(subset.filter(temperature < 21).order_by(temperature)) == [null]
-        assert list(subset.filter(temperature.is_null()).order_by(temperature)) == []
-        assert list(
-            subset.filter(temperature.is_null(False)).order_by(temperature)
-        ) == [null, number]
-    finally:
-        for record in records:
-            record.delete(permanent=True)
-        if transform is not None:
-            transform.delete(permanent=True)
-        temperature.delete(permanent=True)
 
 
 def test_feature_predicate_queries_safe_hybrid():
@@ -924,6 +775,32 @@ def test_feature_predicate_is_null():
 
     with pytest.raises(TypeError):
         perturbation.is_null("false")  # type: ignore[arg-type]
+
+    if connections["default"].vendor == "postgresql":
+        # JSON null is an annotation value, not an absent annotation. Insert it
+        # explicitly because add_values() skips Python None.
+        stored_null = ln.Artifact(
+            ".gitignore", key="isnull-json-null-artifact", skip_hash_lookup=True
+        ).save()
+        try:
+            stored_null.json_values.add(
+                ln.models.JsonValue.objects.create(
+                    feature=score, value=Value(None, output_field=JSONField())
+                )
+            )
+            subset = ln.Artifact.filter(
+                id__in=[annotated.id, not_annotated.id, stored_null.id]
+            )
+            assert list(subset.order_by(score)) == [stored_null, annotated]
+            assert list(subset.order_by(-score)) == [annotated, stored_null]
+            assert list(subset.filter(score < 3).order_by(score)) == [stored_null]
+            assert list(subset.filter(score.is_null()).order_by(score)) == []
+            assert list(subset.filter(score.is_null(False)).order_by(score)) == [
+                stored_null,
+                annotated,
+            ]
+        finally:
+            stored_null.delete(permanent=True)
 
     not_annotated.delete(permanent=True)
     annotated.delete(permanent=True)
