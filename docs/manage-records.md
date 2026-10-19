@@ -105,6 +105,13 @@ sample1.type = samplesheet
 sample1.save()
 ```
 
+To replace selected feature values while preserving other annotations, use
+{meth}`~lamindb.models.FeatureManager.update_values`:
+
+```python
+sample1.features.update_values({gc_content: 0.6})
+```
+
 ## Use a feature as an index
 
 You can set an index for a schema via {attr}`~lamindb.Schema.index`:

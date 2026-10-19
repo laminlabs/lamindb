@@ -460,6 +460,12 @@ This is how you query artifacts by features.
 ln.Artifact.filter(temperature=21.6).to_dataframe()
 ```
 
+Replace one value without removing the others:
+
+```python
+artifact.features.update_values({temperature: 22.0})
+```
+
 Optionally, after querying, this is how you clean up feature values from the artifact and remove the feature definitions.
 
 ```python

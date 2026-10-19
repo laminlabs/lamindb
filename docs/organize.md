@@ -139,6 +139,13 @@ artifact1.features.set_values({
 })
 ```
 
+To replace selected feature values while preserving other annotations, use
+{meth}`~lamindb.models.FeatureManager.update_values`:
+
+```python
+artifact1.features.update_values({gc_content: 0.54})
+```
+
 When you work with structured data formats like `DataFrame` or `AnnData`, you might want to validate their content. The easiest way validate a `DataFrame` is the built-in schema `"valid_features"`. Beyond validating the content, it will also auto-annotate the resulting artifact:
 
 ```python

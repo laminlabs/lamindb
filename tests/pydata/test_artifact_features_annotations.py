@@ -1260,6 +1260,86 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.features.remove_values({feature_score: 8, feature_tag: None})
     assert artifact.features.get_values() == {}
 
+    # update_values replaces only the supplied features and preserves the rest.
+    feature_numbers = ln.Feature(
+        name="artifact_feature_object_numbers", dtype=list[int]
+    ).save()
+    artifact.features.set_values({feature_score: 1, feature_tag: "keep"})
+    artifact.features.update_values({feature_score: 2, feature_numbers: [3]})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 2,
+        "artifact_feature_object_tag": "keep",
+        "artifact_feature_object_numbers": [3],
+    }
+    artifact.features.update_values({})
+    assert artifact.features.get_values()["artifact_feature_object_tag"] == "keep"
+    artifact.features.update_values({feature_score: None, feature_numbers: []})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_tag": "keep",
+        "artifact_feature_object_numbers": [],
+    }
+
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+    feature_numbers.delete(permanent=True)
+
+
+def test_artifact_update_values_validates_complete_annotations():
+    label_type = ln.Record(name="artifact-update-label-type", is_type=True).save()
+    label = ln.Record(name="artifact-update-label", type=label_type).save()
+    other = ln.Record(name="artifact-update-other").save()
+    score = ln.Feature(name="artifact_update_score", dtype=int).save()
+    tag = ln.Feature(name="artifact_update_tag", dtype=str).save()
+    when = ln.Feature(name="artifact_update_when", dtype=datetime).save()
+    day = ln.Feature(name="artifact_update_day", dtype=date).save()
+    labels = ln.Feature(name="artifact_update_labels", dtype=list[label_type]).save()
+    missing_labels = ln.Feature(
+        name="artifact_update_missing_labels", dtype=label_type
+    ).save()
+    union = ln.Feature(name="artifact_update_union", dtype="cat[ULabel|Record]").save()
+    schema = ln.Schema(
+        [
+            score,
+            tag.with_config(optional=True),
+            when.with_config(optional=True),
+            day.with_config(optional=True),
+            labels.with_config(optional=True),
+            missing_labels.with_config(optional=True),
+        ],
+        name="artifact-update-schema",
+    ).save()
+    artifact = ln.Artifact(".gitignore", key="artifact-update-schema").save()
+    try:
+        artifact.features.set_values(
+            {
+                score: 1,
+                tag: "keep",
+                when: datetime(2024, 1, 2, 3, 4, 5),
+                day: date(2024, 1, 2),
+                labels: [label],
+                union: other,
+            }
+        )
+        artifact.features.update_values({score: 2, tag: None}, schema=schema)
+        values = artifact.features.get_values()
+        assert values[score.name] == 2
+        assert tag.name not in values
+        assert values[when.name] == datetime(2024, 1, 2, 3, 4, 5)
+        assert values[day.name] == date(2024, 1, 2)
+        assert label.name in values[labels.name]
+
+        artifact.features.update_values({labels: []})
+        assert labels.name not in artifact.features.get_values()
+
+        # A union dtype skips registries that do not match the removed value.
+        artifact.features.remove_values({union: other})
+        assert union.name not in artifact.features.get_values()
+    finally:
+        artifact.delete(permanent=True)
+        other.delete(permanent=True)
+        label.delete(permanent=True)
+        label_type.delete(permanent=True)
+        schema.delete(permanent=True)
+        for feature in (union, missing_labels, labels, day, when, tag, score):
+            feature.delete(permanent=True)
