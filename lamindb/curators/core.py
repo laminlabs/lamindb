@@ -2291,7 +2291,15 @@ class CatVector:
                         SQLRecordList[Any],
                         SQLRecordList(filtered_records),
                     )
-                records = keep_topmost_matches(records)
+                try:
+                    records = keep_topmost_matches(records)
+                except ValidationError as error:
+                    if self.feature is None:
+                        raise
+                    raise ValidationError(
+                        f"{error}. For feature {self.feature.name!r}, pass the "
+                        "intended record object instead of a string."
+                    ) from error
             else:
                 existing_and_public_records = _from_values(
                     remaining_values,

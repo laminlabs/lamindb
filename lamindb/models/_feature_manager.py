@@ -53,13 +53,14 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, FeaturePredicate, JsonValue, parse_dtype
-from .sqlrecord import SQLRecord
+from .sqlrecord import BaseSQLRecord, SQLRecord
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from rich.tree import Tree
 
     from lamindb.base.types import FieldAttr
+    from lamindb.curators.core import CatVector
     from lamindb.models import (
         Artifact,
         Collection,
@@ -1834,6 +1835,49 @@ class FeatureManager:
                 values_by_feature_uid[feature.uid] = normalized_value
 
     @staticmethod
+    def _resolve_categorical_feature_values(
+        dictionary: dict[str, Any],
+        values_by_feature_uid: dict[str, Any],
+        cat_vectors: dict[str, CatVector],
+    ) -> None:
+        """Reuse validated records, preserving the order of supplied values."""
+        for vector in cat_vectors.values():
+            feature = vector.feature
+            if feature is None or feature.name not in dictionary:
+                continue
+            value = values_by_feature_uid.get(feature.uid, dictionary[feature.name])
+            items = [value] if isinstance(value, str) else value
+            if not isinstance(items, Iterable):
+                continue
+            items = list(items)
+            strings = {item for item in items if isinstance(item, str)}
+            if not strings:
+                continue
+
+            resolved: dict[str, BaseSQLRecord] = {}
+            for parsed in parse_dtype(feature._dtype_str):
+                for record in vector.records or []:
+                    if not isinstance(record, parsed["registry"]):
+                        continue
+                    key = getattr(record, parsed["field_str"])
+                    if key not in strings:
+                        continue
+                    if key in resolved and resolved[key] != record:
+                        raise ValidationError(
+                            f"Cannot unambiguously resolve {key!r} for feature "
+                            f"{feature.name!r}. Pass the intended record object "
+                            "instead of a string."
+                        )
+                    resolved[key] = record
+            values_by_feature_uid[feature.uid] = (
+                resolved[value]
+                if isinstance(value, str)
+                else [
+                    resolved[item] if isinstance(item, str) else item for item in items
+                ]
+            )
+
+    @staticmethod
     def _merge_feature_objects(
         explicit_features: list[Feature],
         looked_up_features,
@@ -1904,8 +1948,8 @@ class FeatureManager:
             # already removed by the caller.
             if isinstance(value, (list, tuple, set)) and not value:
                 continue
-            if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
-                if isinstance(value, SQLRecord):
+            if isinstance(value, BaseSQLRecord) or is_iterable_of_sqlrecord(value):
+                if isinstance(value, BaseSQLRecord):
                     label_records = [value]
                 else:
                     label_records = value  # type: ignore
@@ -2112,6 +2156,9 @@ class FeatureManager:
                 index=index_feature,
             )
             curator.validate()
+            self._resolve_categorical_feature_values(
+                dictionary, values_by_feature_uid, curator.cat._cat_vectors
+            )
         except ValidationError as error:
             raise ValidationError(
                 self._feature_validation_message(
@@ -2136,6 +2183,10 @@ class FeatureManager:
 
         On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
         allowing multiple values to represent aggregated measurements.
+
+        Each categorical string must resolve to one record within the declared
+        type and categorical filters. If the match is still ambiguous, pass the
+        intended record object instead of a string.
 
         An empty dictionary leaves annotations unchanged, subject to any supplied
         or inherited schema's validation requirements.
@@ -2309,8 +2360,8 @@ class FeatureManager:
                 # already removed by the caller.
                 if isinstance(value, (list, tuple, set)) and not value:
                     continue
-                if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
-                    if isinstance(value, SQLRecord):
+                if isinstance(value, BaseSQLRecord) or is_iterable_of_sqlrecord(value):
+                    if isinstance(value, BaseSQLRecord):
                         label_records = [value]
                     else:
                         label_records = value  # type: ignore
@@ -2410,6 +2461,10 @@ class FeatureManager:
         Values of `None` remove annotations for those features.
         An empty dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
+
+        Each categorical string must resolve to one record within the declared
+        type and categorical filters. If the match is still ambiguous, pass the
+        intended record object instead of a string.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).

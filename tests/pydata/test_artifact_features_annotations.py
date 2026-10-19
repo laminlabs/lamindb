@@ -910,7 +910,7 @@ Here is how to create a feature:
 
   ln.Feature(name='experiment', dtype='cat ? str').save()"""
     )
-    ln.Feature(name="experiment", dtype=ln.Record).save()
+    experiment = ln.Feature(name="experiment", dtype=ln.Record).save()
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -928,7 +928,7 @@ Here is how to create a feature:
     assert "1 term not validated in feature 'experiment'" in str(error.value)
 
     assert artifact.links_record.count() == 0
-    ln.Record(name="Experiment 1").save()
+    experiment1 = ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
@@ -936,6 +936,54 @@ Here is how to create a feature:
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
+
+    # Ambiguous categorical strings must fail without changing annotations;
+    # passing the record object must still work for both methods.
+    experiment_type = ln.Record(name="AmbiguousExperimentType1", is_type=True).save()
+    other_type = ln.Record(name="AmbiguousExperimentType", is_type=True).save()
+    experiment1.type = experiment_type
+    experiment1.save()
+    other_experiment = ln.Record(name=experiment1.name, type=other_type).save()
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
+            artifact.features.set_values({experiment: experiment1.name})
+        assert artifact.features[experiment.name] == experiment1
+        artifact.features.set_values({experiment: experiment1})
+        assert artifact.features[experiment.name] == experiment1
+
+        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
+            artifact.features.add_values({experiment: experiment1.name})
+        assert artifact.features[experiment.name] == experiment1
+        artifact.features.add_values({experiment: experiment1})
+        assert artifact.features[experiment.name] == experiment1
+    finally:
+        other_experiment.delete(permanent=True)
+        experiment1.type = None
+        experiment1.save()
+        other_type.delete(permanent=True)
+        experiment_type.delete(permanent=True)
+
+    # Registries without type hierarchies can also have ambiguous field values.
+    transform = ln.Transform(key="ambiguous-run-names").save()
+    first_run = ln.Run(transform, name="same-run-name").save()
+    second_run = ln.Run(transform, name=first_run.name).save()
+    run_feature = ln.Feature(name="run_by_name", dtype="cat[Run.name]").save()
+    previous_values = artifact.features.get_values()
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="unambiguously.*object"):
+            artifact.features.set_values({run_feature: first_run.name})
+        assert artifact.features.get_values() == previous_values
+        with pytest.raises(ln.errors.ValidationError, match="unambiguously.*object"):
+            artifact.features.add_values({run_feature: first_run.name})
+        assert artifact.features.get_values() == previous_values
+        artifact.features.add_values({run_feature: first_run})
+        assert artifact.features[run_feature.name] == first_run
+        artifact.features.remove_values(run_feature)
+    finally:
+        run_feature.delete(permanent=True)
+        second_run.delete(permanent=True)
+        first_run.delete(permanent=True)
+        transform.delete(permanent=True)
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
@@ -1279,7 +1327,21 @@ def test_artifact_features_accept_feature_object_keys():
         "artifact_feature_object_numbers": [],
     }
 
+    # Categorical index vectors are keyed by "index", not the feature name.
+    category = ln.ULabel(name="artifact_feature_object_category").save()
+    feature_category = ln.Feature(
+        name="artifact_feature_object_category", dtype=ln.ULabel
+    ).save()
+    schema = ln.Schema([feature_score], index=feature_category).save()
+    artifact.schema = schema
+    artifact.save()
+    artifact.features.set_values({feature_category: category.name, feature_score: 9})
+    assert artifact.features[feature_category.name] == category
+
     artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_category.delete(permanent=True)
+    category.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
     feature_numbers.delete(permanent=True)
@@ -1298,6 +1360,7 @@ def test_artifact_update_values_validates_complete_annotations():
         name="artifact_update_missing_labels", dtype=label_type
     ).save()
     union = ln.Feature(name="artifact_update_union", dtype="cat[ULabel|Record]").save()
+    union_label = ln.ULabel(name="artifact-update-union-label").save()
     schema = ln.Schema(
         [
             score,
@@ -1318,7 +1381,7 @@ def test_artifact_update_values_validates_complete_annotations():
                 when: datetime(2024, 1, 2, 3, 4, 5),
                 day: date(2024, 1, 2),
                 labels: [label],
-                union: other,
+                union: [union_label.name, other.name],
             }
         )
         artifact.features.update_values({score: 2, tag: None}, schema=schema)
@@ -1334,9 +1397,10 @@ def test_artifact_update_values_validates_complete_annotations():
 
         # A union dtype skips registries that do not match the removed value.
         artifact.features.remove_values({union: other})
-        assert union.name not in artifact.features.get_values()
+        assert artifact.features[union.name] == union_label
     finally:
         artifact.delete(permanent=True)
+        union_label.delete(permanent=True)
         other.delete(permanent=True)
         label.delete(permanent=True)
         label_type.delete(permanent=True)

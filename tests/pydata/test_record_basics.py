@@ -3232,6 +3232,18 @@ def test_set_values_feature_objects_skip_name_lookup():
 
     feature = ln.Feature(name="set_values_skip_lookup", dtype=float).save()
     record = ln.Record(name="set-values-skip-lookup").save()
+    other_type = ln.Record(name="ordered_string_other_type", is_type=True).save()
+    other_first = ln.Record(name="ordered_string_first", type=other_type).save()
+    other_second = ln.Record(name="ordered_string_second", type=other_type).save()
+    record_type = ln.Record(name="ordered_string_values_type", is_type=True).save()
+    first = ln.Record(name="ordered_string_first", type=record_type).save()
+    second = ln.Record(name="ordered_string_second", type=record_type).save()
+    categories = ln.Feature(
+        name="ordered_string_values", dtype=list[record_type]
+    ).save()
+    index = ln.Feature(name="ordered_string_index", dtype=str).save()
+    schema = ln.Schema([categories], index=index).save()
+    sheet = ln.Record(name="ordered_string_sheet", is_type=True, schema=schema).save()
     try:
         with CaptureQueriesContext(connection) as feature_keys:
             record.features.set_values({feature: 1.5})
@@ -3242,9 +3254,49 @@ def test_set_values_feature_objects_skip_name_lookup():
             record.features.set_values({feature.name: 2.5})
         assert _feature_name_lookup(string_keys.captured_queries)
         assert record.features.get_values()[feature.name] == 2.5
+
+        # Same-name records outside the dtype must not be linked or cause ambiguity.
+        for update_values in (record.features.set_values, record.features.add_values):
+            with CaptureQueriesContext(connection) as queries:
+                update_values({categories: [second.name, first.name]})
+            # Curation resolves the records once; persistence must reuse them.
+            record_lookups = [
+                query["sql"]
+                for query in queries.captured_queries
+                if '"lamindb_record"."name" IN' in query["sql"]
+            ]
+            assert len(record_lookups) == 1, record_lookups
+            assert {value.uid for value in record.features[categories.name]} == {
+                first.uid,
+                second.uid,
+            }
+            assert record.features.get_values()[categories.name] == [
+                second.name,
+                first.name,
+            ]
+
+        # Indexed validation can return all old links when replacing only a subset.
+        record.features.set_values(
+            {index: record.name, categories: [second, first]}, schema=schema
+        )
+        record.type = sheet
+        record.save()
+        record.features.update_values({categories: [first.name]})
+        assert record.features[categories.name] == first
+        assert record.features.get_values()[categories.name] == [first.name]
     finally:
         record.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
         feature.delete(permanent=True)
+        categories.delete(permanent=True)
+        second.delete(permanent=True)
+        first.delete(permanent=True)
+        record_type.delete(permanent=True)
+        other_second.delete(permanent=True)
+        other_first.delete(permanent=True)
+        other_type.delete(permanent=True)
 
 
 def test_from_dataframe_save_query_count_is_not_n_plus_one():
@@ -3332,7 +3384,7 @@ def test_categorical_value_stored_as_json_raises_on_read():
 
 
 def test_sqlrecord_type_mismatch_raises_validation_error():
-    """Passing a record of the wrong type in the SQLRecord fast path must raise ValidationError."""
+    """Reject wrong-type records and ambiguous names within a declared type."""
     type_a = ln.Record(name="TypeA_mismatch", is_type=True).save()
     type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
     record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
@@ -3367,14 +3419,56 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
         record_b, ln.User.get(id=ln.setup.settings.user.id)
     )
 
-    # cleanup
-    sample.delete(permanent=True)
-    record_a.delete(permanent=True)
-    record_b.delete(permanent=True)
-    mismatch_schema.delete(permanent=True)
-    feature.delete(permanent=True)
-    type_a.delete(permanent=True)
-    type_b.delete(permanent=True)
+    # Sibling types can share names, making a string ambiguous under their parent.
+    parent_type = ln.Record(name="TypeParent_mismatch", is_type=True).save()
+    type_a.type = parent_type
+    type_a.save()
+    type_b.type = parent_type
+    type_b.save()
+    feature_many = ln.Feature(
+        name="feature_many_mismatch", dtype=list[parent_type]
+    ).save()
+    inherited_schema = ln.Schema([feature_many]).save()
+    sample_type = ln.Record(
+        name="SampleType_mismatch", is_type=True, schema=inherited_schema
+    ).save()
+    sample.features.set_values({feature_many: [record_a]})
+    sample.type = sample_type
+    sample.save()
+    try:
+        record_b.name = record_a.name
+        record_b.save()
+        with pytest.raises(
+            ln.errors.ValidationError, match="(?i)ambig.*object"
+        ) as error:
+            sample.features.set_values({feature_many: [record_a.name]})
+        assert feature_many.name in str(error.value)
+        assert record_a.name in str(error.value)
+        assert sample.features[feature_many.name] == record_a
+        sample.features.set_values({feature_many: [record_a]})
+        assert sample.features[feature_many.name] == record_a
+
+        with pytest.raises(
+            ln.errors.ValidationError, match="(?i)ambig.*object"
+        ) as error:
+            sample.features.add_values({feature_many: [record_a.name]})
+        assert feature_many.name in str(error.value)
+        assert record_a.name in str(error.value)
+        assert sample.features[feature_many.name] == record_a
+        sample.features.add_values({feature_many: [record_a]})
+        assert sample.features[feature_many.name] == record_a
+    finally:
+        sample.delete(permanent=True)
+        sample_type.delete(permanent=True)
+        inherited_schema.delete(permanent=True)
+        feature_many.delete(permanent=True)
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        mismatch_schema.delete(permanent=True)
+        feature.delete(permanent=True)
+        type_a.delete(permanent=True)
+        type_b.delete(permanent=True)
+        parent_type.delete(permanent=True)
 
 
 @pytest.mark.parametrize("method", ["set_values", "add_values", "update_values"])

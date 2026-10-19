@@ -407,6 +407,13 @@ def test_curator_schema_feature_mapping():
     cat_vector = curator._atomic_curator.cat._cat_vectors["columns"]
     assert len(cat_vector.records) == 1
     assert len(cat_vector._validated) == 1
+
+    # Without schema members, ambiguous column names keep their original error.
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ValidationError, match="Ambiguous match for Feature") as error:
+        curator.validate()
+    assert "record object" not in str(error.value)
+
     schema.delete(permanent=True)
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
