@@ -902,6 +902,14 @@ def test_mudata_curator(
             "rna:var",
         }
         curator.validate()
+        with_schema = ln.Artifact.from_mudata(
+            mdata,
+            description="from_mudata schema",
+            schema=mudata_schema,
+            features={"perturbation_note": "extra"},
+        )
+        assert with_schema.schema == mudata_schema
+        assert with_schema._external_features == {"perturbation_note": "extra"}
         curator.slots["rna:var"].cat.standardize("columns")
         curator.slots["rna:var"].cat.add_new_from("columns")
         artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
@@ -987,6 +995,14 @@ def test_spatialdata_curator(
         curator.validate()
 
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
+    with_features = ln.Artifact.from_spatialdata(
+        spatialdata,
+        description="spatialdata external features",
+        schema=spatialdata_blobs_schema,
+        features={"assay_note": "extra"},
+    )
+    assert with_features.schema == spatialdata_blobs_schema
+    assert with_features._external_features == {"assay_note": "extra"}
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
         key="examples/spatialdata1.zarr",

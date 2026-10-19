@@ -64,6 +64,7 @@ if TYPE_CHECKING:
 
 NUMBER_TYPE = "num"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
+EXTERNAL_SLOT = "__external__"
 
 
 def validate_features(features: list[SQLRecord]) -> SQLRecord:
@@ -480,6 +481,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
         otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
+            Required when `slots` constrain dataset content. Optional when the only slot is `__external__`, so the schema can validate metadata on any artifact.
         suffix: `str | None = None` A required artifact suffix for schema-validated artifacts.
             Must be a canonical suffix as defined by :class:`~lamindb.base.types.CanonicalSuffix`, e.g., `".csv"`, `".parquet"`, or `".zarr"`.
         dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
@@ -1080,7 +1082,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         else:
             dtype = get_type_str(dtype)
         if slots:
-            if otype is None:
+            # An external-only schema has no dataset content, so it is not tied to an otype.
+            external_only = (
+                set(slots) == {EXTERNAL_SLOT} and not features and itype is None
+            )
+            if otype is None and not external_only:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
         flexible_default = n_features is None
         if flexible is None:
@@ -1886,6 +1892,56 @@ def get_type_str(dtype: str | None) -> str | None:
     else:
         type_str = None
     return type_str
+
+
+def external_slot_schema(schema: Schema | None) -> Schema | None:
+    """Return the `__external__` slot schema, if this schema defines one."""
+    if schema is None:
+        return None
+    return schema.slots.get(EXTERNAL_SLOT)
+
+
+def is_external_only_schema(schema: Schema) -> bool:
+    """True when the schema validates external metadata and no dataset content.
+
+    That is: no members, no `itype`, and the only slot is `__external__`.
+    `otype` is ignored so the schema can apply to any artifact.
+    """
+    if schema.itype is not None:
+        return False
+    if set(schema.slots) != {EXTERNAL_SLOT}:
+        return False
+    return not schema.n_members
+
+
+def is_flat_feature_schema(schema: Schema) -> bool:
+    """True when the schema names concrete features and has no slots.
+
+    On an unstructured artifact this is the external schema, so `Artifact()`
+    has to validate `features`. On a typed or tabular artifact it describes
+    dataset content, which only a `from_*` constructor validates.
+    """
+    if schema.slots:
+        return False
+    return bool(schema.n_members)
+
+
+def schema_requires_content_curator(schema: Schema) -> bool:
+    """True when `Artifact()` would skip dataset-content validation.
+
+    External-only schemas are validated separately. A flat schema with no
+    members and no `otype` is a suffix or itype constraint and stays
+    attachable. A schema with an `otype` or with content slots has to go
+    through the matching `from_*` constructor. Flat feature schemas
+    (`otype` is `None`) are handled separately.
+    """
+    if is_external_only_schema(schema):
+        return False
+    if schema.slots:
+        return True
+    if schema.otype is not None:
+        return True
+    return False
 
 
 def validate_schema_suffix(suffix: str | None) -> str | None:

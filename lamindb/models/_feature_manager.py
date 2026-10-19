@@ -37,7 +37,7 @@ from lamindb.models.feature import (
 )
 from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
-from lamindb.models.schema import Schema
+from lamindb.models.schema import Schema, external_slot_schema
 from lamindb.models.sqlrecord import get_name_field
 
 from ._describe import (
@@ -910,10 +910,16 @@ def describe_features(
             dataset_features_tree.add(child)
     external_features_tree = None
     if external_features_tree_children:
+        has_external_slot = (
+            get_registry_name(self) == "Artifact"
+            and self.schema is not None
+            and external_slot_schema(self.schema) is not None
+        )
         external_features_text = (
             "External features"
             if (
-                get_registry_name(self) == "Artifact" and dataset_features_tree_children
+                get_registry_name(self) == "Artifact"
+                and (dataset_features_tree_children or has_external_slot)
             )
             else "Features"
         )
@@ -2007,10 +2013,16 @@ class FeatureManager:
         if schema is not None:
             members = list(schema.members)
             member_ids = {feature.id for feature in members}
+            # `schema.index` is part of the schema even when assigning it did not
+            # add the feature to `schema.members`.
+            index_feature = _index_feature_from_members(schema, members)
+            allowed_ids = set(member_ids)
+            if index_feature is not None:
+                allowed_ids.add(index_feature.id)
             features_not_in_schema = [
                 feature.name
                 for feature in explicit_features
-                if feature.id not in member_ids
+                if feature.id not in allowed_ids
             ]
             if features_not_in_schema:
                 raise ValidationError(
@@ -2026,7 +2038,7 @@ class FeatureManager:
                 schema,
                 self._merge_feature_objects(explicit_features, looked_up),
                 members,
-                _index_feature_from_members(schema, members),
+                index_feature,
             )
         looked_up = (
             self._get_feature_objects(string_key_values, feature_field)
@@ -2338,6 +2350,12 @@ class FeatureManager:
         Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
         the artifact's external feature annotations.
 
+        A call replaces those external annotations with `values`. Annotations for
+        features omitted from `values` are removed. When a schema applies (an
+        artifact's external schema, a record type schema, or `schema`), every key
+        must be a member of that schema. String keys and `Feature` objects that
+        are not members raise `ValidationError` before any annotation is removed.
+
         An empty dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
 
@@ -2391,6 +2409,18 @@ class FeatureManager:
             string_key_values=string_key_values,
             feature_field=feature_field,
         )
+        # `_curation_features` only resolves string keys that are schema members.
+        # Reject the rest before `_remove_values()`, which would otherwise delete
+        # those annotations and never write them back.
+        if schema is not None and string_key_values:
+            member_names = {feature.name for feature in members}
+            if index_feature is not None:
+                member_names.add(index_feature.name)
+            missing_keys = [key for key in string_key_values if key not in member_names]
+            if missing_keys:
+                raise ValidationError(
+                    f"These feature keys are not in the provided schema: {missing_keys}"
+                )
         self._normalize_user_feature_values(
             feature_objects,
             dictionary,
@@ -2472,12 +2502,17 @@ class FeatureManager:
         return f"Failed to {action} features on {identity}: {feature_text}. {error}"
 
     def _get_external_schema(self) -> Schema | None:
-        external_schema = None
-        if self._host.otype is None:
-            external_schema = self._host.schema
-        elif self._host.schema is not None:
-            external_schema = self._host.schema.slots.get("__external__", None)
-        return external_schema
+        schema = self._host.schema
+        if schema is None:
+            return None
+        # The external slot wins for every otype, including unstructured files.
+        slot_schema = external_slot_schema(schema)
+        if slot_schema is not None:
+            return slot_schema
+        # A flat schema on an unstructured artifact is itself the external schema.
+        if self._host.otype is None and not schema.slots:
+            return schema
+        return None
 
     def remove_values(
         self,

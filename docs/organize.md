@@ -77,9 +77,9 @@ Here, `artifact1` is part of both query results.
 
 :::
 
-### Annotating with labels
+### Annotating with entities
 
-You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both linked to artifacts:
+You can annotate with other entities. LaminDB offers two main classes for this: {class}`~lamindb.ULabel` for simple labels and {class}`~lamindb.Record` for metadata records. They are both linked to artifacts:
 
 <img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qvhxt6UuoUO2Bd820000.png"/>
 
@@ -90,10 +90,10 @@ ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 ```
 
-And here is how to create a samples registry and annotate the artifact with a sample:
+And here is how to create a `Samples` entity type and annotate the artifact with a record:
 
 ```python
-samples_registry = ln.Record(                     # create a registry
+samples_type = ln.Record(                     # create a registry
     name="Samples",
     is_type=True
 ).save()
@@ -103,13 +103,13 @@ gc_content = ln.Feature(                     # create a feature
 ).save()
 sample1 = ln.Record(                         # create a sample
     name="Sample 1",
-    type=samples_registry,
+    type=samples_type,
     features={gc_content: 0.5}
 ).save()
 artifact1.records.add(sample1)               # annotate artifact1
 ```
 
-You can use records and ulabels alongside labels defined in modules such as {mod}`bionty`:
+You can use records and ulabels alongside entities defined in modules such as {mod}`bionty`:
 
 ```python
 import bionty as bt
@@ -170,7 +170,7 @@ Note that you can pass `project` to {func}`~lamindb.track` to auto-annotate all 
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg">
 
 All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts. This is called dimensional modeling in data warehousing.[^starsnowflake]
 

@@ -378,6 +378,18 @@ By contrast, features parsed from dataset slots appear as **Dataset features**.
 python scripts/curate_dataframe_external_features.py
 ```
 
+The same `__external__` slot can validate metadata on any artifact, including files and folders that have no in-memory curator. Omit `otype` when `__external__` is the only slot.
+
+```{eval-rst}
+.. literalinclude:: scripts/curate_artifact_external_features.py
+   :language: python
+   :caption: curate_artifact_external_features.py
+```
+
+```bash
+python scripts/curate_artifact_external_features.py
+```
+
 ## Union dtypes
 
 Some metadata columns might validate against several registries.

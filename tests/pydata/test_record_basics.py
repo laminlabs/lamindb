@@ -2698,7 +2698,12 @@ def test_record_features_add_remove_values():
     ).save()
     with pytest.raises(ln.errors.ValidationError) as error:
         test_record_in_form.features.set_values({"feature_type1": "entity1"})
-    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+    assert "not in the provided schema" in error.exconly()
+    assert "feature_type1" in error.exconly()
+    assert test_record_in_form.features.get_values() == {
+        "feature_str": "abc",
+        "feature_int": 1,
+    }
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
     schema.delete(permanent=True)

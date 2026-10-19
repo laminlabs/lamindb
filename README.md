@@ -22,7 +22,7 @@ LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel
 
 </details>
 
-<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
+<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
 How?
 
@@ -250,10 +250,10 @@ You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5w
 
 ### Annotate & query artifacts
 
-To annotate and query by **labels**:
+To annotate and query by **entities**:
 
 ```python
-# define labels
+# create entities
 my_label = ln.ULabel(name="My universal label").save()
 my_project = ln.Project(name="My project label").save()
 
@@ -263,6 +263,25 @@ artifact.projects.add(my_project)
 
 # query
 ln.Artifact.filter(ulabels=my_label, projects=my_project).to_dataframe()
+```
+
+This also works for custom entities, for example, ontology terms:
+
+```python
+import bionty as bt
+
+# import an entity from a public ontology source, e.g., by name or an ontology ID
+hek293 = bt.CellLine.from_source(name="HEK293").save()
+hras = bt.Gene.from_source(ensembl_gene_id="ENSG00000174775").save()
+
+# annotate
+artifact.cell_lines.add(hek293)
+artifact.genes.add(hras)
+
+# query
+ln.Artifact.filter(cell_lines=hek293, genes=hras).to_dataframe(
+    include=["cell_lines__name", "genes__symbol"]
+)
 ```
 
 To annotate & query by **features**:
@@ -456,7 +475,7 @@ This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/
 
 ### Manage ontologies
 
-Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
+`bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. The `Gene` registry was used to validate the `ENSG` ids in the `adata` just before. Here is how you import a public ontology source into the `CellType` registry:
 
 ```python
 import bionty as bt
