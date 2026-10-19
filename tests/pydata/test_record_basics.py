@@ -3241,6 +3241,9 @@ def test_set_values_feature_objects_skip_name_lookup():
     categories = ln.Feature(
         name="ordered_string_values", dtype=list[record_type]
     ).save()
+    index = ln.Feature(name="ordered_string_index", dtype=str).save()
+    schema = ln.Schema([categories], index=index).save()
+    sheet = ln.Record(name="ordered_string_sheet", is_type=True, schema=schema).save()
     try:
         with CaptureQueriesContext(connection) as feature_keys:
             record.features.set_values({feature: 1.5})
@@ -3271,8 +3274,21 @@ def test_set_values_feature_objects_skip_name_lookup():
                 second.name,
                 first.name,
             ]
+
+        # Indexed validation can return all old links when replacing only a subset.
+        record.features.set_values(
+            {index: record.name, categories: [second, first]}, schema=schema
+        )
+        record.type = sheet
+        record.save()
+        record.features.update_values({categories: [first.name]})
+        assert record.features[categories.name] == first
+        assert record.features.get_values()[categories.name] == [first.name]
     finally:
         record.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
         feature.delete(permanent=True)
         categories.delete(permanent=True)
         second.delete(permanent=True)

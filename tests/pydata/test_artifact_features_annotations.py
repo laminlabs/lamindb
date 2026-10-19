@@ -963,6 +963,28 @@ Here is how to create a feature:
         other_type.delete(permanent=True)
         experiment_type.delete(permanent=True)
 
+    # Registries without type hierarchies can also have ambiguous field values.
+    transform = ln.Transform(key="ambiguous-run-names").save()
+    first_run = ln.Run(transform, name="same-run-name").save()
+    second_run = ln.Run(transform, name=first_run.name).save()
+    run_feature = ln.Feature(name="run_by_name", dtype="cat[Run.name]").save()
+    previous_values = artifact.features.get_values()
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="unambiguously.*object"):
+            artifact.features.set_values({run_feature: first_run.name})
+        assert artifact.features.get_values() == previous_values
+        with pytest.raises(ln.errors.ValidationError, match="unambiguously.*object"):
+            artifact.features.add_values({run_feature: first_run.name})
+        assert artifact.features.get_values() == previous_values
+        artifact.features.add_values({run_feature: first_run})
+        assert artifact.features[run_feature.name] == first_run
+        artifact.features.remove_values(run_feature)
+    finally:
+        run_feature.delete(permanent=True)
+        second_run.delete(permanent=True)
+        first_run.delete(permanent=True)
+        transform.delete(permanent=True)
+
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
     with pytest.raises(TypeError) as error:
@@ -1338,6 +1360,7 @@ def test_artifact_update_values_validates_complete_annotations():
         name="artifact_update_missing_labels", dtype=label_type
     ).save()
     union = ln.Feature(name="artifact_update_union", dtype="cat[ULabel|Record]").save()
+    union_label = ln.ULabel(name="artifact-update-union-label").save()
     schema = ln.Schema(
         [
             score,
@@ -1358,7 +1381,7 @@ def test_artifact_update_values_validates_complete_annotations():
                 when: datetime(2024, 1, 2, 3, 4, 5),
                 day: date(2024, 1, 2),
                 labels: [label],
-                union: other,
+                union: [union_label.name, other.name],
             }
         )
         artifact.features.update_values({score: 2, tag: None}, schema=schema)
@@ -1374,9 +1397,10 @@ def test_artifact_update_values_validates_complete_annotations():
 
         # A union dtype skips registries that do not match the removed value.
         artifact.features.remove_values({union: other})
-        assert union.name not in artifact.features.get_values()
+        assert artifact.features[union.name] == union_label
     finally:
         artifact.delete(permanent=True)
+        union_label.delete(permanent=True)
         other.delete(permanent=True)
         label.delete(permanent=True)
         label_type.delete(permanent=True)
