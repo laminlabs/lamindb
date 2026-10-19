@@ -14,7 +14,7 @@ tutorial
 
 setup
 query-search
-track
+transform
 organize
 manage-changes
 manage-records

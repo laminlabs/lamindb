@@ -7,7 +7,7 @@ execute_via: python
 This guide walks through querying tabular datasets stored in parquet and related file formats.
 Queries stream directly from disk or cloud storage with PyArrow, Polars or DuckDB.
 
-For an in-depth example and a complex dataset, read this blog post: [blog.lamin.ai/1000genomes](https://blog.lamin.ai/1000genomes). For more background on the query architecture, read {doc}`architecture`.
+For an in-depth example and a complex dataset, read this blog post: [blog.lamin.ai/1000genomes](https://blog.lamin.ai/1000genomes).
 
 ```python
 import lamindb as ln
@@ -15,9 +15,9 @@ import lamindb as ln
 db = ln.DB("laminlabs/lamindata")
 ```
 
-## Stream a table from storage
+## Open a dataset for queries
 
-Start with a single parquet file. Get the artifact and open it — nothing is downloaded, you get a lazy [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html):
+To open an **artifact** as a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html) call `.open()` with default arguments:
 
 ```python
 artifact = db.Artifact.filter(
@@ -27,13 +27,21 @@ dataset = artifact.open()
 dataset
 ```
 
-Peek at the first few rows:
+To open a **collection** (a sharded dataset), call:
 
 ```python
-dataset.head(5).to_pandas()
+collection = db.Collection.get(key="sharded_parquet_collection")
+dataset = collection.open()
+dataset
 ```
 
-The same `.open()` call works across parquet files. Call it on a query to stream a whole set of Parquet artifacts as one dataset:
+We recommended to use {class}`~lamindb.Collection` to manage large-scale datasets as this gives you typical lakehouse guarantees. For more background, read {doc}`architecture`.
+
+<!-- #region -->
+
+:::{dropdown} Open sets of artifacts ad hoc
+
+You can also filter artifacts by a prefix and open the resulting `ArtifactSet`:
 
 ```python
 dataset = db.Artifact.filter(
@@ -42,13 +50,9 @@ dataset = db.Artifact.filter(
 dataset
 ```
 
-Or on a collection, which streams all of its member Parquet files together:
+:::
 
-```python
-collection = db.Collection.get(key="sharded_parquet_collection")
-dataset = collection.open()
-dataset.to_table().to_pandas()
-```
+<!-- #endregion -->
 
 ## Queries
 

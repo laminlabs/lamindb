@@ -57,10 +57,10 @@ lamin init --storage gs://<bucket_name> --db postgresql://<user>:<pwd>@<hostname
 To delete a database, call:
 
 ```shell
-lamin delete instance name
+lamin delete <database-slug>
 ```
 
-This will only work if the database has no data in its storage location.
+This will only work if the database has no data in its managed storage locations.
 
 ## Connect to a database
 

@@ -36,7 +36,7 @@ GROUPS["tutorial"] = [
     "transfer.ipynb",
     "tables.ipynb",
     "manage-ontologies.ipynb",
-    "query-search.ipynb",
+    "registries.ipynb",
     "tutorial.ipynb",
 ]
 GROUPS["guide"] = [

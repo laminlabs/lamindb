@@ -7,7 +7,7 @@
 curate
 ```
 
-This guide walks through organizing datasets using files & folders, database relationships, and versioned collections.
+This guide walks through organizing datasets using files & folders, entity relationships, and dataset sharding with versioned collections.
 
 ## Via files & folders
 

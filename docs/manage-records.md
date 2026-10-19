@@ -4,10 +4,7 @@ execute_via: python
 
 # Manage records & ontologies
 
-Many use cases involving records management are primarily UI-based. However, the API allows you to perform all UI actions, too, see {class}`~lamindb.Record`.
-Use cases involving ontology management are largely API-based and documented here: {doc}`/manage-ontologies`.
-
-The following video provides an overview of the interplay of flexible records and ontology management on the UI:
+This guide walks you from managing notes to managing structured relational metadata. You can build your ELN & LIMS, your own ontologies, and even a knowledge graph. If you instead want to build on public biological ontologies, read: {doc}`/manage-ontologies`.
 
 ```{toctree}
 :maxdepth: 1
@@ -27,6 +24,20 @@ If you haven't connected a database, create one in a development directory:
 
 ```bash
 lamin init
+```
+
+## Save markdown notes
+
+You can save a markdown note as a record:
+
+```shell
+lamin save <topic>/<my-note.md>
+```
+
+To load a record back as a markdown file, run:
+
+```shell
+lamin load https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox
 ```
 
 ## Create a data record
