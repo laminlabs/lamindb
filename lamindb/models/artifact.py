@@ -2678,29 +2678,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return artifact
 
     @classmethod
-    @deprecated("from_dataframe")
-    def from_df(
-        cls,
-        df: pd.DataFrame,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        run: Run | None = None,
-        revises: Artifact | None = None,
-        schema: Schema | None = None,
-        **kwargs,
-    ) -> Artifact:
-        return cls.from_dataframe(
-            df,
-            key=key,
-            description=description,
-            run=run,
-            revises=revises,
-            schema=schema,
-            **kwargs,
-        )
-
-    @classmethod
     def from_anndata(
         cls,
         adata: Union[AnnData, AnyPathStr],
