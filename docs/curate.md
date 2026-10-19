@@ -4,6 +4,9 @@ execute_via: python
 
 # Curate datasets
 
+This guide walks through detailed dataset curation based on defined schemas and ontologies.
+If you're just wondering how to best organize your data, read {doc}`/organize`.
+
 ```{raw} html
 <div align="center">
 <iframe width="560" height="315" src="https://www.youtube.com/embed/Ji6E7hTnReQ?si=K0OnU2MTGv4fIhFo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>

@@ -4,7 +4,8 @@ execute_via: python
 
 # Manage biological ontologies
 
-This guide shows how to manage ontologies for basic biological entities.
+This guide shows how to manage ontologies for basic biological entities using `bionty`.
+If you want to manage flexible records in the context of an ELN or LIMS or build your own ontologies from scratch, see: {doc}`docs:manage-records`
 
 ```{raw} html
 <div align="center">
@@ -12,12 +13,7 @@ This guide shows how to manage ontologies for basic biological entities.
 </div>
 ```
 
-If instead you're interested in
-
-- accessing public ontologies, see {doc}`docs:public-ontologies`
-- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:manage-records`
-
-Let's create a database in the current directory:
+If you don't yet have a database, create one in a development directory:
 
 ```bash
 lamin init --modules bionty
