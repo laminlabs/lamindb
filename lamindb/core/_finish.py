@@ -400,7 +400,12 @@ def save_context_core(
         # Accept any non-empty env file written by track_python_environment.
         # Size is checked here so an empty file (e.g. from a failed pip freeze) never
         # reaches the hash lookup and can't collide with unrelated data artifacts.
-        _candidate_names = ("pixi.lock", "run_env_pip.txt", "r_environment.txt")
+        _candidate_names = (
+            "pixi.lock",
+            "uv.lock",
+            "run_env_pip.txt",
+            "r_environment.txt",
+        )
         existing_paths = [
             base_path / name
             for name in _candidate_names

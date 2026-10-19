@@ -758,12 +758,82 @@ def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch)
     assert not (env_dir2 / "pixi.lock").exists()
 
 
-def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
+def test_track_environment_uv_lock_copied_when_detected(tmp_path, monkeypatch):
+    """uv.lock is copied when the process is a uv env. A normal venv, a missing
+    lock, and an empty lock leave the cache untouched."""
+    from lamindb.core._track_environment import _find_uv_lock, _track_uv_lock
+
+    project_root = (tmp_path / "my_project").resolve()
+    venv = project_root / ".venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\nuv = 0.7.19\n")
+    lock_content = "version = 1\nrequires-python = '>=3.12'\n"
+    (project_root / "uv.lock").write_text(lock_content)
+
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", str(venv))
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.executable",
+        str(venv / "bin" / "python"),
+    )
+    # Activated uv envs do not set UV. The lock is the parent of `.venv`.
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert _find_uv_lock() == project_root / "uv.lock"
+    env_dir = tmp_path / "env_cache"
+    assert _track_uv_lock(env_dir) is True
+    assert (env_dir / "uv.lock").read_text() == lock_content
+
+    # `uv run` sets UV to the uv binary, which is not inside the project.
+    # The lock is still found from the project virtualenv.
+    monkeypatch.setenv("UV", "/opt/uv/bin/uv")
+    assert _find_uv_lock() == project_root / "uv.lock"
+
+    # UV itself lives in the project environment: parents[2] is the project.
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.prefix", str(tmp_path / "custom-env")
+    )
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.executable",
+        str(tmp_path / "custom-env" / "bin" / "python"),
+    )
+    monkeypatch.setenv("UV", str(venv / "bin" / "uv"))
+    assert _find_uv_lock() == project_root / "uv.lock"
+
+    # normal venv, UV unset → not detected, even with a lock above cwd
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.chdir(project_root)
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv")
+    )
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.executable",
+        str(tmp_path / "venv" / "bin" / "python"),
+    )
+    assert _find_uv_lock() is None
+
+    # uv env but lock absent or empty → not copied
+    (project_root / "uv.lock").unlink()
+    monkeypatch.setenv("UV", "/opt/uv/bin/uv")
+    monkeypatch.setattr("lamindb.core._track_environment.sys.prefix", str(venv))
+    env_dir2 = tmp_path / "env_cache2"
+    assert _track_uv_lock(env_dir2) is False
+    assert not (env_dir2 / "uv.lock").exists()
+    (project_root / "uv.lock").write_text("")
+    assert _track_uv_lock(env_dir2) is False
+    assert not (env_dir2 / "uv.lock").exists()
+
+
+def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path, monkeypatch):
     """No empty file is written when pip freeze fails (non-zero exit) or
-    returns blank output — both would otherwise produce the empty-MD5 hash."""
+    returns blank output — both would otherwise produce the empty-MD5 hash.
+    The failure is a UserWarning, not a log line."""
     import subprocess as _subprocess
 
-    from lamindb.core._track_environment import _track_pip_freeze
+    from lamindb.core._track_environment import (
+        _track_pip_freeze,
+        track_python_environment,
+    )
 
     env_dir = tmp_path / "env_cache"
 
@@ -777,7 +847,9 @@ def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
     with patch(
         "lamindb.core._track_environment.subprocess.run", side_effect=pip_missing
     ):
-        assert _track_pip_freeze(env_dir) is False
+        error = _track_pip_freeze(env_dir)
+    assert error is not None
+    assert "No module named pip" in error
     assert not (env_dir / "run_env_pip.txt").exists()
 
     # case 2: pip exits 0 but blank output (empty env)
@@ -788,8 +860,29 @@ def test_track_environment_pip_freeze_no_empty_file_on_failure(tmp_path):
         return r
 
     with patch("lamindb.core._track_environment.subprocess.run", side_effect=pip_blank):
-        assert _track_pip_freeze(env_dir) is False
+        error = _track_pip_freeze(env_dir)
+    assert error is not None
+    assert "empty output" in error
     assert not (env_dir / "run_env_pip.txt").exists()
+
+    # the user-facing entry point warns through the warnings module
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.setattr(
+        "lamindb.core._track_environment.sys.prefix", str(tmp_path / "venv")
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
+    run = type("Run", (), {"uid": "pipfail"})()
+    with (
+        patch(
+            "lamindb.core._track_environment.subprocess.run", side_effect=pip_missing
+        ),
+        pytest.warns(UserWarning, match="could not track Python environment"),
+    ):
+        track_python_environment(run)
+    assert not (
+        tmp_path / "cache" / "environments" / "run_pipfail" / "run_env_pip.txt"
+    ).exists()
 
 
 def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
