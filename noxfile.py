@@ -192,23 +192,31 @@ def install_ci(session, group):
     elif group == "minimal":
         run(session, "uv pip install --system pytest")
         if IS_PR:
-            run(session, "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli")
-        run(session, "uv pip install --system .")
+            # lamin-cli depends on lamindb-core, and this checkout pins that
+            # lamin-cli. Published lamindb-core releases pin older lamin-cli
+            # versions, so the local checkouts have to be resolved together.
+            run(
+                session, "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ."
+            )
+        else:
+            run(session, "uv pip install --system .")
         return
 
     extras = "," + extras if extras != "" else extras
-    run(session, f"uv pip install --system -e .[full,dev{extras}]")
-
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
-    # installing this after lamindb to be sure that these packages won't be reinstaled
-    # during lamindb installation
+    # resolve submodules in the same command as lamindb-core: lamin-cli depends
+    # on lamindb-core, which pins this lamin-cli, and published lamindb-core
+    # releases pin older lamin-cli versions
+    lamindb = f"-e .[full,dev{extras}]"
     if IS_PR or group == "docs" or group == "profile":
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
+            f"uv pip install --system {lamindb} ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
         )
+    else:
+        run(session, f"uv pip install --system {lamindb}")
     if group == "permissions":
         # have to install after lamindb installation
         # because lamindb downgrades django required by laminhub_rest
