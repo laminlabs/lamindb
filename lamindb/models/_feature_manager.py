@@ -522,10 +522,13 @@ def get_non_categoricals(
                 if isinstance(values, str):
                     values = {value.strip('"') for value in values.split(", ")}
 
-            # PostgreSQL ArrayAgg wraps values in a list. Scalars are converted to
-            # sets below; dict and list features must be unwrapped here instead.
+            # PostgreSQL ArrayAgg wraps Artifact and Run JSON values in a list.
+            # Scalars are converted to sets below; dict and list features must be
+            # unwrapped here instead. Records store one JSON value directly, so a
+            # one-element list such as [3] is the annotation, not an aggregate wrapper.
             if (
-                connections[self._state.db].vendor == "postgresql"
+                not isinstance(self, Record)
+                and connections[self._state.db].vendor == "postgresql"
                 and isinstance(values, list)
                 and len(values) == 1
                 and (feature_dtype == "dict" or feature_dtype.startswith("list"))
@@ -995,6 +998,14 @@ def infer_convert_dtype_key_value(
             return dtype, list(value), message
         if isinstance(value, dict):
             return "dict", value, message
+        if (
+            len(value) == 0
+            and dtype_str
+            and (  # type: ignore
+                dtype_str.startswith("list") or dtype_str == "dict"
+            )
+        ):
+            return dtype_str, value, message
         if len(value) > 0:  # type: ignore
             first_element = next(iter(value))
             first_element_type = type(first_element)
@@ -1889,6 +1900,10 @@ class FeatureManager:
                 )
                 continue
 
+            # An empty collection has no labels to link. Existing links were
+            # already removed by the caller.
+            if isinstance(value, (list, tuple, set)) and not value:
+                continue
             if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                 if isinstance(value, SQLRecord):
                     label_records = [value]
@@ -2290,6 +2305,10 @@ class FeatureManager:
                 feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
+                # An empty collection has no labels to link. Existing links were
+                # already removed by the caller.
+                if isinstance(value, (list, tuple, set)) and not value:
+                    continue
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                     if isinstance(value, SQLRecord):
                         label_records = [value]
