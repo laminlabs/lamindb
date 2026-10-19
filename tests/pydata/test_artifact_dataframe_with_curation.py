@@ -30,14 +30,19 @@ def two_external_features():
 def test_create_artifact_with_external_feature_annotations(
     schema_kind: str | None,
     two_external_features: tuple[ln.Feature, ln.Feature],
+    tmp_path: Path,
 ):
     feat1, feat2 = two_external_features
     created: list[ln.Feature] = []
+    path: Path | str = ".gitignore"
+    key = "test_file"
+    otype = None
     if schema_kind == "flat":
         schema = ln.Schema(features=[feat1, feat2]).save()
         values = {"feature_a": "x", "feature_b": "y"}
     elif schema_kind == "flexible":
-        # No concrete members: Artifact() validates this dict directly.
+        # No concrete members, so this is not a flat feature schema. On a typed
+        # artifact, Artifact() validates the feature dict directly.
         feature_type = ln.Feature(name="flexible_external_type", is_type=True).save()
         typed_a = ln.Feature(
             name="flexible_external_a", dtype=str, type=feature_type
@@ -48,10 +53,15 @@ def test_create_artifact_with_external_feature_annotations(
         created.extend([typed_a, typed_b, feature_type])
         schema = ln.Schema(itype=feature_type).save()
         values = {typed_a.name: "x", typed_b.name: "y"}
+        path = tmp_path / "reads.fastq"
+        path.write_text("@read1\nACGT\n+\n!!!!\n")
+        key = "seq/reads.fastq"
+        otype = "FASTQ"
         with pytest.raises(ln.errors.ValidationError) as error:
             ln.Artifact(
-                ".gitignore",
-                key="test_file",
+                path,
+                key=key,
+                otype=otype,
                 features={typed_a.name: 1, typed_b.name: "y"},
                 schema=schema,
             )
@@ -60,35 +70,39 @@ def test_create_artifact_with_external_feature_annotations(
         schema = None
         values = {"feature_a": "x", "feature_b": "y"}
     artifact = ln.Artifact(
-        ".gitignore",
-        key="test_file",
+        path,
+        key=key,
+        otype=otype,
         features=values,
         schema=schema,
     ).save()
     assert artifact.features.get_values() == values
     assert artifact.schema == schema
+    if otype is not None:
+        assert artifact.otype == otype
     # repeat to check idempotency (requires set_values() instead of add_values())
     artifact = ln.Artifact(
-        ".gitignore",
-        key="test_file",
+        path,
+        key=key,
+        otype=otype,
         features=values,
         schema=schema,
     ).save()
     assert artifact.features.get_values() == values
     assert artifact.schema == schema
-    if schema is not None:
+    if schema_kind == "flat":
         with pytest.raises(ValueError) as error:
-            artifact.features.remove_values(next(iter(values)), value="x")
+            artifact.features.remove_values("feature_a", value="x")
         assert (
             "Cannot remove values if artifact has external schema." in error.exconly()
         )
-    else:
+    elif schema_kind is None:
         artifact.features.remove_values("feature_a", value="x")
         assert artifact.features.get_values() == {"feature_b": "y"}
     artifact.delete(permanent=True)
     if schema is not None:
         schema.delete(permanent=True)
-    for record in reversed(created):
+    for record in created:
         record.delete(permanent=True)
 
 

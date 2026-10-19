@@ -1544,6 +1544,31 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
     moved_artifact.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=False)
 
+    # Forcing hash lookup recognizes the moved file and points the record at it.
+    Path("./default_storage_unit_core/hash_lookup_file.txt").write_text(
+        "hash lookup content"
+    )
+    artifact = ln.Artifact("./default_storage_unit_core/hash_lookup_file.txt").save()
+    old_key = artifact.key
+    Path("./default_storage_unit_core/hash_lookup_file.txt").rename(
+        "./default_storage_unit_core/hash_lookup_moved.txt"
+    )
+    assert not artifact.path.exists()
+    updated = ln.Artifact(
+        "./default_storage_unit_core/hash_lookup_moved.txt",
+        skip_hash_lookup=False,
+    )
+    assert updated.uid == artifact.uid
+    assert updated.key != old_key
+    assert updated.path.name == "hash_lookup_moved.txt"
+    assert updated.path.exists()
+    assert f"updating previous key {old_key} to new key {updated.key}" in ccaplog.text
+    updated.save()
+    refreshed = ln.Artifact.get(updated.uid)
+    assert refreshed.key == updated.key
+    assert refreshed.path.exists()
+    updated.delete(permanent=True, storage=True)
+
 
 # -------------------------------------------------------------------------------------
 # Storage
