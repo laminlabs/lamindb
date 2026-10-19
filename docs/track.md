@@ -2,9 +2,9 @@
 execute_via: python
 ---
 
-# Track notebooks, scripts & workflows
+# Track lineage & manage workflows
 
-This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
+This guide walks from tracking agents to tracking notebooks and scripts to managing workflows in Python.
 
 ```{raw} html
 <div align="center">
@@ -24,15 +24,17 @@ lamin init
 
 ### Sessions
 
-The `lamindb` [skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the package. After installing `lamindb`, run `uvx library-skills --skill lamindb` so your agent can read it. It will then track agent sessions.
+The [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents) ships with the `lamindb` package. Run `uvx library-skills --skill lamindb` in your development or home directory so your agents will read the skill. Your harness will then ask whether to track an agent session.
+
+See [docs.lamin.ai/integrations](https://docs.lamin.ai/integrations) for supported harnesses.
+
+:::{dropdown} Tracking tokens
 
 When the agent finishes a session with `lamin finish`, usage metrics are recorded in `run.extra_data`:
 
 - `n_tokens`: total tokens for the session
 - `n_steps`: number of LLM completions/turns
 - `n_tool_calls`: number of tool invocations
-
-:::{dropdown} Details
 
 For **Claude Code**, `n_tokens` is the full billed total (input + output + cache-read + cache-write tokens), matching how Anthropic and tools like `ccusage` compute session cost.
 
