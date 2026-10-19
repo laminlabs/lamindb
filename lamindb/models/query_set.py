@@ -1283,6 +1283,9 @@ class BasicQuerySet(models.QuerySet):
                         for item in subset.query.order_by
                     ]
                 )
+                query_set_without_filters.query.standard_ordering = (
+                    subset.query.standard_ordering
+                )
             if filtered_relations:
                 query_set_without_filters = query_set_without_filters.annotate(
                     **filtered_relations

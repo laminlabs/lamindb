@@ -659,6 +659,22 @@ def test_order_by_feature_reuses_matching_annotations(model):
             features=[note.name], limit=None
         ).index.tolist() == [single.id, multi.id]
 
+        # Export preserves reverse(), including mixed ordering and sliced ranks.
+        for limit in (None, 2):
+            reversed_qs = matched.order_by(temperature, "id").reverse()
+            assert reversed_qs.to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [multi.id, single.id]
+            assert reversed_qs.reverse().to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [single.id, multi.id]
+            assert matched.order_by(-temperature, "-id").reverse().to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [single.id, multi.id]
+            assert subset.order_by(note, temperature).reverse()[1:].to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [multi.id, single.id]
+
         # The existing exporter collapses repeated IDs even with no finite limit.
         assert subset.order_by(temperature).to_dataframe(limit=None).index.tolist() == [
             multi.id,

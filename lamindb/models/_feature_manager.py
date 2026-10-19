@@ -1275,7 +1275,9 @@ class FeatureValueOrder(OrderBy):
                 Case(
                     *[When(pk=pk, then=position) for position, pk in enumerate(ids)],
                     output_field=IntegerField(),
-                )
+                ),
+                # Positions already reflect reverse(); export copies its flag.
+                descending=not queryset.query.standard_ordering,
             )
         matching = BasicQuerySet.filter(queryset, pk=OuterRef("pk")).annotate(
             _feature_order_value=self.expression
