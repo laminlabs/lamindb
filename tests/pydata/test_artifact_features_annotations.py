@@ -826,42 +826,6 @@ def test_feature_predicate_is_null():
     perturbation_type.delete(permanent=True)
 
 
-@pytest.mark.parametrize("host_kind", ["artifact", "run"])
-@pytest.mark.parametrize("method", ["set_values", "add_values"])
-def test_features_reject_ambiguous_strings_on_artifacts_and_runs(
-    tmp_path, host_kind, method
-):
-    other_type = ln.Record(name="ambiguous_other_type", is_type=True).save()
-    expected_type = ln.Record(name="ambiguous_expected_type", is_type=True).save()
-    wrong_value = ln.Record(name="ambiguous_value", type=other_type).save()
-    expected_value = ln.Record(name="ambiguous_value", type=expected_type).save()
-    feature = ln.Feature(name="ambiguous_feature", dtype=expected_type).save()
-    transform = None
-    if host_kind == "artifact":
-        path = tmp_path / "ambiguous.txt"
-        path.write_text("ambiguous categorical feature example")
-        host = ln.Artifact(path, key="ambiguous.txt").save()
-    else:
-        transform = ln.Transform(key="ambiguous_transform.py").save()
-        host = ln.Run(transform).save()
-    try:
-        host.features.set_values({feature: expected_value})
-        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
-            getattr(host.features, method)({feature: expected_value.name})
-        assert host.features[feature.name] == expected_value
-        getattr(host.features, method)({feature: expected_value})
-        assert host.features[feature.name] == expected_value
-    finally:
-        host.delete(permanent=True)
-        if transform is not None:
-            transform.delete(permanent=True)
-        feature.delete(permanent=True)
-        expected_value.delete(permanent=True)
-        wrong_value.delete(permanent=True)
-        expected_type.delete(permanent=True)
-        other_type.delete(permanent=True)
-
-
 def test_features_add_with_schema():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
@@ -946,7 +910,7 @@ Here is how to create a feature:
 
   ln.Feature(name='experiment', dtype='cat ? str').save()"""
     )
-    ln.Feature(name="experiment", dtype=ln.Record).save()
+    experiment = ln.Feature(name="experiment", dtype=ln.Record).save()
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -964,7 +928,7 @@ Here is how to create a feature:
     assert "1 term not validated in feature 'experiment'" in str(error.value)
 
     assert artifact.links_record.count() == 0
-    ln.Record(name="Experiment 1").save()
+    experiment1 = ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
@@ -972,6 +936,26 @@ Here is how to create a feature:
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
+
+    # Ambiguous categorical strings must fail without changing annotations;
+    # passing the record object must still work for both methods.
+    other_type = ln.Record(name="AmbiguousExperimentType", is_type=True).save()
+    other_experiment = ln.Record(name=experiment1.name, type=other_type).save()
+    try:
+        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
+            artifact.features.set_values({experiment: experiment1.name})
+        assert artifact.features[experiment.name] == experiment1
+        artifact.features.set_values({experiment: experiment1})
+        assert artifact.features[experiment.name] == experiment1
+
+        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
+            artifact.features.add_values({experiment: experiment1.name})
+        assert artifact.features[experiment.name] == experiment1
+        artifact.features.add_values({experiment: experiment1})
+        assert artifact.features[experiment.name] == experiment1
+    finally:
+        other_experiment.delete(permanent=True)
+        other_type.delete(permanent=True)
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()

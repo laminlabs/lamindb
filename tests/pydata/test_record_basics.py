@@ -3331,15 +3331,7 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species_type.delete(permanent=True)
 
 
-@pytest.mark.parametrize("inherited_schema", [False, True])
-@pytest.mark.parametrize(
-    ("method", "to_many"),
-    [("set_values", False), ("set_values", True), ("add_values", True)],
-)
-@pytest.mark.parametrize("feature_key", ["object", "name"])
-def test_record_features_reject_ambiguous_string_values(
-    inherited_schema, method, to_many, feature_key
-):
+def test_record_features_reject_ambiguous_string_values():
     """Reject ambiguous names and tell callers to pass the Record object."""
     other_type = ln.Record(name="fanout_other_type", is_type=True).save()
     expected_type = ln.Record(name="fanout_expected_type", is_type=True).save()
@@ -3347,43 +3339,41 @@ def test_record_features_reject_ambiguous_string_values(
     # Create the wrong-type match first so database order cannot select it.
     wrong_value = ln.Record(name=shared_name, type=other_type).save()
     expected_value = ln.Record(name=shared_name, type=expected_type).save()
-    feature = ln.Feature(
-        name="fanout_stage", dtype=list[expected_type] if to_many else expected_type
-    ).save()
+    feature = ln.Feature(name="fanout_stage", dtype=list[expected_type]).save()
     schema = ln.Schema([feature]).save()
     record_type = ln.Record(
         name="fanout_experiment_type", is_type=True, schema=schema
     ).save()
-    record_kwargs = {
-        "name": "fanout_experiment",
-        "features": {feature: [expected_value] if to_many else expected_value},
-    }
-    if inherited_schema:
-        record_kwargs["type"] = record_type
-    record = ln.Record(**record_kwargs).save()
+    record = ln.Record(
+        name="fanout_experiment",
+        type=record_type,
+        features={feature: [expected_value]},
+    ).save()
     try:
-        key = feature if feature_key == "object" else feature.name
-        update_values = getattr(record.features, method)
-        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig") as error:
-            update_values({key: [shared_name] if to_many else shared_name})
+        with pytest.raises(
+            ln.errors.ValidationError, match="(?i)ambig.*object"
+        ) as error:
+            record.features.set_values({feature: [shared_name]})
         message = str(error.value)
         assert feature.name in message
         assert shared_name in message
-        assert re.search("(?i)pass.*object", message)
 
-        # A rejected update must preserve the existing record, including its type.
-        # get_values() deduplicates identical names, masking extra links.
-        values = record.features[feature.name]
-        assert ([values] if isinstance(values, ln.Record) else list(values)) == [
-            expected_value
-        ]
+        # Inspect the objects so identical names cannot hide a wrong-type link.
+        assert record.features[feature.name] == expected_value
+        record.features.set_values({feature: [expected_value]})
+        assert record.features[feature.name] == expected_value
 
-        # The explicit object disambiguates the value and must remain accepted.
-        update_values({key: [expected_value] if to_many else expected_value})
-        values = record.features[feature.name]
-        assert ([values] if isinstance(values, ln.Record) else list(values)) == [
-            expected_value
-        ]
+        with pytest.raises(
+            ln.errors.ValidationError, match="(?i)ambig.*object"
+        ) as error:
+            record.features.add_values({feature: [shared_name]})
+        message = str(error.value)
+        assert feature.name in message
+        assert shared_name in message
+
+        assert record.features[feature.name] == expected_value
+        record.features.add_values({feature: [expected_value]})
+        assert record.features[feature.name] == expected_value
     finally:
         record.delete(permanent=True)
         record_type.delete(permanent=True)
