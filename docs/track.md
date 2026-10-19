@@ -12,7 +12,7 @@ This guide walks from tracking data lineage in a notebook to tracking parameters
 </div>
 ```
 
-To run examples, if you don't have a `lamindb` instance, create one:
+To run examples, if you don't have a LaminDB instance, create one in a development directory:
 
 ```bash
 lamin init

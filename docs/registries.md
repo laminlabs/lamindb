@@ -2,19 +2,16 @@
 execute_via: python
 ---
 
-# Query & search
+# Query & search registries
 
-```{toctree}
-:maxdepth: 1
-:hidden:
+This guide walks through querying & searching the registries that keep track of your entities.
+To query and load datasets in storage, see {doc}`tables` and {doc}`arrays`.
 
-tables
-arrays
-```
+:::{hint}
 
-This guide walks through querying & searching registries.
-To understand the links between objects that enable relational queries, see {doc}`organize`.
-To query datasets in storage, see {doc}`tables` and {doc}`arrays`.
+Understand linking entities to enable relational queries, see {doc}`organize`.
+
+:::
 
 ## Basics
 
