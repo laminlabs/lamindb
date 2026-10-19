@@ -6,7 +6,7 @@ import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, cast
 
 from django.core.exceptions import FieldError
 from django.db import connections, models, transaction
@@ -1272,9 +1272,19 @@ class BasicQuerySet(models.QuerySet):
                 id__in=Subquery(id_subquery)
             )
             if subset.query.order_by:
+                from ._feature_manager import FeatureValueOrder
+
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
-                    *subset.query.order_by
+                    *[
+                        item.for_dataframe(subset)
+                        if isinstance(item, FeatureValueOrder)
+                        else item
+                        for item in subset.query.order_by
+                    ]
+                )
+                query_set_without_filters.query.standard_ordering = (
+                    subset.query.standard_ordering
                 )
             if filtered_relations:
                 query_set_without_filters = query_set_without_filters.annotate(
@@ -1627,3 +1637,39 @@ class QuerySet(BasicQuerySet):
                 qs._to_class(BasicQuerySet, copy=True), feature_predicates
             )._to_class(type(qs), copy=False)
         return qs
+
+    def order_by(self, *field_names) -> QuerySet:
+        """Order by registry fields or by feature values.
+
+        A :class:`~lamindb.Feature` orders by that feature's annotated value.
+        `-feature` orders descending. Records without that annotation are
+        excluded. Multiple annotations produce multiple rows; an existing
+        feature filter restricts the values used for ordering. Stored JSON null
+        remains a value. Field names can be mixed in the same call.
+
+        Values use the database's native JSON ordering, without conversion to
+        the feature dtype. On PostgreSQL, dates and datetimes compare as strings.
+        Features configured with `values_through` cannot be used for ordering.
+
+        Example::
+
+            temperature = ln.Feature.get(name="temperature")
+            ln.Artifact.filter().order_by(-temperature, "key")
+        """
+        from .feature import Feature, FeatureOrder
+
+        if not any(isinstance(item, (Feature, FeatureOrder)) for item in field_names):
+            return super().order_by(*field_names)
+
+        from ._feature_manager import feature_order_expressions
+
+        expressions: list[Any] = []
+        for item in field_names:
+            if isinstance(item, Feature):
+                expressions.append(FeatureOrder(item))
+            else:
+                expressions.append(item)
+        if self.query.is_sliced:
+            raise TypeError("Cannot reorder a query once a slice has been taken.")
+        queryset, expressions = feature_order_expressions(self, expressions)
+        return super(QuerySet, cast("QuerySet", queryset)).order_by(*expressions)

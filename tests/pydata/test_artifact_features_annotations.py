@@ -5,6 +5,9 @@ from datetime import date, datetime
 import bionty as bt
 import lamindb as ln
 import pytest
+from django.core.exceptions import FieldError
+from django.db import connections
+from django.db.models import JSONField, Value
 from lamindb.examples.datasets import mini_immuno
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
@@ -132,6 +135,14 @@ def test_artifact_features_add_remove_query():
     assert test_artifact.features["feature_run"] == run
 
     # --- Query by features (same data as above) ---
+    # Only scalar JSON features can be used for ordering.
+    queryset = ln.Artifact.filter(id=test_artifact.id)
+    for feature in (feature_type1, feature_list_str, feature_dict):
+        with pytest.raises(FieldError, match="scalar non-categorical"):
+            queryset.order_by(feature)
+    with pytest.raises(FieldError, match="only supported"):
+        ln.ULabel.filter().order_by(feature_int)
+
     # Equality
     assert ln.Artifact.filter(feature_str="a string value").one() == test_artifact
     assert ln.Artifact.filter(feature_int=42).one() == test_artifact
@@ -468,6 +479,7 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     ifng = ln.ULabel(name="IFNG", type=perturbation_type).save()
     perturbation = ln.Feature(name="perturbation", dtype=perturbation_type).save()
     temperature = ln.Feature(name="temperature", dtype=float).save()
+    note = ln.Feature(name="multi_feature_note", dtype=str).save()
 
     matching_artifact = ln.Artifact(
         ".gitignore",
@@ -477,8 +489,15 @@ def test_artifact_filter_by_multiple_features(query_style: str):
         "pyproject.toml",
         key=f"multi-feature-non-match-{query_style}.toml",
     ).save()
-    matching_artifact.features.set_values({perturbation: dmso, temperature: 22.6})
-    non_matching_artifact.features.set_values({perturbation: ifng, temperature: 20.0})
+    missing = ln.Artifact(
+        ".gitignore", key=f"multi-feature-missing-{query_style}", skip_hash_lookup=True
+    ).save()
+    matching_artifact.features.set_values(
+        {perturbation: dmso, temperature: 22.6, note: "a"}
+    )
+    non_matching_artifact.features.set_values(
+        {perturbation: ifng, temperature: 20.0, note: "b"}
+    )
 
     if query_style == "kwargs":
         queryset = ln.Artifact.filter(perturbation="DMSO", temperature__gt=21)
@@ -491,13 +510,189 @@ def test_artifact_filter_by_multiple_features(query_style: str):
     assert "perturbation" in dataframe.columns
     assert "temperature" in dataframe.columns
 
+    # Ordering uses the same annotations, excludes missing values, and accepts
+    # field tie-breakers. The feature filter must continue to restrict results.
+    subset = ln.Artifact.filter(
+        id__in=[matching_artifact.id, non_matching_artifact.id, missing.id]
+    )
+    ascending = [non_matching_artifact, matching_artifact]
+    descending = list(reversed(ascending))
+    assert list(subset.order_by(temperature)) == ascending
+    assert list(subset.order_by(-temperature)) == descending
+    assert subset.order_by(temperature).count() == 2
+    assert list(subset.order_by(note)) == descending
+    assert list(subset.order_by(temperature, "key")) == ascending
+    assert list(queryset.order_by(-temperature)) == [matching_artifact]
+    assert not hasattr(ln.Artifact, "order_by")
+    frame = subset.order_by(temperature).to_dataframe(include="features", limit=None)
+    assert frame.index.tolist() == [record.id for record in ascending]
+    assert frame.loc[matching_artifact.id, temperature.name] == 22.6
+    assert frame.loc[non_matching_artifact.id, temperature.name] == 20.0
+    limited = subset.order_by(-temperature).to_dataframe(include="features")
+    assert limited.index.tolist() == [record.id for record in descending]
+
+    missing.delete(permanent=True)
     non_matching_artifact.delete(permanent=True)
     matching_artifact.delete(permanent=True)
+    note.delete(permanent=True)
     temperature.delete(permanent=True)
     perturbation.delete(permanent=True)
     ifng.delete(permanent=True)
     dmso.delete(permanent=True)
     perturbation_type.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "dtype, values",
+    [
+        ("int", [2**63 - 2, 2**63 - 1]),
+        ("float", [2.0, 10.0]),
+        ("str", ["10", "2"]),
+        ("bool", [False, True]),
+        ("date", [date(2024, 1, 1), date(2024, 1, 2)]),
+        (
+            "datetime64[ns, UTC]",
+            [
+                # JSON strings sort in the opposite order to these instants.
+                datetime.fromisoformat("2024-01-01T11:00:00+00:00"),
+                datetime.fromisoformat("2024-01-01T12:00:00+02:00"),
+            ],
+        ),
+    ],
+)
+def test_order_by_feature_json_values(dtype, values):
+    feature = ln.Feature(name="order_by_json_value", dtype=dtype).save()
+    artifacts = []
+    try:
+        # Reverse creation order so treating distinct JSON values as ties fails.
+        for value in reversed(values):
+            artifact = ln.Artifact(
+                ".gitignore",
+                key=f"order-by-json-value-{len(artifacts)}",
+                skip_hash_lookup=True,
+            ).save()
+            artifacts.append(artifact)
+            artifact.features.set_values({feature: value})
+        missing = ln.Artifact(
+            ".gitignore", key="order-by-json-value-missing", skip_hash_lookup=True
+        ).save()
+        artifacts.append(missing)
+
+        qs = ln.Artifact.filter(id__in=[artifact.id for artifact in artifacts])
+        ascending = list(reversed(artifacts[:-1]))
+        if dtype == "float" and connections[qs.db].vendor == "sqlite":
+            ascending.reverse()
+        assert list(qs.order_by(feature, "id")) == ascending
+        assert list(qs.order_by(-feature, "-id")) == list(reversed(ascending))
+    finally:
+        for artifact in artifacts:
+            artifact.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("model", [ln.Artifact, ln.Run])
+def test_order_by_feature_reuses_matching_annotations(model):
+    temperature = ln.Feature(name="order_multi_temperature", dtype=int).save()
+    note = ln.Feature(name="order_multi_note", dtype=str).save()
+    transform = (
+        ln.Transform(key="order-multi-transform").save() if model is ln.Run else None
+    )
+    records = []
+    try:
+        for label in ("multi", "single", "missing"):
+            if model is ln.Artifact:
+                record = model(
+                    ".gitignore", key=f"order-multi-{label}", skip_hash_lookup=True
+                ).save()
+            elif model is ln.Run:
+                record = model(transform, name=f"order-multi-{label}").save()
+            records.append(record)
+        multi, single, missing = records
+        multi.features.add_values({temperature: 20, note: "b"})
+        multi.features.add_values({temperature: 25})
+        single.features.add_values({temperature: 22, note: "a"})
+        subset = model.filter(id__in=[record.id for record in records])
+        original_query = str(subset.query)
+
+        assert list(subset.order_by(temperature)) == [multi, single, multi]
+        assert list(subset.order_by(-temperature)) == [multi, single, multi]
+        assert subset.order_by(temperature).count() == 3
+        assert list(subset.order_by(temperature)[:2]) == [multi, single]
+        assert list(subset.order_by(note, temperature)) == [single, multi, multi]
+        assert list(subset.order_by(temperature, note)) == [multi, single, multi]
+        assert str(subset.query) == original_query
+
+        matched = subset.filter(temperature > 21)
+        assert list(matched.order_by(temperature)) == [single, multi]
+        assert list(matched.order_by(-temperature)) == [multi, single]
+        assert matched.order_by(temperature).count() == matched.count() == 2
+        assert list(matched.filter(note == "b").order_by(temperature)) == [multi]
+        assert list(
+            subset.filter(**{f"{temperature.name}__gt": 21}).order_by(temperature)
+        ) == [single, multi]
+        assert list(matched.order_by(temperature).order_by(-temperature)) == [
+            multi,
+            single,
+        ]
+        assert list(
+            subset.filter(temperature > 19)
+            .filter(temperature < 24)
+            .order_by(temperature)
+        ) == [multi, single]
+        assert list(matched.filter(temperature < 30).order_by(temperature)) == [
+            single,
+            multi,
+            multi,
+        ]
+        # Feature export rebuilds its query. Keep ordering tied to the original
+        # matching annotation, including when another filter adds a second join.
+        assert matched.order_by(temperature).to_dataframe(
+            features=[note.name], limit=None
+        ).index.tolist() == [single.id, multi.id]
+        assert matched.filter(note == "b").order_by(temperature).to_dataframe(
+            features=[note.name], limit=None
+        ).index.tolist() == [multi.id]
+        assert subset.order_by(-temperature).to_dataframe(
+            features=[note.name], limit=None
+        ).index.tolist() == [multi.id, single.id]
+        assert subset.order_by(temperature)[1:].to_dataframe(
+            features=[note.name], limit=None
+        ).index.tolist() == [single.id, multi.id]
+
+        # Export preserves reverse(), including mixed ordering and sliced ranks.
+        for limit in (None, 2):
+            reversed_qs = matched.order_by(temperature, "id").reverse()
+            assert reversed_qs.to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [multi.id, single.id]
+            assert reversed_qs.reverse().to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [single.id, multi.id]
+            assert matched.order_by(-temperature, "-id").reverse().to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [single.id, multi.id]
+            assert subset.order_by(note, temperature).reverse()[1:].to_dataframe(
+                features=[note.name], limit=limit
+            ).index.tolist() == [multi.id, single.id]
+
+        # The existing exporter collapses repeated IDs even with no finite limit.
+        assert subset.order_by(temperature).to_dataframe(limit=None).index.tolist() == [
+            multi.id,
+            single.id,
+        ]
+        assert subset.order_by(temperature).to_dataframe().index.tolist() == [
+            multi.id,
+            single.id,
+        ]
+        with pytest.raises(TypeError, match="Cannot reorder"):
+            subset.all()[:1].order_by(temperature)
+    finally:
+        for record in records:
+            record.delete(permanent=True)
+        if transform is not None:
+            transform.delete(permanent=True)
+        temperature.delete(permanent=True)
+        note.delete(permanent=True)
 
 
 def test_feature_predicate_queries_safe_hybrid():
@@ -596,6 +791,32 @@ def test_feature_predicate_is_null():
 
     with pytest.raises(TypeError):
         perturbation.is_null("false")  # type: ignore[arg-type]
+
+    if connections["default"].vendor == "postgresql":
+        # JSON null is an annotation value, not an absent annotation. Insert it
+        # explicitly because add_values() skips Python None.
+        stored_null = ln.Artifact(
+            ".gitignore", key="isnull-json-null-artifact", skip_hash_lookup=True
+        ).save()
+        try:
+            stored_null.json_values.add(
+                ln.models.JsonValue.objects.create(
+                    feature=score, value=Value(None, output_field=JSONField())
+                )
+            )
+            subset = ln.Artifact.filter(
+                id__in=[annotated.id, not_annotated.id, stored_null.id]
+            )
+            assert list(subset.order_by(score)) == [stored_null, annotated]
+            assert list(subset.order_by(-score)) == [annotated, stored_null]
+            assert list(subset.filter(score < 3).order_by(score)) == [stored_null]
+            assert list(subset.filter(score.is_null()).order_by(score)) == []
+            assert list(subset.filter(score.is_null(False)).order_by(score)) == [
+                stored_null,
+                annotated,
+            ]
+        finally:
+            stored_null.delete(permanent=True)
 
     not_annotated.delete(permanent=True)
     annotated.delete(permanent=True)

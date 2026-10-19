@@ -4,6 +4,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from django.core.exceptions import FieldError
 from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models import LabelManager
 from lamindb.models.feature import (
@@ -153,6 +154,13 @@ def test_feature_values_through_roundtrip():
         reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
         assert reloaded_books_feature.values_through.uid == author_feature.uid
 
+        # Derived features cannot be used for ordering, including after reload.
+        for model in (ln.Artifact, ln.Run, ln.Record):
+            for feature in (books_feature, reloaded_books_feature):
+                for ordering in (feature, -feature):
+                    with pytest.raises(FieldError, match="values_through"):
+                        model.filter().order_by(ordering)
+
         # Clearing values_through should remove both forward and reverse relation metadata.
         books_feature.values_through = None
         books_feature.save()
@@ -183,6 +191,12 @@ def test_feature_values_through_sqlrecord_field_roundtrip():
         assert reloaded.values_through == "created_at"
         assert reloaded._aux["sf"] == "created_at"
         assert get_feature_sqlrecord_field(reloaded) == "created_at"
+
+        for model in (ln.Artifact, ln.Run, ln.Record):
+            for mapped in (feature, reloaded):
+                for ordering in (mapped, -mapped):
+                    with pytest.raises(FieldError, match="values_through"):
+                        model.filter().order_by(ordering)
 
         feature.values_through = None
         feature.save()
@@ -256,6 +270,10 @@ def test_feature_predicate_cannot_cast_to_bool():
         match="Feature predicates cannot be used as booleans",
     ):
         bool(predicate)
+    with pytest.raises(
+        TypeError, match="Feature order expressions cannot be used as booleans"
+    ):
+        bool(-feature)
 
 
 def test_should_build_model_predicate_returns_false_for_type_features():

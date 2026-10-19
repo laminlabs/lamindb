@@ -6,7 +6,9 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import IntegrityError, InternalError
+from django.core.exceptions import FieldError
+from django.db import IntegrityError, InternalError, connections
+from django.db.models import JSONField, Value
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
@@ -1035,6 +1037,10 @@ def test_record_feature_values_through_store_on_record_columns():
     assert record.created_at == ts
     assert record.reference == "https://example.org/records/123"
     assert record.reference_type == "url"
+    # Mapped values can be ordered as registry fields, but not as features.
+    with pytest.raises(FieldError, match="values_through"):
+        ln.Record.filter(id=record.id).order_by(mapped_reference)
+    assert list(ln.Record.filter(id=record.id).order_by("reference")) == [record]
     assert (
         ln.models.RecordJson.filter(record=record, feature=mapped_created_at).count()
         == 0
@@ -2922,7 +2928,7 @@ def test_only_list_type_features_and_field_qualifiers():
     uberon5172.delete(permanent=True)
 
 
-def test_record_feature_predicate_query():
+def test_record_feature_predicate_query(ccaplog):
     age = ln.Feature(name="pred_record_age", dtype=int).save()
     record_type = ln.Record(name="PredRecordType", is_type=True).save()
     record_a = ln.Record(name="pred_record_a", type=record_type).save()
@@ -2943,6 +2949,41 @@ def test_record_feature_predicate_query():
     assert record_c in ln.Record.filter(age.is_null())
     assert record_a not in ln.Record.filter(age.is_null())
     assert record_b not in ln.Record.filter(age.is_null())
+
+    # Reuse the same records to check ordering after values have changed.
+    record_a.features.set_values({age: 2})
+    subset = ln.Record.filter(type=record_type)
+    ascending = (
+        [record_b, record_a]
+        if connections[subset.db].vendor == "sqlite"
+        else [record_a, record_b]
+    )
+    assert list(subset.order_by(age)) == ascending
+    assert list(subset.order_by(-age)) == list(reversed(ascending))
+    assert list(subset.filter(age > 5).order_by(age)) == [record_b]
+    frame = subset.order_by(age).to_dataframe(include="features", limit=None)
+    assert "falling back to generic Record queryset export" not in ccaplog.text
+    assert frame.index.tolist() == [record.id for record in ascending]
+    assert frame.loc[record_a.id, age.name] == 2
+
+    if connections[subset.db].vendor == "postgresql":
+        stored_null = ln.Record(name="pred_record_json_null", type=record_type).save()
+        try:
+            ln.models.RecordJson.objects.create(
+                record=stored_null,
+                feature=age,
+                value=Value(None, output_field=JSONField()),
+            )
+            assert list(subset.order_by(age)) == [stored_null, *ascending]
+            assert list(subset.order_by(-age)) == [*reversed(ascending), stored_null]
+            assert list(subset.filter(age < 1).order_by(age)) == [stored_null]
+            assert list(subset.filter(age.is_null()).order_by(age)) == []
+            assert list(subset.filter(age.is_null(False)).order_by(age)) == [
+                stored_null,
+                *ascending,
+            ]
+        finally:
+            stored_null.delete(permanent=True)
 
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
