@@ -2248,9 +2248,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     # Keep tracked state aligned with this internal dedup-time key
                     # normalization so save() doesn't treat it as a user key edit.
                     self._original_values["key"] = key
-                    assert self.path.exists(), (  # noqa: S101
+                    assert self.path.exists(), (
                         f"The underlying file for artifact {self} does not exist anymore, clean up the artifact record."
-                    )  # noqa: S101
+                    )
                 else:
                     logger.warning(
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup=True if you want to duplicate the artifact"
