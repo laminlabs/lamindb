@@ -30,7 +30,7 @@ How?
 - **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, …
 - **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & versioning
 
-Architecture?
+Architecture? → [docs](https://docs.lamin.ai/architecture)
 
 - **zero lock-in** → open source, using open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
@@ -43,8 +43,6 @@ Architecture?
 - **decoupled compute** → run your favorite engine (Polars, DuckDB, data loaders, ...) with all its benefits
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
-
-Read more: [docs.lamin.ai/architecture](https://docs.lamin.ai/architecture).
 
 <details>
 <summary>Who?</summary>
