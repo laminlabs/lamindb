@@ -4,6 +4,49 @@ import lamindb as ln
 import pytest
 
 
+@pytest.mark.parametrize("suffix", ["", ".html", ".txt"])
+@pytest.mark.parametrize("is_ipython", [False, True])
+def test_describe_run_report(tmp_path, monkeypatch, suffix, is_ipython):
+    from IPython.display import HTML
+    from lamindb.core import loaders
+
+    displayed = []
+    monkeypatch.setattr(loaders, "is_run_from_ipython", is_ipython)
+    monkeypatch.setattr("IPython.display.display", displayed.append)
+    report_path = tmp_path / f"report{suffix}"
+    content = "run report content"
+    if suffix == "":
+        report_path.mkdir()
+        html_path = report_path / "index.html"
+        (report_path / "trace.jsonl").write_text('{"role": "user"}\n')
+    else:
+        html_path = report_path
+    html_path.write_text(
+        content if suffix == ".txt" else f"<html><body>{content}</body></html>"
+    )
+    artifact = ln.Artifact(report_path, description="run report", run=False).save()
+    transform = ln.Transform(key="describe_run_report.py").save()
+    run = ln.Run(transform, report=artifact).save()
+    try:
+        description = run.describe(return_str=True)
+        if suffix == ".txt":
+            assert content in description
+            assert displayed == []
+        elif is_ipython:
+            assert len(displayed) == 1
+            assert isinstance(displayed[0], HTML)
+            assert content in displayed[0].data
+        else:
+            assert f"report: {artifact.uid[:7]}" in description
+            assert displayed == []
+    finally:
+        run.report = None
+        run.save()
+        run.delete(permanent=True)
+        artifact.delete(permanent=True)
+        transform.delete(permanent=True)
+
+
 def _wait_for_artifact_cleanup(*artifact_uids: str, timeout: float = 10.0) -> None:
     """Poll until report/env artifacts are deleted by the background cleanup subprocess.
 

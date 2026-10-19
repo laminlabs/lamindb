@@ -26,7 +26,7 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str
+from lamindb.base.dtypes import check_dtype, check_pandera_str, is_dict_value
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.base.utils import get_registry_name
 from lamindb.core._compat import is_polars_dataframe
@@ -54,6 +54,7 @@ from lamindb.models.feature import (
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
+from lamindb.models.schema import EXTERNAL_SLOT, external_slot_schema
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -471,7 +472,10 @@ class Curator:
         # self._dataset is set below, it is opened or loaded if dataset is an Artifact
         if isinstance(dataset, Artifact):
             self._artifact = dataset
-            if self._artifact.otype in {
+            if self._artifact.otype == "tiledbsoma":
+                # A SOMA store stays on disk. Open it instead of loading a copy.
+                self._dataset = self._artifact.open(mode="r")
+            elif self._artifact.otype in {
                 "DataFrame",
                 "AnnData",
                 "MuData",
@@ -622,23 +626,11 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if "__external__" in self._schema.slots:
-            validation_schema = self._schema.slots["__external__"]
-            if not self._external_features:
-                if self._artifact is not None and not self._artifact._state.adding:
-                    logger.important(
-                        "no new external features provided, using existing external features of artifact for validation"
-                    )
-                    self._external_features = self._artifact.features.get_values(
-                        external_only=True
-                    )
-                else:
-                    raise ValidationError(
-                        "External features slot is defined in schema but no external features were provided."
-                    )
-            ExperimentalDictCurator(
-                self._external_features, validation_schema
-            ).validate()
+        external_features = validate_external_features(
+            self._schema, self._external_features, self._artifact
+        )
+        if external_features is not None:
+            self._external_features = external_features
         for slot, curator in self._slots.items():
             logger.debug(f"validating slot {slot} ...")
             curator.validate()
@@ -722,13 +714,36 @@ def _check_sqlrecord_type(value: SQLRecord, feature: Feature) -> None:
         return
     registry = parsed[0]["registry"]
     type_record = registry.objects.using(feature._state.db).get(uid=type_uid)
-    if value.type_id != type_record.id:
-        actual = getattr(value, "type", None)
-        raise ValidationError(
-            f"Expected a record of type '{type_record.name}' "
-            f"for feature '{feature.name}', but received "
-            f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
-        )
+    if _sqlrecord_matches_feature_type(value, type_record):
+        return
+    actual = getattr(value, "type", None)
+    raise ValidationError(
+        f"Expected a record of type '{type_record.name}' "
+        f"for feature '{feature.name}', but received "
+        f"'{value.name}' of type '{getattr(actual, 'name', None)}'."
+    )
+
+
+def _sqlrecord_matches_feature_type(value: SQLRecord, type_record: SQLRecord) -> bool:
+    """Whether ``value`` is ``type_record`` or a record on a sheet under it.
+
+    Name lookup already accepts those sheet records via ``query_records``. The
+    SQLRecord fast path has to use the same rule, or linking a row from a
+    record frame fails even though the label string would pass.
+    """
+    if getattr(value, "type_id", None) == type_record.id:
+        return True
+    if value.pk is None:
+        return False
+    from lamindb.base.utils import get_registry_name
+
+    query_subtypes = getattr(
+        type_record, f"query_{get_registry_name(type_record).lower()}s", None
+    )
+    if query_subtypes is None:
+        return False
+    # Record queries reject `pk`; the primary key field is `id`.
+    return query_subtypes().filter(id=value.id).exists()
 
 
 def _check_sqlrecord_type_in_list(values: list, feature: Feature) -> None:
@@ -738,10 +753,40 @@ def _check_sqlrecord_type_in_list(values: list, feature: Feature) -> None:
             _check_sqlrecord_type(v, feature)
 
 
-def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
+class _UnsetIndex:
+    """Index argument that still has to be read from the schema."""
+
+
+_UNSET_INDEX = _UnsetIndex()
+
+
+def _passed_index(
+    schema: Schema, index: Feature | None | _UnsetIndex
+) -> Feature | None:
+    if isinstance(index, _UnsetIndex):
+        return schema.index
+    return index
+
+
+def _duplicate_feature_names(features: list[Feature]) -> list[str]:
+    """Names used by more than one feature in this fixed list."""
+    counts: dict[str, int] = {}
+    for feature in features:
+        counts[feature.name] = counts.get(feature.name, 0) + 1
+    return [name for name, count in counts.items() if count > 1]
+
+
+def convert_dict_to_dataframe_for_validation(
+    d: dict,
+    schema: Schema,
+    *,
+    members: list[Feature] | None = None,
+    index: Feature | None | _UnsetIndex = _UNSET_INDEX,
+) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
     d = dict(d)
-    index_feature = schema.index
+    index_feature = _passed_index(schema, index)
+    feature_list = schema.members if members is None else members
     if index_feature is not None and index_feature.name in d:
         index_value = d.pop(index_feature.name)
         df = pd.DataFrame([d])
@@ -753,9 +798,9 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     index_is_row_name = (
         index_feature is not None and df.index.name == index_feature.name
     )
-    for feature in schema.members:
-        # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        if feature.dtype_as_str.startswith("cat"):
+    for feature in feature_list:
+        # Validate categorical record types for both to-one and to-many features.
+        if feature.dtype_as_str.startswith(("cat", "list[cat")):
             if feature.name in df.columns:
                 value = (
                     df[feature.name].iloc[0]
@@ -772,7 +817,12 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
                         )
                     if isinstance(value, SQLRecord):
                         _check_sqlrecord_type(value, feature)
-                    df[feature.name] = pd.Categorical(df[feature.name])
+                    # List-valued cells are unhashable and cannot be pandas categories.
+                    if not feature.dtype_as_str.startswith("list["):
+                        df[feature.name] = pd.Categorical(df[feature.name])
+        elif feature.dtype_as_str == "dict" and feature.name in df.columns:
+            # pandas 3 infers strings as str; dict validation expects object.
+            df[feature.name] = df[feature.name].astype(object)
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
             feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
@@ -807,18 +857,21 @@ class ComponentCurator(Curator):
         slot: str | None = None,
         require_saved_schema: bool = True,
         using: str | None = None,
+        members: list[Feature] | None = None,
+        index: Feature | None | _UnsetIndex = _UNSET_INDEX,
     ) -> None:
         super().__init__(
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
         self._using = using
+        index_feature = _passed_index(schema, index)
         self._is_polars = is_polars_dataframe(self._dataset)
         if self._is_polars:
             from pandera import polars as polars_pandera
 
             from ._polars import column as polars_column
 
-            if schema.index is not None:
+            if index_feature is not None:
                 raise InvalidArgument(
                     "Polars frames do not have an index. Use a column feature instead of Schema.index."
                 )
@@ -853,14 +906,15 @@ class ComponentCurator(Curator):
             feature_ids = {feature.id for feature in features}
 
         if schema.n_members and schema.n_members > 0:
+            member_list = schema.members.to_list() if members is None else members
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
-                    for feature in schema.members.to_list()
+                    for feature in member_list
                     if feature.uid != schema._index_feature_uid  # type: ignore
                 ]
             else:
-                schema_features = schema.members.to_list()  # type: ignore
+                schema_features = list(member_list)
             if feature_ids:
                 # Schema features take precedence over flexible-fetched features
                 # of the same name. Remove any flexible-fetched feature whose name
@@ -880,7 +934,7 @@ class ComponentCurator(Curator):
         self._coercion_requested = bool(schema.coerce) or any(
             feature.coerce for feature in features
         )
-        if schema.index is not None and schema.index.coerce:
+        if index_feature is not None and index_feature.coerce:
             self._coercion_requested = True
 
         pandera_columns = {}
@@ -962,10 +1016,8 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                         checks=pandera.Check(
-                            lambda s: s.dropna()
-                            .apply(lambda x: isinstance(x, dict))
-                            .all(),
-                            error="Non-null values must be dicts",
+                            lambda s: s.dropna().apply(is_dict_value).all(),
+                            error="Non-null values must be dicts or strings representing dicts",
                         ),
                     )
                 else:
@@ -998,15 +1050,15 @@ class ComponentCurator(Curator):
                         categoricals.append(feature)
             # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
             # so, we're typing it as `str` here
-            if schema.index is not None:
+            if index_feature is not None:
                 index_dtype = (
                     "str"
-                    if schema.index._dtype_str.startswith("cat")
-                    else schema.index._dtype_str
+                    if index_feature._dtype_str.startswith("cat")
+                    else index_feature._dtype_str
                 )
                 if index_dtype == "str":
                     # same str rules as columns (incl. empty default RangeIndex)
-                    index = pandera.Index(
+                    pandera_index = pandera.Index(
                         dtype=None,
                         checks=pandera.Check(
                             check_pandera_str,
@@ -1015,13 +1067,15 @@ class ComponentCurator(Curator):
                         ),
                     )
                 elif index_dtype == "int":
-                    index = pandera.Index(AnyInt(), coerce=schema.index.coerce)
+                    pandera_index = pandera.Index(AnyInt(), coerce=index_feature.coerce)
                 elif index_dtype == "float":
-                    index = pandera.Index(AnyFloat(), coerce=schema.index.coerce)
+                    pandera_index = pandera.Index(
+                        AnyFloat(), coerce=index_feature.coerce
+                    )
                 else:
-                    index = pandera.Index(index_dtype)
+                    pandera_index = pandera.Index(index_dtype)
             else:
-                index = None
+                pandera_index = None
             if schema.maximal_set:
                 # allow any columns starting with "__lamindb" even if maximal_set is True
                 backend = polars_pandera if self._is_polars else pandera
@@ -1040,7 +1094,7 @@ class ComponentCurator(Curator):
             else:
                 self._pandera_schema = pandera.DataFrameSchema(
                     pandera_columns,
-                    index=index,
+                    index=pandera_index,
                     coerce=schema.coerce,
                     strict=schema.maximal_set,
                     ordered=schema.ordered_set,
@@ -1058,7 +1112,7 @@ class ComponentCurator(Curator):
             self._dataset,
             columns_field=columns_field,
             categoricals=categoricals,
-            index=schema.index,
+            index=index_feature,
             slot=slot,
             using=using,
             maximal_set=schema.maximal_set,
@@ -1264,6 +1318,8 @@ class DataFrameCurator(SlotsCurator):
         features: dict[str, Any] | None = None,
         require_saved_schema: bool = True,
         using: str | None = None,
+        members: list[Feature] | None = None,
+        index: Feature | None | _UnsetIndex = _UNSET_INDEX,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
         super().__init__(
@@ -1280,6 +1336,8 @@ class DataFrameCurator(SlotsCurator):
             slot=slot,
             require_saved_schema=require_saved_schema,
             using=using,
+            members=members,
+            index=index,
         )
         self._dataset = self._atomic_curator._dataset
         # Handle (nested) attrs
@@ -1308,7 +1366,7 @@ class DataFrameCurator(SlotsCurator):
                             require_saved_schema=require_saved_schema,
                             using=using,
                         )
-                elif slot_name != "__external__":
+                elif slot_name != EXTERNAL_SLOT:
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
                     )
@@ -1359,7 +1417,7 @@ class DataFrameCurator(SlotsCurator):
             del self._slots["columns"]
 
 
-class ExperimentalDictCurator(DataFrameCurator):
+class DictCurator(DataFrameCurator):
     """Curator for `dict` based on `DataFrameCurator`."""
 
     def __init__(
@@ -1371,24 +1429,66 @@ class ExperimentalDictCurator(DataFrameCurator):
         using: str | None = None,
         key_label: str = "items",
         validate_keys: bool = False,
+        *,
+        members: list[Feature] | None = None,
+        index: Feature | None | _UnsetIndex = _UNSET_INDEX,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
         if isinstance(dataset, Artifact):
             assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
-            d = dataset.load(is_run_input=False)
+            d = cast(dict, dataset.load(is_run_input=False))
         else:
             d = dataset
-        df = convert_dict_to_dataframe_for_validation(d, schema)  # type: ignore
+        if members is None:
+            members = list(schema.members)
+        index_feature = _passed_index(schema, index)
+        duplicates = _duplicate_feature_names(members)
+        if duplicates:
+            rendered = ", ".join(repr(name) for name in duplicates)
+            raise ValidationError(f"features {rendered} share a name")
+        df = convert_dict_to_dataframe_for_validation(
+            d, schema, members=members, index=index_feature
+        )
         super().__init__(
             df,
             schema,
             slot=slot,
             require_saved_schema=require_saved_schema,
             using=using,
+            members=members,
+            index=index_feature,
         )
         self._atomic_curator.cat._cat_vectors["columns"]._key = key_label
         self._atomic_curator.cat._validate_columns = validate_keys
+
+
+def validate_external_features(
+    schema: Schema,
+    features: dict[str, Any] | None,
+    artifact: Artifact | None = None,
+) -> dict[str, Any] | None:
+    """Validate features against a schema's `__external__` slot.
+
+    Returns the feature dictionary when the slot exists, including values read
+    from a saved artifact when none were passed. Returns `None` when the schema
+    has no external slot.
+    """
+    slot_schema = external_slot_schema(schema)
+    if slot_schema is None:
+        return None
+    if not features:
+        if artifact is not None and not artifact._state.adding:
+            logger.important(
+                "no new external features provided, using existing external features of artifact for validation"
+            )
+            features = artifact.features.get_values(external_only=True)
+        else:
+            raise ValidationError(
+                "External features slot is defined in schema but no external features were provided."
+            )
+    DictCurator(features, slot_schema).validate()
+    return features
 
 
 def _resolve_schema_slot_path(
@@ -1497,6 +1597,7 @@ class AnnDataCurator(SlotsCurator):
     Args:
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the `__external__` slot.
 
     Examples:
 
@@ -1520,14 +1621,18 @@ class AnnDataCurator(SlotsCurator):
         self,
         dataset: AnnData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             if slot not in {"var", "var.T", "obs"} and not slot.startswith("uns"):
                 raise ValueError(
                     f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns', not {slot}"
@@ -1606,6 +1711,7 @@ class MuDataCurator(SlotsCurator):
     Args:
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the `__external__` slot.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1620,14 +1726,18 @@ class MuDataCurator(SlotsCurator):
         self,
         dataset: MuData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             # Handle slots: "mdata.uns", "modality:uns"
             if "uns" in slot:
                 df, modality, modality_slot = _handle_dict_slots(self._dataset, slot)
@@ -1692,6 +1802,7 @@ class SpatialDataCurator(SlotsCurator):
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the `__external__` slot.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -1707,14 +1818,18 @@ class SpatialDataCurator(SlotsCurator):
         self,
         dataset: SpatialData | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             # Handle slots: "sdata:attrs"
             if slot.startswith("attrs"):
                 df, table_key, table_slot = _handle_dict_slots(self._dataset, slot)
@@ -1797,6 +1912,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
     Args:
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External feature values for the `__external__` slot.
 
     Example:
 
@@ -1812,14 +1928,18 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         self,
         dataset: SOMAExperiment | Artifact,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         if not data_is_soma_experiment(self._dataset):
             raise InvalidArgument("dataset must be SOMAExperiment-like.")
         if schema.otype != "tiledbsoma":
             raise InvalidArgument("Schema otype must be 'tiledbsoma'.")
 
         for slot, slot_schema in schema.slots.items():
+            if slot == EXTERNAL_SLOT:
+                continue
             if slot.startswith("ms:"):
                 _, modality_slot = slot.split(":")
                 schema_dataset = (

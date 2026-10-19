@@ -49,27 +49,46 @@ def sync(
     If `"annotations"`, the object and its annotations are copied, that is, the object's features,
     labels, and, for a schema, its members.
 
-    **Example:** If you pass `transfer="sqlrecord"` upon transferring an artifact, the following foreign keys are transferred:
+    How foreign keys land on the target
+    ------------------------------------
+
+    Most foreign keys are copied. When the related row is missing on the target, transfer creates it.
+    A missing type is inserted as a stub. A `Record` data record is the exception: transfer its type
+    first, because that type carries the schema. `.run` and `.transform` point at the transfer run
+    on the target.
+
+    `space`, `branch`, and `created_on` are handled differently from those foreign keys.
+
+    - `space` is mapped by uid. Transfer raises
+      :class:`~lamindb.setup.errors.NoWriteAccess` when that space is not attached to the target
+      database. Attach the space, then re-run the sync. Transfer does not create a space.
+    - `branch` and `created_on` are each mapped by uid when that branch already exists
+      on the target. The built-in branches `main`, `archive`, and `trash` always do.
+      When a uid is absent, that field is set to the current branch of the transfer.
+      Transfer does not create a branch.
+
+    **Example:** `transfer="sqlrecord"` on an artifact copies these foreign keys.
+    `.run` in the diagram is the transfer run on the target, not the source run.
+    `space`, `branch`, and `created_on` follow the rules above.
 
     .. code-block:: mermaid
+       :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|storage| storage("Storage")
-         artifact -->|branch| branch("Branch")
+         artifact("Artifact"):::focal -->|storage| storage("Storage")
          artifact -->|created_by| user("User")
-         artifact -->|created_on| created_on("Branch")
          artifact -->|run| run("Run")
          artifact -->|schema| schema("Schema")
-         artifact -->|space| space("Space")
 
     If you pass `transfer="annotations"` upon transferring an artifact, its many-to-many relationships are transferred.
     Those contain all label & feature annotations but also inferred schemas via `.schemas`.
     Some of the many-to-many relationships of an artifact are shown below:
 
     .. code-block:: mermaid
+       :class: mermaid-medium-fixed-height
 
        flowchart TD
-         artifact("Artifact") -->|ulabels| ulabels("ULabel")
+         artifact("Artifact"):::focal -->|ulabels| ulabels("ULabel")
          artifact -->|records| records("Record")
          artifact -->|projects| projects("Project")
          artifact -->|users| users("User")

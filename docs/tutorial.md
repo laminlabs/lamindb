@@ -290,7 +290,7 @@ To restore it, call `artifact.restore()`. For archive/trash semantics and query 
 You can understand where an artifact comes from by looking at its {class}`~lamindb.Transform` & {class}`~lamindb.Run` attributes:
 
 ```python
-artifact.transform
+artifact.run.transform
 ```
 
 ```python

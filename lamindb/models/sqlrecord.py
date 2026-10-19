@@ -201,7 +201,59 @@ class IsLink:
     pass
 
 
-class HasType(models.Model):
+class HasEmoji:
+    """Mixin for objects that store an emoji in `_aux["ei"]`.
+
+    `HasType` registries and :class:`~lamindb.Branch` use it.
+    """
+
+    # Subclasses define the field. Declaring it here gives mypy a type.
+    _aux: dict[str, Any] | None
+
+    @property
+    def emoji(self) -> str | None:
+        """Emoji stored in `_aux["ei"]`.
+
+        `None` when unset. Assign a string to set it and `None` to remove it.
+        A blank string also removes it. Other `_aux` keys are kept, and `_aux`
+        becomes `None` when the emoji was its only key.
+
+        Example::
+
+            record.emoji = "🧬"
+            record.emoji = None
+        """
+        aux = self._aux
+        if not isinstance(aux, dict):
+            return None
+        emoji = aux.get("ei")
+        if not isinstance(emoji, str):
+            return None
+        emoji = emoji.strip()
+        return emoji or None
+
+    @emoji.setter
+    def emoji(self, value: str | None) -> None:
+        if value is None:
+            emoji = None
+        elif isinstance(value, str):
+            emoji = value.strip() or None
+        else:
+            raise ValueError(f"emoji must be a str or None, got {type(value).__name__}")
+        aux = self._aux if isinstance(self._aux, dict) else None
+        if emoji is None:
+            if aux is None or "ei" not in aux:
+                return
+            aux = dict(aux)
+            del aux["ei"]
+            self._aux = aux or None
+            return
+        aux = {} if aux is None else dict(aux)
+        aux["ei"] = emoji
+        self._aux = aux
+
+
+class HasType(HasEmoji, models.Model):
     """Mixin for registries that have a hierarchical `type` assigned.
 
     Such registries have a `.type` foreign key pointing to themselves.
@@ -216,6 +268,9 @@ class HasType(models.Model):
         experiment_type = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+
+    A newly created record inherits the emoji of its `type` (`.emoji`)
+    when it does not set one itself.
     """
 
     class Meta:
@@ -400,6 +455,21 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     if isinstance(ss, str) and ss:
         return Space.get(ss)
     return None
+
+
+def _inherit_type_emoji(record: models.Model) -> None:
+    """Copy the type emoji onto a new record that does not already have one."""
+    if not isinstance(record, HasType) or record.emoji is not None:
+        return
+    type_record = getattr(record, "type", None)
+    if isinstance(type_record, HasType) and type_record.emoji is not None:
+        record.emoji = type_record.emoji
+
+
+def _prepare_hastype_create_kwargs(record: models.Model, kwargs: dict) -> None:
+    """Drop an unset `type` before Django init."""
+    if isinstance(record, HasType) and kwargs["type"] is UNSET:
+        kwargs.pop("type")
 
 
 def deferred_attribute__repr__(self):
@@ -1284,10 +1354,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the current one), so the record is created on that branch.
                     kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
-                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
-                if isinstance(self, HasType) and kwargs["type"] is UNSET:
-                    kwargs.pop("type")
+                # FK descriptors reject UNSET.
+                _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _inherit_type_emoji(self)
             else:
                 from ..core._settings import settings
                 from .can_curate import CanCurate
@@ -1343,10 +1413,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             # track original values after replacing with the existing record
                             self._populate_tracked_fields()
                             return None
-                # strip UNSET just before Django sees kwargs — FK descriptors reject non-model values
-                if isinstance(self, HasType) and kwargs["type"] is UNSET:
-                    kwargs.pop("type")
+                # FK descriptors reject UNSET.
+                _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _inherit_type_emoji(self)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators
                     try:
@@ -2009,7 +2079,7 @@ class Space(BaseSQLRecord):
         super().__init__(*args, **kwargs)
 
 
-class Branch(BaseSQLRecord):
+class Branch(BaseSQLRecord, HasEmoji):
     """Branches for change management with archive and trash states.
 
     Every :class:`~lamindb.models.SQLRecord` object lives on a branch that determines

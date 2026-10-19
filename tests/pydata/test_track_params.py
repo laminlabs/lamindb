@@ -180,7 +180,7 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
         def validate(self):
             return None
 
-    monkeypatch.setattr("lamindb.curators.core.ExperimentalDictCurator", DummyCurator)
+    monkeypatch.setattr("lamindb.curators.core.DictCurator", DummyCurator)
     valid_keys, invalid_reasons = _validate_with_virtual_schema(
         {"count": 1}, {"count": int}
     )

@@ -53,6 +53,11 @@ To sync annotations in addition to the bare object, pass the `--transfer` / `tra
 
 You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. For details, see {func}`~lamindb.core.sync`.
 
+`space`, `branch`, and `created_on` are handled differently from every other foreign key. Other foreign keys, such as `created_by`, `storage`, `schema`, and `type`, are copied, and a missing row is created on the target.
+
+- **Space.** Mapped by uid. When that space is not attached to the target database, sync raises. Attach the space, then sync again. Sync does not create a space.
+- **Branch and `created_on`.** Each is mapped by uid when that branch already exists on the target. `main`, `archive`, and `trash` always do. When a uid is absent, that field is set to the current branch of the transfer. Sync does not create a branch.
+
 What the high-level `sync` command does is wrapping the lower-level `SQLRecord.save()` API. Let's walk through it!
 
 ## Using `save`
@@ -139,9 +144,9 @@ Every `SQLRecord` object has an attribute `._state.db` which can take the follow
 ```
 
 ```python tags=["hide-cell"]
-assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
-assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
-assert artifact.transform.uid == "4XIuR0tvaiXM0000"
+assert artifact.run.transform.description == "Transfer from `laminlabs/lamindata`"
+assert artifact.run.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
+assert artifact.run.transform.uid == "4XIuR0tvaiXM0000"
 assert artifact.run.initiated_by_run.transform.description.startswith("Transfer & sync")
 assert artifact.features.slots
 for schema in artifact.features.slots.values():

@@ -594,7 +594,7 @@ def _serialize_typed_param_value(
 def _validate_with_virtual_schema(
     values_by_key: dict[str, Any], dtype_args_by_key: dict[str, Any]
 ) -> tuple[set[str], dict[str, str]]:
-    from ..curators.core import ExperimentalDictCurator
+    from ..curators.core import DictCurator
     from ..models import Feature, Schema
 
     if not values_by_key:
@@ -609,7 +609,7 @@ def _validate_with_virtual_schema(
 
     schema = Schema(features)
     try:
-        ExperimentalDictCurator(
+        DictCurator(
             values_by_key,
             schema,
             require_saved_schema=False,

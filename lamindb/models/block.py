@@ -140,6 +140,17 @@ def _init_versioned_attached_block(
                     f"block with same {fk_field_name} and kind"
                 )
                 uid = revises.uid
+    block_hash = hash_string(content) if content else None
+    if (
+        revises is not None
+        and block_hash is not None
+        and revises.hash == block_hash
+        and revises.is_latest
+    ):
+        logger.important(
+            f"returning existing {cls.__name__} with same hash: {revises.uid}"
+        )
+        uid = revises.uid
     if revises is not None and uid is not None and uid == revises.uid:
         init_self_from_db(self, revises)
         update_attributes(self, {})
@@ -151,7 +162,6 @@ def _init_versioned_attached_block(
     )
     if uid is None:
         uid = new_uid
-    block_hash = hash_string(content) if content else None
     super(cls, self).__init__(
         uid=uid,
         content=content or "",

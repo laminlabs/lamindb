@@ -21,7 +21,9 @@ from .sqlrecord import BaseSQLRecord, Space, SQLRecord
 if TYPE_CHECKING:
     from .run import Run
 
-REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
+# Registries match by uid. Storage matches by root because the same location
+# can already be registered on the target under a different uid.
+REGISTRY_UNIQUE_FIELD = {"storage": "root"}
 
 
 def update_fk_to_default_db(
@@ -39,8 +41,9 @@ def update_fk_to_default_db(
     # todo: but this has to be changed i think, it is not safe as it is now - Sergei
     record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
-        # Map the source space by uid. Do not substitute the current space:
-        # that would change who can access the object.
+        # `space` maps by uid and raises when that space is missing on the
+        # target. `branch` and `created_on` are the other exception: see
+        # `_retarget_branch_fks`. Every other foreign key is copied below.
         if fk == "space":
             source_space = getattr(record, fk)
             fk_record_default = Space.filter(uid=source_space.uid).one_or_none()
@@ -728,7 +731,7 @@ def transfer_record_feature_values(
         prepared_by_uid[local_feature.uid] = _prepare(value, local_feature)
         feature_objects.append(local_feature)
 
-    # Do not run ExperimentalDictCurator: source values are already valid, and
+    # Do not run DictCurator: source values are already valid, and
     # the target session may not have every module (e.g. bionty) imported.
     # set so _add_values can `del` it (normal set_values always sets this attr)
     record_on_default._mapped_feature_update_fields = set()
@@ -741,6 +744,46 @@ def transfer_record_feature_values(
 
 
 _STUB_FKS = {"created_by", "type", "space"}
+_BRANCH_FKS = {"branch", "created_on"}
+
+
+def _set_fk_id(record, fk: str, fk_id: int) -> None:
+    setattr(record, fk, None)
+    setattr(record, f"{fk}_id", fk_id)
+
+
+def _branch_on_target(source_branch, transfer_logs: dict):
+    """Target branch with this uid, otherwise the current branch of the transfer.
+
+    Built-in branches (`main`, `archive`, `trash`) share a uid on every instance,
+    so they map. A contribution branch that exists only on the source does not
+    get inserted.
+    """
+    from .sqlrecord import get_current_branch
+
+    found = _cached_or_load(source_branch, transfer_logs)
+    if found is not None:
+        return found
+    return get_current_branch()
+
+
+def _retarget_branch_fks(record, transfer_logs: dict) -> None:
+    """Map `branch` and `created_on` by uid onto the target.
+
+    When a uid is absent, that field uses the current branch of the transfer.
+    This differs from every other foreign key, which is copied, and from
+    `space`, which raises when its uid is missing.
+    """
+    if not any(hasattr(record, f"{fk}_id") for fk in _BRANCH_FKS):
+        return
+    # Read the source rows before either id is rewritten.
+    source_branches = {
+        fk: getattr(record, fk, None) if hasattr(record, f"{fk}_id") else None
+        for fk in _BRANCH_FKS
+    }
+    for fk, source_branch in source_branches.items():
+        if hasattr(record, f"{fk}_id"):
+            _set_fk_id(record, fk, _branch_on_target(source_branch, transfer_logs).id)
 
 
 def transfer_to_default_db(
@@ -797,8 +840,8 @@ def transfer_to_default_db(
         # The caller may insert this row itself. It has no annotation links yet.
         transfer_logs.setdefault("_inserted", set()).add(record.uid)
 
-    # run & transform stay on the transfer run; created_by is transferred
-    # like any other foreign key, including the User row it points at.
+    # `run` and `transform` point at the transfer run. `branch` and `created_on`
+    # are mapped by uid in `_retarget_branch_fks` and are never copied.
     run = transfer_logs["run"]
     if hasattr(record, "run_id"):
         record.run = None
@@ -811,7 +854,7 @@ def transfer_to_default_db(
         i.name
         for i in record._meta.fields
         if i.get_internal_type() == "ForeignKey"
-        if i.name not in {"run", "transform", "branch"}
+        if i.name not in {"run", "transform", *_BRANCH_FKS}
     ]
     if not transfer_fk:
         # don't transfer fk fields that are already bulk transferred
@@ -831,6 +874,8 @@ def transfer_to_default_db(
             transfer_logs=transfer_logs,
             transfer_annotations=transfer_annotations,
         )
+    # Stubs skip every foreign key outside `_STUB_FKS`, so this also covers them.
+    _retarget_branch_fks(record, transfer_logs)
     # FK ids were remapped to the default DB; drop tracked *_id originals so save
     # logic does not treat remapping as a user-requested field change.
     if (original_values := getattr(record, "_original_values", None)) is not None:

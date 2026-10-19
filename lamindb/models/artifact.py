@@ -88,7 +88,12 @@ from .has_parents import view_lineage
 from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
-from .schema import Schema
+from .schema import (
+    Schema,
+    is_external_only_schema,
+    is_flat_feature_schema,
+    schema_requires_content_curator,
+)
 from .sqlrecord import (
     BaseSQLRecord,
     Branch,
@@ -898,6 +903,108 @@ def data_is_soma_experiment(data: SOMAExperiment | AnyPathStr) -> bool:
     if isinstance(data, (str, Path, UPath)):
         return UPath(data).suffix == ".tiledbsoma"
     return False
+
+
+_CONTENT_CONSTRUCTORS = {
+    "DataFrame": "Artifact.from_dataframe()",
+    "AnnData": "Artifact.from_anndata()",
+    "MuData": "Artifact.from_mudata()",
+    "SpatialData": "Artifact.from_spatialdata()",
+    "tiledbsoma": "Artifact.from_tiledbsoma()",
+}
+# `.tsv` is tabular but `check_otype_artifact` leaves its otype unset.
+_TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc"}
+
+
+def _schema_label(schema: Schema) -> str:
+    if schema.name:
+        return f" '{schema.name}'"
+    return ""
+
+
+def _reject_unvalidated_feature_schema(
+    schema: Schema | None,
+    otype: str | None,
+    path: Any,
+) -> None:
+    """Refuse to store a feature schema that `Artifact()` will not validate.
+
+    A flat feature schema on an unstructured file is external metadata and is
+    checked later. The same schema on a typed or tabular artifact describes
+    dataset content. Only a `from_*` constructor validates that content.
+    """
+    if schema is None or not is_flat_feature_schema(schema):
+        return
+    suffix = ""
+    if isinstance(path, (str, Path, UPath)):
+        suffix = UPath(path).suffix.lower()
+    if otype is None and suffix not in _TABULAR_SUFFIXES:
+        return
+    constructor = _CONTENT_CONSTRUCTORS.get(otype) if otype is not None else None
+    if constructor is None and suffix in _TABULAR_SUFFIXES:
+        constructor = "Artifact.from_dataframe()"
+    label = _schema_label(schema)
+    if constructor is not None:
+        raise InvalidArgument(
+            f"Schema{label} defines dataset features and cannot be validated "
+            f"by Artifact(). Use {constructor}."
+        )
+    raise InvalidArgument(
+        f"Schema{label} defines dataset features and cannot be validated "
+        f"by Artifact() for an artifact with otype {otype!r}. Use a from_* "
+        "constructor to validate dataset content, or a schema whose only slot "
+        "is '__external__' to validate metadata."
+    )
+
+
+def _validate_flat_external_features(
+    schema: Schema,
+    features: dict[str, Any] | None,
+    existing: Artifact | None,
+) -> dict[str, Any]:
+    """Validate a flat feature schema as external metadata."""
+    from lamindb.curators.core import DictCurator
+
+    if not features:
+        if existing is not None and not existing._state.adding:
+            logger.important(
+                "no new external features provided, using existing external "
+                "features of artifact for validation"
+            )
+            features = existing.features.get_values(external_only=True)
+        if not features:
+            raise ValidationError(
+                "Schema defines features but no feature values were provided. "
+                "Pass features={...} to validate external metadata, or use "
+                "Artifact.from_dataframe() to validate dataset content."
+            )
+    DictCurator(features, schema).validate()
+    return features
+
+
+def _validated_external_features(
+    schema: Schema | None,
+    features: dict[str, Any] | None,
+    existing: Artifact | None,
+    *,
+    otype: str | None,
+) -> dict[str, Any] | None:
+    """Validate external metadata for `Artifact()`.
+
+    An external-only schema is checked against its `__external__` slot. A flat
+    feature schema on an unstructured artifact is checked directly, and is
+    refused when no feature values are available. Content schemas are rejected
+    before this runs.
+    """
+    from lamindb.curators.core import DictCurator, validate_external_features
+
+    if schema is not None and is_external_only_schema(schema):
+        return validate_external_features(schema, features, existing)
+    if schema is not None and is_flat_feature_schema(schema) and otype is None:
+        return _validate_flat_external_features(schema, features, existing)
+    if features is not None and schema is not None:
+        DictCurator(features, schema).validate()
+    return features
 
 
 def check_otype_artifact(
@@ -1799,6 +1906,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The validating schema of this artifact ← :attr:`~lamindb.Schema.validated_artifacts`.
 
     The validating schema is helpful to query artifacts that were validated by the same schema.
+
+    `Artifact()` sets it only after checking external metadata or a suffix constraint.
+    Dataset content is validated by `from_dataframe()`, `from_anndata()`, and the
+    other `from_*` constructors.
     """
     schemas: RelatedManager[Schema] = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
@@ -1872,6 +1983,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         kind: ArtifactKind | str | None = None,
+        otype: str | None = None,
         features: dict[str, Any] | None = None,
         schema: Schema | None = None,
         revises: Artifact | None = None,
@@ -2016,17 +2128,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             is_automanaged_path = False
 
-        # validate external features if passed with a schema
+        # External-only schemas are validated below, once we know whether an
+        # existing artifact can supply the feature values. Content schemas are
+        # rejected here so a file is never marked validated without its curator.
         schema: Schema | None = _sqlrecord_or_id(
             Schema, kwargs.pop("schema", None), kwargs.pop("schema_id", None)
         )
-        if features is not None:
-            self._external_features = features
-            if schema is not None:
-                from lamindb.curators.core import ExperimentalDictCurator
-
-                validation_schema = schema
-                ExperimentalDictCurator(features, validation_schema).validate()
+        if schema is not None and schema_requires_content_curator(schema):
+            raise InvalidArgument(
+                "Schema defines dataset content and cannot be validated by Artifact(). "
+                "Use Artifact.from_dataframe(), Artifact.from_anndata(), "
+                "Artifact.from_mudata(), Artifact.from_spatialdata(), or "
+                "Artifact.from_tiledbsoma()."
+            )
         # check_type is False because run can be False also, see get_run
         run: Run | None | bool = _sqlrecord_or_id(
             Run, kwargs.pop("run", None), kwargs.pop("run_id", None), check_type=False
@@ -2115,6 +2229,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise FieldValidationError(
                 f"Only {valid_keywords} can be passed, you passed: {kwargs}"
             )
+        # Flat feature schemas on typed or tabular artifacts describe dataset
+        # content. Refuse them before hashing so a deduplicated record cannot
+        # receive the schema without a curator.
+        _reject_unvalidated_feature_schema(schema, otype, path)
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
@@ -2158,6 +2276,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
 
+            validated_features = _validated_external_features(
+                schema, features, kwargs_or_artifact, otype=otype
+            )
             init_self_from_db(self, kwargs_or_artifact)
             # update key from inferred value
             key = privates.pop("key")
@@ -2186,10 +2307,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # re-populate _local_filepath because this is what triggers the upload
             set_private_attributes()
             populate_recreating_run(self, run)
+            if validated_features is not None:
+                self._external_features = validated_features
             return None
         else:
             kwargs = kwargs_or_artifact
             kwargs["schema"] = schema
+            validated_features = _validated_external_features(
+                schema, features, None, otype=otype
+            )
 
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
@@ -2232,8 +2358,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Pass one of key, run or description as a parameter")
 
         super().__init__(**kwargs)
+        if validated_features is not None:
+            self._external_features = validated_features
 
     @property
+    @deprecated("run.transform")
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
@@ -2630,6 +2759,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema
         | Literal["ensembl_gene_ids_and_valid_features_in_obs"]
         | None = None,
+        features: dict[str, Any] | None = None,
         format: Literal["h5ad", "zarr", "anndata.zarr"] | None = None,
         h5ad_kwargs: dict[str, Any] | None = None,
         zarr_kwargs: dict[str, Any] | None = None,
@@ -2646,6 +2776,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            features: Additional external features to annotate the artifact with.
             format: Storage format used when writing in-memory `AnnData`.
                 In-memory `AnnData` is first written to cache in this format, then saved to instance storage when calling `.save()`.
                 If `None`, infer from `key` suffix when available, otherwise default to `"h5ad"`.
@@ -2737,10 +2868,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         from ..core.storage._anndata_accessor import _anndata_n_observations
 
         artifact.n_observations = _anndata_n_observations(obj_for_obs)
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
             from ..curators import AnnDataCurator
 
-            curator = AnnDataCurator(artifact, schema)
+            curator = AnnDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2756,6 +2889,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = None,
         revises: Artifact | None = None,
         schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `MuData`, optionally validate & annotate.
@@ -2769,6 +2903,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            features: Additional external features to annotate the artifact with.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -2797,10 +2932,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
         if not isinstance(mdata, (str, Path, UPath)):
             artifact.n_observations = mdata.n_obs
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
             from ..curators import MuDataCurator
 
-            curator = MuDataCurator(artifact, schema)
+            curator = MuDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2816,6 +2953,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = None,
         revises: Artifact | None = None,
         schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `SpatialData`, optionally validate & annotate.
@@ -2831,6 +2969,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            features: Additional external features to annotate the artifact with.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -2877,10 +3016,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
         # ill-defined https://scverse.zulipchat.com/#narrow/channel/315824-spatial/topic/How.20to.20calculate.20the.20number.20of.20observations.3F
         # artifact.n_observations = ...
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
             from ..curators import SpatialDataCurator
 
-            curator = SpatialDataCurator(artifact, schema)
+            curator = SpatialDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2895,6 +3036,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
+        schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from a `tiledbsoma.Experiment` store.
@@ -2907,6 +3050,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
+            schema: A schema that defines how to validate & annotate.
+            features: Additional external features to annotate the artifact with.
 
         Example::
 
@@ -2940,6 +3085,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         from ..core.storage._tiledbsoma import _soma_n_observations
 
         artifact.n_observations = _soma_n_observations(artifact.path)
+        if features is not None:
+            artifact._external_features = features
+        if schema is not None:
+            from ..curators import TiledbsomaExperimentCurator
+
+            curator = TiledbsomaExperimentCurator(artifact, schema, features=features)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod

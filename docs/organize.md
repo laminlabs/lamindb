@@ -50,7 +50,7 @@ What if an artifact is relevant to multiple projects?
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem with the `artifact.projects` relationship that links the {class}`~lamindb.Project` to {class}`~lamindb.Artifact`:
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
 
 Here is how to annotate one artifact with two projects:
 
@@ -77,9 +77,9 @@ Here, `artifact1` is part of both query results.
 
 :::
 
-### Annotating with labels
+### Annotating with entities
 
-You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both linked to artifacts:
+You can annotate with other entities. LaminDB offers two main classes for this: {class}`~lamindb.ULabel` for simple labels and {class}`~lamindb.Record` for metadata records. They are both linked to artifacts:
 
 <img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qvhxt6UuoUO2Bd820000.png"/>
 
@@ -90,10 +90,10 @@ ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 ```
 
-And here is how to create a samples registry and annotate the artifact with a sample:
+And here is how to create a `Samples` entity type and annotate the artifact with a record:
 
 ```python
-samples_registry = ln.Record(                     # create a registry
+samples_type = ln.Record(                     # create a registry
     name="Samples",
     is_type=True
 ).save()
@@ -103,13 +103,13 @@ gc_content = ln.Feature(                     # create a feature
 ).save()
 sample1 = ln.Record(                         # create a sample
     name="Sample 1",
-    type=samples_registry,
+    type=samples_type,
     features={gc_content: 0.5}
 ).save()
 artifact1.records.add(sample1)               # annotate artifact1
 ```
 
-You can use records and ulabels alongside labels defined in modules such as {mod}`bionty`:
+You can use records and ulabels alongside entities defined in modules such as {mod}`bionty`:
 
 ```python
 import bionty as bt
@@ -122,19 +122,20 @@ artifact1.cell_types.add(cell_type1)         # annotate artifact1
 
 ### Annotating with features
 
-To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
+Richer annotation is possible with {class}`~lamindb.Feature` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
 
 Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiments_registry = ln.Record.get(name="Experiments")  # retrieve the `Experiments` registry
-gc_content = ln.Feature(name="gc_content", dtype=float).save()  # define a feature with dtype float
-experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()  # define a feature with dtype `Experiments`
+experiments_type = ln.Record(name="Experiments", is_type=True).save()
+experiment1 = ln.Record(name="Experiment 1", type=experiments_type).save()
+gc_content = ln.Feature(name="gc_content", dtype=float).save()
+experiment = ln.Feature(name="experiment", dtype=experiments_type).save()
 artifact1.features.set_values({
-    gc_content: 0.55,   # validated to be a float
-    experiment: "Experiment 1",  # validated to exist in the `Experiments` registry
+    gc_content: 0.55,
+    experiment: experiment1,
 })
 ```
 
@@ -154,7 +155,7 @@ Below is an example from the {doc}`/tutorial` illustrating how you get, e.g., ce
 
 When you call {func}`~lamindb.track` or decorate a function with {func}`~lamindb.flow`, you automatically annotate artifacts with {class}`~lamindb.Run` and {class}`~lamindb.Transform` objects.
 
-<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
+<img width="400" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
 
 Here is how:
 
@@ -169,7 +170,7 @@ Note that you can pass `project` to {func}`~lamindb.track` to auto-annotate all 
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg">
 
 All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts. This is called dimensional modeling in data warehousing.[^starsnowflake]
 
@@ -199,7 +200,7 @@ artifacts = ln.Artifact.filter(
 If you want to group artifacts by metadata and version the entire set, use {class}`~lamindb.Collection`.
 If you already know lakehouse tables (Iceberg, Delta Lake, DuckLake), this is the analogous concept: many files as one dataset, with a shared schema, ACID appends, and time travel. See {doc}`/architecture`.
 
-<img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
+<img width="160" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
 
 Unlike during annotation, you have to pass an entire group of artifacts to a `Collection` constructor:
 

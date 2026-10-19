@@ -56,6 +56,16 @@ def test_tiledbsoma_curator(clean_soma_files):
 
         curator.validate()
 
+        checked = ln.Artifact.from_tiledbsoma(
+            "small_dataset.tiledbsoma",
+            description="from_tiledbsoma schema",
+            schema=soma_schema,
+            features={"cell_type_note": "ok"},
+        )
+        assert checked.schema == soma_schema
+        assert checked._external_features == {"cell_type_note": "ok"}
+        checked._curator._dataset.close()
+
         artifact = curator.save_artifact(
             key="examples/soma_experiment.tiledbsoma",
             description="SOMA experiment with schema validation",

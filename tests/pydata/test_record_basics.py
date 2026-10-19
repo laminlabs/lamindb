@@ -34,17 +34,20 @@ def test_record_docstring_examples():
     ).save()
     samplesheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
 
-    # move the data record into the record frame
-    sample1.type = samplesheet
-    sample1.save()
+    # experiment is required, so moving sample1 in with only gc_content fails
+    with pytest.raises(ln.errors.ValidationError, match="missing required features"):
+        sample1.type = samplesheet
+    assert sample1.type is None
 
-    # reset the feature values for the data record including the experiment
+    # set the required feature, then move the data record into the record frame
     sample1.features.set_values(
         {
             gc_content: 0.5,
             experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         }
     )
+    sample1.type = samplesheet
+    sample1.save()
 
     # Export all data records under a type to a dataframe
     df = experiments.to_dataframe()
@@ -72,10 +75,9 @@ def test_record_docstring_examples():
     ).save()
     assert len(records) == 2
 
-    # If you try to set incomplete features on a data record in a record frame, you'll get a validation error
-    sample2 = ln.Record(name="Sample 2", type=samplesheet).save()
+    # replacing the feature values with an incomplete set also fails
     with pytest.raises(ln.errors.ValidationError):
-        sample2.features.set_values({"gc_content": 0.6})
+        sample1.features.set_values({gc_content: 0.6})
 
     # Query data records by features
     assert ln.Record.filter(gc_content == 0.5).one() == sample1
@@ -90,7 +92,6 @@ def test_record_docstring_examples():
     if my_df_schema is not None:
         my_df_schema.delete(permanent=True)
     sample1.delete(permanent=True)
-    sample2.delete(permanent=True)
     experiment1.delete(permanent=True)
     samplesheet.delete(permanent=True)
     schema.delete(permanent=True)
@@ -123,7 +124,7 @@ def test_record_page_frame_data_properties():
     score = ln.Feature(name="kind_test_score", dtype=float).save()
     schema = ln.Schema([score], name="kind_test_samplesheet_schema").save()
     frame = ln.Record(name="KindTestSamples", is_type=True, schema=schema).save()
-    data = ln.Record(name="KindTestSample1", type=frame).save()
+    data = ln.Record(name="KindTestSample1", type=frame, features={score: 1.0}).save()
 
     assert page.is_page is True
     assert page.is_frame is False
@@ -154,6 +155,163 @@ def test_record_page_frame_data_properties():
     schema.delete(permanent=True)
     score.delete(permanent=True)
     page.delete(permanent=True)
+
+
+def test_record_type_assignment_requires_schema_features():
+    experiment_type = ln.Record(name="TypeAssignExperiments", is_type=True).save()
+    experiment = ln.Feature(name="type_assign_experiment", dtype=experiment_type).save()
+    gc_content = ln.Feature(name="type_assign_gc_content", dtype=float).save()
+    optional_note = ln.Feature(name="type_assign_note", dtype=str).save()
+    schema = ln.Schema(
+        [experiment, gc_content.with_config(optional=True)],
+        name="type_assign_schema",
+    ).save()
+    samplesheet = ln.Record(
+        name="TypeAssignSamples", is_type=True, schema=schema
+    ).save()
+    experiment1 = ln.Record(name="TypeAssignExperiment1", type=experiment_type).save()
+    sample = ln.Record(name="TypeAssignSample1", features={gc_content: 0.5}).save()
+
+    with pytest.raises(ln.errors.ValidationError, match="type_assign_experiment"):
+        sample.type = samplesheet
+    assert sample.type is None
+
+    sample.features.set_values({gc_content: 0.5, experiment: experiment1})
+    sample.type = samplesheet
+    sample.save()
+    assert sample.type == samplesheet
+
+    with pytest.raises(ln.errors.ValidationError, match="missing required features"):
+        ln.Record(name="TypeAssignSample2", type=samplesheet)
+
+    complete = ln.Record(
+        name="TypeAssignSample3",
+        type=samplesheet,
+        features={experiment: experiment1, gc_content: 0.2},
+    ).save()
+    assert complete.type == samplesheet
+
+    optional_schema = ln.Schema(
+        [optional_note.with_config(optional=True)],
+        name="type_assign_optional_schema",
+    ).save()
+    optional_sheet = ln.Record(
+        name="TypeAssignOptional", is_type=True, schema=optional_schema
+    ).save()
+    blank = ln.Record(name="TypeAssignBlank", type=optional_sheet).save()
+    assert blank.type == optional_sheet
+
+    page = ln.Record(name="TypeAssignPage", is_type=True).save()
+    untyped = ln.Record(name="TypeAssignPageRow", type=page).save()
+    assert untyped.type == page
+
+    # A required feature stored on a record field is visible before save.
+    stored_note = ln.Feature(
+        name="type_assign_stored_note", dtype=str, values_through="description"
+    ).save()
+    note_schema = ln.Schema(
+        [stored_note],
+        name="type_assign_note_schema",
+    ).save()
+    note_sheet = ln.Record(
+        name="TypeAssignNotes", is_type=True, schema=note_schema
+    ).save()
+    with pytest.raises(ln.errors.ValidationError, match="type_assign_stored_note"):
+        ln.Record(name="TypeAssignNoNote", type=note_sheet)
+    noted = ln.Record(
+        name="TypeAssignNoted",
+        description="has a note",
+        type=note_sheet,
+    ).save()
+    assert noted.type == note_sheet
+    assert noted.description == "has a note"
+    assert noted.features.get_values()["type_assign_stored_note"] == "has a note"
+    saved_note = ln.Record(name="TypeAssignSavedNote", description="saved note").save()
+    saved_note.type = note_sheet
+    assert saved_note.type == note_sheet
+
+    # The same feature name under two types is two features. Saving that schema
+    # is allowed. Using it as a record frame is not: validation stops before
+    # reading any values.
+    scope_a = ln.Feature(name="TypeAssignScopeA", is_type=True).save()
+    scope_b = ln.Feature(name="TypeAssignScopeB", is_type=True).save()
+    conc_a = ln.Feature(name="type_assign_conc", dtype=float, type=scope_a).save()
+    conc_b = ln.Feature(name="type_assign_conc", dtype=int, type=scope_b).save()
+    clash_schema = ln.Schema([conc_a, conc_b], name="type_assign_clash_schema").save()
+    clash_sheet = ln.Record(
+        name="TypeAssignClash", is_type=True, schema=clash_schema
+    ).save()
+    with pytest.raises(
+        ln.errors.ValidationError, match="type_assign_conc"
+    ) as pending_clash:
+        ln.Record(
+            name="TypeAssignClashPending",
+            type=clash_sheet,
+            features={conc_a: 1.5},
+        )
+    assert "share a name" in str(pending_clash.value)
+    saved = ln.Record(name="TypeAssignClashSaved", features={conc_a: 1.5}).save()
+    with pytest.raises(ln.errors.ValidationError, match="share a name"):
+        saved.type = clash_sheet
+
+    complete.delete(permanent=True)
+    blank.delete(permanent=True)
+    sample.delete(permanent=True)
+    untyped.delete(permanent=True)
+    noted.delete(permanent=True)
+    saved_note.delete(permanent=True)
+    note_sheet.delete(permanent=True)
+    note_schema.delete(permanent=True)
+    stored_note.delete(permanent=True)
+    optional_sheet.delete(permanent=True)
+    optional_schema.delete(permanent=True)
+    samplesheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    page.delete(permanent=True)
+    experiment1.delete(permanent=True)
+    experiment_type.delete(permanent=True)
+    optional_note.delete(permanent=True)
+    gc_content.delete(permanent=True)
+    experiment.delete(permanent=True)
+    saved.delete(permanent=True)
+    clash_sheet.delete(permanent=True)
+    clash_schema.delete(permanent=True)
+    conc_a.delete(permanent=True)
+    conc_b.delete(permanent=True)
+    scope_a.delete(permanent=True)
+    scope_b.delete(permanent=True)
+
+
+def test_loading_record_does_not_revalidate_stored_type():
+    experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
+    experiment = ln.Feature(name="load_type_experiment", dtype=experiment_type).save()
+    schema = ln.Schema([experiment], name="load_type_schema").save()
+    samplesheet = ln.Record(name="LoadTypeSamples", is_type=True, schema=schema).save()
+    other_sheet = ln.Record(name="LoadTypeOther", is_type=True, schema=schema).save()
+    experiment1 = ln.Record(name="LoadTypeExperiment1", type=experiment_type).save()
+    sample = ln.Record(
+        name="LoadTypeSample",
+        type=samplesheet,
+        features={experiment: experiment1},
+    ).save()
+    sample.features.remove_values(experiment)
+
+    loaded = list(samplesheet.records.all())
+    assert [record.name for record in loaded] == ["LoadTypeSample"]
+    assert loaded[0].type == samplesheet
+    loaded[0].type = samplesheet
+
+    with pytest.raises(ln.errors.ValidationError, match="load_type_experiment"):
+        loaded[0].type = other_sheet
+    assert loaded[0].type == samplesheet
+
+    sample.delete(permanent=True)
+    other_sheet.delete(permanent=True)
+    samplesheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    experiment1.delete(permanent=True)
+    experiment_type.delete(permanent=True)
+    experiment.delete(permanent=True)
 
 
 def test_record_lazy_features_on_save():
@@ -187,7 +345,9 @@ def test_record_from_dataframe_partial_null_bool_int():
     label = ln.Feature(name="from-df-label", dtype=str).save()
     empty = ln.Feature(name="from-df-empty", dtype=str).save()
     schema = ln.Schema(
-        [flag, count, label, empty], name="from-df-bool-int-schema"
+        [flag, count, label, empty],
+        name="from-df-bool-int-schema",
+        minimal_set=False,
     ).save()
     sheet = ln.Record(name="from-df-bool-int-sheet", is_type=True, schema=schema).save()
 
@@ -245,26 +405,148 @@ def test_record_from_dataframe_partial_null_bool_int():
     empty.delete(permanent=True)
 
 
+def test_record_from_dataframe_partial_null_float_and_other_dtypes():
+    """Partial-null scalar features survive the from_dataframe save round-trip.
+
+    Plain `None` in a float column is stored as `NaN` on `float64`.
+    Rebuilding that column with `pd.NA` raises `TypeError` because numpy
+    floats cannot cast `NAType`. `num` uses the same numpy float dtype.
+    `str` / `int` / `bool` use nullable extension dtypes, and
+    `datetime` / `date` / `dict` accept `pd.NA`.
+    """
+    label = ln.Feature(name="from-df-na-label", dtype=str).save()
+    score = ln.Feature(name="from-df-na-score", dtype=float).save()
+    amount = ln.Feature(name="from-df-na-amount", dtype="num").save()
+    count = ln.Feature(name="from-df-na-count", dtype=int).save()
+    flag = ln.Feature(name="from-df-na-flag", dtype=bool).save()
+    when = ln.Feature(name="from-df-na-when", dtype=datetime).save()
+    day = ln.Feature(name="from-df-na-day", dtype=date).save()
+    payload = ln.Feature(name="from-df-na-payload", dtype=dict).save()
+    empty_float = ln.Feature(name="from-df-na-empty-float", dtype=float).save()
+    schema = ln.Schema(
+        [label, score, amount, count, flag, when, day, payload, empty_float],
+        name="from-df-na-schema",
+        minimal_set=False,
+    ).save()
+    sheet = ln.Record(name="from-df-na-sheet", is_type=True, schema=schema).save()
+
+    # None, not an explicit nullable dtype: this is the reported float64 failure.
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-na-a", "from-df-na-b", "from-df-na-c"],
+            "from-df-na-label": ["a", None, "c"],
+            "from-df-na-score": [1.1, None, None],
+            "from-df-na-amount": [1, None, 2.5],
+            "from-df-na-count": [1, None, 3],
+            "from-df-na-flag": [True, None, False],
+            "from-df-na-when": [datetime(2024, 1, 1), None, datetime(2024, 1, 3)],
+            "from-df-na-day": [date(2024, 1, 1), None, date(2024, 1, 3)],
+            "from-df-na-payload": [{"k": 1}, None, {"k": 3}],
+            "from-df-na-empty-float": [None, None, None],
+        }
+    )
+    assert df["from-df-na-score"].dtype.name == "float64"
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 3
+    records.save()
+
+    values_a = ln.Record.get(name="from-df-na-a").features.get_values()
+    values_b = ln.Record.get(name="from-df-na-b").features.get_values()
+    values_c = ln.Record.get(name="from-df-na-c").features.get_values()
+
+    assert values_a["from-df-na-label"] == "a"
+    assert "from-df-na-label" not in values_b
+    assert values_c["from-df-na-label"] == "c"
+    assert values_a["from-df-na-score"] == 1.1
+    assert "from-df-na-score" not in values_b
+    assert "from-df-na-score" not in values_c
+    assert values_a["from-df-na-amount"] == 1
+    assert "from-df-na-amount" not in values_b
+    assert values_c["from-df-na-amount"] == 2.5
+    assert values_a["from-df-na-count"] == 1
+    assert "from-df-na-count" not in values_b
+    assert values_c["from-df-na-count"] == 3
+    assert values_a["from-df-na-flag"] is True
+    assert "from-df-na-flag" not in values_b
+    assert values_c["from-df-na-flag"] is False
+    assert values_a["from-df-na-when"] == datetime(2024, 1, 1)
+    assert "from-df-na-when" not in values_b
+    assert values_c["from-df-na-when"] == datetime(2024, 1, 3)
+    assert values_a["from-df-na-day"] == date(2024, 1, 1)
+    assert "from-df-na-day" not in values_b
+    assert values_c["from-df-na-day"] == date(2024, 1, 3)
+    assert values_a["from-df-na-payload"] == {"k": 1}
+    assert "from-df-na-payload" not in values_b
+    assert values_c["from-df-na-payload"] == {"k": 3}
+    assert "from-df-na-empty-float" not in values_a
+    assert "from-df-na-empty-float" not in values_b
+    assert "from-df-na-empty-float" not in values_c
+
+    exported = sheet.to_dataframe()
+    assert exported["from-df-na-score"].dtype.name == "float64"
+    assert exported["from-df-na-amount"].dtype.name == "float64"
+    assert exported["from-df-na-count"].dtype.name == "Int64"
+    assert exported["from-df-na-flag"].dtype.name == "boolean"
+    assert exported["from-df-na-empty-float"].isna().all()
+    assert exported["from-df-na-empty-float"].dtype.name == "float64"
+
+    from lamindb.models.record import RecordJson
+
+    assert RecordJson.objects.filter(feature=empty_float).count() == 0
+
+    ln.Record.filter(name__in=["from-df-na-a", "from-df-na-b", "from-df-na-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-na-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    for feature in (
+        label,
+        score,
+        amount,
+        count,
+        flag,
+        when,
+        day,
+        payload,
+        empty_float,
+    ):
+        feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_bulk_save_paths():
     score = ln.Feature(name="from-df-score", dtype=float).save()
-    schema = ln.Schema([score], name="from-df-schema").save()
+    kind_type = ln.Record(name="from-df-kind-type", is_type=True).save()
+    beta = ln.Record(name="from-df-beta", type=kind_type).save()
+    alpha = ln.Record(name="from-df-alpha", type=kind_type).save()
+    kind = ln.Feature(name="from-df-kind", dtype=kind_type).save()
+    schema = ln.Schema([score, kind], name="from-df-schema").save()
     sheet = ln.Record(name="from-df-sheet", is_type=True, schema=schema).save()
     df = pd.DataFrame(
         {
             "__lamindb_record_name__": ["from-df-a", "from-df-b"],
             "from-df-score": [1.0, 2.0],
+            "from-df-kind": ["from-df-beta", "from-df-alpha"],
         }
     )
 
     records = ln.Record.from_dataframe(df, type=sheet)
     assert len(records) == 2
     records.save()
-    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-score"] == 1.0
+    assert ln.Record.get(name="from-df-a").features.get_values() == {
+        "from-df-score": 1.0,
+        "from-df-kind": "from-df-beta",
+    }
+    assert (
+        ln.Record.get(name="from-df-b").features.get_values()["from-df-kind"]
+        == "from-df-alpha"
+    )
 
     df2 = pd.DataFrame(
         {
             "__lamindb_record_name__": ["from-df-c"],
             "from-df-score": [3.0],
+            "from-df-kind": ["from-df-alpha"],
         }
     )
     records_2 = ln.Record.from_dataframe(df2, type=sheet)
@@ -276,6 +558,10 @@ def test_record_from_dataframe_bulk_save_paths():
     )
     ln.Record.filter(name="from-df-sheet").delete(permanent=True)
     schema.delete(permanent=True)
+    kind.delete(permanent=True)
+    alpha.delete(permanent=True)
+    beta.delete(permanent=True)
+    kind_type.delete(permanent=True)
     score.delete(permanent=True)
 
 
@@ -306,6 +592,8 @@ def test_record_schema_index_stored_on_name():
         coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
     with pytest.raises(TypeError, match="must be a string"):
         coerce_index_value_to_record_name(7, sample_id)
+    assert coerce_index_value_to_record_name(None, sample_id) is None
+    assert coerce_index_value_to_record_name(pd.NA, sample_id) is None
 
     name, features = pop_index_from_feature_dictionary(
         {"sample_id": "S-001", "score": 1.5},
@@ -538,6 +826,34 @@ def test_record_schema_index_stored_on_name():
     schema.delete(permanent=True)
     sample_id.delete(permanent=True)
     score.delete(permanent=True)
+
+    # An index marker that is not a schema member is still required, even when
+    # minimal_set is false and the other columns are not.
+    bare_key = ln.Feature(name="bare_row_key", dtype=str).save()
+    bare_score = ln.Feature(name="bare_score", dtype=float).save()
+    bare_schema = ln.Schema(
+        features=[bare_score],
+        minimal_set=False,
+        name="bare-index-schema",
+    ).save()
+    bare_schema.index = bare_key
+    bare_schema.save()
+    assert bare_key not in bare_schema.members.all()
+    bare_sheet = ln.Record(
+        name="bare-index-sheet", is_type=True, schema=bare_schema
+    ).save()
+    with pytest.raises(ln.errors.ValidationError, match="bare_row_key"):
+        ln.Record(type=bare_sheet, features={"bare_score": 1.0})
+    bare_record = ln.Record(
+        type=bare_sheet,
+        features={"bare_row_key": "row-1", "bare_score": 1.0},
+    ).save()
+    assert bare_record.name == "row-1"
+    ln.Record.filter(type=bare_sheet).delete(permanent=True)
+    bare_sheet.delete(permanent=True)
+    bare_schema.delete(permanent=True)
+    bare_key.delete(permanent=True)
+    bare_score.delete(permanent=True)
 
 
 def test_record_schema_index_name_conflict_resolution():
@@ -992,11 +1308,16 @@ def test_record_feature_values_through_reads_reverse_links():
 
     alice = ln.Record(name="values-from-alice", type=people_sheet).save()
     bob = ln.Record(name="values-from-bob", type=people_sheet).save()
-    meeting_1 = ln.Record(name="values-from-meeting-1", type=meetings_sheet).save()
-    meeting_2 = ln.Record(name="values-from-meeting-2", type=meetings_sheet).save()
-
-    meeting_1.features.set_values({"attendees": [alice, bob]})
-    meeting_2.features.set_values({"attendees": [alice]})
+    meeting_1 = ln.Record(
+        name="values-from-meeting-1",
+        type=meetings_sheet,
+        features={"attendees": [alice, bob]},
+    ).save()
+    meeting_2 = ln.Record(
+        name="values-from-meeting-2",
+        type=meetings_sheet,
+        features={"attendees": [alice]},
+    ).save()
 
     alice_values = alice.features.get_values()
     bob_values = bob.features.get_values()
@@ -1084,14 +1405,33 @@ def test_record_feature_values_through_reads_reverse_links():
         "attendees", []
     )
 
+    # Joining a frame that requires the reverse feature uses links that already exist.
+    required_people_schema = ln.Schema(
+        features=[attended_meetings_feature],
+        name="values-from-people-required-schema",
+    ).save()
+    required_people_sheet = ln.Record(
+        name="values-from-people-required-sheet",
+        is_type=True,
+        schema=required_people_schema,
+    ).save()
+    unlinked = ln.Record(name="values-from-unlinked").save()
+    with pytest.raises(ln.errors.ValidationError, match="attended_meetings"):
+        unlinked.type = required_people_sheet
+    alice.type = required_people_sheet
+    assert alice.type == required_people_sheet
+
     meeting_1.delete(permanent=True)
     meeting_2.delete(permanent=True)
     alice.delete(permanent=True)
     bob.delete(permanent=True)
+    unlinked.delete(permanent=True)
     meetings_sheet.delete(permanent=True)
     people_sheet.delete(permanent=True)
+    required_people_sheet.delete(permanent=True)
     meetings_schema.delete(permanent=True)
     people_schema.delete(permanent=True)
+    required_people_schema.delete(permanent=True)
     attendees_feature.delete(permanent=True)
     attended_meetings_feature.delete(permanent=True)
 
@@ -1118,13 +1458,15 @@ def test_record_feature_values_through_scalar_to_list_relation():
 
     author_a = ln.Record(name="values-from-author-a", type=authors_sheet).save()
     author_b = ln.Record(name="values-from-author-b", type=authors_sheet).save()
-    book_1 = ln.Record(name="values-from-book-1", type=books_sheet).save()
-    book_2 = ln.Record(name="values-from-book-2", type=books_sheet).save()
-    book_3 = ln.Record(name="values-from-book-3", type=books_sheet).save()
-
-    book_1.features.set_values({"author": author_a})
-    book_2.features.set_values({"author": author_a})
-    book_3.features.set_values({"author": author_b})
+    book_1 = ln.Record(
+        name="values-from-book-1", type=books_sheet, features={"author": author_a}
+    ).save()
+    book_2 = ln.Record(
+        name="values-from-book-2", type=books_sheet, features={"author": author_a}
+    ).save()
+    book_3 = ln.Record(
+        name="values-from-book-3", type=books_sheet, features={"author": author_b}
+    ).save()
 
     author_a_values = author_a.features.get_values()
     author_b_values = author_b.features.get_values()
@@ -1229,13 +1571,21 @@ def test_record_feature_values_through_with_index_exports_contract():
             "values-index-url": "https://authors.example/b",
         }
     )
-    book_1 = ln.Record(name="values-index-book-1", type=books_sheet).save()
-    book_2 = ln.Record(name="values-index-book-2", type=books_sheet).save()
-    book_3 = ln.Record(name="values-index-book-3", type=books_sheet).save()
-
-    book_1.features.set_values({"values-index-author": author_a})
-    book_2.features.set_values({"values-index-author": author_a})
-    book_3.features.set_values({"values-index-author": author_b})
+    book_1 = ln.Record(
+        name="values-index-book-1",
+        type=books_sheet,
+        features={"values-index-author": author_a},
+    ).save()
+    book_2 = ln.Record(
+        name="values-index-book-2",
+        type=books_sheet,
+        features={"values-index-author": author_a},
+    ).save()
+    book_3 = ln.Record(
+        name="values-index-book-3",
+        type=books_sheet,
+        features={"values-index-author": author_b},
+    ).save()
 
     assert author_a.features.get_values()["author_id"] == "AUTHOR-A"
     assert author_b.features.get_values()["author_id"] == "AUTHOR-B"
@@ -1402,7 +1752,8 @@ def test_record_feature_values_through_writes_by_name_and_add_values():
         values_through=attendees,
     ).save()
     meetings_schema = ln.Schema(
-        features=[attendees], name="vt-write-meetings-schema"
+        features=[attendees.with_config(optional=True)],
+        name="vt-write-meetings-schema",
     ).save()
     people_schema = ln.Schema(
         features=[attended.with_config(optional=True)],
@@ -1795,11 +2146,42 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is None
 
     # The UI stores the type-space policy as the string "1", not the int 1.
+    # A new record inherits .emoji unless it already has one.
     constrained_type.space = restricted_space
     constrained_type._aux = {"ss": "1"}
+    assert constrained_type.emoji is None
+    constrained_type.emoji = None
+    assert constrained_type._aux == {"ss": "1"}
+    no_emoji = ln.Record(name=f"NoEmoji-{suffix}", type=constrained_type)
+    assert no_emoji.space_id == restricted_space.id
+    assert no_emoji.emoji is None
+    constrained_type.emoji = " 🧬 "
+    assert constrained_type.emoji == "🧬"
+    assert constrained_type._aux["ss"] == "1"
     constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.emoji == "🧬"
     child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
+    assert child.emoji == "🧬"
+    explicit = ln.Record(
+        name=f"ExplicitEmoji-{suffix}",
+        type=constrained_type,
+        _aux={"ei": "🧪", "foo": 1},
+    )
+    assert explicit.emoji == "🧪"
+    assert explicit._aux["foo"] == 1
+    constrained_type.emoji = "🧪"
+    assert constrained_type.emoji == "🧪"
+    assert constrained_type._aux["ss"] == "1"
+    constrained_type.emoji = None
+    assert constrained_type.emoji is None
+    assert constrained_type._aux == {"ss": "1"}
+    child.emoji = None
+    assert child.emoji is None
+    assert child._aux is None
+    with pytest.raises(ValueError, match="emoji must be a str or None"):
+        constrained_type.emoji = 1  # type: ignore[assignment]
     child.save()
     child.delete(permanent=True)
 
@@ -1934,9 +2316,15 @@ def test_record_features_add_remove_values():
         ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
         == test_record
     )
-    # Datetime and date (filter uses ISO strings as stored in JSON)
+    # Datetime and date are stored as ISO strings; date and datetime objects match too
     assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert (
+        ln.Record.filter(feature_datetime=datetime(2024, 1, 1, 12, 0, 0)).one()
+        == test_record
+    )
     assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    assert ln.Record.filter(feature_date=date(2024, 1, 1)).one() == test_record
+    assert ln.Record.filter(feature_date == date(2024, 1, 1)).one() == test_record
     # __contains (categorical)
     assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
     assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
@@ -1993,6 +2381,7 @@ def test_record_features_add_remove_values():
     assert ln.Record.filter(feature_num__gt=10.0).one_or_none() is None
     # Date and datetime comparators (ISO strings)
     assert ln.Record.filter(feature_date__lt="2024-01-02").one() == test_record
+    assert ln.Record.filter(feature_date__lt=date(2024, 1, 2)).one() == test_record
     assert ln.Record.filter(feature_date__gt="2023-12-31").one() == test_record
     assert ln.Record.filter(feature_date__gt="2024-01-02").one_or_none() is None
     assert (
@@ -2050,6 +2439,7 @@ def test_record_features_add_remove_values():
             feature_description,
         ],
         name="test_schema",
+        minimal_set=False,
     ).save()
     sheet = ln.Record(name="Sheet", is_type=True, schema=schema).save()
     empty_record = ln.Record(name="empty_record", type=sheet).save()
@@ -2295,10 +2685,19 @@ def test_record_features_add_remove_values():
     feature_int = ln.Feature.get(name="feature_int")
     schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
-    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    test_record_in_form = ln.Record(
+        name="test_record_in_form",
+        type=test_form,
+        features={"feature_str": "abc", "feature_int": 1},
+    ).save()
     with pytest.raises(ln.errors.ValidationError) as error:
         test_record_in_form.features.set_values({"feature_type1": "entity1"})
-    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+    assert "not in the provided schema" in error.exconly()
+    assert "feature_type1" in error.exconly()
+    assert test_record_in_form.features.get_values() == {
+        "feature_str": "abc",
+        "feature_int": 1,
+    }
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
     schema.delete(permanent=True)
@@ -2307,7 +2706,11 @@ def test_record_features_add_remove_values():
 
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
-    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    test_record_in_form = ln.Record(
+        name="test_record_in_form",
+        type=test_form,
+        features={"feature_cell_lines": ["HEK293", "A-549"]},
+    ).save()
     test_record_in_form.features.add_values({"feature_cell_lines": ["HEK293", "A-549"]})
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
@@ -2317,7 +2720,11 @@ def test_record_features_add_remove_values():
 
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
-    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    test_record_in_form = ln.Record(
+        name="test_record_in_form",
+        type=test_form,
+        features={"feature_cell_lines": [a549, hek293]},
+    ).save()
     test_record_in_form.features.add_values({"feature_cell_lines": [a549, hek293]})
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
@@ -2419,10 +2826,12 @@ def test_timezone_aware_datetime_feature():
     test_sheet = ln.Record(
         name="TestSheetDatetimeTZ", is_type=True, schema=schema
     ).save()
-    record = ln.Record(name="test_record_datetime_tz", type=test_sheet).save()
     timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-
-    record.features.set_values({"feature_datetime_tz": timestamp})
+    record = ln.Record(
+        name="test_record_datetime_tz",
+        type=test_sheet,
+        features={"feature_datetime_tz": timestamp},
+    ).save()
     assert record.features.get_values() == {"feature_datetime_tz": timestamp}
 
     df = test_sheet.to_dataframe()
@@ -2456,7 +2865,6 @@ def test_only_list_type_features_and_field_qualifiers():
     ).save()
 
     test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
-    record = ln.Record(name="test_record", type=test_sheet).save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A-549").save()
     uberon2369 = bt.Tissue.from_source(ontology_id="UBERON:0002369").save()
@@ -2467,7 +2875,9 @@ def test_only_list_type_features_and_field_qualifiers():
         "feature_list_ontology_id": ["UBERON:0002369", "UBERON:0005172"],
     }
 
-    record.features.add_values(test_values)
+    record = ln.Record(name="test_record", features=test_values).save()
+    record.type = test_sheet
+    record.save()
     assert record.features.get_values() == test_values
 
     df = test_sheet.to_dataframe()
@@ -2481,12 +2891,13 @@ def test_only_list_type_features_and_field_qualifiers():
     }
 
     # add another record
-    record2 = ln.Record(name="test_record2", type=test_sheet).save()
     test_values2 = {
         "feature_cell_lines": ["HEK293"],
         "feature_list_ontology_id": ["UBERON:0005172"],
     }
-    record2.features.add_values(test_values2)
+    record2 = ln.Record(name="test_record2", features=test_values2).save()
+    record2.type = test_sheet
+    record2.save()
 
     # trigger validation of the case that has two and a single record
     # this tests type casting in list-like values
@@ -2578,9 +2989,81 @@ def test_record_features_accept_feature_object_keys():
     record.features.remove_values({feature_score: 9, feature_tag: None})
     assert record.features.get_values() == {}
 
+    # test empty dict input
+    record.features.set_values({feature_score: 9, feature_tag: "b"})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary adds nothing and preserves existing annotations.
+    record.features.add_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+    # An empty dictionary clears all existing feature annotations.
+    record.features.set_values({})
+    assert ln.Record.get(id=record.id).features.get_values() == {}
+
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["add_values", "set_values"])
+@pytest.mark.parametrize("inherited_schema", [False, True])
+def test_record_empty_feature_values_respect_schema(method, inherited_schema):
+    feature = ln.Feature(name="empty_values_required", dtype="list[int]").save()
+    schema = ln.Schema([feature]).save()
+    record_type = ln.Record(
+        name="empty-values-type", is_type=True, schema=schema
+    ).save()
+    # A typed record has to satisfy required features when it joins the frame.
+    # The empty-dictionary check below starts from a record that already does.
+    record_kwargs = {"name": "empty-values-record"}
+    if inherited_schema:
+        record_kwargs["type"] = record_type
+        record_kwargs["features"] = {feature: [1, 2]}
+    record = ln.Record(**record_kwargs).save()
+    kwargs = {} if inherited_schema else {"schema": schema}
+    try:
+        record.features.set_values({feature: [1, 2]}, **kwargs)
+        with pytest.raises(ln.errors.ValidationError, match="COLUMN_NOT_IN_DATAFRAME"):
+            getattr(record.features, method)({}, **kwargs)
+        assert ln.Record.get(id=record.id).features.get_values() == {
+            feature.name: [1, 2]
+        }
+    finally:
+        record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def _feature_name_lookup(queries) -> bool:
+    """Whether a query resolves features by name rather than by the passed object."""
+    return any('"lamindb_feature"."name" IN' in query["sql"] for query in queries)
+
+
+def test_set_values_feature_objects_skip_name_lookup():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    feature = ln.Feature(name="set_values_skip_lookup", dtype=float).save()
+    record = ln.Record(name="set-values-skip-lookup").save()
+    try:
+        with CaptureQueriesContext(connection) as feature_keys:
+            record.features.set_values({feature: 1.5})
+        assert not _feature_name_lookup(feature_keys.captured_queries)
+        assert record.features.get_values()[feature.name] == 1.5
+
+        with CaptureQueriesContext(connection) as string_keys:
+            record.features.set_values({feature.name: 2.5})
+        assert _feature_name_lookup(string_keys.captured_queries)
+        assert record.features.get_values()[feature.name] == 2.5
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_from_dataframe_save_query_count_is_not_n_plus_one():
@@ -2673,30 +3156,91 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b = ln.Record(name="TypeB_mismatch", is_type=True).save()
     record_b = ln.Record(name="record_b_mismatch", type=type_b).save()
     feature = ln.Feature(name="feature_mismatch", dtype=type_a).save()
-    schema = ln.Schema([feature]).save()
     sample = ln.Record(name="sample_mismatch").save()
 
     # single SQLRecord of wrong type → ValidationError
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: record_b}, schema=schema)
+        sample.features.set_values({feature: record_b})
 
     # list of SQLRecords containing a wrong-type record → ValidationError
     record_a = ln.Record(name="record_a_mismatch", type=type_a).save()
     with pytest.raises(
         ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
     ):
-        sample.features.set_values({feature: [record_a, record_b]}, schema=schema)
+        sample.features.set_values({feature: [record_a, record_b]})
+
+    # An unsaved record has no primary key, so it cannot be resolved through a sheet.
+    unsaved_b = ln.Record(name="unsaved_b_mismatch", type=type_b)
+    mismatch_schema = ln.Schema([feature], name="mismatch_schema").save()
+    with pytest.raises(
+        ln.errors.ValidationError, match="Expected a record of type 'TypeA_mismatch'"
+    ):
+        sample.features.set_values({feature: [unsaved_b]}, schema=mismatch_schema)
+
+    # Registries without query_<registry>s cannot match a record under a subtype.
+    from lamindb.curators.core import _sqlrecord_matches_feature_type
+
+    assert not _sqlrecord_matches_feature_type(
+        record_b, ln.User.get(id=ln.setup.settings.user.id)
+    )
 
     # cleanup
     sample.delete(permanent=True)
     record_a.delete(permanent=True)
     record_b.delete(permanent=True)
-    schema.delete(permanent=True)
+    mismatch_schema.delete(permanent=True)
     feature.delete(permanent=True)
     type_a.delete(permanent=True)
     type_b.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_dtype_without_schema(method):
+    feature = ln.Feature(name=f"{method}_no_schema_numbers", dtype="list[int]").save()
+    record = ln.Record(name=f"{method}-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [1, 2]})
+
+        with pytest.raises(ln.errors.ValidationError):
+            update_values({feature: ["wrong"]})
+
+        assert record.features.get_values() == {feature.name: [1, 2]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_validate_record_dtype_without_schema(method):
+    expected_type = ln.Record(name=f"{method}_expected_type", is_type=True).save()
+    other_type = ln.Record(name=f"{method}_other_type", is_type=True).save()
+    valid_value = ln.Record(name=f"{method}_valid_value", type=expected_type).save()
+    invalid_value = ln.Record(name=f"{method}_invalid_value", type=other_type).save()
+    feature = ln.Feature(
+        name=f"{method}_no_schema_records", dtype=list[expected_type]
+    ).save()
+    record = ln.Record(name=f"{method}-record-dtype-no-schema").save()
+    try:
+        update_values = getattr(record.features, method)
+        update_values({feature: [valid_value]})
+
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match=f"Expected a record of type '{expected_type.name}'",
+        ):
+            update_values({feature: [valid_value, invalid_value]})
+
+        assert record.features.get_values() == {feature.name: [valid_value.name]}
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+        valid_value.delete(permanent=True)
+        invalid_value.delete(permanent=True)
+        expected_type.delete(permanent=True)
+        other_type.delete(permanent=True)
 
 
 def test_set_values_accepts_user_records_for_user_dtype():
@@ -2709,8 +3253,12 @@ def test_set_values_accepts_user_records_for_user_dtype():
         is_type=True,
         schema=schema,
     ).save()
-    record = ln.Record(name="record_user_record_input", type=record_type).save()
     current_user = ln.User.get(id=ln.setup.settings.user.id)
+    record = ln.Record(
+        name="record_user_record_input",
+        type=record_type,
+        features={user_feature: [current_user]},
+    ).save()
 
     record.features.set_values({user_feature: [current_user]})
 
