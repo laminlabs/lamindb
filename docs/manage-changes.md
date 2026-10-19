@@ -36,7 +36,7 @@ There are three built-in branches: `main`, `trash`, and `archive`. By default, o
 ::::{tab-set}
 :::{tab-item} UI
 
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/FjMXgmEa9OeJHR4Z0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/pQWzkbPHq1Sk2zs50002.png"/>
 :::
 
 :::{tab-item} CLI
@@ -139,11 +139,11 @@ ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
 
 Open the branch in the Changes page, and use the "Create change request" button to set it to "draft."
 
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qlpT6n0bPm4p0vx90000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HH5rRZrjrRw2cWa70001.png"/>
 
 Once you think the branch is ready, use the "Ready for review" button to submit it for review.
 
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PfQGhSNL10qOrCjC0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/WrZILsMtFsYfcc8V0001.png"/>
 
 :::
 
@@ -178,7 +178,7 @@ branch.save()
 
 To merge your contribution branch into the `main` branch, set the target branch dropdown to `main` and use the "Merge changes" button.
 
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/DYXHLFELIHNJ7hVz0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HOykpFPugonJyerM0001.png"/>
 
 :::
 
@@ -212,7 +212,7 @@ Add notes to a branch:
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/GokLNbtVALXqjk5L0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/IIKfNn6m3vlAReXz0001.png"/>
 :::
 
 :::{tab-item} CLI
@@ -229,7 +229,7 @@ Comment on a branch:
 ::::{tab-set}
 
 :::{tab-item} UI
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KKW5pFlSiqgWjnqm0000.png"/>
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/PNH3OlEeGLQ8sFpl0001.png"/>
 :::
 
 :::{tab-item} CLI
