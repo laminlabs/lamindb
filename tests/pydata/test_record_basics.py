@@ -3237,7 +3237,7 @@ def test_sqlrecord_type_mismatch_raises_validation_error():
     type_b.delete(permanent=True)
 
 
-@pytest.mark.parametrize("method", ["set_values", "add_values"])
+@pytest.mark.parametrize("method", ["set_values", "add_values", "update_values"])
 def test_record_features_validate_dtype_without_schema(method):
     feature = ln.Feature(name=f"{method}_no_schema_numbers", dtype="list[int]").save()
     record = ln.Record(name=f"{method}-no-schema").save()
@@ -3254,7 +3254,7 @@ def test_record_features_validate_dtype_without_schema(method):
         feature.delete(permanent=True)
 
 
-@pytest.mark.parametrize("method", ["set_values", "add_values"])
+@pytest.mark.parametrize("method", ["set_values", "add_values", "update_values"])
 def test_record_features_validate_record_dtype_without_schema(method):
     expected_type = ln.Record(name=f"{method}_expected_type", is_type=True).save()
     other_type = ln.Record(name=f"{method}_other_type", is_type=True).save()

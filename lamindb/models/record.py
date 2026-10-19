@@ -807,6 +807,8 @@ def move_schema_index_column_to_dataframe_index(
 
 def _records_from_feature_value(value: Any) -> list[Record]:
     """Normalize a reverse `values_through` payload to Record objects."""
+    if value is None:
+        return []
     return [
         item if not isinstance(item, str) else Record.get(name=item) for item in value
     ]
@@ -869,6 +871,7 @@ def strip_index_for_record_persistence(
     *,
     values_by_feature_uid: dict[str, Any] | None = None,
     index_feature: Feature | None = None,
+    replace: bool = False,
 ) -> tuple[dict[str, Any], list[Feature], list[tuple[Feature, Feature, Any]]]:
     """Move `values_through` and schema-index values off the forward write path."""
     if index_feature is None and schema is not None:
@@ -888,7 +891,7 @@ def strip_index_for_record_persistence(
         elif index_feature.name in dictionary:
             index_value = dictionary[index_feature.name]
 
-        if index_value is not None:
+        if index_value is not None or (replace and index_feature.name in dictionary):
             apply_index_feature_to_record(record, index_feature, index_value)
 
     dictionary = dict(dictionary)
@@ -922,7 +925,7 @@ def strip_index_for_record_persistence(
             coerced = _coerce_feature_value_for_record_field(
                 value, feature, record_field
             )
-            if coerced is not None:
+            if coerced is not None or replace:
                 setattr(record, field_name, coerced)
                 update_fields.add(field_name)
             dictionary.pop(feature.name, None)
