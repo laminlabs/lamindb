@@ -1160,11 +1160,18 @@ def test_from_anndata_validate_suffix(get_small_adata):
     )
 
 
-def test_create_from_mudata(get_small_mdata, mudata_file, adata_file):
+def test_create_from_mudata(get_small_mdata, mudata_file, adata_file, ccaplog):
     with pytest.raises(ValueError) as error:
         ln.Artifact.from_mudata(adata_file, description="test1")
     assert "data has to be a MuData object or a path to MuData-like" in error.exconly()
 
+    for m in [get_small_mdata, mudata_file]:
+        af = ln.Artifact(m, description="test1")
+        assert af.description == "test1"
+        assert af.key is None
+        assert af.otype == "MuData"
+        assert af.kind is None
+    assert "data is a MuData, please use .from_mudata()" in ccaplog.text
     for m in [get_small_mdata, mudata_file]:
         af = ln.Artifact.from_mudata(m, description="test1")
         assert af.description == "test1"
@@ -1289,17 +1296,20 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_v2.path.exists()
     assert artifact_v2._revises is None
 
-    # revise by providing `revises` argument (do not save)
+    # revise by providing `revises` and a new key (do not save)
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
+    renamed_key = "my-test-dataset-renamed.parquet"
     artifact_v3 = ln.Artifact.from_dataframe(
-        df, description="test1", revises=artifact_v2, version="2"
+        df, key=renamed_key, description="test1", revises=artifact_v2, version="2"
     )
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
     assert artifact_v3.version_tag == "2"
     assert artifact_v3.version == "2"
     assert artifact_v3.description == "test1"
-    assert artifact_v3.key == key
+    assert artifact_v3.key == renamed_key
+    assert artifact_v2.key == key
+    assert f"renaming artifact from '{key}' to {renamed_key}" in ccaplog.text
 
     # revise by matching on `key` (do not save)
     artifact_v3 = ln.Artifact.from_dataframe(
