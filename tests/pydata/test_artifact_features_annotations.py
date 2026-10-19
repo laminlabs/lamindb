@@ -1260,6 +1260,26 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.features.remove_values({feature_score: 8, feature_tag: None})
     assert artifact.features.get_values() == {}
 
+    # update_values replaces only the supplied features and preserves the rest.
+    feature_numbers = ln.Feature(
+        name="artifact_feature_object_numbers", dtype=list[int]
+    ).save()
+    artifact.features.set_values({feature_score: 1, feature_tag: "keep"})
+    artifact.features.update_values({feature_score: 2, feature_numbers: [3]})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 2,
+        "artifact_feature_object_tag": "keep",
+        "artifact_feature_object_numbers": [3],
+    }
+    artifact.features.update_values({})
+    assert artifact.features.get_values()["artifact_feature_object_tag"] == "keep"
+    artifact.features.update_values({feature_score: None, feature_numbers: []})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_tag": "keep",
+        "artifact_feature_object_numbers": [],
+    }
+
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+    feature_numbers.delete(permanent=True)

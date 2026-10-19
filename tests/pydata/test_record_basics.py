@@ -3046,9 +3046,29 @@ def test_record_features_accept_feature_object_keys():
     record.features.set_values({})
     assert ln.Record.get(id=record.id).features.get_values() == {}
 
+    # update_values replaces only the supplied features and preserves the rest.
+    feature_numbers = ln.Feature(
+        name="record_feature_object_numbers", dtype=list[int]
+    ).save()
+    record.features.set_values({feature_score: 1, feature_tag: "keep"})
+    record.features.update_values({feature_score: 2, feature_numbers: [3]})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 2,
+        "record_feature_object_tag": "keep",
+        "record_feature_object_numbers": [3],
+    }
+    record.features.update_values({})
+    assert record.features.get_values()["record_feature_object_tag"] == "keep"
+    record.features.update_values({feature_score: None, feature_numbers: []})
+    assert record.features.get_values() == {
+        "record_feature_object_tag": "keep",
+        "record_feature_object_numbers": [],
+    }
+
     record.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+    feature_numbers.delete(permanent=True)
 
 
 @pytest.mark.parametrize("method", ["add_values", "set_values"])
