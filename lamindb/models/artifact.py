@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import shutil
 import types
-import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import (
@@ -1981,17 +1980,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: path")
-
-        if "data" in kwargs:
-            warnings.warn(
-                "`data` argument was renamed to `path` and will be removed in a future release.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            path = kwargs.pop("data")
-        else:
-            path = kwargs.pop("path") if len(args) == 0 else args[0]
-
+        path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
@@ -2188,9 +2177,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         otype = check_otype_artifact(
             data=path, otype=otype, cloud_warning=not _is_internal_call
         )
-        if "type" in kwargs:
-            logger.warning("`type` will be removed soon, please use `kind`")
-            kind = kwargs.pop("type")
         if not len(kwargs) == 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Artifact)])
             raise FieldValidationError(
