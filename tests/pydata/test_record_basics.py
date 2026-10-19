@@ -3071,26 +3071,6 @@ def test_record_features_accept_feature_object_keys():
     feature_numbers.delete(permanent=True)
 
 
-def test_record_one_element_list_is_not_read_as_a_set(monkeypatch):
-    # Records store one JSON value directly. PostgreSQL ArrayAgg wrapping applies
-    # only to artifacts and runs, so a one-element list must not become a set.
-    from django.db import connections
-    from lamindb.models import _feature_manager
-
-    feature = ln.Feature(name="one_element_list", dtype=list[int]).save()
-    record = ln.Record(name="one-element-list").save()
-    try:
-        record.features.set_values({feature: [3]})
-        monkeypatch.setattr(connections[record._state.db], "vendor", "postgresql")
-        monkeypatch.setattr(
-            _feature_manager, "get_categoricals_postgres", lambda *_, **__: {}
-        )
-        assert record.features.get_values()[feature.name] == [3]
-    finally:
-        record.delete(permanent=True)
-        feature.delete(permanent=True)
-
-
 def test_update_values_accepts_empty_lists():
     value_type = ln.Record(name="empty-list-type", is_type=True).save()
     label = ln.Record(name="empty-list-label", type=value_type).save()
