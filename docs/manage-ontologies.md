@@ -5,7 +5,7 @@ execute_via: python
 # Manage biological ontologies
 
 This guide shows how to manage ontologies for basic biological entities using `bionty`.
-If you want to manage flexible records in the context of an ELN or LIMS or build your own ontologies from scratch, see: {doc}`docs:manage-records`
+If you want to manage records in the context of an ELN or LIMS or build your own ontologies or knowledge graph from scratch, see: {doc}`docs:manage-records`
 
 ```{raw} html
 <div align="center">
