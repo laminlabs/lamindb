@@ -870,6 +870,8 @@ class Context:
 
         To sync code with a git repo, see: :ref:`sync-code-with-git`.
 
+        To track the compute environment, see: :ref:`track-run-environment`.
+
         To track parameters and features, see: :ref:`track-run-parameters`.
 
         To browse more examples, see: :doc:`/track`.
