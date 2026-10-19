@@ -3331,6 +3331,92 @@ def test_categorical_value_stored_as_json_raises_on_read():
     species_type.delete(permanent=True)
 
 
+@pytest.mark.parametrize("inherited_schema", [False, True])
+@pytest.mark.parametrize(
+    ("method", "to_many"),
+    [("set_values", False), ("set_values", True), ("add_values", True)],
+)
+@pytest.mark.parametrize("feature_key", ["object", "name"])
+def test_record_features_reject_ambiguous_string_values(
+    inherited_schema, method, to_many, feature_key
+):
+    """Reject ambiguous names and tell callers to pass the Record object."""
+    other_type = ln.Record(name="fanout_other_type", is_type=True).save()
+    expected_type = ln.Record(name="fanout_expected_type", is_type=True).save()
+    shared_name = "fanout_unknown"
+    # Create the wrong-type match first so database order cannot select it.
+    wrong_value = ln.Record(name=shared_name, type=other_type).save()
+    expected_value = ln.Record(name=shared_name, type=expected_type).save()
+    feature = ln.Feature(
+        name="fanout_stage", dtype=list[expected_type] if to_many else expected_type
+    ).save()
+    schema = ln.Schema([feature]).save()
+    record_type = ln.Record(
+        name="fanout_experiment_type", is_type=True, schema=schema
+    ).save()
+    record_kwargs = {
+        "name": "fanout_experiment",
+        "features": {feature: [expected_value] if to_many else expected_value},
+    }
+    if inherited_schema:
+        record_kwargs["type"] = record_type
+    record = ln.Record(**record_kwargs).save()
+    try:
+        key = feature if feature_key == "object" else feature.name
+        update_values = getattr(record.features, method)
+        with pytest.raises(ln.errors.ValidationError, match="(?i)ambig") as error:
+            update_values({key: [shared_name] if to_many else shared_name})
+        message = str(error.value)
+        assert feature.name in message
+        assert shared_name in message
+        assert re.search("(?i)pass.*object", message)
+
+        # A rejected update must preserve the existing record, including its type.
+        # get_values() deduplicates identical names, masking extra links.
+        values = record.features[feature.name]
+        assert ([values] if isinstance(values, ln.Record) else list(values)) == [
+            expected_value
+        ]
+
+        # The explicit object disambiguates the value and must remain accepted.
+        update_values({key: [expected_value] if to_many else expected_value})
+        values = record.features[feature.name]
+        assert ([values] if isinstance(values, ln.Record) else list(values)) == [
+            expected_value
+        ]
+    finally:
+        record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+        expected_value.delete(permanent=True)
+        wrong_value.delete(permanent=True)
+        expected_type.delete(permanent=True)
+        other_type.delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["set_values", "add_values"])
+def test_record_features_resolve_unambiguous_strings_in_order(method):
+    record_type = ln.Record(name="ordered_string_values_type", is_type=True).save()
+    first = ln.Record(name="ordered_string_first", type=record_type).save()
+    second = ln.Record(name="ordered_string_second", type=record_type).save()
+    feature = ln.Feature(name="ordered_string_values", dtype=list[record_type]).save()
+    record = ln.Record(name="ordered_string_host").save()
+    try:
+        getattr(record.features, method)({feature: [second.name, first.name]})
+        assert {value.uid for value in record.features[feature.name]} == {
+            first.uid,
+            second.uid,
+        }
+        assert record.features.get_values()[feature.name] == [second.name, first.name]
+    finally:
+        record.delete(permanent=True)
+        feature.delete(permanent=True)
+        second.delete(permanent=True)
+        first.delete(permanent=True)
+        record_type.delete(permanent=True)
+
+
 def test_sqlrecord_type_mismatch_raises_validation_error():
     """Passing a record of the wrong type in the SQLRecord fast path must raise ValidationError."""
     type_a = ln.Record(name="TypeA_mismatch", is_type=True).save()
