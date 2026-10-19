@@ -106,6 +106,32 @@ Log out:
 lamin logout
 ```
 
+## Mount additional storage locations
+
+This is how you mount **new storage locations** in your LaminDB instance:
+
+```python
+# on AWS
+ln.Storage(root="s3://our-bucket/our-folder").save()
+# on Google Cloud
+ln.Storage(root="gs://our-bucket/our-folder").save()
+# on a local file system
+ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
+```
+
+:::{dropdown} On MinIO or Cloudflare R2
+
+You can also mount storage locations on MinIO or Cloudflare R2:
+
+```python
+# on MinIO
+ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=http://our-minio.example.com:9000").save()
+# on Cloudflare R2
+ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=https://our-account-id.r2.cloudflarestorage.com").save()
+```
+
+:::
+
 ## Configure settings
 
 Print info about settings on the terminal:

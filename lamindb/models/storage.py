@@ -64,45 +64,75 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     Examples
     --------
 
-    When you create a LaminDB instance, you configure its default storage location via `--storage`::
+    When you create a LaminDB instance, you can **configure its default storage** location via `--storage`::
 
-        mkdir mydatadir && cd mydatadir && lamin init  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
+        lamin init --storage /path/to/myfolder  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
 
-    View the current default storage location for writing artifacts::
+    This is how you mount **new storage locations** in your LaminDB instance::
 
-        import lamindb as ln
-
-        ln.settings.storage
-
-    Create a new cloud storage location::
-
+        # on AWS
         ln.Storage(root="s3://our-bucket/our-folder").save()
-
-    Create a new local storage location::
-
+        # on Google Cloud
+        ln.Storage(root="gs://our-bucket/our-folder").save()
+        # on a local file system
         ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
 
-    Globally switch to another storage location::
+    .. dropdown:: On MinIO or Cloudflare R2
+
+        You can also mount storage locations on MinIO or Cloudflare R2::
+
+            # on MinIO
+            ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=http://our-minio.example.com:9000").save()
+            # on Cloudflare R2
+            ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=https://our-account-id.r2.cloudflarestorage.com").save()
+
+    **Query a storage location object** that you can pass to `Artifact()`::
+
+        storage = ln.Storage.get(root="s3://our-bucket/our-folder")
+
+    View **all storage locations** used in your LaminDB instance::
+
+        ln.Storage.to_dataframe()
+
+    View the **default storage location** of your LaminDB instance::
+
+        ln.setup.settings.storage
+
+    Temporarily **switch to another storage location**::
 
         ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
 
-    Or if you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
+    If you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
 
         ln.settings.local_storage = "/dir/our-other-shared-dir"
-
-    View all storage locations used in your LaminDB instance::
-
-        ln.Storage.to_dataframe()
 
     Notes
     -----
 
-    A storage location is written to by at most one LaminDB instance: the location’s *managing instance*.
+    A storage location is managed by at most one LaminDB instance: the location’s *managing instance*.
     Some locations are not managed with LaminDB and, hence, do not have a managing instance.
+
+    .. dropdown:: Managing access to storage locations
+
+        You can manage access through LaminHub's fine-grained access management or
+        through AWS policies that you attach to your S3 bucket.
+
+        To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
+        and click the green button that says "Connect S3 bucket". Read more: :doc:`docs:permissions`.
+
+        By default, a storage location inherits the access permissions of its instance. If you
+        want to further restrict access to a storage location, you can move it into a space::
+
+            space = ln.Space.get(name="my-space")
+            storage = ln.Storage.get(root="s3://my-storage-location")
+            storage.space = space
+            storage.save()
+
+        If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
     .. dropdown:: Writable vs. read-only storage locations
 
-        The `instance_uid` field of `Storage` defines its *managing instance*.
+        The `instance_uid` field of `Storage` defines its managing LaminDB instance.
         Only if a storage location's `instance_uid` matches your current instance's `uid` (`ln.settings.instance_uid`),
         you can write to it.
         All other storage locations are read-only in your current instance.
@@ -113,29 +143,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
            :width: 400px
 
         Some storage locations are not managed by any LaminDB instance, hence, their `instance_uid` is `None`.
-
-    .. dropdown:: Managing access to storage locations across instances
-
-        You can manage access through LaminHub's fine-grained access management or
-        through AWS policies that you attach to your S3 bucket.
-
-        To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
-        By clicking the green button that says "Connect S3 bucket", your collaborators will access data
-        based on their LaminHub permissions.
-        :doc:`docs:permissions` has more details.
-
-        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
-           :width: 800px
-
-        By default, a storage location inherits the access permissions of its instance. If you
-        want to further restrict access to a storage location, you can move it into a space::
-
-            space = ln.Space.get(name="my-space")
-            storage_loc = ln.Storage.get(root="s3://my-storage-location")
-            storage_loc.space = space
-            storage_loc.save()
-
-        If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
     .. dropdown:: What is the `.lamindb/` directory inside a storage location?
 
