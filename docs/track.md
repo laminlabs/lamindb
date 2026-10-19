@@ -106,10 +106,14 @@ uv virtualenvs do not include pip. If there is no `uv.lock` and `pip freeze` fai
 
 An R session via laminr stores `r_environment.txt` instead of the Python environment.
 
+<!-- #region -->
+
 ```python
 environment = transform.latest_run.environment
 environment.cache()  # path to the lockfile or requirements.txt
 ```
+
+<!-- #endregion -->
 
 ### Use projects
 
