@@ -3,7 +3,7 @@
 # LaminDB: Data management for traceable, multimodal AI
 
 LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
-Like git, LaminDB is a distributed system that runs anywhere and captures all relevant context about your work.
+Like git, LaminDB runs anywhere and captures relevant context about your work.
 This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
 It takes about a minute to install LaminDB and create a database on your laptop or in the cloud.
 
@@ -11,14 +11,12 @@ It takes about a minute to install LaminDB and create a database on your laptop 
 <summary>Why?</summary>
 
 1. Untraceable results cannot be trusted, especially when non-verifiable tasks are delegated to agents.
-2. Without effective access to multimodal data, models burn tokens or [fail entirely](https://www.anthropic.com/research/agents-in-biology).
+2. Without effective access to multimodal data, models burn tokens or fail entirely.
 3. Without governing changes to data akin to governing changes to software with git, it's hard to evaluate agents, debug their mistakes, and safely merge their contributions.
 
-Especially in life sciences, hard-to-verify tasks are abundant, data formats are very heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
+Especially in life sciences, hard-to-verify tasks are abundant, data formats are heterogeneous, and teams need end-to-end traceability for GxP compliance (21 CFR Part 11 and EU Annex 11).
 
-Traditional data infrastructure doesn't solve these issues because it was built for business analytics rather than complex AI workflows.
-While modern SQL lakehouse solutions (Iceberg, Delta, DuckLake, Lakebase) excel at tabular analytics, they are restricted to structured rows and SQL-centric catalogs.
-LaminDB generalizes core lakehouse guarantees — ACID transactions, time travel, and schema evolution — to multimodal data (`parquet`, `zarr`, `AnnData`, ...) and Python-first workflows, giving you lakehouse governance over non-tabular data while letting you query and load with your favorite engines (Polars, DuckDB, `annbatch`, ...).
+Existing data lakehouses aren't a comprehensive solution. They only address the 2nd and 3rd of these problems for a single table or array format, such as `parquet` or `zarr`.
 
 </details>
 
