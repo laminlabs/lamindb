@@ -23,7 +23,7 @@ If you'd like to install a development version from GitHub, consider these [note
 
 ## Create a database
 
-You can create a LaminDB instance using the [init command](https://docs.lamin.ai/cli#init) with these options:
+You can create a LaminDB instance using the `lamin init` command with these options:
 
 - `storage`: a default storage location (e.g. `s3://my-bucket`, `gs://my-bucket`, `./my-data-dir`)
 - `name` (optional): a name (e.g., `my-assets`)
@@ -33,26 +33,52 @@ You can create a LaminDB instance using the [init command](https://docs.lamin.ai
 If you are only interested in tracking artifacts and their transformations, init your local SQLite database via:
 
 ```shell
-lamin init --storage ./mydata
+lamin init
 ```
 
-Mount the Bionty module:
+Mount the `bionty` module:
 
 ```shell
-lamin init --storage mydata --modules bionty
+lamin init --modules bionty
+```
+
+If you do not want to store data in your development directory, pass a storage location:
+
+```shell
+lamin init --storage /path/to/myfolder
 ```
 
 You can also pass an AWS S3 bucket:
 
 ```shell
-lamin init --storage s3://<bucket_name> --modules bionty
+lamin init --storage s3://our-bucket
+```
+
+Or a folder in an S3 bucket:
+
+```shell
+lamin init --storage s3://our-bucket/our-folder
+```
+
+The same works for other cloud providers, like GCP:
+
+```shell
+lamin init --storage gs://our-bucket/our-folder
+```
+
+And for arbitrary S3-compatible endpoints:
+
+```shell
+lamin init --storage s3://<bucket_name>?endpoint_url=http://endpoint.com:port
 ```
 
 Instead of SQLite, you can pass a Postgres connection string:
 
 ```shell
-lamin init --storage gs://<bucket_name> --db postgresql://<user>:<pwd>@<hostname>:<port>/<dbname> --modules bionty
+lamin init --db postgresql://<user>:<pwd>@<hostname>:<port>/<dbname>
 ```
+
+## Deleting a database
 
 To delete a database, call:
 
@@ -86,7 +112,7 @@ To configure your default database in a Python/R session, run:
 ln.connect("account/name")
 ```
 
-To access private databases through the hub, you need an account. It's free & [signing up](https://lamin.ai/signup) takes <1 min. To log in, run:
+To access private databases through LaminHub, you need an account. It's free & [signing up](https://lamin.ai/signup) takes <1 min. To log in, run:
 
 ```shell
 lamin login
@@ -97,7 +123,7 @@ You will be prompted for your API key. You can create your API key on your [acco
 If you have multiple accounts that already logged into a compute environment, you can switch between them using your handle:
 
 ```shell
-lamin login mclintock
+lamin login <my-handle>
 ```
 
 Log out:
@@ -106,9 +132,9 @@ Log out:
 lamin logout
 ```
 
-## Mount additional storage locations
+## Mount storage locations
 
-This is how you mount **new storage locations** in your LaminDB instance:
+This is how you mount **additional storage locations** in your LaminDB instance:
 
 ```python
 # on AWS
@@ -119,15 +145,19 @@ ln.Storage(root="gs://our-bucket/our-folder").save()
 ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
 ```
 
-:::{dropdown} On MinIO or Cloudflare R2
+<br>
 
-You can also mount storage locations on MinIO or Cloudflare R2:
+:::{dropdown} MinIO, Cloudflare R2, custom S3-compatible endpoints
+
+For MinIO or Cloudflare R2:
 
 ```python
 # on MinIO
 ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=http://our-minio.example.com:9000").save()
 # on Cloudflare R2
 ln.Storage(root="s3://our-bucket/our-folder?endpoint_url=https://our-account-id.r2.cloudflarestorage.com").save()
+# custom endpoint
+ln.Storage(root="s3://<bucket_name>?endpoint_url=http://endpoint.com:port").save()
 ```
 
 :::
@@ -149,24 +179,6 @@ ln.setup.settings
 ```
 
 This returns a {class}`~lamindb.setup.core.SetupSettings` object.
-
-### Use paths with AWS-S3-compatible endpoints
-
-It is possible to create a database with a path that uses an AWS-S3-compatible endpoint url. Such endpoints allow to access non-S3 buckets using the same API that is used for S3:
-
-```shell
-lamin init --storage s3://<bucket_name>?endpoint_url=http://endpoint.com:port
-```
-
-This assumes that the endpoint url is `http://endpoint.com` with a port specified.
-
-It is also possible to set a path with s3-compatible endpoint as a default storage for an existing instance for the current python session.
-
-```python
-import lamindb as ln
-
-ln.settings.storage = ln.UPath("s3://<bucket_name>", endpoint_url="http://endpoint.com:port")
-```
 
 ### Manage the cache directory
 

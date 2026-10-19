@@ -117,10 +117,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         You can manage access through LaminHub's fine-grained access management or
         through AWS policies that you attach to your S3 bucket.
 
-        To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
+        To enable access management via LaminHub, head over to `lamin.ai/{account}/infrastructure`
         and click the green button that says "Connect S3 bucket". Read more: :doc:`docs:permissions`.
 
-        By default, a storage location inherits the access permissions of its instance. If you
+        By default, a storage location inherits the access permissions of its managing instance. If you
         want to further restrict access to a storage location, you can move it into a space::
 
             space = ln.Space.get(name="my-space")
