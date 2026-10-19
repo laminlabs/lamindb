@@ -7,12 +7,6 @@ execute_via: python
 This guide walks through querying & searching the registries that keep track of your entities.
 To query and load datasets in storage, see {doc}`tables` and {doc}`arrays`.
 
-:::{hint}
-
-Understand linking entities to enable relational queries, see {doc}`organize`.
-
-:::
-
 ## Basics
 
 Create a database object:
@@ -77,6 +71,12 @@ cell_types = db.bionty.CellType.lookup()
 ```
 
 ## Queries
+
+:::{hint}
+
+To link entities for relational queries, see {doc}`organize`.
+
+:::
 
 ### By fields
 
