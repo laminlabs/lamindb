@@ -3332,13 +3332,17 @@ def test_categorical_value_stored_as_json_raises_on_read():
 
 
 def test_record_features_reject_ambiguous_string_values():
-    """Reject ambiguous names and tell callers to pass the Record object."""
-    other_type = ln.Record(name="fanout_other_type", is_type=True).save()
+    """Reject names ambiguous within the declared type, including its subtypes."""
     expected_type = ln.Record(name="fanout_expected_type", is_type=True).save()
+    subtype_a = ln.Record(
+        name="fanout_subtype_a", type=expected_type, is_type=True
+    ).save()
+    subtype_b = ln.Record(
+        name="fanout_subtype_b", type=expected_type, is_type=True
+    ).save()
     shared_name = "fanout_unknown"
-    # Create the wrong-type match first so database order cannot select it.
-    wrong_value = ln.Record(name=shared_name, type=other_type).save()
-    expected_value = ln.Record(name=shared_name, type=expected_type).save()
+    other_value = ln.Record(name=shared_name, type=subtype_b).save()
+    expected_value = ln.Record(name=shared_name, type=subtype_a).save()
     feature = ln.Feature(name="fanout_stage", dtype=list[expected_type]).save()
     schema = ln.Schema([feature]).save()
     record_type = ln.Record(
@@ -3380,31 +3384,53 @@ def test_record_features_reject_ambiguous_string_values():
         schema.delete(permanent=True)
         feature.delete(permanent=True)
         expected_value.delete(permanent=True)
-        wrong_value.delete(permanent=True)
+        other_value.delete(permanent=True)
+        subtype_b.delete(permanent=True)
+        subtype_a.delete(permanent=True)
         expected_type.delete(permanent=True)
-        other_type.delete(permanent=True)
 
 
-@pytest.mark.parametrize("method", ["set_values", "add_values"])
-def test_record_features_resolve_unambiguous_strings_in_order(method):
+def test_record_features_resolve_unambiguous_strings_in_order():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    other_type = ln.Record(name="ordered_string_other_type", is_type=True).save()
+    # Same-name values outside the declared type must not make the lookup ambiguous.
+    other_first = ln.Record(name="ordered_string_first", type=other_type).save()
+    other_second = ln.Record(name="ordered_string_second", type=other_type).save()
     record_type = ln.Record(name="ordered_string_values_type", is_type=True).save()
     first = ln.Record(name="ordered_string_first", type=record_type).save()
     second = ln.Record(name="ordered_string_second", type=record_type).save()
     feature = ln.Feature(name="ordered_string_values", dtype=list[record_type]).save()
     record = ln.Record(name="ordered_string_host").save()
     try:
-        getattr(record.features, method)({feature: [second.name, first.name]})
-        assert {value.uid for value in record.features[feature.name]} == {
-            first.uid,
-            second.uid,
-        }
-        assert record.features.get_values()[feature.name] == [second.name, first.name]
+        for update_values in (record.features.set_values, record.features.add_values):
+            with CaptureQueriesContext(connection) as queries:
+                update_values({feature: [second.name, first.name]})
+            # Curation resolves the records once; persistence must reuse them.
+            record_lookups = [
+                query["sql"]
+                for query in queries.captured_queries
+                if '"lamindb_record"."name" IN' in query["sql"]
+            ]
+            assert len(record_lookups) == 1, record_lookups
+            assert {value.uid for value in record.features[feature.name]} == {
+                first.uid,
+                second.uid,
+            }
+            assert record.features.get_values()[feature.name] == [
+                second.name,
+                first.name,
+            ]
     finally:
         record.delete(permanent=True)
         feature.delete(permanent=True)
         second.delete(permanent=True)
         first.delete(permanent=True)
         record_type.delete(permanent=True)
+        other_second.delete(permanent=True)
+        other_first.delete(permanent=True)
+        other_type.delete(permanent=True)
 
 
 def test_sqlrecord_type_mismatch_raises_validation_error():

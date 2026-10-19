@@ -939,7 +939,10 @@ Here is how to create a feature:
 
     # Ambiguous categorical strings must fail without changing annotations;
     # passing the record object must still work for both methods.
+    experiment_type = ln.Record(name="AmbiguousExperimentType1", is_type=True).save()
     other_type = ln.Record(name="AmbiguousExperimentType", is_type=True).save()
+    experiment1.type = experiment_type
+    experiment1.save()
     other_experiment = ln.Record(name=experiment1.name, type=other_type).save()
     try:
         with pytest.raises(ln.errors.ValidationError, match="(?i)ambig.*object"):
@@ -955,7 +958,10 @@ Here is how to create a feature:
         assert artifact.features[experiment.name] == experiment1
     finally:
         other_experiment.delete(permanent=True)
+        experiment1.type = None
+        experiment1.save()
         other_type.delete(permanent=True)
+        experiment_type.delete(permanent=True)
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
@@ -1299,7 +1305,21 @@ def test_artifact_features_accept_feature_object_keys():
         "artifact_feature_object_numbers": [],
     }
 
+    # Categorical index vectors are keyed by "index", not the feature name.
+    category = ln.ULabel(name="artifact_feature_object_category").save()
+    feature_category = ln.Feature(
+        name="artifact_feature_object_category", dtype=ln.ULabel
+    ).save()
+    schema = ln.Schema([feature_score], index=feature_category).save()
+    artifact.schema = schema
+    artifact.save()
+    artifact.features.set_values({feature_category: category.name, feature_score: 9})
+    assert artifact.features[feature_category.name] == category
+
     artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_category.delete(permanent=True)
+    category.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
     feature_numbers.delete(permanent=True)

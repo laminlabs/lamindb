@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from rich.tree import Tree
 
     from lamindb.base.types import FieldAttr
-    from lamindb.curators.core import DictCurator
+    from lamindb.curators.core import CatVector
     from lamindb.models import (
         Artifact,
         Collection,
@@ -1834,77 +1834,41 @@ class FeatureManager:
             if feature.uid in values_by_feature_uid:
                 values_by_feature_uid[feature.uid] = normalized_value
 
+    @staticmethod
     def _resolve_categorical_feature_values(
-        self,
-        feature_objects: list[Feature],
         dictionary: dict[str, Any],
         values_by_feature_uid: dict[str, Any],
-        curator: DictCurator,
+        cat_vectors: dict[str, CatVector],
     ) -> None:
-        """Resolve each categorical string to one record before changing annotations."""
-        from .feature import parse_filter_string, resolve_relation_filters
-
-        for feature in feature_objects:
-            dtype = feature._dtype_str or ""
-            if not dtype.startswith(("cat", "list[cat")):
+        """Reuse validated records, preserving the order of supplied values."""
+        for vector in cat_vectors.values():
+            feature = vector.feature
+            if feature is None or feature.name not in dictionary:
                 continue
             value = values_by_feature_uid.get(feature.uid, dictionary[feature.name])
-            if isinstance(value, str):
-                items = [value]
-            elif isinstance(value, Iterable):
-                items = list(value)
-            else:
+            items = [value] if isinstance(value, str) else value
+            if not isinstance(items, Iterable):
                 continue
+            items = list(items)
             strings = {item for item in items if isinstance(item, str)}
             if not strings:
                 continue
 
-            candidates: dict[str, dict[tuple[type, int], BaseSQLRecord]] = {
-                item: {} for item in strings
-            }
-            cat_vector = curator.cat._cat_vectors[feature.name]
-            for parsed in parse_dtype("cat[ULabel]" if dtype == "cat" else dtype):
-                registry = parsed["registry"]
-                field = parsed["field_str"]
-                if registry == cat_vector._registry:
-                    filters = cat_vector._filter_kwargs
-                else:
-                    filters = resolve_relation_filters(
-                        parse_filter_string(parsed["filter_str"]),
-                        registry,
-                        using=self._host._state.db,
-                    )
-                # Keep explicit categorical filters, but do not use the dtype's
-                # implicit type scope to silently choose between same-name records.
-                records = registry.connect(self._host._state.db).filter(**filters)
-                for record in records.filter(**{f"{field}__in": strings}).distinct():
-                    key = str(getattr(record, field))
-                    candidates[key][(record.__class__, record.pk)] = record
-
-            resolved = {}
-            for string in strings:
-                matches = list(candidates[string].values())
-                if len(matches) > 1:
-                    details = []
-                    for match in matches:
-                        type_name = getattr(getattr(match, "type", None), "name", None)
-                        details.append(
-                            f"{get_registry_name(match)}(uid={match.uid!r}, type={type_name!r})"
+            resolved: dict[str, BaseSQLRecord] = {}
+            for parsed in parse_dtype(feature._dtype_str):
+                for record in vector.records or []:
+                    if not isinstance(record, parsed["registry"]):
+                        continue
+                    key = getattr(record, parsed["field_str"])
+                    if key not in strings:
+                        continue
+                    if key in resolved and resolved[key] != record:
+                        raise ValidationError(
+                            f"Cannot unambiguously resolve {key!r} for feature "
+                            f"{feature.name!r}. Pass the intended record object "
+                            "instead of a string."
                         )
-                    raise ValidationError(
-                        f"Cannot unambiguously resolve {string!r} for feature "
-                        f"{feature.name!r}: {len(matches)} records match: "
-                        f"{', '.join(details)}. Pass the intended record object "
-                        "instead of a string."
-                    )
-                if not matches:
-                    raise ValidationError(
-                        f"Cannot resolve {string!r} for feature {feature.name!r}: "
-                        "no matching record was found."
-                    )
-                resolved[string] = matches[0]
-            # The write paths consume this map, so they reuse the records rather
-            # than performing another, potentially broader string lookup.
+                    resolved[key] = record
             values_by_feature_uid[feature.uid] = (
                 resolved[value]
                 if isinstance(value, str)
@@ -1954,6 +1918,7 @@ class FeatureManager:
     ) -> None:
         import numpy as np
 
+        from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
         from .record import RecordJson
 
@@ -1983,11 +1948,7 @@ class FeatureManager:
             # already removed by the caller.
             if isinstance(value, (list, tuple, set)) and not value:
                 continue
-            if isinstance(value, BaseSQLRecord) or (
-                isinstance(value, Iterable)
-                and not isinstance(value, str)
-                and all(isinstance(item, BaseSQLRecord) for item in value)
-            ):
+            if isinstance(value, BaseSQLRecord) or is_iterable_of_sqlrecord(value):
                 if isinstance(value, BaseSQLRecord):
                     label_records = [value]
                 else:
@@ -2196,7 +2157,7 @@ class FeatureManager:
             )
             curator.validate()
             self._resolve_categorical_feature_values(
-                feature_objects, dictionary, values_by_feature_uid, curator
+                dictionary, values_by_feature_uid, curator.cat._cat_vectors
             )
         except ValidationError as error:
             raise ValidationError(
@@ -2223,8 +2184,9 @@ class FeatureManager:
         On an `Artifact` or `Run`, `add_values()` also accepts to-one features,
         allowing multiple values to represent aggregated measurements.
 
-        Each categorical string must identify exactly one record. If several
-        records match, pass the intended record object instead of a string.
+        Each categorical string must resolve to one record within the declared
+        type and categorical filters. If the match is still ambiguous, pass the
+        intended record object instead of a string.
 
         An empty dictionary leaves annotations unchanged, subject to any supplied
         or inherited schema's validation requirements.
@@ -2330,6 +2292,7 @@ class FeatureManager:
     ):
         import numpy as np
 
+        from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
 
         host_db = self._host._state.db
@@ -2397,11 +2360,7 @@ class FeatureManager:
                 # already removed by the caller.
                 if isinstance(value, (list, tuple, set)) and not value:
                     continue
-                if isinstance(value, BaseSQLRecord) or (
-                    isinstance(value, Iterable)
-                    and not isinstance(value, str)
-                    and all(isinstance(item, BaseSQLRecord) for item in value)
-                ):
+                if isinstance(value, BaseSQLRecord) or is_iterable_of_sqlrecord(value):
                     if isinstance(value, BaseSQLRecord):
                         label_records = [value]
                     else:
@@ -2503,8 +2462,9 @@ class FeatureManager:
         An empty dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
 
-        Each categorical string must identify exactly one record. If several
-        records match, pass the intended record object instead of a string.
+        Each categorical string must resolve to one record within the declared
+        type and categorical filters. If the match is still ambiguous, pass the
+        intended record object instead of a string.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
