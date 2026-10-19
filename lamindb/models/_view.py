@@ -103,7 +103,7 @@ def _view(
             col_name: serialize_pandas_dtype(dtype)
             for col_name, dtype in df.dtypes.to_dict().items()
         }
-        feature_dtypes = dict(Feature.objects.values_list("name", "dtype"))
+        feature_dtypes = dict(Feature.objects.values_list("name", "_dtype_str"))
         descriptions.update(feature_dtypes)
         display_df_with_descriptions(df, descriptions)
         return None
