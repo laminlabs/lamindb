@@ -21,7 +21,6 @@ from lamindb.models.record import (
     get_feature_values_through_source_uid,
 )
 from lamindb_setup import logger
-from pandas.api.types import is_string_dtype
 
 
 @pytest.fixture(scope="module")
@@ -386,16 +385,9 @@ def test_feature_from_dataframe():
     artifact.features._add_schema(schema, slot="columns")
     features = artifact.features.slots["columns"].features.all()
     assert len(features) == len(df.columns[:4])
-    [col for col in df.columns if is_string_dtype(df[col])]
-    categoricals = {
-        col: df[col] for col in df.columns if isinstance(df[col], pd.CategoricalDtype)
-    }
     for feature in features:
-        if feature.name in categoricals:
-            assert feature._dtype_str == "cat"
-        else:
-            orig_type = df[feature.name].dtype
-            assert feature._dtype_str == serialize_pandas_dtype(orig_type)
+        orig_type = df[feature.name].dtype
+        assert feature._dtype_str == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
@@ -412,7 +404,7 @@ def test_feature_from_dataframe():
         LabelManager(artifact).add(labels, feature=extfeature)
     assert (
         err.exconly()
-        == f"lamindb.errors.ValidationError: Feature {extfeature.name} needs dtype='cat' for label annotation, currently has dtype='str'"
+        == f"lamindb.errors.ValidationError: Feature {extfeature.name} needs a categorical dtype for label annotation, currently has dtype='str'"
     )
 
     # clean up
@@ -522,7 +514,6 @@ def test_serialize_pandas_datetime_dtypes():
 def test_dtype_as_object_covers_simple_fallbacks():
     assert dtype_as_object("datetime64[ns, UTC]") is datetime
     assert dtype_as_object("dict") is dict
-    assert dtype_as_object("cat") is None
     assert dtype_as_object(None) is None  # type: ignore[arg-type]
 
 

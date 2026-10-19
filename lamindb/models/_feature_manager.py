@@ -54,7 +54,6 @@ from ._relations import (
 )
 from .feature import Feature, FeaturePredicate, JsonValue, parse_dtype
 from .sqlrecord import BaseSQLRecord, SQLRecord
-from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from rich.tree import Tree
@@ -1954,16 +1953,7 @@ class FeatureManager:
                     values = [value]  # type: ignore
                 else:
                     values = value  # type: ignore
-                if feature._dtype_str == "cat":
-                    feature._dtype_str = "cat[ULabel]"
-                    feature.save()
-                    result = {
-                        "registry_str": "ULabel",
-                        "registry": ULabel,
-                        "field": ULabel.name,
-                    }
-                else:
-                    result = parse_dtype(feature._dtype_str)[0]
+                result = parse_dtype(feature._dtype_str)[0]
                 # Fast path for dataframe-originated record batches:
                 # `bulk_set_features_in_records()` now runs a single `DataFrameCurator`
                 # pass and pre-resolves categorical values to label records.
@@ -2286,10 +2276,7 @@ class FeatureManager:
         *,
         values_by_feature_uid: dict[str, Any] | None = None,
     ):
-        import numpy as np
-
         from ..base.dtypes import is_iterable_of_sqlrecord
-        from .can_curate import CanCurate
 
         host_db = self._host._state.db
         host_is_record = get_registry_name(self._host) == "Record"
@@ -2330,7 +2317,6 @@ class FeatureManager:
 
         features_labels = defaultdict(list)
         feature_json_values = []
-        not_validated_values: dict[str, tuple[str, list[str]]] = {}
         for feature in feature_objects:
             if (
                 values_by_feature_uid is not None
@@ -2370,53 +2356,10 @@ class FeatureManager:
                             record.__class__.__get_name_with_module__()
                         ].append((feature, record))
                 else:
-                    if isinstance(value, str):
-                        values = [value]  # type: ignore
-                    else:
-                        values = value  # type: ignore
-                    if feature._dtype_str == "cat":
-                        new_dtype_str = feature._dtype_str + "[ULabel]"
-                        feature._dtype_str = new_dtype_str
-                        feature.save()
-                        result = {
-                            "registry_str": "ULabel",
-                            "registry": ULabel,
-                            "field": ULabel.name,
-                        }
-                    else:
-                        result = parse_dtype(feature._dtype_str)[0]
-                    if issubclass(result["registry"], CanCurate):  # type: ignore
-                        validated = result["registry"].validate(  # type: ignore
-                            values, field=result["field"], mute=True
-                        )
-                        values_array = np.array(values)
-                        validated_values = values_array[validated]
-                        if validated.sum() != len(values):
-                            not_validated_values[result["registry_str"]] = (  # type: ignore
-                                result["field_str"],
-                                values_array[~validated].tolist(),
-                            )
-                        label_records = result["registry"].from_values(  # type: ignore
-                            validated_values, field=result["field"], mute=True
-                        )
-                    else:
-                        label_records = result["registry"].filter(  # type: ignore
-                            **{f"{result['field_str']}__in": values}
-                        )
-                        if len(label_records) != len(values):
-                            raise ValidationError(
-                                f"Some of these values for {result['registry_str']} do not exist: {values}"
-                            )
-                    if feature._dtype_str.startswith("list[cat"):
-                        label_records = _label_records_in_value_order(
-                            label_records, values, cast("str", result["field_str"])
-                        )
-                    features_labels[result["registry_str"]] += [  # type: ignore
-                        (feature, label_record) for label_record in label_records
-                    ]
-        # TODO: given we had already validated prior to calling _add_values, this block below should never be reached
-        # refactor this out if possible
-        self._raise_not_validated_values(not_validated_values)
+                    raise ValidationError(
+                        f"Categorical value for feature {feature.name!r} must already "
+                        "be a saved record."
+                    )
         if features_labels:
             self._add_label_feature_links(features_labels)
         if feature_json_values:

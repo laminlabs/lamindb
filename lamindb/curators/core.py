@@ -2363,7 +2363,7 @@ class CatVector:
             for value in values:
                 init_kwargs = {self._field_name: value}
                 if self._registry == Feature:
-                    init_kwargs["dtype"] = "cat" if dtype is None else dtype
+                    init_kwargs["dtype"] = "cat[ULabel]" if dtype is None else dtype
                 if self._type_record is not None:
                     # if type_record is set, we need to set the type for new records
                     init_kwargs["type"] = self._type_record

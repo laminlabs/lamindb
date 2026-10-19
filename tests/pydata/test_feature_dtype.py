@@ -882,13 +882,8 @@ def test_resolve_relation_filter_duplicate():
         resolve_relation_filters(parsed, bt.Gene)
 
 
-def test_bare_cat_dtype_backward_compatibility():
-    """Test that bare 'cat' dtype is accepted for backward compatibility."""
-    # Test parse_dtype accepts "cat" and returns empty list
-    result = parse_dtype("cat")
-    assert result == []
-
-    # Test Feature constructor with bare "cat" dtype issues deprecation warning
-    with pytest.warns(DeprecationWarning, match="dtype `cat` is deprecated"):
-        feature = ln.Feature(name="test_bare_cat", dtype="cat")
-    assert feature._dtype_str == "cat"
+def test_bare_cat_dtype_rejected():
+    with pytest.raises(ValueError, match="dtype is 'cat'"):
+        parse_dtype("cat")
+    with pytest.raises(ValueError, match="dtype is 'cat'"):
+        ln.Feature(name="test_bare_cat", dtype="cat")

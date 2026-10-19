@@ -130,9 +130,6 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
     result: list[dict[str, Any]] = []
-    # backward compatibility for bare "cat" dtype (deprecated)
-    if dtype_str == "cat":
-        return result
     if is_composed_cat:
         related_registries = dict_module_name_to_model_name(Artifact)
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
@@ -1372,13 +1369,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         self.nullable = nullable
         self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
-        if dtype_str == "cat":
-            warnings.warn(
-                "dtype `cat` is deprecated and will be removed in the future - "
-                "please use `ln.Record` or `ln.ULabel` instead",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         if cat_filters:
             if "|" in dtype_str:
                 raise ValidationError(
@@ -2058,7 +2048,7 @@ def suggest_categorical_for_str_iterable(
             key_note = f" for feature {key}"
         else:
             key_note = ""
-        message = f"You have few permissible values{key_note}, consider dtype 'cat' instead of 'str'"
+        message = f"You have few permissible values{key_note}, consider dtype ln.ULabel instead of 'str'"
     return message
 
 
