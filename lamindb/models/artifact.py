@@ -3819,9 +3819,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         self._save_skip_storage(**kwargs)
 
-        using = None
-        if "using" in kwargs:
-            using = kwargs["using"]
+        using = kwargs.get("using", None)
         exception_upload = check_and_attempt_upload(
             self,
             using,
