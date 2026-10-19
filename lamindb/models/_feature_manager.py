@@ -2504,13 +2504,8 @@ class FeatureManager:
                         .select_related("record")
                         .order_by("id")
                     )
-                    records = [link.record for link in links]
-                    if feature.dtype_as_str.startswith("list[") or len(records) > 1:
-                        dictionary[feature.name] = records
-                    elif records:
-                        dictionary[feature.name] = records[0]
-                    else:
-                        dictionary.pop(feature.name, None)
+                    # A reverse values_through feature is always list[Record].
+                    dictionary[feature.name] = [link.record for link in links]
                     continue
             if not feature.dtype_as_str.startswith(("cat", "list[cat")):
                 json_values = (
@@ -2532,7 +2527,7 @@ class FeatureManager:
                 else:
                     dictionary.pop(feature.name, None)
                 continue
-            records = []
+            records: list[SQLRecord] = []
             for parsed in parse_dtype(feature._dtype_str):
                 link_model, value_field, _ = get_categorical_link_info(
                     self._host.__class__, parsed["registry"], self._host._state.db
