@@ -35,7 +35,7 @@ dataset = collection.open()
 dataset
 ```
 
-We recommended to use :class:`~lamindb.Collection` to manage large-scale datasets as this gives you typical lakehouse guarantees. For more background, read {doc}`architecture`.
+We recommended to use {class}`~lamindb.Collection` to manage large-scale datasets as this gives you typical lakehouse guarantees. For more background, read {doc}`architecture`.
 
 <!-- #region -->
 
