@@ -1736,6 +1736,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 experiment: "Experiment 1"
             })
 
+        Replace selected values while preserving the others via :meth:`~lamindb.models.FeatureManager.update_values`:
+
+        .. code-block:: python
+
+            artifact.features.update_values({temperature: 28.0})
+
         Query artifacts by features:
 
         .. code-block:: python

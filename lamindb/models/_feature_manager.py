@@ -2457,9 +2457,11 @@ class FeatureManager:
             feature_field: Field used to resolve string feature keys.
             schema: Schema to validate against.
 
-        Example::
+        Examples:
 
-            record.features.update_values({score: 2.0, cell_types: [b_cell, t_cell]})
+            Replace a score and a list of cell types while preserving other annotations::
+
+                record.features.update_values({score: 2.0, cell_types: [b_cell, t_cell]})
         """
         if not values:
             return None
