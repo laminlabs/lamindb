@@ -90,6 +90,27 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
+(track-run-environment)=
+
+### Understand run environments
+
+`ln.track()` snapshots the compute environment and links it as {attr}`~lamindb.Run.environment`. For a notebook, that artifact is saved when you call `ln.finish()`.
+
+What gets saved depends on the interpreter:
+
+- A pixi environment saves the project's `pixi.lock`.
+- A uv environment (`uv run`, or a virtualenv created by uv) saves the project's `uv.lock`, from next to `.venv` or from a parent of the working directory.
+- Any other Python environment saves `python -m pip freeze` as `requirements.txt`.
+
+uv virtualenvs do not include pip. If there is no `uv.lock` and `pip freeze` fails, LaminDB emits a warning.
+
+An R session via laminr stores `r_environment.txt` instead of the Python environment.
+
+```python
+environment = transform.latest_run.environment
+environment.cache()  # path to the lockfile or requirements.txt
+```
+
 ### Use projects
 
 You can link the entities created during a run to a project.
