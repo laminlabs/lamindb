@@ -3111,6 +3111,106 @@ def test_update_values_accepts_empty_lists():
         numbers.delete(permanent=True)
 
 
+def test_update_values_validates_inherited_schema_state():
+    # An inherited schema reads every member before replacing the supplied keys.
+    from lamindb.base.dtypes import is_iterable_of_sqlrecord
+
+    assert is_iterable_of_sqlrecord([]) is False
+    assert is_iterable_of_sqlrecord(()) is False
+
+    index = ln.Feature(name="update_cov_index", dtype=str).save()
+    score = ln.Feature(name="update_cov_score", dtype=int).save()
+    note = ln.Feature(
+        name="update_cov_note", dtype=str, values_through="description"
+    ).save()
+    reference = ln.Feature(
+        name="update_cov_reference", dtype=str, values_through="reference"
+    ).save()
+    when = ln.Feature(name="update_cov_when", dtype=datetime).save()
+    day = ln.Feature(name="update_cov_day", dtype=date).save()
+    tag = ln.Feature(name="update_cov_tag", dtype=str).save()
+    unused = ln.Feature(name="update_cov_unused", dtype=float).save()
+    label_type = ln.Record(name="update-cov-label-type", is_type=True).save()
+    label = ln.Record(name="update-cov-label", type=label_type).save()
+    labels = ln.Feature(name="update_cov_labels", dtype=label_type).save()
+    missing_labels = ln.Feature(
+        name="update_cov_missing_labels", dtype=list[label_type]
+    ).save()
+    author = ln.Feature(name="update_cov_author", dtype=ln.Record).save()
+    books = ln.Feature(
+        name="update_cov_books", dtype=list[ln.Record], values_through=author
+    ).save()
+    schema = ln.Schema(
+        features=[
+            score,
+            note.with_config(optional=True),
+            reference.with_config(optional=True),
+            when.with_config(optional=True),
+            day.with_config(optional=True),
+            tag.with_config(optional=True),
+            unused.with_config(optional=True),
+            labels.with_config(optional=True),
+            missing_labels.with_config(optional=True),
+            books.with_config(optional=True),
+        ],
+        index=index,
+        name="update-cov-schema",
+    ).save()
+    sheet = ln.Record(name="update-cov-sheet", is_type=True, schema=schema).save()
+    record = ln.Record(
+        type=sheet,
+        description="keep this note",
+        features={
+            index: "COV-1",
+            score: 1,
+            when: datetime(2024, 1, 2, 3, 4, 5),
+            day: date(2024, 1, 2),
+            tag: "keep",
+            labels: label,
+        },
+    ).save()
+    book_1 = ln.Record(name="update-cov-book-1").save()
+    book_2 = ln.Record(name="update-cov-book-2").save()
+    book_1.features.set_values({author: record})
+    book_2.features.set_values({author: record})
+    try:
+        record.features.update_values({score: 2, tag: None, books: None})
+        values = record.features.get_values()
+        assert values[index.name] == "COV-1"
+        assert values[score.name] == 2
+        assert values[note.name] == "keep this note"
+        assert values[when.name] == datetime(2024, 1, 2, 3, 4, 5)
+        assert values[day.name] == date(2024, 1, 2)
+        assert values[labels.name] == label.name
+        assert tag.name not in values
+        assert values[books.name] == []
+        assert reference.name not in values
+        assert ln.models.RecordRecord.filter(feature=author, value=record).count() == 0
+    finally:
+        book_1.delete(permanent=True)
+        book_2.delete(permanent=True)
+        record.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        label.delete(permanent=True)
+        label_type.delete(permanent=True)
+        for feature in (
+            books,
+            author,
+            missing_labels,
+            labels,
+            unused,
+            tag,
+            day,
+            when,
+            reference,
+            note,
+            score,
+            index,
+        ):
+            feature.delete(permanent=True)
+
+
 @pytest.mark.parametrize("method", ["add_values", "set_values"])
 @pytest.mark.parametrize("inherited_schema", [False, True])
 def test_record_empty_feature_values_respect_schema(method, inherited_schema):
