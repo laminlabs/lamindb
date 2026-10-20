@@ -842,10 +842,10 @@ def test_schemas_anndata():
 
     # test the convenience function
     schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
-    assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
-    assert schema.itype is None
-    assert schema.hash == "aqGWHvyY49W_PHELUMiBMw"
+    assert schema.otype == "AnnData"
+    obs_schema = schema.slots["obs"]
+    assert obs_schema.itype.startswith("Feature[")
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"
@@ -853,6 +853,9 @@ def test_schemas_anndata():
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
 
     schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)
+    ln.Feature.filter(type__name="Cells").delete(permanent=True)
+    ln.Feature.filter(name="Cells", is_type=True).delete(permanent=True)
 
 
 def test_schema_already_saved_aux():

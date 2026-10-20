@@ -94,7 +94,12 @@ Think of schemas as rules that define what a valid dataset or record should look
 
 ### Validating a feature type
 
-Use when: You want to validate columns against one feature type, as in `schema = ln.Schema(itype=sample)` above. Additional columns are allowed.
+Use when: You want to validate columns against one feature type. Additional columns are allowed.
+
+```{eval-rst}
+.. literalinclude:: scripts/define_valid_features.py
+   :language: python
+```
 
 ### Minimal required schema
 
@@ -443,7 +448,7 @@ Let's run the script.
 python scripts/curate_anndata_flexible.py
 ```
 
-Under the hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
+Under the hood, this uses a feature type for `obs` and Ensembl gene ids for `var` ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py

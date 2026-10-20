@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 import bionty as bt
@@ -210,8 +211,13 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     assert "These features are outside the schema preview limit (20)." in ccaplog.text
 
     # dataset section
+    described = re.sub(
+        r"obs \(4 Feature\S*",
+        "obs (4)",
+        artifact.features.describe(return_str=True),
+    )
     assert (
-        artifact.features.describe(return_str=True)
+        described
         == """Artifact: examples/dataset1.h5ad (0000)
 ├── Dataset features
 │   ├── obs (4)
@@ -285,7 +291,8 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
         permanent=True
     )
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
