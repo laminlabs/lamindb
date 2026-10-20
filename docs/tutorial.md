@@ -286,7 +286,7 @@ Typically your artifact is in a cloud storage location. To get a local file path
 artifact.cache()
 ```
 
-If the data is large, you might not want to cache but stream it via {meth}`~lamindb.Artifact.open`. For more: {doc}`arrays`
+If the data is large, you might not want to cache but stream it via {meth}`~lamindb.Artifact.open`. Read more in {doc}`tables` and {doc}`arrays`.
 
 ### Update & delete artifacts
 
@@ -298,8 +298,6 @@ artifact.save()  # persist metadata changes
 
 artifact.delete()  # move to trash
 artifact.restore()  # restore from trash
-
-# artifact.delete(permanent=True)  # permanently delete
 ```
 
 :::{dropdown} What happens when I delete an artifact?
