@@ -518,20 +518,20 @@ ln.Record(name="DMSO", type=perturbations).save()
 ln.Record(name="IFNG", type=perturbations).save()
 
 # define a feature type for sample-level metadata
-sample = ln.Feature(name="ImmunoSamples", is_type=True).save()
+immuno_features = ln.Feature(name="ImmunoSamples", is_type=True).save()
 
 # define valid features of that type
-ln.Feature(name="perturbation", dtype=perturbations, type=sample).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=sample).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=sample).save()
-ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=sample).save()
-ln.Feature(name="donor", dtype=str, nullable=True, type=sample).save()
-ln.Feature(name="sample_note", dtype=str, nullable=True, type=sample).save()
-ln.Feature(name="concentration", dtype=str, type=sample).save()
-ln.Feature(name="treatment_time_h", dtype="num", coerce=True, type=sample).save()
+ln.Feature(name="perturbation", dtype=perturbations, type=immuno_features).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=immuno_features).save()
+ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=immuno_features).save()
+ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=immuno_features).save()
+ln.Feature(name="donor", dtype=str, nullable=True, type=immuno_features).save()
+ln.Feature(name="sample_note", dtype=str, nullable=True, type=immuno_features).save()
+ln.Feature(name="concentration", dtype=str, type=immuno_features).save()
+ln.Feature(name="treatment_time_h", dtype="num", coerce=True, type=immuno_features).save()
 
 # validate columns that are features of this type
-schema = ln.Schema(itype=sample).save()
+schema = ln.Schema(itype=immuno_features).save()
 ```
 
 If you pass a `schema` object to the `Artifact` constructor, the artifact will be validated & annotated. Let's try this.

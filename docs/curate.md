@@ -94,16 +94,16 @@ Think of schemas as rules that define what a valid dataset or record should look
 
 ### Validating a feature type
 
-Use when: You want to validate columns against one feature type. Additional columns are allowed.
+Use when: You want to validate features against one feature type.
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_valid_features.py
    :language: python
 ```
 
-### Minimal required schema
+### Minimal required features
 
-Use when: You need certain columns but want flexibility for additional metadata.
+Use when: You need certain features but want flexibility for additional metadata.
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
