@@ -8,22 +8,31 @@ This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#qu
 
 ## Track changes
 
-Create a development directory and navigate into it. This can optionally be the root of a git repository and synced to git.
+<!-- #skip_laminr -->
+
+If you don't have a LaminDB instance, create one in a development directory:
 
 ```bash
 mkdir lamin-tutorial
 cd lamin-tutorial
-```
-
-If you don't have a LaminDB instance, create one in that directory on the terminal:
-
-<!-- #skip_laminr -->
-
-```bash
 lamin init --modules bionty
 ```
 
 <!-- #end_skip_laminr -->
+
+:::{dropdown} Can I sync the development directory to git?
+
+Yes! Run
+
+```shell
+export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+```
+
+This will enforce that you run only committed code in the git repo and sync that code to LaminDB. It's easiest if you place the git repo at the root of the development directory.
+
+Read more: :ref:`sync-code-with-git`.
+
+:::
 
 <!-- #region -->
 
@@ -504,18 +513,21 @@ import bionty as bt  # <-- use bionty to access registries with imported public 
 ln.ULabel(name="DMSO").save()
 ln.ULabel(name="IFNG").save()
 
-# define a few more valid features
-ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-ln.Feature(name="donor", dtype=str, nullable=True).save()
-ln.Feature(name="sample_note", dtype=str, nullable=True).save()
-ln.Feature(name="concentration", dtype=str).save()
-ln.Feature(name="treatment_time_h", dtype="num", coerce=True).save()
+# define a feature type for sample-level metadata
+sample = ln.Feature(name="sample", is_type=True).save()
 
-# define a schema that merely enforces a feature identifier type
-schema = ln.Schema(itype=ln.Feature).save()
+# define valid features of that type
+ln.Feature(name="perturbation", dtype=ln.ULabel, type=sample).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=sample).save()
+ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=sample).save()
+ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=sample).save()
+ln.Feature(name="donor", dtype=str, nullable=True, type=sample).save()
+ln.Feature(name="sample_note", dtype=str, nullable=True, type=sample).save()
+ln.Feature(name="concentration", dtype=str, type=sample).save()
+ln.Feature(name="treatment_time_h", dtype="num", coerce=True, type=sample).save()
+
+# validate columns that are features of this type
+schema = ln.Schema(itype=sample).save()
 ```
 
 If you pass a `schema` object to the `Artifact` constructor, the artifact will be validated & annotated. Let's try this.
@@ -824,7 +836,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-Because `AnnData` separates the high-dimensional count matrix that's typically indexed with Ensembl gene ids from the metadata, we're now working with two types of feature sets (`bt.Gene` for the counts and `ln.Feature` for the metadata). These correspond to the `obs` and the `var` schema in the `anndata_schema`.
+Because `AnnData` separates the high-dimensional count matrix from the metadata, `anndata_schema` checks two slots: `obs` columns against the `sample` feature type, and `var` against Ensembl gene ids.
 
 If you want to find a dataset by whether it measured `CD8A`, you can do so as as follows.
 
