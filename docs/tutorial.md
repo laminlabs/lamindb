@@ -310,14 +310,11 @@ To restore it, call `artifact.restore()`. For archive/trash semantics and query 
 
 ### Trace data lineage
 
-You can understand where an artifact comes from by looking at its {class}`~lamindb.Transform` & {class}`~lamindb.Run` attributes:
+You can understand where an artifact comes from by looking at its creating `run` attributes:
 
 ```python
-artifact.run.transform
-```
-
-```python
-artifact.run
+artifact.run            # the run
+artifact.run.transform  # the transform that ran
 ```
 
 Or visualize deeper data lineage with the `view_lineage()` method. Here we're only one step deep:
@@ -445,13 +442,13 @@ artifact.cell_types.add(cell_type)
 artifact.describe()
 ```
 
-This is how you filter artifacts by cell types:
+This is how you **filter artifacts by cell types**:
 
 ```python
 ln.Artifact.filter(cell_types=cell_type).to_dataframe()
 ```
 
-Here is how to update or remove annotations with entities:
+Here is how to **update or remove entity annotations**:
 
 ```python
 # add labels
@@ -477,7 +474,7 @@ artifact.features.set_values({temperature: 21.6, experiment: "My experiment"})
 artifact.describe()
 ```
 
-This is how you filter artifacts by features:
+This is how you **filter artifacts by features**:
 
 ```python
 ln.Artifact.filter(
@@ -486,7 +483,7 @@ ln.Artifact.filter(
 ).to_dataframe()
 ```
 
-Replace one value without removing the others:
+Here is how you **update feature annotations**:
 
 ```python
 artifact.features.update_values({temperature: 22.0})
@@ -630,8 +627,7 @@ ln.view()
 
 Every registry supports arbitrary relational queries using the class methods {meth}`~lamindb.models.BaseSQLRecord.get` and {meth}`~lamindb.models.BaseSQLRecord.filter`.
 The syntax for it is Django's query syntax.
-
-Here are some simple query examples.
+Here are some simple query examples:
 
 ```python
 # get a single record (here the current notebook)
@@ -777,20 +773,23 @@ artifact.open()
 
 ## Manage biological ontologies
 
-Every {py:mod}`bionty` registry is based on configurable public ontologies (>20 of them) that are automatically leveraged during validation & annotation. Sometimes you want to access the public ontology directly.
+You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. Read more: {doc}`/manage-records`.
+
+If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch.
+Sometimes you want to access a public ontology directly:
 
 ```python
 cell_type_ontology = bt.CellType.public()
 cell_type_ontology
 ```
 
-The returned object can be searched like you can search a registry.
+The returned object can be searched like you search a registry:
 
 ```python
 cell_type_ontology.search("gamma-delta T cell").head(2)
 ```
 
-Because you can't update an external public ontology, you update the content of the corresponding registry. Here, you create a new cell type.
+Because you can't update an external public ontology, you update the content of the corresponding registry. Here, you create a new cell type:
 
 ```python
 # create an ontology-coupled cell type record and save it
@@ -849,16 +848,25 @@ If you want to find a dataset by whether it measured `CD8A`, you can do so as as
 # query for all schemas that contain CD8A
 schemas = ln.Schema.filter(genes__symbol="CD8A").all()
 
-# query for all artifacts linked to these feature sets
+# query for all artifacts linked to these schemas
 ln.Artifact.filter(schemas__in=schemas).to_dataframe()
 ```
 
-## Manage collections of datasets
+## Manage sharded datasets
 
-How do you integrate new datasets with your existing datasets? Leverage {class}`~lamindb.Collection`.
+How do you integrate new datasets with your existing datasets? Leverage a {class}`~lamindb.Collection`. Let's seed one that enforces our schema:
 
 ```python
-# a new dataset
+collection = ln.Collection(
+    [artifact],
+    key="my-RNA-seq-collection",
+    schema=anndata_schema
+).save()
+```
+
+Let's now consider a new dataframe:
+
+```python
 df2 = ln.examples.datasets.mini_immuno.get_dataset2(otype="DataFrame")
 adata = ad.AnnData(df2.iloc[:, :3], obs=df2.iloc[:, 3:-1])
 artifact2 = ln.Artifact.from_anndata(
@@ -866,13 +874,23 @@ artifact2 = ln.Artifact.from_anndata(
 ).save()
 ```
 
-Create a collection using {class}`~lamindb.Collection`.
+Now we can append a first shard to the collection. This would error if the artifact wasn't validated:
 
 ```python
-collection = ln.Collection([artifact, artifact2], key="my-RNA-seq-collection").save()
+collection.append(artifact2)
 collection.describe()
 collection.view_lineage()
 ```
+
+You can "time-travel" back to the original version of the collection, and find versions using the queries you learned about above:
+
+```python
+import datetime
+
+collection.versions.filter(created_at__lt=datetime.now())[0]
+```
+
+You can load the data in the collection in different ways:
 
 ```python
 # if it's small enough, you can load the entire collection into memory as if it was one
@@ -882,26 +900,29 @@ collection.load()
 # collection.open()
 
 # or iterate over its artifacts
-collection.ordered_artifacts.all()
+collection.artifacts.all().to_dataframe()
 
-# or look at a DataFrame listing the artifacts
-collection.ordered_artifacts.to_dataframe()
+# enforce an order
+collection.ordered_artifacts.all()
 ```
 
-Directly train models on collections of `AnnData`.
+Train models on a collection of `AnnData` shards:
 
 <!-- #region -->
 <!-- #skip_laminr -->
 
 ```python
-# to train models, batch iterate through the collection as if it was one array
-from torch.utils.data import DataLoader, WeightedRandomSampler
-dataset = collection.mapped(obs_keys=["cell_medium"])
-sampler = WeightedRandomSampler(
-    weights=dataset.get_label_weights("cell_medium"), num_samples=len(dataset)
+import anndata as ad
+import zarr
+from annbatch import Loader
+
+paths = [artifact.cache() for artifact in collection.ordered_artifacts.all()]
+loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
+loader.add_datasets(
+    datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
+    obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
 )
-data_loader = DataLoader(dataset, batch_size=2, sampler=sampler)
-for batch in data_loader:
+for batch in loader:
     pass
 ```
 
