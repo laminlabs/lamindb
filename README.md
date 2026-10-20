@@ -517,7 +517,7 @@ LaminDB versions transforms, artifacts, and collections.
 If you edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
 
 <details>
-<summary>The edited script</summary>
+<summary>The edited script.</summary>
 
 ```python
 # create_fasta.py
