@@ -399,9 +399,7 @@ $ lamin load https://lamin.ai/laminlabs/lamindata/transform/13VINnFk89PE0004
 
 <!-- #endregion -->
 
-Note that data lineage also helps to understand what a dataset is being used for, not only where it comes from. Many datasets are being used over and over for different purposes and it's often useful to understand how.
-
-In the LaminDB schematic we've now already covered the left and the bottom right. Let's move on to understanding annotation, validation, and queries.
+Note that data lineage also helps to understand what a dataset is being used for, not only where it comes from. Many datasets are being used over and over for different purposes and it's often useful to understand how. In the LaminDB schematic we've now covered the left and the bottom right. Let's move on to understanding annotation, validation, and queries.
 
 <img width="800" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
@@ -936,4 +934,4 @@ for batch in data_loader:
 <!-- #end_skip_laminr -->
 <!-- #endregion -->
 
-For more: {doc}`/arrays`
+This also works with `annbatch` for `AnnData` shards in `.zarr` format ({doc}`/arrays`). Or you can use Polars or DuckDB to query collections of parquet files: {doc}`/tables`.
