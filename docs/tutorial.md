@@ -8,7 +8,14 @@ This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#qu
 
 ## Track changes
 
-If you don't have a LaminDB instance, create one in your current working directory on the terminal:
+Create a development directory and navigate into it. This can optionally be the root of a git repository and synced to git.
+
+```bash
+mkdir lamin-tutorial
+cd lamin-tutorial
+```
+
+If you don't have a LaminDB instance, create one in that directory on the terminal:
 
 <!-- #skip_laminr -->
 
@@ -136,24 +143,7 @@ Yes. What OpenLineage calls a "job", LaminDB calls a "transform". What OpenLinea
 
 :::
 
-### Manage changes with branches
-
-When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
-
-<!-- #region -->
-
-```bash
-lamin switch -c my_branch
-# ... make changes ...
-lamin switch main
-lamin merge my_branch
-```
-
-<!-- #endregion -->
-
-For more info: {class}`~lamindb.Branch`
-
-### Manage agent plans
+:::{dropdown} Track agent plans
 
 If you're working with an agent plan, here is a way to save it:
 
@@ -170,6 +160,25 @@ ln.track(plan=".plans/my-agent-plan.md")  # link plan artifact to this run
 ```
 
 <!-- #endregion -->
+
+:::
+
+### Manage changes with branches
+
+When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
+
+<!-- #region -->
+
+```bash
+lamin switch -c my_branch
+# ... make changes ...
+lamin switch main
+lamin merge my_branch
+```
+
+<!-- #endregion -->
+
+For more info: {class}`~lamindb.Branch`
 
 ## Manage datasets
 
