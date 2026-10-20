@@ -36,7 +36,27 @@ Schemas ensure data consistency by defining:
 - What values are valid for categorical features
 - Which features are required vs optional
 
-An exemplary schema that leverages {class}`~lamindb.Feature` objects to define features:
+The simplest schema validates columns against a **feature type**:
+
+```python
+import lamindb as ln
+
+my_features = ln.Feature(name="My features", is_type=True).save()
+ln.Feature(name="cell_type", dtype=bt.CellType, type=my_features).save()
+ln.Feature(name="treatment", dtype=str, type=my_features).save()
+
+schema = ln.Schema(itype=my_features).save()
+```
+
+Or you use one of the built-in registries:
+
+```python
+import bionty as bt
+
+schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+```
+
+You can also **list features** explicitly:
 
 ```python
 schema = ln.Schema(
@@ -49,7 +69,7 @@ schema = ln.Schema(
 )
 ```
 
-Or for a composite data structure, like an `AnnData`:
+You can compose schemas to validate **composite data structures**, like an `AnnData` or a `SpatialData` object:
 
 ```python
 schema = ln.Schema(
@@ -67,19 +87,14 @@ For composite data structures, you need to specify which component contains whic
 Each slot is a key like `"obs"` for AnnData observations, `"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
 ```
 
-Before diving into curation, let's understand the different schema approaches and when to use each one.
-Think of schemas as rules that define what valid data should look like.
+Let's understand the different schema approaches and when to use each one.
+Think of schemas as rules that define what a valid dataset or record should look like.
 
 <!-- #endregion -->
 
 ### Validating a feature type
 
-Use when: You want to validate those columns whose identifiers match a featur type provided via `itype`.
-
-```{eval-rst}
-.. literalinclude:: scripts/define_valid_features.py
-   :language: python
-```
+Use when: You want to validate columns against one feature type, as in `schema = ln.Schema(itype=sample)` above. Additional columns are allowed.
 
 ### Minimal required schema
 
@@ -139,7 +154,7 @@ Before creating a schema, ensure your registries have the right features and lab
 
 ### (2) Create your schema
 
-Let's instantiate the flexible schema we discussed earlier (available in our examples module):
+Let's instantiate the minimal schema we discussed earlier (available in our examples module):
 
 ```python
 schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
