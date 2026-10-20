@@ -25,7 +25,7 @@ from ..errors import ValidationError
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature, parse_dtype
+from .feature import Feature, _normalize_feature_value, parse_dtype
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
@@ -99,12 +99,8 @@ def validate_record_type_schema_index(schema: Schema | None) -> None:
 
 
 def _missing_feature_value(value: Any) -> bool:
-    """Whether this value does not yet satisfy a required feature."""
-    if value is None or value == [] or value == set():
-        return True
-    import pandas as pd
-
-    return bool(pd.api.types.is_scalar(value) and pd.isna(value))
+    """Whether a stored annotation or index key is absent."""
+    return _normalize_feature_value(value) is None
 
 
 def _with_index_feature(
@@ -189,16 +185,22 @@ def _assign_name_keyed_values(
     features_by_name: dict[str, Feature],
     values_by_uid: dict[str, Any],
     extra_by_name: dict[str, Any],
+    *,
+    allow_nulls: bool = True,
 ) -> None:
     """Apply values keyed by feature name.
 
     A name that belongs to a schema feature is stored on that feature. Any other
     name stays available for schema-level validation.
+
+    Only explicit input nulls count as present keys. Empty reverse relations
+    returned by `get_values()` represent absent stored links.
     """
     for name, value in name_values.items():
-        if _missing_feature_value(value):
-            continue
+        value = _normalize_feature_value(value)
         feature = features_by_name.get(name)
+        if not allow_nulls and _missing_feature_value(value):
+            continue
         if feature is not None:
             values_by_uid[feature.uid] = value
         else:
@@ -231,14 +233,15 @@ def _feature_values_for_type_assignment(
             features_by_name,
             values_by_uid,
             extra_by_name,
+            allow_nulls=False,
         )
     pending = getattr(record, "_features", None)
     if pending:
         named: dict[str, Any] = {}
         for key, value in pending.items():
+            value = _normalize_feature_value(value)
             if isinstance(key, Feature):
-                if not _missing_feature_value(value):
-                    values_by_uid[key.uid] = value
+                values_by_uid[key.uid] = value
             elif isinstance(key, str):
                 named[key] = value
         if named:
@@ -305,6 +308,11 @@ def validate_data_record_type_assignment(
         feature
         for feature in _required_schema_features(schema, features, index_feature)
         if feature.uid not in values_by_uid
+        or (
+            index_feature is not None
+            and feature.uid == index_feature.uid
+            and _missing_feature_value(values_by_uid[feature.uid])
+        )
     ]
     if missing:
         rendered = ", ".join(repr(feature.name) for feature in missing)

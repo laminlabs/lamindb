@@ -202,6 +202,28 @@ def test_record_type_assignment_requires_schema_features():
     ).save()
     blank = ln.Record(name="TypeAssignBlank", type=optional_sheet).save()
     assert blank.type == optional_sheet
+    assert blank.features.get_values() == {}
+    blank.features.set_values({optional_note: None})
+    assert blank.features.get_values() == {}
+    with pytest.raises(ln.errors.ValidationError):
+        blank.features.set_values({optional_note: 42})
+    assert blank.features.get_values() == {}
+
+    # Required keys must be present, but nullable values can round-trip without
+    # storing a separate annotation for None.
+    null_sample = ln.Record(
+        name="TypeAssignNull",
+        type=samplesheet,
+        features={experiment: None},
+    ).save()
+    null_values = ln.Record.get(null_sample.uid).features.get_values()
+    assert null_values == {experiment.name: None}
+    assert null_sample.features.get_values(external_only=True) == null_values
+    assert complete.features.get_values()[gc_content.name] == 0.2
+    null_copy = ln.Record(
+        name="TypeAssignNullCopy", type=samplesheet, features=null_values
+    ).save()
+    assert ln.Record.get(null_copy.uid).features.get_values() == null_values
 
     page = ln.Record(name="TypeAssignPage", is_type=True).save()
     untyped = ln.Record(name="TypeAssignPageRow", type=page).save()
@@ -257,6 +279,8 @@ def test_record_type_assignment_requires_schema_features():
         saved.type = clash_sheet
 
     complete.delete(permanent=True)
+    null_copy.delete(permanent=True)
+    null_sample.delete(permanent=True)
     blank.delete(permanent=True)
     sample.delete(permanent=True)
     untyped.delete(permanent=True)
@@ -286,7 +310,11 @@ def test_record_type_assignment_requires_schema_features():
 
 def test_loading_record_does_not_revalidate_stored_type():
     experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
-    experiment = ln.Feature(name="load_type_experiment", dtype=experiment_type).save()
+    # Missing nullable values are valid and are returned as None by get_values().
+    # Use a non-nullable feature so removing its value makes this record invalid.
+    experiment = ln.Feature(
+        name="load_type_experiment", dtype=experiment_type, nullable=False
+    ).save()
     schema = ln.Schema([experiment], name="load_type_schema").save()
     samplesheet = ln.Record(name="LoadTypeSamples", is_type=True, schema=schema).save()
     other_sheet = ln.Record(name="LoadTypeOther", is_type=True, schema=schema).save()
@@ -1420,9 +1448,7 @@ def test_record_feature_values_through_reads_reverse_links():
         == 0
     )
     assert "values-from-alice" in meeting_1.features.get_values()["attendees"]
-    assert "values-from-alice" not in meeting_2.features.get_values().get(
-        "attendees", []
-    )
+    assert meeting_2.features.get_values()["attendees"] == []
 
     # Joining a frame that requires the reverse feature uses links that already exist.
     required_people_schema = ln.Schema(
@@ -3075,7 +3101,6 @@ def test_record_features_accept_feature_object_keys():
     record.features.update_values({feature_score: None, feature_numbers: []})
     assert record.features.get_values() == {
         "record_feature_object_tag": "keep",
-        "record_feature_object_numbers": [],
     }
 
     record.delete(permanent=True)
@@ -3095,7 +3120,7 @@ def test_update_values_accepts_empty_lists():
         record.features.update_values({categories: [], numbers: []})
         values = record.features.get_values()
         assert categories.name not in values
-        assert values[numbers.name] == []
+        assert numbers.name not in values
     finally:
         record.delete(permanent=True)
         label.delete(permanent=True)

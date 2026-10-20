@@ -32,6 +32,7 @@ from lamindb.models._transfer import (
     transfer_to_default_db,
 )
 from lamindb.models.feature import (
+    _normalize_feature_value,
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
 )
@@ -1492,11 +1493,35 @@ class FeatureManager:
         """Get features as a dictionary.
 
         Includes annotation with internal and external feature values.
+        For saved records with a type schema, required nullable features without
+        annotations are included as `[]` for lists, `{}` for dictionaries,
+        and `None` for other types. Absent optional or non-nullable features are
+        omitted.
 
         Args:
             external_only: If `True`, only return external feature annotations.
         """
-        return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
+        dictionary = get_features_data(
+            self._host, to_dict=True, external_only=external_only
+        )
+        from .record import Record, _required_schema_features
+
+        if isinstance(self._host, Record) and not self._host._state.adding:
+            record_type = self._host.type
+            if record_type is not None and record_type.schema is not None:
+                schema = record_type.schema
+                for feature in _required_schema_features(
+                    schema, list(schema.members), schema.index
+                ):
+                    if not feature.nullable:
+                        continue
+                    if feature.dtype_as_str.startswith("list["):
+                        dictionary.setdefault(feature.name, [])
+                    elif feature.dtype_as_str == "dict":
+                        dictionary.setdefault(feature.name, {})
+                    else:
+                        dictionary.setdefault(feature.name, None)
+        return dictionary
 
     def __getitem__(
         self, feature: str
@@ -1748,6 +1773,7 @@ class FeatureManager:
         seen_explicit_uids: set[str] = set()
 
         for key, value in values.items():
+            value = _normalize_feature_value(value)
             if isinstance(key, Feature):
                 if key._state.adding:
                     raise ValidationError(
@@ -2128,9 +2154,6 @@ class FeatureManager:
         )
         if validation_dictionary is not None:
             validation_dictionary.update(dictionary)
-            for key, value in dictionary.items():
-                if value is None:
-                    validation_dictionary.pop(key, None)
             self._normalize_user_feature_values(members, validation_dictionary, {})
         try:
             curator = DictCurator(
@@ -2397,8 +2420,9 @@ class FeatureManager:
         must be a member of that schema. String keys and `Feature` objects that
         are not members raise `ValidationError` before any annotation is removed.
 
-        Values of `None` remove annotations for those features.
-        An empty dictionary clears external feature annotations, subject to any
+        Feature values of `None`, `[]`, or `{}` are validated as nulls before
+        annotations are removed; no links are stored for these values.
+        An empty input dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
 
         Each categorical string must resolve to one record within the declared
@@ -2437,8 +2461,9 @@ class FeatureManager:
         """Replace values of the supplied features, preserving all other features.
 
         Supports to-one and to-many features on Records, Artifacts, and Runs.
-        Missing annotations are added. `None` removes a feature's values, while
-        an empty dictionary does nothing. A supplied or inherited schema validates
+        Missing annotations are added. Feature values of `None`, `[]`, or `{}`
+        are validated as nulls and remove a feature's values. An empty input
+        dictionary does nothing. A supplied or inherited schema validates
         the complete resulting annotations before any values are replaced.
 
         Artifact annotations derived from dataset features cannot be updated.
@@ -2543,6 +2568,15 @@ class FeatureManager:
                 )
             else:
                 dictionary.pop(feature.name, None)
+        # Cleared nullable annotations have no stored links. Reconstruct their
+        # null values only for validation of later partial updates.
+        for feature in members:
+            if feature.nullable and (
+                index_feature is None or feature.uid != index_feature.uid
+            ):
+                dictionary[feature.name] = _normalize_feature_value(
+                    dictionary.get(feature.name)
+                )
         return dictionary
 
     def _set_values(self, values, feature_field, schema, *, replace_all: bool):
