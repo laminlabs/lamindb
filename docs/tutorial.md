@@ -518,7 +518,7 @@ ln.Record(name="DMSO", type=perturbations).save()
 ln.Record(name="IFNG", type=perturbations).save()
 
 # define a feature type for sample-level metadata
-sample = ln.Feature(name="immuno_sample", is_type=True).save()
+sample = ln.Feature(name="ImmunoSamples", is_type=True).save()
 
 # define valid features of that type
 ln.Feature(name="perturbation", dtype=perturbations, type=sample).save()
