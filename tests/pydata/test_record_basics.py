@@ -159,6 +159,77 @@ def test_record_page_frame_data_properties():
     page.delete(permanent=True)
 
 
+@pytest.mark.parametrize("named_keys", [False, True])
+@pytest.mark.parametrize(
+    "null_value", [None, float("nan"), pd.NA, pd.NaT, [], {}, set()]
+)
+@pytest.mark.parametrize("assign_type", [False, True])
+@pytest.mark.parametrize(
+    "dtype, filled_value", [(str, "y"), (list[int], [1]), (dict, {"k": 1})]
+)
+def test_record_type_assignment_required_nullable_feature(
+    named_keys, null_value, assign_type, dtype, filled_value
+):
+    from django.db import transaction
+
+    # Roll back only this test's rows, including when a regression raises.
+    with transaction.atomic():
+        a = ln.Feature(name="type_assign_nullable_a", dtype=str, nullable=False).save()
+        b = ln.Feature(name="type_assign_nullable_b", dtype=dtype, nullable=True).save()
+        schema = ln.Schema([a, b], name="type_assign_nullable_schema").save()
+        frame = ln.Record(name="TypeAssignNullable", is_type=True, schema=schema).save()
+        empty_value = {} if dtype is dict else [] if dtype == list[int] else None
+        expected_values = {a.name: "x", b.name: empty_value}
+        values = (
+            {a.name: "x", b.name: null_value} if named_keys else {a: "x", b: null_value}
+        )
+        if assign_type:
+            record = ln.Record(name="TypeAssignNullableRow", features=values)
+            record.type = frame
+        else:
+            record = ln.Record(
+                name="TypeAssignNullableRow", type=frame, features=values
+            )
+        record.save()
+        assert record.features.get_values() == expected_values
+        record.features.set_values({a: "x", b: filled_value})
+        record.features.set_values({a: "x", b: null_value})
+        assert record.features.get_values() == expected_values
+        record.features.set_values({a: "x", b: filled_value})
+        record.features.update_values({b: null_value})
+        assert record.features.get_values() == expected_values
+        assert not record.values_json.filter(feature=b).exists()
+        # Later updates must validate the cleared nullable feature as null too.
+        record.features.update_values({a: "x"})
+        assert record.features.get_values() == expected_values
+        ln.curators.DataFrameCurator(frame.to_dataframe(), schema).validate()
+
+        with pytest.raises(
+            ln.errors.ValidationError, match="missing required features"
+        ):
+            ln.Record(name="TypeAssignOmitted", type=frame, features={a: "x"})
+        with pytest.raises(ln.errors.ValidationError):
+            ln.Record(
+                name="TypeAssignNonNullable",
+                type=frame,
+                features={a: null_value, b: filled_value},
+            )
+        # Failed validation must leave the existing annotations intact.
+        for method in ("set_values", "update_values"):
+            with pytest.raises(ln.errors.ValidationError):
+                getattr(record.features, method)({a: null_value, b: filled_value})
+            assert record.features.get_values() == expected_values
+        # A nullable feature used as the row key still needs a non-null key.
+        if dtype is str:
+            schema.index = b
+            schema.save()
+            with pytest.raises(
+                ln.errors.ValidationError, match="missing required features"
+            ):
+                ln.Record(type=frame, features={a: "x", b: null_value})
+        transaction.set_rollback(True)
+
+
 def test_record_type_assignment_requires_schema_features():
     experiment_type = ln.Record(name="TypeAssignExperiments", is_type=True).save()
     experiment = ln.Feature(name="type_assign_experiment", dtype=experiment_type).save()
@@ -3146,7 +3217,6 @@ def test_record_features_accept_feature_object_keys():
     record.features.update_values({feature_score: None, feature_numbers: []})
     assert record.features.get_values() == {
         "record_feature_object_tag": "keep",
-        "record_feature_object_numbers": [],
     }
 
     record.delete(permanent=True)
@@ -3166,7 +3236,7 @@ def test_update_values_accepts_empty_lists():
         record.features.update_values({categories: [], numbers: []})
         values = record.features.get_values()
         assert categories.name not in values
-        assert values[numbers.name] == []
+        assert numbers.name not in values
     finally:
         record.delete(permanent=True)
         label.delete(permanent=True)
