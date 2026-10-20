@@ -178,7 +178,7 @@ collection.schema.describe()
 
 See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0000.png" width="550">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="550">
 
 This example uses `polars` to filter the collection of parquet files:
 
@@ -206,7 +206,7 @@ To initialize a new database in a development directory, run:
 lamin init --modules bionty  # mount module bionty
 ```
 
-To connect to an existing database - you can create one at [lamin.ai](https://lamin.ai) - run:
+To connect to an existing database - you can create a hosted one at [lamin.ai](https://lamin.ai) - run:
 
 ```shell
 lamin login
