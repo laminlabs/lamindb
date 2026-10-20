@@ -512,7 +512,7 @@ ln.ULabel(name="DMSO").save()
 ln.ULabel(name="IFNG").save()
 
 # define a feature type for sample-level metadata
-sample = ln.Feature(name="sample", is_type=True).save()
+sample = ln.Feature(name="immuno_sample", is_type=True).save()
 
 # define valid features of that type
 ln.Feature(name="perturbation", dtype=ln.ULabel, type=sample).save()
