@@ -772,6 +772,31 @@ def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     schema.delete(permanent=True)
 
 
+def _hash_feature_type_schema(feature_type: ln.Feature) -> str:
+    from lamindb_setup.core.hashing import hash_string
+
+    # The feature-type uid is part of `itype`, so the hash is stable only given that uid.
+    return hash_string(
+        ":".join(
+            [
+                f"b=Feature[{feature_type.uid}]",
+                "c=True",
+                "d=False",
+                "e=False",
+            ]
+        )
+    )
+
+
+def _hash_anndata_schema(obs_hash: str, var_hash: str) -> str:
+    from lamindb_setup.core.hashing import hash_string
+
+    slots_hash = hash_string(":".join(sorted([f"obs={obs_hash}", f"var.T={var_hash}"])))
+    return hash_string(
+        ":".join(["a=num", "c=True", "d=False", "e=False", f"l={slots_hash}"])
+    )
+
+
 def test_schemas_dataframe():
     # test on the Python level after record creation -- no saving!
     schema = ln.Schema(name="valid_features", itype=ln.Feature)
@@ -786,16 +811,23 @@ def test_schemas_dataframe():
     assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
 
     # test the convenience function
+    schema = ln.examples.schemas.valid_features()
+    assert schema.uid == "0000000000000000"
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
+
     schema = ln.examples.schemas._a_feature_type()
     my_features = ln.Feature.get(name="My features", is_type=True)
     assert schema.itype == f"Feature[{my_features.uid}]"
     assert my_features.is_type
+    assert schema.hash == _hash_feature_type_schema(my_features)
     ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schemas_anndata():
     # test on the Python level after record creation -- no saving!
-    obs_schema = ln.examples.schemas._a_feature_type()
+    obs_schema = ln.examples.schemas.valid_features()
     varT_schema = ln.Schema(
         name="valid_ensembl_gene_ids", itype=bt.Gene.ensembl_gene_id
     )
@@ -814,28 +846,46 @@ def test_schemas_anndata():
         otype="AnnData",
         slots={"obs": obs_schema, "var.T": varT_schema.save()},
     )
-    assert "l=" in "".join(schema._list_for_hashing)
+    assert schema._list_for_hashing == [
+        "a=num",
+        "c=True",
+        "d=False",
+        "e=False",
+        "l=GPZ-TzvKRhdC1PQAhlFiow",
+    ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype is None
-    assert schema.slots["obs"].itype.startswith("Feature[")
+    assert schema.hash == "aqGWHvyY49W_PHELUMiBMw"
 
     # test the convenience function
-    schema = ln.examples.schemas._anndata_ensembl_gene_ids_and_obs_feature_type()
-    assert schema.name == "anndata_ensembl_gene_ids_and_obs_feature_type"
-    assert schema.otype == "AnnData"
-    assert schema.slots["obs"].itype.startswith("Feature[")
+    schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
+    assert schema.uid == "0000000000000002"
+    assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
+    assert schema.itype is None
+    assert schema.hash == "aqGWHvyY49W_PHELUMiBMw"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    schema.delete(permanent=True)
 
+    schema = ln.examples.schemas._anndata_ensembl_gene_ids_and_obs_feature_type()
+    assert schema.name == "anndata_ensembl_gene_ids_and_obs_feature_type"
+    assert schema.otype == "AnnData"
+    cells = ln.Feature.get(name="Cells", is_type=True)
     obs_schema = schema.slots["obs"]
+    assert obs_schema.itype == f"Feature[{cells.uid}]"
+    assert obs_schema.hash == _hash_feature_type_schema(cells)
+    varT_schema = schema.slots["var.T"]
+    assert varT_schema.uid == "0000000000000001"
+    assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    assert schema.hash == _hash_anndata_schema(obs_schema.hash, varT_schema.hash)
+
     schema.delete(permanent=True)
     obs_schema.delete(permanent=True)
     ln.Feature.filter(type__name="Cells").delete(permanent=True)
     ln.Feature.filter(name="Cells", is_type=True).delete(permanent=True)
-    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schema_already_saved_aux():
