@@ -192,7 +192,7 @@ When you work with agents who should perform decoupled work on different branche
 To sync scripts or workflow definitions with their correponding files in a git repo, either export an environment variable:
 
 ```shell
-export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+export LAMINDB_SYNC_GIT_REPO=<YOUR-GIT-REPO-URL>
 ```
 
 Or set the following setting:

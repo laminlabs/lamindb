@@ -584,7 +584,7 @@ This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/
 
 ### Manage ontologies
 
-You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. For example, the `Gene` registry was used to validate the `ENSG` ids in the `AnnData` object above.
+You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have to build ontologies for basic biological entities from scratch. For example, the `Gene` registry was used to validate the `ENSG` ids in the `AnnData` object above.
 
 Here is how you **import a public ontology** into the `CellType` registry:
 

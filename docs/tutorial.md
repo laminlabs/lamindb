@@ -24,7 +24,7 @@ lamin init --modules bionty
 Yes! In your shell:
 
 ```shell
-export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+export LAMINDB_SYNC_GIT_REPO=<YOUR-GIT-REPO-URL>
 ```
 
 <br>
@@ -71,11 +71,11 @@ For more info: {doc}`/setup`
 
 <!-- #endregion -->
 
-## Track an agent session
+### Track an agent session
 
-LaminDB integrates with popular harnesses such as Claude Code, Codex, Cursor, and GitHub CoPilot.
+LaminDB integrates with popular harnesses such as Claude Code, Codex, Cursor, and GitHub Copilot.
 
-To track how agents author and run code along with their transcripts is to install the `lamindb` library skill.
+To track how agents author and run code, along with their transcripts, install the `lamindb` library skill.
 Run the following in your home or project directory: `uvx library-skills --skill lamindb`.
 
 ### Track a notebook or script
@@ -775,7 +775,7 @@ artifact.open()
 
 You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. Read more: {doc}`/manage-records`.
 
-If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch.
+If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have to build ontologies for basic biological entities from scratch.
 Sometimes you want to access a public ontology directly:
 
 ```python
@@ -906,23 +906,20 @@ collection.artifacts.all().to_dataframe()
 collection.ordered_artifacts.all()
 ```
 
-Train models on a collection of `AnnData` shards:
+Train models on a collection of `AnnData` shards in `.h5ad` format:
 
 <!-- #region -->
 <!-- #skip_laminr -->
 
 ```python
-import anndata as ad
-import zarr
-from annbatch import Loader
-
-paths = [artifact.cache() for artifact in collection.ordered_artifacts.all()]
-loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
-loader.add_datasets(
-    datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
-    obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
+# to train models, batch iterate through the collection as if it was one array
+from torch.utils.data import DataLoader, WeightedRandomSampler
+dataset = collection.mapped(obs_keys=["cell_medium"])
+sampler = WeightedRandomSampler(
+    weights=dataset.get_label_weights("cell_medium"), num_samples=len(dataset)
 )
-for batch in loader:
+data_loader = DataLoader(dataset, batch_size=2, sampler=sampler)
+for batch in data_loader:
     pass
 ```
 
