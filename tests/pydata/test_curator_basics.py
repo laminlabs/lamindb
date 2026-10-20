@@ -231,8 +231,12 @@ def test_df_curator_typed_categorical(model_class):
         }
     )
 
-    feature = ln.Feature(name="biosample_name", dtype=sample_a_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    my_features = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature = ln.Feature(
+        name="biosample_name", dtype=sample_a_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert "4 terms not validated in feature 'biosample_name':" in error.exconly()
@@ -251,8 +255,10 @@ def test_df_curator_typed_categorical(model_class):
     lab_b_type.type = lab_a_type
     lab_b_type.save()
     feature.delete(permanent=True)  # re-create the feature with the new dtype
-    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    feature = ln.Feature(
+        name="biosample_name", dtype=lab_a_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
@@ -268,8 +274,10 @@ def test_df_curator_typed_categorical(model_class):
 
     # Lab at the root
     feature.delete(permanent=True)  # re-create the feature with the new dtype
-    feature = ln.Feature(name="biosample_name", dtype=sample_root_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    feature = ln.Feature(
+        name="biosample_name", dtype=sample_root_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
@@ -302,8 +310,12 @@ def test_df_curator_same_name_at_different_levels_involving_root():
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
 
     # feature constraining to lab_a_type
-    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    my_features = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature = ln.Feature(
+        name="biosample_name", dtype=lab_a_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
     assert cat_vector._validated == ["s1"]
@@ -312,8 +324,10 @@ def test_df_curator_same_name_at_different_levels_involving_root():
 
     # feature constraining to root
     feature.delete(permanent=True)
-    feature = ln.Feature(name="biosample_name", dtype=ln.Record).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    feature = ln.Feature(
+        name="biosample_name", dtype=ln.Record, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
     assert cat_vector._validated == ["s1"]
@@ -334,8 +348,12 @@ def test_df_curator_same_name_at_different_levels_below_root():
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
 
     # feature constraining to lab_a_type
-    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    my_features = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature = ln.Feature(
+        name="biosample_name", dtype=lab_a_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
     assert cat_vector._validated == ["s1"]
@@ -344,8 +362,10 @@ def test_df_curator_same_name_at_different_levels_below_root():
 
     # feature constraining to department_a_type
     feature.delete(permanent=True)
-    feature = ln.Feature(name="biosample_name", dtype=department_a_type).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    feature = ln.Feature(
+        name="biosample_name", dtype=department_a_type, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
     assert cat_vector._validated == ["s1"]
@@ -366,8 +386,12 @@ def test_df_curator_same_name_at_same_level():
     lab_b_type = ln.Record(name="LabB", is_type=True).save()
     record_2 = ln.Record(name="s1", type=lab_b_type).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    feature = ln.Feature(name="biosample_name", dtype=ln.Record).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    my_features = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature = ln.Feature(
+        name="biosample_name", dtype=ln.Record, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
@@ -380,7 +404,7 @@ def test_df_curator_same_name_at_same_level():
     record_1.save()
     record_2.type = None
     record_2.save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.a_feature_type())
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
@@ -409,12 +433,14 @@ def test_curator_schema_feature_mapping():
     assert len(cat_vector._validated) == 1
 
     # Without schema members, ambiguous column names keep their original error.
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    unscoped = ln.Schema(itype=ln.Feature).save()
+    curator = ln.curators.DataFrameCurator(df, unscoped)
     with pytest.raises(ValidationError, match="Ambiguous match for Feature") as error:
         curator.validate()
     assert "record object" not in str(error.value)
 
     schema.delete(permanent=True)
+    unscoped.delete(permanent=True)
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
     lab_a_type.delete(permanent=True)
@@ -446,7 +472,11 @@ def test_dtypes_at_different_levels(ccaplog):
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
     s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    feature = ln.Feature(name="biosample_name", dtype=sample_type_root).save()
+    my_features = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature = ln.Feature(
+        name="biosample_name", dtype=sample_type_root, type=feature_type
+    ).save()
     schema = ln.Schema(features=[feature]).save()
     sample_type_root.delete()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
@@ -456,7 +486,7 @@ def test_dtypes_at_different_levels(ccaplog):
     assert "from trash" in ccaplog.text
     schema.delete(permanent=True)
     sample_type_root.restore()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator = ln.curators.DataFrameCurator(df, my_features)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert "1 term not validated in feature 'biosample_name': 's1'" in error.exconly()
@@ -468,8 +498,10 @@ def test_dtypes_at_different_levels(ccaplog):
     assert cat_vector.records[0] == s1_root
     # update feature dtype
     feature.delete(permanent=True)
-    feature = ln.Feature(name="biosample_name", dtype=sample_type_a).save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    feature = ln.Feature(
+        name="biosample_name", dtype=sample_type_a, type=feature_type
+    ).save()
+    curator = ln.curators.DataFrameCurator(df, my_features)
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
     assert cat_vector._validated == ["s1"]

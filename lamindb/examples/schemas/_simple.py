@@ -3,10 +3,13 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
+from lamindb_setup.core import deprecated
+
 if TYPE_CHECKING:
     from ... import Schema
 
 
+@deprecated("Define a feature type instead.")
 def valid_features() -> Schema:
     """A `DataFrame` schema that validates that columns map on existing features.
 
@@ -25,3 +28,20 @@ def valid_features() -> Schema:
         except Schema.DoesNotExist:
             importlib.reload(define_valid_features)
             return Schema.get(name="valid_features")
+
+
+def a_feature_type() -> Schema:
+    """A schema that validates columns against one feature type.
+
+    .. literalinclude:: scripts/define_a_feature_type.py
+        :language: python
+    """
+    from ... import Schema
+    from . import define_a_feature_type
+
+    # Inferred artifact schemas can reuse this itype, so identify the script schema by uid.
+    schema = define_a_feature_type.schema
+    if Schema.filter(uid=schema.uid).exists():
+        return schema
+    importlib.reload(define_a_feature_type)
+    return define_a_feature_type.schema

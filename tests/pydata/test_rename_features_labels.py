@@ -8,10 +8,10 @@ import pytest
 
 def test_rename_feature(ccaplog):
     df = pd.DataFrame({"old_name": [1, 2]})
+    # Renames are checked for schemas with itype="Feature".
+    schema = ln.Schema(itype=ln.Feature).save()
     ln.Feature(name="old_name", dtype=int).save()
-    artifact = ln.Artifact.from_dataframe(
-        df, key="test.parquet", schema="valid_features"
-    ).save()
+    artifact = ln.Artifact.from_dataframe(df, key="test.parquet", schema=schema).save()
     feature = ln.Feature.get(name="old_name")
 
     # First rename
@@ -62,11 +62,11 @@ def test_rename_label(model_class, ccaplog):
 
     label1 = model_class(name="label1").save()
     label2 = model_class(name="label2").save()
-    feature1 = ln.Feature(name="feature1", dtype=model_class).save()
-    feature2 = ln.Feature(name="feature2", dtype=model_class).save()
-    artifact = ln.Artifact.from_dataframe(
-        df, key="test.parquet", schema="valid_features"
-    ).save()
+    schema = ln.examples.schemas.a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feature1 = ln.Feature(name="feature1", dtype=model_class, type=feature_type).save()
+    feature2 = ln.Feature(name="feature2", dtype=model_class, type=feature_type).save()
+    artifact = ln.Artifact.from_dataframe(df, key="test.parquet", schema=schema).save()
 
     label = model_class.get(name="label1")
     label.name = "label-renamed"
