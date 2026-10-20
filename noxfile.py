@@ -293,8 +293,12 @@ def prepare(session):
     convert_executable_md_files()
     os.system("cp ./tests/pydata/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system("cp ./lamindb/examples/schemas/define_a_feature_type.py ./docs/scripts/")
     os.system(
         "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py ./docs/scripts/"
     )
     os.system(
         "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"

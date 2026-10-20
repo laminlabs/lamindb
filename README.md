@@ -376,9 +376,10 @@ To annotate & query by **features**:
 ```python
 from datetime import date
 
-# define features
-gc_content = ln.Feature(name="gc_content", dtype=float).save()
-seq_date = ln.Feature(name="seq_date", dtype=date).save()
+# define a feature type and features
+sequences = ln.Feature(name="Sequences", is_type=True).save()
+gc_content = ln.Feature(name="gc_content", dtype=float, type=sequences).save()
+seq_date = ln.Feature(name="seq_date", dtype=date, type=sequences).save()
 
 # annotate
 artifact.features.set_values({
@@ -472,15 +473,22 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-The simplest way to validate & annotate the content of the dataframe is the built-in schema `valid_features`:
+Let's now define a schema that validates the columns of the dataframe against the feature type `sequences` that we defined above:
 
 ```python
-ln.Feature(name="seq_str", dtype=str).save()  # define remaining features
-ln.Feature(name="experiment_note", dtype=str).save()
+ln.Feature(name="seq_str", dtype=str, type=sequences).save()
+ln.Feature(name="experiment_note", dtype=str, type=sequences).save()
+schema = ln.Schema(itype=sequences).save()
+```
+
+If we pass it `from_dataframe()`, the resulting artifact is validated and auto-anntotated:
+
+```python
+
 artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",
-    schema="valid_features"  # validate columns against features
+    schema=schema,
 ).save()
 artifact.describe()
 ```
@@ -489,22 +497,37 @@ You can filter for datasets by schema and then launch distributed queries or bat
 
 Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
-To validate an `AnnData`, call:
+To validate and auto-annotate an `AnnData`, use a feature type for the `obs` columns and Ensembl gene ids for `var`:
 
 ```python
 import anndata as ad
+import bionty as bt
 import numpy as np
 import pandas as pd
 
+# define the schema
+cells = ln.Feature(name="Cells", is_type=True).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=cells).save()
+obs_schema = ln.Schema(itype=cells).save()
+var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+anndata_schema = ln.Schema(
+    otype="AnnData", slots={"obs": obs_schema, "var.T": var_schema}
+).save()
+
+# define the AnnData object
 adata = ad.AnnData(
-    X=np.ones((21, 10)),
-    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
-    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
+    X=np.ones((21, 3)),
+    obs=pd.DataFrame({"cell_type_by_model": ["T cell", "B cell", "T cell"] * 7}),
+    var=pd.DataFrame(
+        index=["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
+    ),
 )
+
+# validate, annotate, and ingest the AnnData object
 artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
-    schema="ensembl_gene_ids_and_valid_features_in_obs"
+    schema=anndata_schema,
 ).save()
 artifact.describe()
 ```
@@ -567,7 +590,7 @@ This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/
 
 ### Manage ontologies
 
-You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. For example, the `Gene` registry was used to validate the `ENSG` ids in the `AnnData` object above.
+You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have to build ontologies for basic biological entities from scratch. For example, the `Gene` registry was used to validate the `ENSG` ids in the `AnnData` object above.
 
 Here is how you **import a public ontology** into the `CellType` registry:
 

@@ -4,19 +4,35 @@ execute_via: python
 
 # Tutorial
 
-This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#quickstart): there, you skim through core features; here, you learn the core operations end-to-end with conceptual context.
+This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#quickstart): there, you skim through core capabilities; here, you learn core usage patterns with conceptual context.
 
-## Track changes
-
-If you don't have a LaminDB instance, create one in your current working directory on the terminal:
+## Track data lineage
 
 <!-- #skip_laminr -->
 
+If you don't have a LaminDB instance, create one in a development directory:
+
 ```bash
+mkdir mydata && cd mydata
 lamin init --modules bionty
 ```
 
 <!-- #end_skip_laminr -->
+
+:::{dropdown} Can I sync the development directory to a git repo?
+
+Yes! In your shell:
+
+```shell
+export LAMINDB_SYNC_GIT_REPO=<YOUR-GIT-REPO-URL>
+```
+
+<br>
+
+This will enforce that you run only committed code in the git repo and sync that code to LaminDB. It's easiest if you place the git repo at the root of the development directory.
+Read more: {ref}`sync-code-with-git`.
+
+:::
 
 <!-- #region -->
 
@@ -25,7 +41,7 @@ lamin init --modules bionty
 ```R
 library(laminr)
 lc <- import_module("lamin_cli")
-lc$init(storage = "./lamin-tutorial", modules = "bionty")
+lc$init(storage = "./mydata", modules = "bionty")
 ```
 
 :::
@@ -49,15 +65,22 @@ lc$init(storage = "./lamin-tutorial", modules = "bionty")
    --modules bionty,pertdb,custom1
    ```
 
-For more info: {doc}`/setup`
+Read more: {doc}`/setup`
 
 :::
 
 <!-- #endregion -->
 
+### Track an agent session
+
+LaminDB integrates with popular harnesses such as Claude Code, Codex, Cursor, and GitHub Copilot.
+
+To track how agents author and run code, along with their transcripts, install the `lamindb` library skill.
+Run the following in your home or project directory: `uvx library-skills --skill lamindb`.
+
 ### Track a notebook or script
 
-Let's now track the notebook or script that is running.
+Let's now track the current notebook or script:
 
 ```python
 import lamindb as ln
@@ -85,7 +108,7 @@ The {class}`~lamindb.Transform` registry stores data transformations: scripts, n
 
 The {class}`~lamindb.Run` registry stores executions of transforms. Many runs can be linked to the same transform if executed with different context (time, user, input data, etc.).
 
-For more info: {doc}`/track`
+Read more: {doc}`/track`
 
 :::
 
@@ -108,7 +131,7 @@ def ingest_dataset(key: str) -> ln.Artifact:
 ingest_dataset(key="my_analysis/dataset.parquet")
 ```
 
-For more info: {doc}`/track`
+Read more: {doc}`/track`
 
 Leverage a pipeline integration, see: {doc}`docs:pipelines`.
 
@@ -136,9 +159,29 @@ Yes. What OpenLineage calls a "job", LaminDB calls a "transform". What OpenLinea
 
 :::
 
-### Manage changes with branches
+<!-- #region -->
 
-When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
+:::{dropdown} Track agent plans
+
+If you're working with an agent plan, here is a way to save it:
+
+```bash
+lamin save /path/to/.cursor/plans/my-agent-plan.md
+```
+
+It you switched to a branch, the plan will be linked to that branch. Here is how to link a plan to a run:
+
+```python
+ln.track(plan=".plans/my-agent-plan.md")  # link plan artifact to this run
+```
+
+:::
+
+<!-- #endregion -->
+
+## Manage changes with branches
+
+You can use git-inspired change management via contribution branches that you merge into main:
 
 <!-- #region -->
 
@@ -151,31 +194,13 @@ lamin merge my_branch
 
 <!-- #endregion -->
 
-For more info: {class}`~lamindb.Branch`
-
-### Manage agent plans
-
-If you're working with an agent plan, here is a way to save it:
-
-<!-- #region -->
-
-```bash
-lamin save /path/to/.cursor/plans/my-agent-plan.md
-```
-
-It you switched to a branch, the plan will be linked to that branch. Here is how to link a plan to a run:
-
-```python
-ln.track(plan=".plans/my-agent-plan.md")  # link plan artifact to this run
-```
-
-<!-- #endregion -->
+Read more: {doc}`/manage-changes`
 
 ## Manage datasets
 
-{class}`~lamindb.Artifact` is the core object for datasets and models in LaminDB, whether they are files, folders, tables, or array-like data.
+{class}`~lamindb.Artifact` is the core class for managing simple datasets and models, whether they are files, folders, tables, or array-like. {class}`~lamindb.Collection` is the core class for managing sharded datasets, which consist of multiple artifacts, inspired by lakehouse frameworks such as Iceberg or DuckLake.
 
-It gives you one interface for registration, access, annotation, lineage, and queries across local storage, AWS S3 (`s3://`), Google Cloud (`gs://`), Hugging Face (`hf://`), and any other file system supported by `fsspec`.
+`Artifact` gives you one interface for registration, access, annotation, lineage, and queries across local storage, AWS S3 (`s3://`), Google Cloud (`gs://`), Hugging Face (`hf://`), and any other file system supported by `fsspec`.
 
 ### Create an artifact
 
@@ -261,7 +286,7 @@ Typically your artifact is in a cloud storage location. To get a local file path
 artifact.cache()
 ```
 
-If the data is large, you might not want to cache but stream it via {meth}`~lamindb.Artifact.open`. For more: {doc}`arrays`
+If the data is large, you might not want to cache but stream it via {meth}`~lamindb.Artifact.open`. Read more in {doc}`tables` and {doc}`arrays`.
 
 ### Update & delete artifacts
 
@@ -273,8 +298,6 @@ artifact.save()  # persist metadata changes
 
 artifact.delete()  # move to trash
 artifact.restore()  # restore from trash
-
-# artifact.delete(permanent=True)  # permanently delete
 ```
 
 :::{dropdown} What happens when I delete an artifact?
@@ -287,14 +310,11 @@ To restore it, call `artifact.restore()`. For archive/trash semantics and query 
 
 ### Trace data lineage
 
-You can understand where an artifact comes from by looking at its {class}`~lamindb.Transform` & {class}`~lamindb.Run` attributes:
+You can understand where an artifact comes from by looking at its creating `run` attributes:
 
 ```python
-artifact.run.transform
-```
-
-```python
-artifact.run
+artifact.run            # the run
+artifact.run.transform  # the transform that ran
 ```
 
 Or visualize deeper data lineage with the `view_lineage()` method. Here we're only one step deep:
@@ -317,10 +337,9 @@ Explore and load the notebook [here](https://lamin.ai/laminlabs/lamindata/transf
 Explore data lineage interactively [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq).
 
 ```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<div align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/yK3ODFZLL1A?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
 ```
 
 :::
@@ -380,20 +399,23 @@ $ lamin load https://lamin.ai/laminlabs/lamindata/transform/13VINnFk89PE0004
 
 <!-- #endregion -->
 
-Note that data lineage also helps to understand what a dataset is being used for, not only where it comes from. Many datasets are being used over and over for different purposes and it's often useful to understand how.
+Note that data lineage also helps to understand what a dataset is being used for, not only where it comes from. Many datasets are being used over and over for different purposes and it's often useful to understand how. In the LaminDB schematic we've now covered the left and the bottom right. Let's move on to understanding annotation, validation, and queries.
+
+<img width="800" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
 ### Annotate an artifact
 
-You can annotate artifacts with features and labels. Features are measurement dimensions (e.g. `"organism"`, `"temperature"`) and labels are measured categories (e.g. `"human"`, `"mouse"`).
+You can annotate artifacts with entities and features. **Entities** are things that you track in registries (e.g. `T cell`, `B cell`). **Features** are variables that give rise to dataset dimensions (e.g. `temperature`, `cell_type_by_expert`).
 
-Let's annotate an artifact with a {class}`~lamindb.ULabel`, a built-in universal label registry.
+Let's annotate an artifact with a {class}`~lamindb.Record` object:
 
 ```python
-# create & save a universal label
-my_experiment = ln.ULabel(name="My experiment").save()
+# create & save an Experiments record type
+experiments = ln.Record(name="Experiments", is_type=True).save()
+my_experiment = ln.Record(name="My experiment", type=experiments).save()
 
-# annotate the artifact with a universal label
-artifact.ulabels.add(my_experiment)
+# annotate the artifact with the experiment
+artifact.records.add(my_experiment)
 
 # describe the artifact
 artifact.describe()
@@ -401,13 +423,13 @@ artifact.describe()
 
 :::
 
-This is how you query artifacts based on the annotation.
+Filter artifacts by records:
 
 ```python
-ln.Artifact.filter(ulabels=my_experiment).to_dataframe()
+ln.Artifact.filter(records=my_experiment).to_dataframe()
 ```
 
-You can also annotate with labels from other registries, e.g., the biological ontologies in {mod}`bionty`.
+You can annotate with **entities from modules**, such as the ontologies in {mod}`bionty`:
 
 ```python
 import bionty as bt
@@ -422,30 +444,30 @@ artifact.cell_types.add(cell_type)
 artifact.describe()
 ```
 
-This is how you query artifacts by cell type annotations.
+This is how you **filter artifacts by cell types**:
 
 ```python
 ln.Artifact.filter(cell_types=cell_type).to_dataframe()
 ```
 
-Here is how to update or remove annotations:
+Here is how to **update or remove entity annotations**:
 
 ```python
 # add labels
-artifact.ulabels.add(my_experiment)
+artifact.records.add(my_experiment)
 artifact.cell_types.add(cell_type)
 
 # remove labels
-artifact.ulabels.remove(my_experiment)
+artifact.records.remove(my_experiment)
 artifact.cell_types.remove(cell_type)
 ```
 
-If you want to annotate by non-categorical metadata or indicate the feature for a label, annotate via features.
+You can also **annotate by features**:
 
 ```python
-# define the "temperature" & "experiment" features
+# define the temperature & experiment features
 temperature = ln.Feature(name="temperature", dtype=float).save()
-experiment = ln.Feature(name="experiment", dtype=ln.ULabel).save()
+experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
 # annotate the artifact
 artifact.features.set_values({temperature: 21.6, experiment: "My experiment"})
@@ -454,25 +476,28 @@ artifact.features.set_values({temperature: 21.6, experiment: "My experiment"})
 artifact.describe()
 ```
 
-This is how you query artifacts by features.
+This is how you **filter artifacts by features**:
 
 ```python
-ln.Artifact.filter(temperature=21.6).to_dataframe()
+ln.Artifact.filter(
+    temperature == 21.6,
+    experiment == my_experiment,
+).to_dataframe()
 ```
 
-Replace one value without removing the others:
+Here is how you **update feature annotations**:
 
 ```python
 artifact.features.update_values({temperature: 22.0})
 ```
 
-Optionally, after querying, this is how you clean up feature values from the artifact and remove the feature definitions.
+This is how you **remove feature annotations** and **soft-delete the features**:
 
 ```python
 # remove feature values from this artifact
 artifact.features.remove_values(["temperature", "experiment"])
 
-# optionally remove feature definitions from the registry
+# soft-delete features
 ln.Feature.get(name="temperature").delete()
 ln.Feature.get(name="experiment").delete()
 ```
@@ -489,24 +514,26 @@ Validated datasets are more re-usable by analysts and machine learning models. Y
 :::
 
 ```python
-import bionty as bt  # <-- use bionty to access registries with imported public ontologies
+# define a record type
+perturbations = ln.Record(name="Perturbations", is_type=True).save()
+ln.Record(name="DMSO", type=perturbations).save()
+ln.Record(name="IFNG", type=perturbations).save()
 
-# define a few more valid labels
-ln.ULabel(name="DMSO").save()
-ln.ULabel(name="IFNG").save()
+# define a feature type for sample-level metadata
+immuno_features = ln.Feature(name="ImmunoSamples", is_type=True).save()
 
-# define a few more valid features
-ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-ln.Feature(name="donor", dtype=str, nullable=True).save()
-ln.Feature(name="sample_note", dtype=str, nullable=True).save()
-ln.Feature(name="concentration", dtype=str).save()
-ln.Feature(name="treatment_time_h", dtype="num", coerce=True).save()
+# define valid features of that type
+ln.Feature(name="perturbation", dtype=perturbations, type=immuno_features).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=immuno_features).save()
+ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=immuno_features).save()
+ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=immuno_features).save()
+ln.Feature(name="donor", dtype=str, nullable=True, type=immuno_features).save()
+ln.Feature(name="sample_note", dtype=str, nullable=True, type=immuno_features).save()
+ln.Feature(name="concentration", dtype=str, type=immuno_features).save()
+ln.Feature(name="treatment_time_h", dtype="num", coerce=True, type=immuno_features).save()
 
-# define a schema that merely enforces a feature identifier type
-schema = ln.Schema(itype=ln.Feature).save()
+# validate columns that are features of this type
+schema = ln.Schema(itype=immuno_features).save()
 ```
 
 If you pass a `schema` object to the `Artifact` constructor, the artifact will be validated & annotated. Let's try this.
@@ -590,7 +617,13 @@ Each registry is a table in the relational schema of the underlying database. Wi
 ln.view()
 ```
 
-:::{dropdown} Which registries have I already learned about?
+Most registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts. An **artifact-centric view** of these relationships looks like this:
+
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg">
+
+This is called dimensional modeling in data warehousing.
+
+:::{dropdown} Which registries have I already learned about in this tutorial?
 
 - {class}`~lamindb.Artifact`: datasets & models stored as files, folders, or arrays
 - {class}`~lamindb.Transform`: transforms of artifacts
@@ -602,8 +635,7 @@ ln.view()
 
 Every registry supports arbitrary relational queries using the class methods {meth}`~lamindb.models.BaseSQLRecord.get` and {meth}`~lamindb.models.BaseSQLRecord.filter`.
 The syntax for it is Django's query syntax.
-
-Here are some simple query examples.
+Here are some simple query examples:
 
 ```python
 # get a single record (here the current notebook)
@@ -629,7 +661,7 @@ For any field, the double underscore defines a comparator, e.g.,
 - `name__startswith="Martha"`: `name` starts with `"Martha`
 - `name__in=["Martha", "John"]`: `name` is `"John"` or `"Martha"`
 
-For more info: {doc}`query-search`
+Read more: {doc}`query-search`
 
 :::
 
@@ -658,7 +690,7 @@ records = ln.Record.lookup()
 
 :::
 
-For more info: {doc}`query-search`
+Read more: {doc}`query-search`
 
 ## Manage folders & storage locations
 
@@ -749,22 +781,23 @@ artifact.open()
 
 ## Manage biological ontologies
 
-Every {py:mod}`bionty` registry is based on configurable public ontologies (>20 of them) that are automatically leveraged during validation & annotation. Sometimes you want to access the public ontology directly.
+You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. Read more: {doc}`/manage-records`.
+
+If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have to build ontologies for basic biological entities from scratch.
+Sometimes you want to access a public ontology directly:
 
 ```python
-import bionty as bt
-
 cell_type_ontology = bt.CellType.public()
 cell_type_ontology
 ```
 
-The returned object can be searched like you can search a registry.
+The returned object can be searched like you search a registry:
 
 ```python
 cell_type_ontology.search("gamma-delta T cell").head(2)
 ```
 
-Because you can't update an external public ontology, you update the content of the corresponding registry. Here, you create a new cell type.
+Because you can't update an external public ontology, you update the content of the corresponding registry. Here, you create a new cell type:
 
 ```python
 # create an ontology-coupled cell type record and save it
@@ -782,7 +815,7 @@ new_cell_state.parents.add(neuron)
 new_cell_state.view_parents(distance=2)
 ```
 
-For more info: {doc}`manage-ontologies`
+Read more: {doc}`manage-ontologies`
 
 ## Manage AnnData artifacts
 
@@ -815,7 +848,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-Because `AnnData` separates the high-dimensional count matrix that's typically indexed with Ensembl gene ids from the metadata, we're now working with two types of feature sets (`bt.Gene` for the counts and `ln.Feature` for the metadata). These correspond to the `obs` and the `var` schema in the `anndata_schema`.
+Because `AnnData` separates the high-dimensional count matrix from the metadata, `anndata_schema` checks two slots: `obs` columns against the `sample` feature type, and `var` against Ensembl gene ids.
 
 If you want to find a dataset by whether it measured `CD8A`, you can do so as as follows.
 
@@ -823,16 +856,25 @@ If you want to find a dataset by whether it measured `CD8A`, you can do so as as
 # query for all schemas that contain CD8A
 schemas = ln.Schema.filter(genes__symbol="CD8A").all()
 
-# query for all artifacts linked to these feature sets
+# query for all artifacts linked to these schemas
 ln.Artifact.filter(schemas__in=schemas).to_dataframe()
 ```
 
-## Manage collections of datasets
+## Manage sharded datasets
 
-How do you integrate new datasets with your existing datasets? Leverage {class}`~lamindb.Collection`.
+How do you integrate new datasets with your existing datasets? Leverage a {class}`~lamindb.Collection`. Let's seed one that enforces our schema:
 
 ```python
-# a new dataset
+collection = ln.Collection(
+    [artifact],
+    key="my-RNA-seq-collection",
+    schema=anndata_schema
+).save()
+```
+
+Let's now consider a new dataframe:
+
+```python
 df2 = ln.examples.datasets.mini_immuno.get_dataset2(otype="DataFrame")
 adata = ad.AnnData(df2.iloc[:, :3], obs=df2.iloc[:, 3:-1])
 artifact2 = ln.Artifact.from_anndata(
@@ -840,13 +882,23 @@ artifact2 = ln.Artifact.from_anndata(
 ).save()
 ```
 
-Create a collection using {class}`~lamindb.Collection`.
+Now we can append a first shard to the collection. This would error if the artifact wasn't validated:
 
 ```python
-collection = ln.Collection([artifact, artifact2], key="my-RNA-seq-collection").save()
+collection.append(artifact2)
 collection.describe()
 collection.view_lineage()
 ```
+
+You can "time-travel" back to the original version of the collection, and find versions using the queries you learned about above:
+
+```python
+from datetime import datetime
+
+collection.versions.filter(created_at__lt=datetime.now())[0]
+```
+
+You can load the data in the collection in different ways:
 
 ```python
 # if it's small enough, you can load the entire collection into memory as if it was one
@@ -856,13 +908,13 @@ collection.load()
 # collection.open()
 
 # or iterate over its artifacts
-collection.ordered_artifacts.all()
+collection.artifacts.all().to_dataframe()
 
-# or look at a DataFrame listing the artifacts
-collection.ordered_artifacts.to_dataframe()
+# enforce an order
+collection.ordered_artifacts.all()
 ```
 
-Directly train models on collections of `AnnData`.
+Train models on a collection of `AnnData` shards in `.h5ad` format:
 
 <!-- #region -->
 <!-- #skip_laminr -->
@@ -882,4 +934,4 @@ for batch in data_loader:
 <!-- #end_skip_laminr -->
 <!-- #endregion -->
 
-For more: {doc}`/arrays`
+This also works with `annbatch` for `AnnData` shards in `.zarr` format ({doc}`/arrays`). Or you can use Polars or DuckDB to query collections of parquet files: {doc}`/tables`.

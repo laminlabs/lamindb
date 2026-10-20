@@ -3,25 +3,25 @@ from datetime import date
 import bionty as bt
 
 import lamindb as ln
+import lamindb.examples.schemas.define_schema_anndata_ensembl_gene_ids_and_obs_feature_type  # noqa: F401
 
 ## define valid labels
 ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
 ln.Record.from_values(["Experiment 1", "Experiment 2"], create=True).save()
 bt.CellType.from_values(["B cell", "T cell"]).save()
 
-# observation-level metadata
-ln.Feature(name="perturbation", dtype=ln.Record).save()
-ln.Feature(name="sample_note", dtype=str).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
+schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_obs_feature_type")
+cells = ln.Feature.get(name="Cells", is_type=True)
+
+# observation-level metadata; cell type features are created with this type by the schema
+ln.Feature(name="perturbation", dtype=ln.Record, type=cells).save()
+ln.Feature(name="sample_note", dtype=str, type=cells).save()
 # dataset-level metadata
 ln.Feature(name="temperature", dtype=float).save()
 ln.Feature(name="experiment", dtype=ln.Record).save()
 ln.Feature(name="date_of_study", dtype=date, coerce=True).save()
 ln.Feature(name="study_note", dtype=str).save()
 ln.Feature(name="study_metadata", dtype=dict).save()
-
-schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
 
 ## Ingest dataset1
 adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")

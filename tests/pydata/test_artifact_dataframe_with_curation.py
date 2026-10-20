@@ -1,11 +1,14 @@
 # Note: Almost all logic for schema-based validation is handled in the curators test suite
 # This here only covers external feature annotation and validation
 
+import re
+from datetime import date
 from pathlib import Path
 
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.models._feature_manager import strip_cat
 
 
 @pytest.fixture(scope="module")
@@ -108,18 +111,25 @@ def test_create_artifact_with_external_feature_annotations(
 
 def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
     df = example_dataframe
-    feat1 = ln.Feature(name="feat1", dtype=int).save()
+    schema = ln.examples.schemas._a_feature_type()
+    feature_type = ln.Feature.get(name="My features", is_type=True)
+    feat1 = ln.Feature(name="feat1", dtype=int, type=feature_type).save()
     artifact = ln.Artifact.from_dataframe(
-        df, key="test_df.parquet", schema="valid_features"
+        df, key="test_df.parquet", schema=schema
     ).save()
     # repeat to check idempotency
     artifact = ln.Artifact.from_dataframe(
-        df, key="test_df.parquet", schema="valid_features"
+        df, key="test_df.parquet", schema=schema
     ).save()
-    assert artifact.schema == ln.examples.schemas.valid_features()
+    assert artifact.schema == schema
     assert artifact.features.get_values() == {}
+    described = re.sub(
+        r"\((\d+) Featur\S*",
+        r"(\1)",
+        artifact.features.describe(return_str=True),
+    )
     assert (
-        artifact.features.describe(return_str=True)
+        described
         == """\
 Artifact: test_df.parquet (0000)
 └── Dataset features
@@ -135,6 +145,61 @@ Artifact: test_df.parquet (0000)
     inferred_schema.delete(permanent=True)
     feat1.delete(permanent=True)
     artifact.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
+
+
+def test_strip_cat_accepts_missing_dtype():
+    assert strip_cat(None) == ""
+    assert strip_cat("") == ""
+    assert strip_cat("float") == "float"
+    assert strip_cat("cat[bionty.Gene]") == "bionty.Gene"
+
+
+def test_describe_feature_type_schema_with_mixed_dtypes():
+    # `Schema(itype=feature_type)` stores `Feature[<uid>]` and leaves
+    # `schema.dtype` unset because member dtypes differ.
+    sequence = ln.Feature(name="descfix_sequence", is_type=True).save()
+    features = [
+        ln.Feature(name="descfix_seq", dtype=str, type=sequence).save(),
+        ln.Feature(name="descfix_gc", dtype=float, type=sequence).save(),
+        ln.Feature(name="descfix_note", dtype=str, type=sequence).save(),
+        ln.Feature(name="descfix_date", dtype=date, type=sequence).save(),
+    ]
+    schema = ln.Schema(itype=sequence).save()
+    assert schema.itype == f"Feature[{sequence.uid}]"
+    assert schema.dtype is None
+    df = pd.DataFrame(
+        {
+            "descfix_seq": ["ACGT", "TGCA"],
+            "descfix_gc": [0.55, 0.54],
+            "descfix_note": ["Looks great", "Ok"],
+            "descfix_date": [date(2025, 10, 24), date(2025, 10, 25)],
+        }
+    )
+    artifact = ln.Artifact.from_dataframe(
+        df,
+        key="my_datasets/descfix_sequences.parquet",
+        schema=schema,
+    ).save()
+    output = artifact.describe(return_str=True)
+
+    def row(name: str) -> str:
+        matches = [line for line in output.splitlines() if f"{name} " in line]
+        assert len(matches) == 1, output
+        return matches[0]
+
+    assert "float" in row("descfix_gc")
+    assert "date" in row("descfix_date")
+    assert "str" in row("descfix_seq")
+    assert "str" in row("descfix_note")
+
+    inferred_schema = artifact.schemas.get()
+    artifact.delete(permanent=True)
+    inferred_schema.delete(permanent=True)
+    schema.delete(permanent=True)
+    for feature in features:
+        feature.delete(permanent=True)
+    sequence.delete(permanent=True)
 
 
 def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):

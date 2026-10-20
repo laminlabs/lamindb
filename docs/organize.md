@@ -177,9 +177,11 @@ Note that you can pass `project` to {func}`~lamindb.track` to auto-annotate all 
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
+All other registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts. An **artifact-centric view** of these relationships looks like this:
+
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg">
 
-All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts. This is called dimensional modeling in data warehousing.[^starsnowflake]
+This is called dimensional modeling in data warehousing.[^starsnowflake]
 
 :::{dropdown} Can you give me some example queries?
 
