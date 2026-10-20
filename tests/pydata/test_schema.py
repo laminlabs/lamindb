@@ -252,10 +252,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=True,
     ).save()
 
@@ -268,10 +266,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=False,
     ).save()
 
@@ -289,10 +285,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=True,
     ).save()
 
@@ -450,11 +444,11 @@ def test_schema_update(
     # add a feature -------------------------------------------
 
     feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     mini_immuno_schema_flexible.features.add(feature_to_add)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.n_members == 4
     assert ccaplog.text.count(warning_message) == 1
 
     # remove the feature again
@@ -462,7 +456,7 @@ def test_schema_update(
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     feature_to_add.delete(permanent=True)
 
     # change is flexible (an auxiliary field) --------------------------------
@@ -499,13 +493,13 @@ def test_schema_update(
     mini_immuno_schema_flexible.index = index_feature
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     assert ccaplog.text.count(warning_message) == 7
 
     # remove the index
     mini_immuno_schema_flexible.index = None
     mini_immuno_schema_flexible.save()
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     assert mini_immuno_schema_flexible.index is None
     assert index_feature in mini_immuno_schema_flexible.features.all()
     assert mini_immuno_schema_flexible.hash == orig_hash
