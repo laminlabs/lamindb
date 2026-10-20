@@ -3817,7 +3817,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
-        self._save_skip_storage(**kwargs)
+        super().save(**kwargs)
 
         using = kwargs.get("using", None)
         exception_upload = check_and_attempt_upload(
@@ -4074,10 +4074,6 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> bool:
     return False
 
 
-def _save_skip_storage(artifact, **kwargs) -> None:
-    super(Artifact, artifact).save(**kwargs)
-
-
 class ArtifactJsonValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_jsonvalue")
@@ -4175,5 +4171,4 @@ track_run_input = track_run_inputs
 # privates currently dealt with separately
 # mypy: ignore-errors
 Artifact._delete_skip_storage = _delete_skip_storage
-Artifact._save_skip_storage = _save_skip_storage
 Artifact.view_lineage = view_lineage

@@ -151,7 +151,7 @@ def save(
                     record, "_to_store", False
                 ):
                     record._storage_ongoing = True
-                record._save_skip_storage(using=using)
+                super(Artifact, record).save(using=using)
         store_artifacts(artifacts, using=using)
 
     # this function returns None as potentially 10k records might be saved
