@@ -197,10 +197,6 @@ def _assign_name_keyed_values(
     returned by `get_values()` represent absent stored links.
     """
     for name, value in name_values.items():
-        feature = features_by_name.get(name)
-        if _missing_feature_value(value) and not (
-            value is None and feature is not None and feature.nullable
-        ):
         value = _normalize_feature_value(value)
         feature = features_by_name.get(name)
         if not allow_nulls and _missing_feature_value(value):
@@ -245,10 +241,6 @@ def _feature_values_for_type_assignment(
         for key, value in pending.items():
             value = _normalize_feature_value(value)
             if isinstance(key, Feature):
-                if not _missing_feature_value(value) or (
-                    value is None and key.nullable
-                ):
-                    values_by_uid[key.uid] = value
                 values_by_uid[key.uid] = value
             elif isinstance(key, str):
                 named[key] = value
