@@ -72,9 +72,9 @@ Think of schemas as rules that define what valid data should look like.
 
 <!-- #endregion -->
 
-### Flexible schema
+### Validating a feature type
 
-Use when: You want to validate those columns whose names match feature names in your `Feature` registry.
+Use when: You want to validate those columns whose identifiers match a featur type provided via `itype`.
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_valid_features.py
