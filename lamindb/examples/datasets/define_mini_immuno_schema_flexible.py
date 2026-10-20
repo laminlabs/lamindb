@@ -1,7 +1,7 @@
 import lamindb as ln
 
 schema = ln.Schema(
-    name="Mini immuno schema",
+    name="mini_immuno",
     features=[  # required features
         ln.Feature.get(name="perturbation"),
         ln.Feature.get(name="cell_type_by_model"),
