@@ -68,7 +68,46 @@ def test_run_in_marimo(monkeypatch):
     )
 
 
-def test_helper_returns_filename(test_run_in_marimo):
-    from lamindb.core._context import get_marimo_notebook_path
+def test_helper_returns_filename(test_run_in_marimo, monkeypatch, ccaplog):
+    from types import SimpleNamespace
+
+    import marimo._runtime as marimo_runtime
+    from lamindb.core._context import get_marimo_notebook_path, get_notebook_path
 
     assert get_marimo_notebook_path() == "test.py"
+    assert get_notebook_path() == (Path("test.py"), "marimo")
+
+    monkeypatch.setattr(
+        "marimo._runtime.context.safe_get_context",
+        lambda: SimpleNamespace(
+            filename="rich.py",
+            marimo_config={"display": {"dataframes": "rich"}},
+        ),
+    )
+    assert get_marimo_notebook_path() == "rich.py"
+    assert "Dataframe viewer" in ccaplog.text
+
+    monkeypatch.setattr("marimo._runtime.context.safe_get_context", lambda: None)
+    assert get_marimo_notebook_path() is None
+
+    monkeypatch.setattr(marimo_runtime, "context", SimpleNamespace())
+    with pytest.raises(RuntimeError, match="safe_get_context"):
+        get_marimo_notebook_path()
+
+
+def test_get_notebook_path_reports_inference_failure(monkeypatch):
+    from lamindb.core._context import get_notebook_path
+
+    def raise_error(return_env=True):
+        raise OSError("no notebook")
+
+    monkeypatch.setattr("lamindb.integrations.jupyter.notebook_path", raise_error)
+    with pytest.raises(RuntimeError, match="failed to infer notebook path"):
+        get_notebook_path()
+
+    monkeypatch.setattr(
+        "lamindb.integrations.jupyter.notebook_path",
+        lambda return_env=True: (None, "lab"),
+    )
+    with pytest.raises(RuntimeError, match="failed to infer notebook path"):
+        get_notebook_path()

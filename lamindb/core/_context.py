@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import builtins
-import hashlib
 import json
 import os
 import signal
@@ -150,15 +149,6 @@ def detect_and_process_source_code_file(
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
     return path, transform_kind, reference, reference_type, key_from_module
-
-
-def get_uid_ext(version: str) -> str:
-    from lamindb_setup.core.base62 import encodebytes
-
-    # merely zero-padding the nbproject version such that the base62 encoding is
-    # at least 4 characters long doesn't yields sufficiently diverse hashes and
-    # leads to collisions; it'd be nice because the uid_ext would be ordered
-    return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
 def get_marimo_notebook_path() -> str | None:
@@ -933,7 +923,7 @@ class Context:
                 ).one_or_none()
                 if branch_record is None:
                     raise InvalidArgument(
-                        f"Space '{branch}', please check on the hub UI whether you have the correct `uid` or `name`."
+                        f"Branch '{branch}', please check on the hub UI whether you have the correct `uid` or `name`."
                     )
             self._branch = branch_record
         plan_record: Artifact | None = None

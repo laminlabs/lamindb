@@ -90,7 +90,31 @@ provider = "openai"
     assert 'provider = "openai"' in redacted
 
 
-def test_track_basic_invocation():
+def test_track_basic_invocation(monkeypatch, ccaplog):
+    monkeypatch.setattr(
+        type(ln_setup.settings.instance),
+        "is_read_only_connection",
+        property(lambda self: True),
+    )
+    ln.context._run = None
+    ln.track()
+    assert ln.context.run is None
+    assert "skipping track(), connected in read-only mode" in ccaplog.text
+    monkeypatch.undo()
+
+    with pytest.raises(AssertionError, match="Project must be saved"):
+        ln.track(project=ln.Project(name="unsaved-track-project"))
+    with pytest.raises(AssertionError, match="Space must be saved"):
+        ln.track(space=ln.Space(name="unsaved-track-space"))
+    with pytest.raises(AssertionError, match="Branch must be saved"):
+        ln.track(branch=ln.Branch(name="unsaved-track-branch"))
+    with pytest.raises(AssertionError, match="Plan artifact must be saved"):
+        ln.track(plan=ln.Artifact(".gitignore", description="unsaved plan"))
+    with pytest.raises(InvalidArgument, match="Branch 'missing-track-branch'"):
+        ln.track(branch="missing-track-branch")
+    with pytest.raises(InvalidArgument, match="Plan artifact 'missing-plan.md'"):
+        ln.track(plan="missing-plan.md")
+
     project = "non-existing project"
     with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.track(project=project)
@@ -176,6 +200,33 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     feature4.delete(permanent=True)
     param4.delete(permanent=True)
     test_transform.delete(permanent=True)
+
+
+def test_track_saved_project_space_and_branch():
+    unique = time.time_ns()
+    project = ln.Project(name=f"track-project-{unique}").save()
+    space = ln.Space(name=f"track-space-{unique}").save()
+    branch = ln.Branch(name=f"track-branch-{unique}").save()
+    transform = ln.Transform(key=f"track-scope-{unique}").save()
+    try:
+        ln.track(transform=transform, project=project, space=space, branch=branch)
+        assert ln.context.project == project
+        assert ln.context.space == space
+        assert ln.context.branch == branch
+        ln.finish()
+        ln.track(transform=transform, branch=branch.name, new_run=True)
+        assert ln.context.branch.name == branch.name
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.context._project = None
+        ln.context._space = None
+        ln.context._branch = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        transform.delete(permanent=True)
+        project.delete(permanent=True)
+        branch.delete(permanent=True)
+        space.delete(permanent=True)
 
 
 def test_track_accepts_initiated_by_run_uid():
@@ -298,7 +349,7 @@ def test_detect_and_process_source_code_file_returns_key_from_module_for_package
     assert path == Path(script_path)
 
 
-def test_detect_and_process_source_code_file_returns_none_key_for_script():
+def test_detect_and_process_source_code_file_returns_none_key_for_script(monkeypatch):
     """When path is inferred from stack and caller __name__ has no '.', key_from_module is None."""
     script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
     mock_frame = MagicMock()
@@ -319,6 +370,26 @@ def test_detect_and_process_source_code_file_returns_none_key_for_script():
         path, kind, ref, ref_type, key_from_module = (
             detect_and_process_source_code_file(path=None)
         )
+    assert key_from_module is None
+    assert ref is None
+
+    monkeypatch.setattr(
+        "lamindb.core._context.settings._sync_git_repo",
+        "https://github.com/laminlabs/lamindb",
+    )
+    monkeypatch.setattr(
+        "lamindb.core._context.get_transform_reference_from_git_repo",
+        lambda tracked_path: f"https://github.com/laminlabs/lamindb/blob/abc/{tracked_path.name}",
+    )
+    path, kind, ref, ref_type, key_from_module = detect_and_process_source_code_file(
+        path=script_path
+    )
+    assert path == Path(script_path)
+    assert kind == "script"
+    assert (
+        ref == f"https://github.com/laminlabs/lamindb/blob/abc/{Path(script_path).name}"
+    )
+    assert ref_type == "url"
     assert key_from_module is None
 
 

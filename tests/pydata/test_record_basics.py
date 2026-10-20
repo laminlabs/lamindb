@@ -517,18 +517,27 @@ def test_record_from_dataframe_partial_null_float_and_other_dtypes():
 
 
 def test_record_from_dataframe_bulk_save_paths():
+    import numpy as np
+
     score = ln.Feature(name="from-df-score", dtype=float).save()
     kind_type = ln.Record(name="from-df-kind-type", is_type=True).save()
     beta = ln.Record(name="from-df-beta", type=kind_type).save()
     alpha = ln.Record(name="from-df-alpha", type=kind_type).save()
     kind = ln.Feature(name="from-df-kind", dtype=kind_type).save()
-    schema = ln.Schema([score, kind], name="from-df-schema").save()
+    kinds = ln.Feature(name="from-df-kinds", dtype=list[kind_type]).save()
+    schema = ln.Schema([score, kind, kinds], name="from-df-schema").save()
     sheet = ln.Record(name="from-df-sheet", is_type=True, schema=schema).save()
     df = pd.DataFrame(
         {
             "__lamindb_record_name__": ["from-df-a", "from-df-b"],
             "from-df-score": [1.0, 2.0],
             "from-df-kind": ["from-df-beta", "from-df-alpha"],
+            # Reverse of creation order, with a numpy scalar, so list links
+            # follow the supplied values rather than registry order.
+            "from-df-kinds": [
+                ["from-df-beta", "from-df-alpha"],
+                [np.str_("from-df-alpha"), np.str_("from-df-beta")],
+            ],
         }
     )
 
@@ -538,17 +547,20 @@ def test_record_from_dataframe_bulk_save_paths():
     assert ln.Record.get(name="from-df-a").features.get_values() == {
         "from-df-score": 1.0,
         "from-df-kind": "from-df-beta",
+        "from-df-kinds": ["from-df-beta", "from-df-alpha"],
     }
-    assert (
-        ln.Record.get(name="from-df-b").features.get_values()["from-df-kind"]
-        == "from-df-alpha"
-    )
+    assert ln.Record.get(name="from-df-b").features.get_values() == {
+        "from-df-score": 2.0,
+        "from-df-kind": "from-df-alpha",
+        "from-df-kinds": ["from-df-alpha", "from-df-beta"],
+    }
 
     df2 = pd.DataFrame(
         {
             "__lamindb_record_name__": ["from-df-c"],
             "from-df-score": [3.0],
             "from-df-kind": ["from-df-alpha"],
+            "from-df-kinds": [["from-df-beta"]],
         }
     )
     records_2 = ln.Record.from_dataframe(df2, type=sheet)
@@ -560,6 +572,7 @@ def test_record_from_dataframe_bulk_save_paths():
     )
     ln.Record.filter(name="from-df-sheet").delete(permanent=True)
     schema.delete(permanent=True)
+    kinds.delete(permanent=True)
     kind.delete(permanent=True)
     alpha.delete(permanent=True)
     beta.delete(permanent=True)

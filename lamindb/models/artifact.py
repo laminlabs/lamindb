@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import shutil
 import types
-import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import (
@@ -1045,45 +1044,6 @@ def check_otype_artifact(
     return otype
 
 
-def save_staged_schemas(self: Artifact) -> None:
-    if hasattr(self, "_staged_schemas"):
-        from lamindb.models._feature_manager import get_schema_by_slot_
-
-        existing_staged_schemas = get_schema_by_slot_(self)
-        saved_staged_schemas = {}
-        for key, schema in self._staged_schemas.items():
-            if isinstance(schema, Schema) and schema._state.adding:
-                schema.save()
-                saved_staged_schemas[key] = schema
-            if key in existing_staged_schemas:
-                # remove existing feature set on the same slot
-                self.schemas.remove(existing_staged_schemas[key])
-        if len(saved_staged_schemas) > 0:
-            s = "s" if len(saved_staged_schemas) > 1 else ""
-            display_schema_keys = ",".join(
-                f"'{key}'" for key in saved_staged_schemas.keys()
-            )
-            logger.save(
-                f"saved {len(saved_staged_schemas)} feature set{s} for slot{s}:"
-                f" {display_schema_keys}"
-            )
-
-
-def save_schema_links(self: Artifact) -> None:
-    from lamindb.models.save import bulk_create
-
-    if hasattr(self, "_staged_schemas"):
-        links = []
-        for slot, schema in self._staged_schemas.items():
-            kwargs = {
-                "artifact_id": self.id,
-                "schema_id": schema.id,
-                "slot": slot,
-            }
-            links.append(Artifact.schemas.through(**kwargs))
-        bulk_create(links, ignore_conflicts=True)
-
-
 def validate_feature(feature: Feature, records: list[SQLRecord]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
@@ -1235,7 +1195,7 @@ def add_labels(
             if registry_name not in dtype_str:
                 if not dtype_str.startswith("cat"):
                     raise ValidationError(
-                        f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{dtype_str}'"
+                        f"Feature {feature.name} needs a categorical dtype for label annotation, currently has dtype='{dtype_str}'"
                     )
                 if registry_name not in dtype_str:
                     new_dtype = dtype_str.rstrip("]") + f"|{registry_name}]"
@@ -2020,17 +1980,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: path")
-
-        if "data" in kwargs:
-            warnings.warn(
-                "`data` argument was renamed to `path` and will be removed in a future release.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            path = kwargs.pop("data")
-        else:
-            path = kwargs.pop("path") if len(args) == 0 else args[0]
-
+        path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
@@ -2227,9 +2177,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         otype = check_otype_artifact(
             data=path, otype=otype, cloud_warning=not _is_internal_call
         )
-        if "type" in kwargs:
-            logger.warning("`type` will be removed soon, please use `kind`")
-            kind = kwargs.pop("type")
         if not len(kwargs) == 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Artifact)])
             raise FieldValidationError(
@@ -2301,9 +2248,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     # Keep tracked state aligned with this internal dedup-time key
                     # normalization so save() doesn't treat it as a user key edit.
                     self._original_values["key"] = key
-                    assert self.path.exists(), (  # noqa: S101
+                    assert self.path.exists(), (
                         f"The underlying file for artifact {self} does not exist anymore, clean up the artifact record."
-                    )  # noqa: S101
+                    )
                 else:
                     logger.warning(
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup=True if you want to duplicate the artifact"
@@ -2729,29 +2676,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.schema = schema
             artifact._curator = curator
         return artifact
-
-    @classmethod
-    @deprecated("from_dataframe")
-    def from_df(
-        cls,
-        df: pd.DataFrame,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        run: Run | None = None,
-        revises: Artifact | None = None,
-        schema: Schema | None = None,
-        **kwargs,
-    ) -> Artifact:
-        return cls.from_dataframe(
-            df,
-            key=key,
-            description=description,
-            run=run,
-            revises=revises,
-            schema=schema,
-            **kwargs,
-        )
 
     @classmethod
     def from_anndata(
@@ -3893,11 +3817,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
-        self._save_skip_storage(**kwargs)
+        super().save(**kwargs)
 
-        using = None
-        if "using" in kwargs:
-            using = kwargs["using"]
+        using = kwargs.get("using", None)
         exception_upload = check_and_attempt_upload(
             self,
             using,
@@ -4152,12 +4074,6 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> bool:
     return False
 
 
-def _save_skip_storage(artifact, **kwargs) -> None:
-    save_staged_schemas(artifact)
-    super(Artifact, artifact).save(**kwargs)
-    save_schema_links(artifact)
-
-
 class ArtifactJsonValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_jsonvalue")
@@ -4255,5 +4171,4 @@ track_run_input = track_run_inputs
 # privates currently dealt with separately
 # mypy: ignore-errors
 Artifact._delete_skip_storage = _delete_skip_storage
-Artifact._save_skip_storage = _save_skip_storage
 Artifact.view_lineage = view_lineage

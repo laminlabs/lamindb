@@ -20,10 +20,7 @@ from ..errors import FieldValidationError, ValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from ._lineage import get_run, populate_recreating_run, track_run_inputs
-from .artifact import (
-    Artifact,
-    save_schema_links,
-)
+from .artifact import Artifact
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import (
@@ -684,7 +681,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # merely using .artifacts.set(*...) doesn't achieve this
             # we need ignore_conflicts=True so that this won't error if links already exist
             CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
-        save_schema_links(self)
         if using is not None:
             logger.warning("using argument is ignored")
         return self

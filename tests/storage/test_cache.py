@@ -1,11 +1,14 @@
 import shutil
 from pathlib import Path
 from time import sleep
+from unittest.mock import patch
 
 import lamindb as ln
 import pytest
 from lamindb.core.loaders import load_h5ad
 from lamindb_setup._set_managed_storage import set_managed_storage
+from lamindb_setup.core._settings import SetupPaths
+from lamindb_setup.core.upath import UPath
 
 
 # https://stackoverflow.com/questions/22627659/run-code-before-and-after-each-test-in-py-test
@@ -211,6 +214,19 @@ def test_corrupted_cache_local():
     with pytest.raises(OSError):
         artifact.open()
 
+    # A failed sync of a local artifact must not delete the file.
+    local_path = artifact.path
+    with (
+        patch.object(
+            SetupPaths,
+            "cloud_to_local",
+            side_effect=RuntimeError("download failed"),
+        ),
+        pytest.raises(RuntimeError, match="download failed"),
+    ):
+        artifact.cache()
+    assert local_path.exists()
+
     artifact.delete(permanent=True)
 
 
@@ -244,5 +260,32 @@ def test_corrupted_cache_cloud(switch_storage):
         pass
     # corrupted cache has been deleted
     assert not artifact._cache_path.exists()
+
+    # A failed download removes a partial file and a partial directory, then re-raises.
+    cache_path = artifact._cache_path
+
+    def fail_file_download(origin, destination, **kwargs):
+        Path(destination).write_bytes(b"partial")
+        raise RuntimeError("download failed")
+
+    def fail_dir_download(origin, destination, **kwargs):
+        destination = Path(destination)
+        destination.mkdir()
+        (destination / "part").write_bytes(b"partial")
+        raise RuntimeError("download failed")
+
+    with (
+        patch.object(UPath, "synchronize_to", fail_file_download),
+        pytest.raises(RuntimeError, match="download failed"),
+    ):
+        artifact.cache()
+    assert not cache_path.exists()
+
+    with (
+        patch.object(UPath, "synchronize_to", fail_dir_download),
+        pytest.raises(RuntimeError, match="download failed"),
+    ):
+        artifact.cache()
+    assert not cache_path.exists()
 
     artifact.delete(permanent=True)

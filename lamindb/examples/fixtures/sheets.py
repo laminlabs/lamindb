@@ -59,10 +59,6 @@ def populate_sheets_compound_treatment():
     treatment = ln.Feature(name="treatment", dtype=treatment_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
     preparation_date = ln.Feature(name="preparation_date", dtype="datetime").save()
-    cell_line._dtype_str = (
-        "cat[bionty.CellLine]"  # might have previously been set to "cat"
-    )
-    cell_line.save()
     sample_schema1 = ln.Schema(
         name="My samples schema 2025-06",
         features=[

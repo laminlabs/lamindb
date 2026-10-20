@@ -1482,8 +1482,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else self.id
         )
         if hasattr(self, "_slots"):
-            # analogous to save_schema_links in core._data.py
-            # which is called to save feature sets in artifact.save()
             slots = list(self._slots.items())
             if cross_instance:
                 component_ids = _resolve_pks_on_instance(

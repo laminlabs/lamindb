@@ -22,10 +22,9 @@ if TYPE_CHECKING:
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
-# IPython-only HTML table; not part of the coverage run.
 def display_df_with_descriptions(
     df: pd.DataFrame, descriptions: dict[str, str] | None = None
-):  # pragma: no cover
+):
     from IPython.display import HTML, display
 
     if descriptions is None:
@@ -99,12 +98,12 @@ def _view(
     get_schema_module: Callable[[str], ModuleType] | None = None,
     get_queryable: Callable[[type[SQLRecord], str], Any] | None = None,
 ) -> None:
-    if df is not None:  # pragma: no cover
+    if df is not None:
         descriptions = {
             col_name: serialize_pandas_dtype(dtype)
             for col_name, dtype in df.dtypes.to_dict().items()
         }
-        feature_dtypes = dict(Feature.objects.values_list("name", "dtype"))
+        feature_dtypes = dict(Feature.objects.values_list("name", "_dtype_str"))
         descriptions.update(feature_dtypes)
         display_df_with_descriptions(df, descriptions)
         return None
