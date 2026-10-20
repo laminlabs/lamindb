@@ -401,6 +401,10 @@ $ lamin load https://lamin.ai/laminlabs/lamindata/transform/13VINnFk89PE0004
 
 Note that data lineage also helps to understand what a dataset is being used for, not only where it comes from. Many datasets are being used over and over for different purposes and it's often useful to understand how.
 
+In the LaminDB schematic we've now already covered the left and the bottom right. Let's move on to understanding annotation, validation, and queries.
+
+<img width="800" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
+
 ### Annotate an artifact
 
 You can annotate artifacts with entities and features. **Entities** are things that you track in registries (e.g. `T cell`, `B cell`). **Features** are variables that give rise to dataset dimensions (e.g. `temperature`, `cell_type_by_expert`).
