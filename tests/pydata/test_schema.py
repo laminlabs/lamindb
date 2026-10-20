@@ -790,6 +790,7 @@ def test_schemas_dataframe():
     my_features = ln.Feature.get(name="My features", is_type=True)
     assert schema.itype == f"Feature[{my_features.uid}]"
     assert my_features.is_type
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schemas_anndata():
@@ -834,6 +835,7 @@ def test_schemas_anndata():
     obs_schema.delete(permanent=True)
     ln.Feature.filter(type__name="Cells").delete(permanent=True)
     ln.Feature.filter(name="Cells", is_type=True).delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schema_already_saved_aux():

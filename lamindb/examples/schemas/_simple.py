@@ -41,3 +41,15 @@ def _a_feature_type() -> Schema:
         return schema
     importlib.reload(define_a_feature_type)
     return define_a_feature_type.schema
+
+
+def _delete_a_feature_type() -> None:
+    """Remove the records created by `_a_feature_type`."""
+    from ... import Feature, Schema
+
+    feature_type = Feature.filter(name="My features", is_type=True).first()
+    if feature_type is None:
+        return
+    Schema.filter(itype=f"Feature[{feature_type.uid}]").delete(permanent=True)
+    Feature.filter(type=feature_type).delete(permanent=True)
+    feature_type.delete(permanent=True)

@@ -145,6 +145,7 @@ Artifact: test_df.parquet (0000)
     inferred_schema.delete(permanent=True)
     feat1.delete(permanent=True)
     artifact.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_strip_cat_accepts_missing_dtype():

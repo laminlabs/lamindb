@@ -301,6 +301,7 @@ def test_df_curator_typed_categorical(model_class):
     getattr(sample_root_type, attribute).all().delete(permanent=True)
     sample_root_type.delete(permanent=True)
     feature.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_df_curator_same_name_at_different_levels_involving_root():
@@ -338,6 +339,7 @@ def test_df_curator_same_name_at_different_levels_involving_root():
     s1_root.delete(permanent=True)
     s1_lab_a.delete(permanent=True)
     lab_a_type.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_df_curator_same_name_at_different_levels_below_root():
@@ -377,6 +379,7 @@ def test_df_curator_same_name_at_different_levels_below_root():
     s1_lab_a.delete(permanent=True)
     lab_a_type.delete(permanent=True)
     department_a_type.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_df_curator_same_name_at_same_level():
@@ -416,6 +419,7 @@ def test_df_curator_same_name_at_same_level():
     lab_a_type.delete(permanent=True)
     record_2.delete(permanent=True)
     lab_b_type.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 # also see test_features_name_duplicates_across_equal_levels
@@ -513,6 +517,7 @@ def test_dtypes_at_different_levels(ccaplog):
     lab_a_type.delete(permanent=True)
     s1_root.delete(permanent=True)
     sample_type_root.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_nullable():
@@ -718,7 +723,8 @@ def test_pandera_dataframe_schema(
 
     # clean up
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_schema_not_saved(df):
@@ -749,7 +755,8 @@ def test_schema_artifact_annotated(df):
     # clean up
     af.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_schema_optionals():
@@ -794,7 +801,8 @@ def test_schema_optionals():
 
     # clean up
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_schema_ordered_set(df):
@@ -818,7 +826,8 @@ def test_schema_ordered_set(df):
 
     # clean up
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 @pytest.mark.parametrize("minimal_set", [True, False])
@@ -937,7 +946,8 @@ def test_feature_dtype_path():
 
     # clean up
     nextflow_schema.delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
@@ -1095,7 +1105,8 @@ def test_curate_columns(df):
     curator.validate()
 
     schema.delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 _COERCE_INT_FLOAT_CASES = {
@@ -1393,7 +1404,8 @@ def test_hash_index_feature(df):
     artifact.delete(permanent=True)
     schema_index.delete(permanent=True)
     schema.delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_add_new_from_subtype(df):
@@ -1424,7 +1436,8 @@ def test_add_new_from_subtype(df):
 
     # clean up
     schema.delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete(permanent=True)
 
@@ -1455,7 +1468,8 @@ def test_index_feature_exclusion_from_categoricals(df):
 
     # clean up
     schema.delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
 def test_coerced_values_are_stored_in_artifact_pandas():

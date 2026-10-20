@@ -84,3 +84,4 @@ def test_rename_label(model_class, ccaplog):
     feature2.delete(permanent=True)
     label1.delete(permanent=True)
     label2.delete(permanent=True)
+    ln.examples.schemas._delete_a_feature_type()
