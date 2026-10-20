@@ -310,7 +310,11 @@ def test_record_type_assignment_requires_schema_features():
 
 def test_loading_record_does_not_revalidate_stored_type():
     experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
-    experiment = ln.Feature(name="load_type_experiment", dtype=experiment_type).save()
+    # Missing nullable values are valid and are returned as None by get_values().
+    # Use a non-nullable feature so removing its value makes this record invalid.
+    experiment = ln.Feature(
+        name="load_type_experiment", dtype=experiment_type, nullable=False
+    ).save()
     schema = ln.Schema([experiment], name="load_type_schema").save()
     samplesheet = ln.Record(name="LoadTypeSamples", is_type=True, schema=schema).save()
     other_sheet = ln.Record(name="LoadTypeOther", is_type=True, schema=schema).save()
@@ -1444,9 +1448,7 @@ def test_record_feature_values_through_reads_reverse_links():
         == 0
     )
     assert "values-from-alice" in meeting_1.features.get_values()["attendees"]
-    assert "values-from-alice" not in meeting_2.features.get_values().get(
-        "attendees", []
-    )
+    assert meeting_2.features.get_values()["attendees"] is None
 
     # Joining a frame that requires the reverse feature uses links that already exist.
     required_people_schema = ln.Schema(
