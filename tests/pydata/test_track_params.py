@@ -1,8 +1,9 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, Tuple
 
 import lamindb as ln
+import pytest
 from lamindb.core._context import (
     REDACTED_SECRET_VALUE,
     _validate_with_virtual_schema,
@@ -11,7 +12,7 @@ from lamindb.core._context import (
 from lamindb_setup.core.upath import UPath
 
 
-def test_serialize_params_to_json():
+def test_serialize_params_to_json(ccaplog):
     a_path = Path("/some/local/folder")
     a_upath = UPath("s3://bucket/key")
     params = {
@@ -24,6 +25,7 @@ def test_serialize_params_to_json():
         "api_key": "test-api-key-value",
         "openAIApiKey": "another-secret",
         "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
+        "opaque": object(),
     }
     result = serialize_params_to_json(params)
     # None is omitted
@@ -50,6 +52,8 @@ def test_serialize_params_to_json():
         "openAIApiKey",
         "database_url",
     }
+    assert "opaque" not in result
+    assert "not JSON serializable" in ccaplog.text
 
 
 def test_serialize_params_to_json_redacts_provider_api_key_names():
@@ -75,6 +79,19 @@ def test_serialize_params_to_json_skips_annotation_mismatch(ccaplog):
         "names": ("a", "b"),
         "counts": ["a", 1],
         "pair": (1, "a", True),
+        "tags": ["a"],
+        "frozen": {"a"},
+        "seq": {"a"},
+        "keyed": {"a": "b"},
+        "valued": {"a": "b"},
+        "not_tuple": [1],
+        "spread": (1, "a"),
+        "bad_pair": (1, 2),
+        "nothing": 1,
+        "origin": 1,
+        "kind": 1,
+        "blob": b"abc",
+        "mystery": 1,
     }
     result = serialize_params_to_json(
         params,
@@ -84,6 +101,19 @@ def test_serialize_params_to_json_skips_annotation_mismatch(ccaplog):
             "names": list[str],
             "counts": dict[str, int],
             "pair": tuple[int, str],
+            "tags": set[str],
+            "frozen": frozenset[str],
+            "seq": Sequence[str],
+            "keyed": dict[int, str],
+            "valued": dict[str, int],
+            "not_tuple": tuple[int],
+            "spread": tuple[int, ...],
+            "bad_pair": tuple[int, str],
+            "nothing": type(None),
+            "origin": type[int],
+            "kind": complex,
+            "blob": Literal[b"abc"],
+            "mystery": object(),
         },
     )
     assert result == {"label": "ok"}
@@ -91,20 +121,34 @@ def test_serialize_params_to_json_skips_annotation_mismatch(ccaplog):
     assert "expected list" in ccaplog.text
     assert "expected mapping" in ccaplog.text
     assert "tuple arity mismatch" in ccaplog.text
+    assert "expected set" in ccaplog.text
+    assert "expected frozenset" in ccaplog.text
+    assert "expected sequence" in ccaplog.text
+    assert "mapping key mismatch" in ccaplog.text
+    assert "mapping value mismatch" in ccaplog.text
+    assert "expected tuple" in ccaplog.text
+    assert "tuple item mismatch" in ccaplog.text
+    assert "expected None" in ccaplog.text
+    assert "unsupported annotation origin" in ccaplog.text
+    assert "unsupported annotation type" in ccaplog.text
+    assert "unsupported annotation" in ccaplog.text
+    assert "not JSON serializable after annotation matching" in ccaplog.text
 
 
 def test_serialize_params_to_json_serializes_valid_record_annotations():
     record = ln.Record(name="track-param-record").save()
     try:
         params = {"record": record, "records": [record]}
+        expected = {
+            "record": f"Record[{record.uid}]",
+            "records": [f"Record[{record.uid}]"],
+        }
         result = serialize_params_to_json(
             params,
             expected_param_types={"record": ln.Record, "records": list[ln.Record]},
         )
-        assert result == {
-            "record": f"Record[{record.uid}]",
-            "records": [f"Record[{record.uid}]"],
-        }
+        assert result == expected
+        assert serialize_params_to_json(params) == expected
     finally:
         record.delete(permanent=True)
 
@@ -133,6 +177,13 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
         "mixed": [1, "two", 3],
         "tags": {"a", "b"},
         "pair": (1, "a"),
+        "anything": "hello",
+        "items": [1, "a"],
+        "nones": [None],
+        "lone": (None,),
+        "nums": (1, 2),
+        "bare": (1, "a"),
+        "ints": [1, 2],
     }
     result = serialize_params_to_json(
         params,
@@ -142,6 +193,13 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
             "mixed": list[int | str],
             "tags": set[str],
             "pair": tuple[int, str],
+            "anything": Any,
+            "items": list[Any],
+            "nones": list[None],
+            "lone": tuple[Literal[None]],
+            "nums": tuple[int, ...],
+            "bare": Tuple,  # noqa: UP006  # typing.Tuple has origin tuple and no args
+            "ints": list["int"],
         },
     )
     assert result["names"] == ["a", "b"]
@@ -149,6 +207,13 @@ def test_serialize_params_to_json_supports_sequence_mapping_and_nested_union():
     assert result["mixed"] == [1, "two", 3]
     assert set(result["tags"]) == {"a", "b"}
     assert result["pair"] == [1, "a"]
+    assert result["anything"] == "hello"
+    assert result["items"] == [1, "a"]
+    assert result["nones"] == [None]
+    assert result["lone"] == [None]
+    assert result["nums"] == (1, 2)
+    assert result["bare"] == [1, "a"]
+    assert result["ints"] == [1, 2]
 
 
 def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
@@ -160,7 +225,11 @@ def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
     assert "unresolved string annotation" in ccaplog.text
 
 
-def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
+@pytest.mark.parametrize(
+    "error",
+    [None, "count failed", "validation failed"],
+)
+def test_virtual_schema_validation_uses_params_key_label(monkeypatch, error):
     captured: dict[str, str] = {}
 
     class DummyCurator:
@@ -178,7 +247,8 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
             captured["validate_keys"] = validate_keys
 
         def validate(self):
-            return None
+            if error is not None:
+                raise ValueError(error)
 
     monkeypatch.setattr("lamindb.curators.core.DictCurator", DummyCurator)
     valid_keys, invalid_reasons = _validate_with_virtual_schema(
@@ -187,5 +257,10 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch):
 
     assert captured["key_label"] == "params"
     assert captured["validate_keys"] is False
-    assert valid_keys == {"count"}
-    assert invalid_reasons == {}
+    if error is None:
+        assert valid_keys == {"count"}
+        assert invalid_reasons == {}
+    else:
+        assert valid_keys == set()
+        assert invalid_reasons == {"count": error}
+        assert error in next(iter(invalid_reasons.values()))
