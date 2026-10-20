@@ -65,7 +65,7 @@ lc$init(storage = "./mydata", modules = "bionty")
    --modules bionty,pertdb,custom1
    ```
 
-For more info: {doc}`/setup`
+Read more: {doc}`/setup`
 
 :::
 
@@ -108,7 +108,7 @@ The {class}`~lamindb.Transform` registry stores data transformations: scripts, n
 
 The {class}`~lamindb.Run` registry stores executions of transforms. Many runs can be linked to the same transform if executed with different context (time, user, input data, etc.).
 
-For more info: {doc}`/track`
+Read more: {doc}`/track`
 
 :::
 
@@ -131,7 +131,7 @@ def ingest_dataset(key: str) -> ln.Artifact:
 ingest_dataset(key="my_analysis/dataset.parquet")
 ```
 
-For more info: {doc}`/track`
+Read more: {doc}`/track`
 
 Leverage a pipeline integration, see: {doc}`docs:pipelines`.
 
@@ -194,7 +194,7 @@ lamin merge my_branch
 
 <!-- #endregion -->
 
-For more info: {class}`~lamindb.Branch`
+Read more: {doc}`/manage-changes`
 
 ## Manage datasets
 
@@ -663,7 +663,7 @@ For any field, the double underscore defines a comparator, e.g.,
 - `name__startswith="Martha"`: `name` starts with `"Martha`
 - `name__in=["Martha", "John"]`: `name` is `"John"` or `"Martha"`
 
-For more info: {doc}`query-search`
+Read more: {doc}`query-search`
 
 :::
 
@@ -692,7 +692,7 @@ records = ln.Record.lookup()
 
 :::
 
-For more info: {doc}`query-search`
+Read more: {doc}`query-search`
 
 ## Manage folders & storage locations
 
@@ -817,7 +817,7 @@ new_cell_state.parents.add(neuron)
 new_cell_state.view_parents(distance=2)
 ```
 
-For more info: {doc}`manage-ontologies`
+Read more: {doc}`manage-ontologies`
 
 ## Manage AnnData artifacts
 
