@@ -376,9 +376,10 @@ To annotate & query by **features**:
 ```python
 from datetime import date
 
-# define features
-gc_content = ln.Feature(name="gc_content", dtype=float).save()
-seq_date = ln.Feature(name="seq_date", dtype=date).save()
+# define a feature type and features
+sequences = ln.Feature(name="Sequences", is_type=True).save()
+gc_content = ln.Feature(name="gc_content", dtype=float, type=sequences).save()
+seq_date = ln.Feature(name="seq_date", dtype=date, type=sequences).save()
 
 # annotate
 artifact.features.set_values({
@@ -472,17 +473,18 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-Validate and annotate the columns against a feature type. `gc_content` and `seq_date` were defined above; assign them to the type along with the remaining columns:
+Let's now define a schema that validates the columns of the dataframe against the feature type `sequences` that we defined above:
 
 ```python
-sequences = ln.Feature(name="Sequences", is_type=True).save()
-gc_content.type = sequences
-seq_date.type = sequences
-gc_content.save()
-seq_date.save()
 ln.Feature(name="seq_str", dtype=str, type=sequences).save()
 ln.Feature(name="experiment_note", dtype=str, type=sequences).save()
 schema = ln.Schema(itype=sequences).save()
+```
+
+If we pass it `from_dataframe()`, the resulting artifact is validated and auto-anntotated:
+
+```python
+
 artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",
@@ -495,7 +497,7 @@ You can filter for datasets by schema and then launch distributed queries or bat
 
 Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
-To validate an `AnnData`, use a feature type for the `obs` columns and Ensembl gene ids for `var`:
+To validate and auto-annotate an `AnnData`, use a feature type for the `obs` columns and Ensembl gene ids for `var`:
 
 ```python
 import anndata as ad
@@ -503,6 +505,7 @@ import bionty as bt
 import numpy as np
 import pandas as pd
 
+# define the schema
 cells = ln.Feature(name="Cells", is_type=True).save()
 ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=cells).save()
 obs_schema = ln.Schema(itype=cells).save()
@@ -511,6 +514,7 @@ anndata_schema = ln.Schema(
     otype="AnnData", slots={"obs": obs_schema, "var.T": var_schema}
 ).save()
 
+# define the AnnData object
 adata = ad.AnnData(
     X=np.ones((21, 3)),
     obs=pd.DataFrame({"cell_type_by_model": ["T cell", "B cell", "T cell"] * 7}),
@@ -518,6 +522,8 @@ adata = ad.AnnData(
         index=["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
     ),
 )
+
+# validate, annotate, and ingest the AnnData object
 artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
