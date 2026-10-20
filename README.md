@@ -20,7 +20,7 @@ Existing data lakehouses aren't a comprehensive solution. They only address the 
 
 </details>
 
-<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
+<img width="800" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
 How?
 
@@ -69,7 +69,7 @@ UI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub
 
 ## Quickstart
 
-To install the Python package with recommended dependencies, use:
+To **install** the Python package with recommended dependencies, use:
 
 ```shell
 pip install lamindb
@@ -88,32 +88,36 @@ pip install lamindb-core
 
 </details>
 
-Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents), [`docs/`](https://github.com/laminlabs/lamindb/tree/main/docs) and [llms.txt](https://docs.lamin.ai/llms.txt).
+If you are an **agent**, see the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents/skills/lamindb/SKILL.md), the [local docs](https://github.com/laminlabs/lamindb/tree/main/docs), or [llms.txt](https://docs.lamin.ai/llms.txt).
 
 ### Query databases
 
-You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
+You can explore public databases [here](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
 ```python
 import lamindb as ln
 
 db = ln.DB("laminlabs/cellxgene")  # a database object for queries
-df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-To get a [specific dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR), run:
+Get a **single artifact** in `h5ad` format:
 
 ```python
-artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
-artifact.describe()                             # describe the context of the dataset
+artifact = db.Artifact.get("x4xsAnj6Uwbq7Bhq")  # a metadata object for an artifact
+artifact.describe()                             # describe the metadata
 ```
 
 <details>
 <summary>See the output.</summary>
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
+
+Features are validated and annotated based on ontologies.
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="800">
+
+To explore the dataset on the UI, go [here](https://lamin.ai/laminlabs/cellxgene/artifact/x4xsAnj6Uwbq7Bhq).
 </details>
 
-Access the content of the dataset via:
+Access the content of the artifact via one of:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -121,24 +125,106 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
+Query a **set of artifacts by entities** using Django's `__` syntax:
+
+```python
+db.Artifact.filter(tissues__name="liver").to_dataframe()
+```
+
+Query **by features** using expressions:
+
+```python
+tissue_feature = db.Feature.get(name="tissue_ontology_term_id")
+db.Artifact.filter(
+    tissue_feature == db.bionty.Tissue.get(name="liver")
+).to_dataframe()
+```
+
+### Access sharded datasets
+
+Access a validated, versioned collection of artifact shards in **`parquet` format**:
+
+```python
+db = ln.DB("laminlabs/1000genomes")
+collection = db.Collection.get("hVu9puwdRGskm1I6")
+collection.schema.describe()
+```
+
+<details>
+<summary>Ad-hoc query a sharded dataset.</summary>
+
+See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="800">
+
+This example uses `polars` to filter the collection of parquet files:
+
+<!-- #region -->
+
+```python
+chrom = "1"
+lo, hi = 150_000_000, 200_000_000
+
+with collection.open(engine="polars") as df:
+    filtered = df.filter(
+        (pl.col("chrom") == chrom) & (pl.col("pos") >= lo) & (pl.col("pos") <= hi)
+    ).collect()
+```
+
+<!-- #endregion -->
+
+</details>
+
+Access a collection of artifact shards in **`zarr` format**:
+
+```python
+db = ln.DB("laminlabs/arrayloader-benchmarks")
+collection = db.Collection.get(key="Tahoe100M_zarr")
+collection.artifacts.to_dataframe()
+```
+
+<details>
+<summary>Train a model on a sharded dataset.</summary>
+
+This example uses `annbatch` with the pre-shuffled sharded `Tahoe100M_zarr` collection ([explore](https://lamin.ai/laminlabs/arrayloader-benchmarks/collection/LaJOdLd0xZ3v5ZBw)):
+
+<!-- #region -->
+
+```python
+import anndata as ad
+import zarr
+from annbatch import Loader
+
+paths = [artifact.cache() for artifact in collection.artifacts.all()]
+loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
+loader.add_datasets(
+    datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
+    obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
+)
+for batch in loader:
+    pass
+```
+
+<!-- #endregion -->
+
+</details>
 
 ### Create artifacts
 
-To initialize a new database in a development directory, run:
+To **initialize a new database** in a development directory, run:
 
 ```shell
 lamin init --modules bionty  # mount module bionty
 ```
 
-To connect to an existing database - you can create one at [lamin.ai](https://lamin.ai) - run:
+To **connect to an existing database** - you can create a hosted one at [lamin.ai](https://lamin.ai) - run:
 
 ```shell
 lamin login
 lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
 
-To save a file or folder via the API:
+To save a **file or folder**:
 
 ```python
 import lamindb as ln
@@ -148,11 +234,14 @@ open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
 ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ```
 
-To save a file or folder via the CLI, run:
+Or via the **CLI**:
 
 ```shell
 lamin save sample.fasta --key sample.fasta
 ```
+
+<details>
+<summary>Load it.</summary>
 
 To load an artifact via the CLI into a local cache, run:
 
@@ -162,11 +251,13 @@ lamin load --key sample.fasta
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
+</details>
+
 ### Trace data, code & agents
 
-To track **agent sessions**, install the [library skill](https://github.com/laminlabs/lamindb/tree/main/lamindb/.agents): `uvx library-skills --skill lamindb`.
+To track an **agent session**, run: `uvx library-skills --skill lamindb`.
 
-To track source code, inputs, outputs, logs, and environment of a **script or notebook**, use `ln.track()` and `ln.finish()`:
+To track a **script or notebook run** with source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
@@ -178,7 +269,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ln.finish()                                             # mark run as finished
 ```
 
-If running this snippet as a script (`python create_fasta.py`), you'll get the following data lineage:
+Explore **data lineage** after running this snippet as a script (`python create_fasta.py`):
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -227,7 +318,7 @@ if __name__ == "__main__":
 
 <!-- #end_skip_laminr -->
 
-Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established Python workflow managers: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate advanced bioinformatics pipeline managers like Nextflow, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
+Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established **Python workflow managers**: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate pipeline managers like **Nextflow**, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
 
 <details>
 <summary>A richer example.</summary>
@@ -261,7 +352,7 @@ artifact.projects.add(my_project)
 ln.Artifact.filter(ulabels=my_label, projects=my_project).to_dataframe()
 ```
 
-This also works for custom entities, for example, ontology terms:
+This also works for entities imported from **modules**, for example, ontology terms:
 
 ```python
 import bionty as bt
@@ -350,11 +441,16 @@ You can save **markdown notes** as records:
 lamin save <topic>/<my-note.md>
 ```
 
+<details>
+<summary>Load it.</summary>
+
 To load a record back as a markdown file, run:
 
 ```shell
 lamin load https://lamin.ai/laminlabs/lamindata/record/mNDJgWFrkWQVW3ox
 ```
+
+</details>
 
 Watch a mini video: [youtu.be/NRzVQXJaRH8](https://youtu.be/NRzVQXJaRH8)
 
@@ -417,11 +513,11 @@ To validate a `SpatialData` or any other array-like dataset, you need to constru
 
 ### Use branching & versioning
 
-LaminDB co-versions code and datasets for you.
+LaminDB versions transforms, artifacts, and collections.
 If you edit and run the `create_fasta.py` script, you'll automatically create a new version of the transform and the `sample.fasta` artifact.
 
 <details>
-<summary>The edited script</summary>
+<summary>The edited script.</summary>
 
 ```python
 # create_fasta.py
@@ -440,13 +536,13 @@ artifact_latest.versions.to_dataframe()                # all versions of that ar
 artifact_latest.run.transform.versions.to_dataframe()  # all versions of the transform that created the artifact
 ```
 
-To isolate changes, create a contribution branch and switch to it as in `git`:
+If you create a **branch and switch to it** as in `git`, you'll create new objects and new versions of objects on it:
 
 ```shell
 lamin switch -c my_branch
 ```
 
-To merge a contribution branch into `main`, run:
+To **merge** a contribution branch into `main`, run:
 
 ```shell
 lamin switch main  # switch to the main branch
@@ -459,7 +555,7 @@ Watch a mini video: [youtu.be/rzRwcMj6-fc](https://youtu.be/rzRwcMj6-fc)
 
 ### Share datasets
 
-To share data in a lineage-aware way, transfer objects from a source database to your default database:
+To **share data** in a lineage-aware way, transfer objects from a source database to your default database:
 
 ```python
 db = ln.DB("laminlabs/lamindata")
@@ -471,7 +567,9 @@ This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/
 
 ### Manage ontologies
 
-`bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. The `Gene` registry was used to validate the `ENSG` ids in the `adata` just before. Here is how you import a public ontology source into the `CellType` registry:
+You can use `Record` to build your ELN & LIMS, your own ontologies, and even a knowledge graph with slow graph queries. If you instead want to build on public biological ontologies: `bionty` gives you >20 public ontologies so that you don't have build ontologies for basic biological entities from scratch. For example, the `Gene` registry was used to validate the `ENSG` ids in the `AnnData` object above.
+
+Here is how you **import a public ontology** into the `CellType` registry:
 
 ```python
 import bionty as bt
@@ -483,8 +581,8 @@ bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple re
 You can then create objects, e.g. for labeling, analogous to `ULabel` or `Project`:
 
 ```python
-t_cell = bt.CellType.get(name="T cell")
-artifact.cell_types.add(t_cell)
+t_cell = bt.CellType.get(name="T cell")  # get a T cell label
+artifact.cell_types.add(t_cell)          # annotate an artifact
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
