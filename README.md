@@ -240,7 +240,8 @@ Or via the **CLI**:
 lamin save sample.fasta --key sample.fasta
 ```
 
-:::{dropdown} Load it.
+<details>
+<summary>Load it.</summary>
 
 To load an artifact via the CLI into a local cache, run:
 
@@ -250,7 +251,7 @@ lamin load --key sample.fasta
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-:::
+</details>
 
 ### Trace data, code & agents
 
