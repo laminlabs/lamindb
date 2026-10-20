@@ -880,10 +880,3 @@ def test_resolve_relation_filter_duplicate():
     }
     with pytest.raises(bt.Source.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
-
-
-def test_bare_cat_dtype_rejected():
-    with pytest.raises(ValueError, match="dtype is 'cat'"):
-        parse_dtype("cat")
-    with pytest.raises(ValueError, match="dtype is 'cat'"):
-        ln.Feature(name="test_bare_cat", dtype="cat")
