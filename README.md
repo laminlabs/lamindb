@@ -475,14 +475,14 @@ ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no
 Validate and annotate the columns against a feature type. `gc_content` and `seq_date` were defined above; assign them to the type along with the remaining columns:
 
 ```python
-sequence = ln.Feature(name="sequence", is_type=True).save()
-gc_content.type = sequence
-seq_date.type = sequence
+sequences = ln.Feature(name="Sequences", is_type=True).save()
+gc_content.type = sequences
+seq_date.type = sequences
 gc_content.save()
 seq_date.save()
-ln.Feature(name="seq_str", dtype=str, type=sequence).save()
-ln.Feature(name="experiment_note", dtype=str, type=sequence).save()
-schema = ln.Schema(itype=sequence).save()
+ln.Feature(name="seq_str", dtype=str, type=sequences).save()
+ln.Feature(name="experiment_note", dtype=str, type=sequences).save()
+schema = ln.Schema(itype=sequences).save()
 artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",
@@ -503,9 +503,9 @@ import bionty as bt
 import numpy as np
 import pandas as pd
 
-cell = ln.Feature(name="cell", is_type=True).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=cell).save()
-obs_schema = ln.Schema(itype=cell).save()
+cells = ln.Feature(name="Cells", is_type=True).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=cells).save()
+obs_schema = ln.Schema(itype=cells).save()
 var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
 anndata_schema = ln.Schema(
     otype="AnnData", slots={"obs": obs_schema, "var.T": var_schema}
