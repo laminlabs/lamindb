@@ -92,28 +92,32 @@ Agent? See [`.agents/`](https://github.com/laminlabs/lamindb/tree/main/lamindb/.
 
 ### Query databases
 
-You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To access [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
+You can explore public databases [here](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
 ```python
 import lamindb as ln
 
 db = ln.DB("laminlabs/cellxgene")  # a database object for queries
-df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-To get a [specific dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR), run:
+Get a **single artifact** in `h5ad` format:
 
 ```python
-artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
-artifact.describe()                             # describe the context of the dataset
+artifact = db.Artifact.get("x4xsAnj6Uwbq7Bhq")  # a metadata object for an artifact
+artifact.describe()                             # describe the metadata
 ```
 
 <details>
 <summary>See the output.</summary>
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
+
+Features are validated and annotated based on ontologies.
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="550">
+
+To explore the dataset on the UI, go [here](https://lamin.ai/laminlabs/cellxgene/artifact/x4xsAnj6Uwbq7Bhq).
 </details>
 
-Access the content of the dataset via:
+Access the content of the artifact via one of:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -121,7 +125,66 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-For broader queries of `cellxgene`, see [docs.lamin.ai/cellxgene](https://docs.lamin.ai/cellxgene).
+Query the set of artifacts that's annotated by `liver`:
+
+```python
+db.Artifact.filter(tissues__name="liver").to_dataframe()
+```
+
+Get a **versioned collection** of artifacts in `zarr` format:
+
+```python
+db = ln.DB("laminlabs/arrayloader-benchmarks")
+collection = db.Collection.get(key="Tahoe100M_zarr")
+collection.artifacts.to_dataframe()
+```
+
+<details>
+<summary>Train a model on a sharded dataset.</summary>
+
+This example uses `annbatch` with the pre-shuffled sharded `Tahoe100M_zarr` collection ([explore](https://lamin.ai/laminlabs/arrayloader-benchmarks/collection/LaJOdLd0xZ3v5ZBw)).
+
+```python
+import anndata as ad
+import zarr
+from annbatch import Loader
+
+paths = [artifact.cache() for artifact in collection.artifacts.all()]
+loader = Loader(shuffle=True, batch_size=4096, chunk_size=256, preload_nchunks=64)
+loader.add_datasets(
+    datasets=[ad.io.sparse_dataset(zarr.open(p)["X"]) for p in paths],
+    obs=[ad.io.read_elem(zarr.open(p)["obs"]) for p in paths],
+)
+for batch in loader:
+    pass
+```
+
+</details>
+
+Get a **validated, versioned collection** of artifacts in `parquet` format:
+
+```python
+db = ln.DB("laminlabs/1000genomes")
+collection = db.Collection.get("hVu9puwdRGskm1I6")
+collection.schema.describe()
+```
+
+<details>
+<summary>Ad-hoc query a sharded dataset.</summary>
+
+This uses `polars` to filter the parquet files.
+
+```python
+chrom = "1"
+lo, hi = 150_000_000, 200_000_000
+
+with collection.open(engine="polars") as df:
+    filtered = df.filter(
+        (pl.col("chrom") == chrom) & (pl.col("pos") >= lo) & (pl.col("pos") <= hi)
+    ).collect()
+```
+
+</details>
 
 ### Create artifacts
 
