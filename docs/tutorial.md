@@ -885,7 +885,7 @@ collection.view_lineage()
 You can "time-travel" back to the original version of the collection, and find versions using the queries you learned about above:
 
 ```python
-import datetime
+from datetime import datetime
 
 collection.versions.filter(created_at__lt=datetime.now())[0]
 ```
