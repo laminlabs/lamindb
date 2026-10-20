@@ -97,7 +97,7 @@ Think of schemas as rules that define what a valid dataset or record should look
 Use when: You want to validate features against one feature type.
 
 ```{eval-rst}
-.. literalinclude:: scripts/define_valid_features.py
+.. literalinclude:: scripts/define_a_feature_type.py
    :language: python
 ```
 
@@ -434,15 +434,15 @@ python scripts/curate_dataframe_union_features.py
 
 ### Allow a flexible schema
 
-`obs` uses a feature type, and `var` only needs to be indexed by Ensembl gene ids ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
+`obs` uses a feature type, and `var` only needs to be indexed by Ensembl gene ids:
 
 ```{eval-rst}
-.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py
    :language: python
 ```
 
 ```bash
-python scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+python scripts/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py
 ```
 
 ```{eval-rst}
@@ -473,7 +473,7 @@ adata
 ```
 
 ```python
-schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
+schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_obs_feature_type")
 schema.describe()
 ```
 

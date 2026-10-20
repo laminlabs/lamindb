@@ -2584,6 +2584,17 @@ class DataFrameCatManager:
             columns = [
                 col for col in columns if not re.match(LAMINDB_COLUMN_PREFIX_REGEX, col)
             ]
+        # Feature-type schemas store itype as Feature[<uid>]. Column names must
+        # resolve inside that type, otherwise a same-named feature under another
+        # type is an ambiguous match.
+        type_uid = None
+        if (
+            schema is not None
+            and isinstance(schema.itype, str)
+            and schema.itype.startswith("Feature[")
+            and schema.itype.endswith("]")
+        ):
+            type_uid = schema.itype[len("Feature[") : -1]
         self._cat_vectors["columns"] = CatVector(
             values_getter=lambda: self._get_polars_columns()
             if self._is_polars
@@ -2601,6 +2612,7 @@ class DataFrameCatManager:
             else "unsaved"
             if schema.id is None
             else f"schemas__id={schema.id}",
+            type_uid=type_uid,
             schema=schema,
             using=using,
         )

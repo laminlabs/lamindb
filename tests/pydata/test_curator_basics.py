@@ -421,6 +421,25 @@ def test_curator_schema_feature_mapping():
     lab_b_type.delete(permanent=True)
 
 
+def test_flexible_feature_type_schema_scopes_same_named_features():
+    lab_a_type = ln.Feature(name="ScopeA", is_type=True).save()
+    feature1 = ln.Feature(name="sample_name", dtype="str", type=lab_a_type).save()
+    lab_b_type = ln.Feature(name="ScopeB", is_type=True).save()
+    feature2 = ln.Feature(name="sample_name", dtype="str", type=lab_b_type).save()
+    schema = ln.Schema(itype=lab_a_type).save()
+    df = pd.DataFrame({"sample_name": ["s1", "s2"]})
+    curator = ln.curators.DataFrameCurator(df, schema)
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["columns"]
+    assert cat_vector.records == [feature1]
+
+    schema.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+    lab_b_type.delete(permanent=True)
+
+
 def test_dtypes_at_different_levels(ccaplog):
     sample_type_root = ln.Record(name="Sample", is_type=True).save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
