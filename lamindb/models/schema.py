@@ -488,6 +488,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Defaults to `None` if `itype` is `Feature`. Otherwise to `"num"`, e.g., if `itype` is `bt.Gene.ensembl_gene_id`.
         minimal_set: `bool = True` Whether all passed features are required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
+            If `False`, all features are optional.
         maximal_set: `bool = False` Whether additional features are allowed.
         ordered_set: `bool = False` Whether features are required to be ordered.
         coerce: `bool | None = None` When `True`, coerces every column and the index during validation,
