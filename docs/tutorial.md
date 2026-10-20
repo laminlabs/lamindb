@@ -21,14 +21,15 @@ lamin init --modules bionty
 
 :::{dropdown} Can I sync the development directory to a git repo?
 
-Yes! Run
+Yes! In your shell:
 
 ```shell
 export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
 ```
 
-This will enforce that you run only committed code in the git repo and sync that code to LaminDB. It's easiest if you place the git repo at the root of the development directory.
+<br>
 
+This will enforce that you run only committed code in the git repo and sync that code to LaminDB. It's easiest if you place the git repo at the root of the development directory.
 Read more: {ref}`sync-code-with-git`.
 
 :::
