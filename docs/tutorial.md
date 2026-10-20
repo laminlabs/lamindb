@@ -6,7 +6,7 @@ execute_via: python
 
 This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#quickstart): there, you skim through core capabilities; here, you learn core usage patterns with conceptual context.
 
-## Track changes
+## Track data lineage
 
 <!-- #skip_laminr -->
 
@@ -71,9 +71,16 @@ For more info: {doc}`/setup`
 
 <!-- #endregion -->
 
+## Track an agent session
+
+LaminDB integrates with popular harnesses such as Claude Code, Codex, Cursor, and GitHub CoPilot.
+
+To track how agents author and run code along with their transcripts is to install the `lamindb` library skill.
+Run the following in your home or project directory: `uvx library-skills --skill lamindb`.
+
 ### Track a notebook or script
 
-Let's now track the notebook or script that is running.
+Let's now track the current notebook or script:
 
 ```python
 import lamindb as ln
@@ -152,11 +159,11 @@ Yes. What OpenLineage calls a "job", LaminDB calls a "transform". What OpenLinea
 
 :::
 
+<!-- #region -->
+
 :::{dropdown} Track agent plans
 
 If you're working with an agent plan, here is a way to save it:
-
-<!-- #region -->
 
 ```bash
 lamin save /path/to/.cursor/plans/my-agent-plan.md
@@ -168,13 +175,13 @@ It you switched to a branch, the plan will be linked to that branch. Here is how
 ln.track(plan=".plans/my-agent-plan.md")  # link plan artifact to this run
 ```
 
-<!-- #endregion -->
-
 :::
 
-### Manage changes with branches
+<!-- #endregion -->
 
-When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
+## Manage changes with branches
+
+You can use git-inspired change management via contribution branches that you merge into main:
 
 <!-- #region -->
 
@@ -191,9 +198,9 @@ For more info: {class}`~lamindb.Branch`
 
 ## Manage datasets
 
-{class}`~lamindb.Artifact` is the core object for datasets and models in LaminDB, whether they are files, folders, tables, or array-like data.
+{class}`~lamindb.Artifact` is the core class for managing simple datasets and models, whether they are files, folders, tables, or array-like. {class}`~lamindb.Collection` is the core class for managing sharded datasets, which consist of multiple artifacts, inspired by lakehouse frameworks such as Iceberg or DuckLake.
 
-It gives you one interface for registration, access, annotation, lineage, and queries across local storage, AWS S3 (`s3://`), Google Cloud (`gs://`), Hugging Face (`hf://`), and any other file system supported by `fsspec`.
+`Artifact` gives you one interface for registration, access, annotation, lineage, and queries across local storage, AWS S3 (`s3://`), Google Cloud (`gs://`), Hugging Face (`hf://`), and any other file system supported by `fsspec`.
 
 ### Create an artifact
 
