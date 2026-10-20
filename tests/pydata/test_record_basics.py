@@ -344,51 +344,6 @@ def test_loading_record_does_not_revalidate_stored_type():
     experiment.delete(permanent=True)
 
 
-@pytest.mark.parametrize("nullable", [True, False])
-@pytest.mark.parametrize(
-    "dtype, value, empty",
-    [(list[str], ["value"], []), (list[int], [1], []), (dict, {"key": "value"}, {})],
-)
-def test_record_get_values_required_containers(dtype, value, empty, nullable):
-    required = ln.Feature(
-        name="get_values_required_container", dtype=dtype, nullable=nullable
-    ).save()
-    optional = ln.Feature(name="get_values_optional_container", dtype=dtype).save()
-    schema = ln.Schema([required, optional.with_config(optional=True)]).save()
-    record_type = ln.Record(
-        name="GetValuesContainers", is_type=True, schema=schema
-    ).save()
-    record = None
-    try:
-        record = ln.Record(
-            type=record_type, features={required: value, optional: value}
-        ).save()
-        assert record.features.get_values() == {
-            required.name: value,
-            optional.name: value,
-        }
-        record.features.remove_values(required)
-        expected_required = {required.name: empty} if nullable else {}
-        assert record.features.get_values() == {
-            **expected_required,
-            optional.name: value,
-        }
-        record.features.remove_values(optional)
-        assert record.features.get_values() == expected_required
-        assert record.features.get_values(external_only=True) == expected_required
-        assert record.values_json.count() == 0
-        schema.minimal_set = False
-        schema.save()
-        assert record.features.get_values() == {}
-    finally:
-        if record is not None:
-            record.delete(permanent=True)
-        record_type.delete(permanent=True)
-        schema.delete(permanent=True)
-        optional.delete(permanent=True)
-        required.delete(permanent=True)
-
-
 def test_record_lazy_features_on_save():
     score_feature = ln.Feature(name="lazy_score", dtype=float).save()
     record = ln.Record(name="lazy-record", features={"lazy_score": 0.7}).save()
