@@ -1492,9 +1492,10 @@ class FeatureManager:
         """Get features as a dictionary.
 
         Includes annotation with internal and external feature values.
-        For saved records with a type schema, required nullable schema features
-        without annotations are included as `None`. Absent optional features
-        are omitted.
+        For saved records with a type schema, required features without
+        annotations are included as `[]` for lists, `{}` for dictionaries,
+        and `None` for other nullable features. Absent optional features are
+        omitted.
 
         Args:
             external_only: If `True`, only return external feature annotations.
@@ -1511,7 +1512,11 @@ class FeatureManager:
                 for feature in _required_schema_features(
                     schema, list(schema.members), schema.index
                 ):
-                    if feature.nullable:
+                    if feature.dtype_as_str.startswith("list["):
+                        dictionary.setdefault(feature.name, [])
+                    elif feature.dtype_as_str == "dict":
+                        dictionary.setdefault(feature.name, {})
+                    elif feature.nullable:
                         dictionary.setdefault(feature.name, None)
         return dictionary
 
