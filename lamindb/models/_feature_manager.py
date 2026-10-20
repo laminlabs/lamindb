@@ -1492,8 +1492,9 @@ class FeatureManager:
         """Get features as a dictionary.
 
         Includes annotation with internal and external feature values.
-        For saved records with a type schema, nullable schema features without
-        annotations are included as `None`.
+        For saved records with a type schema, required nullable schema features
+        without annotations are included as `None`. Absent optional features
+        are omitted.
 
         Args:
             external_only: If `True`, only return external feature annotations.
@@ -1501,12 +1502,15 @@ class FeatureManager:
         dictionary = get_features_data(
             self._host, to_dict=True, external_only=external_only
         )
-        from .record import Record
+        from .record import Record, _required_schema_features
 
         if isinstance(self._host, Record) and not self._host._state.adding:
             record_type = self._host.type
             if record_type is not None and record_type.schema is not None:
-                for feature in record_type.schema.members:
+                schema = record_type.schema
+                for feature in _required_schema_features(
+                    schema, list(schema.members), schema.index
+                ):
                     if feature.nullable:
                         dictionary.setdefault(feature.name, None)
         return dictionary

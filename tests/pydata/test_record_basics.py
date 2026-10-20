@@ -202,7 +202,12 @@ def test_record_type_assignment_requires_schema_features():
     ).save()
     blank = ln.Record(name="TypeAssignBlank", type=optional_sheet).save()
     assert blank.type == optional_sheet
-    assert blank.features.get_values() == {optional_note.name: None}
+    assert blank.features.get_values() == {}
+    blank.features.set_values({optional_note: None})
+    assert blank.features.get_values() == {}
+    with pytest.raises(ln.errors.ValidationError):
+        blank.features.set_values({optional_note: 42})
+    assert blank.features.get_values() == {}
 
     # Required keys must be present, but nullable values can round-trip without
     # storing a separate annotation for None.
@@ -212,7 +217,9 @@ def test_record_type_assignment_requires_schema_features():
         features={experiment: None},
     ).save()
     null_values = ln.Record.get(null_sample.uid).features.get_values()
-    assert null_values == {experiment.name: None, gc_content.name: None}
+    assert null_values == {experiment.name: None}
+    assert null_sample.features.get_values(external_only=True) == null_values
+    assert complete.features.get_values()[gc_content.name] == 0.2
     null_copy = ln.Record(
         name="TypeAssignNullCopy", type=samplesheet, features=null_values
     ).save()
