@@ -55,7 +55,7 @@ All other registries link to `Artifact` to provide context for finding, querying
 An **artifact-centric view** of these relationships looks like this:
 
 .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg
-    :width: 800px
+   :width: 800px
 
 Transforms & runs
 =================
