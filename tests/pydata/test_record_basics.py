@@ -368,13 +368,14 @@ def test_record_get_values_required_containers(dtype, value, empty, nullable):
             optional.name: value,
         }
         record.features.remove_values(required)
+        expected_required = {required.name: empty} if nullable else {}
         assert record.features.get_values() == {
-            required.name: empty,
+            **expected_required,
             optional.name: value,
         }
         record.features.remove_values(optional)
-        assert record.features.get_values() == {required.name: empty}
-        assert record.features.get_values(external_only=True) == {required.name: empty}
+        assert record.features.get_values() == expected_required
+        assert record.features.get_values(external_only=True) == expected_required
         assert record.values_json.count() == 0
         schema.minimal_set = False
         schema.save()

@@ -1,6 +1,6 @@
 import re
 import textwrap
-from datetime import date
+from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -465,6 +465,8 @@ def test_dtypes_at_different_levels(ccaplog):
 
 
 def test_nullable():
+    from lamindb.curators.core import DictCurator
+
     disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
     schema = ln.Schema(features=[disease]).save()
     dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
@@ -486,6 +488,21 @@ def test_nullable():
 
     schema.delete(permanent=True)
     disease.delete(permanent=True)
+
+    when = ln.Feature(name="nullable_datetime", dtype=datetime, nullable=True).save()
+    try:
+        datetime_schema = ln.Schema([when])
+        # A dictionary has no datetime dtype to infer from a null value.
+        for value in (None, pd.NaT):
+            assert DictCurator({when.name: value}, datetime_schema).validate() is None
+        # Null normalization must not enable coercion of non-null strings.
+        with pytest.raises(ValidationError, match="WRONG_DATATYPE"):
+            DictCurator({when.name: "2024-01-01"}, datetime_schema).validate()
+        when.nullable = False
+        with pytest.raises(ValidationError):
+            DictCurator({when.name: None}, datetime_schema).validate()
+    finally:
+        when.delete(permanent=True)
 
 
 def test_curator_partial_null_bool_int():
