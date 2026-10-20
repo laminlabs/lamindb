@@ -213,7 +213,7 @@ lamin login
 lamin connect account/name  # tip: add flag `--here` to scope to current directory
 ```
 
-To save a file or folder via the API:
+To save a file or folder:
 
 ```python
 import lamindb as ln
@@ -229,6 +229,8 @@ To save a file or folder via the CLI, run:
 lamin save sample.fasta --key sample.fasta
 ```
 
+:::{dropdown} Load it.
+
 To load an artifact via the CLI into a local cache, run:
 
 ```shell
@@ -236,6 +238,8 @@ lamin load --key sample.fasta
 ```
 
 Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+
+:::
 
 ### Trace data, code & agents
 
