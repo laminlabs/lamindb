@@ -20,7 +20,7 @@ Existing data lakehouses aren't a comprehensive solution. They only address the 
 
 </details>
 
-<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
+<img width="800" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000E.svg">
 
 How?
 
@@ -155,7 +155,7 @@ collection.schema.describe()
 
 See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="650">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="800">
 
 This example uses `polars` to filter the collection of parquet files:
 
