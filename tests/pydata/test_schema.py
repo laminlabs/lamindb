@@ -595,20 +595,11 @@ def test_schema_add_remove_optional_features_api(
     assert schema._aux["af"]["4"] == hidden_uids
     assert hidden_feature in schema.members
     described = schema.describe(return_str=True)
-    index_is_hidden = (
-        schema.index is not None and schema.index.uid == hidden_feature.uid
-    )
-    shown_count = schema.n_members - (0 if index_is_hidden else 1)
-    n_hidden = 0 if index_is_hidden else 1
-    assert f"({shown_count}" in described
-    if n_hidden:
-        assert f", {n_hidden} hidden)" in described
-        described_with_hidden = schema.describe(return_str=True, include="hidden")
-        assert hidden_feature.name in described_with_hidden
-        assert f"({schema.n_members}" in described_with_hidden
-        assert f", {n_hidden} hidden)" in described_with_hidden
-    else:
-        assert " hidden)" not in described
+    # A feature-type itype stores the display-only hidden list, and describe
+    # lists every member.
+    assert f"({schema.n_members})" in described
+    assert " hidden)" not in described
+    assert hidden_feature.name in described
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()

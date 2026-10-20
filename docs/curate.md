@@ -434,7 +434,16 @@ python scripts/curate_dataframe_union_features.py
 
 ### Allow a flexible schema
 
-We can also allow a flexible schema for an `AnnData` and only require that it's indexed with Ensembl gene IDs.
+`obs` uses a feature type, and `var` only needs to be indexed by Ensembl gene ids ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
+
+```{eval-rst}
+.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+   :language: python
+```
+
+```bash
+python scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+```
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_anndata_flexible.py
@@ -442,20 +451,11 @@ We can also allow a flexible schema for an `AnnData` and only require that it's 
    :caption: curate_anndata_flexible.py
 ```
 
-Let's run the script.
-
 ```bash
 python scripts/curate_anndata_flexible.py
 ```
 
-Under the hood, this uses a feature type for `obs` and Ensembl gene ids for `var` ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
-
-```{eval-rst}
-.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
-   :language: python
-```
-
-This schema transposes the `var` DataFrame during curation, so that one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+The `var.T` slot transposes `var` during curation, so one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
 If one doesn't transpose, one would annotate the columns of `var`, i.e., `[gene_symbol, gene_type]`.
 
 ```{eval-rst}
@@ -473,7 +473,7 @@ adata
 ```
 
 ```python
-schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
+schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
 schema.describe()
 ```
 
