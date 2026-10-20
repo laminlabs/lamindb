@@ -4,7 +4,7 @@ execute_via: python
 
 # Tutorial
 
-This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#quickstart): there, you skim through core features; here, you learn the core operations end-to-end with conceptual context.
+This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#quickstart): there, you skim through core capabilities; here, you learn core usage patterns with conceptual context.
 
 ## Track changes
 
