@@ -142,7 +142,7 @@ db.Artifact.filter(
 
 ### Access sharded datasets
 
-Get a validated, versioned collection of artifacts in **`parquet` format**:
+Access a validated, versioned collection of artifact shards in **`parquet` format**:
 
 ```python
 db = ln.DB("laminlabs/1000genomes")
@@ -175,7 +175,7 @@ with collection.open(engine="polars") as df:
 
 </details>
 
-Get a versioned collection of artifacts in **`zarr` format**:
+Access a collection of artifact shards in **`zarr` format**:
 
 ```python
 db = ln.DB("laminlabs/arrayloader-benchmarks")
