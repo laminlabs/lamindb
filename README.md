@@ -144,6 +144,8 @@ collection.artifacts.to_dataframe()
 
 This example uses `annbatch` with the pre-shuffled sharded `Tahoe100M_zarr` collection ([explore](https://lamin.ai/laminlabs/arrayloader-benchmarks/collection/LaJOdLd0xZ3v5ZBw)):
 
+<!-- #region -->
+
 ```python
 import anndata as ad
 import zarr
@@ -158,6 +160,8 @@ loader.add_datasets(
 for batch in loader:
     pass
 ```
+
+<!-- #endregion -->
 
 </details>
 
@@ -178,6 +182,8 @@ See the validating schema of the collection ([explore](https://lamin.ai/laminlab
 
 This example uses `polars` to filter the collection of parquet files:
 
+<!-- #region -->
+
 ```python
 chrom = "1"
 lo, hi = 150_000_000, 200_000_000
@@ -187,6 +193,8 @@ with collection.open(engine="polars") as df:
         (pl.col("chrom") == chrom) & (pl.col("pos") >= lo) & (pl.col("pos") <= hi)
     ).collect()
 ```
+
+<!-- #endregion -->
 
 </details>
 
