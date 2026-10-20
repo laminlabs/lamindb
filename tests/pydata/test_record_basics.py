@@ -202,6 +202,21 @@ def test_record_type_assignment_requires_schema_features():
     ).save()
     blank = ln.Record(name="TypeAssignBlank", type=optional_sheet).save()
     assert blank.type == optional_sheet
+    assert blank.features.get_values() == {optional_note.name: None}
+
+    # Required keys must be present, but nullable values can round-trip without
+    # storing a separate annotation for None.
+    null_sample = ln.Record(
+        name="TypeAssignNull",
+        type=samplesheet,
+        features={experiment: None},
+    ).save()
+    null_values = ln.Record.get(null_sample.uid).features.get_values()
+    assert null_values == {experiment.name: None, gc_content.name: None}
+    null_copy = ln.Record(
+        name="TypeAssignNullCopy", type=samplesheet, features=null_values
+    ).save()
+    assert ln.Record.get(null_copy.uid).features.get_values() == null_values
 
     page = ln.Record(name="TypeAssignPage", is_type=True).save()
     untyped = ln.Record(name="TypeAssignPageRow", type=page).save()
@@ -257,6 +272,8 @@ def test_record_type_assignment_requires_schema_features():
         saved.type = clash_sheet
 
     complete.delete(permanent=True)
+    null_copy.delete(permanent=True)
+    null_sample.delete(permanent=True)
     blank.delete(permanent=True)
     sample.delete(permanent=True)
     untyped.delete(permanent=True)

@@ -196,9 +196,11 @@ def _assign_name_keyed_values(
     name stays available for schema-level validation.
     """
     for name, value in name_values.items():
-        if _missing_feature_value(value):
-            continue
         feature = features_by_name.get(name)
+        if _missing_feature_value(value) and not (
+            value is None and feature is not None and feature.nullable
+        ):
+            continue
         if feature is not None:
             values_by_uid[feature.uid] = value
         else:
@@ -237,7 +239,9 @@ def _feature_values_for_type_assignment(
         named: dict[str, Any] = {}
         for key, value in pending.items():
             if isinstance(key, Feature):
-                if not _missing_feature_value(value):
+                if not _missing_feature_value(value) or (
+                    value is None and key.nullable
+                ):
                     values_by_uid[key.uid] = value
             elif isinstance(key, str):
                 named[key] = value
@@ -305,6 +309,11 @@ def validate_data_record_type_assignment(
         feature
         for feature in _required_schema_features(schema, features, index_feature)
         if feature.uid not in values_by_uid
+        or (
+            index_feature is not None
+            and feature.uid == index_feature.uid
+            and _missing_feature_value(values_by_uid[feature.uid])
+        )
     ]
     if missing:
         rendered = ", ".join(repr(feature.name) for feature in missing)

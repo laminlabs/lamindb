@@ -823,6 +823,14 @@ def convert_dict_to_dataframe_for_validation(
         elif feature.dtype_as_str == "dict" and feature.name in df.columns:
             # pandas 3 infers strings as str; dict validation expects object.
             df[feature.name] = df[feature.name].astype(object)
+        elif (
+            feature.dtype_as_str == "datetime"
+            and feature.nullable
+            and feature.name in df.columns
+            and df[feature.name].isna().all()
+        ):
+            # A dictionary containing None has no datetime dtype to infer.
+            df[feature.name] = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
             feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
