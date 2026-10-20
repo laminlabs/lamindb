@@ -112,7 +112,7 @@ artifact.describe()                             # describe the metadata
 
 Features are validated and annotated based on ontologies.
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="600">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="800">
 
 To explore the dataset on the UI, go [here](https://lamin.ai/laminlabs/cellxgene/artifact/x4xsAnj6Uwbq7Bhq).
 </details>
@@ -125,10 +125,19 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-Query a **set of artifacts** that's annotated by `liver`:
+Query a **set of artifacts by entities** using Django's `__` syntax:
 
 ```python
 db.Artifact.filter(tissues__name="liver").to_dataframe()
+```
+
+Query **by features** using expressions:
+
+```python
+tissue_feature = db.Feature.get(name="tissue_ontology_term_id")
+db.Artifact.filter(
+    tissue_feature == db.bionty.Tissue.get(name="liver")
+).to_dataframe()
 ```
 
 Get a **versioned collection** of artifacts in `zarr` format:
@@ -178,7 +187,7 @@ collection.schema.describe()
 
 See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="550">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="650">
 
 This example uses `polars` to filter the collection of parquet files:
 
