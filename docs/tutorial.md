@@ -400,16 +400,17 @@ Note that data lineage also helps to understand what a dataset is being used for
 
 ### Annotate an artifact
 
-You can annotate artifacts with features and labels. Features are measurement dimensions (e.g. `"organism"`, `"temperature"`) and labels are measured categories (e.g. `"human"`, `"mouse"`).
+You can annotate artifacts with entities and features. **Entities** are things that you track in registries (e.g. `T cell`, `B cell`). **Features** are variables that give rise to dataset dimensions (e.g. `temperature`, `cell_type_by_expert`).
 
-Let's annotate an artifact with a {class}`~lamindb.ULabel`, a built-in universal label registry.
+Let's annotate an artifact with a {class}`~lamindb.Record` object:
 
 ```python
-# create & save a universal label
-my_experiment = ln.ULabel(name="My experiment").save()
+# create & save an Experiments record type
+experiments = ln.Record(name="Experiments", is_type=True).save()
+my_experiment = ln.Record(name="My experiment", type=experiments).save()
 
-# annotate the artifact with a universal label
-artifact.ulabels.add(my_experiment)
+# annotate the artifact with the experiment
+artifact.records.add(my_experiment)
 
 # describe the artifact
 artifact.describe()
@@ -417,13 +418,13 @@ artifact.describe()
 
 :::
 
-This is how you query artifacts based on the annotation.
+Filter artifacts by records:
 
 ```python
-ln.Artifact.filter(ulabels=my_experiment).to_dataframe()
+ln.Artifact.filter(records=my_experiment).to_dataframe()
 ```
 
-You can also annotate with labels from other registries, e.g., the biological ontologies in {mod}`bionty`.
+You can annotate with **entities from modules**, such as the ontologies in {mod}`bionty`:
 
 ```python
 import bionty as bt
@@ -438,30 +439,30 @@ artifact.cell_types.add(cell_type)
 artifact.describe()
 ```
 
-This is how you query artifacts by cell type annotations.
+This is how you filter artifacts by cell types:
 
 ```python
 ln.Artifact.filter(cell_types=cell_type).to_dataframe()
 ```
 
-Here is how to update or remove annotations:
+Here is how to update or remove annotations with entities:
 
 ```python
 # add labels
-artifact.ulabels.add(my_experiment)
+artifact.records.add(my_experiment)
 artifact.cell_types.add(cell_type)
 
 # remove labels
-artifact.ulabels.remove(my_experiment)
+artifact.records.remove(my_experiment)
 artifact.cell_types.remove(cell_type)
 ```
 
-If you want to annotate by non-categorical metadata or indicate the feature for a label, annotate via features.
+You can also **annotate by features**:
 
 ```python
-# define the "temperature" & "experiment" features
+# define the temperature & experiment features
 temperature = ln.Feature(name="temperature", dtype=float).save()
-experiment = ln.Feature(name="experiment", dtype=ln.ULabel).save()
+experiment = ln.Feature(name="experiment", dtype=experiments).save()
 
 # annotate the artifact
 artifact.features.set_values({temperature: 21.6, experiment: "My experiment"})
@@ -470,10 +471,13 @@ artifact.features.set_values({temperature: 21.6, experiment: "My experiment"})
 artifact.describe()
 ```
 
-This is how you query artifacts by features.
+This is how you filter artifacts by features:
 
 ```python
-ln.Artifact.filter(temperature=21.6).to_dataframe()
+ln.Artifact.filter(
+    temperature == 21.6,
+    experiment == my_experiment,
+).to_dataframe()
 ```
 
 Replace one value without removing the others:
@@ -482,13 +486,13 @@ Replace one value without removing the others:
 artifact.features.update_values({temperature: 22.0})
 ```
 
-Optionally, after querying, this is how you clean up feature values from the artifact and remove the feature definitions.
+This is how you **remove feature annotations** and **soft-delete the features**:
 
 ```python
 # remove feature values from this artifact
 artifact.features.remove_values(["temperature", "experiment"])
 
-# optionally remove feature definitions from the registry
+# soft-delete features
 ln.Feature.get(name="temperature").delete()
 ln.Feature.get(name="experiment").delete()
 ```
@@ -505,17 +509,16 @@ Validated datasets are more re-usable by analysts and machine learning models. Y
 :::
 
 ```python
-import bionty as bt  # <-- use bionty to access registries with imported public ontologies
-
-# define a few more valid labels
-ln.ULabel(name="DMSO").save()
-ln.ULabel(name="IFNG").save()
+# define a record type
+perturbations = ln.Record(name="Perturbations", is_type=True).save()
+ln.Record(name="DMSO", type=perturbations).save()
+ln.Record(name="IFNG", type=perturbations).save()
 
 # define a feature type for sample-level metadata
 sample = ln.Feature(name="immuno_sample", is_type=True).save()
 
 # define valid features of that type
-ln.Feature(name="perturbation", dtype=ln.ULabel, type=sample).save()
+ln.Feature(name="perturbation", dtype=perturbations, type=sample).save()
 ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=sample).save()
 ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=sample).save()
 ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=sample).save()
@@ -771,8 +774,6 @@ artifact.open()
 Every {py:mod}`bionty` registry is based on configurable public ontologies (>20 of them) that are automatically leveraged during validation & annotation. Sometimes you want to access the public ontology directly.
 
 ```python
-import bionty as bt
-
 cell_type_ontology = bt.CellType.public()
 cell_type_ontology
 ```
