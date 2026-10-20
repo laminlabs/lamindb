@@ -14,14 +14,14 @@ immuno_features = ln.Feature(name="ImmunoSamples", is_type=True).save()
 ln.Feature(name="perturbation", dtype=perturbations, type=immuno_features).save()
 ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=immuno_features).save()
 ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=immuno_features).save()
+ln.Feature(name="concentration", dtype=str, type=immuno_features).save()
+ln.Feature(name="donor", dtype=str, nullable=True, type=immuno_features).save()
 ln.Feature(
     name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=immuno_features
 ).save()
-ln.Feature(name="concentration", dtype=str, type=immuno_features).save()
 ln.Feature(
     name="treatment_time_h", dtype="num", coerce=True, type=immuno_features
 ).save()
-ln.Feature(name="donor", dtype=str, nullable=True, type=immuno_features).save()
 ln.Feature(
     name="donor_ethnicity", dtype=list[bt.Ethnicity], type=immuno_features
 ).save()
