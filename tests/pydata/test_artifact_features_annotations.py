@@ -1324,8 +1324,15 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.features.update_values({feature_score: None, feature_numbers: []})
     assert artifact.features.get_values() == {
         "artifact_feature_object_tag": "keep",
-        "artifact_feature_object_numbers": [],
     }
+
+    feature_data = ln.Feature(name="artifact_feature_object_data", dtype=dict).save()
+    artifact.features.set_values({feature_data: {"k": 1}, feature_tag: "keep"})
+    artifact.features.update_values({feature_data: {}})
+    assert artifact.features.get_values() == {feature_tag.name: "keep"}
+    assert not artifact.json_values.filter(feature=feature_data).exists()
+    artifact.features.set_values({feature_data: {}})
+    assert artifact.features.get_values() == {}
 
     # Categorical index vectors are keyed by "index", not the feature name.
     category = ln.ULabel(name="artifact_feature_object_category").save()
@@ -1345,6 +1352,7 @@ def test_artifact_features_accept_feature_object_keys():
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
     feature_numbers.delete(permanent=True)
+    feature_data.delete(permanent=True)
 
 
 def test_artifact_update_values_validates_complete_annotations():

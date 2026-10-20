@@ -3101,7 +3101,6 @@ def test_record_features_accept_feature_object_keys():
     record.features.update_values({feature_score: None, feature_numbers: []})
     assert record.features.get_values() == {
         "record_feature_object_tag": "keep",
-        "record_feature_object_numbers": [],
     }
 
     record.delete(permanent=True)
@@ -3121,7 +3120,7 @@ def test_update_values_accepts_empty_lists():
         record.features.update_values({categories: [], numbers: []})
         values = record.features.get_values()
         assert categories.name not in values
-        assert values[numbers.name] == []
+        assert numbers.name not in values
     finally:
         record.delete(permanent=True)
         label.delete(permanent=True)

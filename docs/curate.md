@@ -36,7 +36,27 @@ Schemas ensure data consistency by defining:
 - What values are valid for categorical features
 - Which features are required vs optional
 
-An exemplary schema that leverages {class}`~lamindb.Feature` objects to define features:
+The simplest schema validates columns against a **feature type**:
+
+```python
+import lamindb as ln
+
+my_features = ln.Feature(name="My features", is_type=True).save()
+ln.Feature(name="cell_type", dtype=bt.CellType, type=my_features).save()
+ln.Feature(name="treatment", dtype=str, type=my_features).save()
+
+schema = ln.Schema(itype=my_features).save()
+```
+
+Or you use one of the built-in registries:
+
+```python
+import bionty as bt
+
+schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+```
+
+You can also **list features** explicitly:
 
 ```python
 schema = ln.Schema(
@@ -49,7 +69,7 @@ schema = ln.Schema(
 )
 ```
 
-Or for a composite data structure, like an `AnnData`:
+You can compose schemas to validate **composite data structures**, like an `AnnData` or a `SpatialData` object:
 
 ```python
 schema = ln.Schema(
@@ -67,23 +87,23 @@ For composite data structures, you need to specify which component contains whic
 Each slot is a key like `"obs"` for AnnData observations, `"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
 ```
 
-Before diving into curation, let's understand the different schema approaches and when to use each one.
-Think of schemas as rules that define what valid data should look like.
+Let's understand the different schema approaches and when to use each one.
+Think of schemas as rules that define what a valid dataset or record should look like.
 
 <!-- #endregion -->
 
-### Flexible schema
+### Validating a feature type
 
-Use when: You want to validate those columns whose names match feature names in your `Feature` registry.
+Use when: You want to validate features against one feature type.
 
 ```{eval-rst}
-.. literalinclude:: scripts/define_valid_features.py
+.. literalinclude:: scripts/define_a_feature_type.py
    :language: python
 ```
 
-### Minimal required schema
+### Minimal required features
 
-Use when: You need certain columns but want flexibility for additional metadata.
+Use when: You need certain features but want flexibility for additional metadata.
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
@@ -139,7 +159,7 @@ Before creating a schema, ensure your registries have the right features and lab
 
 ### (2) Create your schema
 
-Let's instantiate the flexible schema we discussed earlier (available in our examples module):
+Let's instantiate the minimal schema we discussed earlier (available in our examples module):
 
 ```python
 schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
@@ -414,7 +434,16 @@ python scripts/curate_dataframe_union_features.py
 
 ### Allow a flexible schema
 
-We can also allow a flexible schema for an `AnnData` and only require that it's indexed with Ensembl gene IDs.
+`obs` uses a feature type, and `var` only needs to be indexed by Ensembl gene ids:
+
+```{eval-rst}
+.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py
+   :language: python
+```
+
+```bash
+python scripts/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py
+```
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_anndata_flexible.py
@@ -422,20 +451,11 @@ We can also allow a flexible schema for an `AnnData` and only require that it's 
    :caption: curate_anndata_flexible.py
 ```
 
-Let's run the script.
-
 ```bash
 python scripts/curate_anndata_flexible.py
 ```
 
-Under the hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
-
-```{eval-rst}
-.. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
-   :language: python
-```
-
-This schema transposes the `var` DataFrame during curation, so that one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+The `var.T` slot transposes `var` during curation, so one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
 If one doesn't transpose, one would annotate the columns of `var`, i.e., `[gene_symbol, gene_type]`.
 
 ```{eval-rst}
@@ -453,7 +473,7 @@ adata
 ```
 
 ```python
-schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
+schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_obs_feature_type")
 schema.describe()
 ```
 

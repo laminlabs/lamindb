@@ -32,6 +32,7 @@ from lamindb.models._transfer import (
     transfer_to_default_db,
 )
 from lamindb.models.feature import (
+    _normalize_feature_value,
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
 )
@@ -191,15 +192,12 @@ def get_categorical_link_info(
     return (link_model, value_field, filter_accessor)
 
 
-def strip_cat(feature_dtype: str) -> str:
-    if "cat[" in feature_dtype:
-        parts = feature_dtype.split("cat[")
-        dtype_stripped_cat = "".join(
-            part[:-1] if i != 0 else part for i, part in enumerate(parts)
-        )
-    else:
-        dtype_stripped_cat = feature_dtype
-    return dtype_stripped_cat
+def strip_cat(feature_dtype: str | None) -> str:
+    # Feature-type schemas leave `schema.dtype` unset when member dtypes differ.
+    if not feature_dtype or "cat[" not in feature_dtype:
+        return feature_dtype or ""
+    parts = feature_dtype.split("cat[")
+    return "".join(part[:-1] if i != 0 else part for i, part in enumerate(parts))
 
 
 def _normalize_user_records_for_field_value(
@@ -650,7 +648,9 @@ def get_features_data(
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
-        inferred_schemas = self.schemas.filter(itype="Feature")
+        # `itype="Feature"` and feature-type scopes (`Feature[<uid>]`).
+        # Both store a dtype on each member; `schema.dtype` stays None.
+        inferred_schemas = self.schemas.filter(itype__startswith="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
                 # Use _dtype_str instead of dtype, and format for display
@@ -1772,6 +1772,7 @@ class FeatureManager:
         seen_explicit_uids: set[str] = set()
 
         for key, value in values.items():
+            value = _normalize_feature_value(value)
             if isinstance(key, Feature):
                 if key._state.adding:
                     raise ValidationError(
@@ -2152,9 +2153,6 @@ class FeatureManager:
         )
         if validation_dictionary is not None:
             validation_dictionary.update(dictionary)
-            for key, value in dictionary.items():
-                if value is None:
-                    validation_dictionary.pop(key, None)
             self._normalize_user_feature_values(members, validation_dictionary, {})
         try:
             curator = DictCurator(
@@ -2421,8 +2419,9 @@ class FeatureManager:
         must be a member of that schema. String keys and `Feature` objects that
         are not members raise `ValidationError` before any annotation is removed.
 
-        Values of `None` remove annotations for those features.
-        An empty dictionary clears external feature annotations, subject to any
+        Feature values of `None`, `[]`, or `{}` are validated as nulls before
+        annotations are removed; no links are stored for these values.
+        An empty input dictionary clears external feature annotations, subject to any
         supplied or inherited schema's validation requirements.
 
         Each categorical string must resolve to one record within the declared
@@ -2461,8 +2460,9 @@ class FeatureManager:
         """Replace values of the supplied features, preserving all other features.
 
         Supports to-one and to-many features on Records, Artifacts, and Runs.
-        Missing annotations are added. `None` removes a feature's values, while
-        an empty dictionary does nothing. A supplied or inherited schema validates
+        Missing annotations are added. Feature values of `None`, `[]`, or `{}`
+        are validated as nulls and remove a feature's values. An empty input
+        dictionary does nothing. A supplied or inherited schema validates
         the complete resulting annotations before any values are replaced.
 
         Artifact annotations derived from dataset features cannot be updated.
@@ -2567,6 +2567,15 @@ class FeatureManager:
                 )
             else:
                 dictionary.pop(feature.name, None)
+        # Cleared nullable annotations have no stored links. Reconstruct their
+        # null values only for validation of later partial updates.
+        for feature in members:
+            if feature.nullable and (
+                index_feature is None or feature.uid != index_feature.uid
+            ):
+                dictionary[feature.name] = _normalize_feature_value(
+                    dictionary.get(feature.name)
+                )
         return dictionary
 
     def _set_values(self, values, feature_field, schema, *, replace_all: bool):

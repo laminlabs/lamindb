@@ -252,10 +252,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=True,
     ).save()
 
@@ -268,10 +266,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=False,
     ).save()
 
@@ -289,10 +285,8 @@ def test_schema_update_implicit_through_name_equality(
             ln.Feature.get(name="perturbation"),
             ln.Feature.get(name="cell_type_by_model"),
             ln.Feature.get(name="assay_oid"),
-            ln.Feature.get(name="donor"),
-            ln.Feature.get(name="concentration"),
-            ln.Feature.get(name="treatment_time_h"),
         ],
+        itype=ln.Feature.get(name="ImmunoSamples"),
         flexible=True,
     ).save()
 
@@ -450,11 +444,11 @@ def test_schema_update(
     # add a feature -------------------------------------------
 
     feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     mini_immuno_schema_flexible.features.add(feature_to_add)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.n_members == 4
     assert ccaplog.text.count(warning_message) == 1
 
     # remove the feature again
@@ -462,7 +456,7 @@ def test_schema_update(
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     feature_to_add.delete(permanent=True)
 
     # change is flexible (an auxiliary field) --------------------------------
@@ -499,13 +493,13 @@ def test_schema_update(
     mini_immuno_schema_flexible.index = index_feature
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     assert ccaplog.text.count(warning_message) == 7
 
     # remove the index
     mini_immuno_schema_flexible.index = None
     mini_immuno_schema_flexible.save()
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     assert mini_immuno_schema_flexible.index is None
     assert index_feature in mini_immuno_schema_flexible.features.all()
     assert mini_immuno_schema_flexible.hash == orig_hash
@@ -519,7 +513,7 @@ def test_schema_update(
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.index == new_index_feature
     assert new_index_feature in mini_immuno_schema_flexible.features.all()
-    assert mini_immuno_schema_flexible.n_members == 7
+    assert mini_immuno_schema_flexible.n_members == 4
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 9
 
@@ -534,7 +528,7 @@ def test_schema_update(
     mini_immuno_schema_flexible.features.remove(new_index_feature)
     mini_immuno_schema_flexible.save()
     assert new_index_feature not in mini_immuno_schema_flexible.features.all()
-    assert mini_immuno_schema_flexible.n_members == 6
+    assert mini_immuno_schema_flexible.n_members == 3
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 11
     new_index_feature.delete(permanent=True)
@@ -601,20 +595,11 @@ def test_schema_add_remove_optional_features_api(
     assert schema._aux["af"]["4"] == hidden_uids
     assert hidden_feature in schema.members
     described = schema.describe(return_str=True)
-    index_is_hidden = (
-        schema.index is not None and schema.index.uid == hidden_feature.uid
-    )
-    shown_count = schema.n_members - (0 if index_is_hidden else 1)
-    n_hidden = 0 if index_is_hidden else 1
-    assert f"({shown_count}" in described
-    if n_hidden:
-        assert f", {n_hidden} hidden)" in described
-        described_with_hidden = schema.describe(return_str=True, include="hidden")
-        assert hidden_feature.name in described_with_hidden
-        assert f"({schema.n_members}" in described_with_hidden
-        assert f", {n_hidden} hidden)" in described_with_hidden
-    else:
-        assert " hidden)" not in described
+    # A feature-type itype stores the display-only hidden list, and describe
+    # lists every member.
+    assert f"({schema.n_members})" in described
+    assert " hidden)" not in described
+    assert hidden_feature.name in described
     feature_project = ln.Feature(name="project", dtype=ln.Project).save()
     feature_program = ln.Feature(name="program", dtype=ln.Project).save()
     feature_batch = ln.Feature(name="batch", dtype=str).save()
@@ -787,6 +772,31 @@ def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     schema.delete(permanent=True)
 
 
+def _hash_feature_type_schema(feature_type: ln.Feature) -> str:
+    from lamindb_setup.core.hashing import hash_string
+
+    # The feature-type uid is part of `itype`, so the hash is stable only given that uid.
+    return hash_string(
+        ":".join(
+            [
+                f"b=Feature[{feature_type.uid}]",
+                "c=True",
+                "d=False",
+                "e=False",
+            ]
+        )
+    )
+
+
+def _hash_anndata_schema(obs_hash: str, var_hash: str) -> str:
+    from lamindb_setup.core.hashing import hash_string
+
+    slots_hash = hash_string(":".join(sorted([f"obs={obs_hash}", f"var.T={var_hash}"])))
+    return hash_string(
+        ":".join(["a=num", "c=True", "d=False", "e=False", f"l={slots_hash}"])
+    )
+
+
 def test_schemas_dataframe():
     # test on the Python level after record creation -- no saving!
     schema = ln.Schema(name="valid_features", itype=ln.Feature)
@@ -806,6 +816,13 @@ def test_schemas_dataframe():
     assert schema.name == "valid_features"
     assert schema.itype == "Feature"
     assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
+
+    schema = ln.examples.schemas._a_feature_type()
+    my_features = ln.Feature.get(name="My features", is_type=True)
+    assert schema.itype == f"Feature[{my_features.uid}]"
+    assert my_features.is_type
+    assert schema.hash == _hash_feature_type_schema(my_features)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schemas_anndata():
@@ -851,8 +868,24 @@ def test_schemas_anndata():
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    schema.delete(permanent=True)
+
+    schema = ln.examples.schemas._anndata_ensembl_gene_ids_and_obs_feature_type()
+    assert schema.name == "anndata_ensembl_gene_ids_and_obs_feature_type"
+    assert schema.otype == "AnnData"
+    cells = ln.Feature.get(name="Cells", is_type=True)
+    obs_schema = schema.slots["obs"]
+    assert obs_schema.itype == f"Feature[{cells.uid}]"
+    assert obs_schema.hash == _hash_feature_type_schema(cells)
+    varT_schema = schema.slots["var.T"]
+    assert varT_schema.uid == "0000000000000001"
+    assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+    assert schema.hash == _hash_anndata_schema(obs_schema.hash, varT_schema.hash)
 
     schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)
+    ln.Feature.filter(type__name="Cells").delete(permanent=True)
+    ln.Feature.filter(name="Cells", is_type=True).delete(permanent=True)
 
 
 def test_schema_already_saved_aux():
