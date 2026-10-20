@@ -191,15 +191,12 @@ def get_categorical_link_info(
     return (link_model, value_field, filter_accessor)
 
 
-def strip_cat(feature_dtype: str) -> str:
-    if "cat[" in feature_dtype:
-        parts = feature_dtype.split("cat[")
-        dtype_stripped_cat = "".join(
-            part[:-1] if i != 0 else part for i, part in enumerate(parts)
-        )
-    else:
-        dtype_stripped_cat = feature_dtype
-    return dtype_stripped_cat
+def strip_cat(feature_dtype: str | None) -> str:
+    # Feature-type schemas leave `schema.dtype` unset when member dtypes differ.
+    if not feature_dtype or "cat[" not in feature_dtype:
+        return feature_dtype or ""
+    parts = feature_dtype.split("cat[")
+    return "".join(part[:-1] if i != 0 else part for i, part in enumerate(parts))
 
 
 def _normalize_user_records_for_field_value(
@@ -650,7 +647,9 @@ def get_features_data(
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
-        inferred_schemas = self.schemas.filter(itype="Feature")
+        # `itype="Feature"` and feature-type scopes (`Feature[<uid>]`).
+        # Both store a dtype on each member; `schema.dtype` stays None.
+        inferred_schemas = self.schemas.filter(itype__startswith="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
                 # Use _dtype_str instead of dtype, and format for display

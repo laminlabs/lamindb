@@ -472,15 +472,21 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-The simplest way to validate & annotate the content of the dataframe is the built-in schema `valid_features`:
+Validate and annotate the columns against a feature type. `gc_content` and `seq_date` were defined above; assign them to the type along with the remaining columns:
 
 ```python
-ln.Feature(name="seq_str", dtype=str).save()  # define remaining features
-ln.Feature(name="experiment_note", dtype=str).save()
+sequence = ln.Feature(name="sequence", is_type=True).save()
+gc_content.type = sequence
+seq_date.type = sequence
+gc_content.save()
+seq_date.save()
+ln.Feature(name="seq_str", dtype=str, type=sequence).save()
+ln.Feature(name="experiment_note", dtype=str, type=sequence).save()
+schema = ln.Schema(itype=sequence).save()
 artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",
-    schema="valid_features"  # validate columns against features
+    schema=schema,
 ).save()
 artifact.describe()
 ```
@@ -489,22 +495,33 @@ You can filter for datasets by schema and then launch distributed queries or bat
 
 Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
-To validate an `AnnData`, call:
+To validate an `AnnData`, use a feature type for the `obs` columns and Ensembl gene ids for `var`:
 
 ```python
 import anndata as ad
+import bionty as bt
 import numpy as np
 import pandas as pd
 
+cell = ln.Feature(name="cell", is_type=True).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=cell).save()
+obs_schema = ln.Schema(itype=cell).save()
+var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id).save()
+anndata_schema = ln.Schema(
+    otype="AnnData", slots={"obs": obs_schema, "var.T": var_schema}
+).save()
+
 adata = ad.AnnData(
-    X=np.ones((21, 10)),
-    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
-    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
+    X=np.ones((21, 3)),
+    obs=pd.DataFrame({"cell_type_by_model": ["T cell", "B cell", "T cell"] * 7}),
+    var=pd.DataFrame(
+        index=["ENSG00000153563", "ENSG00000010610", "ENSG00000170458"]
+    ),
 )
 artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
-    schema="ensembl_gene_ids_and_valid_features_in_obs"
+    schema=anndata_schema,
 ).save()
 artifact.describe()
 ```

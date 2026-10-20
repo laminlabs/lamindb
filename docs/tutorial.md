@@ -8,15 +8,30 @@ This tutorial complements the [quickstart](https://docs.lamin.ai/introduction#qu
 
 ## Track changes
 
-If you don't have a LaminDB instance, create one in your current working directory on the terminal:
-
 <!-- #skip_laminr -->
 
+If you don't have a LaminDB instance, create one in a development directory:
+
 ```bash
+mkdir mydata && cd mydata
 lamin init --modules bionty
 ```
 
 <!-- #end_skip_laminr -->
+
+:::{dropdown} Can I sync the development directory to a git repo?
+
+Yes! Run
+
+```shell
+export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+```
+
+This will enforce that you run only committed code in the git repo and sync that code to LaminDB. It's easiest if you place the git repo at the root of the development directory.
+
+Read more: {ref}`sync-code-with-git`.
+
+:::
 
 <!-- #region -->
 
@@ -25,7 +40,7 @@ lamin init --modules bionty
 ```R
 library(laminr)
 lc <- import_module("lamin_cli")
-lc$init(storage = "./lamin-tutorial", modules = "bionty")
+lc$init(storage = "./mydata", modules = "bionty")
 ```
 
 :::
@@ -136,24 +151,7 @@ Yes. What OpenLineage calls a "job", LaminDB calls a "transform". What OpenLinea
 
 :::
 
-### Manage changes with branches
-
-When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
-
-<!-- #region -->
-
-```bash
-lamin switch -c my_branch
-# ... make changes ...
-lamin switch main
-lamin merge my_branch
-```
-
-<!-- #endregion -->
-
-For more info: {class}`~lamindb.Branch`
-
-### Manage agent plans
+:::{dropdown} Track agent plans
 
 If you're working with an agent plan, here is a way to save it:
 
@@ -170,6 +168,25 @@ ln.track(plan=".plans/my-agent-plan.md")  # link plan artifact to this run
 ```
 
 <!-- #endregion -->
+
+:::
+
+### Manage changes with branches
+
+When you need more control you can also use git-inspired change management via contribution branches that you merge into main.
+
+<!-- #region -->
+
+```bash
+lamin switch -c my_branch
+# ... make changes ...
+lamin switch main
+lamin merge my_branch
+```
+
+<!-- #endregion -->
+
+For more info: {class}`~lamindb.Branch`
 
 ## Manage datasets
 
@@ -317,10 +334,9 @@ Explore and load the notebook [here](https://lamin.ai/laminlabs/lamindata/transf
 Explore data lineage interactively [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq).
 
 ```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<div align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/yK3ODFZLL1A?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div>
 ```
 
 :::
@@ -495,18 +511,21 @@ import bionty as bt  # <-- use bionty to access registries with imported public 
 ln.ULabel(name="DMSO").save()
 ln.ULabel(name="IFNG").save()
 
-# define a few more valid features
-ln.Feature(name="perturbation", dtype=ln.ULabel).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-ln.Feature(name="donor", dtype=str, nullable=True).save()
-ln.Feature(name="sample_note", dtype=str, nullable=True).save()
-ln.Feature(name="concentration", dtype=str).save()
-ln.Feature(name="treatment_time_h", dtype="num", coerce=True).save()
+# define a feature type for sample-level metadata
+sample = ln.Feature(name="sample", is_type=True).save()
 
-# define a schema that merely enforces a feature identifier type
-schema = ln.Schema(itype=ln.Feature).save()
+# define valid features of that type
+ln.Feature(name="perturbation", dtype=ln.ULabel, type=sample).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType, type=sample).save()
+ln.Feature(name="cell_type_by_expert", dtype=bt.CellType, type=sample).save()
+ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id, type=sample).save()
+ln.Feature(name="donor", dtype=str, nullable=True, type=sample).save()
+ln.Feature(name="sample_note", dtype=str, nullable=True, type=sample).save()
+ln.Feature(name="concentration", dtype=str, type=sample).save()
+ln.Feature(name="treatment_time_h", dtype="num", coerce=True, type=sample).save()
+
+# validate columns that are features of this type
+schema = ln.Schema(itype=sample).save()
 ```
 
 If you pass a `schema` object to the `Artifact` constructor, the artifact will be validated & annotated. Let's try this.
@@ -815,7 +834,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-Because `AnnData` separates the high-dimensional count matrix that's typically indexed with Ensembl gene ids from the metadata, we're now working with two types of feature sets (`bt.Gene` for the counts and `ln.Feature` for the metadata). These correspond to the `obs` and the `var` schema in the `anndata_schema`.
+Because `AnnData` separates the high-dimensional count matrix from the metadata, `anndata_schema` checks two slots: `obs` columns against the `sample` feature type, and `var` against Ensembl gene ids.
 
 If you want to find a dataset by whether it measured `CD8A`, you can do so as as follows.
 
