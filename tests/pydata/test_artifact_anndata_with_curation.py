@@ -3,7 +3,7 @@ import lamindb as ln
 
 def test_create_anndata_with_curation():
     adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
-    schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_obs_feature_type()
+    schema = ln.examples.schemas._anndata_ensembl_gene_ids_and_obs_feature_type()
     cells = ln.Feature.get(name="Cells", is_type=True)
     feature1 = ln.Feature(name="sample_note", dtype=str, type=cells).save()
 

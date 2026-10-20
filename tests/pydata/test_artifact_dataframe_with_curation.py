@@ -111,7 +111,7 @@ def test_create_artifact_with_external_feature_annotations(
 
 def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
     df = example_dataframe
-    schema = ln.examples.schemas.a_feature_type()
+    schema = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feat1 = ln.Feature(name="feat1", dtype=int, type=feature_type).save()
     artifact = ln.Artifact.from_dataframe(

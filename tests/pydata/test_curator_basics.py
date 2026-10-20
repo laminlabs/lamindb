@@ -231,7 +231,7 @@ def test_df_curator_typed_categorical(model_class):
         }
     )
 
-    my_features = ln.examples.schemas.a_feature_type()
+    my_features = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature = ln.Feature(
         name="biosample_name", dtype=sample_a_type, type=feature_type
@@ -310,7 +310,7 @@ def test_df_curator_same_name_at_different_levels_involving_root():
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
 
     # feature constraining to lab_a_type
-    my_features = ln.examples.schemas.a_feature_type()
+    my_features = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature = ln.Feature(
         name="biosample_name", dtype=lab_a_type, type=feature_type
@@ -348,7 +348,7 @@ def test_df_curator_same_name_at_different_levels_below_root():
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
 
     # feature constraining to lab_a_type
-    my_features = ln.examples.schemas.a_feature_type()
+    my_features = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature = ln.Feature(
         name="biosample_name", dtype=lab_a_type, type=feature_type
@@ -386,7 +386,7 @@ def test_df_curator_same_name_at_same_level():
     lab_b_type = ln.Record(name="LabB", is_type=True).save()
     record_2 = ln.Record(name="s1", type=lab_b_type).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    my_features = ln.examples.schemas.a_feature_type()
+    my_features = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature = ln.Feature(
         name="biosample_name", dtype=ln.Record, type=feature_type
@@ -404,7 +404,7 @@ def test_df_curator_same_name_at_same_level():
     record_1.save()
     record_2.type = None
     record_2.save()
-    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.a_feature_type())
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas._a_feature_type())
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
@@ -472,7 +472,7 @@ def test_dtypes_at_different_levels(ccaplog):
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
     s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    my_features = ln.examples.schemas.a_feature_type()
+    my_features = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature = ln.Feature(
         name="biosample_name", dtype=sample_type_root, type=feature_type

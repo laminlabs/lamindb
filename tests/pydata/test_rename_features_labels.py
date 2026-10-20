@@ -62,7 +62,7 @@ def test_rename_label(model_class, ccaplog):
 
     label1 = model_class(name="label1").save()
     label2 = model_class(name="label2").save()
-    schema = ln.examples.schemas.a_feature_type()
+    schema = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feature1 = ln.Feature(name="feature1", dtype=model_class, type=feature_type).save()
     feature2 = ln.Feature(name="feature2", dtype=model_class, type=feature_type).save()

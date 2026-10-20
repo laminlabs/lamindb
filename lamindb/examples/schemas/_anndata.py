@@ -32,12 +32,8 @@ def anndata_ensembl_gene_ids_and_valid_features_in_obs() -> Schema:
             return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
 
 
-def anndata_ensembl_gene_ids_and_obs_feature_type() -> Schema:
-    """An `AnnData` schema validating Ensembl gene IDs and a feature type in obs.
-
-    .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_obs_feature_type.py
-        :language: python
-    """
+def _anndata_ensembl_gene_ids_and_obs_feature_type() -> Schema:
+    """Load the AnnData feature-type schema used by tests."""
     from ... import Schema
 
     name = "anndata_ensembl_gene_ids_and_obs_feature_type"

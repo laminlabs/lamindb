@@ -3,13 +3,14 @@ from datetime import date
 import bionty as bt
 
 import lamindb as ln
+import lamindb.examples.schemas.define_schema_anndata_ensembl_gene_ids_and_obs_feature_type  # noqa: F401
 
 ## define valid labels
 ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
 ln.Record.from_values(["Experiment 1", "Experiment 2"], create=True).save()
 bt.CellType.from_values(["B cell", "T cell"]).save()
 
-schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_obs_feature_type()
+schema = ln.Schema.get(name="anndata_ensembl_gene_ids_and_obs_feature_type")
 cells = ln.Feature.get(name="Cells", is_type=True)
 
 # observation-level metadata; cell type features are created with this type by the schema

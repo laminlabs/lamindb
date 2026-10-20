@@ -30,12 +30,8 @@ def valid_features() -> Schema:
             return Schema.get(name="valid_features")
 
 
-def a_feature_type() -> Schema:
-    """A schema that validates columns against one feature type.
-
-    .. literalinclude:: scripts/define_a_feature_type.py
-        :language: python
-    """
+def _a_feature_type() -> Schema:
+    """Load the feature-type schema used by tests."""
     from ... import Schema
     from . import define_a_feature_type
 
