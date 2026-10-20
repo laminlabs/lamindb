@@ -112,7 +112,7 @@ artifact.describe()                             # describe the metadata
 
 Features are validated and annotated based on ontologies.
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="550">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0002.png" width="600">
 
 To explore the dataset on the UI, go [here](https://lamin.ai/laminlabs/cellxgene/artifact/x4xsAnj6Uwbq7Bhq).
 </details>
@@ -142,7 +142,7 @@ collection.artifacts.to_dataframe()
 <details>
 <summary>Train a model on a sharded dataset.</summary>
 
-This example uses `annbatch` with the pre-shuffled sharded `Tahoe100M_zarr` collection ([explore](https://lamin.ai/laminlabs/arrayloader-benchmarks/collection/LaJOdLd0xZ3v5ZBw)).
+This example uses `annbatch` with the pre-shuffled sharded `Tahoe100M_zarr` collection ([explore](https://lamin.ai/laminlabs/arrayloader-benchmarks/collection/LaJOdLd0xZ3v5ZBw)):
 
 ```python
 import anndata as ad
@@ -172,7 +172,11 @@ collection.schema.describe()
 <details>
 <summary>Ad-hoc query a sharded dataset.</summary>
 
-This uses `polars` to filter the parquet files.
+See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0000.png" width="550">
+
+This example uses `polars` to filter the collection of parquet files:
 
 ```python
 chrom = "1"
