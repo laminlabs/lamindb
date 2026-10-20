@@ -140,7 +140,42 @@ db.Artifact.filter(
 ).to_dataframe()
 ```
 
-Get a **versioned collection** of artifacts in `zarr` format:
+### Access sharded datasets
+
+Get a validated, versioned collection of artifacts in **`parquet` format**:
+
+```python
+db = ln.DB("laminlabs/1000genomes")
+collection = db.Collection.get("hVu9puwdRGskm1I6")
+collection.schema.describe()
+```
+
+<details>
+<summary>Ad-hoc query a sharded dataset.</summary>
+
+See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="650">
+
+This example uses `polars` to filter the collection of parquet files:
+
+<!-- #region -->
+
+```python
+chrom = "1"
+lo, hi = 150_000_000, 200_000_000
+
+with collection.open(engine="polars") as df:
+    filtered = df.filter(
+        (pl.col("chrom") == chrom) & (pl.col("pos") >= lo) & (pl.col("pos") <= hi)
+    ).collect()
+```
+
+<!-- #endregion -->
+
+</details>
+
+Get a versioned collection of artifacts in **`zarr` format**:
 
 ```python
 db = ln.DB("laminlabs/arrayloader-benchmarks")
@@ -168,39 +203,6 @@ loader.add_datasets(
 )
 for batch in loader:
     pass
-```
-
-<!-- #endregion -->
-
-</details>
-
-Get a **validated, versioned collection** of artifacts in `parquet` format:
-
-```python
-db = ln.DB("laminlabs/1000genomes")
-collection = db.Collection.get("hVu9puwdRGskm1I6")
-collection.schema.describe()
-```
-
-<details>
-<summary>Ad-hoc query a sharded dataset.</summary>
-
-See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/5xy5hLxrhA0Bob3E0001.png" width="650">
-
-This example uses `polars` to filter the collection of parquet files:
-
-<!-- #region -->
-
-```python
-chrom = "1"
-lo, hi = 150_000_000, 200_000_000
-
-with collection.open(engine="polars") as df:
-    filtered = df.filter(
-        (pl.col("chrom") == chrom) & (pl.col("pos") >= lo) & (pl.col("pos") <= hi)
-    ).collect()
 ```
 
 <!-- #endregion -->
