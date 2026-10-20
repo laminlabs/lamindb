@@ -615,7 +615,13 @@ Each registry is a table in the relational schema of the underlying database. Wi
 ln.view()
 ```
 
-:::{dropdown} Which registries have I already learned about?
+Most registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts. An **artifact-centric view** of these relationships looks like this:
+
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0002.svg">
+
+This is called dimensional modeling in data warehousing.
+
+:::{dropdown} Which registries have I already learned about in this tutorial?
 
 - {class}`~lamindb.Artifact`: datasets & models stored as files, folders, or arrays
 - {class}`~lamindb.Transform`: transforms of artifacts
