@@ -675,13 +675,6 @@ lamin finish
 
 The report includes thinking when the agent stored it as readable text; encoded thoughts are omitted.
 
-Inside LaminHub's AgentCore Python runtime, use
-`lamin("track", "agentcore", "--name", "Task description")` and
-`lamin("finish")` through `execute_python`. Write the summary as public assistant
-text before calling finish. The report reuses the saved chat and current public
-commentary; private reasoning and tool traces are excluded. See the
-[AgentCore tracking guide](https://github.com/laminlabs/lamindb/blob/main/lamindb/.agents/skills/lamindb/references/track_agentcore.md).
-
 :::{dropdown} `lamin track copilot` says it can't find the active session?
 
 In VS Code, make sure **"Copilot"** is selected — not **"Local"** — in the mode picker below the chat input box. `lamin track copilot` can only see sessions that go through the "Copilot"; sessions run via "Local" aren't visible to it.
@@ -702,10 +695,11 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  claude   Start tracking a Claude Code session in LaminDB.
-  codex    Start or resume tracking a Codex session in LaminDB.
-  copilot  Start tracking a GitHub Copilot session in LaminDB.
-  cursor   Start or resume tracking a Cursor IDE Agent session in LaminDB.
+  agentcore  Start or resume tracking inside LaminHub's AgentCore Python...
+  claude     Start tracking a Claude Code session in LaminDB.
+  codex      Start or resume tracking a Codex session in LaminDB.
+  copilot    Start tracking a GitHub Copilot session in LaminDB.
+  cursor     Start or resume tracking a Cursor IDE Agent session in LaminDB.
 ```
 
 → Python/R alternative: {func}`~lamindb.track` and {func}`~lamindb.finish` for (non-shell) scripts or notebooks
