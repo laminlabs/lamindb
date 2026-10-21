@@ -1404,7 +1404,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         ln.Artifact.from_dataframe(
             df, description="test1a", revises=ln.Record(name="test")
         )
-    assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
+    assert error.exconly() == "TypeError: Expected Artifact, got Record."
 
     artifact_v3.delete(permanent=True)
     artifact_v2.delete(permanent=True)
@@ -2636,8 +2636,9 @@ def test_passing_foreign_keys_ids(tsv_file):
     space = ln.Space(name=f"artifact-fk-ids-space-{suffix}").save()
 
     # check that passing a wrong type errors
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError) as err:
         ln.Artifact(tsv_file, space=transform)
+    assert err.exconly() == "TypeError: Expected Space, got Transform."
 
     with pytest.raises(ValueError) as err:
         ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)

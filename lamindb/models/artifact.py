@@ -1370,9 +1370,10 @@ def _sqlrecord_or_id(
     if sqlrecord is None and sqlrecord_id is None:
         return None
     elif sqlrecord is not None:
-        assert not check_type or isinstance(sqlrecord, model), (
-            f"Expected {model.__name__}, got {type(sqlrecord).__name__}."
-        )
+        if check_type and not isinstance(sqlrecord, model):
+            raise TypeError(
+                f"Expected {model.__name__}, got {type(sqlrecord).__name__}."
+            )
         return sqlrecord
     elif sqlrecord_id is not None:
         return model.objects.get(id=sqlrecord_id)
@@ -1985,13 +1986,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
-        revises: Artifact | None = kwargs.pop("revises", None)
+        revises: Artifact | None = _sqlrecord_or_id(
+            Artifact, kwargs.pop("revises", None), kwargs.pop("revises_id", None)
+        )
         refresh_revises_if_stale = revises is None
-        if revises is not None:
-            if not isinstance(revises, Artifact):
-                raise TypeError("`revises` has to be of type `Artifact`")
-            if description is None:
-                description = revises.description
+        if revises is not None and description is None:
+            description = revises.description
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
