@@ -2636,8 +2636,9 @@ def test_passing_foreign_keys_ids(tsv_file):
     space = ln.Space(name=f"artifact-fk-ids-space-{suffix}").save()
 
     # check that passing a wrong type errors
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError) as err:
         ln.Artifact(tsv_file, space=transform)
+    assert err.exconly() == "TypeError: Expected Space, got Transform."
 
     with pytest.raises(ValueError) as err:
         ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)
