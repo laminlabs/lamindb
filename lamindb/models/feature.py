@@ -1287,7 +1287,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     default_value: Any | None = JSONField(null=True, default=None)
     """A default value that overwrites missing values during standardization."""
     nullable: bool | None = BooleanField(null=True, default=None)
-    """Whether the feature can have nullable values. None for type-like features."""
+    """Whether the feature can have nullable values. `None` for type-like features.
+
+    For list features, the null value is an empty list (`[]`).
+    """
     coerce: bool | None = BooleanField(null=True, default=None)
     """Whether this feature's values are coerced to its dtype during validation.
 
