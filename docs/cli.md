@@ -675,6 +675,13 @@ lamin finish
 
 The report includes thinking when the agent stored it as readable text; encoded thoughts are omitted.
 
+Inside LaminHub's AgentCore Python runtime, use
+`lamin("track", "agentcore", "--name", "Task description")` and
+`lamin("finish")` through `execute_python`. Write the summary as public assistant
+text before calling finish. The report reuses the saved chat and current public
+commentary; private reasoning and tool traces are excluded. See the
+[AgentCore tracking guide](https://github.com/laminlabs/lamindb/blob/main/lamindb/.agents/skills/lamindb/references/track_agentcore.md).
+
 :::{dropdown} `lamin track copilot` says it can't find the active session?
 
 In VS Code, make sure **"Copilot"** is selected — not **"Local"** — in the mode picker below the chat input box. `lamin track copilot` can only see sessions that go through the "Copilot"; sessions run via "Local" aren't visible to it.
