@@ -695,10 +695,11 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  claude   Start tracking a Claude Code session in LaminDB.
-  codex    Start or resume tracking a Codex session in LaminDB.
-  copilot  Start tracking a GitHub Copilot session in LaminDB.
-  cursor   Start or resume tracking a Cursor IDE Agent session in LaminDB.
+  agentcore  Start or resume tracking inside LaminHub's AgentCore Python...
+  claude     Start tracking a Claude Code session in LaminDB.
+  codex      Start or resume tracking a Codex session in LaminDB.
+  copilot    Start tracking a GitHub Copilot session in LaminDB.
+  cursor     Start or resume tracking a Cursor IDE Agent session in LaminDB.
 ```
 
 → Python/R alternative: {func}`~lamindb.track` and {func}`~lamindb.finish` for (non-shell) scripts or notebooks
