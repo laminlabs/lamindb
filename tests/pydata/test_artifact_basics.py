@@ -1400,11 +1400,11 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_new.uid == artifact_v4.uid
     assert artifact_new.branch_id == 1  # restored to default branch
 
-    with pytest.raises(AssertionError) as error:
+    with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(
             df, description="test1a", revises=ln.Record(name="test")
         )
-    assert error.exconly() == "AssertionError: Expected Artifact, got Record."
+    assert error.exconly() == "TypeError: Expected Artifact, got Record."
 
     artifact_v3.delete(permanent=True)
     artifact_v2.delete(permanent=True)

@@ -1370,9 +1370,10 @@ def _sqlrecord_or_id(
     if sqlrecord is None and sqlrecord_id is None:
         return None
     elif sqlrecord is not None:
-        assert not check_type or isinstance(sqlrecord, model), (
-            f"Expected {model.__name__}, got {type(sqlrecord).__name__}."
-        )
+        if check_type and not isinstance(sqlrecord, model):
+            raise TypeError(
+                f"Expected {model.__name__}, got {type(sqlrecord).__name__}."
+            )
         return sqlrecord
     elif sqlrecord_id is not None:
         return model.objects.get(id=sqlrecord_id)
