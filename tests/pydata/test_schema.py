@@ -149,6 +149,45 @@ def test_kwargs():
         ln.Schema(x="1", features=[])
 
 
+@pytest.mark.parametrize("minimal_set", [True, False])
+def test_optional_non_nullable_features_require_defaults(minimal_set):
+    invalid = [
+        ln.Feature(name=name, dtype=str, nullable=False).save()
+        for name in ["optional_non_nullable_a", "optional_non_nullable_b"]
+    ]
+    source = ln.Feature(name="external_values_source", dtype=ln.Record).save()
+    index = ln.Feature(name="external_values_index", dtype=str, nullable=False).save()
+    mapped = ln.Feature(
+        name="external_values_description",
+        dtype=str,
+        nullable=False,
+        values_through="description",
+    ).save()
+    reverse = ln.Feature(
+        name="external_values_reverse",
+        dtype=list[ln.Record],
+        nullable=False,
+        values_through=source,
+    ).save()
+    try:
+        features = invalid + [mapped, reverse]
+        if minimal_set:
+            configured = [feature.with_config(optional=True) for feature in features]
+        else:
+            configured = list(features)
+        with pytest.raises(InvalidArgument) as error:
+            ln.Schema(list(configured), index=index, minimal_set=minimal_set)
+        assert str(error.value) == (
+            "Optional non-nullable features without a default_value: "
+            "'optional_non_nullable_a', 'optional_non_nullable_b'."
+        )
+        schema = ln.Schema(configured[2:], index=index, minimal_set=minimal_set)
+        assert schema.index == index
+    finally:
+        for feature in [reverse, mapped, index, source, *invalid]:
+            feature.delete(permanent=True)
+
+
 def test_schema_suffix_field_and_hash():
     feature = ln.Feature(name="schema_suffix_feature", dtype=str).save()
 
