@@ -961,6 +961,28 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         :attr:`~lamindb.Artifact.features`
             The features of an artifact.
 
+    Nullability and optionality
+    --------------------------
+
+    Null values such as `None`, `NaN`, `[]`, and `{}` represent missing or empty
+    annotations. Other systems call these `NULL` (SQL) or `null` (JavaScript).
+    Use :attr:`~lamindb.Feature.nullable` (default `True`) when it is acceptable
+    to leave a feature's value unpopulated. Set `nullable=False` to require a
+    populated value. For list and dictionary annotations, this rejects empty
+    lists and dictionaries.
+
+    Optionality controls whether a feature must be supplied at all. Features
+    listed in a :class:`~lamindb.Schema` are required by default because
+    :attr:`~lamindb.Schema.minimal_set` defaults to `True`. Keep a feature required
+    when users must explicitly provide a value, even if they choose a null value
+    for a nullable feature. Use :meth:`~lamindb.Feature.with_config` with
+    `optional=True` to allow omission instead.
+
+    For saved records with a type schema,
+    :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
+    features even when no annotation is stored. Their null values are represented
+    as `[]` for lists, `{}` for dictionaries, and `None` for other types.
+
     Examples
     --------
 

@@ -129,10 +129,7 @@ schema = ln.Schema(
 
 ### Nullability and optionality
 
-Nullability controls whether a feature can have a null value. {attr}`~lamindb.Feature.nullable` defaults to `True`. Setting it to `False` requires a populated value. Null values are typically represented as `None`, or as `[]` and `{}` for lists and dictionaries.
-
-Optionality controls whether a feature can be omitted from schema input. Listed features are required by default ({attr}`~lamindb.Schema.minimal_set` is `True`).
-A required nullable feature must still be supplied, even when its value is null. For saved records with a type schema, `features.get_values()` includes these null values.
+Use nullable features when null values such as `None`, `NaN`, `[]`, or `{}` are acceptable. Keep a feature required when users must explicitly supply a value, even if they choose null. Make it optional to allow omission. See {class}`~lamindb.Feature` for the defaults and full explanation of nullability and optionality.
 
 ## DataFrame
 
