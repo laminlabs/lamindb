@@ -961,6 +961,37 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         :attr:`~lamindb.Artifact.features`
             The features of an artifact.
 
+    Nullability and optionality
+    --------------------------
+
+    Nullability controls whether a value may be null, while optionality controls whether a feature may be omitted.
+
+    A required nullable feature must be supplied when creating a
+    :class:`~lamindb.Record` whose type schema requires it, even if its value is null::
+
+        ln.Record(type=required_type, features={nullable_required_feature: None})
+
+    If the type schema contains only optional features, all features may be omitted::
+
+        ln.Record(type=optional_type)
+
+    Features are nullable by default. Set :attr:`~lamindb.Feature.nullable` in
+    the feature constructor to control whether null values are allowed.
+    Features passed to the :class:`~lamindb.Schema` constructor are required by
+    default. Pass a feature with :meth:`~lamindb.Feature.with_config` and
+    `optional=True` to make it optional in that schema, or set
+    :attr:`~lamindb.Schema.minimal_set` to `False` to make all listed features optional.
+
+    .. note::
+
+        For list and dictionary annotations, null values are represented as `[]`
+        and `{}`. Setting `nullable=False` therefore requires a non-empty list
+        or dictionary. Explicit `None` and `NaN` inputs are also treated as null.
+        For saved records with a type schema,
+        :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
+        features even when no annotation is stored. Null values are returned as
+        `[]` for lists, `{}` for dictionaries, and `None` for other types.
+
     Examples
     --------
 
@@ -1287,7 +1318,11 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     default_value: Any | None = JSONField(null=True, default=None)
     """A default value that overwrites missing values during standardization."""
     nullable: bool | None = BooleanField(null=True, default=None)
-    """Whether the feature can have nullable values. None for type-like features."""
+    """Whether the feature can have nullable values. `None` for type-like features.
+
+    For list and dictionary features, null values are represented as an empty
+    list (`[]`) and an empty dictionary (`{}`), respectively.
+    """
     coerce: bool | None = BooleanField(null=True, default=None)
     """Whether this feature's values are coerced to its dtype during validation.
 
