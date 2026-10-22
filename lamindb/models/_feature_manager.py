@@ -1494,7 +1494,7 @@ class FeatureManager:
         Includes internal and external feature values.
         For saved records with a type schema, required nullable features are
         returned even when their values are null.
-        Null values are represented as `[]` for lists, `{}` for dictionaries,
+        Null values are returned as `[]` for lists, `{}` for dictionaries,
         and `None` for other types.
 
         Args:

@@ -129,7 +129,13 @@ schema = ln.Schema(
 
 ### Nullability and optionality
 
-Use nullable features when null values such as `None`, `NaN`, `[]`, or `{}` are acceptable. Keep a feature required when users must explicitly supply a value, even if they choose null. Make it optional to allow omission. See {class}`~lamindb.Feature` for the defaults and full explanation of nullability and optionality.
+Nullability and optionality control different aspects of a feature in a schema.
+Nullability determines whether a feature can have a missing or empty value, represented as `None` in Python, `NaN` in pandas, or `null` in JavaScript. In LaminDB, null values for list and dictionary annotations are represented as `[]` and `{}`.
+Define a feature as nullable if a missing value is meaningful for that feature.
+
+Optionality determines whether a feature must be supplied at all.
+Define a feature as required if users must explicitly provide a value, even if they choose null for a nullable feature. Make it optional if users may omit it.
+See {class}`~lamindb.Feature` for the defaults and full explanation of nullability and optionality.
 
 ## DataFrame
 

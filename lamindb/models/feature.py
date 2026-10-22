@@ -964,24 +964,33 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     Nullability and optionality
     --------------------------
 
-    Null values such as `None`, `NaN`, `[]`, and `{}` represent missing or empty
-    annotations. Other systems call these `NULL` (SQL) or `null` (JavaScript).
-    Use :attr:`~lamindb.Feature.nullable` (default `True`) when it is acceptable
-    to leave a feature's value unpopulated. Set `nullable=False` to require a
-    populated value. For list and dictionary annotations, this rejects empty
-    lists and dictionaries.
+    Nullability controls whether a value may be null, while optionality controls whether a feature may be omitted.
 
-    Optionality controls whether a feature must be supplied at all. Features
-    listed in a :class:`~lamindb.Schema` are required by default because
-    :attr:`~lamindb.Schema.minimal_set` defaults to `True`. Keep a feature required
-    when users must explicitly provide a value, even if they choose a null value
-    for a nullable feature. Use :meth:`~lamindb.Feature.with_config` with
-    `optional=True` to allow omission instead.
+    A required nullable feature must be supplied when creating a
+    :class:`~lamindb.Record` whose type schema requires it, even if its value is null::
 
-    For saved records with a type schema,
-    :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
-    features even when no annotation is stored. Their null values are represented
-    as `[]` for lists, `{}` for dictionaries, and `None` for other types.
+        ln.Record(type=required_type, features={nullable_required_feature: None})
+
+    If the type schema contains only optional features, all features may be omitted::
+
+        ln.Record(type=optional_type)
+
+    Features are nullable by default. Set :attr:`~lamindb.Feature.nullable` in
+    the feature constructor to control whether null values are allowed.
+    Features passed to the :class:`~lamindb.Schema` constructor are required by
+    default. Pass a feature with :meth:`~lamindb.Feature.with_config` and
+    `optional=True` to make it optional in that schema, or set
+    :attr:`~lamindb.Schema.minimal_set` to `False` to make all listed features optional.
+
+    .. note::
+
+        For list and dictionary annotations, null values are represented as `[]`
+        and `{}`. Setting `nullable=False` therefore requires a non-empty list
+        or dictionary. Explicit `None` and `NaN` inputs are also treated as null.
+        For saved records with a type schema,
+        :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
+        features even when no annotation is stored. Null values are returned as
+        `[]` for lists, `{}` for dictionaries, and `None` for other types.
 
     Examples
     --------
@@ -1311,7 +1320,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     nullable: bool | None = BooleanField(null=True, default=None)
     """Whether the feature can have nullable values. `None` for type-like features.
 
-    For list features, the null value is an empty list (`[]`).
+    For list and dictionary features, null values are represented as an empty
+    list (`[]`) and an empty dictionary (`{}`), respectively.
     """
     coerce: bool | None = BooleanField(null=True, default=None)
     """Whether this feature's values are coerced to its dtype during validation.
