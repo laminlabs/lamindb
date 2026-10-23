@@ -117,18 +117,22 @@ def install_ci(session, group):
             session,
             f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
     elif group == "unit-storage":
         extras += "gcp"
-        run(session, "uv pip install --system huggingface_hub")
+
         run(session, "uv pip install --system anndata==0.13.2")
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system polars")
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
+        run(session, "uv pip install --system huggingface_hub")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
         run(
             session,
             "uv pip install --system huggingface_hub polars anndata==0.13.2 duckdb 'pyiceberg[sql]==0.11.1' lancedb==0.34.0 sqlalchemy",
         )
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
     elif group == "guide":
         # spatialdata needs zarr with FsspecStore/LocalStore (zarr>=3)
         # so do not force the zarr_v2 compatibility extra in this group.
@@ -136,6 +140,7 @@ def install_ci(session, group):
             session,
             f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
     elif group == "tiledbsoma":
         # this group also exercises spatialdata through docs notebooks
         # and should resolve against zarr>=3.
@@ -144,6 +149,7 @@ def install_ci(session, group):
             session,
             f"uv pip install --system scanpy mudata {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
         )
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
@@ -156,6 +162,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/pertdb",
         )
         run(session, "uv pip install --system vitessce")
+        run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
     elif group == "curator":
         run(
             session,
