@@ -159,7 +159,55 @@ def test_record_page_frame_data_properties():
     page.delete(permanent=True)
 
 
-def test_record_type_assignment_requires_schema_features():
+@pytest.mark.parametrize("stored_field", ["description", "timestamps"])
+def test_record_type_assignment_requires_schema_features(stored_field):
+    # created_at and updated_at are database defaults: unset until insert, then
+    # timezone-aware. A frame that maps both as datetime must accept either.
+    if stored_field == "timestamps":
+        stored_features = [
+            ln.Feature(
+                name="type_assign_created_at",
+                dtype="datetime",
+                values_through="created_at",
+            ).save(),
+            ln.Feature(
+                name="type_assign_updated_at",
+                dtype="datetime",
+                values_through="updated_at",
+            ).save(),
+        ]
+        note_schema = ln.Schema(
+            stored_features,
+            minimal_set=False,
+            name="type_assign_note_schema",
+        ).save()
+        note_sheet = ln.Record(
+            name="TypeAssignNotes", is_type=True, schema=note_schema
+        ).save()
+        noted = None
+        saved_note = None
+        try:
+            noted = ln.Record(name="TypeAssignNoted", type=note_sheet).save()
+            noted.refresh_from_db()
+            assert isinstance(noted.created_at, datetime)
+            assert noted.created_at.tzinfo is not None
+            assert isinstance(noted.updated_at, datetime)
+            saved_note = ln.Record(name="TypeAssignSavedNote").save()
+            saved_note.refresh_from_db()
+            assert noted.type == note_sheet
+            saved_note.type = note_sheet
+            assert saved_note.type == note_sheet
+        finally:
+            if saved_note is not None:
+                saved_note.delete(permanent=True)
+            if noted is not None:
+                noted.delete(permanent=True)
+            note_sheet.delete(permanent=True)
+            note_schema.delete(permanent=True)
+            for stored_feature in stored_features:
+                stored_feature.delete(permanent=True)
+        return
+
     experiment_type = ln.Record(name="TypeAssignExperiments", is_type=True).save()
     experiment = ln.Feature(name="type_assign_experiment", dtype=experiment_type).save()
     gc_content = ln.Feature(name="type_assign_gc_content", dtype=float).save()
@@ -306,54 +354,6 @@ def test_record_type_assignment_requires_schema_features():
     conc_b.delete(permanent=True)
     scope_a.delete(permanent=True)
     scope_b.delete(permanent=True)
-
-
-def test_record_type_assignment_skips_unpopulated_timestamps():
-    """Timestamp columns mapped with values_through are valid on a new record.
-
-    Until insert, created_at and updated_at are Django's database-default
-    sentinel. After save they are timezone-aware. A frame that maps both as
-    dtype datetime, the way Meetings does, must accept either.
-    """
-    created = ln.Feature(
-        name="type_assign_created_at",
-        dtype="datetime",
-        values_through="created_at",
-    ).save()
-    updated = ln.Feature(
-        name="type_assign_updated_at",
-        dtype="datetime",
-        values_through="updated_at",
-    ).save()
-    schema = ln.Schema(
-        [created, updated],
-        minimal_set=False,
-        name="type_assign_timestamp_schema",
-    ).save()
-    sheet = ln.Record(name="TypeAssignTimestamps", is_type=True, schema=schema).save()
-    note = None
-    plain = None
-    try:
-        note = ln.Record(name="TypeAssignTimestampNote", type=sheet).save()
-        assert note.type == sheet
-        note.refresh_from_db()
-        assert isinstance(note.created_at, datetime)
-        assert note.created_at.tzinfo is not None
-        assert isinstance(note.updated_at, datetime)
-
-        plain = ln.Record(name="TypeAssignTimestampSaved").save()
-        plain.refresh_from_db()
-        plain.type = sheet
-        assert plain.type == sheet
-    finally:
-        if plain is not None:
-            plain.delete(permanent=True)
-        if note is not None:
-            note.delete(permanent=True)
-        sheet.delete(permanent=True)
-        schema.delete(permanent=True)
-        updated.delete(permanent=True)
-        created.delete(permanent=True)
 
 
 def test_loading_record_does_not_revalidate_stored_type():
