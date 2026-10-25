@@ -782,10 +782,8 @@ def _series_holds_datetimes(series: pd.Series) -> bool:
         return True
     from datetime import datetime
 
-    non_null = series.dropna()
-    if non_null.empty:
-        return False
-    return bool(non_null.map(lambda value: isinstance(value, datetime)).all())
+    # The caller skips an all-null series. The remaining values are datetimes or not.
+    return bool(series.dropna().map(lambda value: isinstance(value, datetime)).all())
 
 
 def _to_ns_datetime(series: pd.Series, *, utc: bool) -> pd.Series:
