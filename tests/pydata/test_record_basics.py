@@ -308,6 +308,54 @@ def test_record_type_assignment_requires_schema_features():
     scope_b.delete(permanent=True)
 
 
+def test_record_type_assignment_skips_unpopulated_timestamps():
+    """Timestamp columns mapped with values_through are valid on a new record.
+
+    Until insert, created_at and updated_at are Django's database-default
+    sentinel. After save they are timezone-aware. A frame that maps both as
+    dtype datetime, the way Meetings does, must accept either.
+    """
+    created = ln.Feature(
+        name="type_assign_created_at",
+        dtype="datetime",
+        values_through="created_at",
+    ).save()
+    updated = ln.Feature(
+        name="type_assign_updated_at",
+        dtype="datetime",
+        values_through="updated_at",
+    ).save()
+    schema = ln.Schema(
+        [created, updated],
+        minimal_set=False,
+        name="type_assign_timestamp_schema",
+    ).save()
+    sheet = ln.Record(name="TypeAssignTimestamps", is_type=True, schema=schema).save()
+    note = None
+    plain = None
+    try:
+        note = ln.Record(name="TypeAssignTimestampNote", type=sheet).save()
+        assert note.type == sheet
+        note.refresh_from_db()
+        assert isinstance(note.created_at, datetime)
+        assert note.created_at.tzinfo is not None
+        assert isinstance(note.updated_at, datetime)
+
+        plain = ln.Record(name="TypeAssignTimestampSaved").save()
+        plain.refresh_from_db()
+        plain.type = sheet
+        assert plain.type == sheet
+    finally:
+        if plain is not None:
+            plain.delete(permanent=True)
+        if note is not None:
+            note.delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        updated.delete(permanent=True)
+        created.delete(permanent=True)
+
+
 def test_loading_record_does_not_revalidate_stored_type():
     experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
     # Missing nullable values are valid and are returned as None by get_values().

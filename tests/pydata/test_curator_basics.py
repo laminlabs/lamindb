@@ -1,6 +1,6 @@
 import re
 import textwrap
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import bionty as bt
 import lamindb as ln
@@ -550,6 +550,12 @@ def test_nullable():
         datetime_schema = ln.Schema([when])
         # A dictionary has no datetime dtype to infer from a null value.
         for value in (None, pd.NaT):
+            assert DictCurator({when.name: value}, datetime_schema).validate() is None
+        # Django stores aware timestamps. dtype datetime is naive datetime64[ns].
+        for value in (
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 1, tzinfo=timezone.utc),
+        ):
             assert DictCurator({when.name: value}, datetime_schema).validate() is None
         # Null normalization must not enable coercion of non-null strings.
         with pytest.raises(ValidationError, match="WRONG_DATATYPE"):

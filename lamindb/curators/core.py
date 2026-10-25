@@ -776,6 +776,33 @@ def _duplicate_feature_names(features: list[Feature]) -> list[str]:
     return [name for name, count in counts.items() if count > 1]
 
 
+def _series_holds_datetimes(series: pd.Series) -> bool:
+    """Whether non-null values are datetimes, not strings or other objects."""
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return True
+    from datetime import datetime
+
+    non_null = series.dropna()
+    if non_null.empty:
+        return False
+    return bool(non_null.map(lambda value: isinstance(value, datetime)).all())
+
+
+def _to_ns_datetime(series: pd.Series, *, utc: bool) -> pd.Series:
+    """Cast to the datetime64[ns] resolution pandera checks.
+
+    `utc=False` drops the timezone. Feature dtype `datetime` is naive;
+    Django timestamps and `datetime64[ns, UTC]` values are not.
+    """
+    converted = pd.to_datetime(series, utc=True)
+    # older pandas is already ns and may not expose dtype.unit
+    if getattr(converted.dtype, "unit", "ns") != "ns":
+        converted = converted.astype("datetime64[ns, UTC]")
+    if utc:
+        return converted
+    return converted.dt.tz_localize(None)
+
+
 def convert_dict_to_dataframe_for_validation(
     d: dict,
     schema: Schema,
@@ -823,23 +850,21 @@ def convert_dict_to_dataframe_for_validation(
         elif feature.dtype_as_str == "dict" and feature.name in df.columns:
             # pandas 3 infers strings as str; dict validation expects object.
             df[feature.name] = df[feature.name].astype(object)
-        elif (
-            feature.dtype_as_str == "datetime"
-            and feature.nullable
-            and feature.name in df.columns
-            and df[feature.name].isna().all()
-        ):
-            # A dictionary containing None has no datetime dtype to infer.
-            df[feature.name] = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+        elif feature.dtype_as_str == "datetime" and feature.name in df.columns:
+            series = df[feature.name]
+            if series.isna().all():
+                if feature.nullable:
+                    # A dictionary containing None has no datetime dtype to infer.
+                    df[feature.name] = pd.Series(
+                        pd.NaT, index=df.index, dtype="datetime64[ns]"
+                    )
+            elif _series_holds_datetimes(series):
+                df[feature.name] = _to_ns_datetime(series, utc=False)
         # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
         elif (
             feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
         ):
-            series = pd.to_datetime(df[feature.name], utc=True)
-            # older pandas is already ns and may not expose dtype.unit
-            if getattr(series.dtype, "unit", "ns") != "ns":
-                series = series.astype("datetime64[ns, UTC]")
-            df[feature.name] = series
+            df[feature.name] = _to_ns_datetime(df[feature.name], utc=True)
     return df
 
 
