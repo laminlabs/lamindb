@@ -925,18 +925,19 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdates):
     """Dataset dimensions such as the columns of a `DataFrame`.
 
-    Features validate and index variables across datasets:
+    Features validate and index variables across datasets so that you can query & load validated datasets → :doc:`query-search`
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px
 
-    Guide: :doc:`query-search`
+    By defining features, you define which variables you expect to be measured in your database, and
+    validate your datasets against those definitions.
 
     Args:
         name: `str` Name of the feature, typically a column name.
         dtype: `SimpleDtype | ULabel | Record | Registry | list[Registry] | FieldAttr`
             Types or `ULabel` or `Record` objects representing types.
-            See :class:`~lamindb.base.types.SimpleDtypeStr`.
+            See :mod:`~lamindb.base.dtypes` for more details.
         type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
         is_type: `bool = False` Whether this is a feature type, see :attr:`~lamindb.Feature.is_type`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
@@ -961,81 +962,40 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         :attr:`~lamindb.Artifact.features`
             The features of an artifact.
 
-    Nullability and optionality
-    --------------------------
-
-    Nullability controls whether a value may be null, while optionality controls whether a feature may be omitted.
-
-    A required nullable feature must be supplied when creating a
-    :class:`~lamindb.Record` whose type schema requires it, even if its value is null::
-
-        ln.Record(type=required_type, features={nullable_required_feature: None})
-
-    If the type schema contains only optional features, all features may be omitted::
-
-        ln.Record(type=optional_type)
-
-    Features are nullable by default. Set :attr:`~lamindb.Feature.nullable` in
-    the feature constructor to control whether null values are allowed.
-    Features passed to the :class:`~lamindb.Schema` constructor are required by
-    default. Pass a feature with :meth:`~lamindb.Feature.with_config` and
-    `optional=True` to make it optional in that schema, or set
-    :attr:`~lamindb.Schema.minimal_set` to `False` to make all listed features optional.
-
-    .. note::
-
-        For list and dictionary annotations, null values are represented as `[]`
-        and `{}`. Setting `nullable=False` therefore requires a non-empty list
-        or dictionary. Explicit `None` and `NaN` inputs are also treated as null.
-        For saved records with a type schema,
-        :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
-        features even when no annotation is stored. Null values are returned as
-        `[]` for lists, `{}` for dictionaries, and `None` for other types.
-
     Examples
     --------
 
+    For bigger databases, always pass a **feature type** to scope a feature to a specific context.
+    For example, you might create a feature type for your experiments and another for your samples::
+
+        experiments = ln.Feature(name="Experiments", is_type=True).save()
+        samples = ln.Feature(name="Samples", is_type=True).save()
+
     Features with simple data types::
 
-        ln.Feature(name="sample_note", dtype=str).save()
-        ln.Feature(name="temperature_in_celsius", dtype=float).save()
-        ln.Feature(name="read_count", dtype=int).save()
+        ln.Feature(name="sample_note", dtype=str, type=samples).save()
+        ln.Feature(name="temperature_in_celsius", dtype=float, type=samples).save()
+        ln.Feature(name="read_count", dtype=int, type=experiments).save()
 
-    A categorical feature measuring labels managed in the `ULabel` registry::
+    Restrict a categorical feature to a specific `Record` or `ULabel` type::
 
-        ln.Feature(name="sample", dtype=ln.ULabel).save()
-
-    Restrict a categorical feature to a specific `ULabel` or `Record` type::
-
-        perturbations = ln.Record.get(name="Perturbations", is_type=True)
-        ln.Feature(name="perturbation", dtype=perturbations).save()
-        experiments = ln.Record.get(name="Experiments", is_type=True)
-        ln.Feature(name="experiment", dtype=experiments).save()
+        samples = ln.Record.get(name="Samples", is_type=True)
+        ln.Feature(name="samples", dtype=list[samples], type=experiments).save()
 
     Restrict a categorical feature to the `bt.CellType` registry::
 
-        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
-        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+        ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
+        ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
 
-    .. admonition:: Categoricals define relationships.
+    .. admonition:: Categoricals define relationships with registries.
 
         For example, when passing `ULabel` to `dtype` in `Feature()`,
         one relates the new feature to the `ULabel` registry.
 
-    Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
-
-        abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
-        ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
-
-        xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
-        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
-
-        # calling .save() again with the same name and type returns the existing feature
-        ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
-
     Annotate an artifact with features (works identically for records and runs)::
 
-        artifact.features.set_values({"temperature_in_celsius": 37.5,
+        artifact.features.set_values({
+            "temperature_in_celsius": 37.5,
             "sample_note": "Control sample",
         })
 
@@ -1097,7 +1057,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
         ).save()
 
-    Define a feature that draws its values from a related feature::
+    A feature that draws its values from a related feature::
 
         author = ln.Feature(name="author", dtype=ln.Record.get(name="Authors")).save()
         books = ln.Feature(
@@ -1108,13 +1068,13 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         # book.author  <-- the author of the book
         # author.books <-- the books written by the author (reverse relation of Book.author)
 
-    Store values on a :class:`~lamindb.Record` field::
+    A feature that stores values on a :class:`~lamindb.Record` field::
 
         ln.Feature(name="created_at", dtype=datetime, values_through="created_at").save()
         ln.Feature(name="external_id", dtype=str, values_through="reference").save()
 
-    Notes
-    -----
+    General notes
+    -------------
 
     Features can define validation constraints for individual dataset dimensions.
     Here is an example where two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
@@ -1161,9 +1121,36 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
 
-    .. _dtypes-note:
+    Nullability and optionality
+    ---------------------------
 
-    See :mod:`~lamindb.base.dtypes`.
+    Nullability controls whether a value may be null, while optionality controls whether a feature may be omitted.
+
+    A required nullable feature must be supplied when creating a
+    :class:`~lamindb.Record` whose type schema requires it, even if its value is null::
+
+        ln.Record(type=required_type, features={nullable_required_feature: None})
+
+    If the type schema contains only optional features, all features may be omitted::
+
+        ln.Record(type=optional_type)
+
+    Features are nullable by default. Set :attr:`~lamindb.Feature.nullable` in
+    the feature constructor to control whether null values are allowed.
+    Features passed to the :class:`~lamindb.Schema` constructor are required by
+    default. Pass a feature with :meth:`~lamindb.Feature.with_config` and
+    `optional=True` to make it optional in that schema, or set
+    :attr:`~lamindb.Schema.minimal_set` to `False` to make all listed features optional.
+
+    .. dropdown:: List and dictionary dtypes
+
+        For list and dictionary features, null values are represented as `[]`
+        and `{}`. Setting `nullable=False` therefore requires a non-empty list
+        or dictionary. Explicit `None` and `NaN` inputs are also treated as null.
+        For saved records with a type schema,
+        :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
+        features even when no annotation is stored. Null values are returned as
+        `[]` for lists, `{}` for dictionaries, and `None` for other types.
 
     """
 
@@ -1937,6 +1924,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def dtype_as_str(self) -> SimpleDtypeStr | str | None:
         """The `dtype` as a string.
 
+        See :mod:`~lamindb.base.dtypes` for more details.
+
         You can query by this property as if it was a string field. The query is delegated to the private `_dtype_str` field.
 
         Is `None` if `Feature` if `is_type=True`, otherwise a string.
@@ -1973,6 +1962,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
         """The `dtype` as an object.
+
+        See :mod:`~lamindb.base.dtypes` for more details.
 
         Example:
 
