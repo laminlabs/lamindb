@@ -1491,11 +1491,11 @@ class FeatureManager:
     def get_values(self, external_only: bool = False) -> dict[str, Any]:
         """Get features as a dictionary.
 
-        Includes annotation with internal and external feature values.
-        For saved records with a type schema, required nullable features without
-        annotations are included as `[]` for lists, `{}` for dictionaries,
-        and `None` for other types. Absent optional or non-nullable features are
-        omitted.
+        Includes internal and external feature values.
+        For saved records with a type schema, required nullable features are
+        returned even when their values are null.
+        Null values are returned as `[]` for lists, `{}` for dictionaries,
+        and `None` for other types.
 
         Args:
             external_only: If `True`, only return external feature annotations.
