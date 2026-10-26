@@ -3118,9 +3118,8 @@ def bulk_set_features_in_records(
 
     # Build the validation dataframe column-by-column with the dtype declared by
     # each schema feature, instead of calling pd.DataFrame(prepared_rows) and
-    # letting pandas re-infer dtypes. The chopped per-row dicts drop null cells,
-    # so a naive pd.DataFrame would backfill NaN and widen partial-null columns
-    # (bool -> object, int -> float64), failing validation even for valid input.
+    # letting pandas re-infer dtypes. A naive pd.DataFrame would widen partial-null
+    # columns (bool -> object, int -> float64), failing validation for valid input.
     # Supplying each column's declared pandas dtype up front propagates the type
     # correctly through construction and removes the need for per-type casting.
     # Note: benchmark this when modifying, for reference -> https://lamin.ai/laminlabs/lamindata/transform/JuJZZEsit1KV
@@ -3129,7 +3128,7 @@ def bulk_set_features_in_records(
         for feature in schema_features
     }
     # single pass to discover which columns actually appear across all rows
-    # (rows may differ once null cells are dropped)
+    # (explicitly supplied feature dictionaries may have different keys)
     present_columns: set[str] = set()
     for row in prepared_rows:
         present_columns.update(row)
@@ -3145,8 +3144,8 @@ def bulk_set_features_in_records(
     multivalued_columns: list[str] = []
     for column in ordered_columns:
         target_dtype = feature_dtype_by_name.get(column)
-        # Per-row dicts drop null cells, and entirely-null columns are stored as
-        # None. Extension dtypes need pd.NA. Numpy floats reject pd.NA
+        # Normalized null values and missing keys need a dtype-specific sentinel.
+        # Extension dtypes need pd.NA. Numpy floats reject pd.NA
         # (`float() argument must be a ... number, not 'NAType'`), so those
         # columns use NaN, which is also what a nullable float64 frame stores.
         missing = (
