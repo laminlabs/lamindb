@@ -138,6 +138,7 @@ Artifact: test_df.parquet (0000)
     )
     inferred_schema_link = artifact.schemas.through.get(artifact_id=artifact.id)
     assert inferred_schema_link.slot == "columns"
+    assert inferred_schema_link.schema.ordered_set is False
     assert inferred_schema_link.schema.members.count() == 1
     assert inferred_schema_link.schema.members.first() == feat1
     inferred_schema = inferred_schema_link.schema

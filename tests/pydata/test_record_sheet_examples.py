@@ -317,7 +317,9 @@ def test_nextflow_sheet_with_samples(
         "expected_cells",
         "seq_center",
     }
-    assert set(artifact.features.slots["columns"].members.to_list("name")) == {
+    inferred = artifact.features.slots["columns"]
+    assert inferred.ordered_set is False
+    assert set(inferred.members.to_list("name")) == {
         "sample",
         "fastq_1",
         "fastq_2",

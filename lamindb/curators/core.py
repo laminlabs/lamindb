@@ -2978,7 +2978,9 @@ def annotate_artifact(
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
                 coerce=artifact.schema.coerce,
-                ordered_set=artifact.schema.ordered_set,
+                # Members come from an unordered query, so this schema cannot
+                # require column order.
+                ordered_set=False,
             )
             if (
                 feature_set._state.adding
@@ -3030,7 +3032,9 @@ def annotate_artifact(
                 minimal_set=validating_schema.minimal_set,
                 maximal_set=validating_schema.maximal_set,
                 coerce=validating_schema.coerce,
-                ordered_set=validating_schema.ordered_set,
+                # Members come from an unordered query, so this schema cannot
+                # require column order.
+                ordered_set=False,
             )
             if (
                 feature_set._state.adding
