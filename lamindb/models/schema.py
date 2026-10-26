@@ -1664,7 +1664,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """The `dtype` for all features in the schema.
 
         This can only be a simple data type in case of a `Schema`: see
-        section :ref:`Data types <dtypes-note>` on the :class:`~lamindb.Feature` page.
+        :mod:`~lamindb.base.dtypes` for more background.
         """
         return self._dtype_str
 
