@@ -151,7 +151,7 @@ Options:
 
 ### save
 
-Save a file or folder as an artifact, transform, or record.
+Save a file or folder as an artifact, transform, record, or project.
 
 Save a **dataset** or **model** as {class}`~lamindb.Artifact`:
 
@@ -177,6 +177,13 @@ Save **source code** as {class}`~lamindb.Transform`:
 lamin save my_script.py --key my_scripts/my_script.py
 ```
 
+Save a **markdown note** in `Projects/` as {class}`~lamindb.Project`:
+
+```
+lamin save Projects/my-project.md
+lamin save Projects/my-type/my-project.md  # `my-type` is an existing project type
+```
+
 Save a **markdown note** as {class}`~lamindb.Record`:
 
 ```
@@ -191,7 +198,7 @@ lamin save README.md
 
 The `save` command defaults to saving
 `.py`, `.ipynb`, `.R`, `.Rmd`, and `.qmd` files as {class}`~lamindb.Transform`
-and - if ommitting `--key` - `.md` files as {class}`~lamindb.Record`.
+and - if ommitting `--key` - `.md` files as {class}`~lamindb.Record` or {class}`~lamindb.Project`.
 You can enforce saving a file as an {class}`~lamindb.Artifact` by passing `--registry artifact`.
 
 You can pass a project to `--project` to label the artifact by project.
@@ -236,9 +243,10 @@ Options:
   --project TEXT                  A valid project name or uid.
   --space TEXT                    A valid space name or uid.
   --branch TEXT                   A valid branch name or uid.
-  --registry [artifact|transform|record]
-                                  Either 'artifact', 'transform', or 'record'.
-                                  If not passed, chooses based on path suffix.
+  --registry [artifact|transform|record|project]
+                                  Either 'artifact', 'transform', 'record', or
+                                  'project'. If not passed, chooses based on
+                                  path.
   --batch-size INTEGER            Number of files transferred in parallel when
                                   saving artifact folders (default 128).
                                   Reducing to 20 or lower can help with
@@ -264,7 +272,7 @@ lamin load --key analysis.ipynb
 lamin load --key myanalyses/analysis.ipynb --with-env
 # notes via name and topic/type hierarchy
 lamin load README.md
-lamin load my-topic/my-note.md
+lamin load My-topic/my-note.md
 # anything via URL
 lamin load https://lamin.ai/account/instance/artifact/e2G7k9EVul4JbfsE
 # anything via registry and --uid
@@ -695,10 +703,11 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  claude   Start tracking a Claude Code session in LaminDB.
-  codex    Start or resume tracking a Codex session in LaminDB.
-  copilot  Start tracking a GitHub Copilot session in LaminDB.
-  cursor   Start or resume tracking a Cursor IDE Agent session in LaminDB.
+  agentcore  Start or resume tracking an AgentCore chat.
+  claude     Start tracking a Claude Code session in LaminDB.
+  codex      Start or resume tracking a Codex session in LaminDB.
+  copilot    Start tracking a GitHub Copilot session in LaminDB.
+  cursor     Start or resume tracking a Cursor IDE Agent session in LaminDB.
 ```
 
 → Python/R alternative: {func}`~lamindb.track` and {func}`~lamindb.finish` for (non-shell) scripts or notebooks

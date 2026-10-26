@@ -2,10 +2,12 @@
 name: lamindb
 description: "Should invoke if an agent session is about to write data to a LaminDB instance to track this agent session as a run. Should also invoke when tasked to curate datasets."
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # LaminDB
+
+**LaminHub AgentCore Python chats:** follow [Track AgentCore sessions](references/track_agentcore.md) instead of the desktop setup and finish steps below. The runtime already supplies the connected instance, identity and conversation. Keep the data/Transform and lineage concepts below, but do not discover desktop session files, reconnect, or require a development directory in AgentCore.
 
 Run `lamin --skill-version` only after the user agrees to use this skill, from the same environment that provides `lamin`, and compare the printed value with this file's `metadata.version`. If they differ, stop and tell the user this skill is stale: remove `.agents/skills/lamindb` (and `.claude/skills/lamindb` if present), then run `uvx library-skills` . Do not continue tracking on the old skill.
 
@@ -246,6 +248,7 @@ If Step 1 printed `NOT_FOUND`, there is no run to close — skip Step 3 entirely
 
 ## Quick reference
 
+- [Track AgentCore sessions](references/track_agentcore.md).
 - [Track Claude Code sessions](references/track_claude.md).
 - [Track Copilot sessions](references/track_copilot.md). If this Copilot chat spawned a child, read that file first and skip dev-dir / branch / track.
 - [Track Cursor IDE sessions](references/track_cursor.md).
