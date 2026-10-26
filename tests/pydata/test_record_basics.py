@@ -159,7 +159,15 @@ def test_record_page_frame_data_properties():
     page.delete(permanent=True)
 
 
-def test_record_type_assignment_requires_schema_features():
+@pytest.mark.parametrize(
+    ("field_name", "dtype", "required"),
+    [
+        ("description", str, True),
+        ("created_at", "datetime", False),
+        ("updated_at", "datetime", False),
+    ],
+)
+def test_record_type_assignment_requires_schema_features(field_name, dtype, required):
     experiment_type = ln.Record(name="TypeAssignExperiments", is_type=True).save()
     experiment = ln.Feature(name="type_assign_experiment", dtype=experiment_type).save()
     gc_content = ln.Feature(name="type_assign_gc_content", dtype=float).save()
@@ -229,28 +237,38 @@ def test_record_type_assignment_requires_schema_features():
     untyped = ln.Record(name="TypeAssignPageRow", type=page).save()
     assert untyped.type == page
 
-    # A required feature stored on a record field is visible before save.
-    stored_note = ln.Feature(
-        name="type_assign_stored_note", dtype=str, values_through="description"
+    # A feature stored on a record field is visible before save.
+    # description is required. created_at and updated_at are database defaults:
+    # unset until insert, then timezone-aware.
+    feature_name = f"type_assign_{field_name}"
+    stored_field = ln.Feature(
+        name=feature_name, dtype=dtype, values_through=field_name
     ).save()
-    note_schema = ln.Schema(
-        [stored_note],
-        name="type_assign_note_schema",
-    ).save()
+    schema_kwargs = {"name": "type_assign_note_schema"}
+    if not required:
+        schema_kwargs["minimal_set"] = False
+    note_schema = ln.Schema([stored_field], **schema_kwargs).save()
     note_sheet = ln.Record(
         name="TypeAssignNotes", is_type=True, schema=note_schema
     ).save()
-    with pytest.raises(ln.errors.ValidationError, match="type_assign_stored_note"):
-        ln.Record(name="TypeAssignNoNote", type=note_sheet)
-    noted = ln.Record(
-        name="TypeAssignNoted",
-        description="has a note",
-        type=note_sheet,
-    ).save()
+    if required:
+        with pytest.raises(ln.errors.ValidationError, match=feature_name):
+            ln.Record(name="TypeAssignNoNote", type=note_sheet)
+    noted_kwargs = {"description": "has a note"} if required else {}
+    noted = ln.Record(name="TypeAssignNoted", type=note_sheet, **noted_kwargs).save()
     assert noted.type == note_sheet
-    assert noted.description == "has a note"
-    assert noted.features.get_values()["type_assign_stored_note"] == "has a note"
-    saved_note = ln.Record(name="TypeAssignSavedNote", description="saved note").save()
+    if required:
+        assert noted.description == "has a note"
+        assert noted.features.get_values()[feature_name] == "has a note"
+    else:
+        noted.refresh_from_db()
+        timestamp = getattr(noted, field_name)
+        assert isinstance(timestamp, datetime)
+        assert timestamp.tzinfo is not None
+    saved_kwargs = {"description": "saved note"} if required else {}
+    saved_note = ln.Record(name="TypeAssignSavedNote", **saved_kwargs).save()
+    if not required:
+        saved_note.refresh_from_db()
     saved_note.type = note_sheet
     assert saved_note.type == note_sheet
 
@@ -288,7 +306,7 @@ def test_record_type_assignment_requires_schema_features():
     saved_note.delete(permanent=True)
     note_sheet.delete(permanent=True)
     note_schema.delete(permanent=True)
-    stored_note.delete(permanent=True)
+    stored_field.delete(permanent=True)
     optional_sheet.delete(permanent=True)
     optional_schema.delete(permanent=True)
     samplesheet.delete(permanent=True)
