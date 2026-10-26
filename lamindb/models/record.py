@@ -537,10 +537,14 @@ def _coerce_feature_value_for_record_field(
 def _feature_value_from_mapped_record_field(
     record: Record, feature: Feature, field_name: str
 ) -> Any:
+    from django.db.models.expressions import DatabaseDefault
+
     record_fields = get_mappable_record_feature_fields()
     record_field = record_fields.get(field_name)
     value = getattr(record, field_name)
-    if value is None:
+    # DateTimeField(db_default=Now()) stays a sentinel until insert. It is not
+    # a timestamp, and pandas would store it as object.
+    if value is None or isinstance(value, DatabaseDefault):
         return None
     if isinstance(record_field, models.ForeignKey):
         parsed = parse_dtype(feature._dtype_str)
