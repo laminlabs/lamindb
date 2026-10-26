@@ -453,7 +453,8 @@ def test_record_from_dataframe_partial_null_bool_int():
     empty.delete(permanent=True)
 
 
-def test_record_from_dataframe_partial_null_float_and_other_dtypes():
+@pytest.mark.parametrize("minimal_set", [False, True])
+def test_record_from_dataframe_partial_null_float_and_other_dtypes(minimal_set):
     """Partial-null scalar features survive the from_dataframe save round-trip.
 
     Plain `None` in a float column is stored as `NaN` on `float64`.
@@ -461,6 +462,8 @@ def test_record_from_dataframe_partial_null_float_and_other_dtypes():
     floats cannot cast `NAType`. `num` uses the same numpy float dtype.
     `str` / `int` / `bool` use nullable extension dtypes, and
     `datetime` / `date` / `dict` accept `pd.NA`.
+
+    Required nullable features must retain supplied nulls during validation.
     """
     label = ln.Feature(name="from-df-na-label", dtype=str).save()
     score = ln.Feature(name="from-df-na-score", dtype=float).save()
@@ -474,7 +477,7 @@ def test_record_from_dataframe_partial_null_float_and_other_dtypes():
     schema = ln.Schema(
         [label, score, amount, count, flag, when, day, payload, empty_float],
         name="from-df-na-schema",
-        minimal_set=False,
+        minimal_set=minimal_set,
     ).save()
     sheet = ln.Record(name="from-df-na-sheet", is_type=True, schema=schema).save()
 
@@ -504,32 +507,52 @@ def test_record_from_dataframe_partial_null_float_and_other_dtypes():
     values_c = ln.Record.get(name="from-df-na-c").features.get_values()
 
     assert values_a["from-df-na-label"] == "a"
-    assert "from-df-na-label" not in values_b
+    assert values_b.get("from-df-na-label") is None
     assert values_c["from-df-na-label"] == "c"
     assert values_a["from-df-na-score"] == 1.1
-    assert "from-df-na-score" not in values_b
-    assert "from-df-na-score" not in values_c
+    assert values_b.get("from-df-na-score") is None
+    assert values_c.get("from-df-na-score") is None
     assert values_a["from-df-na-amount"] == 1
-    assert "from-df-na-amount" not in values_b
+    assert values_b.get("from-df-na-amount") is None
     assert values_c["from-df-na-amount"] == 2.5
     assert values_a["from-df-na-count"] == 1
-    assert "from-df-na-count" not in values_b
+    assert values_b.get("from-df-na-count") is None
     assert values_c["from-df-na-count"] == 3
     assert values_a["from-df-na-flag"] is True
-    assert "from-df-na-flag" not in values_b
+    assert values_b.get("from-df-na-flag") is None
     assert values_c["from-df-na-flag"] is False
     assert values_a["from-df-na-when"] == datetime(2024, 1, 1)
-    assert "from-df-na-when" not in values_b
+    assert values_b.get("from-df-na-when") is None
     assert values_c["from-df-na-when"] == datetime(2024, 1, 3)
     assert values_a["from-df-na-day"] == date(2024, 1, 1)
-    assert "from-df-na-day" not in values_b
+    assert values_b.get("from-df-na-day") is None
     assert values_c["from-df-na-day"] == date(2024, 1, 3)
     assert values_a["from-df-na-payload"] == {"k": 1}
-    assert "from-df-na-payload" not in values_b
+    assert values_b.get("from-df-na-payload", {}) == {}
     assert values_c["from-df-na-payload"] == {"k": 3}
-    assert "from-df-na-empty-float" not in values_a
-    assert "from-df-na-empty-float" not in values_b
-    assert "from-df-na-empty-float" not in values_c
+    if minimal_set:
+        # Required nulls are reconstructed by get_values(), including empty dicts.
+        assert values_b == {
+            feature.name: {} if feature == payload else None
+            for feature in (
+                label,
+                score,
+                amount,
+                count,
+                flag,
+                when,
+                day,
+                payload,
+                empty_float,
+            )
+        }
+        assert "from-df-na-score" in values_c
+    else:
+        assert values_b == {}
+        assert "from-df-na-score" not in values_c
+    for values in (values_a, values_b, values_c):
+        assert values.get("from-df-na-empty-float") is None
+        assert ("from-df-na-empty-float" in values) == minimal_set
 
     exported = sheet.to_dataframe()
     assert exported["from-df-na-score"].dtype.name == "float64"
@@ -542,6 +565,24 @@ def test_record_from_dataframe_partial_null_float_and_other_dtypes():
     from lamindb.models.record import RecordJson
 
     assert RecordJson.objects.filter(feature=empty_float).count() == 0
+
+    if minimal_set:
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match="missing required features 'from-df-na-label'",
+        ):
+            ln.Record.from_dataframe(df.drop(columns=label.name), type=sheet).save()
+
+    # Keeping null keys must not allow nulls for non-nullable features.
+    from django.db import transaction
+
+    score.nullable = False
+    score.save()
+    with (
+        pytest.raises(ln.errors.ValidationError, match="non-nullable"),
+        transaction.atomic(),
+    ):
+        ln.Record.from_dataframe(df, type=sheet).save()
 
     ln.Record.filter(name__in=["from-df-na-a", "from-df-na-b", "from-df-na-c"]).delete(
         permanent=True
