@@ -26,6 +26,8 @@ def test_create_anndata_with_curation():
     ).save()
 
     schemas = artifact.features.slots
+    assert schemas["obs"].ordered_set is False
+    assert schemas["var.T"].ordered_set is False
     artifact.delete(permanent=True)
     for schema in schemas.values():
         schema.delete(permanent=True)
