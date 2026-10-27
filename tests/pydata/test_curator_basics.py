@@ -847,6 +847,14 @@ def test_schema_ordered_set(df):
 
     assert ln.curators.DataFrameCurator(df, schema=schema).validate() is None
 
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test_ordered.parquet", schema=schema
+    ).save()
+    # Inferred members come from an unordered query, so the slot schema does not
+    # require column order.
+    assert artifact.features.slots["columns"].ordered_set is False
+    artifact.delete(permanent=True)
+
     # clean up
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter(is_type=False).delete(permanent=True)

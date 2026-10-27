@@ -675,7 +675,9 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
 
 def test_anndata_curator_varT_curation():
     ln.Schema.filter(itype="bionty.Gene.ensembl_gene_id").delete()
-    varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
+    varT_schema = ln.Schema(
+        itype=bt.Gene.ensembl_gene_id, maximal_set=True, ordered_set=True
+    ).save()
     slot = "var.T"
     components = {slot: varT_schema}
     anndata_schema = ln.Schema(
@@ -706,6 +708,7 @@ def test_anndata_curator_varT_curation():
                 assert (
                     artifact.features.slots[slot].n_members == 3
                 )  # 3 genes get linked
+                assert artifact.features.slots[slot].ordered_set is False
                 assert (
                     artifact.features.slots[slot].itype == "bionty.Gene.ensembl_gene_id"
                 )
