@@ -572,7 +572,12 @@ def init_self_from_db(
     self._state.adding = False  # mimic from_db
     self._state.db = db
     # if run was not set on the existing record, set it to the current_run
-    if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
+    if (
+        hasattr(self, "run_id")
+        and get_registry_name(self) != "RecordBlock"
+        and self.run_id is None
+        and current_run() is not None
+    ):
         logger.warning(f"run was not set on {self}, setting to current run")
         self.run = current_run()
 
@@ -1667,6 +1672,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             demote_target.is_latest = False
                             demote_target._revises = None  # avoid recursion
                             demote_target.save()
+                        if (
+                            get_registry_name(self) == "RecordBlock"
+                            and self._state.adding
+                        ):
+                            self.previous_version = revises
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
@@ -1711,6 +1721,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     and hasattr(self, "branch_id")
                 ):
+                    if get_registry_name(self) == "RecordBlock" and self._state.adding:
+                        # A colliding insert must not rewrite an existing note's provenance.
+                        raise
                     unique_fields = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
