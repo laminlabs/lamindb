@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     from ._feature_manager import FeatureManager
     from .artifact import Artifact
-    from .block import RunBlock
+    from .block import RecordBlock, RunBlock
     from .collection import Collection
     from .feature import Feature, JsonValue
     from .project import Project
@@ -297,6 +297,8 @@ class Run(SQLRecord, TracksUpdates):
     """The collections serving as input for this run ← :attr:`~lamindb.Record.input_of_runs`."""
     output_records: RelatedManager[Record]
     """The collections created in this run ← :attr:`~lamindb.Record.run`."""
+    output_record_blocks: RelatedManager[RecordBlock]
+    """Exact note versions created in this run ← :attr:`~lamindb.RecordBlock.run`."""
     input_artifacts: RelatedManager[Artifact]
     """The artifacts serving as input for this run ← :attr:`~lamindb.Artifact.input_of_runs`.
     """

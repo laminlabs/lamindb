@@ -270,8 +270,6 @@ def test_revise_record_blocks():
         ln.models.RecordBlock(content="x", kind="readme")
     assert "record is required" in error.exconly()
 
-    block_r2.delete()
-    block.delete()
     record.delete(permanent=True)
 
 
@@ -367,3 +365,216 @@ def test_branch_notes_returns_latest_readme_content():
     assert branch.emoji is None
 
     branch.delete(permanent=True)
+
+
+def test_recordblock_revision_ancestry_across_branches():
+    from django.db.models.deletion import RestrictedError
+
+    record = ln.Record(name="note-ancestry").save()
+    branch = ln.Branch(name="note-ancestry-branch").save()
+    sibling = ln.Branch(name="note-ancestry-sibling").save()
+    try:
+        initial = ln.models.RecordBlock(
+            record=record, content="main", kind="readme"
+        ).save()
+        other = ln.models.RecordBlock(
+            record=record, content="sibling", kind="readme", branch=sibling
+        ).save()
+        first = ln.models.RecordBlock(
+            record=record, content="branch first", kind="readme", branch=branch
+        ).save()
+        assert first.previous_version_id == initial.id
+        assert other.previous_version_id == initial.id
+        assert ln.models.RecordBlock.objects.get(id=initial.id).is_latest
+        second = ln.models.RecordBlock(
+            record=record, content="branch second", kind="readme", branch=branch
+        ).save()
+        assert second.previous_version_id == first.id
+        first.refresh_from_db()
+        assert first.previous_version_id == initial.id
+        assert not first.is_latest
+
+        # Merge moves rows and reconciles heads, without changing ancestry/origin.
+        ln.setup.merge(branch, target="main")
+        second.refresh_from_db()
+        assert second.branch_id == 1
+        assert second.created_on_id == branch.id
+        assert second.previous_version_id == first.id
+        later = ln.models.RecordBlock(
+            record=record, content="later main", kind="readme"
+        ).save()
+        assert later.previous_version_id == second.id
+        second.refresh_from_db()
+        assert not second.is_latest
+        assert second.created_on_id == branch.id
+
+        with pytest.raises(RestrictedError):
+            initial.delete()
+    finally:
+        # RESTRICT permits removal of the entire parent-owned history.
+        record.delete(permanent=True)
+        branch.delete(permanent=True)
+        sibling.delete(permanent=True)
+
+
+def test_recordblock_records_refreshed_predecessor():
+    record = ln.Record(name="note-refreshed-predecessor").save()
+    try:
+        initial = ln.models.RecordBlock(
+            record=record, content="initial", kind="readme"
+        ).save()
+        pending = ln.models.RecordBlock(record=record, content="pending", kind="readme")
+        concurrent = ln.models.RecordBlock(
+            record=record, content="concurrent", kind="readme"
+        ).save()
+        pending.save()
+        assert pending.previous_version_id == concurrent.id
+        assert concurrent.previous_version_id == initial.id
+        assert pending.uid != concurrent.uid
+    finally:
+        record.delete(permanent=True)
+
+
+def test_recordblock_run_is_creation_only(monkeypatch):
+    record = ln.Record(name="note-producing-run").save()
+    empty_record = ln.Record(name="empty-note-producing-run").save()
+    transform = ln.Transform(key="note-producing-run.py").save()
+    run = ln.Run(transform).save()
+    other_run = ln.Run(transform).save()
+    try:
+        legacy = ln.models.RecordBlock(
+            record=record, content="legacy", kind="readme", run=None
+        ).save()
+        blank = ln.models.RecordBlock(
+            record=empty_record, kind="readme", run=None
+        ).save()
+        monkeypatch.setattr(ln.context, "_run", run)
+        reused = ln.models.RecordBlock(
+            record=record, content="legacy", kind="readme"
+        ).save()
+        assert reused.id == legacy.id
+        assert reused.run_id is None
+        reused_blank = ln.models.RecordBlock(record=empty_record, kind="readme").save()
+        assert reused_blank.id == blank.id
+        assert reused_blank.run_id is None
+
+        output = ln.models.RecordBlock(
+            record=record, content="new", kind="readme"
+        ).save()
+        assert output.run_id == run.id
+        assert output.previous_version_id == legacy.id
+        filled = ln.models.RecordBlock(
+            record=empty_record, content="filled", kind="readme"
+        ).save()
+        assert filled.id != blank.id
+        assert filled.previous_version_id == blank.id
+        assert filled.run_id == run.id
+        assert set(run.output_record_blocks.values_list("id", flat=True)) == {
+            output.id,
+            filled.id,
+        }
+
+        monkeypatch.setattr(ln.context, "_run", other_run)
+        reused_output = ln.models.RecordBlock(
+            record=record, content="new", kind="readme"
+        ).save()
+        assert reused_output.id == output.id
+        assert reused_output.run_id == run.id
+        loaded = ln.models.RecordBlock.objects.get(id=output.id)
+        loaded.save()
+        assert loaded.run_id == run.id
+        untracked = ln.models.RecordBlock(
+            record=record, content="explicit untracked", kind="readme", run=None
+        ).save()
+        assert untracked.run_id is None
+        explicit = ln.models.RecordBlock(
+            record=record, content="explicit run", kind="readme", run=run
+        ).save()
+        assert explicit.run_id == run.id
+        assert not other_run.output_record_blocks.exists()
+    finally:
+        monkeypatch.setattr(ln.context, "_run", None)
+        record.delete(permanent=True)
+        empty_record.delete(permanent=True)
+        run.delete(permanent=True)
+        other_run.delete(permanent=True)
+        transform.delete(permanent=True)
+
+
+def test_recordblock_uid_collision_preserves_existing_version():
+    from django.db import IntegrityError
+
+    record = ln.Record(name="note-collision").save()
+    branch = ln.Branch(name="note-collision-branch").save()
+    sibling = ln.Branch(name="note-collision-sibling").save()
+    transform = ln.Transform(key="note-collision.py").save()
+    run = ln.Run(transform).save()
+    other_run = ln.Run(transform).save()
+    try:
+        initial = ln.models.RecordBlock(
+            record=record, content="main", kind="readme", run=None
+        ).save()
+        first = ln.models.RecordBlock(
+            record=record, content="branch", kind="readme", branch=branch, run=None
+        ).save()
+        pending = ln.models.RecordBlock(
+            record=record, content="pending", kind="readme", branch=branch, run=run
+        )
+        other = ln.models.RecordBlock(
+            record=record,
+            content="sibling",
+            kind="readme",
+            branch=sibling,
+            run=other_run,
+        ).save()
+        # The destination head is unchanged, but another branch used the pending UID.
+        with pytest.raises(IntegrityError):
+            pending.save()
+        other.refresh_from_db()
+        assert other.content == "sibling"
+        assert other.branch_id == sibling.id
+        assert other.created_on_id == sibling.id
+        assert other.run_id == other_run.id
+        assert other.previous_version_id == initial.id
+        first.refresh_from_db()
+        assert first.is_latest
+        assert not run.output_record_blocks.exists()
+        assert record.ablocks.count() == 3
+    finally:
+        record.delete(permanent=True)
+        branch.delete(permanent=True)
+        sibling.delete(permanent=True)
+        run.delete(permanent=True)
+        other_run.delete(permanent=True)
+        transform.delete(permanent=True)
+
+
+def test_recordblock_rejects_unrelated_predecessor():
+    first = ln.Record(name="note-owner-first").save()
+    second = ln.Record(name="note-owner-second").save()
+    try:
+        original = ln.models.RecordBlock(
+            record=first, content="initial", kind="readme"
+        ).save()
+        with pytest.raises(ValueError, match="same record and kind"):
+            ln.models.RecordBlock(
+                record=second, content="changed", kind="readme", revises=original
+            )
+        comment = ln.models.RecordBlock(
+            record=first, content="comment", kind="comment"
+        ).save()
+        with pytest.raises(ValueError, match="same record and kind"):
+            ln.models.RecordBlock(
+                record=first, content="changed", kind="readme", revises=comment
+            )
+        with pytest.raises(ValueError, match="version family"):
+            ln.models.RecordBlock(
+                record=first,
+                content="changed",
+                kind="readme",
+                revises=original,
+                uid="otherfamily000000001",
+            )
+    finally:
+        first.delete(permanent=True)
+        second.delete(permanent=True)
