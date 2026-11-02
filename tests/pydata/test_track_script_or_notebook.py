@@ -90,6 +90,55 @@ provider = "openai"
     assert 'provider = "openai"' in redacted
 
 
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        "api_key = {}",
+        "client.token = {}",
+        'os.environ["API_KEY"] = {}',
+        '{{"client_secret": {}}}',
+    ],
+)
+@pytest.mark.parametrize("prefix", ["", "f", "b", "r", "rf", "br", "F"])
+@pytest.mark.parametrize("quote", ['"', "'", '"""', "'''"])
+def test_redact_secrets_literal_forms(assignment, prefix, quote):
+    value = "SECRETVALUE{1 / 0}" if "f" in prefix.lower() else "SECRETVALUE"
+    if len(quote) == 3:
+        value += "\nsecond line"
+    source = assignment.format(f"{prefix}{quote}{value}{quote}")
+    expected = assignment.format(f"{prefix}{quote}***REDACTED***{quote}")
+    assert redact_secrets_in_source_code(source) == (expected, 1)
+    assert redact_secrets_in_source_code(expected) == (expected, 0)
+
+
+@pytest.mark.parametrize(
+    "literal", [r'"escaped\"SECRETVALUE"', "f\"SECRETVALUE{f'nested{1 / 0}'}\""]
+)
+def test_redact_secrets_escaped_and_nested_quotes(literal):
+    prefix = "f" if literal.startswith("f") else ""
+    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+        f'api_key = {prefix}"***REDACTED***"',
+        1,
+    )
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 requires Python 3.12")
+def test_redact_secrets_fstring_reuses_quotes():
+    source = 'api_key = f"SECRETVALUE{mapping["key"]}{f"nested{value}"}"'
+    assert redact_secrets_in_source_code(source) == ('api_key = f"***REDACTED***"', 1)
+
+
+@pytest.mark.parametrize(
+    "example", ['# api_key = "unfinished\n', '"""Example: api_key = "unfinished\n"""\n']
+)
+def test_redact_secrets_incomplete_examples(example):
+    source = example + 'api_key = "SECRETVALUE"\n'
+    assert redact_secrets_in_source_code(source) == (
+        example + 'api_key = "***REDACTED***"\n',
+        1,
+    )
+
+
 def test_track_basic_invocation(monkeypatch, ccaplog):
     monkeypatch.setattr(
         type(ln_setup.settings.instance),
