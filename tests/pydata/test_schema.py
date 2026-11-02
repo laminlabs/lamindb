@@ -205,6 +205,39 @@ def test_optional_non_nullable_features_require_defaults(minimal_set):
             feature.delete(permanent=True)
 
 
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_annotation_schema_validation_avoids_redundant_queries(preloaded):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from lamindb.models.schema import validate_annotation_schema
+
+    feature = ln.Feature(
+        name="annotation_query_feature", dtype=float, nullable=True
+    ).save()
+    index = ln.Feature(name="annotation_query_index", dtype=str, nullable=False).save()
+    configured = feature.with_config(optional=True) if preloaded else feature
+    schema = ln.Schema([configured], index=index).save()
+    try:
+        members = list(schema.members) if preloaded else None
+        with CaptureQueriesContext(connection) as queries:
+            if preloaded:
+                validate_annotation_schema(schema, members=members)
+            else:
+                validate_annotation_schema(schema)
+        assert len(queries) == 0
+        if preloaded:
+            member = next(member for member in members if member.uid == feature.uid)
+            member.nullable = False
+            with CaptureQueriesContext(connection) as queries:
+                with pytest.raises(InvalidArgument, match=feature.name):
+                    validate_annotation_schema(schema, members=members)
+            assert len(queries) == 0
+    finally:
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def test_schema_suffix_field_and_hash():
     feature = ln.Feature(name="schema_suffix_feature", dtype=str).save()
 

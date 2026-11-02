@@ -228,7 +228,16 @@ def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     uid_feature.delete(permanent=True)
 
 
-@pytest.mark.parametrize("context", ["flat", "external_slot", "dataset_external_slot"])
+@pytest.mark.parametrize(
+    "context",
+    [
+        "flat",
+        "external_slot",
+        "dataset_external_slot",
+        "anndata_external_slot",
+        "polars_external_slot",
+    ],
+)
 def test_optional_non_nullable_external_schema(context, tmp_path):
     required = ln.Feature(name="optional_external_id", dtype=str).save()
     strict = ln.Feature(name="optional_external_ph", dtype=float, nullable=False).save()
@@ -237,20 +246,41 @@ def test_optional_non_nullable_external_schema(context, tmp_path):
     external = ln.Schema([required]).save()
     external.add(strict)
     wrapper = None
+    is_dataframe = context in {"dataset_external_slot", "polars_external_slot"}
     if context != "flat":
+        slots = {"__external__": external}
+        if context == "anndata_external_slot":
+            slots["obs"] = external
         wrapper = ln.Schema(
-            features=[required] if context == "dataset_external_slot" else None,
-            slots={"__external__": external},
-            otype="DataFrame" if context == "dataset_external_slot" else None,
+            features=[required] if is_dataframe else None,
+            slots=slots,
+            otype="AnnData"
+            if context == "anndata_external_slot"
+            else "DataFrame"
+            if is_dataframe
+            else None,
         ).save()
     path = tmp_path / "optional_external.txt"
     path.write_text("optional external schema test")
 
     def construct():
         values = {required.name: "sample-1", strict.name: 7.0}
-        if context == "dataset_external_slot":
+        if context == "anndata_external_slot":
+            import anndata as ad
+
+            return ln.Artifact.from_anndata(
+                ad.AnnData(obs=pd.DataFrame({required.name: ["sample-1"]})),
+                key="optional_external.h5ad",
+                schema=wrapper,
+                features=values,
+            )
+        if is_dataframe:
+            df = pd.DataFrame({required.name: ["sample-1"]})
+            if context == "polars_external_slot":
+                pl = pytest.importorskip("polars")
+                df = pl.from_pandas(df)
             return ln.Artifact.from_dataframe(
-                pd.DataFrame({required.name: ["sample-1"]}),
+                df,
                 key="optional_external.parquet",
                 schema=wrapper,
                 features=values,

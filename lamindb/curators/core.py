@@ -624,10 +624,15 @@ class SlotsCurator(Curator):
         return self._slots
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
+    def validate(
+        self, *, _external_schema_members: list[Feature] | None = None
+    ) -> None:
         """{}"""  # noqa: D415
         external_features = validate_external_features(
-            self._schema, self._external_features, self._artifact
+            self._schema,
+            self._external_features,
+            self._artifact,
+            members=_external_schema_members,
         )
         if external_features is not None:
             self._external_features = external_features
@@ -1423,13 +1428,15 @@ class DataFrameCurator(SlotsCurator):
             slot_curator.standardize()
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
+    def validate(
+        self, *, _external_schema_members: list[Feature] | None = None
+    ) -> None:
         """{}."""
         self._is_validated = False
         self._atomic_curator.validate()
         self._dataset = self.dataset
         self._is_validated = self._atomic_curator._is_validated
-        super().validate()
+        super().validate(_external_schema_members=_external_schema_members)
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -1498,12 +1505,16 @@ def validate_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
     artifact: Artifact | None = None,
+    *,
+    members: list[Feature] | None = None,
 ) -> dict[str, Any] | None:
     """Validate features against a schema's `__external__` slot.
 
     Returns the feature dictionary when the slot exists, including values read
     from a saved artifact when none were passed. Returns `None` when the schema
     has no external slot.
+
+    Optional `members` must be the preloaded members of the `__external__` component.
     """
     slot_schema = external_slot_schema(schema)
     if slot_schema is None:
@@ -1518,7 +1529,7 @@ def validate_external_features(
             raise ValidationError(
                 "External features slot is defined in schema but no external features were provided."
             )
-    DictCurator(features, slot_schema).validate()
+    DictCurator(features, slot_schema, members=members).validate()
     return features
 
 
@@ -1925,13 +1936,15 @@ class SpatialDataCurator(SlotsCurator):
         self._columns_field = self._var_fields
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(self) -> None:
+    def validate(
+        self, *, _external_schema_members: list[Feature] | None = None
+    ) -> None:
         """{}"""  # noqa: D415
         # cheap structural checks short-circuit the slot validation
         spec = self._schema.formats.zarr
         if spec is not None:
             validate_zarr_conventions(self, spec)
-        super().validate()
+        super().validate(_external_schema_members=_external_schema_members)
 
 
 @doc_args(SLOTS_DETAILS_DOCSTRING)

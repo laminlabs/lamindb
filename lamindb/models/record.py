@@ -114,16 +114,18 @@ def _with_index_feature(
     return [*features, index_feature]
 
 
-def _schema_features(schema: Schema) -> tuple[Feature | None, list[Feature]]:
+def _schema_features(
+    schema: Schema, *, refresh: bool = False
+) -> tuple[Feature | None, list[Feature]]:
     """Index feature and schema members, fetched once per schema instance.
 
     ``schema.index`` queries ``Feature`` and ``schema.members`` queries the link
     table. Batch import checks one record per row. The cache is dropped when the
-    index uid changes; adding a member on this same instance does not.
+    index uid changes or a constructor requests a fresh definition snapshot.
     """
     index_uid = schema._index_feature_uid
     cached = schema.__dict__.get("_type_check_features")
-    if cached is not None and cached[0] == index_uid:
+    if not refresh and cached is not None and cached[0] == index_uid:
         return cached[1], cached[2]
     index_feature = schema.index
     features = _with_index_feature(list(schema.members), index_feature)
@@ -1171,7 +1173,15 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        index_feature = get_type_schema_index(self._resolved_type)
+        from .schema import validate_annotation_schema
+
+        if len(self._df) == 0:
+            return []
+        schema = self._resolved_type.schema
+        index_feature = None
+        if schema is not None:
+            index_feature, members = _schema_features(schema, refresh=True)
+            validate_annotation_schema(schema, members=members)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
@@ -1207,6 +1217,8 @@ class RecordBatch:
                 # The batch save validates the whole frame once. Per-row curator
                 # checks would query the schema again for every record.
                 "_skip_type_curator": True,
+                # The shared definition was checked once before building rows.
+                "_skip_annotation_schema_check": True,
             }
             if features:
                 record_kwargs["features"] = features
@@ -1586,6 +1598,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _skip_type_curator = kwargs.pop("_skip_type_curator", False)
+        _skip_annotation_schema_check = kwargs.pop(
+            "_skip_annotation_schema_check", False
+        )
         _aux = kwargs.pop("_aux", None)
         _search_names = kwargs.pop("_search_names", None)
         if len(kwargs) > 0:
@@ -1623,10 +1638,23 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if _skip_type_curator:
                 self._skip_type_curator = True
             super().__init__(**super_kwargs)
-            if not self.is_type and self.type is not None:
+            if (
+                not self.is_type
+                and self.type is not None
+                and self.type.schema is not None
+                and not _skip_annotation_schema_check
+            ):
                 from .schema import validate_annotation_schema
 
-                validate_annotation_schema(self.type.schema)
+                type_schema = self.type.schema
+                # Refresh optional definitions per construction, then reuse the
+                # same members for the required-feature and value checks below.
+                _, members = _schema_features(
+                    type_schema,
+                    refresh=not type_schema.minimal_set
+                    or bool(type_schema.optionals.get_uids()),
+                )
+                validate_annotation_schema(type_schema, members=members)
             validate_data_record_type_assignment(self, self.type)
         finally:
             self._defer_type_schema_check = False

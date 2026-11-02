@@ -334,6 +334,8 @@ def test_record_constructor_rechecks_annotation_schema_definition():
     frame = ln.Record(name="OptionalSchemaFrame", schema=schema).save()
     pending = ln.Record(name="existing_optional_schema_row", features={feature: 7.0})
     try:
+        # Warm the member cache before changing the persisted Feature definition.
+        ln.Record(name="valid_optional_schema_row", type=frame, features={feature: 7.0})
         feature.nullable = False
         feature.save()
         # Historical rows remain readable; applying their schema to a new row fails.
@@ -344,6 +346,14 @@ def test_record_constructor_rechecks_annotation_schema_definition():
             ln.Record(
                 name="new_optional_schema_row", type=frame, features={feature: 7.0}
             )
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({feature.name: [7.0]}), type=frame
+        )
+        with pytest.raises(
+            ln.errors.InvalidArgument, match="record_optional_schema_ph"
+        ):
+            batch.save()
+        assert not ln.Record.filter(type=frame).exists()
         # The new schema-definition rule is limited to construction.
         pending.type = frame
         assert pending.type == frame
@@ -3426,14 +3436,23 @@ def test_set_values_feature_objects_skip_name_lookup():
         other_type.delete(permanent=True)
 
 
-def test_from_dataframe_save_query_count_is_not_n_plus_one():
+@pytest.mark.parametrize("optionality", ["required", "optional", "minimal_set_false"])
+def test_from_dataframe_save_query_count_is_not_n_plus_one(optionality):
     """Query count must stay O(1) — not grow with row count — when saving a batch."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
     id_feat = ln.Feature(name="qcount-id", dtype=str).save()
-    val_feat = ln.Feature(name="qcount-val", dtype=str).save()
-    schema = ln.Schema([val_feat], index=id_feat, name="qcount-schema").save()
+    val_feat = ln.Feature(name="qcount-val", dtype=str, nullable=True).save()
+    configured = (
+        val_feat.with_config(optional=True) if optionality == "optional" else val_feat
+    )
+    schema = ln.Schema(
+        [configured],
+        index=id_feat,
+        name="qcount-schema",
+        minimal_set=optionality != "minimal_set_false",
+    ).save()
     sheet = ln.Record(name="qcount-sheet", is_type=True, schema=schema).save()
 
     def make_df(n: int) -> pd.DataFrame:
