@@ -103,6 +103,11 @@ def _source_literals(source: str):
                     start=prefix.start, string=prefix.string + item.string
                 )
             opening = _LITERAL_OPENING_PATTERN.match(first.string)
+            if kind == "STRING" and opening and "f" in opening.group(0).lower():
+                try:
+                    ast.parse(first.string, mode="eval")
+                except SyntaxError:
+                    continue
             yield (
                 offsets[first.start[0] - 1] + first.start[1],
                 offsets[item.end[0] - 1] + item.end[1],

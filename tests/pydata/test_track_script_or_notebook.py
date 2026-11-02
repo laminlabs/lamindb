@@ -156,6 +156,16 @@ def test_redact_secrets_template_does_not_partially_match_nested_quotes():
     assert redact_secrets_in_source_code(source) == (source, 0)
 
 
+def test_redact_secrets_legacy_fstring_does_not_partially_match():
+    source = 'api_key = f"{mapping["x"]}SECRETVALUE"'
+    expected = (
+        ('api_key = f"***REDACTED***"', 1)
+        if sys.version_info >= (3, 12)
+        else (source, 0)
+    )
+    assert redact_secrets_in_source_code(source) == expected
+
+
 def test_track_basic_invocation(monkeypatch, ccaplog):
     monkeypatch.setattr(
         type(ln_setup.settings.instance),
