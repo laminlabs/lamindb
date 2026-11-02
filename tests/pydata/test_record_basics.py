@@ -334,8 +334,6 @@ def test_record_constructor_rechecks_annotation_schema_definition():
     frame = ln.Record(name="OptionalSchemaFrame", schema=schema).save()
     pending = ln.Record(name="existing_optional_schema_row", features={feature: 7.0})
     try:
-        # Warm the member cache before changing the persisted Feature definition.
-        ln.Record(name="valid_optional_schema_row", type=frame, features={feature: 7.0})
         feature.nullable = False
         feature.save()
         # Historical rows remain readable; applying their schema to a new row fails.
@@ -3434,6 +3432,44 @@ def test_set_values_feature_objects_skip_name_lookup():
         other_second.delete(permanent=True)
         other_first.delete(permanent=True)
         other_type.delete(permanent=True)
+
+
+@pytest.mark.parametrize("optionality", ["required", "optional", "minimal_set_false"])
+def test_record_construction_reuses_warm_schema_members(optionality):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    index = ln.Feature(name="warm_cache_id", dtype=str).save()
+    feature = ln.Feature(name="warm_cache_value", dtype=float, nullable=True).save()
+    configured = (
+        feature.with_config(optional=True) if optionality == "optional" else feature
+    )
+    schema = ln.Schema(
+        [configured], index=index, minimal_set=optionality != "minimal_set_false"
+    ).save()
+    frame = ln.Record(name="WarmCacheFrame", schema=schema).save()
+    try:
+        ln.Record(type=frame, features={index: "first", feature: 1.0})
+        with CaptureQueriesContext(connection) as queries:
+            ln.Record(type=frame, features={index: "second", feature: 2.0})
+        member_queries = [
+            query["sql"]
+            for query in queries
+            if 'FROM "lamindb_schemafeature"' in query["sql"]
+        ]
+        assert not member_queries
+
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({index.name: ["third"], feature.name: [3.0]}), type=frame
+        )
+        with CaptureQueriesContext(connection) as queries:
+            assert len(batch._build_records()) == 1
+        assert len(queries) == 0, [query["sql"] for query in queries]
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 @pytest.mark.parametrize("optionality", ["required", "optional", "minimal_set_false"])

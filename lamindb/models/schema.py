@@ -103,7 +103,6 @@ def validate_annotation_schema(
     Excludes the schema index and features supplied through `values_through`.
     Callers decide whether the schema is used for annotations. Preloaded members
     can be shared with value validation; no host object or values are inspected.
-    Supplied members must describe this schema; their membership is not rechecked.
     """
     if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
         return

@@ -114,18 +114,16 @@ def _with_index_feature(
     return [*features, index_feature]
 
 
-def _schema_features(
-    schema: Schema, *, refresh: bool = False
-) -> tuple[Feature | None, list[Feature]]:
+def _schema_features(schema: Schema) -> tuple[Feature | None, list[Feature]]:
     """Index feature and schema members, fetched once per schema instance.
 
-    ``schema.index`` queries ``Feature`` and ``schema.members`` queries the link
+    `schema.index` queries `Feature` and `schema.members` queries the link
     table. Batch import checks one record per row. The cache is dropped when the
-    index uid changes or a constructor requests a fresh definition snapshot.
+    index uid changes.
     """
     index_uid = schema._index_feature_uid
     cached = schema.__dict__.get("_type_check_features")
-    if not refresh and cached is not None and cached[0] == index_uid:
+    if cached is not None and cached[0] == index_uid:
         return cached[1], cached[2]
     index_feature = schema.index
     features = _with_index_feature(list(schema.members), index_feature)
@@ -1180,7 +1178,7 @@ class RecordBatch:
         schema = self._resolved_type.schema
         index_feature = None
         if schema is not None:
-            index_feature, members = _schema_features(schema, refresh=True)
+            index_feature, members = _schema_features(schema)
             validate_annotation_schema(schema, members=members)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
@@ -1647,13 +1645,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 from .schema import validate_annotation_schema
 
                 type_schema = self.type.schema
-                # Refresh optional definitions per construction, then reuse the
-                # same members for the required-feature and value checks below.
-                _, members = _schema_features(
-                    type_schema,
-                    refresh=not type_schema.minimal_set
-                    or bool(type_schema.optionals.get_uids()),
-                )
+                # Reuse members for schema, required-feature, and value checks.
+                _, members = _schema_features(type_schema)
                 validate_annotation_schema(type_schema, members=members)
             validate_data_record_type_assignment(self, self.type)
         finally:
