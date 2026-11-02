@@ -33,6 +33,25 @@ def get_zarr_store(
     path: AnyPathStr, *, check: bool = False, create: bool = False
 ) -> str | S3FSMap | FSMap | Store:
     """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
+    # Pickle codecs are selected by untrusted store metadata. Require the
+    # upstream decode guard for both eager loading and backed access.
+    codec_version = version.parse(get_version("numcodecs"))
+    if (
+        codec_version < version.Version("0.15.2")
+        or (
+            codec_version.release[:2] == (0, 16)
+            and codec_version < version.Version("0.16.6")
+        )
+        or (
+            codec_version.release[:2] == (0, 17)
+            and codec_version < version.Version("0.17.1")
+        )
+    ):
+        raise ImportError(
+            f"Zarr access requires a security-patched numcodecs; found {codec_version}. "
+            "Upgrade to 0.15.2 (Zarr v2), 0.16.6, or >=0.17.1. "
+            "These versions require Python 3.11 or newer."
+        )
     storepath, storepath_str = UPath(path), str(path)
     if isinstance(storepath, LocalPathClasses):
         store = storepath_str
