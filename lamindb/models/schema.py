@@ -91,27 +91,30 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def _validate_optional_features(
-    features: list[Feature],
-    optional_features: list[Feature],
-    minimal_set: bool,
-    index: Feature | None,
-) -> None:
-    """Reject optional, non-nullable features without defaults.
+def validate_annotation_schema(schema: Schema | None) -> None:
+    """Reject optional, non-nullable annotation features without defaults.
 
-    Excludes the schema index and features supplied through `values_through` from the check.
+    Dataset columns may be absent without introducing null cells. Annotations
+    are rows in a shared table, so an omitted feature can become a null on export.
+    Excludes the schema index and features supplied through `values_through`.
     """
+    if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
+        return
+    features = list(schema.members)
+    if not features or not isinstance(features[0], Feature):
+        return
     from .record import (
         get_feature_sqlrecord_field,
         get_feature_values_through_source_uid,
     )
 
-    optional_uids = {feature.uid for feature in optional_features}
+    optional_uids = set(schema.optionals.get_uids())
+    index = schema.index
     invalid_features = [
         feature.name
         for feature in features
         if (
-            (not minimal_set or feature.uid in optional_uids)
+            (not schema.minimal_set or feature.uid in optional_uids)
             and not feature.nullable
             and feature.default_value is None
             and (index is None or feature.uid != index.uid)
@@ -589,8 +592,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
         ]).save()
 
-    Optional non-nullable features must have a default value unless they are
-    the index or use `values_through`. This also applies when `minimal_set=False`.
+    When applied to record or artifact annotations, optional non-nullable features
+    must have a default value unless they are the index or use `values_through`.
+    This also applies when `minimal_set=False`. Dataset schemas can have optional
+    non-nullable columns: a column may be absent, but cannot contain nulls if present.
 
     Setting :attr:`~lamindb.Schema.index` stores the
     index feature on the `name` field of :class:`~lamindb.Record`::
@@ -986,8 +991,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 if ordered_set and features:
                     self._features = (get_related_name(features_registry), features)  # type: ignore
                 return None
-        if features_registry == Feature:
-            _validate_optional_features(features, optional_features, minimal_set, index)
         self._slots: dict[str, Schema] = {}
 
         if features:

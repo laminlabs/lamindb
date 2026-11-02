@@ -89,9 +89,11 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import (
     Schema,
+    external_slot_schema,
     is_external_only_schema,
     is_flat_feature_schema,
     schema_requires_content_curator,
+    validate_annotation_schema,
 )
 from .sqlrecord import (
     BaseSQLRecord,
@@ -964,6 +966,7 @@ def _validate_flat_external_features(
     """Validate a flat feature schema as external metadata."""
     from lamindb.curators.core import DictCurator
 
+    validate_annotation_schema(schema)
     if not features:
         if existing is not None and not existing._state.adding:
             logger.important(
@@ -997,11 +1000,13 @@ def _validated_external_features(
     """
     from lamindb.curators.core import DictCurator, validate_external_features
 
+    validate_annotation_schema(external_slot_schema(schema))
     if schema is not None and is_external_only_schema(schema):
         return validate_external_features(schema, features, existing)
     if schema is not None and is_flat_feature_schema(schema) and otype is None:
         return _validate_flat_external_features(schema, features, existing)
     if features is not None and schema is not None:
+        validate_annotation_schema(schema)
         DictCurator(features, schema).validate()
     return features
 
@@ -2581,6 +2586,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb import examples
 
             schema = examples.schemas.valid_features()
+        if isinstance(schema, Schema):
+            validate_annotation_schema(external_slot_schema(schema))
 
         polars_curator = None
         # df is a Polars DataFrame or LazyFrame
@@ -2771,6 +2778,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
+        if isinstance(schema, Schema):
+            validate_annotation_schema(external_slot_schema(schema))
 
         to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
@@ -2850,6 +2859,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if not data_is_scversedatastructure(mdata, "MuData"):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
+        if isinstance(schema, Schema):
+            validate_annotation_schema(external_slot_schema(schema))
         artifact = Artifact(  # type: ignore
             path=mdata,
             key=key,
@@ -2934,6 +2945,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SpatialData object or a path to SpatialData-like"
             )
+        if isinstance(schema, Schema):
+            validate_annotation_schema(external_slot_schema(schema))
         artifact = Artifact(  # type: ignore
             path=sdata,
             key=key,
@@ -2993,6 +3006,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
+        if isinstance(schema, Schema):
+            validate_annotation_schema(external_slot_schema(schema))
 
         # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
         # Other URI schemes (s3://, etc.) are preserved and supported.

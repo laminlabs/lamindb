@@ -228,6 +228,108 @@ def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     uid_feature.delete(permanent=True)
 
 
+@pytest.mark.parametrize("context", ["flat", "external_slot", "dataset_external_slot"])
+def test_optional_non_nullable_external_schema(context, tmp_path):
+    required = ln.Feature(name="optional_external_id", dtype=str).save()
+    strict = ln.Feature(name="optional_external_ph", dtype=float, nullable=False).save()
+    # Build through add() so the regression reaches artifact construction even
+    # before the overly broad Schema constructor restriction is removed.
+    external = ln.Schema([required]).save()
+    external.add(strict)
+    wrapper = None
+    if context != "flat":
+        wrapper = ln.Schema(
+            features=[required] if context == "dataset_external_slot" else None,
+            slots={"__external__": external},
+            otype="DataFrame" if context == "dataset_external_slot" else None,
+        ).save()
+    path = tmp_path / "optional_external.txt"
+    path.write_text("optional external schema test")
+
+    def construct():
+        values = {required.name: "sample-1", strict.name: 7.0}
+        if context == "dataset_external_slot":
+            return ln.Artifact.from_dataframe(
+                pd.DataFrame({required.name: ["sample-1"]}),
+                key="optional_external.parquet",
+                schema=wrapper,
+                features=values,
+            )
+        return ln.Artifact(
+            path,
+            key="optional_external.txt",
+            schema=wrapper or external,
+            features=values,
+        )
+
+    try:
+        # Providing all values does not make this schema suitable for annotations.
+        with pytest.raises(ln.errors.InvalidArgument, match="optional_external_ph"):
+            construct()
+        if context == "dataset_external_slot":
+            # Standalone curation retains its value-validation behavior. The new
+            # definition check belongs to construction of the artifact itself.
+            ln.curators.DataFrameCurator(
+                pd.DataFrame({required.name: ["sample-1"]}),
+                schema=wrapper,
+                features={required.name: "sample-1", strict.name: 7.0},
+            ).validate()
+        strict.default_value = 0.0
+        strict.save()
+        assert construct().schema == (wrapper or external)
+        strict.default_value = None
+        strict.nullable = True
+        strict.save()
+        assert construct().schema == (wrapper or external)
+    finally:
+        if wrapper is not None:
+            wrapper.delete(permanent=True)
+        external.delete(permanent=True)
+        strict.delete(permanent=True)
+        required.delete(permanent=True)
+
+
+@pytest.mark.parametrize("otype", ["DataFrame", "AnnData"])
+def test_optional_non_nullable_dataset_schema(otype):
+    required = ln.Feature(name="optional_dataset_id", dtype=str).save()
+    strict = ln.Feature(name="optional_dataset_ph", dtype=float, nullable=False).save()
+    schema = None
+    wrapper = None
+
+    def construct(values):
+        df = pd.DataFrame(values)
+        if otype == "DataFrame":
+            return ln.Artifact.from_dataframe(
+                df, key="optional_dataset.parquet", schema=schema
+            )
+        import anndata as ad
+
+        return ln.Artifact.from_anndata(
+            ad.AnnData(obs=df), key="optional_dataset.h5ad", schema=wrapper
+        )
+
+    try:
+        schema = ln.Schema([required, strict.with_config(optional=True)]).save()
+        if otype == "AnnData":
+            wrapper = ln.Schema(otype="AnnData", slots={"obs": schema}).save()
+        for values in [
+            {required.name: ["sample-1", "sample-2"]},
+            {required.name: ["sample-1", "sample-2"], strict.name: [7.0, 7.2]},
+        ]:
+            assert construct(values).schema == (wrapper or schema)
+        with pytest.raises(ln.errors.ValidationError, match="not_nullable"):
+            construct(
+                {required.name: ["sample-1", "sample-2"], strict.name: [7.0, None]}
+            )
+    finally:
+        if wrapper is not None:
+            wrapper.delete(permanent=True)
+        if schema is not None:
+            schema.delete(permanent=True)
+        strict.delete(permanent=True)
+        required.delete(permanent=True)
+
+
 def test_from_dataframe_with_external_schema(
     example_dataframe: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],

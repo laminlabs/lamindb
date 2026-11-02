@@ -326,6 +326,36 @@ def test_record_type_assignment_requires_schema_features(field_name, dtype, requ
     scope_b.delete(permanent=True)
 
 
+def test_record_constructor_rechecks_annotation_schema_definition():
+    feature = ln.Feature(
+        name="record_optional_schema_ph", dtype=float, nullable=True
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)]).save()
+    frame = ln.Record(name="OptionalSchemaFrame", schema=schema).save()
+    pending = ln.Record(name="existing_optional_schema_row", features={feature: 7.0})
+    try:
+        feature.nullable = False
+        feature.save()
+        # Historical rows remain readable; applying their schema to a new row fails.
+        assert ln.Record.get(frame.uid).schema == schema
+        with pytest.raises(
+            ln.errors.InvalidArgument, match="record_optional_schema_ph"
+        ):
+            ln.Record(
+                name="new_optional_schema_row", type=frame, features={feature: 7.0}
+            )
+        # The new schema-definition rule is limited to construction.
+        pending.type = frame
+        assert pending.type == frame
+        feature.default_value = 0.0
+        feature.save()
+        assert ln.Record(name="default_optional_schema_row", schema=schema).is_type
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def test_loading_record_does_not_revalidate_stored_type():
     experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
     # Missing nullable values are valid and are returned as None by get_values().

@@ -1596,6 +1596,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True
+        if schema is not None:
+            from .schema import validate_annotation_schema
+
+            validate_annotation_schema(schema)
         super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
@@ -1619,6 +1623,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if _skip_type_curator:
                 self._skip_type_curator = True
             super().__init__(**super_kwargs)
+            if not self.is_type and self.type is not None:
+                from .schema import validate_annotation_schema
+
+                validate_annotation_schema(self.type.schema)
             validate_data_record_type_assignment(self, self.type)
         finally:
             self._defer_type_schema_check = False

@@ -169,21 +169,38 @@ def test_optional_non_nullable_features_require_defaults(minimal_set):
         nullable=False,
         values_through=source,
     ).save()
+    schemas = []
+    record_type = None
     try:
         features = invalid + [mapped, reverse]
         if minimal_set:
             configured = [feature.with_config(optional=True) for feature in features]
         else:
             configured = list(features)
+        schema = ln.Schema(
+            list(configured), index=index, minimal_set=minimal_set
+        ).save()
+        schemas.append(schema)
+        # The definition is valid for dataset columns, including on a fresh instance.
+        same = ln.Schema(list(configured), index=index, minimal_set=minimal_set)
+        assert same.uid == schema.uid
         with pytest.raises(InvalidArgument) as error:
-            ln.Schema(list(configured), index=index, minimal_set=minimal_set)
+            ln.Record(name="invalid_optional_annotation_schema", schema=schema)
         assert str(error.value) == (
             "Optional non-nullable features without a default_value: "
             "'optional_non_nullable_a', 'optional_non_nullable_b'."
         )
-        schema = ln.Schema(configured[2:], index=index, minimal_set=minimal_set)
-        assert schema.index == index
+        allowed = ln.Schema(configured[2:], index=index, minimal_set=minimal_set).save()
+        schemas.append(allowed)
+        assert allowed.index == index
+        record_type = ln.Record(
+            name="optional_annotation_exceptions", schema=allowed
+        ).save()
     finally:
+        if record_type is not None:
+            record_type.delete(permanent=True)
+        for schema in schemas:
+            schema.delete(permanent=True)
         for feature in [reverse, mapped, index, source, *invalid]:
             feature.delete(permanent=True)
 
