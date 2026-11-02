@@ -99,7 +99,9 @@ provider = "openai"
         '{{"client_secret": {}}}',
     ],
 )
-@pytest.mark.parametrize("prefix", ["", "f", "b", "r", "rf", "br", "F"])
+@pytest.mark.parametrize(
+    "prefix", ["", "f", "b", "r", "rf", "br", "F", "t", "tr", "rt", "T"]
+)
 @pytest.mark.parametrize("quote", ['"', "'", '"""', "'''"])
 def test_redact_secrets_literal_forms(assignment, prefix, quote):
     value = "SECRETVALUE{1 / 0}" if "f" in prefix.lower() else "SECRETVALUE"
@@ -137,6 +139,21 @@ def test_redact_secrets_incomplete_examples(example):
         example + 'api_key = "***REDACTED***"\n',
         1,
     )
+
+
+@pytest.mark.parametrize("literal", ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"'])
+def test_redact_secrets_template_interpolation(literal):
+    prefix = literal.split('"')[0]
+    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+        f'api_key = {prefix}"***REDACTED***"',
+        1,
+    )
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 14), reason="Native template-string tokens")
+def test_redact_secrets_template_does_not_partially_match_nested_quotes():
+    source = 'api_key = t"{mapping["SECRETVALUE"]}"'
+    assert redact_secrets_in_source_code(source) == (source, 0)
 
 
 def test_track_basic_invocation(monkeypatch, ccaplog):

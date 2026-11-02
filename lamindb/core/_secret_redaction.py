@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import io
 import re
 import tokenize
@@ -69,8 +70,10 @@ def _source_literals(source: str):
     for line in source.split("\n"):
         offsets.append(offsets[-1] + len(line) + 1)
     stack = []
+    previous = None
     try:
         for item in tokenize.generate_tokens(io.StringIO(source).readline):
+            prefix, previous = previous, item
             kind = tokenize.tok_name[item.type]
             if kind in ("FSTRING_START", "TSTRING_START"):
                 stack.append(item)
@@ -80,6 +83,25 @@ def _source_literals(source: str):
                 first = stack.pop()
             elif item.type not in (tokenize.STRING, tokenize.COMMENT):
                 continue
+            if (
+                item.type == tokenize.STRING
+                and prefix is not None
+                and prefix.type == tokenize.NAME
+                and prefix.string.lower() in ("t", "tr", "rt")
+                and prefix.end == item.start
+            ):
+                # Older tokenizers split template prefixes from their strings.
+                # Validate as an f-string so nested quotes cannot cause a partial match.
+                try:
+                    ast.parse(
+                        prefix.string.lower().replace("t", "f") + item.string,
+                        mode="eval",
+                    )
+                except SyntaxError:
+                    continue
+                first = item._replace(
+                    start=prefix.start, string=prefix.string + item.string
+                )
             opening = _LITERAL_OPENING_PATTERN.match(first.string)
             yield (
                 offsets[first.start[0] - 1] + first.start[1],
