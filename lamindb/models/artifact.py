@@ -89,11 +89,11 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import (
     Schema,
+    _validate_annotation_schema,
     external_slot_schema,
     is_external_only_schema,
     is_flat_feature_schema,
     schema_requires_content_curator,
-    validate_annotation_schema,
 )
 from .sqlrecord import (
     BaseSQLRecord,
@@ -963,7 +963,7 @@ def _validated_annotation_members(schema: Schema | None) -> list[Feature] | None
     if schema is None:
         return None
     members = list(schema.members)
-    validate_annotation_schema(schema, members=members)
+    _validate_annotation_schema(schema, members=members)
     return members
 
 

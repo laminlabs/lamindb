@@ -91,7 +91,7 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def validate_annotation_schema(
+def _validate_annotation_schema(
     schema: Schema | None,
     *,
     members: list[Feature] | None = None,

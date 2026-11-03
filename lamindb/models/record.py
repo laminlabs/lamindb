@@ -1171,7 +1171,7 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        from .schema import validate_annotation_schema
+        from .schema import _validate_annotation_schema
 
         if len(self._df) == 0:
             return []
@@ -1179,7 +1179,7 @@ class RecordBatch:
         index_feature = None
         if schema is not None:
             index_feature, members = _schema_features(schema)
-            validate_annotation_schema(schema, members=members)
+            _validate_annotation_schema(schema, members=members)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
@@ -1610,9 +1610,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             logger.important("passing schema, treating as type")
             is_type = True
         if schema is not None:
-            from .schema import validate_annotation_schema
+            from .schema import _validate_annotation_schema
 
-            validate_annotation_schema(schema)
+            _validate_annotation_schema(schema)
         super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
@@ -1642,12 +1642,12 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 and self.type.schema is not None
                 and not _skip_annotation_schema_check
             ):
-                from .schema import validate_annotation_schema
+                from .schema import _validate_annotation_schema
 
                 type_schema = self.type.schema
                 # Reuse members for schema, required-feature, and value checks.
                 _, members = _schema_features(type_schema)
-                validate_annotation_schema(type_schema, members=members)
+                _validate_annotation_schema(type_schema, members=members)
             validate_data_record_type_assignment(self, self.type)
         finally:
             self._defer_type_schema_check = False
