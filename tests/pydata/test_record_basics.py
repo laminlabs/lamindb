@@ -416,6 +416,22 @@ def test_project_initialization_accepts_description():
     assert project.description == "hello"
 
 
+def test_record_from_dataframe_empty_batch():
+    feature = ln.Feature(name="empty_batch_required_feature", dtype=str).save()
+    schema = ln.Schema([feature]).save()
+    frame = ln.Record(name="EmptyBatchFrame", schema=schema).save()
+    try:
+        # No rows means no annotations to validate, even without required columns.
+        batch = ln.Record.from_dataframe(pd.DataFrame(), type=frame)
+        assert len(batch) == 0
+        assert list(batch.save()) == []
+        assert not frame.records.exists()
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def test_record_from_dataframe_partial_null_bool_int():
     """Partial-null bool/int features survive the from_dataframe save round-trip.
 

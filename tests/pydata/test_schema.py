@@ -205,6 +205,36 @@ def test_optional_non_nullable_features_require_defaults(minimal_set):
             feature.delete(permanent=True)
 
 
+@pytest.mark.parametrize("schema_state", ["absent", "unsaved", "saved"])
+def test_annotation_schema_validation_without_members(schema_state):
+    from lamindb.models.schema import validate_annotation_schema
+
+    schema = None
+    if schema_state != "absent":
+        schema = ln.Schema(itype=ln.Feature, minimal_set=False)
+        if schema_state == "saved":
+            schema.save()
+    try:
+        # Flexible schemas do not declare concrete annotation constraints.
+        assert validate_annotation_schema(schema) is None
+    finally:
+        if schema is not None and not schema._state.adding:
+            schema.delete(permanent=True)
+
+
+def test_annotation_schema_validation_with_non_feature_members():
+    from lamindb.models.schema import validate_annotation_schema
+
+    pathway = bt.Pathway(name="annotation_schema_pathway").save()
+    schema = ln.Schema([pathway], minimal_set=False).save()
+    try:
+        # Registry members describe dataset axes, not Feature annotations.
+        assert validate_annotation_schema(schema) is None
+    finally:
+        schema.delete(permanent=True)
+        pathway.delete(permanent=True)
+
+
 @pytest.mark.parametrize("preloaded", [False, True])
 def test_annotation_schema_validation_avoids_redundant_queries(preloaded):
     from django.db import connection
