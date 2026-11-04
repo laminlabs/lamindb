@@ -360,6 +360,108 @@ def test_optional_non_nullable_dataset_schema(otype):
         required.delete(permanent=True)
 
 
+@pytest.mark.parametrize(
+    "kind", ["dataframe", "coerced_dataframe", "polars", "anndata", "mudata"]
+)
+def test_artifact_curator_retains_external_members(kind, monkeypatch):
+    import anndata as ad
+
+    if kind == "polars":
+        pl = pytest.importorskip("polars")
+    if kind == "mudata":
+        md = pytest.importorskip("mudata")
+    column = ln.Feature(name="retained_members_column", dtype=int).save()
+    annotation = ln.Feature(name="retained_members_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    content = ln.Schema([column]).save()
+    values = {annotation.name: 7}
+    df = pd.DataFrame({column.name: ["1" if kind == "coerced_dataframe" else 1]})
+    if kind in {"anndata", "mudata"}:
+        slot = "obs" if kind == "anndata" else "rna:obs"
+        schema = ln.Schema(
+            otype="AnnData" if kind == "anndata" else "MuData",
+            slots={slot: content, "__external__": external},
+        ).save()
+    else:
+        schema = ln.Schema(
+            [column],
+            otype="DataFrame",
+            coerce=kind == "coerced_dataframe",
+            slots={"__external__": external},
+        ).save()
+
+    member_reads = 0
+    original_members = ln.Schema.members.fget
+
+    def counted_members(self):
+        nonlocal member_reads
+        if self.pk == external.pk:
+            member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            if kind == "anndata":
+                artifact = ln.Artifact.from_anndata(
+                    ad.AnnData(obs=df),
+                    key="retained_members.h5ad",
+                    schema=schema,
+                    features=values,
+                )
+            elif kind == "mudata":
+                artifact = ln.Artifact.from_mudata(
+                    md.MuData({"rna": ad.AnnData(obs=df)}),
+                    key="retained_members.h5mu",
+                    schema=schema,
+                    features=values,
+                )
+            else:
+                artifact = ln.Artifact.from_dataframe(
+                    pl.from_pandas(df) if kind == "polars" else df,
+                    key="retained_members.parquet",
+                    schema=schema,
+                    features=values,
+                )
+            assert member_reads == 1
+            curator = artifact._curator
+            curator.validate()
+            curator.validate()
+            assert member_reads == 1
+
+            # Reusing definitions must still validate the current annotation values.
+            values[annotation.name] = "not-an-integer"
+            with pytest.raises(ln.errors.ValidationError):
+                curator.validate()
+            assert member_reads == 1
+    finally:
+        schema.delete(permanent=True)
+        content.delete(permanent=True)
+        external.delete(permanent=True)
+        column.delete(permanent=True)
+        annotation.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "curator_class",
+    [
+        ln.curators.DataFrameCurator,
+        ln.curators.AnnDataCurator,
+        ln.curators.MuDataCurator,
+        ln.curators.SpatialDataCurator,
+        ln.curators.TiledbsomaExperimentCurator,
+    ],
+)
+def test_curator_members_keyword_is_hidden(curator_class):
+    from inspect import signature
+
+    assert "_members" not in signature(curator_class).parameters
+    assert list(signature(curator_class.validate).parameters) == ["self"]
+    # Hidden kwargs must not silently accept typos, including in subclasses.
+    with pytest.raises(TypeError, match="unexpected keyword argument '_memebrs'"):
+        curator_class(None, None, _members=[], _memebrs=[])
+
+
 def test_from_dataframe_with_external_schema(
     example_dataframe: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],

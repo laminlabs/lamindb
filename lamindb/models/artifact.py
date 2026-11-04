@@ -2608,8 +2608,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if is_polars and schema is not None:
             from lamindb.curators.core import DataFrameCurator
 
-            polars_curator = DataFrameCurator(df, schema, features=features)
-            polars_curator.validate(_external_schema_members=external_members)
+            polars_curator = DataFrameCurator(
+                df, schema, features=features, _members=external_members
+            )
+            polars_curator.validate()
             df = polars_curator.dataset
         # df is a pandas DataFrame; validate only when the schema coerces values
         elif (
@@ -2621,8 +2623,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb.curators.core import DataFrameCurator
 
             # the artifact must be created from the coerced values
-            coerced = DataFrameCurator(df, schema, features=features)
-            coerced.validate(_external_schema_members=external_members)
+            coerced = DataFrameCurator(
+                df, schema, features=features, _members=external_members
+            )
+            coerced.validate()
             df = coerced.dataset
         # df is a local or remote .parquet, .csv, or .tsv path
         elif schema is not None and _can_scan_lazily(df, schema):
@@ -2633,8 +2637,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             lazy = _scan_dataframe_file(df)
             if lazy is not None:
                 path_suffix = df.suffix
-                polars_curator = DataFrameCurator(lazy, schema, features=features)
-                polars_curator.validate(_external_schema_members=external_members)
+                polars_curator = DataFrameCurator(
+                    lazy, schema, features=features, _members=external_members
+                )
+                polars_curator.validate()
                 if _schema_coerces(schema):
                     # replace the path with the coerced frame and store that instead
                     df = polars_curator.dataset
@@ -2692,8 +2698,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 curator = polars_curator
                 curator._artifact = artifact
             else:
-                curator = DataFrameCurator(artifact, schema, features=features)
-                curator.validate(_external_schema_members=external_members)
+                curator = DataFrameCurator(
+                    artifact, schema, features=features, _members=external_members
+                )
+                curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact
@@ -2829,8 +2837,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import AnnDataCurator
 
-            curator = AnnDataCurator(artifact, schema, features=features)
-            curator.validate(_external_schema_members=external_members)
+            curator = AnnDataCurator(
+                artifact, schema, features=features, _members=external_members
+            )
+            curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact
@@ -2898,8 +2908,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import MuDataCurator
 
-            curator = MuDataCurator(artifact, schema, features=features)
-            curator.validate(_external_schema_members=external_members)
+            curator = MuDataCurator(
+                artifact, schema, features=features, _members=external_members
+            )
+            curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact
@@ -2987,8 +2999,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import SpatialDataCurator
 
-            curator = SpatialDataCurator(artifact, schema, features=features)
-            curator.validate(_external_schema_members=external_members)
+            curator = SpatialDataCurator(
+                artifact, schema, features=features, _members=external_members
+            )
+            curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact
@@ -3061,8 +3075,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import TiledbsomaExperimentCurator
 
-            curator = TiledbsomaExperimentCurator(artifact, schema, features=features)
-            curator.validate(_external_schema_members=external_members)
+            curator = TiledbsomaExperimentCurator(
+                artifact, schema, features=features, _members=external_members
+            )
+            curator.validate()
             artifact.schema = schema
             artifact._curator = curator
         return artifact

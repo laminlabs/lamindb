@@ -602,7 +602,17 @@ class SlotsCurator(Curator):
         *,
         features: dict[str, Any] | None = None,
         require_saved_schema: bool = True,
+        **kwargs,
     ) -> None:
+        # `_members` contains definitions from schema's `__external__` slot;
+        # `features` contains the external annotation values to validate.
+        self._external_schema_members: list[Feature] | None = kwargs.pop(
+            "_members", None
+        )
+        if kwargs:
+            raise TypeError(
+                f"{type(self).__name__}() got an unexpected keyword argument {next(iter(kwargs))!r}"
+            )
         super().__init__(
             dataset=dataset,
             schema=schema,
@@ -624,15 +634,13 @@ class SlotsCurator(Curator):
         return self._slots
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(
-        self, *, _external_schema_members: list[Feature] | None = None
-    ) -> None:
+    def validate(self) -> None:
         """{}"""  # noqa: D415
         external_features = validate_external_features(
             self._schema,
             self._external_features,
             self._artifact,
-            members=_external_schema_members,
+            members=self._external_schema_members,
         )
         if external_features is not None:
             self._external_features = external_features
@@ -1356,6 +1364,7 @@ class DataFrameCurator(SlotsCurator):
         using: str | None = None,
         members: list[Feature] | None = None,
         index: Feature | None | _UnsetIndex = _UNSET_INDEX,
+        **kwargs,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
         super().__init__(
@@ -1363,6 +1372,7 @@ class DataFrameCurator(SlotsCurator):
             schema=schema,
             features=features,
             require_saved_schema=require_saved_schema,
+            **kwargs,
         )
         self._using = using
         # uses open dataset at self._dataset
@@ -1428,15 +1438,13 @@ class DataFrameCurator(SlotsCurator):
             slot_curator.standardize()
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(
-        self, *, _external_schema_members: list[Feature] | None = None
-    ) -> None:
+    def validate(self) -> None:
         """{}."""
         self._is_validated = False
         self._atomic_curator.validate()
         self._dataset = self.dataset
         self._is_validated = self._atomic_curator._is_validated
-        super().validate(_external_schema_members=_external_schema_members)
+        super().validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -1514,7 +1522,13 @@ def validate_external_features(
     from a saved artifact when none were passed. Returns `None` when the schema
     has no external slot.
 
-    Optional `members` must be the preloaded members of the `__external__` component.
+    Args:
+        schema: The parent schema containing the `__external__` slot.
+        features: External annotation values, keyed by feature name.
+        artifact: Existing artifact to read annotation values from when needed.
+        members: Preloaded feature definitions belonging to the `__external__`
+            component, reused from annotation schema validation. These are
+            definitions, not the annotation values in `features`.
     """
     slot_schema = external_slot_schema(schema)
     if slot_schema is None:
@@ -1665,8 +1679,9 @@ class AnnDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
@@ -1770,8 +1785,9 @@ class MuDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
         if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
@@ -1862,8 +1878,9 @@ class SpatialDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
         if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
@@ -1936,15 +1953,13 @@ class SpatialDataCurator(SlotsCurator):
         self._columns_field = self._var_fields
 
     @doc_args(VALIDATE_DOCSTRING)
-    def validate(
-        self, *, _external_schema_members: list[Feature] | None = None
-    ) -> None:
+    def validate(self) -> None:
         """{}"""  # noqa: D415
         # cheap structural checks short-circuit the slot validation
         spec = self._schema.formats.zarr
         if spec is not None:
             validate_zarr_conventions(self, spec)
-        super().validate(_external_schema_members=_external_schema_members)
+        super().validate()
 
 
 @doc_args(SLOTS_DETAILS_DOCSTRING)
@@ -1974,8 +1989,9 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        **kwargs,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
         if not data_is_soma_experiment(self._dataset):
             raise InvalidArgument("dataset must be SOMAExperiment-like.")
         if schema.otype != "tiledbsoma":
