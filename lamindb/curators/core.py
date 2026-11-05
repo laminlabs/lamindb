@@ -1514,17 +1514,18 @@ def validate_external_schema(
     *,
     members: list[Feature] | None = None,
 ) -> None:
-    """Validate that a schema definition is suitable for external annotations.
+    """Validate an external annotation schema definition.
 
-    Optional, non-nullable features without a default value are invalid.
-    The schema index and features supplied through `values_through` are
-    not checked.
+    Optional, non-nullable features must have a default value. When
+    `schema.minimal_set=False`, all members are treated as optional.
+    The index feature and features using `values_through` are exempt
+    from this check.
 
     Args:
-        schema: The annotation schema, i.e. not the schema with an `__external__` slot.
-        members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.members)`, including their order.
+        schema: The annotation schema, such as the `__external__`
+            component of a composite schema.
+        members: Preloaded schema members to avoid querying
+            `schema.members` again.
     """
     if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
         return
@@ -1577,8 +1578,8 @@ def validate_external_features(
         schema: The parent schema containing the `__external__` slot.
         features: External annotation values, keyed by feature name.
         artifact: Existing artifact to read annotation values from when needed.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
+        external_members: Preloaded external schema members to avoid querying
+            them again. Must match
             `list(schema.slots["__external__"].members)`, including their order.
     """
     slot_schema = external_slot_schema(schema)
