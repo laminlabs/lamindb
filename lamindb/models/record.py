@@ -1681,9 +1681,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 under `Imports` with an inferred schema from the dataframe.
                 If that type name already exists, raise an error and pass an
                 existing `Record` object for reuse.
-                If the resolved type is a record frame (`type.schema is not None`),
-                its annotation schema definition is checked once per batch and
-                feature values are validated in bulk at save time.
             name_field: Column used for data record names when no schema index is configured.
                 Falls back to `name` if absent. If neither exists, data records are created
                 without names.

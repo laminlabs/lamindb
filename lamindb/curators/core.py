@@ -664,8 +664,10 @@ class SlotsCurator(Curator):
         if self._artifact is None:
             type_mapping = [
                 (
-                    lambda dataset: isinstance(dataset, pd.DataFrame)
-                    or is_polars_dataframe(dataset),
+                    lambda dataset: (
+                        isinstance(dataset, pd.DataFrame)
+                        or is_polars_dataframe(dataset)
+                    ),
                     Artifact.from_dataframe,
                 ),
                 (
@@ -1514,21 +1516,16 @@ def validate_external_schema(
 ) -> None:
     """Validate that a schema definition is suitable for external annotations.
 
-    Optional, non-nullable features must have a default value because an omitted
-    annotation can become a null on export. The schema index and features supplied
-    through `values_through` are exempt. Dataset columns may be optional and
-    non-nullable: an absent column does not introduce null cells.
+    Optional, non-nullable features without a default value are invalid.
+    The schema index and features supplied through `values_through` are
+    not checked.
 
     Args:
-        schema: The annotation schema itself, rather than its parent with an
-            `__external__` slot. Callers decide whether it is used for annotations.
-        members: Optional performance optimization: reuse already loaded feature
-            definitions. Must match `list(schema.members)`. These can be shared
-            with value validation to avoid loading them again.
+        schema: The annotation schema, i.e. not the schema with an `__external__` slot.
+        members: Optional performance optimization: reuse already loaded
+            feature definitions to avoid querying the schema members again. Must match
+            `list(schema.members)`, including their order.
     """
-    # Unsaved schemas without concrete members have no `_features`, which
-    # `schema.members` needs in that state. Skip them instead of raising
-    # AttributeError; concrete unsaved schemas can still be checked in memory.
     if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
         return
     optional_uids = set(schema.optionals.get_uids())
@@ -1583,8 +1580,6 @@ def validate_external_features(
         external_members: Optional performance optimization: reuse already loaded
             feature definitions to avoid querying the schema members again. Must match
             `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let validation load the definitions.
-            These are definitions, not the annotation values in `features`.
     """
     slot_schema = external_slot_schema(schema)
     if slot_schema is None:
@@ -2732,9 +2727,9 @@ class DataFrameCatManager:
         ):
             type_uid = schema.itype[len("Feature[") : -1]
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: self._get_polars_columns()
-            if self._is_polars
-            else columns,
+            values_getter=lambda: (
+                self._get_polars_columns() if self._is_polars else columns
+            ),
             values_setter=self._set_columns,
             field=columns_field,
             key="columns"
