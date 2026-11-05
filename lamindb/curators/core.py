@@ -594,9 +594,10 @@ class SlotsCurator(Curator):
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External annotation values, keyed by feature name.
-        members: Preloaded feature definitions from `schema.slots["__external__"]`.
-            Must match that component's members, including their order. If omitted,
-            the definitions are read from the schema when validating.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let the curator load the definitions.
     """
 
     def __init__(
@@ -1323,8 +1324,11 @@ class DataFrameCurator(SlotsCurator):
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
         features: External annotation values, keyed by feature name.
-        members: Preloaded feature definitions for the dataframe's columns, in
-            schema order. If omitted, they are read from `schema.members`.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions for the dataframe's columns to avoid querying the schema
+            members again. These follow schema order and are normally obtained
+            with `list(schema.members)`.
+            Normally omit this argument and let the curator load the definitions.
         require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
@@ -1531,9 +1535,11 @@ def validate_external_features(
         schema: The parent schema containing the `__external__` slot.
         features: External annotation values, keyed by feature name.
         artifact: Existing artifact to read annotation values from when needed.
-        members: Preloaded feature definitions belonging to the `__external__`
-            component, reused from annotation schema validation. These are
-            definitions, not the annotation values in `features`.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let validation load the definitions.
+            These are definitions, not the annotation values in `features`.
     """
     slot_schema = external_slot_schema(schema)
     if slot_schema is None:
@@ -1659,9 +1665,10 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        members: Preloaded feature definitions from `schema.slots["__external__"]`.
-            Must match that component's members, including their order. If omitted,
-            the definitions are read from the schema when validating.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let the curator load the definitions.
 
     Examples:
 
@@ -1779,9 +1786,10 @@ class MuDataCurator(SlotsCurator):
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        members: Preloaded feature definitions from `schema.slots["__external__"]`.
-            Must match that component's members, including their order. If omitted,
-            the definitions are read from the schema when validating.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let the curator load the definitions.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1876,9 +1884,10 @@ class SpatialDataCurator(SlotsCurator):
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        members: Preloaded feature definitions from `schema.slots["__external__"]`.
-            Must match that component's members, including their order. If omitted,
-            the definitions are read from the schema when validating.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let the curator load the definitions.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -1992,9 +2001,10 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        members: Preloaded feature definitions from `schema.slots["__external__"]`.
-            Must match that component's members, including their order. If omitted,
-            the definitions are read from the schema when validating.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions to avoid querying the schema members again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
+            Normally omit this argument and let the curator load the definitions.
 
     Example:
 
