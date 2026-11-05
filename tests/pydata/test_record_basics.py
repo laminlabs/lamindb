@@ -326,7 +326,7 @@ def test_record_type_assignment_requires_schema_features(field_name, dtype, requ
     scope_b.delete(permanent=True)
 
 
-def test_record_constructor_rechecks_annotation_schema_definition():
+def test_record_annotation_schema_validation_boundaries():
     feature = ln.Feature(
         name="record_optional_schema_ph", dtype=float, nullable=True
     ).save()
@@ -336,14 +336,21 @@ def test_record_constructor_rechecks_annotation_schema_definition():
     try:
         feature.nullable = False
         feature.save()
-        # Historical rows remain readable; applying their schema to a new row fails.
+        # Reading a type or constructing its rows does not recheck its definition.
         assert ln.Record.get(frame.uid).schema == schema
+        assert (
+            ln.Record(
+                name="new_optional_schema_row", type=frame, features={feature: 7.0}
+            ).type
+            == frame
+        )
+        with pytest.raises(ln.errors.ValidationError):
+            ln.Record(type=frame, features={feature: "not-a-float"})
+        # Creating a new type still checks its annotation schema definition.
         with pytest.raises(
             ln.errors.InvalidArgument, match="record_optional_schema_ph"
         ):
-            ln.Record(
-                name="new_optional_schema_row", type=frame, features={feature: 7.0}
-            )
+            ln.Record(name="invalid_optional_schema_type", is_type=True, schema=schema)
         batch = ln.Record.from_dataframe(
             pd.DataFrame({feature.name: [7.0]}), type=frame
         )
@@ -352,13 +359,95 @@ def test_record_constructor_rechecks_annotation_schema_definition():
         ):
             batch.save()
         assert not ln.Record.filter(type=frame).exists()
-        # The new schema-definition rule is limited to construction.
+        # Assigning a type to a record also checks values without its definition.
         pending.type = frame
         assert pending.type == frame
         feature.default_value = 0.0
         feature.save()
         assert ln.Record(name="default_optional_schema_row", schema=schema).is_type
     finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("is_type", [False, True])
+def test_record_type_checks_annotation_schema_once(is_type, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.models import schema as schema_module
+
+    feature = ln.Feature(name="type_schema_check", dtype=float).save()
+    schema = ln.Schema([feature]).save()
+    check = Mock(wraps=schema_module._validate_annotation_schema)
+    monkeypatch.setattr(schema_module, "_validate_annotation_schema", check)
+    try:
+        # Passing schema also implies is_type=True when the flag is omitted.
+        frame = ln.Record(name="CheckedSchemaType", is_type=is_type, schema=schema)
+        assert frame.is_type
+        check.assert_called_once_with(schema)
+        frame.save()
+        check.assert_called_once_with(schema)
+
+        check.reset_mock()
+        record = ln.Record(type=frame, features={feature: 1.0})
+        assert record.type == frame
+        with pytest.raises(ln.errors.ValidationError):
+            ln.Record(type=frame, features={feature: "not-a-float"})
+        with pytest.raises(ln.errors.ValidationError, match="missing required"):
+            ln.Record(type=frame)
+        check.assert_not_called()
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("valid", [False, True])
+def test_record_batch_checks_schema_once_and_values_in_bulk(valid, monkeypatch):
+    from unittest.mock import Mock
+
+    from django.db import transaction
+    from lamindb.curators.core import DataFrameCurator
+    from lamindb.models import schema as schema_module
+
+    feature = ln.Feature(name="batch_schema_check", dtype=float, nullable=False).save()
+    schema = ln.Schema([feature]).save()
+    frame = ln.Record(name="BatchCheckedSchemaType", is_type=True, schema=schema).save()
+    check = Mock(wraps=schema_module._validate_annotation_schema)
+    monkeypatch.setattr(schema_module, "_validate_annotation_schema", check)
+    validated_sizes = []
+    original_validate = DataFrameCurator.validate
+
+    def validate(curator):
+        validated_sizes.append(len(curator.dataset))
+        return original_validate(curator)
+
+    monkeypatch.setattr(DataFrameCurator, "validate", validate)
+    try:
+        values = [1.0, 2.0, 3.0] if valid else [1.0, None, 3.0]
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({feature.name: values}), type=frame
+        )
+        check.assert_not_called()
+        if valid:
+            saved = batch.save()
+            assert len(saved) == 3
+            assert [
+                record.features.get_values()[feature.name] for record in saved
+            ] == values
+        else:
+            with pytest.raises(ln.errors.ValidationError), transaction.atomic():
+                batch.save()
+            assert not frame.records.exists()
+        check.assert_called_once()
+        assert check.call_args.args == (schema,)
+        assert [member.uid for member in check.call_args.kwargs["members"]] == [
+            feature.uid
+        ]
+        assert validated_sizes == [3]
+    finally:
+        frame.records.all().delete(permanent=True)
         frame.delete(permanent=True)
         schema.delete(permanent=True)
         feature.delete(permanent=True)
