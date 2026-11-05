@@ -593,6 +593,10 @@ class SlotsCurator(Curator):
     Args:
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        features: External annotation values, keyed by feature name.
+        members: Preloaded feature definitions from `schema.slots["__external__"]`.
+            Must match that component's members, including their order. If omitted,
+            the definitions are read from the schema when validating.
     """
 
     def __init__(
@@ -602,17 +606,9 @@ class SlotsCurator(Curator):
         *,
         features: dict[str, Any] | None = None,
         require_saved_schema: bool = True,
-        **kwargs,
+        members: list[Feature] | None = None,
     ) -> None:
-        # `_members` contains definitions from schema's `__external__` slot;
-        # `features` contains the external annotation values to validate.
-        self._external_schema_members: list[Feature] | None = kwargs.pop(
-            "_members", None
-        )
-        if kwargs:
-            raise TypeError(
-                f"{type(self).__name__}() got an unexpected keyword argument {next(iter(kwargs))!r}"
-            )
+        self._external_schema_members = members
         super().__init__(
             dataset=dataset,
             schema=schema,
@@ -1326,6 +1322,9 @@ class DataFrameCurator(SlotsCurator):
             The validated/coerced frame is available through `dataset`.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
+        features: External annotation values, keyed by feature name.
+        members: Preloaded feature definitions for the dataframe's columns, in
+            schema order. If omitted, they are read from `schema.members`.
         require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
@@ -1366,13 +1365,19 @@ class DataFrameCurator(SlotsCurator):
         index: Feature | None | _UnsetIndex = _UNSET_INDEX,
         **kwargs,
     ) -> None:
+        # Public `members` describes columns; `_members` describes external annotations.
+        external_members = kwargs.pop("_members", None)
+        if kwargs:
+            raise TypeError(
+                f"{type(self).__name__}() got an unexpected keyword argument {next(iter(kwargs))!r}"
+            )
         # loads or opens dataset, dataset may be an artifact
         super().__init__(
             dataset=dataset,
             schema=schema,
             features=features,
             require_saved_schema=require_saved_schema,
-            **kwargs,
+            members=external_members,
         )
         self._using = using
         # uses open dataset at self._dataset
@@ -1654,6 +1659,9 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
+        members: Preloaded feature definitions from `schema.slots["__external__"]`.
+            Must match that component's members, including their order. If omitted,
+            the definitions are read from the schema when validating.
 
     Examples:
 
@@ -1679,9 +1687,11 @@ class AnnDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
-        **kwargs,
+        members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
+        super().__init__(
+            dataset=dataset, schema=schema, features=features, members=members
+        )
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
@@ -1769,6 +1779,9 @@ class MuDataCurator(SlotsCurator):
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
+        members: Preloaded feature definitions from `schema.slots["__external__"]`.
+            Must match that component's members, including their order. If omitted,
+            the definitions are read from the schema when validating.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1785,9 +1798,11 @@ class MuDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
-        **kwargs,
+        members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
+        super().__init__(
+            dataset=dataset, schema=schema, features=features, members=members
+        )
         if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
@@ -1861,6 +1876,9 @@ class SpatialDataCurator(SlotsCurator):
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
+        members: Preloaded feature definitions from `schema.slots["__external__"]`.
+            Must match that component's members, including their order. If omitted,
+            the definitions are read from the schema when validating.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -1878,9 +1896,11 @@ class SpatialDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
-        **kwargs,
+        members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
+        super().__init__(
+            dataset=dataset, schema=schema, features=features, members=members
+        )
         if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
@@ -1972,6 +1992,9 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
+        members: Preloaded feature definitions from `schema.slots["__external__"]`.
+            Must match that component's members, including their order. If omitted,
+            the definitions are read from the schema when validating.
 
     Example:
 
@@ -1989,9 +2012,11 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
-        **kwargs,
+        members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features, **kwargs)
+        super().__init__(
+            dataset=dataset, schema=schema, features=features, members=members
+        )
         if not data_is_soma_experiment(self._dataset):
             raise InvalidArgument("dataset must be SOMAExperiment-like.")
         if schema.otype != "tiledbsoma":

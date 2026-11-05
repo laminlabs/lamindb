@@ -2838,7 +2838,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import AnnDataCurator
 
             curator = AnnDataCurator(
-                artifact, schema, features=features, _members=external_members
+                artifact, schema, features=features, members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -2909,7 +2909,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import MuDataCurator
 
             curator = MuDataCurator(
-                artifact, schema, features=features, _members=external_members
+                artifact, schema, features=features, members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -3000,7 +3000,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import SpatialDataCurator
 
             curator = SpatialDataCurator(
-                artifact, schema, features=features, _members=external_members
+                artifact, schema, features=features, members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -3076,7 +3076,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import TiledbsomaExperimentCurator
 
             curator = TiledbsomaExperimentCurator(
-                artifact, schema, features=features, _members=external_members
+                artifact, schema, features=features, members=external_members
             )
             curator.validate()
             artifact.schema = schema

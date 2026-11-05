@@ -8,6 +8,7 @@ from pathlib import Path
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.curators.core import ComponentCurator, DictCurator, SlotsCurator
 from lamindb.models._feature_manager import strip_cat
 
 
@@ -445,6 +446,9 @@ def test_artifact_curator_retains_external_members(kind, monkeypatch):
 @pytest.mark.parametrize(
     "curator_class",
     [
+        SlotsCurator,
+        ComponentCurator,
+        DictCurator,
         ln.curators.DataFrameCurator,
         ln.curators.AnnDataCurator,
         ln.curators.MuDataCurator,
@@ -452,14 +456,81 @@ def test_artifact_curator_retains_external_members(kind, monkeypatch):
         ln.curators.TiledbsomaExperimentCurator,
     ],
 )
-def test_curator_members_keyword_is_hidden(curator_class):
+def test_curator_members_parameter(curator_class):
     from inspect import signature
 
+    assert signature(curator_class).parameters["members"].default is None
     assert "_members" not in signature(curator_class).parameters
     assert list(signature(curator_class.validate).parameters) == ["self"]
-    # Hidden kwargs must not silently accept typos, including in subclasses.
-    with pytest.raises(TypeError, match="unexpected keyword argument '_memebrs'"):
-        curator_class(None, None, _members=[], _memebrs=[])
+    with pytest.raises(TypeError, match="unexpected keyword argument 'memebrs'"):
+        curator_class(None, None, members=[], memebrs=[])
+
+
+@pytest.mark.parametrize("preloaded", [True, False])
+@pytest.mark.parametrize(
+    "kind", ["slots", "anndata", "mudata", "spatialdata", "tiledbsoma"]
+)
+def test_curator_public_members(kind, preloaded, monkeypatch, tmp_path):
+    import anndata as ad
+
+    if kind == "slots":
+        curator_class, dataset, otype = SlotsCurator, {}, None
+    elif kind == "anndata":
+        curator_class, dataset, otype = (
+            ln.curators.AnnDataCurator,
+            ad.AnnData(),
+            "AnnData",
+        )
+    elif kind == "mudata":
+        md = pytest.importorskip("mudata")
+        curator_class, dataset, otype = ln.curators.MuDataCurator, md.MuData(), "MuData"
+    elif kind == "spatialdata":
+        sd = pytest.importorskip("spatialdata")
+        curator_class, dataset, otype = (
+            ln.curators.SpatialDataCurator,
+            sd.SpatialData(),
+            "SpatialData",
+        )
+    else:
+        soma = pytest.importorskip("tiledbsoma")
+        curator_class, dataset, otype = (
+            ln.curators.TiledbsomaExperimentCurator,
+            soma.Experiment.create(str(tmp_path / "members.tiledbsoma")),
+            "tiledbsoma",
+        )
+
+    annotation = ln.Feature(name="public_members_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    schema = ln.Schema(otype=otype, slots={"__external__": external}).save()
+    members = list(external.members) if preloaded else None
+    values = {annotation.name: 7}
+    member_reads = 0
+    original_members = ln.Schema.members.fget
+
+    def counted_members(self):
+        nonlocal member_reads
+        if self.pk == external.pk:
+            member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            curator = curator_class(dataset, schema, features=values, members=members)
+            curator.validate()
+            curator.validate()
+            assert member_reads == (0 if preloaded else 2)
+
+            values[annotation.name] = "not-an-integer"
+            with pytest.raises(ln.errors.ValidationError):
+                curator.validate()
+            assert member_reads == (0 if preloaded else 3)
+    finally:
+        if kind == "tiledbsoma":
+            dataset.close()
+        schema.delete(permanent=True)
+        external.delete(permanent=True)
+        annotation.delete(permanent=True)
 
 
 def test_from_dataframe_with_external_schema(
