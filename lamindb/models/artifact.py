@@ -89,6 +89,7 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import (
     Schema,
+    external_slot_schema,
     is_external_only_schema,
     is_flat_feature_schema,
     schema_requires_content_curator,
@@ -960,6 +961,8 @@ def _validate_flat_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
     existing: Artifact | None,
+    *,
+    members: list[Feature] | None = None,
 ) -> dict[str, Any]:
     """Validate a flat feature schema as external metadata."""
     from lamindb.curators.core import DictCurator
@@ -977,7 +980,7 @@ def _validate_flat_external_features(
                 "Pass features={...} to validate external metadata, or use "
                 "Artifact.from_dataframe() to validate dataset content."
             )
-    DictCurator(features, schema).validate()
+    DictCurator(features, schema, members=members).validate()
     return features
 
 
@@ -995,14 +998,32 @@ def _validated_external_features(
     refused when no feature values are available. Content schemas are rejected
     before this runs.
     """
-    from lamindb.curators.core import DictCurator, validate_external_features
+    from lamindb.curators.core import (
+        DictCurator,
+        validate_external_features,
+        validate_external_schema,
+    )
 
-    if schema is not None and is_external_only_schema(schema):
-        return validate_external_features(schema, features, existing)
-    if schema is not None and is_flat_feature_schema(schema) and otype is None:
-        return _validate_flat_external_features(schema, features, existing)
-    if features is not None and schema is not None:
-        DictCurator(features, schema).validate()
+    if schema is None:
+        return features
+    external_only = is_external_only_schema(schema)
+    flat_external = otype is None and is_flat_feature_schema(schema)
+    if features is None and not external_only and not flat_external:
+        return None
+
+    annotation_schema = external_slot_schema(schema) if external_only else schema
+    members = list(annotation_schema.members)
+    validate_external_schema(annotation_schema, members=members)
+
+    if external_only:
+        return validate_external_features(
+            schema, features, existing, external_members=members
+        )
+    if flat_external:
+        return _validate_flat_external_features(
+            schema, features, existing, members=members
+        )
+    DictCurator(features, schema, members=members).validate()
     return features
 
 
@@ -2581,7 +2602,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb import examples
 
             schema = examples.schemas.valid_features()
-
         polars_curator = None
         # df is a Polars DataFrame or LazyFrame
         if is_polars and schema is not None:
@@ -2771,7 +2791,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
-
         to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
             path=adata,
@@ -2993,7 +3012,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
-
         # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
         # Other URI schemes (s3://, etc.) are preserved and supported.
         exp = (

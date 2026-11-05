@@ -169,23 +169,123 @@ def test_optional_non_nullable_features_require_defaults(minimal_set):
         nullable=False,
         values_through=source,
     ).save()
+    schemas = []
+    record_type = None
     try:
         features = invalid + [mapped, reverse]
         if minimal_set:
             configured = [feature.with_config(optional=True) for feature in features]
         else:
             configured = list(features)
+        schema = ln.Schema(
+            list(configured), index=index, minimal_set=minimal_set
+        ).save()
+        schemas.append(schema)
+        # The definition is valid for dataset columns, including on a fresh instance.
+        same = ln.Schema(list(configured), index=index, minimal_set=minimal_set)
+        assert same.uid == schema.uid
         with pytest.raises(InvalidArgument) as error:
-            ln.Schema(list(configured), index=index, minimal_set=minimal_set)
+            ln.Record(name="invalid_optional_annotation_schema", schema=schema)
         assert str(error.value) == (
             "Optional non-nullable features without a default_value: "
             "'optional_non_nullable_a', 'optional_non_nullable_b'."
         )
-        schema = ln.Schema(configured[2:], index=index, minimal_set=minimal_set)
-        assert schema.index == index
+        allowed = ln.Schema(configured[2:], index=index, minimal_set=minimal_set).save()
+        schemas.append(allowed)
+        assert allowed.index == index
+        record_type = ln.Record(
+            name="optional_annotation_exceptions", schema=allowed
+        ).save()
     finally:
+        if record_type is not None:
+            record_type.delete(permanent=True)
+        for schema in schemas:
+            schema.delete(permanent=True)
         for feature in [reverse, mapped, index, source, *invalid]:
             feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("schema_state", ["absent", "unsaved", "saved"])
+def test_external_schema_validation_without_members(schema_state):
+    from lamindb.curators.core import validate_external_schema
+
+    schema = None
+    if schema_state != "absent":
+        schema = ln.Schema(itype=ln.Feature, minimal_set=False)
+        if schema_state == "saved":
+            schema.save()
+    try:
+        # Flexible schemas do not declare concrete annotation constraints.
+        assert validate_external_schema(schema) is None
+    finally:
+        if schema is not None and not schema._state.adding:
+            schema.delete(permanent=True)
+
+
+def test_external_schema_validation_checks_unsaved_concrete_members():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from lamindb.curators.core import validate_external_schema
+
+    feature = ln.Feature(
+        name="unsaved_optional_annotation", dtype=float, nullable=False
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)])
+    try:
+        assert schema._state.adding
+        assert hasattr(schema, "_features")
+        with CaptureQueriesContext(connection) as queries:
+            with pytest.raises(InvalidArgument, match=feature.name):
+                validate_external_schema(schema)
+        assert len(queries) == 0
+    finally:
+        feature.delete(permanent=True)
+
+
+def test_external_schema_validation_with_non_feature_members():
+    from lamindb.curators.core import validate_external_schema
+
+    pathway = bt.Pathway(name="annotation_schema_pathway").save()
+    schema = ln.Schema([pathway], minimal_set=False).save()
+    try:
+        # Registry members describe dataset axes, not Feature annotations.
+        assert validate_external_schema(schema) is None
+    finally:
+        schema.delete(permanent=True)
+        pathway.delete(permanent=True)
+
+
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_external_schema_validation_avoids_redundant_queries(preloaded):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from lamindb.curators.core import validate_external_schema
+
+    feature = ln.Feature(
+        name="annotation_query_feature", dtype=float, nullable=True
+    ).save()
+    index = ln.Feature(name="annotation_query_index", dtype=str, nullable=False).save()
+    configured = feature.with_config(optional=True) if preloaded else feature
+    schema = ln.Schema([configured], index=index).save()
+    try:
+        members = list(schema.members) if preloaded else None
+        with CaptureQueriesContext(connection) as queries:
+            if preloaded:
+                validate_external_schema(schema, members=members)
+            else:
+                validate_external_schema(schema)
+        assert len(queries) == 0
+        if preloaded:
+            member = next(member for member in members if member.uid == feature.uid)
+            member.nullable = False
+            with CaptureQueriesContext(connection) as queries:
+                with pytest.raises(InvalidArgument, match=feature.name):
+                    validate_external_schema(schema, members=members)
+            assert len(queries) == 0
+    finally:
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_schema_suffix_field_and_hash():

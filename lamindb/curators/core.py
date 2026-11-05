@@ -602,7 +602,9 @@ class SlotsCurator(Curator):
         *,
         features: dict[str, Any] | None = None,
         require_saved_schema: bool = True,
+        external_members: list[Feature] | None = None,
     ) -> None:
+        self._external_members = external_members
         super().__init__(
             dataset=dataset,
             schema=schema,
@@ -626,8 +628,17 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        slot_schema = external_slot_schema(self._schema)
+        external_members = self._external_members
+        if slot_schema is not None:
+            if external_members is None:
+                external_members = list(slot_schema.members)
+            validate_external_schema(slot_schema, members=external_members)
         external_features = validate_external_features(
-            self._schema, self._external_features, self._artifact
+            self._schema,
+            self._external_features,
+            self._artifact,
+            external_members=external_members,
         )
         if external_features is not None:
             self._external_features = external_features
@@ -653,8 +664,10 @@ class SlotsCurator(Curator):
         if self._artifact is None:
             type_mapping = [
                 (
-                    lambda dataset: isinstance(dataset, pd.DataFrame)
-                    or is_polars_dataframe(dataset),
+                    lambda dataset: (
+                        isinstance(dataset, pd.DataFrame)
+                        or is_polars_dataframe(dataset)
+                    ),
                     Artifact.from_dataframe,
                 ),
                 (
@@ -1351,6 +1364,7 @@ class DataFrameCurator(SlotsCurator):
         using: str | None = None,
         members: list[Feature] | None = None,
         index: Feature | None | _UnsetIndex = _UNSET_INDEX,
+        external_members: list[Feature] | None = None,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
         super().__init__(
@@ -1358,6 +1372,7 @@ class DataFrameCurator(SlotsCurator):
             schema=schema,
             features=features,
             require_saved_schema=require_saved_schema,
+            external_members=external_members,
         )
         self._using = using
         # uses open dataset at self._dataset
@@ -1494,16 +1509,78 @@ class DictCurator(DataFrameCurator):
         self._atomic_curator.cat._validate_columns = validate_keys
 
 
+def validate_external_schema(
+    schema: Schema | None,
+    *,
+    members: list[Feature] | None = None,
+) -> None:
+    """Validate an external annotation schema definition.
+
+    Optional, non-nullable features must have a default value. When
+    `schema.minimal_set=False`, all members are treated as optional.
+    The index feature and features using `values_through` are exempt
+    from this check.
+
+    Args:
+        schema: The annotation schema, such as the `__external__`
+            component of a composite schema.
+        members: Preloaded schema members to avoid querying
+            `schema.members` again.
+    """
+    if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
+        return
+    optional_uids = set(schema.optionals.get_uids())
+    if schema.minimal_set and not optional_uids:
+        return
+    features = list(schema.members) if members is None else members
+    if not features or not isinstance(features[0], Feature):
+        return
+    from lamindb.models.record import (
+        get_feature_sqlrecord_field,
+        get_feature_values_through_source_uid,
+    )
+
+    index_uid = schema._index_feature_uid
+    invalid_features = [
+        feature.name
+        for feature in features
+        if (
+            (not schema.minimal_set or feature.uid in optional_uids)
+            and not feature.nullable
+            and feature.default_value is None
+            and feature.uid != index_uid
+            # Exclude both forms of values_through: record fields and reverse relations.
+            and get_feature_sqlrecord_field(feature) is None
+            and get_feature_values_through_source_uid(feature) is None
+        )
+    ]
+    if invalid_features:
+        names = ", ".join(repr(name) for name in invalid_features)
+        raise InvalidArgument(
+            f"Optional non-nullable features without a default_value: {names}."
+        )
+
+
 def validate_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
     artifact: Artifact | None = None,
+    *,
+    external_members: list[Feature] | None = None,
 ) -> dict[str, Any] | None:
-    """Validate features against a schema's `__external__` slot.
+    """Validate feature values against a schema's `__external__` slot.
 
     Returns the feature dictionary when the slot exists, including values read
     from a saved artifact when none were passed. Returns `None` when the schema
     has no external slot.
+
+    Args:
+        schema: The parent schema containing the `__external__` slot.
+        features: External annotation values, keyed by feature name.
+        artifact: Existing artifact to read annotation values from when needed.
+        external_members: Preloaded external schema members to avoid querying
+            them again. Must match
+            `list(schema.slots["__external__"].members)`, including their order.
     """
     slot_schema = external_slot_schema(schema)
     if slot_schema is None:
@@ -1518,7 +1595,7 @@ def validate_external_features(
             raise ValidationError(
                 "External features slot is defined in schema but no external features were provided."
             )
-    DictCurator(features, slot_schema).validate()
+    DictCurator(features, slot_schema, members=external_members).validate()
     return features
 
 
@@ -1654,8 +1731,14 @@ class AnnDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        external_members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            external_members=external_members,
+        )
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
@@ -1759,8 +1842,14 @@ class MuDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        external_members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            external_members=external_members,
+        )
         if not data_is_scversedatastructure(self._dataset, "MuData"):
             raise InvalidArgument("dataset must be MuData-like.")
         if schema.otype != "MuData":
@@ -1851,8 +1940,14 @@ class SpatialDataCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        external_members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            external_members=external_members,
+        )
         if not data_is_scversedatastructure(self._dataset, "SpatialData"):
             raise InvalidArgument("dataset must be SpatialData-like.")
         if schema.otype != "SpatialData":
@@ -1961,8 +2056,14 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        external_members: list[Feature] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            external_members=external_members,
+        )
         if not data_is_soma_experiment(self._dataset):
             raise InvalidArgument("dataset must be SOMAExperiment-like.")
         if schema.otype != "tiledbsoma":
@@ -2627,9 +2728,9 @@ class DataFrameCatManager:
         ):
             type_uid = schema.itype[len("Feature[") : -1]
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: self._get_polars_columns()
-            if self._is_polars
-            else columns,
+            values_getter=lambda: (
+                self._get_polars_columns() if self._is_polars else columns
+            ),
             values_setter=self._set_columns,
             field=columns_field,
             key="columns"
