@@ -131,7 +131,8 @@ def redact_secrets_in_source_code(source_code: str) -> tuple[str, int]:
     )
     literals = list(_source_literals(source_code))
     by_start = {start: (end, opening, quote) for start, end, opening, quote in literals}
-    redacted, cursor, count = [], 0, 0
+    redacted: list[str] = []
+    cursor, count = 0, 0
     for match in matches:
         if match.start() < cursor:
             continue
