@@ -310,7 +310,7 @@ class Run(SQLRecord, TracksUpdates):
     recreated_artifacts: RelatedManager[Artifact]
     """The output artifacts that were recreated by this run ← :attr:`~lamindb.Artifact.recreating_runs`.
 
-    Artifacts are *recreated* if they trigger a hash lookup match for an existing artifact.
+    Artifacts are *recreated* when registering the same content resolves to an existing artifact.
     """
     input_collections: RelatedManager[Collection]
     """The collections serving as input for this run ← :attr:`~lamindb.Collection.input_of_runs`."""
@@ -319,7 +319,7 @@ class Run(SQLRecord, TracksUpdates):
     recreated_collections: RelatedManager[Collection]
     """The output collections that were recreated by this run ← :attr:`~lamindb.Collection.recreating_runs`.
 
-    Collections are *recreated* if they trigger a hash lookup match for an existing collection.
+    Collections are *recreated* when registering the same content resolves to an existing collection.
     """
     output_transforms: RelatedManager[Transform]
     """The transforms created in this run ← :attr:`~lamindb.Transform.run`."""

@@ -2677,3 +2677,44 @@ def test_passing_foreign_keys_ids(tsv_file):
     space.delete(permanent=True)
     branch.delete(permanent=True)
     transform.delete(permanent=True)
+
+
+def test_recreating_run_for_path_in_registered_storage():
+    # Hash lookup is skipped for a path that already lives in registered storage,
+    # so save() resolves the duplicate and must still link the new run.
+    suffix = uuid4().hex[:8]
+    path = Path(f"./default_storage_unit_core/recreating-run-inside-{suffix}.txt")
+    path.write_text("inside storage\n")
+    transform = ln.Transform(key=f"recreating-run-inside-storage-{suffix}").save()
+    run_1 = ln.Run(transform).save()
+    run_2 = ln.Run(transform).save()
+    artifact = None
+    try:
+        first = ln.Artifact(path, run_id=run_1.id).save()
+        artifact = first
+        second = ln.Artifact(path, run_id=run_2.id)
+        assert second._state.adding
+        assert second.uid != first.uid
+        second.save()
+        artifact = second
+
+        assert first.id == second.id
+        assert second.uid == first.uid
+        assert not second._state.adding
+        assert second._recreating_run_id == run_2.id
+        assert run_2 in second.recreating_runs.all()
+        assert run_1 not in second.recreating_runs.all()
+        assert list(run_1.output_artifacts.all()) == [second]
+        assert list(run_1.recreated_artifacts.all()) == []
+        assert list(run_2.output_artifacts.all()) == []
+        assert list(run_2.recreated_artifacts.all()) == [second]
+        assert list(run_2.query_output_artifacts(include_recreated=False)) == []
+        assert list(run_2.query_output_artifacts(include_recreated=True)) == [second]
+    finally:
+        if artifact is not None and artifact.pk is not None:
+            artifact.delete(permanent=True, storage=True)
+        if path.exists():
+            path.unlink()
+        run_2.delete(permanent=True)
+        run_1.delete(permanent=True)
+        transform.delete(permanent=True)
