@@ -1012,7 +1012,7 @@ def _validated_external_features(
     external_members = _validated_annotation_members(external_slot_schema(schema))
     if schema is not None and is_external_only_schema(schema):
         return validate_external_features(
-            schema, features, existing, members=external_members
+            schema, features, existing, external_members=external_members
         )
     if schema is not None and is_flat_feature_schema(schema) and otype is None:
         return _validate_flat_external_features(schema, features, existing)
@@ -2609,7 +2609,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb.curators.core import DataFrameCurator
 
             polars_curator = DataFrameCurator(
-                df, schema, features=features, _members=external_members
+                df, schema, features=features, external_members=external_members
             )
             polars_curator.validate()
             df = polars_curator.dataset
@@ -2624,7 +2624,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             # the artifact must be created from the coerced values
             coerced = DataFrameCurator(
-                df, schema, features=features, _members=external_members
+                df, schema, features=features, external_members=external_members
             )
             coerced.validate()
             df = coerced.dataset
@@ -2638,7 +2638,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if lazy is not None:
                 path_suffix = df.suffix
                 polars_curator = DataFrameCurator(
-                    lazy, schema, features=features, _members=external_members
+                    lazy, schema, features=features, external_members=external_members
                 )
                 polars_curator.validate()
                 if _schema_coerces(schema):
@@ -2699,7 +2699,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 curator._artifact = artifact
             else:
                 curator = DataFrameCurator(
-                    artifact, schema, features=features, _members=external_members
+                    artifact,
+                    schema,
+                    features=features,
+                    external_members=external_members,
                 )
                 curator.validate()
             artifact.schema = schema
@@ -2838,7 +2841,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import AnnDataCurator
 
             curator = AnnDataCurator(
-                artifact, schema, features=features, members=external_members
+                artifact, schema, features=features, external_members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -2909,7 +2912,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import MuDataCurator
 
             curator = MuDataCurator(
-                artifact, schema, features=features, members=external_members
+                artifact, schema, features=features, external_members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -3000,7 +3003,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import SpatialDataCurator
 
             curator = SpatialDataCurator(
-                artifact, schema, features=features, members=external_members
+                artifact, schema, features=features, external_members=external_members
             )
             curator.validate()
             artifact.schema = schema
@@ -3076,7 +3079,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..curators import TiledbsomaExperimentCurator
 
             curator = TiledbsomaExperimentCurator(
-                artifact, schema, features=features, members=external_members
+                artifact, schema, features=features, external_members=external_members
             )
             curator.validate()
             artifact.schema = schema

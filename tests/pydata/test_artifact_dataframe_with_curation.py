@@ -444,37 +444,45 @@ def test_artifact_curator_retains_external_members(kind, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "curator_class",
+    "curator_class,member_parameters",
     [
-        SlotsCurator,
-        ComponentCurator,
-        DictCurator,
-        ln.curators.DataFrameCurator,
-        ln.curators.AnnDataCurator,
-        ln.curators.MuDataCurator,
-        ln.curators.SpatialDataCurator,
-        ln.curators.TiledbsomaExperimentCurator,
+        (SlotsCurator, ("external_members",)),
+        (ComponentCurator, ("members",)),
+        (DictCurator, ("members",)),
+        (ln.curators.DataFrameCurator, ("members", "external_members")),
+        (ln.curators.AnnDataCurator, ("external_members",)),
+        (ln.curators.MuDataCurator, ("external_members",)),
+        (ln.curators.SpatialDataCurator, ("external_members",)),
+        (ln.curators.TiledbsomaExperimentCurator, ("external_members",)),
     ],
 )
-def test_curator_members_parameter(curator_class):
+def test_curator_member_parameters(curator_class, member_parameters):
     from inspect import signature
 
-    assert signature(curator_class).parameters["members"].default is None
-    assert "_members" not in signature(curator_class).parameters
+    parameters = signature(curator_class).parameters
+    for name in member_parameters:
+        assert parameters[name].default is None
+    assert {"members", "external_members"} & parameters.keys() == set(member_parameters)
     assert list(signature(curator_class.validate).parameters) == ["self"]
-    with pytest.raises(TypeError, match="unexpected keyword argument 'memebrs'"):
-        curator_class(None, None, members=[], memebrs=[])
+    with pytest.raises(TypeError, match="unexpected keyword argument '_members'"):
+        curator_class(None, None, _members=[])
 
 
 @pytest.mark.parametrize("preloaded", [True, False])
 @pytest.mark.parametrize(
-    "kind", ["slots", "anndata", "mudata", "spatialdata", "tiledbsoma"]
+    "kind", ["slots", "dataframe", "anndata", "mudata", "spatialdata", "tiledbsoma"]
 )
-def test_curator_public_members(kind, preloaded, monkeypatch, tmp_path):
+def test_curator_public_external_members(kind, preloaded, monkeypatch, tmp_path):
     import anndata as ad
 
     if kind == "slots":
         curator_class, dataset, otype = SlotsCurator, {}, None
+    elif kind == "dataframe":
+        curator_class, dataset, otype = (
+            ln.curators.DataFrameCurator,
+            pd.DataFrame({"public_members_column": [1]}),
+            "DataFrame",
+        )
     elif kind == "anndata":
         curator_class, dataset, otype = (
             ln.curators.AnnDataCurator,
@@ -501,22 +509,42 @@ def test_curator_public_members(kind, preloaded, monkeypatch, tmp_path):
 
     annotation = ln.Feature(name="public_members_annotation", dtype=int).save()
     external = ln.Schema([annotation]).save()
-    schema = ln.Schema(otype=otype, slots={"__external__": external}).save()
-    members = list(external.members) if preloaded else None
+    column = None
+    curator_kwargs = {}
+    if kind == "dataframe":
+        column = ln.Feature(name="public_members_column", dtype=int).save()
+        curator_kwargs["members"] = [column]
+    schema = ln.Schema(
+        [column] if column is not None else None,
+        otype=otype,
+        slots={"__external__": external},
+    ).save()
+    external_members = list(external.members) if preloaded else None
     values = {annotation.name: 7}
     member_reads = 0
+    content_member_reads = 0
     original_members = ln.Schema.members.fget
 
     def counted_members(self):
-        nonlocal member_reads
+        nonlocal member_reads, content_member_reads
         if self.pk == external.pk:
             member_reads += 1
+        elif self.pk == schema.pk:
+            content_member_reads += 1
         return original_members(self)
 
     try:
         with monkeypatch.context() as patch:
             patch.setattr(ln.Schema, "members", property(counted_members))
-            curator = curator_class(dataset, schema, features=values, members=members)
+            curator = curator_class(
+                dataset,
+                schema,
+                features=values,
+                external_members=external_members,
+                **curator_kwargs,
+            )
+            # Building column validation rules reuses the separately supplied members.
+            assert content_member_reads == 0
             curator.validate()
             curator.validate()
             assert member_reads == (0 if preloaded else 2)
@@ -531,6 +559,8 @@ def test_curator_public_members(kind, preloaded, monkeypatch, tmp_path):
         schema.delete(permanent=True)
         external.delete(permanent=True)
         annotation.delete(permanent=True)
+        if column is not None:
+            column.delete(permanent=True)
 
 
 def test_from_dataframe_with_external_schema(
