@@ -375,12 +375,12 @@ def test_record_annotation_schema_validation_boundaries():
 def test_record_type_checks_annotation_schema_once(is_type, monkeypatch):
     from unittest.mock import Mock
 
-    from lamindb.models import schema as schema_module
+    from lamindb.curators import core as curator_module
 
     feature = ln.Feature(name="type_schema_check", dtype=float).save()
     schema = ln.Schema([feature]).save()
-    check = Mock(wraps=schema_module._validate_annotation_schema)
-    monkeypatch.setattr(schema_module, "_validate_annotation_schema", check)
+    check = Mock(wraps=curator_module.validate_external_schema)
+    monkeypatch.setattr(curator_module, "validate_external_schema", check)
     try:
         # Passing schema also implies is_type=True when the flag is omitted.
         frame = ln.Record(name="CheckedSchemaType", is_type=is_type, schema=schema)
@@ -408,14 +408,14 @@ def test_record_batch_checks_schema_once_and_values_in_bulk(valid, monkeypatch):
     from unittest.mock import Mock
 
     from django.db import transaction
+    from lamindb.curators import core as curator_module
     from lamindb.curators.core import DataFrameCurator
-    from lamindb.models import schema as schema_module
 
     feature = ln.Feature(name="batch_schema_check", dtype=float, nullable=False).save()
     schema = ln.Schema([feature]).save()
     frame = ln.Record(name="BatchCheckedSchemaType", is_type=True, schema=schema).save()
-    check = Mock(wraps=schema_module._validate_annotation_schema)
-    monkeypatch.setattr(schema_module, "_validate_annotation_schema", check)
+    check = Mock(wraps=curator_module.validate_external_schema)
+    monkeypatch.setattr(curator_module, "validate_external_schema", check)
     validated_sizes = []
     original_validate = DataFrameCurator.validate
 

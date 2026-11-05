@@ -206,8 +206,8 @@ def test_optional_non_nullable_features_require_defaults(minimal_set):
 
 
 @pytest.mark.parametrize("schema_state", ["absent", "unsaved", "saved"])
-def test_annotation_schema_validation_without_members(schema_state):
-    from lamindb.models.schema import _validate_annotation_schema
+def test_external_schema_validation_without_members(schema_state):
+    from lamindb.curators.core import validate_external_schema
 
     schema = None
     if schema_state != "absent":
@@ -216,30 +216,30 @@ def test_annotation_schema_validation_without_members(schema_state):
             schema.save()
     try:
         # Flexible schemas do not declare concrete annotation constraints.
-        assert _validate_annotation_schema(schema) is None
+        assert validate_external_schema(schema) is None
     finally:
         if schema is not None and not schema._state.adding:
             schema.delete(permanent=True)
 
 
-def test_annotation_schema_validation_with_non_feature_members():
-    from lamindb.models.schema import _validate_annotation_schema
+def test_external_schema_validation_with_non_feature_members():
+    from lamindb.curators.core import validate_external_schema
 
     pathway = bt.Pathway(name="annotation_schema_pathway").save()
     schema = ln.Schema([pathway], minimal_set=False).save()
     try:
         # Registry members describe dataset axes, not Feature annotations.
-        assert _validate_annotation_schema(schema) is None
+        assert validate_external_schema(schema) is None
     finally:
         schema.delete(permanent=True)
         pathway.delete(permanent=True)
 
 
 @pytest.mark.parametrize("preloaded", [False, True])
-def test_annotation_schema_validation_avoids_redundant_queries(preloaded):
+def test_external_schema_validation_avoids_redundant_queries(preloaded):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
-    from lamindb.models.schema import _validate_annotation_schema
+    from lamindb.curators.core import validate_external_schema
 
     feature = ln.Feature(
         name="annotation_query_feature", dtype=float, nullable=True
@@ -251,16 +251,16 @@ def test_annotation_schema_validation_avoids_redundant_queries(preloaded):
         members = list(schema.members) if preloaded else None
         with CaptureQueriesContext(connection) as queries:
             if preloaded:
-                _validate_annotation_schema(schema, members=members)
+                validate_external_schema(schema, members=members)
             else:
-                _validate_annotation_schema(schema)
+                validate_external_schema(schema)
         assert len(queries) == 0
         if preloaded:
             member = next(member for member in members if member.uid == feature.uid)
             member.nullable = False
             with CaptureQueriesContext(connection) as queries:
                 with pytest.raises(InvalidArgument, match=feature.name):
-                    _validate_annotation_schema(schema, members=members)
+                    validate_external_schema(schema, members=members)
             assert len(queries) == 0
     finally:
         schema.delete(permanent=True)

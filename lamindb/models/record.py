@@ -1171,7 +1171,7 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        from .schema import _validate_annotation_schema
+        from lamindb.curators.core import validate_external_schema
 
         if len(self._df) == 0:
             return []
@@ -1179,7 +1179,7 @@ class RecordBatch:
         index_feature = None
         if schema is not None:
             index_feature, members = _schema_features(schema)
-            _validate_annotation_schema(schema, members=members)
+            validate_external_schema(schema, members=members)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
@@ -1605,9 +1605,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             logger.important("passing schema, treating as type")
             is_type = True
         if schema is not None:
-            from .schema import _validate_annotation_schema
+            from lamindb.curators.core import validate_external_schema
 
-            _validate_annotation_schema(schema)
+            validate_external_schema(schema)
         super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,

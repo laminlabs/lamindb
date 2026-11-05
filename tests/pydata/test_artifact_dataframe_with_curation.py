@@ -566,16 +566,29 @@ def test_curator_public_external_members(kind, preloaded, monkeypatch, tmp_path)
 
 
 @pytest.mark.parametrize("preloaded", [False, True])
-def test_validate_annotations(preloaded, monkeypatch):
-    from lamindb.curators.core import _validate_annotations
+@pytest.mark.parametrize("kind", ["external_slot", "flat"])
+def test_external_value_validation_does_not_check_schema(kind, preloaded, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.curators import core as curator_module
+    from lamindb.models.artifact import _validate_flat_external_features
 
     feature = ln.Feature(
-        name="shared_annotation_check", dtype=int, nullable=False, default_value=7
+        name="separate_annotation_check", dtype=int, nullable=False
     ).save()
     schema = ln.Schema([feature.with_config(optional=True)]).save()
+    parent = ln.Schema(slots={"__external__": schema}).save()
     members = list(schema.members) if preloaded else None
     member_reads = 0
     original_members = ln.Schema.members.fget
+    check = Mock(wraps=curator_module.validate_external_schema)
+
+    def validate_values(values):
+        if kind == "external_slot":
+            return curator_module.validate_external_features(
+                parent, values, external_members=members
+            )
+        return _validate_flat_external_features(schema, values, None, members=members)
 
     def counted_members(self):
         nonlocal member_reads
@@ -586,26 +599,51 @@ def test_validate_annotations(preloaded, monkeypatch):
     try:
         with monkeypatch.context() as patch:
             patch.setattr(ln.Schema, "members", property(counted_members))
-            _validate_annotations(schema, {feature.name: 8}, members=members)
+            patch.setattr(curator_module, "validate_external_schema", check)
+            # Valid values pass even though this definition is invalid for annotations.
+            assert validate_values({feature.name: 8}) == {feature.name: 8}
             assert member_reads == (0 if preloaded else 1)
 
             with pytest.raises(ln.errors.ValidationError):
-                _validate_annotations(
-                    schema, {feature.name: "not-an-integer"}, members=members
-                )
+                validate_values({feature.name: "not-an-integer"})
             assert member_reads == (0 if preloaded else 2)
+            check.assert_not_called()
 
-            # An invalid definition is rejected even when its value is valid.
-            if preloaded:
-                members[0].default_value = None
-            else:
-                feature.default_value = None
-                feature.save()
+            # Schema validation remains a separate call and can reuse the members.
             with pytest.raises(ln.errors.InvalidArgument, match=feature.name):
-                _validate_annotations(schema, {feature.name: 8}, members=members)
+                curator_module.validate_external_schema(schema, members=members)
+            check.assert_called_once_with(schema, members=members)
             assert member_reads == (0 if preloaded else 3)
     finally:
+        parent.delete(permanent=True)
         schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_slots_curator_checks_schema_before_values(preloaded, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.curators import core as curator_module
+
+    feature = ln.Feature(name="schema_before_values", dtype=int, nullable=False).save()
+    external = ln.Schema([feature.with_config(optional=True)]).save()
+    schema = ln.Schema(slots={"__external__": external}).save()
+    check_values = Mock(wraps=curator_module.validate_external_features)
+    monkeypatch.setattr(curator_module, "validate_external_features", check_values)
+    try:
+        curator = SlotsCurator(
+            {},
+            schema,
+            features={feature.name: "not-an-integer"},
+            external_members=list(external.members) if preloaded else None,
+        )
+        with pytest.raises(ln.errors.InvalidArgument, match=feature.name):
+            curator.validate()
+        check_values.assert_not_called()
+    finally:
+        schema.delete(permanent=True)
+        external.delete(permanent=True)
         feature.delete(permanent=True)
 
 

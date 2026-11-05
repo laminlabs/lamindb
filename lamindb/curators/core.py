@@ -54,11 +54,7 @@ from lamindb.models.feature import (
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
-from lamindb.models.schema import (
-    EXTERNAL_SLOT,
-    _validate_annotation_schema,
-    external_slot_schema,
-)
+from lamindb.models.schema import EXTERNAL_SLOT, external_slot_schema
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -637,11 +633,17 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        slot_schema = external_slot_schema(self._schema)
+        external_members = self._external_members
+        if slot_schema is not None:
+            if external_members is None:
+                external_members = list(slot_schema.members)
+            validate_external_schema(slot_schema, members=external_members)
         external_features = validate_external_features(
             self._schema,
             self._external_features,
             self._artifact,
-            external_members=self._external_members,
+            external_members=external_members,
         )
         if external_features is not None:
             self._external_features = external_features
@@ -1520,23 +1522,56 @@ class DictCurator(DataFrameCurator):
         self._atomic_curator.cat._validate_columns = validate_keys
 
 
-def _validate_annotations(
-    schema: Schema,
-    features: dict[str, Any],
+def validate_external_schema(
+    schema: Schema | None,
     *,
     members: list[Feature] | None = None,
 ) -> None:
-    """Validate an annotation schema definition and its feature values.
+    """Reject optional, non-nullable annotation features without defaults.
 
-    `schema` is the annotation schema itself, rather than its parent with an
-    `__external__` slot. Optional `members` must match `list(schema.members)`;
-    supplying them avoids loading the definitions again. The same definitions
-    are used for both checks.
+    Dataset columns may be absent without introducing null cells. Annotations
+    are rows in a shared table, so an omitted feature can become a null on export.
+    Excludes the schema index and features supplied through `values_through`.
+
+    Args:
+        schema: The annotation schema itself, rather than its parent with an
+            `__external__` slot. Callers decide whether it is used for annotations.
+        members: Optional performance optimization: reuse already loaded feature
+            definitions. Must match `list(schema.members)`. These can be shared
+            with value validation to avoid loading them again.
     """
-    if members is None:
-        members = list(schema.members)
-    _validate_annotation_schema(schema, members=members)
-    DictCurator(features, schema, members=members).validate()
+    if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
+        return
+    optional_uids = set(schema.optionals.get_uids())
+    if schema.minimal_set and not optional_uids:
+        return
+    features = list(schema.members) if members is None else members
+    if not features or not isinstance(features[0], Feature):
+        return
+    from lamindb.models.record import (
+        get_feature_sqlrecord_field,
+        get_feature_values_through_source_uid,
+    )
+
+    index_uid = schema._index_feature_uid
+    invalid_features = [
+        feature.name
+        for feature in features
+        if (
+            (not schema.minimal_set or feature.uid in optional_uids)
+            and not feature.nullable
+            and feature.default_value is None
+            and feature.uid != index_uid
+            # Exclude both forms of values_through: record fields and reverse relations.
+            and get_feature_sqlrecord_field(feature) is None
+            and get_feature_values_through_source_uid(feature) is None
+        )
+    ]
+    if invalid_features:
+        names = ", ".join(repr(name) for name in invalid_features)
+        raise InvalidArgument(
+            f"Optional non-nullable features without a default_value: {names}."
+        )
 
 
 def validate_external_features(
@@ -1546,7 +1581,7 @@ def validate_external_features(
     *,
     external_members: list[Feature] | None = None,
 ) -> dict[str, Any] | None:
-    """Validate the definition and values of a schema's `__external__` slot.
+    """Validate feature values against a schema's `__external__` slot.
 
     Returns the feature dictionary when the slot exists, including values read
     from a saved artifact when none were passed. Returns `None` when the schema
@@ -1575,7 +1610,7 @@ def validate_external_features(
             raise ValidationError(
                 "External features slot is defined in schema but no external features were provided."
             )
-    _validate_annotations(slot_schema, features, members=external_members)
+    DictCurator(features, slot_schema, members=external_members).validate()
     return features
 
 

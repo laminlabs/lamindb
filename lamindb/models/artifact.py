@@ -89,6 +89,7 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import (
     Schema,
+    external_slot_schema,
     is_external_only_schema,
     is_flat_feature_schema,
     schema_requires_content_curator,
@@ -960,9 +961,11 @@ def _validate_flat_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
     existing: Artifact | None,
+    *,
+    members: list[Feature] | None = None,
 ) -> dict[str, Any]:
     """Validate a flat feature schema as external metadata."""
-    from lamindb.curators.core import _validate_annotations
+    from lamindb.curators.core import DictCurator
 
     if not features:
         if existing is not None and not existing._state.adding:
@@ -977,7 +980,7 @@ def _validate_flat_external_features(
                 "Pass features={...} to validate external metadata, or use "
                 "Artifact.from_dataframe() to validate dataset content."
             )
-    _validate_annotations(schema, features)
+    DictCurator(features, schema, members=members).validate()
     return features
 
 
@@ -995,14 +998,29 @@ def _validated_external_features(
     refused when no feature values are available. Content schemas are rejected
     before this runs.
     """
-    from lamindb.curators.core import _validate_annotations, validate_external_features
+    from lamindb.curators.core import (
+        DictCurator,
+        validate_external_features,
+        validate_external_schema,
+    )
 
     if schema is not None and is_external_only_schema(schema):
-        return validate_external_features(schema, features, existing)
+        slot_schema = external_slot_schema(schema)
+        members = list(slot_schema.members)
+        validate_external_schema(slot_schema, members=members)
+        return validate_external_features(
+            schema, features, existing, external_members=members
+        )
     if schema is not None and is_flat_feature_schema(schema) and otype is None:
-        return _validate_flat_external_features(schema, features, existing)
+        members = list(schema.members)
+        validate_external_schema(schema, members=members)
+        return _validate_flat_external_features(
+            schema, features, existing, members=members
+        )
     if features is not None and schema is not None:
-        _validate_annotations(schema, features)
+        members = list(schema.members)
+        validate_external_schema(schema, members=members)
+        DictCurator(features, schema, members=members).validate()
     return features
 
 

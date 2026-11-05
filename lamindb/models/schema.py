@@ -91,53 +91,6 @@ def validate_features(features: list[SQLRecord]) -> SQLRecord:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def _validate_annotation_schema(
-    schema: Schema | None,
-    *,
-    members: list[Feature] | None = None,
-) -> None:
-    """Reject optional, non-nullable annotation features without defaults.
-
-    Dataset columns may be absent without introducing null cells. Annotations
-    are rows in a shared table, so an omitted feature can become a null on export.
-    Excludes the schema index and features supplied through `values_through`.
-    Callers decide whether the schema is used for annotations. Preloaded members
-    can be shared with value validation; no host object or values are inspected.
-    """
-    if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
-        return
-    optional_uids = set(schema.optionals.get_uids())
-    if schema.minimal_set and not optional_uids:
-        return
-    features = list(schema.members) if members is None else members
-    if not features or not isinstance(features[0], Feature):
-        return
-    from .record import (
-        get_feature_sqlrecord_field,
-        get_feature_values_through_source_uid,
-    )
-
-    index_uid = schema._index_feature_uid
-    invalid_features = [
-        feature.name
-        for feature in features
-        if (
-            (not schema.minimal_set or feature.uid in optional_uids)
-            and not feature.nullable
-            and feature.default_value is None
-            and feature.uid != index_uid
-            # Exclude both forms of values_through: record fields and reverse relations.
-            and get_feature_sqlrecord_field(feature) is None
-            and get_feature_values_through_source_uid(feature) is None
-        )
-    ]
-    if invalid_features:
-        names = ", ".join(repr(name) for name in invalid_features)
-        raise InvalidArgument(
-            f"Optional non-nullable features without a default_value: {names}."
-        )
-
-
 def _resolve_pks_on_instance(
     registry: type[SQLRecord], uids: list[str], using: str | None
 ) -> list[int]:
