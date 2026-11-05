@@ -593,11 +593,6 @@ class SlotsCurator(Curator):
     Args:
         dataset: The dataset to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        features: External annotation values, keyed by feature name.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
     """
 
     def __init__(
@@ -1329,16 +1324,6 @@ class DataFrameCurator(SlotsCurator):
             The validated/coerced frame is available through `dataset`.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
-        features: External annotation values, keyed by feature name.
-        members: Optional performance optimization: reuse already loaded feature
-            definitions when building validation rules for the dataframe's columns.
-            These follow schema order and are normally obtained with
-            `list(schema.members)`. Column-name validation may still query members.
-            Normally omit this argument and let the curator load the definitions.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
         require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
@@ -1527,11 +1512,12 @@ def validate_external_schema(
     *,
     members: list[Feature] | None = None,
 ) -> None:
-    """Reject optional, non-nullable annotation features without defaults.
+    """Validate that a schema definition is suitable for external annotations.
 
-    Dataset columns may be absent without introducing null cells. Annotations
-    are rows in a shared table, so an omitted feature can become a null on export.
-    Excludes the schema index and features supplied through `values_through`.
+    Optional, non-nullable features must have a default value because an omitted
+    annotation can become a null on export. The schema index and features supplied
+    through `values_through` are exempt. Dataset columns may be optional and
+    non-nullable: an absent column does not introduce null cells.
 
     Args:
         schema: The annotation schema itself, rather than its parent with an
@@ -1540,6 +1526,9 @@ def validate_external_schema(
             definitions. Must match `list(schema.members)`. These can be shared
             with value validation to avoid loading them again.
     """
+    # Unsaved schemas without concrete members have no `_features`, which
+    # `schema.members` needs in that state. Skip them instead of raising
+    # AttributeError; concrete unsaved schemas can still be checked in memory.
     if schema is None or (schema._state.adding and not hasattr(schema, "_features")):
         return
     optional_uids = set(schema.optionals.get_uids())
@@ -1721,10 +1710,6 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
 
     Examples:
 
@@ -1845,10 +1830,6 @@ class MuDataCurator(SlotsCurator):
         dataset: The MuData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
 
     Example:
         .. literalinclude:: scripts/curate_mudata.py
@@ -1946,10 +1927,6 @@ class SpatialDataCurator(SlotsCurator):
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
 
     Example:
         .. literalinclude:: scripts/curate_spatialdata.py
@@ -2066,10 +2043,6 @@ class TiledbsomaExperimentCurator(SlotsCurator):
         dataset: The `tiledbsoma.Experiment` object.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         features: External feature values for the `__external__` slot.
-        external_members: Optional performance optimization: reuse already loaded
-            feature definitions to avoid querying the schema members again. Must match
-            `list(schema.slots["__external__"].members)`, including their order.
-            Normally omit this argument and let the curator load the definitions.
 
     Example:
 

@@ -117,9 +117,9 @@ def _with_index_feature(
 def _schema_features(schema: Schema) -> tuple[Feature | None, list[Feature]]:
     """Index feature and schema members, fetched once per schema instance.
 
-    `schema.index` queries `Feature` and `schema.members` queries the link
+    ``schema.index`` queries ``Feature`` and ``schema.members`` queries the link
     table. Batch import checks one record per row. The cache is dropped when the
-    index uid changes.
+    index uid changes; adding a member on this same instance does not.
     """
     index_uid = schema._index_feature_uid
     cached = schema.__dict__.get("_type_check_features")

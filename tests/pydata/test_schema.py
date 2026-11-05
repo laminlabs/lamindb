@@ -222,6 +222,26 @@ def test_external_schema_validation_without_members(schema_state):
             schema.delete(permanent=True)
 
 
+def test_external_schema_validation_checks_unsaved_concrete_members():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from lamindb.curators.core import validate_external_schema
+
+    feature = ln.Feature(
+        name="unsaved_optional_annotation", dtype=float, nullable=False
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)])
+    try:
+        assert schema._state.adding
+        assert hasattr(schema, "_features")
+        with CaptureQueriesContext(connection) as queries:
+            with pytest.raises(InvalidArgument, match=feature.name):
+                validate_external_schema(schema)
+        assert len(queries) == 0
+    finally:
+        feature.delete(permanent=True)
+
+
 def test_external_schema_validation_with_non_feature_members():
     from lamindb.curators.core import validate_external_schema
 
