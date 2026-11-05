@@ -298,13 +298,13 @@ def test_optional_non_nullable_external_schema(context, tmp_path):
         with pytest.raises(ln.errors.InvalidArgument, match="optional_external_ph"):
             construct()
         if context == "dataset_external_slot":
-            # Standalone curation retains its value-validation behavior. The new
-            # definition check belongs to construction of the artifact itself.
-            ln.curators.DataFrameCurator(
-                pd.DataFrame({required.name: ["sample-1"]}),
-                schema=wrapper,
-                features={required.name: "sample-1", strict.name: 7.0},
-            ).validate()
+            # Standalone curation uses the same annotation checks as artifacts.
+            with pytest.raises(ln.errors.InvalidArgument, match="optional_external_ph"):
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame({required.name: ["sample-1"]}),
+                    schema=wrapper,
+                    features={required.name: "sample-1", strict.name: 7.0},
+                ).validate()
         strict.default_value = 0.0
         strict.save()
         assert construct().schema == (wrapper or external)
@@ -364,7 +364,7 @@ def test_optional_non_nullable_dataset_schema(otype):
 @pytest.mark.parametrize(
     "kind", ["dataframe", "coerced_dataframe", "polars", "anndata", "mudata"]
 )
-def test_artifact_curator_retains_external_members(kind, monkeypatch):
+def test_artifact_annotation_validation_reuses_members(kind, monkeypatch):
     import anndata as ad
 
     if kind == "polars":
@@ -424,17 +424,19 @@ def test_artifact_curator_retains_external_members(kind, monkeypatch):
                     schema=schema,
                     features=values,
                 )
-            assert member_reads == 1
+            # The pandas coercion path validates before and after serialization.
+            initial_reads = 2 if kind == "coerced_dataframe" else 1
+            assert member_reads == initial_reads
             curator = artifact._curator
             curator.validate()
             curator.validate()
-            assert member_reads == 1
+            assert member_reads == initial_reads + 2
 
-            # Reusing definitions must still validate the current annotation values.
+            # Each validation must still check the current annotation values.
             values[annotation.name] = "not-an-integer"
             with pytest.raises(ln.errors.ValidationError):
                 curator.validate()
-            assert member_reads == 1
+            assert member_reads == initial_reads + 3
     finally:
         schema.delete(permanent=True)
         content.delete(permanent=True)
@@ -561,6 +563,85 @@ def test_curator_public_external_members(kind, preloaded, monkeypatch, tmp_path)
         annotation.delete(permanent=True)
         if column is not None:
             column.delete(permanent=True)
+
+
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_validate_annotations(preloaded, monkeypatch):
+    from lamindb.curators.core import _validate_annotations
+
+    feature = ln.Feature(
+        name="shared_annotation_check", dtype=int, nullable=False, default_value=7
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)]).save()
+    members = list(schema.members) if preloaded else None
+    member_reads = 0
+    original_members = ln.Schema.members.fget
+
+    def counted_members(self):
+        nonlocal member_reads
+        if self.pk == schema.pk:
+            member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            _validate_annotations(schema, {feature.name: 8}, members=members)
+            assert member_reads == (0 if preloaded else 1)
+
+            with pytest.raises(ln.errors.ValidationError):
+                _validate_annotations(
+                    schema, {feature.name: "not-an-integer"}, members=members
+                )
+            assert member_reads == (0 if preloaded else 2)
+
+            # An invalid definition is rejected even when its value is valid.
+            if preloaded:
+                members[0].default_value = None
+            else:
+                feature.default_value = None
+                feature.save()
+            with pytest.raises(ln.errors.InvalidArgument, match=feature.name):
+                _validate_annotations(schema, {feature.name: 8}, members=members)
+            assert member_reads == (0 if preloaded else 3)
+    finally:
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def test_existing_csv_keeps_schema_when_validation_is_skipped(tmp_path):
+    annotation = ln.Feature(name="existing_csv_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    original_schema = ln.Schema(slots={"__external__": external}).save()
+    strict = ln.Feature(name="unused_csv_annotation", dtype=int, nullable=False).save()
+    invalid_external = ln.Schema([strict.with_config(optional=True)]).save()
+    # A flexible content schema keeps file validation on the pandas path.
+    requested_schema = ln.Schema(
+        itype=ln.Feature, otype="DataFrame", slots={"__external__": invalid_external}
+    ).save()
+    path = tmp_path / "existing.csv"
+    path.write_text("value\n1\n")
+    artifact = ln.Artifact(
+        path,
+        key="existing.csv",
+        schema=original_schema,
+        features={annotation.name: 1},
+    ).save()
+    try:
+        existing = ln.Artifact.from_dataframe(
+            path, key="existing.csv", schema=requested_schema
+        )
+        assert existing.pk == artifact.pk
+        assert existing.schema == original_schema
+        assert ln.Artifact.get(id=artifact.id).schema == original_schema
+    finally:
+        artifact.delete(permanent=True)
+        requested_schema.delete(permanent=True)
+        original_schema.delete(permanent=True)
+        invalid_external.delete(permanent=True)
+        external.delete(permanent=True)
+        strict.delete(permanent=True)
+        annotation.delete(permanent=True)
 
 
 def test_from_dataframe_with_external_schema(

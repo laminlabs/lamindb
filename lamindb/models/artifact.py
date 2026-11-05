@@ -89,8 +89,6 @@ from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import (
     Schema,
-    _validate_annotation_schema,
-    external_slot_schema,
     is_external_only_schema,
     is_flat_feature_schema,
     schema_requires_content_curator,
@@ -958,24 +956,14 @@ def _reject_unvalidated_feature_schema(
     )
 
 
-def _validated_annotation_members(schema: Schema | None) -> list[Feature] | None:
-    """Load an annotation definition once for definition and value validation."""
-    if schema is None:
-        return None
-    members = list(schema.members)
-    _validate_annotation_schema(schema, members=members)
-    return members
-
-
 def _validate_flat_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
     existing: Artifact | None,
 ) -> dict[str, Any]:
     """Validate a flat feature schema as external metadata."""
-    from lamindb.curators.core import DictCurator
+    from lamindb.curators.core import _validate_annotations
 
-    members = _validated_annotation_members(schema)
     if not features:
         if existing is not None and not existing._state.adding:
             logger.important(
@@ -989,7 +977,7 @@ def _validate_flat_external_features(
                 "Pass features={...} to validate external metadata, or use "
                 "Artifact.from_dataframe() to validate dataset content."
             )
-    DictCurator(features, schema, members=members).validate()
+    _validate_annotations(schema, features)
     return features
 
 
@@ -1007,18 +995,14 @@ def _validated_external_features(
     refused when no feature values are available. Content schemas are rejected
     before this runs.
     """
-    from lamindb.curators.core import DictCurator, validate_external_features
+    from lamindb.curators.core import _validate_annotations, validate_external_features
 
-    external_members = _validated_annotation_members(external_slot_schema(schema))
     if schema is not None and is_external_only_schema(schema):
-        return validate_external_features(
-            schema, features, existing, external_members=external_members
-        )
+        return validate_external_features(schema, features, existing)
     if schema is not None and is_flat_feature_schema(schema) and otype is None:
         return _validate_flat_external_features(schema, features, existing)
     if features is not None and schema is not None:
-        members = _validated_annotation_members(schema)
-        DictCurator(features, schema, members=members).validate()
+        _validate_annotations(schema, features)
     return features
 
 
@@ -2597,20 +2581,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb import examples
 
             schema = examples.schemas.valid_features()
-        external_members: list[Feature] | None = None
-        if isinstance(schema, Schema):
-            external_members = _validated_annotation_members(
-                external_slot_schema(schema)
-            )
-
         polars_curator = None
         # df is a Polars DataFrame or LazyFrame
         if is_polars and schema is not None:
             from lamindb.curators.core import DataFrameCurator
 
-            polars_curator = DataFrameCurator(
-                df, schema, features=features, external_members=external_members
-            )
+            polars_curator = DataFrameCurator(df, schema, features=features)
             polars_curator.validate()
             df = polars_curator.dataset
         # df is a pandas DataFrame; validate only when the schema coerces values
@@ -2623,9 +2599,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb.curators.core import DataFrameCurator
 
             # the artifact must be created from the coerced values
-            coerced = DataFrameCurator(
-                df, schema, features=features, external_members=external_members
-            )
+            coerced = DataFrameCurator(df, schema, features=features)
             coerced.validate()
             df = coerced.dataset
         # df is a local or remote .parquet, .csv, or .tsv path
@@ -2637,9 +2611,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             lazy = _scan_dataframe_file(df)
             if lazy is not None:
                 path_suffix = df.suffix
-                polars_curator = DataFrameCurator(
-                    lazy, schema, features=features, external_members=external_members
-                )
+                polars_curator = DataFrameCurator(lazy, schema, features=features)
                 polars_curator.validate()
                 if _schema_coerces(schema):
                     # replace the path with the coerced frame and store that instead
@@ -2698,12 +2670,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 curator = polars_curator
                 curator._artifact = artifact
             else:
-                curator = DataFrameCurator(
-                    artifact,
-                    schema,
-                    features=features,
-                    external_members=external_members,
-                )
+                curator = DataFrameCurator(artifact, schema, features=features)
                 curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2803,12 +2770,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
-        external_members: list[Feature] | None = None
-        if isinstance(schema, Schema):
-            external_members = _validated_annotation_members(
-                external_slot_schema(schema)
-            )
-
         to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
             path=adata,
@@ -2840,9 +2801,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import AnnDataCurator
 
-            curator = AnnDataCurator(
-                artifact, schema, features=features, external_members=external_members
-            )
+            curator = AnnDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2889,11 +2848,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if not data_is_scversedatastructure(mdata, "MuData"):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
-        external_members: list[Feature] | None = None
-        if isinstance(schema, Schema):
-            external_members = _validated_annotation_members(
-                external_slot_schema(schema)
-            )
         artifact = Artifact(  # type: ignore
             path=mdata,
             key=key,
@@ -2911,9 +2865,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import MuDataCurator
 
-            curator = MuDataCurator(
-                artifact, schema, features=features, external_members=external_members
-            )
+            curator = MuDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2980,11 +2932,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SpatialData object or a path to SpatialData-like"
             )
-        external_members: list[Feature] | None = None
-        if isinstance(schema, Schema):
-            external_members = _validated_annotation_members(
-                external_slot_schema(schema)
-            )
         artifact = Artifact(  # type: ignore
             path=sdata,
             key=key,
@@ -3002,9 +2949,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import SpatialDataCurator
 
-            curator = SpatialDataCurator(
-                artifact, schema, features=features, external_members=external_members
-            )
+            curator = SpatialDataCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -3046,12 +2991,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 "data has to be a SOMA Experiment object or a path to SOMA Experiment store."
             )
-        external_members: list[Feature] | None = None
-        if isinstance(schema, Schema):
-            external_members = _validated_annotation_members(
-                external_slot_schema(schema)
-            )
-
         # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
         # Other URI schemes (s3://, etc.) are preserved and supported.
         exp = (
@@ -3078,9 +3017,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import TiledbsomaExperimentCurator
 
-            curator = TiledbsomaExperimentCurator(
-                artifact, schema, features=features, external_members=external_members
-            )
+            curator = TiledbsomaExperimentCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator

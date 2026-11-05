@@ -54,7 +54,11 @@ from lamindb.models.feature import (
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
-from lamindb.models.schema import EXTERNAL_SLOT, external_slot_schema
+from lamindb.models.schema import (
+    EXTERNAL_SLOT,
+    _validate_annotation_schema,
+    external_slot_schema,
+)
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -1516,6 +1520,25 @@ class DictCurator(DataFrameCurator):
         self._atomic_curator.cat._validate_columns = validate_keys
 
 
+def _validate_annotations(
+    schema: Schema,
+    features: dict[str, Any],
+    *,
+    members: list[Feature] | None = None,
+) -> None:
+    """Validate an annotation schema definition and its feature values.
+
+    `schema` is the annotation schema itself, rather than its parent with an
+    `__external__` slot. Optional `members` must match `list(schema.members)`;
+    supplying them avoids loading the definitions again. The same definitions
+    are used for both checks.
+    """
+    if members is None:
+        members = list(schema.members)
+    _validate_annotation_schema(schema, members=members)
+    DictCurator(features, schema, members=members).validate()
+
+
 def validate_external_features(
     schema: Schema,
     features: dict[str, Any] | None,
@@ -1523,7 +1546,7 @@ def validate_external_features(
     *,
     external_members: list[Feature] | None = None,
 ) -> dict[str, Any] | None:
-    """Validate features against a schema's `__external__` slot.
+    """Validate the definition and values of a schema's `__external__` slot.
 
     Returns the feature dictionary when the slot exists, including values read
     from a saved artifact when none were passed. Returns `None` when the schema
@@ -1552,7 +1575,7 @@ def validate_external_features(
             raise ValidationError(
                 "External features slot is defined in schema but no external features were provided."
             )
-    DictCurator(features, slot_schema, members=external_members).validate()
+    _validate_annotations(slot_schema, features, members=external_members)
     return features
 
 
