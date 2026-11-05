@@ -1004,23 +1004,26 @@ def _validated_external_features(
         validate_external_schema,
     )
 
-    if schema is not None and is_external_only_schema(schema):
-        slot_schema = external_slot_schema(schema)
-        members = list(slot_schema.members)
-        validate_external_schema(slot_schema, members=members)
+    if schema is None:
+        return features
+    external_only = is_external_only_schema(schema)
+    flat_external = otype is None and is_flat_feature_schema(schema)
+    if features is None and not external_only and not flat_external:
+        return None
+
+    annotation_schema = external_slot_schema(schema) if external_only else schema
+    members = list(annotation_schema.members)
+    validate_external_schema(annotation_schema, members=members)
+
+    if external_only:
         return validate_external_features(
             schema, features, existing, external_members=members
         )
-    if schema is not None and is_flat_feature_schema(schema) and otype is None:
-        members = list(schema.members)
-        validate_external_schema(schema, members=members)
+    if flat_external:
         return _validate_flat_external_features(
             schema, features, existing, members=members
         )
-    if features is not None and schema is not None:
-        members = list(schema.members)
-        validate_external_schema(schema, members=members)
-        DictCurator(features, schema, members=members).validate()
+    DictCurator(features, schema, members=members).validate()
     return features
 
 
