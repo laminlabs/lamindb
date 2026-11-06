@@ -115,7 +115,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: |
-            ${{ matrix.group == 'tiledbsoma' && '3.13' ||
+            ${{ matrix.group == 'minimal' && '3.11' ||
+                matrix.group == 'tiledbsoma' && '3.13' ||
                 matrix.group == 'permissions' && '3.14' ||
                 github.ref == 'refs/heads/release' && '3.12' ||
                 '3.14'

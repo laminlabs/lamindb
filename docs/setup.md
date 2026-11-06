@@ -1,6 +1,10 @@
 # Install & setup
 
-To install LaminDB on ![pyversions](https://img.shields.io/pypi/pyversions/lamindb) with data-science-related dependencies, run:
+LaminDB requires Python 3.11 or newer.
+
+Starting with the next release, `lamindb` and `lamindb-core` no longer support Python 3.10. Upgrade Python before upgrading LaminDB. This allows Zarr users to install security-patched Numcodecs.
+
+To install LaminDB with data-science-related dependencies, run:
 
 ```shell
 pip install lamindb
