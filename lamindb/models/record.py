@@ -1672,10 +1672,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
 
-        New records use the type's enforced space, then `ln.context.space`, then
-        an explicitly configured `ln.setup.settings.space`, and finally the type's
-        own space. Selecting `all` explicitly also overrides type-space inheritance.
-        This method has no per-record `space` argument.
+        Space is inferred in this order: the type's enforced space,
+        `ln.context.space`, an explicitly configured `ln.setup.settings.space`,
+        and finally the type's own space.
 
         When the target record frame schema defines :attr:`~lamindb.Schema.index`, the index
         feature may be passed on `df.index` (named after the feature) or as a column.
