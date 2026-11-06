@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -1295,7 +1295,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
-        space_is_implicit = False
+        # Keep space kwargs intact when space resolution is skipped.
+        has_explicit_space = True
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
 
@@ -1336,7 +1337,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         current_space = None
 
                     if not has_explicit_space:
-                        space_is_implicit = True
                         policy_space = None
                         type_record = kwargs.get("type")
                         if isinstance(type_record, HasType):
@@ -1411,8 +1411,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
                             init_self_from_db(self, existing_record)
-                            # Space defaults apply to new records, not reused ones.
-                            if space_is_implicit:
+                            if not has_explicit_space:
                                 kwargs.pop("space", None)
                             update_attributes(self, kwargs)
                             # track original values after replacing with the existing record
@@ -1858,7 +1857,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_summarize=True,
                 )
             if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 
@@ -2001,9 +2000,6 @@ class Space(BaseSQLRecord):
     If not configuring a restricted space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators
     of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
     You can create a restricted space through LaminHub either on the instance settings page or the *Spaces* tab of your account page.
-
-    When a constructor reuses an existing record by name, omitting `space` preserves that record's space.
-    Space defaults apply to new records. Passing `space` or `space_id` explicitly can update a reused record's space.
 
     Guide: :doc:`docs:permissions`.
 

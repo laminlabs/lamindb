@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -1259,7 +1259,7 @@ def test_record_feature_values_through_store_on_record_columns():
     assert mapped_created_at._aux["sf"] == "created_at"
     assert mapped_created_at._aux.get("vf") is None
     current_user = ln.User.filter(id=ln.setup.settings.user.id).one()
-    ts = datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc)
+    ts = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
     record = ln.Record(
         features={
@@ -1333,7 +1333,7 @@ def test_record_feature_values_through_store_on_record_columns():
     assert "row description" in describe_str
     assert str(expected_created_by) in describe_str
 
-    ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=timezone.utc)
+    ts_2 = datetime(2026, 1, 3, 3, 4, tzinfo=UTC)
     record.features.set_values(
         {
             "source_created_at": ts_2,
@@ -2355,7 +2355,7 @@ def test_single_space_enforces_type_space_or_specific_space():
 
 
 def test_single_space_getter_setter_paths():
-    suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    suffix = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
     constrained_type = ln.Record(name=f"SingleSpaceType-{suffix}", is_type=True).save()
     restricted_space = ln.Space(name=f"single-space-{suffix}").save()
 
@@ -3083,7 +3083,7 @@ def test_timezone_aware_datetime_feature():
     test_sheet = ln.Record(
         name="TestSheetDatetimeTZ", is_type=True, schema=schema
     ).save()
-    timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     record = ln.Record(
         name="test_record_datetime_tz",
         type=test_sheet,
