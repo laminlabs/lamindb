@@ -1,6 +1,6 @@
 # Install & setup
 
-To install LaminDB on ![pyversions](https://img.shields.io/pypi/pyversions/lamindb) with data-science-related dependencies, run:
+LaminDB requires Python 3.11 or newer. To install with data-science-related dependencies, run:
 
 ```shell
 pip install lamindb

@@ -1,3 +1,5 @@
+import json
+import pickle
 import shutil
 from pathlib import Path
 
@@ -83,3 +85,96 @@ def test_zarr_upload_cache(get_small_adata):
     artifact.delete(permanent=True, storage=True)
 
     ln.settings.storage = previous_storage
+
+
+@pytest.mark.parametrize(
+    "codec_version, allowed",
+    [
+        ("0.15.1", False),
+        ("0.15.2", True),
+        ("0.16.5", False),
+        ("0.16.6", True),
+        ("0.17.0", False),
+        ("0.17.1", True),
+    ],
+)
+def test_zarr_requires_patched_numcodecs(monkeypatch, tmp_path, codec_version, allowed):
+    from lamindb.core.storage import _zarr
+
+    monkeypatch.setattr(_zarr, "get_version", lambda package: codec_version)
+    if allowed:
+        assert _zarr.get_zarr_store(tmp_path) == str(tmp_path)
+    else:
+        with pytest.raises(ImportError, match="security-patched numcodecs"):
+            _zarr.get_zarr_store(tmp_path)
+
+
+@pytest.mark.parametrize("backed", [False, True])
+def test_zarr_rejects_pickle(tmp_path, get_small_adata, backed):
+    import numcodecs.errors
+    import zarr
+    from lamindb.core.loaders import load_to_memory
+    from lamindb.core.storage._backed_access import backed_access
+    from lamindb.core.storage._zarr import IS_ZARR_V3
+    from lamindb_setup.core.upath import UPath
+
+    path = tmp_path / "data.zarr"
+    if IS_ZARR_V3:
+        with ad.settings.override(zarr_write_format=2):
+            get_small_adata.write_zarr(path)
+    else:
+        get_small_adata.write_zarr(path)
+
+    def read():
+        if backed:
+            with backed_access(UPath(path)) as accessor:
+                return accessor.X, accessor.uns
+        adata = load_to_memory(path)
+        return adata.X, adata.uns
+
+    # Ordinary numeric and string data still read through the same entry points.
+    np.testing.assert_array_equal(read()[0], get_small_adata.X)
+    marker = tmp_path / "executed"
+
+    class Payload:
+        def __reduce__(self):
+            return Path.touch, (marker,)
+
+    # A v2 object array whose codec and chunk are both controlled by the store.
+    evil = path / "uns" / "evil"
+    evil.mkdir(parents=True)
+    (evil / ".zarray").write_text(
+        json.dumps(
+            {
+                "zarr_format": 2,
+                "shape": [1],
+                "chunks": [1],
+                "dtype": "|O",
+                "compressor": None,
+                "fill_value": None,
+                "order": "C",
+                "filters": [{"id": "pickle", "protocol": 4}],
+            }
+        )
+    )
+    (evil / ".zattrs").write_text(
+        json.dumps(
+            {
+                "encoding-type": "array",
+                "encoding-version": "0.2.0",
+            }
+        )
+    )
+    (evil / "0").write_bytes(
+        pickle.dumps(np.array([Payload()], dtype=object), protocol=4)
+    )
+    # Force readers to see the new array instead of older consolidated metadata.
+    (path / ".zmetadata").unlink(missing_ok=True)
+    disabled = getattr(
+        zarr.errors, "PickleCodecDisabledError", numcodecs.errors.UnsafeDecodeError
+    )
+    # Zarr 3 can reject pickle object dtypes while parsing metadata, before decode.
+    errors = (numcodecs.errors.UnsafeDecodeError, disabled, ValueError)
+    with pytest.raises(errors, match="[Pp]ickle"):
+        read()
+    assert not marker.exists()

@@ -69,7 +69,7 @@ UI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub
 
 ## Quickstart
 
-To **install** the Python package with recommended dependencies, use:
+With Python 3.11 or newer, **install** the Python package with recommended dependencies:
 
 ```shell
 pip install lamindb
