@@ -61,22 +61,28 @@ experiment_type = ln.Record(name="Experiments", is_type=True).save()
 experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 ```
 
-Records created with a type default to that type's space, including through
-`Record.from_dataframe(df, type=experiment_type).save()`. An enforced
-`experiment_type.settings.single_space` policy takes precedence: `True` uses the
-type's own space, while a `Space` value designates a specific destination.
-With `False`, inheritance is a default and an explicit `space=` on a record
-constructor can select another space. Without a type, context/settings determine
-the default space.
+Space selection for new records, including through
+`Record.from_dataframe(df, type=experiment_type).save()`, follows this order:
 
-Type-space inheritance takes precedence over `ln.context.space` and
-`ln.setup.settings.space`. This also affects `ULabel`, `Feature`, `Schema`,
-`Project`, and `Reference`. `Record.from_dataframe` has no `space` argument, so
-changing the current space does not override the destination for a supplied type.
-Notion sync can likewise create new records in a reused type's space even when
-its `space=` argument names a different destination. If a constructor reuses an
-existing same-name record, its resolved space can still be applied on save;
-space inheritance does not add protection against such moves.
+1. Explicit `space` or `space_id`, subject to policy enforcement.
+2. The type's enforced `single_space` policy: `True` uses the type's space;
+   a `Space` value designates a specific destination.
+3. `ln.context.space`.
+4. An explicitly configured `ln.setup.settings.space`.
+5. The immediate type's own space.
+6. `all`.
+
+With `single_space=False`, type-space inheritance is a fallback. For example,
+`ln.setup.settings.space = "Analysis"` selects another destination, including for
+dataframe imports. Explicitly selecting `all` also overrides inheritance. Reading
+`ln.setup.settings.space` returns `all` when nothing is configured, but does not
+count as selecting it.
+
+This also applies to `ULabel`, `Feature`, `Schema`, `Project`, and `Reference`.
+`Record.from_dataframe` has no per-record `space` argument; context and configured
+settings provide its destination overrides, subject to the type's policy.
+If a constructor reuses an existing same-name record, its resolved space can still
+be applied on save; space inheritance does not add protection against such moves.
 
 You can define a feature whose `dtype` is a record type:
 

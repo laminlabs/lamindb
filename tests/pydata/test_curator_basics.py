@@ -1439,7 +1439,7 @@ def test_hash_index_feature(df):
     ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
-def test_add_new_from_subtype(df):
+def test_add_new_from_subtype(df, isolated_space_settings):
     """Test that add_new_from works with subtypes."""
     space = ln.Space(name="curator-type-space").save()
     sample_type = ln.Record(name="SampleType", is_type=True, space=space).save()

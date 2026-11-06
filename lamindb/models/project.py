@@ -75,8 +75,8 @@ class Reference(
         text: `str | None = None` The text of the reference.
         date: `DateType | None = None` The date of the reference.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced or owning space,
-            otherwise the current space.
+        space: `Space | None = None` Defaults to the type's enforced space, then
+            context/configured settings, the type's own space, or `all`.
 
     Examples
     --------
@@ -322,8 +322,8 @@ class Project(
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced or owning space,
-            otherwise the current space.
+        space: `Space | None = None` Defaults to the type's enforced space, then
+            context/configured settings, the type's own space, or `all`.
 
     Examples
     --------
