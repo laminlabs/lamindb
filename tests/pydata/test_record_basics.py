@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.core.exceptions import FieldError
-from django.db import IntegrityError, ProgrammingError, connections
+from django.db import IntegrityError, ProgrammingError, connections, transaction
 from django.db.models import JSONField, Value
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
@@ -2335,7 +2335,6 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     explicit_record.refresh_from_db()
     assert explicit_record.space_id == 1
-    explicit_record.delete(permanent=True)
 
     constrained_type.settings.single_space = True
     constrained_type.save()
@@ -2343,6 +2342,16 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     assert constrained_type.settings.single_space is True
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
+
+    # Reuse preserves the old space even if a later policy makes it invalid.
+    reused = ln.Record(name=explicit_record.name, type=constrained_type)
+    assert reused.pk == explicit_record.pk
+    assert reused.space_id == explicit_record.space_id
+    with pytest.raises(
+        ProgrammingError, match="record space must match locked type space"
+    ):
+        with transaction.atomic():
+            reused.save()
 
     # Without an explicit space, default to the type's owning space.
     auto_type_space_record = ln.Record(
@@ -2408,6 +2417,7 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     assert unconstrained_record_2.space_id == constrained_type.space_id
 
+    explicit_record.delete(permanent=True)
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
     auto_type_space_record.delete(permanent=True)
