@@ -264,7 +264,7 @@ def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool
                 print(f" {prefix}")
             # filepath was recently saved, return True
             return True
-    # if we arrive here, no save event occured, return False
+    # if we arrive here, no save event occurred, return False
     return False
 
 
