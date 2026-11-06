@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -1295,6 +1295,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
+        # Keep space kwargs intact when space resolution is skipped.
+        has_explicit_space = True
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
 
@@ -1409,6 +1411,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
                             init_self_from_db(self, existing_record)
+                            if not has_explicit_space:
+                                kwargs.pop("space", None)
                             update_attributes(self, kwargs)
                             # track original values after replacing with the existing record
                             self._populate_tracked_fields()
@@ -1853,7 +1857,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_summarize=True,
                 )
             if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 
