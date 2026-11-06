@@ -2313,6 +2313,28 @@ def test_record_creation_space_precedence(
         space.delete(permanent=True)
 
 
+def test_constructor_reuse_preserves_space_with_type_fallback(isolated_space_settings):
+    type_space = ln.Space(name="reuse-type-fallback-space").save()
+    record_type = ln.Record(
+        name="ReuseTypeFallback", is_type=True, space=type_space
+    ).save()
+    original = ln.Record(
+        name="reuse-type-fallback-record", type=record_type, space_id=1
+    ).save()
+    try:
+        reused = ln.Record(
+            name=original.name, type=record_type, description="updated description"
+        ).save()
+        original.refresh_from_db()
+        assert reused.pk == original.pk
+        assert reused.space_id == original.space_id == 1
+        assert original.description == "updated description"
+    finally:
+        original.delete(permanent=True)
+        record_type.delete(permanent=True)
+        type_space.delete(permanent=True)
+
+
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
