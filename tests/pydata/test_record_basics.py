@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.core.exceptions import FieldError
-from django.db import IntegrityError, InternalError, connections
+from django.db import IntegrityError, InternalError, connections, transaction
 from django.db.models import JSONField, Value
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
@@ -2270,6 +2270,16 @@ def test_single_space_enforces_type_space_or_specific_space():
     assert constrained_type.settings.single_space is True
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
+
+    # Reuse preserves the old space even if a later policy makes it invalid.
+    reused = ln.Record(name=unconstrained_record.name, type=constrained_type)
+    assert reused.pk == unconstrained_record.pk
+    assert reused.space_id == unconstrained_record.space_id
+    with pytest.raises(
+        InternalError, match="record space must match locked type space"
+    ):
+        with transaction.atomic():
+            reused.save()
 
     # Without an explicit space, default to the type's owning space.
     auto_type_space_record = ln.Record(

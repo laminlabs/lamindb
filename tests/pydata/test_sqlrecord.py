@@ -9,7 +9,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import ProgrammingError
+from django.db import ProgrammingError, transaction
 from django.db.models import Model
 from lamindb.errors import FieldValidationError, ValidationError
 from lamindb.models import sqlrecord as sqlrecord_module
@@ -722,6 +722,87 @@ def test_constructor_branch_space_kwargs_record_family():
     record_obj.delete(permanent=True)
     space.delete(permanent=True)
     branch.delete(permanent=True)
+
+
+@pytest.fixture
+def space_reuse_defaults():
+    old_space = ln.setup.settings.space
+    with transaction.atomic(), patch.object(ln.context, "_space", None):
+        try:
+            original_space = ln.Space.get(1)
+            other_space = ln.Space(name=f"reuse-space-{uuid4().hex[:8]}").save()
+            ln.setup.settings.space = original_space
+            yield original_space, other_space
+        finally:
+            ln.setup.settings.space = old_space
+            transaction.set_rollback(True)
+
+
+@pytest.mark.parametrize(
+    "registry,extra",
+    [
+        (ln.Record, {}),
+        (ln.ULabel, {}),
+        (ln.Feature, {"dtype": str}),
+        (ln.Project, {}),
+        (ln.Reference, {}),
+        (ln.Schema, {"is_type": True}),
+    ],
+)
+@pytest.mark.parametrize("default_source", ["settings", "context"])
+def test_constructor_reuse_preserves_space(
+    registry, extra, default_source, space_reuse_defaults
+):
+    original_space, other_space = space_reuse_defaults
+    name = f"reuse-{uuid4().hex[:8]}"
+    original = registry(name=name, description="keep this description", **extra).save()
+    if default_source == "settings":
+        ln.setup.settings.space = other_space
+    else:
+        ln.context._space = other_space
+
+    reused = registry(name=name, **extra)
+    assert reused.pk == original.pk
+    assert reused.space_id == original_space.id
+    assert reused.description == original.description
+    reused.save()
+    original.refresh_from_db()
+    assert original.space_id == original_space.id
+    assert original.description == "keep this description"
+    assert registry.filter(name=name).count() == 1
+
+    created = registry(name=f"new-{name}", **extra).save()
+    assert created.space_id == other_space.id
+
+
+@pytest.mark.parametrize("space_arg", ["omitted", "none", "id_none", "object", "id"])
+@pytest.mark.parametrize("bulk_save", [False, True])
+def test_constructor_reuse_explicit_space(space_arg, bulk_save, space_reuse_defaults):
+    original_space, other_space = space_reuse_defaults
+    record_type = ln.Record(name=f"reuse-type-{uuid4().hex[:8]}", is_type=True).save()
+    original = ln.Record(name="Existing", type=record_type, description="before").save()
+    ln.setup.settings.space = other_space
+    kwargs = {
+        "omitted": {},
+        "none": {"space": None},
+        "id_none": {"space_id": None},
+        "object": {"space": other_space},
+        "id": {"space_id": other_space.id},
+    }[space_arg]
+    expected_space = other_space if space_arg in {"object", "id"} else original_space
+
+    reused = ln.Record(name="Existing", type=record_type, description="after", **kwargs)
+    assert reused.pk == original.pk
+    assert reused.space_id == expected_space.id
+    assert reused.description == "after"
+    if bulk_save:
+        ln.save([reused])
+    else:
+        reused.save()
+    original.refresh_from_db()
+    assert original.space_id == expected_space.id
+    assert original.description == "after"
+    assert ln.Record.filter(name="Existing", type=record_type).count() == 1
 
 
 def test_explicit_default_ids_override_context():

@@ -1283,7 +1283,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If `None`, uses the current space.
+        space: `Space | None = None` A space. If `None`, preserves a reused record's space; new records follow the type's single-space policy or the current space.
 
     See Also:
         :class:`~lamindb.Feature`
