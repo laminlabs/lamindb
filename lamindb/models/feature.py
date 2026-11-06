@@ -954,7 +954,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             the source feature. Pass a :class:`~lamindb.base.types.SQLRecordFieldName`
             to store values in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If `None`, uses the current space.
+        space: `Space | None = None` Defaults to the type's enforced or owning space,
+            otherwise the current space.
 
     See Also:
         :class:`~lamindb.Schema`

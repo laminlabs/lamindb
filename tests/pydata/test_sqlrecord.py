@@ -749,6 +749,120 @@ def test_explicit_default_ids_override_context():
     branch.delete(permanent=True)
 
 
+@pytest.mark.parametrize(
+    "registry", [ln.Record, ln.ULabel, ln.Feature, ln.Schema, ln.Project, ln.Reference]
+)
+def test_constructor_inherits_type_space(registry):
+    suffix = uuid4().hex[:8]
+    space = ln.Space(name=f"type-space-{suffix}").save()
+    record_type = registry(name=f"type-{suffix}", is_type=True, space=space).save()
+    feature = None
+    records = []
+    try:
+        kwargs = {}
+        if registry is ln.Feature:
+            kwargs["dtype"] = float
+        elif registry is ln.Schema:
+            feature = ln.Feature(name=f"member-{suffix}", dtype=float).save()
+            kwargs["features"] = [feature]
+        with patch.object(ln.context, "_space", ln.Space.get(id=1)):
+            child = registry(name=f"child-{suffix}", type=record_type, **kwargs).save()
+            records.append(child)
+            subtype = registry(
+                name=f"subtype-{suffix}", is_type=True, type=record_type, space=None
+            ).save()
+            records.append(subtype)
+            if registry is ln.Feature:
+                records.extend(
+                    ln.Feature.from_dict(
+                        {f"inferred-{suffix}": 1.0}, type=record_type
+                    ).save()
+                )
+            elif registry is ln.Schema:
+                reused = ln.Schema([feature])
+                assert reused.id == child.id
+                assert reused.space_id == child.space_id
+        for record in records:
+            record.refresh_from_db()
+            assert record.space_id == space.id
+        assert subtype.settings.single_space is False
+    finally:
+        for record in reversed(records):
+            record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        if feature is not None:
+            feature.delete(permanent=True)
+        space.delete(permanent=True)
+
+
+@pytest.mark.parametrize("space_arg", ["space", "space_id"])
+def test_explicit_space_overrides_unconstrained_type(space_arg):
+    suffix = uuid4().hex[:8]
+    space = ln.Space(name=f"explicit-type-space-{suffix}").save()
+    record_type = ln.Record(
+        name=f"explicit-type-{suffix}", is_type=True, space=space
+    ).save()
+    record = None
+    try:
+        destination = ln.Space.get(id=1)
+        kwargs = {space_arg: destination if space_arg == "space" else destination.id}
+        record = ln.Record(
+            name=f"explicit-child-{suffix}", type=record_type, **kwargs
+        ).save()
+        record.refresh_from_db()
+        assert record.space_id == destination.id
+    finally:
+        if record is not None:
+            record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        space.delete(permanent=True)
+
+
+def test_type_space_applies_to_creation_paths(monkeypatch):
+    suffix = uuid4().hex[:8]
+    space = ln.Space(name=f"creation-space-{suffix}").save()
+    record_type = ln.Record(
+        name=f"creation-type-{suffix}", is_type=True, space=space
+    ).save()
+    records = []
+    try:
+        records.append(
+            ln.Record(
+                name=f"skip-{suffix}", type=record_type, _skip_validation=True
+            ).save()
+        )
+        records.append(
+            ln.Record.objects.create(name=f"create-{suffix}", type=record_type)
+        )
+        record, created = record_type.records.get_or_create(
+            name=f"get-or-create-{suffix}"
+        )
+        records.append(record)
+        assert created
+        record, created = record_type.records.update_or_create(
+            name=f"update-or-create-{suffix}"
+        )
+        records.append(record)
+        assert created
+        for record in records:
+            record.refresh_from_db()
+            assert record.space_id == space.id
+
+        # Omitted/None types retain the current default.
+        monkeypatch.setattr(ln.context, "_space", ln.Space.get(id=1))
+        assert ln.Record(name=f"untyped-{suffix}").space_id == 1
+        assert ln.Record(name=f"none-type-{suffix}", type=None).space_id == 1
+        monkeypatch.setenv("LAMINDB_MULTI_INSTANCE", "true")
+        # Multi-instance mode bypasses constructor space selection entirely.
+        assert ln.Record(name=f"multi-{suffix}", type=record_type).space_id is None
+    finally:
+        monkeypatch.delenv("LAMINDB_MULTI_INSTANCE", raising=False)
+        for record in reversed(records):
+            record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        space.delete(permanent=True)
+
+
 def test_versioned_save_rls_inside_atomic_raises_no_write_access():
     # versioned save() demotes the previous head via a nested save() inside
     # transaction.atomic(); an RLS failure on that inner save must become

@@ -358,7 +358,7 @@ class SQLRecordSettings:
 
         - `True`: enforce the space of the dynamic registry aka the `type`
         - `Space`: enforce the exact space
-        - `False`: disable any space enforcement
+        - `False`: disable space enforcement. New records default to the type's space
 
         Example:
 
@@ -442,7 +442,7 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
 
     - `_aux.ss = 1` or `"1"` → the type's own owning space
     - `_aux.ss = "<space uid>"` → that exact space
-    - missing / unset → ``None`` (caller keeps context / settings / ``all`` fallback)
+    - missing / unset → `None` (no enforced space; the caller selects a default)
     """
     aux = getattr(type_record, "_aux", None)
     if not aux:
@@ -1325,6 +1325,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # Precedence is uniform across SQLRecord children:
                     # explicit `<fk>_id` or `<fk>` (mutually exclusive)
                     # > type `_aux.ss` single-space policy
+                    # > type's owning space
                     # > context/settings fallback.
                     has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
@@ -1343,6 +1344,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                         if policy_space is not None:
                             kwargs["space"] = policy_space
+                        elif isinstance(type_record, HasType):
+                            kwargs.pop("space", None)
+                            kwargs["space_id"] = type_record.space_id
                         elif current_space is not None:
                             kwargs["space"] = current_space
                         elif kwargs.get("space") is None:

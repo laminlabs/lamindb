@@ -61,6 +61,23 @@ experiment_type = ln.Record(name="Experiments", is_type=True).save()
 experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 ```
 
+Records created with a type default to that type's space, including through
+`Record.from_dataframe(df, type=experiment_type).save()`. An enforced
+`experiment_type.settings.single_space` policy takes precedence: `True` uses the
+type's own space, while a `Space` value designates a specific destination.
+With `False`, inheritance is a default and an explicit `space=` on a record
+constructor can select another space. Without a type, context/settings determine
+the default space.
+
+Type-space inheritance takes precedence over `ln.context.space` and
+`ln.setup.settings.space`. This also affects `ULabel`, `Feature`, `Schema`,
+`Project`, and `Reference`. `Record.from_dataframe` has no `space` argument, so
+changing the current space does not override the destination for a supplied type.
+Notion sync can likewise create new records in a reused type's space even when
+its `space=` argument names a different destination. If a constructor reuses an
+existing same-name record, its resolved space can still be applied on save;
+space inheritance does not add protection against such moves.
+
 You can define a feature whose `dtype` is a record type:
 
 ```python

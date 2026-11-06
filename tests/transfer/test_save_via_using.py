@@ -38,21 +38,34 @@ def test_lamindb_router_registered_on_fresh_import():
 
 
 def test_construct_relation_to_remote_type_before_any_save():
+    import pandas as pd
+
     using = f"{ln.setup.settings.user.handle}/testdb1"
     db2 = ln.DB(using)
     type_name = "router-remote-type"
+    space = ln.Space(name="router-remote-space").save(using=using)
 
     if db2.Record.filter(name=type_name).exists():
         db2.Record.filter(name=type_name).delete(permanent=True)
     try:
         remote_type = ln.Record(name=type_name, is_type=True).save(using=using)
+        db2.Record.filter(id=remote_type.id).update(space_id=space.id)
         # read it back so the FK target is a record whose _state.db is the alias
         remote_type = db2.Record.get(name=type_name)
         # construction with a cross-instance FK must not raise
         child = ln.Record(name="router-remote-child", type=remote_type)
         assert child.type.uid == remote_type.uid
+        assert child.space_id == space.id
+        child.save(using=using)
+        assert db2.Record.get(name=child.name).space_id == space.id
+        rows = ln.Record.from_dataframe(
+            pd.DataFrame({"name": ["router-remote-batch-child"]}), type=remote_type
+        ).save(using=using)
+        assert db2.Record.get(uid=rows[0].uid).space_id == space.id
     finally:
+        db2.Record.filter(type__name=type_name).delete(permanent=True)
         db2.Record.filter(name=type_name).delete(permanent=True)
+        space.delete(permanent=True)
 
 
 def test_save_ulabel_to_another_db_via_model_save():
