@@ -61,6 +61,29 @@ experiment_type = ln.Record(name="Experiments", is_type=True).save()
 experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 ```
 
+Space selection for new records, including through
+`Record.from_dataframe(df, type=experiment_type).save()`, follows this order:
+
+1. Explicit `space` or `space_id`, subject to policy enforcement.
+2. The type's enforced `single_space` policy: `True` uses the type's space;
+   a `Space` value designates a specific destination.
+3. `ln.context.space`.
+4. An explicitly configured `ln.setup.settings.space`.
+5. The immediate type's own space.
+6. `all`.
+
+With `single_space=False`, type-space inheritance is a fallback. For example,
+`ln.setup.settings.space = "Analysis"` selects another destination, including for
+dataframe imports. Explicitly selecting `all` also overrides inheritance. Reading
+`ln.setup.settings.space` returns `all` when nothing is configured, but does not
+count as selecting it.
+
+This also applies to `ULabel`, `Feature`, `Schema`, `Project`, and `Reference`.
+`Record.from_dataframe` has no per-record `space` argument; context and configured
+settings provide its destination overrides, subject to the type's policy.
+If a constructor reuses an existing same-name record, its resolved space can still
+be applied on save; space inheritance does not add protection against such moves.
+
 You can define a feature whose `dtype` is a record type:
 
 ```python
