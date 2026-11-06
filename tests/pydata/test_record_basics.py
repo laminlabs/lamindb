@@ -2247,6 +2247,45 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
+@pytest.mark.parametrize("policy", [False, True, "specific"])
+@pytest.mark.parametrize("default_source", ["context", "settings"])
+@pytest.mark.parametrize("method", ["direct", "dataframe"])
+def test_record_creation_inherits_type_space(
+    policy, default_source, method, monkeypatch
+):
+    suffix = f"{method}-{default_source}-{policy}"
+    space = ln.Space(name=f"type-space-{suffix}").save()
+    current_space = ln.Space(name=f"current-space-{suffix}").save()
+    record_type = ln.Record(name=f"type-{suffix}", is_type=True, space=space).save()
+    policy_space = ln.Space.get(id=1) if policy == "specific" else space
+    record_type.settings.single_space = policy_space if policy == "specific" else policy
+    record_type.save()
+    previous_space = ln.setup.settings.space
+    records = []
+    try:
+        ln.setup.settings.space = current_space
+        monkeypatch.setattr(
+            ln.context, "_space", current_space if default_source == "context" else None
+        )
+        if method == "direct":
+            records = [ln.Record(name=f"child-{suffix}", type=record_type).save()]
+        else:
+            records = ln.Record.from_dataframe(
+                pd.DataFrame({"name": [f"child-{suffix}"]}), type=record_type
+            ).save()
+        for record in records:
+            record.refresh_from_db()
+            assert record.space_id == policy_space.id
+    finally:
+        ln.setup.settings.space = previous_space
+        monkeypatch.setattr(ln.context, "_space", None)
+        for record in records:
+            record.delete(permanent=True)
+        record_type.delete(permanent=True)
+        current_space.delete(permanent=True)
+        space.delete(permanent=True)
+
+
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
@@ -2262,7 +2301,14 @@ def test_single_space_enforces_type_space_or_specific_space():
     unconstrained_record = ln.Record(
         name="different_space_allowed", type=constrained_type
     ).save()
-    assert unconstrained_record.space_id == 1
+    assert unconstrained_record.space_id == constrained_type.space_id
+
+    explicit_record = ln.Record(
+        name="explicit_different_space", type=constrained_type, space_id=1
+    ).save()
+    explicit_record.refresh_from_db()
+    assert explicit_record.space_id == 1
+    explicit_record.delete(permanent=True)
 
     constrained_type.settings.single_space = True
     constrained_type.save()
@@ -2333,7 +2379,7 @@ def test_single_space_enforces_type_space_or_specific_space():
     unconstrained_record_2 = ln.Record(
         name="different_space_allowed_again", type=constrained_type
     ).save()
-    assert unconstrained_record_2.space_id == 1
+    assert unconstrained_record_2.space_id == constrained_type.space_id
 
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
