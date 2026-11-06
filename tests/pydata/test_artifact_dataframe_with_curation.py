@@ -8,6 +8,7 @@ from pathlib import Path
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.curators.core import ComponentCurator, DictCurator, SlotsCurator
 from lamindb.models._feature_manager import strip_cat
 
 
@@ -226,6 +227,459 @@ def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     artifact.delete(permanent=True)
     id_feature.delete(permanent=True)
     uid_feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        "flat",
+        "external_slot",
+        "dataset_external_slot",
+        "anndata_external_slot",
+        "polars_external_slot",
+    ],
+)
+def test_optional_non_nullable_external_schema(context, tmp_path):
+    required = ln.Feature(name="optional_external_id", dtype=str).save()
+    strict = ln.Feature(name="optional_external_ph", dtype=float, nullable=False).save()
+    # Build through add() so the regression reaches artifact construction even
+    # before the overly broad Schema constructor restriction is removed.
+    external = ln.Schema([required]).save()
+    external.add(strict)
+    wrapper = None
+    is_dataframe = context in {"dataset_external_slot", "polars_external_slot"}
+    if context != "flat":
+        slots = {"__external__": external}
+        if context == "anndata_external_slot":
+            slots["obs"] = external
+        wrapper = ln.Schema(
+            features=[required] if is_dataframe else None,
+            slots=slots,
+            otype="AnnData"
+            if context == "anndata_external_slot"
+            else "DataFrame"
+            if is_dataframe
+            else None,
+        ).save()
+    path = tmp_path / "optional_external.txt"
+    path.write_text("optional external schema test")
+
+    def construct():
+        values = {required.name: "sample-1", strict.name: 7.0}
+        if context == "anndata_external_slot":
+            import anndata as ad
+
+            return ln.Artifact.from_anndata(
+                ad.AnnData(obs=pd.DataFrame({required.name: ["sample-1"]})),
+                key="optional_external.h5ad",
+                schema=wrapper,
+                features=values,
+            )
+        if is_dataframe:
+            df = pd.DataFrame({required.name: ["sample-1"]})
+            if context == "polars_external_slot":
+                pl = pytest.importorskip("polars")
+                df = pl.from_pandas(df)
+            return ln.Artifact.from_dataframe(
+                df,
+                key="optional_external.parquet",
+                schema=wrapper,
+                features=values,
+            )
+        return ln.Artifact(
+            path,
+            key="optional_external.txt",
+            schema=wrapper or external,
+            features=values,
+        )
+
+    try:
+        # Providing all values does not make this schema suitable for annotations.
+        with pytest.raises(ln.errors.InvalidArgument, match="optional_external_ph"):
+            construct()
+        if context == "dataset_external_slot":
+            # Standalone curation uses the same annotation checks as artifacts.
+            with pytest.raises(ln.errors.InvalidArgument, match="optional_external_ph"):
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame({required.name: ["sample-1"]}),
+                    schema=wrapper,
+                    features={required.name: "sample-1", strict.name: 7.0},
+                ).validate()
+        strict.default_value = 0.0
+        strict.save()
+        assert construct().schema == (wrapper or external)
+        strict.default_value = None
+        strict.nullable = True
+        strict.save()
+        assert construct().schema == (wrapper or external)
+    finally:
+        if wrapper is not None:
+            wrapper.delete(permanent=True)
+        external.delete(permanent=True)
+        strict.delete(permanent=True)
+        required.delete(permanent=True)
+
+
+@pytest.mark.parametrize("otype", ["DataFrame", "AnnData"])
+def test_optional_non_nullable_dataset_schema(otype):
+    required = ln.Feature(name="optional_dataset_id", dtype=str).save()
+    strict = ln.Feature(name="optional_dataset_ph", dtype=float, nullable=False).save()
+    schema = None
+    wrapper = None
+
+    def construct(values):
+        df = pd.DataFrame(values)
+        if otype == "DataFrame":
+            return ln.Artifact.from_dataframe(
+                df, key="optional_dataset.parquet", schema=schema
+            )
+        import anndata as ad
+
+        return ln.Artifact.from_anndata(
+            ad.AnnData(obs=df), key="optional_dataset.h5ad", schema=wrapper
+        )
+
+    try:
+        schema = ln.Schema([required, strict.with_config(optional=True)]).save()
+        if otype == "AnnData":
+            wrapper = ln.Schema(otype="AnnData", slots={"obs": schema}).save()
+        for values in [
+            {required.name: ["sample-1", "sample-2"]},
+            {required.name: ["sample-1", "sample-2"], strict.name: [7.0, 7.2]},
+        ]:
+            assert construct(values).schema == (wrapper or schema)
+        with pytest.raises(ln.errors.ValidationError, match="not_nullable"):
+            construct(
+                {required.name: ["sample-1", "sample-2"], strict.name: [7.0, None]}
+            )
+    finally:
+        if wrapper is not None:
+            wrapper.delete(permanent=True)
+        if schema is not None:
+            schema.delete(permanent=True)
+        strict.delete(permanent=True)
+        required.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "kind", ["dataframe", "coerced_dataframe", "polars", "anndata", "mudata"]
+)
+def test_artifact_annotation_validation_reuses_members(kind, monkeypatch):
+    import anndata as ad
+
+    if kind == "polars":
+        pl = pytest.importorskip("polars")
+    if kind == "mudata":
+        md = pytest.importorskip("mudata")
+    column = ln.Feature(name="retained_members_column", dtype=int).save()
+    annotation = ln.Feature(name="retained_members_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    content = ln.Schema([column]).save()
+    values = {annotation.name: 7}
+    df = pd.DataFrame({column.name: ["1" if kind == "coerced_dataframe" else 1]})
+    if kind in {"anndata", "mudata"}:
+        slot = "obs" if kind == "anndata" else "rna:obs"
+        schema = ln.Schema(
+            otype="AnnData" if kind == "anndata" else "MuData",
+            slots={slot: content, "__external__": external},
+        ).save()
+    else:
+        schema = ln.Schema(
+            [column],
+            otype="DataFrame",
+            coerce=kind == "coerced_dataframe",
+            slots={"__external__": external},
+        ).save()
+
+    member_reads = 0
+    original_members = ln.Schema.members.fget
+
+    def counted_members(self):
+        nonlocal member_reads
+        if self.pk == external.pk:
+            member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            if kind == "anndata":
+                artifact = ln.Artifact.from_anndata(
+                    ad.AnnData(obs=df),
+                    key="retained_members.h5ad",
+                    schema=schema,
+                    features=values,
+                )
+            elif kind == "mudata":
+                artifact = ln.Artifact.from_mudata(
+                    md.MuData({"rna": ad.AnnData(obs=df)}),
+                    key="retained_members.h5mu",
+                    schema=schema,
+                    features=values,
+                )
+            else:
+                artifact = ln.Artifact.from_dataframe(
+                    pl.from_pandas(df) if kind == "polars" else df,
+                    key="retained_members.parquet",
+                    schema=schema,
+                    features=values,
+                )
+            # The pandas coercion path validates before and after serialization.
+            initial_reads = 2 if kind == "coerced_dataframe" else 1
+            assert member_reads == initial_reads
+            curator = artifact._curator
+            curator.validate()
+            curator.validate()
+            assert member_reads == initial_reads + 2
+
+            # Each validation must still check the current annotation values.
+            values[annotation.name] = "not-an-integer"
+            with pytest.raises(ln.errors.ValidationError):
+                curator.validate()
+            assert member_reads == initial_reads + 3
+    finally:
+        schema.delete(permanent=True)
+        content.delete(permanent=True)
+        external.delete(permanent=True)
+        column.delete(permanent=True)
+        annotation.delete(permanent=True)
+
+
+@pytest.mark.parametrize(
+    "curator_class,member_parameters",
+    [
+        (SlotsCurator, ("external_members",)),
+        (ComponentCurator, ("members",)),
+        (DictCurator, ("members",)),
+        (ln.curators.DataFrameCurator, ("members", "external_members")),
+        (ln.curators.AnnDataCurator, ("external_members",)),
+        (ln.curators.MuDataCurator, ("external_members",)),
+        (ln.curators.SpatialDataCurator, ("external_members",)),
+        (ln.curators.TiledbsomaExperimentCurator, ("external_members",)),
+    ],
+)
+def test_curator_member_parameters(curator_class, member_parameters):
+    from inspect import signature
+
+    parameters = signature(curator_class).parameters
+    for name in member_parameters:
+        assert parameters[name].default is None
+    assert {"members", "external_members"} & parameters.keys() == set(member_parameters)
+    assert list(signature(curator_class.validate).parameters) == ["self"]
+    with pytest.raises(TypeError, match="unexpected keyword argument '_members'"):
+        curator_class(None, None, _members=[])
+
+
+@pytest.mark.parametrize("preloaded", [True, False])
+@pytest.mark.parametrize(
+    "kind", ["slots", "dataframe", "anndata", "mudata", "spatialdata", "tiledbsoma"]
+)
+def test_curator_public_external_members(kind, preloaded, monkeypatch, tmp_path):
+    import anndata as ad
+
+    if kind == "slots":
+        curator_class, dataset, otype = SlotsCurator, {}, None
+    elif kind == "dataframe":
+        curator_class, dataset, otype = (
+            ln.curators.DataFrameCurator,
+            pd.DataFrame({"public_members_column": [1]}),
+            "DataFrame",
+        )
+    elif kind == "anndata":
+        curator_class, dataset, otype = (
+            ln.curators.AnnDataCurator,
+            ad.AnnData(),
+            "AnnData",
+        )
+    elif kind == "mudata":
+        md = pytest.importorskip("mudata")
+        curator_class, dataset, otype = ln.curators.MuDataCurator, md.MuData(), "MuData"
+    elif kind == "spatialdata":
+        sd = pytest.importorskip("spatialdata")
+        curator_class, dataset, otype = (
+            ln.curators.SpatialDataCurator,
+            sd.SpatialData(),
+            "SpatialData",
+        )
+    else:
+        soma = pytest.importorskip("tiledbsoma")
+        curator_class, dataset, otype = (
+            ln.curators.TiledbsomaExperimentCurator,
+            soma.Experiment.create(str(tmp_path / "members.tiledbsoma")),
+            "tiledbsoma",
+        )
+
+    annotation = ln.Feature(name="public_members_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    column = None
+    curator_kwargs = {}
+    if kind == "dataframe":
+        column = ln.Feature(name="public_members_column", dtype=int).save()
+        curator_kwargs["members"] = [column]
+    schema = ln.Schema(
+        [column] if column is not None else None,
+        otype=otype,
+        slots={"__external__": external},
+    ).save()
+    external_members = list(external.members) if preloaded else None
+    values = {annotation.name: 7}
+    member_reads = 0
+    content_member_reads = 0
+    original_members = ln.Schema.members.fget
+
+    def counted_members(self):
+        nonlocal member_reads, content_member_reads
+        if self.pk == external.pk:
+            member_reads += 1
+        elif self.pk == schema.pk:
+            content_member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            curator = curator_class(
+                dataset,
+                schema,
+                features=values,
+                external_members=external_members,
+                **curator_kwargs,
+            )
+            # Building column validation rules reuses the separately supplied members.
+            assert content_member_reads == 0
+            curator.validate()
+            curator.validate()
+            assert member_reads == (0 if preloaded else 2)
+
+            values[annotation.name] = "not-an-integer"
+            with pytest.raises(ln.errors.ValidationError):
+                curator.validate()
+            assert member_reads == (0 if preloaded else 3)
+    finally:
+        if kind == "tiledbsoma":
+            dataset.close()
+        schema.delete(permanent=True)
+        external.delete(permanent=True)
+        annotation.delete(permanent=True)
+        if column is not None:
+            column.delete(permanent=True)
+
+
+@pytest.mark.parametrize("preloaded", [False, True])
+@pytest.mark.parametrize("kind", ["external_slot", "flat"])
+def test_external_value_validation_does_not_check_schema(kind, preloaded, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.curators import core as curator_module
+    from lamindb.models.artifact import _validate_flat_external_features
+
+    feature = ln.Feature(
+        name="separate_annotation_check", dtype=int, nullable=False
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)]).save()
+    parent = ln.Schema(slots={"__external__": schema}).save()
+    members = list(schema.members) if preloaded else None
+    member_reads = 0
+    original_members = ln.Schema.members.fget
+    check = Mock(wraps=curator_module.validate_external_schema)
+
+    def validate_values(values):
+        if kind == "external_slot":
+            return curator_module.validate_external_features(
+                parent, values, external_members=members
+            )
+        return _validate_flat_external_features(schema, values, None, members=members)
+
+    def counted_members(self):
+        nonlocal member_reads
+        if self.pk == schema.pk:
+            member_reads += 1
+        return original_members(self)
+
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(ln.Schema, "members", property(counted_members))
+            patch.setattr(curator_module, "validate_external_schema", check)
+            # Valid values pass even though this definition is invalid for annotations.
+            assert validate_values({feature.name: 8}) == {feature.name: 8}
+            assert member_reads == (0 if preloaded else 1)
+
+            with pytest.raises(ln.errors.ValidationError):
+                validate_values({feature.name: "not-an-integer"})
+            assert member_reads == (0 if preloaded else 2)
+            check.assert_not_called()
+
+            # Schema validation remains a separate call and can reuse the members.
+            with pytest.raises(ln.errors.InvalidArgument, match=feature.name):
+                curator_module.validate_external_schema(schema, members=members)
+            check.assert_called_once_with(schema, members=members)
+            assert member_reads == (0 if preloaded else 3)
+    finally:
+        parent.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("preloaded", [False, True])
+def test_slots_curator_checks_schema_before_values(preloaded, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.curators import core as curator_module
+
+    feature = ln.Feature(name="schema_before_values", dtype=int, nullable=False).save()
+    external = ln.Schema([feature.with_config(optional=True)]).save()
+    schema = ln.Schema(slots={"__external__": external}).save()
+    check_values = Mock(wraps=curator_module.validate_external_features)
+    monkeypatch.setattr(curator_module, "validate_external_features", check_values)
+    try:
+        curator = SlotsCurator(
+            {},
+            schema,
+            features={feature.name: "not-an-integer"},
+            external_members=list(external.members) if preloaded else None,
+        )
+        with pytest.raises(ln.errors.InvalidArgument, match=feature.name):
+            curator.validate()
+        check_values.assert_not_called()
+    finally:
+        schema.delete(permanent=True)
+        external.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+def test_existing_csv_keeps_schema_when_validation_is_skipped(tmp_path):
+    annotation = ln.Feature(name="existing_csv_annotation", dtype=int).save()
+    external = ln.Schema([annotation]).save()
+    original_schema = ln.Schema(slots={"__external__": external}).save()
+    strict = ln.Feature(name="unused_csv_annotation", dtype=int, nullable=False).save()
+    invalid_external = ln.Schema([strict.with_config(optional=True)]).save()
+    # A flexible content schema keeps file validation on the pandas path.
+    requested_schema = ln.Schema(
+        itype=ln.Feature, otype="DataFrame", slots={"__external__": invalid_external}
+    ).save()
+    path = tmp_path / "existing.csv"
+    path.write_text("value\n1\n")
+    artifact = ln.Artifact(
+        path,
+        key="existing.csv",
+        schema=original_schema,
+        features={annotation.name: 1},
+    ).save()
+    try:
+        existing = ln.Artifact.from_dataframe(
+            path, key="existing.csv", schema=requested_schema
+        )
+        assert existing.pk == artifact.pk
+        assert existing.schema == original_schema
+        assert ln.Artifact.get(id=artifact.id).schema == original_schema
+    finally:
+        artifact.delete(permanent=True)
+        requested_schema.delete(permanent=True)
+        original_schema.delete(permanent=True)
+        invalid_external.delete(permanent=True)
+        external.delete(permanent=True)
+        strict.delete(permanent=True)
+        annotation.delete(permanent=True)
 
 
 def test_from_dataframe_with_external_schema(

@@ -217,13 +217,23 @@ def install_ci(session, group):
     # on lamindb-core, which pins this lamin-cli, and published lamindb-core
     # releases pin older lamin-cli versions
     lamindb = f"-e .[full,dev{extras}]"
+    # numcodecs<0.16 (required by zarr<3) has no Python 3.14 wheel. Its bundled
+    # c-blosc does `typedef _Bool bool`, which GCC 15 rejects because C23 makes
+    # `bool` a keyword. Ubuntu 24.04 still defaults to C17 and compiles it.
+    build_env = None
+    if "zarr_v2" in extras:
+        build_env = os.environ.copy()
+        cflags = build_env.get("CFLAGS", "")
+        if "-std=" not in cflags:
+            build_env["CFLAGS"] = f"{cflags} -std=gnu17".strip()
     if IS_PR or group == "docs" or group == "profile":
         run(
             session,
             f"uv pip install --system {lamindb} ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
+            env=build_env,
         )
     else:
-        run(session, f"uv pip install --system {lamindb}")
+        run(session, f"uv pip install --system {lamindb}", env=build_env)
     if group == "permissions":
         # have to install after lamindb installation
         # because lamindb downgrades django required by laminhub_rest

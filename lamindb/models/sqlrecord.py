@@ -1675,15 +1675,21 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
                 # error for hash/uid duplication
+                registry = get_registry_name(self)
                 if (
-                    get_registry_name(self) in {"Transform", "Artifact", "Collection"}
+                    registry in {"Transform", "Artifact", "Collection"}
                     and isinstance(e, IntegrityError)
                     and "hash" in error_msg
                     and unique_constraint_error_in_error_message(error_msg)
                 ):
+                    # Hash lookup can miss the existing row (registered storage
+                    # skips it). Link the passed run the same way a hash hit does.
+                    intended_run = (
+                        self.run if registry in {"Artifact", "Collection"} else None
+                    )
                     # we also need to include the key here because hash can be the same across keys
                     query_fields = {"hash": self.hash, "key": self.key}
-                    if get_registry_name(self) == "Artifact":
+                    if registry == "Artifact":
                         # in case of artifact, also storage is needed
                         query_fields["storage"] = self.storage
                     # the get here is Django's get and not aware of the trash or other branches
@@ -1697,6 +1703,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         f"returning {self.__class__.__name__.lower()} {from_trash} with same hash & key: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
+                    if registry in {"Artifact", "Collection"}:
+                        from ._lineage import populate_recreating_run
+
+                        populate_recreating_run(self, intended_run)
                 elif (
                     isinstance(e, IntegrityError)
                     # for Storage, even if uid was in the error message, we can retrieve based on

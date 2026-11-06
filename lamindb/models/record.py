@@ -1171,7 +1171,15 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        index_feature = get_type_schema_index(self._resolved_type)
+        from lamindb.curators.core import validate_external_schema
+
+        if len(self._df) == 0:
+            return []
+        schema = self._resolved_type.schema
+        index_feature = None
+        if schema is not None:
+            index_feature, members = _schema_features(schema)
+            validate_external_schema(schema, members=members)
         records: list[Record] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
@@ -1596,6 +1604,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True
+        if schema is not None:
+            from lamindb.curators.core import validate_external_schema
+
+            validate_external_schema(schema)
         super_kwargs: dict[str, Any] = dict(
             name=name,
             type=type,
@@ -1669,8 +1681,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 under `Imports` with an inferred schema from the dataframe.
                 If that type name already exists, raise an error and pass an
                 existing `Record` object for reuse.
-                If the resolved type is a record frame (`type.schema is not None`), feature
-                values are validated against that schema at save time.
             name_field: Column used for data record names when no schema index is configured.
                 Falls back to `name` if absent. If neither exists, data records are created
                 without names.

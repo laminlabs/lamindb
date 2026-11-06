@@ -326,6 +326,133 @@ def test_record_type_assignment_requires_schema_features(field_name, dtype, requ
     scope_b.delete(permanent=True)
 
 
+def test_record_annotation_schema_validation_boundaries():
+    feature = ln.Feature(
+        name="record_optional_schema_ph", dtype=float, nullable=True
+    ).save()
+    schema = ln.Schema([feature.with_config(optional=True)]).save()
+    frame = ln.Record(name="OptionalSchemaFrame", schema=schema).save()
+    pending = ln.Record(name="existing_optional_schema_row", features={feature: 7.0})
+    try:
+        feature.nullable = False
+        feature.save()
+        # Reading a type or constructing its rows does not recheck its definition.
+        assert ln.Record.get(frame.uid).schema == schema
+        assert (
+            ln.Record(
+                name="new_optional_schema_row", type=frame, features={feature: 7.0}
+            ).type
+            == frame
+        )
+        with pytest.raises(ln.errors.ValidationError):
+            ln.Record(type=frame, features={feature: "not-a-float"})
+        # Creating a new type still checks its annotation schema definition.
+        with pytest.raises(
+            ln.errors.InvalidArgument, match="record_optional_schema_ph"
+        ):
+            ln.Record(name="invalid_optional_schema_type", is_type=True, schema=schema)
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({feature.name: [7.0]}), type=frame
+        )
+        with pytest.raises(
+            ln.errors.InvalidArgument, match="record_optional_schema_ph"
+        ):
+            batch.save()
+        assert not ln.Record.filter(type=frame).exists()
+        # Assigning a type to a record also checks values without its definition.
+        pending.type = frame
+        assert pending.type == frame
+        feature.default_value = 0.0
+        feature.save()
+        assert ln.Record(name="default_optional_schema_row", schema=schema).is_type
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("is_type", [False, True])
+def test_record_type_checks_annotation_schema_once(is_type, monkeypatch):
+    from unittest.mock import Mock
+
+    from lamindb.curators import core as curator_module
+
+    feature = ln.Feature(name="type_schema_check", dtype=float).save()
+    schema = ln.Schema([feature]).save()
+    check = Mock(wraps=curator_module.validate_external_schema)
+    monkeypatch.setattr(curator_module, "validate_external_schema", check)
+    try:
+        # Passing schema also implies is_type=True when the flag is omitted.
+        frame = ln.Record(name="CheckedSchemaType", is_type=is_type, schema=schema)
+        assert frame.is_type
+        check.assert_called_once_with(schema)
+        frame.save()
+        check.assert_called_once_with(schema)
+
+        check.reset_mock()
+        record = ln.Record(type=frame, features={feature: 1.0})
+        assert record.type == frame
+        with pytest.raises(ln.errors.ValidationError):
+            ln.Record(type=frame, features={feature: "not-a-float"})
+        with pytest.raises(ln.errors.ValidationError, match="missing required"):
+            ln.Record(type=frame)
+        check.assert_not_called()
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("valid", [False, True])
+def test_record_batch_checks_schema_once_and_values_in_bulk(valid, monkeypatch):
+    from unittest.mock import Mock
+
+    from django.db import transaction
+    from lamindb.curators import core as curator_module
+    from lamindb.curators.core import DataFrameCurator
+
+    feature = ln.Feature(name="batch_schema_check", dtype=float, nullable=False).save()
+    schema = ln.Schema([feature]).save()
+    frame = ln.Record(name="BatchCheckedSchemaType", is_type=True, schema=schema).save()
+    check = Mock(wraps=curator_module.validate_external_schema)
+    monkeypatch.setattr(curator_module, "validate_external_schema", check)
+    validated_sizes = []
+    original_validate = DataFrameCurator.validate
+
+    def validate(curator):
+        validated_sizes.append(len(curator.dataset))
+        return original_validate(curator)
+
+    monkeypatch.setattr(DataFrameCurator, "validate", validate)
+    try:
+        values = [1.0, 2.0, 3.0] if valid else [1.0, None, 3.0]
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({feature.name: values}), type=frame
+        )
+        check.assert_not_called()
+        if valid:
+            saved = batch.save()
+            assert len(saved) == 3
+            assert [
+                record.features.get_values()[feature.name] for record in saved
+            ] == values
+        else:
+            with pytest.raises(ln.errors.ValidationError), transaction.atomic():
+                batch.save()
+            assert not frame.records.exists()
+        check.assert_called_once()
+        assert check.call_args.args == (schema,)
+        assert [member.uid for member in check.call_args.kwargs["members"]] == [
+            feature.uid
+        ]
+        assert validated_sizes == [3]
+    finally:
+        frame.records.all().delete(permanent=True)
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def test_loading_record_does_not_revalidate_stored_type():
     experiment_type = ln.Record(name="LoadTypeExperiments", is_type=True).save()
     # Missing nullable values are valid and are returned as None by get_values().
@@ -376,6 +503,22 @@ def test_record_lazy_features_on_save():
 def test_project_initialization_accepts_description():
     project = ln.Project(name="project-with-description", description="hello")
     assert project.description == "hello"
+
+
+def test_record_from_dataframe_empty_batch():
+    feature = ln.Feature(name="empty_batch_required_feature", dtype=str).save()
+    schema = ln.Schema([feature]).save()
+    frame = ln.Record(name="EmptyBatchFrame", schema=schema).save()
+    try:
+        # No rows means no annotations to validate, even without required columns.
+        batch = ln.Record.from_dataframe(pd.DataFrame(), type=frame)
+        assert len(batch) == 0
+        assert list(batch.save()) == []
+        assert not frame.records.exists()
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
 
 
 def test_record_from_dataframe_partial_null_bool_int():
@@ -3396,14 +3539,61 @@ def test_set_values_feature_objects_skip_name_lookup():
         other_type.delete(permanent=True)
 
 
-def test_from_dataframe_save_query_count_is_not_n_plus_one():
+@pytest.mark.parametrize("optionality", ["required", "optional", "minimal_set_false"])
+def test_record_construction_reuses_warm_schema_members(optionality):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    index = ln.Feature(name="warm_cache_id", dtype=str).save()
+    feature = ln.Feature(name="warm_cache_value", dtype=float, nullable=True).save()
+    configured = (
+        feature.with_config(optional=True) if optionality == "optional" else feature
+    )
+    schema = ln.Schema(
+        [configured], index=index, minimal_set=optionality != "minimal_set_false"
+    ).save()
+    frame = ln.Record(name="WarmCacheFrame", schema=schema).save()
+    try:
+        ln.Record(type=frame, features={index: "first", feature: 1.0})
+        with CaptureQueriesContext(connection) as queries:
+            ln.Record(type=frame, features={index: "second", feature: 2.0})
+        member_queries = [
+            query["sql"]
+            for query in queries
+            if 'FROM "lamindb_schemafeature"' in query["sql"]
+        ]
+        assert not member_queries
+
+        batch = ln.Record.from_dataframe(
+            pd.DataFrame({index.name: ["third"], feature.name: [3.0]}), type=frame
+        )
+        with CaptureQueriesContext(connection) as queries:
+            assert len(batch._build_records()) == 1
+        assert len(queries) == 0, [query["sql"] for query in queries]
+    finally:
+        frame.delete(permanent=True)
+        schema.delete(permanent=True)
+        index.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
+@pytest.mark.parametrize("optionality", ["required", "optional", "minimal_set_false"])
+def test_from_dataframe_save_query_count_is_not_n_plus_one(optionality):
     """Query count must stay O(1) — not grow with row count — when saving a batch."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
     id_feat = ln.Feature(name="qcount-id", dtype=str).save()
-    val_feat = ln.Feature(name="qcount-val", dtype=str).save()
-    schema = ln.Schema([val_feat], index=id_feat, name="qcount-schema").save()
+    val_feat = ln.Feature(name="qcount-val", dtype=str, nullable=True).save()
+    configured = (
+        val_feat.with_config(optional=True) if optionality == "optional" else val_feat
+    )
+    schema = ln.Schema(
+        [configured],
+        index=id_feat,
+        name="qcount-schema",
+        minimal_set=optionality != "minimal_set_false",
+    ).save()
     sheet = ln.Record(name="qcount-sheet", is_type=True, schema=schema).save()
 
     def make_df(n: int) -> pd.DataFrame:
