@@ -752,7 +752,7 @@ def test_explicit_default_ids_override_context():
 @pytest.mark.parametrize(
     "registry", [ln.Record, ln.ULabel, ln.Feature, ln.Schema, ln.Project, ln.Reference]
 )
-def test_constructor_inherits_type_space(registry):
+def test_constructor_inherits_type_space(registry, isolated_space_settings):
     suffix = uuid4().hex[:8]
     space = ln.Space(name=f"type-space-{suffix}").save()
     record_type = registry(name=f"type-{suffix}", is_type=True, space=space).save()
@@ -765,23 +765,22 @@ def test_constructor_inherits_type_space(registry):
         elif registry is ln.Schema:
             feature = ln.Feature(name=f"member-{suffix}", dtype=float).save()
             kwargs["features"] = [feature]
-        with patch.object(ln.context, "_space", ln.Space.get(id=1)):
-            child = registry(name=f"child-{suffix}", type=record_type, **kwargs).save()
-            records.append(child)
-            subtype = registry(
-                name=f"subtype-{suffix}", is_type=True, type=record_type, space=None
-            ).save()
-            records.append(subtype)
-            if registry is ln.Feature:
-                records.extend(
-                    ln.Feature.from_dict(
-                        {f"inferred-{suffix}": 1.0}, type=record_type
-                    ).save()
-                )
-            elif registry is ln.Schema:
-                reused = ln.Schema([feature])
-                assert reused.id == child.id
-                assert reused.space_id == child.space_id
+        child = registry(name=f"child-{suffix}", type=record_type, **kwargs).save()
+        records.append(child)
+        subtype = registry(
+            name=f"subtype-{suffix}", is_type=True, type=record_type, space=None
+        ).save()
+        records.append(subtype)
+        if registry is ln.Feature:
+            records.extend(
+                ln.Feature.from_dict(
+                    {f"inferred-{suffix}": 1.0}, type=record_type
+                ).save()
+            )
+        elif registry is ln.Schema:
+            reused = ln.Schema([feature])
+            assert reused.id == child.id
+            assert reused.space_id == child.space_id
         for record in records:
             record.refresh_from_db()
             assert record.space_id == space.id

@@ -358,7 +358,8 @@ class SQLRecordSettings:
 
         - `True`: enforce the space of the dynamic registry aka the `type`
         - `Space`: enforce the exact space
-        - `False`: disable space enforcement. New records default to the type's space
+        - `False`: disable space enforcement. New records use the context or configured
+          default space, falling back to the type's space
 
         Example:
 
@@ -1325,15 +1326,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # Precedence is uniform across SQLRecord children:
                     # explicit `<fk>_id` or `<fk>` (mutually exclusive)
                     # > type `_aux.ss` single-space policy
+                    # > context/configured settings
                     # > type's owning space
-                    # > context/settings fallback.
+                    # > the `all` field default.
                     has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space
-                    elif setup_settings.space is not None:
-                        current_space = setup_settings.space
                     else:
-                        current_space = None
+                        current_space = setup_settings._get_configured_space()
 
                     if not has_explicit_space:
                         policy_space = None
@@ -1344,11 +1344,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                         if policy_space is not None:
                             kwargs["space"] = policy_space
+                        elif current_space is not None:
+                            kwargs["space"] = current_space
                         elif isinstance(type_record, HasType):
                             kwargs.pop("space", None)
                             kwargs["space_id"] = type_record.space_id
-                        elif current_space is not None:
-                            kwargs["space"] = current_space
                         elif kwargs.get("space") is None:
                             kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):

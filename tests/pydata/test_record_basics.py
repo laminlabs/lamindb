@@ -2248,10 +2248,10 @@ def test_invalid_type_record_with_schema():
 
 
 @pytest.mark.parametrize("policy", [False, True, "specific"])
-@pytest.mark.parametrize("default_source", ["context", "settings"])
+@pytest.mark.parametrize("default_source", ["unset", "context", "settings", "all"])
 @pytest.mark.parametrize("method", ["direct", "dataframe"])
-def test_record_creation_inherits_type_space(
-    policy, default_source, method, monkeypatch
+def test_record_creation_space_precedence(
+    policy, default_source, method, monkeypatch, isolated_space_settings
 ):
     suffix = f"{method}-{default_source}-{policy}"
     space = ln.Space(name=f"type-space-{suffix}").save()
@@ -2260,13 +2260,23 @@ def test_record_creation_inherits_type_space(
     policy_space = ln.Space.get(id=1) if policy == "specific" else space
     record_type.settings.single_space = policy_space if policy == "specific" else policy
     record_type.save()
-    previous_space = ln.setup.settings.space
+    settings = isolated_space_settings
     records = []
     try:
-        ln.setup.settings.space = current_space
-        monkeypatch.setattr(
-            ln.context, "_space", current_space if default_source == "context" else None
-        )
+        expected_space = policy_space
+        if default_source == "context":
+            # A different settings value verifies that context takes precedence.
+            settings.space = "all"
+            monkeypatch.setattr(ln.context, "_space", current_space)
+        elif default_source == "settings":
+            settings.space = current_space
+        elif default_source == "all":
+            settings.space = "all"
+        if policy is False:
+            if default_source in {"context", "settings"}:
+                expected_space = current_space
+            elif default_source == "all":
+                expected_space = ln.Space.get(id=1)
         if method == "direct":
             records = [ln.Record(name=f"child-{suffix}", type=record_type).save()]
         else:
@@ -2275,9 +2285,8 @@ def test_record_creation_inherits_type_space(
             ).save()
         for record in records:
             record.refresh_from_db()
-            assert record.space_id == policy_space.id
+            assert record.space_id == expected_space.id
     finally:
-        ln.setup.settings.space = previous_space
         monkeypatch.setattr(ln.context, "_space", None)
         for record in records:
             record.delete(permanent=True)
@@ -2289,7 +2298,7 @@ def test_record_creation_inherits_type_space(
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
-def test_single_space_enforces_type_space_or_specific_space():
+def test_single_space_enforces_type_space_or_specific_space(isolated_space_settings):
     restricted_space = ln.Space(name="other-space").save()
     assert restricted_space.id != 1
     constrained_type = ln.Record(

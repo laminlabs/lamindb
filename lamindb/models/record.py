@@ -1283,8 +1283,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced or owning space,
-            otherwise the current space.
+        space: `Space | None = None` Defaults to the type's enforced space, then
+            context/configured settings, the type's own space, or `all`.
 
     See Also:
         :class:`~lamindb.Feature`
@@ -1671,6 +1671,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """Construct a dataframe-backed batch of records for bulk saving.
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
+
+        New records use the type's enforced space, then `ln.context.space`, then
+        an explicitly configured `ln.setup.settings.space`, and finally the type's
+        own space. Selecting `all` explicitly also overrides type-space inheritance.
+        This method has no per-record `space` argument.
 
         When the target record frame schema defines :attr:`~lamindb.Schema.index`, the index
         feature may be passed on `df.index` (named after the feature) or as a column.

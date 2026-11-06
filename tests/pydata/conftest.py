@@ -64,6 +64,22 @@ def pytest_sessionfinish(session: pytest.Session):
 
 
 @pytest.fixture
+def isolated_space_settings(tmp_path, monkeypatch):
+    """Use temporary space selections without changing the user's settings."""
+    settings = ln.setup.settings
+    monkeypatch.setattr(
+        type(settings), "_space_path", property(lambda _: tmp_path / "current-space")
+    )
+    monkeypatch.setattr(
+        type(settings), "_home_space_path", property(lambda _: tmp_path / "home-space")
+    )
+    monkeypatch.setattr(settings, "_space", None)
+    monkeypatch.setattr(settings, "_space_context_path", None)
+    monkeypatch.setattr(ln.context, "_space", None)
+    return settings
+
+
+@pytest.fixture
 def ccaplog(caplog) -> pytest.LogCaptureFixture:
     """Add caplog handler to our custom logger at session start."""
     from lamindb_setup import logger
