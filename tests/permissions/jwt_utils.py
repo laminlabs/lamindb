@@ -1,10 +1,11 @@
 import json
+from contextlib import closing
 
-import psycopg2
+import psycopg
 
 
 def sign_jwt(db_url, payload: dict) -> str:
-    with psycopg2.connect(db_url) as conn, conn.cursor() as cur:
+    with closing(psycopg.connect(db_url)) as conn, conn, conn.cursor() as cur:
         cur.execute(
             """
                 SELECT sign(

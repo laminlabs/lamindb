@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Apply 0193 link-table partial unique indexes table-by-table via psycopg2.
+r"""Apply 0193 link-table partial unique indexes table-by-table via psycopg 3.
 
 For each table, independently:
   1. Drop legacy unique_together constraints (short AccessExclusiveLock)
@@ -34,10 +34,11 @@ import os
 import sys
 import threading
 import time
+from contextlib import closing
 from dataclasses import dataclass
 
-import psycopg2
-from psycopg2 import sql
+import psycopg
+from psycopg import sql
 
 MIGRATION_APP = "lamindb"
 MIGRATION_NAME = "0193_v2_9_part_2"
@@ -380,49 +381,48 @@ def poll_create_index_progress(
 ) -> None:
     """Background: log pg_stat_progress_create_index until stop is set."""
     try:
-        monitor = psycopg2.connect(dsn)
+        monitor = psycopg.connect(dsn)
     except Exception as exc:  # noqa: BLE001 - best-effort progress only
         log(f"  progress monitor unavailable: {exc}")
         return
-    try:
-        monitor.autocommit = True
-        started = time.perf_counter()
-        while not stop.wait(interval):
-            with monitor.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT
-                        p.phase,
-                        p.lockers_total,
-                        p.lockers_done,
-                        p.blocks_total,
-                        p.blocks_done,
-                        p.tuples_total,
-                        p.tuples_done
-                    FROM pg_stat_progress_create_index p
-                    JOIN pg_class t ON t.oid = p.relid
-                    WHERE t.relname = %s
-                    ORDER BY p.pid
-                    LIMIT 1
-                    """,
-                    (table,),
-                )
-                row = cur.fetchone()
-            elapsed = time.perf_counter() - started
-            if row:
-                log(
-                    f"  … {index_name} [{elapsed:.0f}s] "
-                    f"{_format_create_index_progress(row)}"
-                )
-            else:
-                log(
-                    f"  … {index_name} [{elapsed:.0f}s] "
-                    f"waiting (no pg_stat_progress_create_index row yet)"
-                )
-    except Exception as exc:  # noqa: BLE001
-        log(f"  progress monitor stopped: {exc}")
-    finally:
-        monitor.close()
+    with closing(monitor):
+        try:
+            monitor.autocommit = True
+            started = time.perf_counter()
+            while not stop.wait(interval):
+                with monitor.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT
+                            p.phase,
+                            p.lockers_total,
+                            p.lockers_done,
+                            p.blocks_total,
+                            p.blocks_done,
+                            p.tuples_total,
+                            p.tuples_done
+                        FROM pg_stat_progress_create_index p
+                        JOIN pg_class t ON t.oid = p.relid
+                        WHERE t.relname = %s
+                        ORDER BY p.pid
+                        LIMIT 1
+                        """,
+                        (table,),
+                    )
+                    row = cur.fetchone()
+                elapsed = time.perf_counter() - started
+                if row:
+                    log(
+                        f"  … {index_name} [{elapsed:.0f}s] "
+                        f"{_format_create_index_progress(row)}"
+                    )
+                else:
+                    log(
+                        f"  … {index_name} [{elapsed:.0f}s] "
+                        f"waiting (no pg_stat_progress_create_index row yet)"
+                    )
+        except Exception as exc:  # noqa: BLE001
+            log(f"  progress monitor stopped: {exc}")
 
 
 def create_unique_index_concurrently(
@@ -772,8 +772,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     log("connecting…")
-    conn = psycopg2.connect(args.dsn)
-    try:
+    with closing(psycopg.connect(args.dsn)) as conn:
         conn.autocommit = False
         with conn.cursor() as cur:
             cur.execute("SELECT current_database(), current_user")
@@ -812,7 +811,7 @@ def main(argv: list[str] | None = None) -> int:
                         table_label=label,
                     )
                     break
-                except psycopg2.errors.LockNotAvailable:
+                except psycopg.errors.LockNotAvailable:
                     conn.rollback()
                     if attempts >= 5:
                         raise
@@ -825,8 +824,6 @@ def main(argv: list[str] | None = None) -> int:
 
         log("\nAll done.")
         return 0
-    finally:
-        conn.close()
 
 
 if __name__ == "__main__":

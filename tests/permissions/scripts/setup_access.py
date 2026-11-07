@@ -24,9 +24,12 @@ instance_id = ln.setup.settings.instance._id
 def create_jwt_user(dsn_admin: str, jwt_role_name: str):
     db_role_handler = DbRoleHandler(dsn_admin)
     jwt_db_url = db_role_handler.create(
-        jwt_role_name, expires_in=None, alter_if_exists=True
+        jwt_role_name, expires_in=None, alter_if_exists=True, temporary=False
     )
     db_role_handler.permission.grant_write_jwt(jwt_role_name)
+    # A new database grants TEMPORARY to PUBLIC. Production revokes that, so
+    # the jwt role cannot create objects in pg_temp.
+    db_role_handler.permission.revoke_public_database_access()
     return jwt_db_url
 
 

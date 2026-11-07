@@ -1,12 +1,13 @@
 import subprocess
 import time
-from datetime import datetime, timezone
+from contextlib import closing, contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import hubmodule.models as hm
 import lamindb as ln
-import psycopg2
+import psycopg
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
@@ -17,9 +18,58 @@ from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models._lineage import track_run_inputs
 from lamindb_setup.core.django import DBToken, db_token_manager
-from psycopg2.extensions import adapt
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
+
+
+@contextmanager
+def pg_connect(dsn: str):
+    # Client-side binding accepts several statements in one string.
+    # closing() still runs when commit() inside the connection context raises.
+    with (
+        closing(psycopg.connect(dsn, cursor_factory=psycopg.ClientCursor)) as conn,
+        conn,
+    ):
+        yield conn
+
+
+# TEMPORARY covers tables and other objects created in pg_temp.
+_TEMP_OBJECT_STATEMENTS = (
+    """
+    CREATE TEMP TABLE access(
+        id int,
+        role varchar(20),
+        type text
+    )
+    """,
+    "CREATE FUNCTION pg_temp.hijack() RETURNS int LANGUAGE sql AS 'SELECT 1'",
+    "CREATE TYPE pg_temp.hijack AS (id int)",
+)
+
+
+def _jwt_role_name() -> str:
+    return f"{ln.setup.settings.instance._id.hex}_jwt"
+
+
+def _set_jwt_temporary(enabled: bool) -> None:
+    statement = psycopg.sql.SQL(
+        "GRANT TEMPORARY ON DATABASE {} TO {}"
+        if enabled
+        else "REVOKE TEMPORARY ON DATABASE {} FROM {}"
+    ).format(
+        psycopg.sql.Identifier(psycopg.conninfo.conninfo_to_dict(pgurl)["dbname"]),
+        psycopg.sql.Identifier(_jwt_role_name()),
+    )
+    with pg_connect(pgurl) as admin, admin.cursor() as cur:
+        cur.execute(statement)
+
+
+def _assert_no_temporary_objects(conn, cur) -> None:
+    for statement in _TEMP_OBJECT_STATEMENTS:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            cur.execute(statement)
+        conn.rollback()
+
 
 user_uuid = ln.setup.settings.user._uuid.hex
 expiration = time.time() + 2000
@@ -34,7 +84,6 @@ token_read = sign_jwt(
 # init an instance of DBToken manually
 db_token = DBToken({})
 db_token._token = token
-db_token._token_query = f"SELECT set_token({adapt(token).getquoted().decode()}, true);"
 db_token._expiration = expiration
 
 db_token_manager.set(db_token)
@@ -51,7 +100,7 @@ def test_token_expiration():
     )
     # check that an expired token is invalid
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT set_token(%s);", (expired_token,))
@@ -67,54 +116,61 @@ def test_authentication():
     assert result
     # reused session keeps empty temp tables until set_token runs again
     with (
-        pytest.raises(psycopg2.errors.RaiseException) as exc,
+        pytest.raises(psycopg.errors.RaiseException) as exc,
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_ulabel;")
     assert "no access: this account has no permissions on this instance" in str(
         exc.value
     )
-    # fresh session has no temp tables; a client-owned access table is rejected
-    with psycopg2.connect(ln.setup.settings.instance.db) as conn, conn.cursor() as cur:
+    # fresh session has no token yet
+    with pg_connect(ln.setup.settings.instance.db) as conn, conn.cursor() as cur:
         # autocommit is off, so roll back the aborted transaction before the next command
-        with pytest.raises(psycopg2.errors.RaiseException) as exc:
+        with pytest.raises(psycopg.errors.RaiseException) as exc:
             cur.execute("SELECT * FROM lamindb_ulabel;")
         assert "JWT is not set" in str(exc.value)
         conn.rollback()
-        # test that auth can't be hijacked
-        with pytest.raises(psycopg2.errors.RaiseException) as exc:
-            cur.execute(
-                """
-                CREATE TEMP TABLE access(
-                    id int,
-                    role varchar(20),
-                    type text
-                );
-                SELECT set_token(%s);
-                """,
-                (token,),
-            )
-        assert "JWT is not set" in str(exc.value)
-        conn.rollback()
-        # check that jwt user can't set arbitrary account_id manually
-        with pytest.raises(psycopg2.errors.RaiseException) as exc:
-            cur.execute(
-                """
-                CREATE TEMP TABLE access(
-                    id int,
-                    role varchar(20),
-                    type text
-                );
-                INSERT INTO access (id, role, type)
-                VALUES (1, 'admin', 'space');
-                SELECT * FROM check_access();
-                """
-            )
-        assert "JWT is not set" in str(exc.value)
-        conn.rollback()
+        # Role is created without TEMPORARY, and PUBLIC no longer has it.
+        _assert_no_temporary_objects(conn, cur)
+        _set_jwt_temporary(True)
+        try:
+            # test that auth can't be hijacked
+            with pytest.raises(psycopg.errors.RaiseException) as exc:
+                cur.execute(
+                    """
+                    CREATE TEMP TABLE access(
+                        id int,
+                        role varchar(20),
+                        type text
+                    );
+                    SELECT set_token(%s);
+                    """,
+                    (token,),
+                )
+            assert "JWT is not set" in str(exc.value)
+            conn.rollback()
+            # check that jwt user can't set arbitrary account_id manually
+            with pytest.raises(psycopg.errors.RaiseException) as exc:
+                cur.execute(
+                    """
+                    CREATE TEMP TABLE access(
+                        id int,
+                        role varchar(20),
+                        type text
+                    );
+                    INSERT INTO access (id, role, type)
+                    VALUES (1, 'admin', 'space');
+                    SELECT * FROM check_access();
+                    """
+                )
+            assert "JWT is not set" in str(exc.value)
+            conn.rollback()
+        finally:
+            _set_jwt_temporary(False)
+        _assert_no_temporary_objects(conn, cur)
     # check manual insert
     with (
-        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        pytest.raises(psycopg.errors.InsufficientPrivilege),
         connection.connection.cursor() as cur,
     ):
         cur.execute(
@@ -127,7 +183,7 @@ def test_authentication():
         )
     # test access to the security schema
     with (
-        pytest.raises(psycopg2.errors.InsufficientPrivilege),
+        pytest.raises(psycopg.errors.InsufficientPrivilege),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT security.get_secret('jwt_secret');")
@@ -137,6 +193,8 @@ def test_authentication():
             "SELECT set_token(%s); SELECT set_token(%s); SELECT * FROM check_access()",
             (token, token_read),
         )
+        # set_token() results come first; check_access() is the last result.
+        cur.set_result(-1)
         result = cur.fetchall()
     assert len(result) == 1
     assert result[0] == (1, "read", "space")
@@ -156,34 +214,34 @@ def test_select_without_db_token():
     ln.Record.get(1)
     # no db token, everything in the default space
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_record;")
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_record WHERE id = 1;")
     # no db token, in different spaces
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_artifact;")
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_ulabel;")
     # no db token, utility tables
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_user;")
     with (
-        pytest.raises(psycopg2.errors.RaiseException),
+        pytest.raises(psycopg.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_space;")
@@ -301,7 +359,7 @@ def test_fine_grained_permissions_single_records():
     assert not ln.Project.filter(name="No_access_project").exists()
 
     # check that the logs are not available for the ulabel
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM lamindb_ulabel WHERE name = 'no_access_ulabel'")
         ulabel_id = cur.fetchone()[0]
     assert not hm.DbWrite.filter(
@@ -309,13 +367,13 @@ def test_fine_grained_permissions_single_records():
     ).exists()
 
     # switch access to this ulabel to read
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             """
             UPDATE hubmodule_accessrecord SET role = 'read'
             WHERE account_id = %s AND record_type = 'lamindb_ulabel'
             """,
-            (user_uuid,),
+            (UUID(user_uuid),),
         )
 
     ulabel = ln.ULabel.get(name="no_access_ulabel")
@@ -331,13 +389,13 @@ def test_fine_grained_permissions_single_records():
         ulabel.save()
 
     # switch access for the project to read
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             """
             UPDATE hubmodule_accessrecord SET role = 'read'
             WHERE account_id = %s AND record_type = 'lamindb_project'
             """,
-            (user_uuid,),
+            (UUID(user_uuid),),
         )
     # now the project is readable
     project = ln.Project.get(name="No_access_project")
@@ -347,13 +405,13 @@ def test_fine_grained_permissions_single_records():
         ulabel.projects.add(project)
 
     # switch access for the ulabel to write
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             """
             UPDATE hubmodule_accessrecord SET role = 'write'
             WHERE account_id = %s AND record_type = 'lamindb_ulabel'
             """,
-            (user_uuid,),
+            (UUID(user_uuid),),
         )
 
     ulabel.save()
@@ -413,7 +471,7 @@ def test_user_rls():
         user.save()
     # write collaborators can insert a user with any uid
     ln.User(handle="insert_new_user", uid="someuidd").save()
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM lamindb_user WHERE uid = %s", ("someuidd",))
     # an existing uid of another user is the same no-write case
     with pytest.raises(ln.errors.NoWriteAccess):
@@ -428,17 +486,19 @@ def test_user_rls():
 
 def test_write_role():
     # switch user role to write
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s", (user_uuid,)
+            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s",
+            (UUID(user_uuid),),
         )
 
     ln.ULabel(name="new label account default space").save()
 
     # switch user role back to read and team role to write
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
+            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s",
+            (UUID(user_uuid),),
         )
         cur.execute(
             "UPDATE hubmodule_team SET role = 'write' WHERE uid = 'teamuiduid11'",
@@ -446,7 +506,7 @@ def test_write_role():
 
     ln.ULabel(name="new label team default space").save()
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE hubmodule_team SET role = 'read' WHERE uid = 'teamuiduid11'",
         )
@@ -462,9 +522,10 @@ def test_locking():
 
 def test_tracking_error():
     # switch user role to write to create the transform and run
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s", (user_uuid,)
+            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s",
+            (UUID(user_uuid),),
         )
 
     artifact = ln.Artifact.get(description="test tracking error")
@@ -488,9 +549,10 @@ def test_tracking_error():
     run_full_access.save()
 
     # switch user role back to read
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
+            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s",
+            (UUID(user_uuid),),
         )
     # default space is read-only now
     with pytest.raises(ln.errors.NoWriteAccess) as e:
@@ -510,16 +572,16 @@ def test_tracking_error():
 
 def test_consistency_enforcement():
     # Far from the statement clock, so a kept value cannot be a fresh stamp.
-    forged_created_at = datetime(2001, 1, 1, tzinfo=timezone.utc)
-    forged_updated_at = datetime(2001, 1, 2, tzinfo=timezone.utc)
-    admin_created_at = datetime(1999, 5, 6, tzinfo=timezone.utc)
-    admin_updated_at = datetime(1999, 7, 8, tzinfo=timezone.utc)
+    forged_created_at = datetime(2001, 1, 1, tzinfo=UTC)
+    forged_updated_at = datetime(2001, 1, 2, tzinfo=UTC)
+    admin_created_at = datetime(1999, 5, 6, tzinfo=UTC)
+    admin_updated_at = datetime(1999, 7, 8, tzinfo=UTC)
     account_id = uuid4().hex
     jwt_db = ln.setup.settings.instance.db
     actor_id = None
     original_name = None
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM lamindb_space WHERE name = 'full access'")
         space_id = cur.fetchone()[0]
         cur.execute(
@@ -529,7 +591,7 @@ def test_consistency_enforcement():
             JOIN hubmodule_account a ON a.uid = u.uid
             WHERE a.id = %s
             """,
-            (user_uuid,),
+            (UUID(user_uuid),),
         )
         actor_id, original_name, user_created_at = cur.fetchone()
         cur.execute("SELECT id FROM lamindb_user WHERE handle = 'testuser'")
@@ -540,14 +602,14 @@ def test_consistency_enforcement():
             INSERT INTO hubmodule_account (id, uid, role)
             VALUES (%s, 'nouser01', 'read')
             """,
-            (account_id,),
+            (UUID(account_id),),
         )
         cur.execute(
             """
             INSERT INTO hubmodule_accessspace (account_id, space_id, role)
             VALUES (%s, %s, 'write')
             """,
-            (account_id, space_id),
+            (UUID(account_id), space_id),
         )
 
     try:
@@ -555,9 +617,9 @@ def test_consistency_enforcement():
             pgurl,
             {"account_id": account_id, "exp": expiration, "type": "collaborator"},
         )
-        with psycopg2.connect(jwt_db) as conn, conn.cursor() as cur:
+        with pg_connect(jwt_db) as conn, conn.cursor() as cur:
             cur.execute("SELECT set_token(%s);", (token_no_user,))
-            with pytest.raises(psycopg2.errors.RaiseException) as exc:
+            with pytest.raises(psycopg.errors.RaiseException) as exc:
                 cur.execute(
                     """
                     INSERT INTO lamindb_ulabel (uid, name, space_id, created_by_id)
@@ -568,7 +630,7 @@ def test_consistency_enforcement():
             assert "lamin user id is not set" in str(exc.value)
             conn.rollback()
 
-        with psycopg2.connect(jwt_db) as conn, conn.cursor() as cur:
+        with pg_connect(jwt_db) as conn, conn.cursor() as cur:
             cur.execute("SELECT set_token(%s);", (token,))
             # A later statement must not reuse the transaction start time.
             cur.execute("SELECT pg_sleep(0.01)")
@@ -637,7 +699,7 @@ def test_consistency_enforcement():
             )
 
         # no lamin user row: a migration session keeps the values it sent
-        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        with pg_connect(pgurl) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO lamindb_ulabel (
@@ -664,7 +726,7 @@ def test_consistency_enforcement():
             )
             assert cur.fetchone() == (actor_id, admin_created_at, admin_updated_at)
     finally:
-        with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        with pg_connect(pgurl) as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 DELETE FROM lamindb_ulabel
@@ -678,9 +740,11 @@ def test_consistency_enforcement():
                 )
             cur.execute(
                 "DELETE FROM hubmodule_accessspace WHERE account_id = %s",
-                (account_id,),
+                (UUID(account_id),),
             )
-            cur.execute("DELETE FROM hubmodule_account WHERE id = %s", (account_id,))
+            cur.execute(
+                "DELETE FROM hubmodule_account WHERE id = %s", (UUID(account_id),)
+            )
 
 
 def test_token_reset():
@@ -708,14 +772,14 @@ def test_dbwrite_uninstall():
     )
     table_exists_query = "SELECT to_regclass('public.hubmodule_dbwrite') IS NOT NULL"
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
         triggers_exist = cur.fetchone()[0]
     assert triggers_exist
 
     uninstall_dbwrite(pgurl, drop_table=False)
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
         triggers_exist = cur.fetchone()[0]
         assert not triggers_exist
@@ -726,7 +790,7 @@ def test_dbwrite_uninstall():
 
     uninstall_dbwrite(pgurl, drop_table=True)
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(table_exists_query)
         table_exists = cur.fetchone()[0]
     assert not table_exists
@@ -749,7 +813,7 @@ def test_consistency_enforcement_uninstall():
             WHERE n.nspname = 'public' AND p.proname = 'consistency_enforcement'
         )
     """
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
         assert cur.fetchone()[0]
         cur.execute(function_exists_query)
@@ -757,7 +821,7 @@ def test_consistency_enforcement_uninstall():
 
     uninstall_consistency_enforcement(pgurl)
 
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+    with pg_connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
         assert not cur.fetchone()[0]
         cur.execute(function_exists_query)
