@@ -10,7 +10,7 @@ import lamindb as ln
 import psycopg
 import pytest
 from django.db import connection, transaction
-from django.db.utils import IntegrityError, InternalError, ProgrammingError
+from django.db.utils import IntegrityError, ProgrammingError
 from hubmodule.sql_generators._consistency_enforcement import (
     uninstall_consistency_enforcement,
 )
@@ -753,13 +753,13 @@ def test_token_reset():
     db_token_manager.reset()
 
     # tables remain and are empty, so access is denied
-    with pytest.raises(InternalError) as error:
+    with pytest.raises(ProgrammingError) as error:
         ln.ULabel.filter().count()
     assert (
         "no access: this account has no permissions on this instance" in error.exconly()
     )
 
-    with pytest.raises(InternalError) as error, transaction.atomic():
+    with pytest.raises(ProgrammingError) as error, transaction.atomic():
         ln.ULabel.filter().count()
     assert (
         "no access: this account has no permissions on this instance" in error.exconly()
