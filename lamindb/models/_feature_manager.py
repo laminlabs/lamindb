@@ -577,8 +577,8 @@ def create_feature_table(
         box=None,
         pad_edge=False,
     )
-    for row in data:
-        table.add_row(*row)
+    for feature_name, dtype, values in data:
+        table.add_row(Text(feature_name), dtype, Text(values))
     return table
 
 

@@ -118,7 +118,7 @@ def describe_labels(
             related_model = get_related_model(self, related_name)
             type_str = related_model.__get_name_with_module__()
             labels_table.add_row(
-                f".{related_name}", Text(type_str, style="dim"), print_values
+                f".{related_name}", Text(type_str, style="dim"), Text(print_values)
             )
     tree = None
     if labels_table.rows:  # we might not have rows even if labels_data was non-empty
