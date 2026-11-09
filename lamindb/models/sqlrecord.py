@@ -6,7 +6,8 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from copy import deepcopy
+from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -271,6 +272,10 @@ class HasType(HasEmoji, models.Model):
 
     A newly created record inherits the emoji of its `type` (`.emoji`)
     when it does not set one itself.
+
+    A newly created type (`is_type=True`) also copies its parent's settings as
+    independent defaults. Override them through `.settings` before saving.
+    Existing records and later changes to either type are not synchronized.
     """
 
     class Meta:
@@ -341,14 +346,30 @@ def _typed_children(record: HasType) -> list:
 class SQLRecordSettings:
     """Settings for :class:`~lamindb.models.SQLRecord` objects."""
 
+    # Only declared settings are inherited; other `_aux` metadata stays separate.
+    _aux_fields = {"single_space": "ss"}
+
     def __init__(self, sqlrecord: SQLRecord):
         self._sqlrecord = sqlrecord
 
     @property
     def single_space(self) -> bool | Space:
-        """Objects in a dynamic registry must be in a single space (default `False`).
+        """Objects in a dynamic registry must be in a single space.
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
+
+        Defaults to `False` for root types. New types constructed with `type=parent`
+        copy the parent's in-memory setting, including unsaved changes. The copy is
+        independent and does not update when the parent changes. Override it before
+        saving, for example::
+
+            child = ln.Record(name="Child", is_type=True, type=parent)
+            child.settings.single_space = False
+            child.save()
+
+        Finding an existing record does not copy settings. Assigning `.type` after
+        construction does not copy them either. Copying loaded settings adds no
+        database queries; space resolution and saving may still require queries.
 
         This affects creates and updates: new objects without an explicit `space` default to the
         enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
@@ -392,7 +413,7 @@ class SQLRecordSettings:
         if aux is None:
             return False
         if (ss := aux.get("ss")) is not None:
-            if ss == 1:
+            if ss == 1 or ss == "1":
                 return True
             else:
                 return Space.get(ss)
@@ -456,6 +477,23 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     if isinstance(ss, str) and ss:
         return Space.get(ss)
     return None
+
+
+def _inherit_type_settings(record: models.Model) -> None:
+    """Copy declared settings into a new type, preserving explicit child values."""
+    if not isinstance(record, HasType) or record.is_type is not True:
+        return
+    type_record = getattr(record, "type", None)
+    if not isinstance(type_record, HasType) or type_record.is_type is not True:
+        return
+    parent_aux = type_record._aux or {}
+    inherited = {
+        key: parent_aux[key]
+        for key in SQLRecordSettings._aux_fields.values()
+        if key in parent_aux
+    }
+    if inherited:
+        record._aux = deepcopy({**inherited, **(record._aux or {})})
 
 
 def _inherit_type_emoji(record: models.Model) -> None:
@@ -1361,6 +1399,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _inherit_type_settings(self)
                 _inherit_type_emoji(self)
             else:
                 from ..core._settings import settings
@@ -1420,6 +1459,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _inherit_type_settings(self)
                 _inherit_type_emoji(self)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators
@@ -1857,7 +1897,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_summarize=True,
                 )
             if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 

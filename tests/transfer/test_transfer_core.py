@@ -7,6 +7,24 @@ from lamindb.models._transfer import (
 )
 
 
+def test_transfer_preserves_type_settings():
+    ln.connect("testdb1")
+    parent = ln.Record(name="SettingsTransferParent", is_type=True).save()
+    parent.settings.single_space = True
+    parent.save()
+    child = ln.Record(name="SettingsTransferChild", is_type=True, type=parent)
+    child.settings.single_space = False
+    child.save()
+
+    ln.connect("testdb2")
+    source = ln.DB(f"{ln.setup.settings.user.handle}/testdb1")
+    transferred = source.Record.get(child.uid).save(transfer="record")
+    assert transferred.settings.single_space is False
+    assert transferred.type.settings.single_space is True
+    transferred.refresh_from_db()
+    assert transferred.settings.single_space is False
+
+
 def test_transfer():
     db1 = ln.DB(f"{ln.setup.settings.user.handle}/testdb1")
     artifact = db1.Artifact.get(key="README.md")
