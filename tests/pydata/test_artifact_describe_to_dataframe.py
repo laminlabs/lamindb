@@ -49,8 +49,35 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
     return True
 
 
+def _clear_describe_example_dataset() -> None:
+    """Drop the registries this test fills.
+
+    `save_mini_immuno_datasets()` creates `experiment` and `perturbation`.
+    Later tests create those names with other dtypes, so this has to run even
+    when an assertion fails.
+
+    Component schemas are protected by `SchemaComponent`, so those links go
+    before the schemas, and schemas go before features.
+    """
+    ln.Artifact.filter(key__startswith="examples/dataset").delete(permanent=True)
+    ln.models.SchemaComponent.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter(is_type=False).delete(permanent=True)
+    ln.Feature.filter(is_type=True).delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
+
+
+@pytest.fixture
+def clear_describe_example_dataset():
+    yield
+    _clear_describe_example_dataset()
+
+
 # parallels the `registries` guide
 # please also see the test_querset.py tests
+@pytest.mark.usefixtures("clear_describe_example_dataset")
 def test_describe_to_dataframe_example_dataset(ccaplog):
     ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
@@ -252,9 +279,12 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     ]
     assert labels_node.children[0].label.columns[1]._cells[0].plain == "Record"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
+    # Value cells are rich Text so database strings are not parsed as markup.
     assert {
         c.strip()
-        for c in ",".join(labels_node.children[0].label.columns[2]._cells).split(",")
+        for c in ",".join(
+            cell.plain for cell in labels_node.children[0].label.columns[2]._cells
+        ).split(",")
     } == {
         "DMSO",
         "IFNG",
@@ -283,20 +313,6 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     assert just_internal != alljson_values
     assert just_internal == artifact.features.get_values()
 
-    artifact.delete(permanent=True)
-    artifact2.delete(permanent=True)
-    artifact3.delete(permanent=True)
-    wide_df_schema.delete(permanent=True)
-    ln.Schema.get(name="anndata_ensembl_gene_ids_and_obs_feature_type").delete(
-        permanent=True
-    )
-    ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter(is_type=False).delete(permanent=True)
-    ln.Feature.filter(is_type=True).delete(permanent=True)
-    bt.Gene.filter().delete(permanent=True)
-    ln.Record.filter().delete(permanent=True)
-    bt.CellType.filter().delete(permanent=True)
-
 
 def test_describe_shows_db_strings_literally(tmp_path):
     # Without escaping, rich parses `[link=...]` into an unescaped `href` in Jupyter
@@ -304,28 +320,33 @@ def test_describe_shows_db_strings_literally(tmp_path):
     payload = '[link="><b>]x[/b]'
     path = tmp_path / "describe_markup.txt"
     path.write_text("describe markup\n")
-    label = ln.Record(name=payload).save()
-    feature = ln.Feature(name="describe_markup_value", dtype=str).save()
-    artifact = ln.Artifact(path, description="describe markup").save()
-    artifact.records.add(label)
-    artifact.features.add_values({feature.name: payload})
-    member = ln.Feature(name="dmm", dtype=str, default_value=payload).save()
-    schema = ln.Schema([member], name="describe_markup_schema").save()
-    transform = ln.Transform(key="describe_markup.py").save()
-    run = ln.Run(transform, params={payload: payload}).save()
+    label = feature = artifact = member = schema = transform = run = None
     try:
+        label = ln.Record(name=payload).save()
+        feature = ln.Feature(name="describe_markup_value", dtype=str).save()
+        artifact = ln.Artifact(path, description="describe markup").save()
+        artifact.records.add(label)
+        artifact.features.add_values({feature.name: payload})
+        member = ln.Feature(name="dmm", dtype=str, default_value=payload).save()
+        schema = ln.Schema([member], name="describe_markup_schema").save()
+        transform = ln.Transform(key="describe_markup.py").save()
+        run = ln.Run(transform, params={payload: payload}).save()
         # once in Entities (labels), once in Features (external values)
         assert artifact.describe(return_str=True).count(payload) == 2
         assert payload in schema.describe(return_str=True)
         assert f"{payload}: {payload}" in run.describe(return_str=True)
     finally:
-        run.delete(permanent=True)
-        transform.delete(permanent=True)
-        artifact.delete(permanent=True)
-        schema.delete(permanent=True)
-        member.delete(permanent=True)
-        feature.delete(permanent=True)
-        label.delete(permanent=True)
+        # Keep going if one delete fails so a linked row cannot leave the rest behind.
+        errors: list[Exception] = []
+        for record in (run, transform, artifact, schema, member, feature, label):
+            if record is None:
+                continue
+            try:
+                record.delete(permanent=True)
+            except Exception as error:
+                errors.append(error)
+        if errors:
+            raise errors[0]
 
 
 def test_describe_artifact_from_remote_instance(capsys):
