@@ -448,7 +448,7 @@ def describe_run(
     if record.params:
         params = tree.add(Text("Params", style="bold dark_orange"))
         for key, value in record.params.items():
-            params.add(f"{key}: {value}")
+            params.add(Text(f"{key}: {value}"))
     if features_tree:
         tree.add(features_tree)
     return tree
@@ -693,7 +693,9 @@ def describe_schema(
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
                     "✓" if record.coerce or member.coerce else "✗",
-                    str(member.default_value) if member.default_value else "unset",
+                    Text(str(member.default_value))
+                    if member.default_value
+                    else "unset",
                 )
 
             features.add(feature_table)
