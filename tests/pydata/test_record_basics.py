@@ -2426,8 +2426,13 @@ def test_single_space_getter_setter_paths():
         name=f"ChildType-{suffix}", type=constrained_type, is_type=True
     )
     assert child_type.settings.single_space is True
-    member = ln.Record(name=f"Member-{suffix}", type=constrained_type)
-    assert "ss" not in (member._aux or {})
+    explicit_child = ln.Record(
+        name=f"ExplicitChild-{suffix}",
+        type=constrained_type,
+        is_type=True,
+        _aux={"ss": restricted_space.uid},
+    )
+    assert explicit_child.settings.single_space == restricted_space
 
     constrained_type.settings.single_space = restricted_space
     single_space_setting = constrained_type.settings.single_space
