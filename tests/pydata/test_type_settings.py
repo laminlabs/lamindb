@@ -76,6 +76,8 @@ def test_copy_single_space_preserves_child_metadata(skip_validation, child_aux):
     parent = ln.Record(name="SettingsParent", is_type=True)
     parent.settings.single_space = True
     parent.emoji = "🧬"
+    child_aux = child_aux.copy() if child_aux is not None else None
+    expected_aux = {"ss": 1, "ei": "🧬", **(child_aux or {})}
     child = ln.Record(
         name="SettingsChild",
         type=parent,
@@ -84,11 +86,7 @@ def test_copy_single_space_preserves_child_metadata(skip_validation, child_aux):
         _skip_validation=skip_validation,
     )
     assert child.settings.single_space is True
-    assert child.emoji == (child_aux or {}).get("ei", "🧬")
-    if child_aux is not None:
-        assert "ss" not in child_aux
-    if child_aux:
-        assert child._aux["child-only"] == 2
+    assert child._aux == expected_aux
 
 
 @pytest.mark.usefixtures("no_name_search")
@@ -102,8 +100,7 @@ def test_copy_single_space_preserves_explicit_value(settings_space):
     assert child.settings.single_space == settings_space
     assert "other-setting" not in child._aux
     assert "other-setting" not in sibling._aux
-    child._aux["child-only"]["values"].append(4)
-    assert child_aux == {"ss": settings_space.uid, "child-only": {"values": [2]}}
+    assert child._aux == {"ss": settings_space.uid, "child-only": {"values": [2]}}
     assert sibling.settings.single_space is True
 
 

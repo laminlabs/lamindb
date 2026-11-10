@@ -6,7 +6,6 @@ import os
 import re
 import sys
 from collections import defaultdict
-from copy import deepcopy
 from datetime import UTC, datetime
 from itertools import chain
 from typing import (
@@ -353,7 +352,7 @@ class SQLRecordSettings:
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
-        Copied to child types when they are created.
+        Child types copy this setting at creation.
 
         This affects creates and updates: new objects without an explicit `space` default to the
         enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
@@ -467,12 +466,19 @@ def _copy_type_single_space(record: models.Model) -> None:
     """Copy the parent's `single_space` into a new type unless explicitly set."""
     if not isinstance(record, HasType) or record.is_type is not True:
         return
+    if record._aux is not None and "ss" in record._aux:
+        return
     type_record = getattr(record, "type", None)
     if not isinstance(type_record, HasType) or type_record.is_type is not True:
         return
-    parent_aux = type_record._aux or {}
-    if "ss" in parent_aux:
-        record._aux = deepcopy({"ss": parent_aux["ss"], **(record._aux or {})})
+    if type_record._aux is None:
+        return
+    parent_ss = type_record._aux.get("ss")
+    if not parent_ss:
+        return
+    if record._aux is None:
+        record._aux = {}
+    record._aux["ss"] = parent_ss
 
 
 def _inherit_type_emoji(record: models.Model) -> None:
