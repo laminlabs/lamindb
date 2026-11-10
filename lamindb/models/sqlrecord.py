@@ -273,9 +273,7 @@ class HasType(HasEmoji, models.Model):
     A newly created record inherits the emoji of its `type` (`.emoji`)
     when it does not set one itself.
 
-    A newly created type (`is_type=True`) also copies its parent's settings as
-    independent defaults. Override them through `.settings` before saving.
-    Existing records and later changes to either type are not synchronized.
+    Child types copy their parent's `single_space` setting when created.
     """
 
     class Meta:
@@ -346,30 +344,16 @@ def _typed_children(record: HasType) -> list:
 class SQLRecordSettings:
     """Settings for :class:`~lamindb.models.SQLRecord` objects."""
 
-    # Only declared settings are inherited; other `_aux` metadata stays separate.
-    _aux_fields = {"single_space": "ss"}
-
     def __init__(self, sqlrecord: SQLRecord):
         self._sqlrecord = sqlrecord
 
     @property
     def single_space(self) -> bool | Space:
-        """Objects in a dynamic registry must be in a single space.
+        """Objects in a dynamic registry must be in a single space (default `False`).
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
-        Defaults to `False` for root types. New types constructed with `type=parent`
-        copy the parent's in-memory setting, including unsaved changes. The copy is
-        independent and does not update when the parent changes. Override it before
-        saving, for example::
-
-            child = ln.Record(name="Child", is_type=True, type=parent)
-            child.settings.single_space = False
-            child.save()
-
-        Finding an existing record does not copy settings. Assigning `.type` after
-        construction does not copy them either. Copying loaded settings adds no
-        database queries; space resolution and saving may still require queries.
+        Copied to child types when they are created.
 
         This affects creates and updates: new objects without an explicit `space` default to the
         enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
@@ -479,21 +463,16 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     return None
 
 
-def _inherit_type_settings(record: models.Model) -> None:
-    """Copy declared settings into a new type, preserving explicit child values."""
+def _copy_type_single_space(record: models.Model) -> None:
+    """Copy the parent's `single_space` into a new type unless explicitly set."""
     if not isinstance(record, HasType) or record.is_type is not True:
         return
     type_record = getattr(record, "type", None)
     if not isinstance(type_record, HasType) or type_record.is_type is not True:
         return
     parent_aux = type_record._aux or {}
-    inherited = {
-        key: parent_aux[key]
-        for key in SQLRecordSettings._aux_fields.values()
-        if key in parent_aux
-    }
-    if inherited:
-        record._aux = deepcopy({**inherited, **(record._aux or {})})
+    if "ss" in parent_aux:
+        record._aux = deepcopy({"ss": parent_aux["ss"], **(record._aux or {})})
 
 
 def _inherit_type_emoji(record: models.Model) -> None:
@@ -1399,7 +1378,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
-                _inherit_type_settings(self)
+                _copy_type_single_space(self)
                 _inherit_type_emoji(self)
             else:
                 from ..core._settings import settings
@@ -1459,7 +1438,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
-                _inherit_type_settings(self)
+                _copy_type_single_space(self)
                 _inherit_type_emoji(self)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators

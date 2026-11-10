@@ -6,7 +6,6 @@ import pandas as pd
 import pytest
 from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
-from lamindb.models.sqlrecord import SQLRecordSettings
 
 
 @pytest.fixture
@@ -34,7 +33,7 @@ def settings_space():
 )
 @pytest.mark.parametrize("policy", [False, True, "exact-space", "legacy-true"])
 @pytest.mark.usefixtures("no_name_search")
-def test_new_types_copy_settings(model, member_kwargs, policy, settings_space):
+def test_new_types_copy_single_space(model, member_kwargs, policy, settings_space):
     parent = model(name="SettingsParent", is_type=True, space=settings_space)
     assert parent.settings.single_space is False
     if policy == "legacy-true":
@@ -73,7 +72,7 @@ def test_new_types_copy_settings(model, member_kwargs, policy, settings_space):
 @pytest.mark.parametrize("skip_validation", [False, True])
 @pytest.mark.parametrize("child_aux", [None, {}, {"ei": "🧪", "child-only": 2}])
 @pytest.mark.usefixtures("no_name_search")
-def test_copy_settings_preserves_child_metadata(skip_validation, child_aux):
+def test_copy_single_space_preserves_child_metadata(skip_validation, child_aux):
     parent = ln.Record(name="SettingsParent", is_type=True)
     parent.settings.single_space = True
     parent.emoji = "🧬"
@@ -93,32 +92,24 @@ def test_copy_settings_preserves_child_metadata(skip_validation, child_aux):
 
 
 @pytest.mark.usefixtures("no_name_search")
-def test_explicit_setting_and_future_mutable_settings(monkeypatch, settings_space):
-    # Declared settings can grow without changing the constructor/helper.
-    monkeypatch.setattr(
-        SQLRecordSettings, "_aux_fields", {"single_space": "ss", "future": "future"}
-    )
+def test_copy_single_space_preserves_explicit_value(settings_space):
     parent = ln.Record(name="SettingsParent", is_type=True)
     parent.settings.single_space = True
-    parent._aux["future"] = {"values": [1]}
+    parent._aux["other-setting"] = {"values": [1]}
     child_aux = {"ss": settings_space.uid, "child-only": {"values": [2]}}
     child = ln.Record(name="SettingsChild", type=parent, is_type=True, _aux=child_aux)
     sibling = ln.Record(name="SettingsSibling", type=parent, is_type=True)
     assert child.settings.single_space == settings_space
-    child._aux["future"]["values"].append(3)
+    assert "other-setting" not in child._aux
+    assert "other-setting" not in sibling._aux
     child._aux["child-only"]["values"].append(4)
-    assert parent._aux["future"] == sibling._aux["future"] == {"values": [1]}
     assert child_aux == {"ss": settings_space.uid, "child-only": {"values": [2]}}
-    explicit = ln.Record(
-        name="SettingsExplicitDefault",
-        type=parent,
-        is_type=True,
-        _aux={"future": False},
-    )
-    assert explicit._aux["future"] is False
+    assert sibling.settings.single_space is True
 
 
-def test_settings_copy_does_not_query_or_refresh_parent(settings_space, monkeypatch):
+def test_single_space_copy_does_not_query_or_refresh_parent(
+    settings_space, monkeypatch
+):
     parent = ln.Record(name="SettingsSnapshot", is_type=True).save()
     try:
         # An unsaved edit is the source, even if it names a missing Space UID.
@@ -152,7 +143,7 @@ def test_settings_copy_does_not_query_or_refresh_parent(settings_space, monkeypa
         parent.delete(permanent=True)
 
 
-def test_settings_are_only_copied_at_construction(settings_space):
+def test_single_space_is_only_copied_at_construction(settings_space):
     parent = ln.Record(name="SettingsLifecycleParent", is_type=True).save()
     existing = ln.Record(name="SettingsExisting", is_type=True, type=parent).save()
     child = None
@@ -229,7 +220,7 @@ def test_schema_implied_type_and_dataframe_destination(settings_space):
         feature.delete(permanent=True)
 
 
-def test_manager_and_bulk_creation_copy_settings():
+def test_manager_and_bulk_creation_copy_single_space():
     parent = ln.Record(name="SettingsBatchParent", is_type=True).save()
     children = []
     try:
@@ -267,7 +258,7 @@ def test_manager_and_bulk_creation_copy_settings():
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
-def test_settings_copy_respects_parent_visibility(settings_space):
+def test_single_space_copy_respects_parent_visibility(settings_space):
     # This suite uses a disposable admin database. Roll back the role, policies,
     # and records together so later tests retain their normal database access.
     with transaction.atomic():

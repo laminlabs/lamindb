@@ -73,39 +73,6 @@ experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 experiment_type.to_dataframe()
 ```
 
-### Default settings for subtypes
-
-When you construct a new type with `is_type=True` and `type=parent`, it copies the
-parent's settings. Currently, this is `single_space`, which controls the space of
-the type's own records. This also applies to Feature, Schema, Project, Reference,
-and ULabel types.
-
-```python
-experiment_type.settings.single_space = True
-experiment_type.save()
-
-subtype = ln.Record(name="Imaging experiments", is_type=True, type=experiment_type)
-assert subtype.settings.single_space is True
-
-# Override the copied default before saving, if desired.
-subtype.settings.single_space = False
-subtype.save()
-```
-
-The setting is an independent copy of the parent's in-memory value, including
-unsaved edits. Later changes to either type do not update the other. Finding an
-existing record or assigning `.type` after construction does not copy settings.
-Ordinary data records do not acquire type settings.
-
-`True` refers to the new type's own space; a specific Space remains that same
-Space. Disabling the child's setting affects its future records; the child itself
-must still satisfy its parent's space policy and existing permissions. An
-unavailable parent or required destination causes an error rather than a fallback.
-
-This is a breaking change to the previous default of `single_space=False` for new
-subtypes. Existing types remain unchanged. Use the override above to retain the
-previous behavior for newly created subtypes.
-
 ## Constrain records with a schema
 
 A {class}`~lamindb.Schema` turns the type into a frame and validates the features of its data records:
