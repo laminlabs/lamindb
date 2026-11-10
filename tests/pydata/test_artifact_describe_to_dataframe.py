@@ -298,6 +298,36 @@ def test_describe_to_dataframe_example_dataset(ccaplog):
     bt.CellType.filter().delete(permanent=True)
 
 
+def test_describe_shows_db_strings_literally(tmp_path):
+    # Without escaping, rich parses `[link=...]` into an unescaped `href` in Jupyter
+    # HTML and raises `MarkupError` on the unmatched `[/b]` closing tag.
+    payload = '[link="><b>]x[/b]'
+    path = tmp_path / "describe_markup.txt"
+    path.write_text("describe markup\n")
+    label = ln.Record(name=payload).save()
+    feature = ln.Feature(name="describe_markup_value", dtype=str).save()
+    artifact = ln.Artifact(path, description="describe markup").save()
+    artifact.records.add(label)
+    artifact.features.add_values({feature.name: payload})
+    member = ln.Feature(name="dmm", dtype=str, default_value=payload).save()
+    schema = ln.Schema([member], name="describe_markup_schema").save()
+    transform = ln.Transform(key="describe_markup.py").save()
+    run = ln.Run(transform, params={payload: payload}).save()
+    try:
+        # once in Entities (labels), once in Features (external values)
+        assert artifact.describe(return_str=True).count(payload) == 2
+        assert payload in schema.describe(return_str=True)
+        assert f"{payload}: {payload}" in run.describe(return_str=True)
+    finally:
+        run.delete(permanent=True)
+        transform.delete(permanent=True)
+        artifact.delete(permanent=True)
+        schema.delete(permanent=True)
+        member.delete(permanent=True)
+        feature.delete(permanent=True)
+        label.delete(permanent=True)
+
+
 def test_describe_artifact_from_remote_instance(capsys):
     # A public instance with fewer modules than the local one.
     artifact = ln.Artifact.connect("laminlabs/lamin-site-assets").first()
