@@ -2422,6 +2422,13 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux.get("ss") == 1
     assert constrained_type._aux.get("foo") == "bar"
 
+    child_type = ln.Record(
+        name=f"ChildType-{suffix}", type=constrained_type, is_type=True
+    )
+    assert child_type.settings.single_space is True
+    member = ln.Record(name=f"Member-{suffix}", type=constrained_type)
+    assert "ss" not in (member._aux or {})
+
     constrained_type.settings.single_space = restricted_space
     single_space_setting = constrained_type.settings.single_space
     assert isinstance(single_space_setting, ln.Space)
