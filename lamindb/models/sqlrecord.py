@@ -1333,7 +1333,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     if run_context.space is not None:
                         current_space = run_context.space
                     else:
-                        current_space = setup_settings._get_configured_space()
+                        current_space = setup_settings.get_configured_space()
 
                     if not has_explicit_space:
                         policy_space = None
