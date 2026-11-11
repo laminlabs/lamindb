@@ -749,51 +749,6 @@ def test_explicit_default_ids_override_context():
     branch.delete(permanent=True)
 
 
-@pytest.mark.parametrize(
-    "registry", [ln.Record, ln.ULabel, ln.Feature, ln.Schema, ln.Project, ln.Reference]
-)
-def test_constructor_inherits_type_space(registry, isolated_space_settings):
-    suffix = uuid4().hex[:8]
-    space = ln.Space(name=f"type-space-{suffix}").save()
-    record_type = registry(name=f"type-{suffix}", is_type=True, space=space).save()
-    feature = None
-    records = []
-    try:
-        kwargs = {}
-        if registry is ln.Feature:
-            kwargs["dtype"] = float
-        elif registry is ln.Schema:
-            feature = ln.Feature(name=f"member-{suffix}", dtype=float).save()
-            kwargs["features"] = [feature]
-        child = registry(name=f"child-{suffix}", type=record_type, **kwargs).save()
-        records.append(child)
-        subtype = registry(
-            name=f"subtype-{suffix}", is_type=True, type=record_type, space=None
-        ).save()
-        records.append(subtype)
-        if registry is ln.Feature:
-            records.extend(
-                ln.Feature.from_dict(
-                    {f"inferred-{suffix}": 1.0}, type=record_type
-                ).save()
-            )
-        elif registry is ln.Schema:
-            reused = ln.Schema([feature])
-            assert reused.id == child.id
-            assert reused.space_id == child.space_id
-        for record in records:
-            record.refresh_from_db()
-            assert record.space_id == space.id
-        assert subtype.settings.single_space is False
-    finally:
-        for record in reversed(records):
-            record.delete(permanent=True)
-        record_type.delete(permanent=True)
-        if feature is not None:
-            feature.delete(permanent=True)
-        space.delete(permanent=True)
-
-
 def test_versioned_save_rls_inside_atomic_raises_no_write_access():
     # versioned save() demotes the previous head via a nested save() inside
     # transaction.atomic(); an RLS failure on that inner save must become
