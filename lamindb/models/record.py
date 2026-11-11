@@ -1283,7 +1283,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If `None`, uses the current space.
+        space: `Space | None = None` A space. If omitted, follows the selection order below.
 
     See Also:
         :class:`~lamindb.Feature`
@@ -1327,6 +1327,19 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
+
+    .. dropdown:: How is the space selected?
+
+        The first applicable option is used:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. If enabled, the type's `single_space` policy: `True` enforces
+           the type's space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     .. dropdown:: An index feature maps onto the name field of a data record.
 
@@ -1670,6 +1683,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """Construct a dataframe-backed batch of records for bulk saving.
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
+
+        Space is inferred in this order: the type's enforced space,
+        `ln.context.space`, an explicitly configured `ln.setup.settings.space`,
+        and finally the type's own space.
 
         When the target record frame schema defines :attr:`~lamindb.Schema.index`, the index
         feature may be passed on `df.index` (named after the feature) or as a column.

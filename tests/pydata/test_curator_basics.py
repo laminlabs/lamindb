@@ -1439,9 +1439,10 @@ def test_hash_index_feature(df):
     ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
-def test_add_new_from_subtype(df):
+def test_add_new_from_subtype(df, isolated_space_settings):
     """Test that add_new_from works with subtypes."""
-    sample_type = ln.Record(name="SampleType", is_type=True).save()
+    space = ln.Space(name="curator-type-space").save()
+    sample_type = ln.Record(name="SampleType", is_type=True, space=space).save()
     ln.Record(name="Type A", type=sample_type).save()
     schema = ln.Schema(
         name="sample schema",
@@ -1464,6 +1465,7 @@ def test_add_new_from_subtype(df):
     curator.cat.add_new_from("sample_type")
     curator.validate()
     assert sample_type.records.to_list("name") == ["Type A", "Type B"]
+    assert ln.Record.get(name="Type B", type=sample_type).space_id == space.id
 
     # clean up
     schema.delete(permanent=True)
@@ -1471,6 +1473,7 @@ def test_add_new_from_subtype(df):
     ln.Feature.filter(is_type=True).delete(permanent=True)
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete(permanent=True)
+    space.delete(permanent=True)
 
 
 def test_index_feature_exclusion_from_categoricals(df):

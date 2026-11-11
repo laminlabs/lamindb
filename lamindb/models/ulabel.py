@@ -63,7 +63,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If `None`, uses the current space.
+        space: `Space | None = None` A space. If omitted, follows the selection order below.
 
     See Also:
         :class:`~lamindb.Record`
@@ -92,6 +92,22 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         t_cell = ln.ULabel(name="T Cell", type=cell_type).save()
         cd4_t_cell = ln.ULabel(name="CD4+ T Cell", type=cell_type).save()
         t_cell.children.add(cd4_t_cell)
+
+    Notes
+    -----
+
+    .. dropdown:: How is the space selected?
+
+        The first applicable option is used:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. If enabled, the type's `single_space` policy: `True` enforces
+           the type's space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     """
 

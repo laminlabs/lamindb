@@ -954,7 +954,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             the source feature. Pass a :class:`~lamindb.base.types.SQLRecordFieldName`
             to store values in a `Record` field instead of :class:`~lamindb.models.RecordJson`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If `None`, uses the current space.
+        space: `Space | None = None` A space. If omitted, follows the selection order below.
 
     See Also:
         :class:`~lamindb.Schema`
@@ -1151,6 +1151,22 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         :meth:`~lamindb.models.FeatureManager.get_values` returns required nullable
         features even when no annotation is stored. Null values are returned as
         `[]` for lists, `{}` for dictionaries, and `None` for other types.
+
+    Notes
+    -----
+
+    .. dropdown:: How is the space selected?
+
+        The first applicable option is used:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. If enabled, the type's `single_space` policy: `True` enforces
+           the type's space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     """
 
