@@ -172,6 +172,10 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     try:
+        from lancedb.table import LanceTable
+    except Exception:  # pragma: no cover
+        LanceTable = Any
+    try:
         from spatialdata import SpatialData  # noqa: TC004
     except Exception:  # pragma: no cover
         SpatialData = Any
@@ -212,6 +216,7 @@ else:
     PyArrowDataset = Any
     PolarsDataFrame = Any
     PolarsLazyFrame = Any
+    LanceTable = Any
     AbstractFileSystem = Any
     ArtifactKind = Any
     StrField = Any
@@ -754,7 +759,9 @@ def get_artifact_kwargs_from_data(
     )
 
     if overwrite_versions is None:
-        overwrite_versions = n_files is not None
+        # A `.lance` directory is one immutable table. Folders otherwise
+        # overwrite previous versions, which is the zarr default.
+        overwrite_versions = False if suffix == ".lance" else n_files is not None
 
     if check_path_in_storage:
         # True here means that we have a path in an existing storage with a virtual key
@@ -913,7 +920,7 @@ _CONTENT_CONSTRUCTORS = {
     "tiledbsoma": "Artifact.from_tiledbsoma()",
 }
 # `.tsv` is tabular but `check_otype_artifact` leaves its otype unset.
-_TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc"}
+_TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc", ".lance"}
 
 
 def _schema_label(schema: Schema) -> str:
@@ -1607,17 +1614,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
 
-        ================  ======================================  ================  ====================================================================
-        description       :attr:`suffix`                          :attr:`otype`     Python type examples
-        ================  ======================================  ================  ====================================================================
-        table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
-        annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
-        stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
-                            `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
-        spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
-        generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
-        unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
-        ================  ======================================  ================  ====================================================================
+        ================  ==============================================  ================  ====================================================================
+        description       :attr:`suffix`                                  :attr:`otype`     Python type examples
+        ================  ==============================================  ================  ====================================================================
+        table             `.csv`, `.tsv`, `.parquet`, `.ipc`, `.lance`    `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
+        annotated matrix  `.h5ad`, `.zarr`, `.h5mu`                       `"AnnData"`       `anndata.AnnData`
+        stacked matrix    `.zarr`                                         `"MuData"`        `mudata.MuData`
+                          `.tiledbsoma`                                   `"tiledbsoma"`    `tiledbsoma.Experiment`
+        spatial data      `.zarr`                                         `"SpatialData"`   `spatialdata.SpatialData`
+        generic arrays    `.h5`, `.zarr`, `.tiledb`                       ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
+        unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`               ---               ---
+        ================  ==============================================  ================  ====================================================================
 
         You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
 
@@ -1803,7 +1810,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """:class:`~lamindb.base.types.CanonicalSuffix` or user-defined strings.
 
-    A canonical suffix such as `".csv"`, `".parquet"`, or `".zarr"` indicates the storage format of an artifact.
+    A canonical suffix such as `".csv"`, `".parquet"`, `".lance"`, or `".zarr"` indicates the storage format of an artifact.
 
     Unknown formats map to the empty string: `""`.
     Known formats are based on MIME types and can be extended via :class:`~lamindb.base.types.CanonicalSuffix`.
@@ -2550,6 +2557,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: dict[str, Any] | None = None,
         parquet_kwargs: dict[str, Any] | None = None,
         csv_kwargs: dict[str, Any] | None = None,
+        lance_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -2570,12 +2578,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
             csv_kwargs: Additional keyword arguments passed to the `pandas.DataFrame.to_csv` method.
+            lance_kwargs: Additional keyword arguments passed to `lancedb.DBConnection.create_table`
+                when `key` ends with `.lance`. `mode` stays `"create"`.
 
         Examples:
 
             No validation and annotation::
 
                 ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
+
+            Store the same dataframe as one LanceDB table::
+
+                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.lance").save()
+                artifact.open()
 
             With validation and annotation::
 
@@ -2596,8 +2611,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                :language: python
         """
         is_polars = is_polars_dataframe(df)
-        if "format" not in kwargs and key is not None and key.endswith(".csv"):
-            kwargs["format"] = ".csv"
+        if (
+            "format" not in kwargs
+            and key is not None
+            and key.endswith((".csv", ".lance"))
+        ):
+            kwargs["format"] = PurePosixPath(key).suffix
         if schema == "valid_features":
             from lamindb import examples
 
@@ -2640,7 +2659,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     is_polars = True
                     kwargs.setdefault("format", path_suffix)
                 # a non-coercing schema keeps the original file
-        to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
+        if kwargs.get("format") == ".lance":
+            to_disk_kwargs: dict[str, Any] = lance_kwargs
+        else:
+            to_disk_kwargs = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             path=df,
             key=key,
@@ -2672,6 +2694,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 with path.open("rb") as f:
                     artifact.n_observations = pq.read_metadata(f).num_rows
+            elif path.suffix == ".lance":
+                from ..core.storage._lance import open_lance_table
+
+                artifact.n_observations = open_lance_table(path).count_rows()
             else:
                 # csv/tsv/others have no metadata and would require a full expensive read
                 artifact.n_observations = None
@@ -2680,7 +2706,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from lamindb.curators.core import DataFrameCurator
 
-            if not artifact._state.adding and artifact.suffix != ".parquet":
+            if not artifact._state.adding and artifact.suffix not in {
+                ".parquet",
+                ".lance",
+            }:
                 logger.warning(
                     f"not re-validating existing artifact as it was stored as {artifact.suffix}, "
                     "which does not maintain categorical dtype information"
@@ -3284,12 +3313,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         | SOMACollection
         | SOMAExperiment
         | SOMAMeasurement
+        | LanceTable
     ):
         """Open a dataset for streaming.
 
         Works for the following object types (storage formats):
 
-        - `DataFrame` (`.parquet`, `.csv`, `.ipc` files or directories with such files)
+        - `DataFrame` (`.parquet`, `.csv`, `.ipc` files or directories with such files, and a `.lance` table)
         - `AnnData` (`.h5ad`, `.zarr`)
         - `SpatialData` (`.zarr`)
         - `tiledbsoma` (`.tiledbsoma`)
@@ -3303,6 +3333,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 from `pyarrow` or `polars` compatible formats.
                 This has no effect if the artifact is not a dataframe, i.e.
                 if it is an `AnnData,` `hdf5`, `zarr`, `tiledbsoma` object etc.
+                A `.lance` artifact opens as a LanceDB table.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
@@ -3310,6 +3341,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Returns:
             Streaming accessors, in particular,
             a :class:`pyarrow:pyarrow.dataset.Dataset` object,
+            a :class:`lancedb:lancedb.table.LanceTable` for a `.lance` artifact,
             a context manager yielding a `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
             and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
@@ -3333,6 +3365,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get(key="sequences/mydataset.parquet")
                 with artifact.open(engine="polars") as df:
                     # use the `polars.LazyFrame` object similar to a `DataFrame` object
+
+            Open a `.lance` artifact as a LanceDB table::
+
+                artifact = ln.Artifact.get(key="sequences/mydataset.lance")
+                table = artifact.open()
+                table.search().where("cell_type IS NOT NULL").limit(5).to_pandas()
 
             Open an `AnnData`-like artifact via :class:`~lamindb.core.storage.AnnDataAccessor`::
 
@@ -3364,6 +3402,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 ".zarr",
                 ".anndata.zarr",
                 ".tiledbsoma",
+                ".lance",
             )
             + tuple(h5_gz_suffixes)
             + df_suffixes

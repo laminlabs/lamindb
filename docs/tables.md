@@ -87,7 +87,7 @@ with collection.open(engine="polars") as lazy_df:
     display(lazy_df.collect().to_pandas())
 ```
 
-LaminDB artifacts are plain Parquet files on S3, so any engine that reads Parquet works. DuckDB, Iceberg, and LanceDB are also supported — you pick based on your query pattern, not on how the data was stored.
+LaminDB artifacts are plain files on S3, so any engine that reads the format works. DuckDB and Iceberg read Parquet. A `.lance` artifact opens as a LanceDB table. You pick the engine based on your query pattern.
 
 ::::::{tab-set}
 :::::{tab-item} PyArrow
@@ -155,22 +155,21 @@ result = table.scan(row_filter=NotNull("cell_type")).to_arrow().to_pandas()
 :::::
 
 :::::{tab-item} LanceDB
-LanceDB ingests data into Lance columnar format on S3 — the only engine here that copies data out of the source Parquet files. In exchange you get combined SQL filtering and vector search, plus versioned appends with time travel.
+A `.lance` artifact is one LanceDB table. `open()` returns that table, and filters run in Lance.
 
 ```{code-block} python
-import lancedb
-import pyarrow as pa
+import pandas as pd
 
-arrow = collection.open().to_table()
-schema = pa.schema([
-    f.with_type(pa.string()) if pa.types.is_dictionary(f.type) else f
-    for f in arrow.schema
-])
-arrow = arrow.cast(schema)
-db_lance = lancedb.connect("/tmp/lancedb_warehouse")
-table = db_lance.create_table("data", data=arrow, mode="overwrite")
+df = pd.DataFrame(
+    {
+        "cell_type": ["T cell", None, "B cell"],
+        "n_genes": [1000, 800, 1200],
+    }
+)
+artifact = ln.Artifact.from_dataframe(df, key="example_datasets/small.lance").save()
+table = artifact.open()
 
-result = table.search().where("cell_type IS NOT NULL", prefilter=True).to_pandas()
+result = table.search().where("cell_type IS NOT NULL", prefilter=True).limit(5).to_pandas()
 ```
 
 :::::

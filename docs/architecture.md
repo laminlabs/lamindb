@@ -144,18 +144,20 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 An increasingly popular approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata. A complementary development in operational workloads is **Lakebase**, which decouples Postgres database compute and storage via Write-Ahead Logs in object storage. This brings serverless, transactional Postgres to live applications and agents, while continuously syncing operational row changes into analytical lakehouses like Delta Lake.
 
-**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond tables to support any format, in particular, parquet, zarr, AnnData, HDF5, and others.
-This enables unified schema management, data lineage, and registry annotations across complex, multimodal datasets (Table 1).
+**LaminDB** is a data catalog, and a lakehouse where a schema covers the dataset. The catalog records where each artifact lives, which run produced it, and how it is annotated. A schema adds the lakehouse behavior — time travel, validation, and ACID snapshots — and the same mechanism applies to every format, including parquet, Lance, Zarr, AnnData, and HDF5. Metadata lives in Postgres or SQLite, as in DuckLake, and the data stays in object storage. The engine for the format opens the path.
 
-While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
-While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
+- **Parquet.** One file is one shard. Iceberg, DuckLake, or a LaminDB {class}`~lamindb.Collection` assembles many files into one dataset. **Unity Catalog** is an open-source catalog for this layer (Apache 2.0, hosted by LF AI & Data): tables, volumes, functions, and models, with engines connecting through its REST API.[^unitycatalog] Databricks Unity Catalog is the managed service built from the same API, with a larger feature set.
+- **Lance.** One `.lance` directory is one table: fragments, a manifest, and versions.[^lancedb-format] **LanceDB** (Apache 2.0) is the database API on that directory: `search`, `add`, and `checkout`. A LanceDB database is a parent folder of `<name>.lance` tables, found by listing the folder. The default database adds no catalog file next to those directories. LaminDB registers one table as one artifact, and `Artifact.open()` returns the LanceDB table. `checkout` reads the versions stored in the `.lance` dataset. Related tables, with different row identities or update cycles, are separate artifacts. A collection pins a release of those artifacts when they must move together. Columns that share a row identity, such as embeddings, stay in the one table.
+- **Zarr.** A store is chunked arrays. **Icechunk** (Apache 2.0) is the transactional engine: commits, branches, and snapshots over immutable chunks.[^icechunk] One Icechunk repository is one artifact. **ArrayLake** is Earthmover's proprietary managed platform on Icechunk.[^arraylake] ArrayLake is not open source. LaminDB is the open-source catalog for that repository, as it is for a Lance table or a parquet collection. Tensorstore reads `.zarr`. TileDB is its own array format.[^tiledb]
+
+A collection is LaminDB's snapshot of many immutable artifacts: parquet shards, Zarr shards, or a release of related Lance tables. The comparison below places that API next to Iceberg and LanceDB. A single Lance table or Icechunk repository already versions its own bytes, so append and checkout for that artifact run on its path.
 
 ## Decoupled compute
 
 Rather than locking metadata resolution inside a dedicated query engine or custom SQL driver, LaminDB acts as an independent semantic orchestration layer.
 
-When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths directly to modern open-source engines like DuckDB, Polars, or PySpark.
-Because these engines read native Parquet and Zarr files directly over object storage, query execution retains full optimization benefits:
+When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths to the engine for that format: DuckDB, Polars, or PySpark for parquet; the LanceDB table for `.lance`; Zarr or Icechunk for arrays.
+Because these engines read the native files directly over object storage, query execution retains full optimization benefits:
 
 - **Projection Pushdowns**: Only downloading requested columns.
 - **Filter Pushdowns**: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
@@ -173,7 +175,7 @@ To safely delegate tasks to autonomous agents and distributed teams, data infras
 
 ## Schema evolution & time travel
 
-To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling.
+To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling. For parquet shards the calls go through a collection. For one Lance table or one Icechunk repository they are the engine's calls on the artifact path.
 
 The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
 
@@ -347,7 +349,13 @@ There is a public repository for LaminHub:
 
 [^databricks]: Databricks (2020). Accurately Building Genomic Cohorts at Scale with Delta Lake and Spark. [Databricks Blog](https://www.databricks.com/blog/2020/09/22/accurately-building-genomic-cohorts-at-scale-with-delta-lake-and-spark.html).
 
-[^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown).
+[^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown). The format specification and the `lancedb` package are both Apache 2.0.
+
+[^unitycatalog]: Unity Catalog contributors. Unity Catalog: open, multimodal catalog for data and AI. Apache 2.0, LF AI & Data. [Unity Catalog](https://github.com/unitycatalog/unitycatalog).
+
+[^icechunk]: Earthmover. Icechunk: open-source transactional storage engine for Zarr, Apache 2.0. [Icechunk](https://github.com/earth-mover/icechunk).
+
+[^arraylake]: Earthmover. ArrayLake: proprietary managed platform built on Icechunk. Icechunk, the storage engine underneath, is open source. [ArrayLake](https://icechunk.io/en/latest/arraylake/).
 
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
 

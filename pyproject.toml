@@ -54,6 +54,9 @@ polars = [
     "polars>=1.23",
     "pandera[pandas,polars]>=0.24.0",
 ]
+lance = [
+    "lancedb>=0.24",
+]
 fcs = [  # remove for lamindb v3
     "readfcs",
 ]
