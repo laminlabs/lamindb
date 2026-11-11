@@ -1062,18 +1062,23 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
             log_path.unlink()
 
 
-def test_run_cli_args_not_length_limited():
-    # cli_args is a TextField, long command lines are kept in full
+def test_run_cli_args_not_length_limited(monkeypatch):
+    from django.db.models import TextField
+
+    field = ln.Run._meta.get_field("cli_args")
+    assert isinstance(field, TextField)
+    assert field.max_length is None
     cli_args = " ".join(f"--param{i} {i}" for i in range(400))
     assert len(cli_args) > 1024
     transform = ln.Transform(
         key="test_run_cli_args_not_length_limited.py", kind="pipeline"
     ).save()
-    run = ln.Run(transform)
-    run.cli_args = cli_args
-    run.save()
+    monkeypatch.setattr(sys, "argv", ["pipeline.py", *cli_args.split()])
+    monkeypatch.setattr("lamindb.core._context.is_run_from_ipython", False)
     try:
-        assert ln.Run.get(run.uid).cli_args == cli_args
+        ln.track(transform=transform)
+        assert ln.Run.get(ln.context.run.uid).cli_args == cli_args
     finally:
-        run.delete(permanent=True)
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
         transform.delete(permanent=True)
