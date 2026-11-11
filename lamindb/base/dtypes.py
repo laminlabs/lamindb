@@ -110,6 +110,18 @@ Lists
     * - `list[float]`
       - `"list[float]"`
 
+Nested dictionaries
+-------------------
+
+Pass a saved :class:`~lamindb.Schema` of explicit Feature members as a feature's
+`dtype` to validate dictionary fields recursively. It serializes as
+`"dict[<schema_uid>]"`. `list[field_schema]` serializes as
+`"list[dict[<schema_uid>]]"` and supports further list wrappers.
+Members retain their existing nullability, optionality, and categorical validation.
+On both pandas and Polars, set constraints and optionality describe the shared
+struct field layout; fields missing from individual dictionaries count as null.
+Bare `dict` remains unconstrained. See :doc:`docs:curate` for examples and limitations.
+
 Unions
 ------
 

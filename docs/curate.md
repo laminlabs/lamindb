@@ -423,6 +423,74 @@ The same `__external__` slot can validate metadata on any artifact, including fi
 python scripts/curate_artifact_external_features.py
 ```
 
+## Nested fields in dataframe columns
+
+Pass a saved `Schema` as a feature's `dtype` to declare the fields inside a
+dictionary-valued pandas column or a Polars Struct column:
+
+```python
+import pandas as pd
+
+count = ln.Feature(name="count", dtype=int, nullable=False).save()
+note = ln.Feature(name="note", dtype=str).save()
+details = ln.Schema(
+    features=[count, note.with_config(optional=True)],
+    maximal_set=True,
+).save()
+payload = ln.Feature(name="payload", dtype=details).save()
+schema = ln.Schema(features=[payload]).save()
+
+df = pd.DataFrame({"payload": [{"count": 2}, {"count": 3, "note": "checked"}, None]})
+ln.curators.DataFrameCurator(df, schema).validate()
+```
+
+The same schema validates Polars `DataFrame` and `LazyFrame` objects. Nested
+features can themselves use saved schemas, `list[details]`, or
+`list[list[details]]`. Primitive lists such as `list[int]` and categorical
+members retain the existing curator checks.
+
+Nested schemas reuse `minimal_set`, `maximal_set`, `ordered_set`, and
+`optionals`. Save schema configuration changes before using the schema as a
+dtype. The reference is stored as `dict[<schema_uid>]` in the existing dtype
+field; no database migration is needed. `payload.dtype_as_object` resolves the
+referenced schema. Bare `dtype=dict` keeps its existing unconstrained behavior.
+
+Both backends use **struct semantics**: set constraints apply to one shared
+field layout, not to the keys of each individual dictionary. In pandas, that
+layout is the union of keys across all non-null dictionaries, in first-seen
+order. In Polars, it is the Struct dtype's fields. This rule applies recursively,
+including across dictionary elements of lists.
+
+`minimal_set=True` requires declared non-optional fields in the shared layout.
+`maximal_set=True` rejects undeclared fields. `ordered_set=True` checks the
+relative order of declared fields in that layout, not each dictionary's key
+order and not the ordering of values. When converting between backends, preserve
+the field layout explicitly if ordering matters: dataframe constructors can
+infer a different field order or drop fields before validation sees them.
+
+A field missing from an individual dictionary is treated as null, just like
+in a Polars Struct. A required nullable field may therefore be absent in some
+rows as long as it occurs in the shared layout. An optional non-nullable field
+may be absent from the entire layout, but cannot be missing or null in any
+non-null parent once it occurs in that layout. For example,
+`[{"count": 1}, {"count": 2, "note": "checked"}]` fails on both backends if
+`note` is optional but non-nullable.
+
+A nullable parent may be `None`, in which case its descendants are not checked.
+List containers use the feature's nullability; list elements may be null, and
+empty lists are valid. Validation does not insert missing keys or reorder
+dictionaries in the source dataset.
+
+**Current limits:** Nested schemas must be explicit Feature schemas without
+slots or an index. Nested validation does not coerce or standardize descendants;
+coercion requests on a nested feature, its member features, or its schema are
+rejected rather than validating a transformed copy without updating the source.
+Pandas dictionaries are validated together as a shared field layout. LazyFrame validation uses projected
+aggregate checks and categorical distinct-value queries without collecting the
+original frame. Nested categorical values are validated but are not exposed
+through the top-level categorical manager or annotated as relational links.
+Nested field sorting and Parquet sorting metadata are not supported.
+
 ## Union dtypes
 
 Some metadata columns might validate against several registries.

@@ -33,6 +33,7 @@ from lamindb.models._transfer import (
 )
 from lamindb.models.feature import (
     _normalize_feature_value,
+    dtype_schema_uid,
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
 )
@@ -525,7 +526,7 @@ def get_non_categoricals(
                 and connections[self._state.db].vendor == "postgresql"
                 and isinstance(values, list)
                 and len(values) == 1
-                and (feature_dtype == "dict" or feature_dtype.startswith("list"))
+                and feature_dtype.startswith(("dict", "list"))
             ):
                 values = values[0]
 
@@ -534,7 +535,7 @@ def get_non_categoricals(
                 values = {values}
             elif (
                 isinstance(values, list)
-                and feature_dtype != "dict"
+                and not feature_dtype.startswith("dict")
                 and not feature_dtype.startswith("list")
             ):
                 try:
@@ -994,6 +995,8 @@ def infer_convert_dtype_key_value(
             return dtype, list(value), message
         if isinstance(value, dict):
             return "dict", value, message
+        if dtype_str and dtype_schema_uid(dtype_str):
+            return dtype_str, list(value), message
         if (
             len(value) == 0
             and dtype_str
@@ -1516,7 +1519,7 @@ class FeatureManager:
                         continue
                     if feature.dtype_as_str.startswith("list["):
                         dictionary.setdefault(feature.name, [])
-                    elif feature.dtype_as_str == "dict":
+                    elif feature.dtype_as_str.startswith("dict"):
                         dictionary.setdefault(feature.name, {})
                     else:
                         dictionary.setdefault(feature.name, None)

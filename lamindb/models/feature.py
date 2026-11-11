@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib
+import re
 import warnings
 from contextlib import nullcontext
 from dataclasses import dataclass
+from types import GenericAlias
 from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import pgtrigger
@@ -122,6 +124,31 @@ class FeatureOrder:
         )
 
 
+def dtype_schema_uid(dtype_str: str) -> str | None:
+    """Return the schema UID of a typed dictionary, including list wrappers."""
+    while dtype_str.startswith("list[") and dtype_str.endswith("]"):
+        dtype_str = dtype_str[5:-1]
+    match = re.fullmatch(r"dict\[([A-Za-z0-9_-]{16}|[A-Za-z0-9_-]{20})\]", dtype_str)
+    return match[1] if match else None
+
+
+def validate_nested_schema(schema: Schema) -> None:
+    """Require an explicit, saved schema of dictionary fields."""
+    if schema._state.adding:
+        raise InvalidArgument("Save the nested Schema before using it as a dtype.")
+    itype = schema.itype or ""
+    if (
+        schema.is_type
+        or not (itype == "Feature" or itype.startswith("Feature["))
+        or schema.flexible
+        or schema.slots
+        or schema._index_feature_uid is not None
+    ):
+        raise InvalidArgument(
+            "A nested dtype requires an explicit Feature schema without slots or an index."
+        )
+
+
 def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
@@ -132,12 +159,19 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str)
+        inner_result = parse_dtype(inner_dtype_str, check_exists=check_exists)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
                 component["list"] = True  # type: ignore
         return inner_result
+
+    if schema_uid := dtype_schema_uid(dtype_str):
+        if check_exists:
+            from .schema import Schema
+
+            validate_nested_schema(Schema.get(uid=schema_uid))
+        return []
 
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
     result: list[dict[str, Any]] = []
@@ -206,6 +240,9 @@ def transfer_feature_dtypes(
     if feature.uid in seen_features:
         return None
     seen_features.add(feature.uid)
+    if schema_uid := dtype_schema_uid(dtype_str):
+        _transfer_dtype_schema(schema_uid, feature._state.db, using, transfer_logs)
+        return None
     # Concrete refs are Record/ULabel types and schema__uid filters.
     # Registries like cat[bionty.CellType] name a whole table, not a row.
     if (
@@ -272,7 +309,9 @@ def get_record_type_from_uid(
     return type_record
 
 
-def dtype_as_object(dtype_str: str) -> type | None:
+def dtype_as_object(
+    dtype_str: str, *, using: str | None = None
+) -> type | Schema | GenericAlias | None:
     def _dtype_as_object_simple(dtype_str: str) -> type | None:
         if dtype_str == "str":
             return str
@@ -302,6 +341,17 @@ def dtype_as_object(dtype_str: str) -> type | None:
 
     if dtype_str is None:
         return None
+
+    if schema_uid := dtype_schema_uid(dtype_str):
+        from .schema import Schema
+
+        nested_dtype: Schema | GenericAlias = Schema.objects.using(using).get(
+            uid=schema_uid
+        )
+        while dtype_str.startswith("list["):
+            nested_dtype = GenericAlias(list, nested_dtype)
+            dtype_str = dtype_str[5:-1]
+        return nested_dtype
 
     parsed_dtypes = parse_dtype(dtype_str, check_exists=True)
     if len(parsed_dtypes) > 0:
@@ -534,6 +584,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
 def serialize_dtype(
     dtype: Registry
     | SQLRecord
+    | Schema
+    | GenericAlias
     | FieldAttr
     | list[SQLRecord]
     | list[Registry]
@@ -545,7 +597,12 @@ def serialize_dtype(
 ) -> str:
     """Converts a data type object into its string representation."""
     from .record import Record
+    from .schema import Schema
     from .ulabel import ULabel
+
+    if isinstance(dtype, Schema) and not is_itype:
+        validate_nested_schema(dtype)
+        return f"dict[{dtype.uid}]"
 
     # Handle generic types like list[str], list[Registry], etc.
     if hasattr(dtype, "__origin__") and dtype.__origin__ is list:
@@ -678,6 +735,8 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
         return dtype_map[lamin_dtype]
     elif lamin_dtype.startswith("cat"):
         return CategoricalDtype()
+    elif dtype_schema_uid(lamin_dtype):
+        return "object"
     elif lamin_dtype.startswith("list"):
         return "object"  # lists are stored as object dtype in pandas
     return lamin_dtype
@@ -849,7 +908,9 @@ def process_init_feature_arguments(args, kwargs):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
+    dtype: SimpleDtype | SimpleDtypeStr | Schema | GenericAlias | str | None = (
+        kwargs.pop("dtype", None)
+    )
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None | Unset = kwargs.pop("type", UNSET)
     description: str | None = kwargs.pop("description", None)
@@ -935,7 +996,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     Args:
         name: `str` Name of the feature, typically a column name.
-        dtype: `SimpleDtype | ULabel | Record | Registry | list[Registry] | FieldAttr`
+        dtype: `SimpleDtype | Schema | ULabel | Record | Registry | list[Registry] | FieldAttr`
             Types or `ULabel` or `Record` objects representing types.
             See :mod:`~lamindb.base.dtypes` for more details.
         type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
@@ -1339,6 +1400,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         | SimpleDtypeStr
         | ULabel
         | Record
+        | Schema
+        | GenericAlias
         | Registry
         | list[Registry]
         | FieldAttr,
@@ -1960,7 +2023,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         return self._dtype_str
 
     @property
-    def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
+    def dtype_as_object(self) -> type | SQLRecord | FieldAttr | GenericAlias | None:  # type: ignore
         """The `dtype` as an object.
 
         See :mod:`~lamindb.base.dtypes` for more details.
@@ -1986,7 +2049,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
 
         """
-        return dtype_as_object(self._dtype_str)
+        return dtype_as_object(self._dtype_str, using=self._state.db)
 
     # we'll enable this later
     # @property

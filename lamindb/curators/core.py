@@ -48,6 +48,7 @@ from lamindb.models.artifact import (
     data_is_soma_experiment,
 )
 from lamindb.models.feature import (
+    dtype_schema_uid,
     parse_cat_dtype,
     parse_dtype,
     parse_filter_string,
@@ -903,10 +904,12 @@ class ComponentCurator(Curator):
         using: str | None = None,
         members: list[Feature] | None = None,
         index: Feature | None | _UnsetIndex = _UNSET_INDEX,
+        _nested_ancestors: tuple[str, ...] = (),
     ) -> None:
         super().__init__(
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
+        self._nested_ancestors = _nested_ancestors
         self._using = using
         index_feature = _passed_index(schema, index)
         self._is_polars = is_polars_dataframe(self._dataset)
@@ -981,6 +984,14 @@ class ComponentCurator(Curator):
         if index_feature is not None and index_feature.coerce:
             self._coercion_requested = True
 
+        self._nested_features = [
+            feature for feature in features if dtype_schema_uid(feature._dtype_str)
+        ]
+        if self._nested_features and schema.coerce:
+            raise InvalidArgument(
+                "Schema.coerce is not supported for nested dictionary columns. "
+                "Normalize nested values first and set coerce on scalar features instead."
+            )
         pandera_columns = {}
         self._pandera_schema: pandera.DataFrameSchema | PolarsDataFrameSchema | None = (
             None
@@ -996,7 +1007,14 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                if self._is_polars:
+                if dtype_schema_uid(dtype_str):
+                    backend = polars_pandera if self._is_polars else pandera
+                    pandera_columns[feature.name] = backend.Column(
+                        dtype=None,
+                        nullable=True if self._is_polars else feature.nullable,
+                        required=required,
+                    )
+                elif self._is_polars:
                     pandera_columns[feature.name] = polars_column(
                         feature, required, schema.coerce
                     )
@@ -1270,6 +1288,7 @@ class ComponentCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        self._is_validated = False
         if self._pandera_schema is not None:
             try:
                 # first validate through pandera
@@ -1303,6 +1322,19 @@ class ComponentCurator(Curator):
                         )
                     ):
                         self._set_dataset(validated)
+                if self._nested_features:
+                    from ._nested import validate_nested_column
+
+                    dataset_columns = (
+                        self._dataset.collect_schema().names()
+                        if self._is_polars
+                        else self._dataset.columns
+                    )
+                    for feature in self._nested_features:
+                        if feature.name in dataset_columns:
+                            validate_nested_column(
+                                self._dataset, feature, ancestors=self._nested_ancestors
+                            )
                 # then validate lamindb categoricals
                 self._cat_manager_validate()
             except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
