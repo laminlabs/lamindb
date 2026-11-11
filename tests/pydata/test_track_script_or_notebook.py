@@ -455,9 +455,7 @@ def test_detect_and_process_source_code_file_returns_none_key_for_script(monkeyp
     )
     monkeypatch.setattr(
         "lamindb.core._context.get_transform_reference_from_git_repo",
-        lambda tracked_path: (
-            f"https://github.com/laminlabs/lamindb/blob/abc/{tracked_path.name}"
-        ),
+        lambda tracked_path: f"https://github.com/laminlabs/lamindb/blob/abc/{tracked_path.name}",
     )
     path, kind, ref, ref_type, key_from_module = detect_and_process_source_code_file(
         path=script_path
