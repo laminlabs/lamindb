@@ -75,7 +75,7 @@ class Reference(
         text: `str | None = None` The text of the reference.
         date: `DateType | None = None` The date of the reference.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
+        space: `Space | None = None` A space. If omitted, follows the selection order below.
 
     Examples
     --------
@@ -98,11 +98,11 @@ class Reference(
 
     .. dropdown:: How is the space selected?
 
-        Space selection follows this order:
+        The first applicable option is used:
 
         1. Explicit `space` or `space_id`, subject to policy enforcement.
-        2. The type's `single_space` policy: `True` enforces the type's
-           space; a `Space` value enforces that specific space.
+        2. If enabled, the type's `single_space` policy: `True` enforces
+           the type's space; a `Space` value enforces that specific space.
         3. `ln.context.space`, for example the space selected for a run with
            `ln.track(space="Analysis")`.
         4. An explicitly configured `ln.setup.settings.space`.
@@ -337,7 +337,7 @@ class Project(
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
+        space: `Space | None = None` A space. If omitted, follows the selection order below.
 
     Examples
     --------
@@ -357,11 +357,11 @@ class Project(
 
     .. dropdown:: How is the space selected?
 
-        Space selection follows this order:
+        The first applicable option is used:
 
         1. Explicit `space` or `space_id`, subject to policy enforcement.
-        2. The type's `single_space` policy: `True` enforces the type's
-           space; a `Space` value enforces that specific space.
+        2. If enabled, the type's `single_space` policy: `True` enforces
+           the type's space; a `Space` value enforces that specific space.
         3. `ln.context.space`, for example the space selected for a run with
            `ln.track(space="Analysis")`.
         4. An explicitly configured `ln.setup.settings.space`.
