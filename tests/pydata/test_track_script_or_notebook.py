@@ -455,7 +455,9 @@ def test_detect_and_process_source_code_file_returns_none_key_for_script(monkeyp
     )
     monkeypatch.setattr(
         "lamindb.core._context.get_transform_reference_from_git_repo",
-        lambda tracked_path: f"https://github.com/laminlabs/lamindb/blob/abc/{tracked_path.name}",
+        lambda tracked_path: (
+            f"https://github.com/laminlabs/lamindb/blob/abc/{tracked_path.name}"
+        ),
     )
     path, kind, ref, ref_type, key_from_module = detect_and_process_source_code_file(
         path=script_path
@@ -1058,3 +1060,20 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+def test_run_cli_args_not_length_limited():
+    # cli_args is a TextField, long command lines are kept in full
+    cli_args = " ".join(f"--param{i} {i}" for i in range(400))
+    assert len(cli_args) > 1024
+    transform = ln.Transform(
+        key="test_run_cli_args_not_length_limited.py", kind="pipeline"
+    ).save()
+    run = ln.Run(transform)
+    run.cli_args = cli_args
+    run.save()
+    try:
+        assert ln.Run.get(run.uid).cli_args == cli_args
+    finally:
+        run.delete(permanent=True)
+        transform.delete(permanent=True)

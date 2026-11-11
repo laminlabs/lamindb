@@ -224,13 +224,6 @@ def get_cli_call() -> tuple[str, str] | None:
     return None
 
 
-def truncate_cli_args(cli_args: str, max_length: int) -> str:
-    """Truncates `cli_args` to fit a field of `max_length` characters, ending with an ellipsis."""
-    if len(cli_args) <= max_length:
-        return cli_args
-    return cli_args[: max_length - 1] + "…"
-
-
 def last_non_empty_r_block(line: str) -> str:
     for block in reversed(line.split("\r")):
         if block:
@@ -1098,12 +1091,6 @@ class Context:
         if cli_call is not None:
             _, cli_args = cli_call
             logger.important(f"script invoked with: {cli_args}")
-            max_length = Run._meta.get_field("cli_args").max_length
-            if len(cli_args) > max_length:
-                logger.warning(
-                    f"truncating command-line arguments to {max_length} characters for Run.cli_args"
-                )
-                cli_args = truncate_cli_args(cli_args, max_length)
             run.cli_args = cli_args
         run.save()  # need to save now
         if features is not None:
