@@ -1283,8 +1283,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced space, then
-            context/configured settings, the type's own space, or `all`.
+        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
 
     See Also:
         :class:`~lamindb.Feature`
@@ -1328,6 +1327,19 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Notes
     -----
+
+    .. dropdown:: How is the infered space selected?
+
+        Space selection follows this order:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. The type's `single_space` policy: `True` enforces the type's
+           space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     .. dropdown:: An index feature maps onto the name field of a data record.
 

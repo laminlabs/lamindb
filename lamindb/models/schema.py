@@ -495,8 +495,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             including features that leave `coerce` unset. See :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced space, then
-            context/configured settings, the type's own space, or `all`.
+        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`
@@ -577,6 +576,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
         schema = ln.Schema.from_dataframe(df)
+
+    Notes
+    -----
+
+    .. dropdown:: How is the infered space selected?
+
+        Space selection follows this order:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. The type's `single_space` policy: `True` enforces the type's
+           space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     """
 

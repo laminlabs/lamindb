@@ -61,17 +61,6 @@ experiment_type = ln.Record(name="Experiments", is_type=True).save()
 experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 ```
 
-Space selection for new records, including through
-`Record.from_dataframe(df, type=experiment_type).save()`, follows this order:
-
-1. Explicit `space` or `space_id`, subject to policy enforcement.
-2. The type's enforced `single_space` policy: `True` uses the type's space;
-   a `Space` value designates a specific destination.
-3. `ln.context.space`.
-4. An explicitly configured `ln.setup.settings.space`.
-5. The immediate type's own space.
-6. `all`.
-
 You can define a feature whose `dtype` is a record type:
 
 ```python

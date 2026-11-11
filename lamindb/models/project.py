@@ -75,8 +75,7 @@ class Reference(
         text: `str | None = None` The text of the reference.
         date: `DateType | None = None` The date of the reference.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced space, then
-            context/configured settings, the type's own space, or `all`.
+        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
 
     Examples
     --------
@@ -93,6 +92,22 @@ class Reference(
             text="Some text I want to be searchable.",
             date=date(2023, 11, 21),
         ).save()
+
+    Notes
+    -----
+
+    .. dropdown:: How is the infered space selected?
+
+        Space selection follows this order:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. The type's `single_space` policy: `True` enforces the type's
+           space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     """
 
@@ -322,8 +337,7 @@ class Project(
         start_date: `date | None = None` Date the project started.
         end_date: `date | None = None` Date the project ended.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
-        space: `Space | None = None` Defaults to the type's enforced space, then
-            context/configured settings, the type's own space, or `all`.
+        space: `Space | None = None` A space. If omitted, uses the inferred space described below.
 
     Examples
     --------
@@ -337,6 +351,22 @@ class Project(
         ).save()
         artifact.projects.add(project)  # <-- labels the artifact with the project
         ln.track(project=project)       # <-- automtically labels entities during the run
+
+    Notes
+    -----
+
+    .. dropdown:: How is the infered space selected?
+
+        Space selection follows this order:
+
+        1. Explicit `space` or `space_id`, subject to policy enforcement.
+        2. The type's `single_space` policy: `True` enforces the type's
+           space; a `Space` value enforces that specific space.
+        3. `ln.context.space`, for example the space selected for a run with
+           `ln.track(space="Analysis")`.
+        4. An explicitly configured `ln.setup.settings.space`.
+        5. The immediate type's space, if a type is provided.
+        6. `all`.
 
     """
 
