@@ -96,7 +96,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Notes
     -----
 
-    .. dropdown:: How is the infered space selected?
+    .. dropdown:: How is the space selected?
 
         Space selection follows this order:
 

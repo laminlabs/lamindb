@@ -96,7 +96,7 @@ class Reference(
     Notes
     -----
 
-    .. dropdown:: How is the infered space selected?
+    .. dropdown:: How is the space selected?
 
         Space selection follows this order:
 
@@ -355,7 +355,7 @@ class Project(
     Notes
     -----
 
-    .. dropdown:: How is the infered space selected?
+    .. dropdown:: How is the space selected?
 
         Space selection follows this order:
 

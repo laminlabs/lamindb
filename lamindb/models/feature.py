@@ -1155,7 +1155,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     Notes
     -----
 
-    .. dropdown:: How is the infered space selected?
+    .. dropdown:: How is the space selected?
 
         Space selection follows this order:
 
