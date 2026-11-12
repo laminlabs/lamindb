@@ -3310,6 +3310,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         latest, the table is checked out at the pin. Pass ``version`` to check
         out a specific Lance version instead.
 
+        On S3, AWS credentials are read from the artifact path when the table
+        is opened. A refreshable session is snapshotted at that moment.
+
         Args:
             version: Lance version to check out. Defaults to the version pinned
                 when this artifact version was written.

@@ -2,6 +2,7 @@
 
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import lamindb as ln
@@ -145,3 +146,90 @@ def test_lance_from_polars_frame_and_lazyframe():
     finally:
         lazy.delete(permanent=True)
         eager.delete(permanent=True)
+
+
+def test_lance_storage_options_from_s3_filesystem():
+    from lamindb.core.storage._lance import lance_storage_options
+
+    anon = ln.UPath(
+        "s3://bucket/table.lance?endpoint_url=http://localhost:9000/s3", anon=True
+    )
+    anon_options = lance_storage_options(anon)
+    assert anon_options["aws_endpoint"] == "http://localhost:9000/s3"
+    assert anon_options["aws_virtual_hosted_style_request"] == "false"
+    assert anon_options["allow_http"] == "true"
+    assert anon_options["skip_signature"] == "true"
+
+    keyed = ln.UPath(
+        "s3://bucket/table.lance?endpoint_url=https://localhost:9000/s3",
+        key="AKIA",
+        secret="session-secret",  # noqa: S106
+        token="session-token",  # noqa: S106
+    )
+    keyed_options = lance_storage_options(keyed)
+    assert keyed_options["aws_access_key_id"] == "AKIA"
+    assert keyed_options["aws_secret_access_key"] == "session-secret"  # noqa: S105
+    assert keyed_options["aws_session_token"] == "session-token"  # noqa: S105
+    assert keyed_options["aws_endpoint"] == "https://localhost:9000/s3"
+    assert "allow_http" not in keyed_options
+    assert "skip_signature" not in keyed_options
+
+    assert lance_storage_options(ln.UPath("table.lance")) is None
+
+
+def test_lance_storage_options_snapshots_refreshable_credentials(monkeypatch):
+    from lamindb.core.storage._lance import lance_storage_options
+
+    def provider():
+        return {
+            "aws_access_key_id": "AKIA",
+            "aws_secret_access_key": "secret",
+            "aws_session_token": "token",
+        }, 123
+
+    monkeypatch.setattr(
+        "lamindb.core.storage._polars_lazy_df._polars_options",
+        lambda path: {
+            "storage_options": {"aws_region": "us-east-1"},
+            "credential_provider": provider,
+        },
+    )
+    options = lance_storage_options(SimpleNamespace(protocol="s3"))
+    assert options == {
+        "aws_region": "us-east-1",
+        "aws_access_key_id": "AKIA",
+        "aws_secret_access_key": "secret",
+        "aws_session_token": "token",
+    }
+
+
+def test_open_lance_table_passes_s3_storage_options(monkeypatch):
+    from lamindb.core.storage._lance import open_lance_table
+
+    captured: dict = {}
+
+    class FakeDatabase:
+        def open_table(self, name):
+            captured["name"] = name
+            return "table"
+
+    def connect(uri, **kwargs):
+        captured["uri"] = uri
+        captured["kwargs"] = kwargs
+        return FakeDatabase()
+
+    monkeypatch.setattr(lancedb, "connect", connect)
+    monkeypatch.setattr(
+        "lamindb.core.storage._lance.lance_storage_options",
+        lambda path: {"aws_access_key_id": "AKIA"},
+    )
+    path = SimpleNamespace(
+        parent=SimpleNamespace(as_posix=lambda: "s3://bucket/prefix"),
+        stem="cells",
+    )
+    assert open_lance_table(path) == "table"
+    assert captured == {
+        "uri": "s3://bucket/prefix",
+        "kwargs": {"storage_options": {"aws_access_key_id": "AKIA"}},
+        "name": "cells",
+    }

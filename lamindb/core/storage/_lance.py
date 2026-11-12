@@ -47,14 +47,60 @@ def import_lancedb() -> Any:
     return lancedb
 
 
+def lance_storage_options(path: UPath) -> dict[str, str] | None:
+    """Map an S3 filesystem's credentials onto LanceDB storage options.
+
+    Uses the same filesystem credentials as the Polars reader. Lance reads
+    these options once, when the table is opened, so a refreshable session is
+    snapshotted at that moment.
+    """
+    if getattr(path, "protocol", None) != "s3":
+        return None
+
+    from ._polars_lazy_df import _polars_options
+
+    polars_options = _polars_options(path)
+    storage = dict(polars_options.get("storage_options") or {})
+    provider = polars_options.get("credential_provider")
+    if provider is not None:
+        credentials, _expiry = provider()
+        storage.update(credentials)
+
+    options: dict[str, str] = {}
+    for source in (
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "aws_session_token",
+        "aws_region",
+    ):
+        value = storage.get(source)
+        if value:
+            options[source] = str(value)
+    endpoint = storage.get("aws_endpoint_url")
+    if endpoint:
+        options["aws_endpoint"] = str(endpoint)
+        # A custom endpoint is path-style, matching the Polars reader.
+        options["aws_virtual_hosted_style_request"] = "false"
+        if storage.get("aws_allow_http"):
+            options["allow_http"] = "true"
+    if storage.get("aws_skip_signature"):
+        options["skip_signature"] = "true"
+    return options or None
+
+
 def open_lance_table(path: UPath) -> LanceTable:
     """Open one `.lance` directory as a LanceDB table.
 
     Connects to the parent of this directory and opens the table by name.
-    Sibling directories are not part of the table.
+    Sibling directories are not part of the table. An S3 path receives the
+    filesystem's AWS credentials.
     """
     lancedb = import_lancedb()
-    database = lancedb.connect(path.parent.as_posix())
+    connect_kwargs: dict[str, Any] = {}
+    storage_options = lance_storage_options(path)
+    if storage_options:
+        connect_kwargs["storage_options"] = storage_options
+    database = lancedb.connect(path.parent.as_posix(), **connect_kwargs)
     return database.open_table(path.stem)
 
 
