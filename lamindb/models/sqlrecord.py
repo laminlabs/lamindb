@@ -352,11 +352,10 @@ class SQLRecordSettings:
 
         Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
 
-        Child types copy this setting at creation.
-
         This affects creates and updates: new objects without an explicit `space` default to the
         enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
         objects are not rewritten when the setting changes.
+        New types created with this object as their `type` copy this setting by default.
 
         The enforced space can be configured in 2 ways:
 
