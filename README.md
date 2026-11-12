@@ -2,7 +2,7 @@
 
 # LaminDB: Data management for traceable, multimodal AI
 
-LaminDB is an open-source data management tool that makes it easy to query, trace, and govern datasets across diverse storage formats and locations.
+LaminDB is an open-source data management tool that makes it easy to query, trace and govern datasets across diverse storage formats and locations.
 Like git, LaminDB runs anywhere and captures relevant context about your work.
 This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
 It takes about a minute to install LaminDB and create a database on your laptop or in the cloud.
