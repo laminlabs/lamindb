@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -271,6 +271,8 @@ class HasType(HasEmoji, models.Model):
 
     A newly created record inherits the emoji of its `type` (`.emoji`)
     when it does not set one itself.
+
+    Child types copy their parent's `single_space` setting when created.
     """
 
     class Meta:
@@ -353,6 +355,7 @@ class SQLRecordSettings:
         This affects creates and updates: new objects without an explicit `space` default to the
         enforced space, and `INSERT` / `UPDATE` throw if their space does not match. Existing
         objects are not rewritten when the setting changes.
+        New types created with this object as their `type` copy this setting by default.
 
         The enforced space can be configured in 2 ways:
 
@@ -392,7 +395,7 @@ class SQLRecordSettings:
         if aux is None:
             return False
         if (ss := aux.get("ss")) is not None:
-            if ss == 1:
+            if ss == 1 or ss == "1":
                 return True
             else:
                 return Space.get(ss)
@@ -456,6 +459,23 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     if isinstance(ss, str) and ss:
         return Space.get(ss)
     return None
+
+
+def _copy_type_single_space(record: models.Model) -> None:
+    """Copy the parent's `single_space` into a new type unless explicitly set."""
+    if not isinstance(record, HasType) or record.is_type is not True:
+        return
+    if record._aux is not None and "ss" in record._aux:
+        return
+    type_record = getattr(record, "type", None)
+    if not isinstance(type_record, HasType) or type_record.is_type is not True:
+        return
+    if type_record._aux is None:
+        return
+    parent_ss = type_record._aux.get("ss")
+    if not parent_ss:
+        return
+    record._aux = {**(record._aux or {}), "ss": parent_ss}
 
 
 def _inherit_type_emoji(record: models.Model) -> None:
@@ -1361,6 +1381,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _copy_type_single_space(self)
                 _inherit_type_emoji(self)
             else:
                 from ..core._settings import settings
@@ -1420,6 +1441,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # FK descriptors reject UNSET.
                 _prepare_hastype_create_kwargs(self, kwargs)
                 super().__init__(**kwargs)
+                _copy_type_single_space(self)
                 _inherit_type_emoji(self)
                 if isinstance(self, ValidateFields):
                     # this will trigger validation against django validators
@@ -1857,7 +1879,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_summarize=True,
                 )
             if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 

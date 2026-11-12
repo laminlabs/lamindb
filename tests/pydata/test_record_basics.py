@@ -2399,6 +2399,31 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     restricted_space.delete(permanent=True)
 
 
+@pytest.mark.parametrize("skip_validation", [False, True])
+def test_single_space_inheritance_preserves_aux(skip_validation):
+    parent = ln.Record(name="SharedAuxParent", is_type=True).save()
+    parent.settings.single_space = True
+    metadata = {"foo": "bar"}
+    children = [
+        ln.Record(
+            name=f"SharedAuxChild-{index}",
+            type=parent,
+            is_type=True,
+            _aux=metadata,
+            _skip_validation=skip_validation,
+        )
+        for index in range(2)
+    ]
+
+    assert metadata == {"foo": "bar"}
+    assert children[0]._aux == children[1]._aux == {"foo": "bar", "ss": 1}
+    children[0].settings.single_space = False
+    assert children[0]._aux == {"foo": "bar"}
+    assert children[1].settings.single_space is True
+    assert parent.settings.single_space is True
+    parent.delete(permanent=True)
+
+
 def test_single_space_getter_setter_paths():
     suffix = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
     constrained_type = ln.Record(name=f"SingleSpaceType-{suffix}", is_type=True).save()
@@ -2421,6 +2446,18 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
     assert constrained_type._aux.get("foo") == "bar"
+
+    child_type = ln.Record(
+        name=f"ChildType-{suffix}", type=constrained_type, is_type=True
+    )
+    assert child_type.settings.single_space is True
+    explicit_child = ln.Record(
+        name=f"ExplicitChild-{suffix}",
+        type=constrained_type,
+        is_type=True,
+        _aux={"ss": restricted_space.uid},
+    )
+    assert explicit_child.settings.single_space == restricted_space
 
     constrained_type.settings.single_space = restricted_space
     single_space_setting = constrained_type.settings.single_space
