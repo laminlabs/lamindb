@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePath, PureWindowsPath
 
 from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
@@ -203,6 +204,7 @@ def get_and_validate_git_metadata(
     path: str,
     version: str | None = None,
     branch: str | None = None,
+    schema_path: str | None = None,
 ) -> tuple[str, str]:
     """Get metadata from a git repository.
 
@@ -211,6 +213,7 @@ def get_and_validate_git_metadata(
         path: Path to the main script within the repository
         version: Optional version/tag to checkout
         branch: Optional branch name (defaults to repository's default branch)
+        schema_path: Optional repo-root-relative path to a Nextflow parameter schema (JSON object)
 
     Returns:
         Dictionary containing:
@@ -222,8 +225,20 @@ def get_and_validate_git_metadata(
 
     Raises:
         RuntimeError: If git operations fail
-        FileNotFoundError: If the specified path does not exist in the repository
+        FileNotFoundError: If the specified path or schema_path does not exist in the repository
+        ValueError: If schema_path is absolute, contains `..` or is not a JSON object
     """
+    if schema_path is not None:
+        schema_parts = PurePath(schema_path)
+        if (
+            schema_parts.is_absolute()
+            or PureWindowsPath(schema_path).is_absolute()
+            or ".." in schema_parts.parts
+            or ".." in PureWindowsPath(schema_path).parts
+        ):
+            raise ValueError(
+                f"schema_path must be relative to the repository root and must not contain '..', got '{schema_path}'"
+            )
     url = sanitize_git_repo_url(url)
     repo_dir = get_git_repo_from_remote(url, depth=None)
 
@@ -299,4 +314,21 @@ def get_and_validate_git_metadata(
         raise FileNotFoundError(
             f"Path '{path}' exists but is not a file in repository {url}"
         )
+    if schema_path is not None:
+        schema_file = repo_dir / schema_path
+        checked_at = f"version {version}" if version is not None else f"branch {branch}"
+        if not schema_file.is_file():
+            raise FileNotFoundError(
+                f"Schema path '{schema_path}' does not exist or is not a file in repository {url} at {checked_at}"
+            )
+        try:
+            schema = json.loads(schema_file.read_text())
+        except ValueError as e:  # includes JSONDecodeError and UnicodeDecodeError
+            raise ValueError(
+                f"Schema path '{schema_path}' in repository {url} at {checked_at} is not valid JSON: {e}"
+            ) from e
+        if not isinstance(schema, dict):
+            raise ValueError(
+                f"Schema path '{schema_path}' in repository {url} at {checked_at} is not a JSON object"
+            )
     return url, commit_hash

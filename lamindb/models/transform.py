@@ -818,6 +818,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         branch: str | None = None,
         description: str | None = None,
         skip_hash_lookup: bool = False,
+        schema_path: str | None = None,
     ) -> Transform:
         """Create a transform from a path in a git repository.
 
@@ -830,6 +831,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             branch: Optional branch to checkout.
             description: Optional description for the transform.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
+            schema_path: Optional repo-root-relative path to the Nextflow parameter schema used by LaminHub's launch form. Defaults to the repository root's `nextflow_schema.json` when omitted. Stored in `transform._aux["nextflow"]["launch"]["schemaName"]`.
 
         Examples:
 
@@ -858,6 +860,14 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                     path="main.nf",
                     branch="dev",
                     version="dev",
+                ).save()
+
+            Register a nested Viash workflow together with its parameter schema::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/viash-hub/toolbox",
+                    path="target/nextflow/workflows/<name>/main.nf",
+                    schema_path="target/nextflow/workflows/<name>/nextflow_schema.json",
                 ).save()
 
         Notes:
@@ -889,7 +899,9 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         """
         from ..core._sync_git import get_and_validate_git_metadata
 
-        url, commit_hash = get_and_validate_git_metadata(url, path, version, branch)
+        url, commit_hash = get_and_validate_git_metadata(
+            url, path, version, branch, schema_path
+        )
         if key is None:
             key = (
                 url.split("/")[-2]
@@ -915,7 +927,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             # regular transform, defined source code state
             source_code += f"\ncommit: {commit_hash}"
             reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
-        return Transform(
+        transform = Transform(
             key=key,
             kind="pipeline",
             version=version,
@@ -925,6 +937,16 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             source_code=source_code,
             skip_hash_lookup=skip_hash_lookup,
         )
+        if schema_path is not None:
+            # the transform can be an existing record with LaminHub settings in _aux
+            aux = dict(transform._aux or {})
+            nextflow = dict(aux.get("nextflow") or {})
+            launch = dict(nextflow.get("launch") or {})
+            launch["schemaName"] = schema_path
+            nextflow["launch"] = launch
+            aux["nextflow"] = nextflow
+            transform._aux = aux
+        return transform
 
     @property
     def latest_run(self) -> Run:
