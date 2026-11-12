@@ -13,7 +13,7 @@ from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform
 
-from ._secret_redaction import redact_secrets_in_source_code
+from ._secret_redaction import redact_secret_assignments
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -174,11 +174,11 @@ def notebook_to_report(
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
     for cell in notebook.cells:
-        cell.source, _ = redact_secrets_in_source_code(cell.source)
+        cell.source, _ = redact_secret_assignments(cell.source)
         if cell.cell_type != "code":
             # Jupytext stores prose as comments; quotes in prose aren't code delimiters.
             cell.source = "\n".join(
-                redact_secrets_in_source_code(f"# {line}")[0][2:]
+                redact_secret_assignments(f"# {line}")[0][2:]
                 for line in cell.source.split("\n")
             )
     prepare_notebook(notebook, strip_title=True)
@@ -369,7 +369,7 @@ def save_context_core(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
         if report_path is not None and save_source_code_and_report:
-            _, redaction_count = redact_secrets_in_source_code(filepath.read_text())
+            _, redaction_count = redact_secret_assignments(filepath.read_text())
             if redaction_count:
                 logger.warning(
                     f"skipping HTML report upload for {filepath.name}: source contains "

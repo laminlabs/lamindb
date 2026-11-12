@@ -15,14 +15,14 @@ from lamindb.core._context import (
     detect_and_process_source_code_file,
 )
 from lamindb.core._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._secret_redaction import redact_secrets_in_source_code
+from lamindb.core._secret_redaction import redact_secret_assignments
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
-def test_redact_secrets_in_source_code():
+def test_redact_secret_assignments():
     source_code = """
 api_key = "test-api-key-value"
 openAIApiKey = "another-secret"
@@ -31,7 +31,7 @@ db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
 os.environ["API_KEY"] = "sdk-key"
 config = {"client_secret": "client-secret-value", "id": "abc123"}
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     assert redaction_count == 5
     assert 'api_key = "***REDACTED***"' in redacted
     assert 'openAIApiKey = "***REDACTED***"' in redacted
@@ -41,14 +41,14 @@ config = {"client_secret": "client-secret-value", "id": "abc123"}
     assert 'uid = "a6yhtobqTjQM6q8t"' in redacted
 
 
-def test_redact_secrets_in_source_code_keeps_env_references():
+def test_redact_secret_assignments_keeps_env_references():
     source_code = """
 api_key = os.getenv("OPENAI_API_KEY")
 openAIApiKey = getenv("OPENAI_API_KEY")
 model_api_key = os.environ["MODEL_API_KEY"]
 provider_token = os.environ.get("PROVIDER_TOKEN")
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
     assert redaction_count == 0
     assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
@@ -57,7 +57,7 @@ provider_token = os.environ.get("PROVIDER_TOKEN")
     assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
 
 
-def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+def test_redact_secret_assignments_ignores_annotations_and_forwarding():
     source_code = """
 def run(api_key: str) -> None:
     raise RuntimeError("fail")
@@ -66,14 +66,14 @@ run_agent(
     api_key=api_key,
 )
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
     assert redaction_count == 0
     assert "def run(api_key: str) -> None:" in redacted
     assert "api_key=api_key," in redacted
 
 
-def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+def test_redact_secret_assignments_redacts_provider_api_key_names():
     source_code = """
 LAMIN_API_KEY = "lamin-super-secret"
 OPENAI_API_KEY = "openai-super-secret"
@@ -81,7 +81,7 @@ ANTHROPIC_API_KEY = "anthropic-super-secret"
 GEMINI_API_KEY = "gemini-super-secret"
 provider = "openai"
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     assert redaction_count == 4
     assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
     assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
@@ -109,8 +109,8 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
         value += "\nsecond line"
     source = assignment.format(f"{prefix}{quote}{value}{quote}")
     expected = assignment.format(f"{prefix}{quote}***REDACTED***{quote}")
-    assert redact_secrets_in_source_code(source) == (expected, 1)
-    assert redact_secrets_in_source_code(expected) == (expected, 0)
+    assert redact_secret_assignments(source) == (expected, 1)
+    assert redact_secret_assignments(expected) == (expected, 0)
 
 
 @pytest.mark.parametrize(
@@ -118,7 +118,7 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
 )
 def test_redact_secrets_escaped_and_nested_quotes(literal):
     prefix = "f" if literal.startswith("f") else ""
-    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+    assert redact_secret_assignments(f"api_key = {literal}") == (
         f'api_key = {prefix}"***REDACTED***"',
         1,
     )
@@ -127,7 +127,7 @@ def test_redact_secrets_escaped_and_nested_quotes(literal):
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 requires Python 3.12")
 def test_redact_secrets_fstring_reuses_quotes():
     source = 'api_key = f"SECRETVALUE{mapping["key"]}{f"nested{value}"}"'
-    assert redact_secrets_in_source_code(source) == ('api_key = f"***REDACTED***"', 1)
+    assert redact_secret_assignments(source) == ('api_key = f"***REDACTED***"', 1)
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ def test_redact_secrets_fstring_reuses_quotes():
 )
 def test_redact_secrets_incomplete_examples(example):
     source = example + 'api_key = "SECRETVALUE"\n'
-    assert redact_secrets_in_source_code(source) == (
+    assert redact_secret_assignments(source) == (
         example + 'api_key = "***REDACTED***"\n',
         1,
     )
@@ -144,7 +144,7 @@ def test_redact_secrets_incomplete_examples(example):
 @pytest.mark.parametrize("literal", ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"'])
 def test_redact_secrets_template_interpolation(literal):
     prefix = literal.split('"')[0]
-    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+    assert redact_secret_assignments(f"api_key = {literal}") == (
         f'api_key = {prefix}"***REDACTED***"',
         1,
     )
@@ -153,7 +153,7 @@ def test_redact_secrets_template_interpolation(literal):
 @pytest.mark.skipif(sys.version_info >= (3, 14), reason="Native template-string tokens")
 def test_redact_secrets_template_does_not_partially_match_nested_quotes():
     source = 'api_key = t"{mapping["SECRETVALUE"]}"'
-    assert redact_secrets_in_source_code(source) == (source, 0)
+    assert redact_secret_assignments(source) == (source, 0)
 
 
 def test_redact_secrets_legacy_fstring_does_not_partially_match():
@@ -163,7 +163,7 @@ def test_redact_secrets_legacy_fstring_does_not_partially_match():
         if sys.version_info >= (3, 12)
         else (source, 0)
     )
-    assert redact_secrets_in_source_code(source) == expected
+    assert redact_secret_assignments(source) == expected
 
 
 def test_track_basic_invocation(monkeypatch, ccaplog):
@@ -759,7 +759,7 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
     path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
     nbformat.write(notebook, path)
     original = path.read_bytes()
-    saved_source, _ = redact_secrets_in_source_code(notebook_to_script("test", path))
+    saved_source, _ = redact_secret_assignments(notebook_to_script("test", path))
     assert "REPORT_SECRET_" not in saved_source
 
     notebook_to_report(path, report, inject_responsive_table_css)

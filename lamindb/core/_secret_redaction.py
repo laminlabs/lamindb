@@ -119,7 +119,7 @@ def _source_literals(source: str):
         pass
 
 
-def redact_secrets_in_source_code(source_code: str) -> tuple[str, int]:
+def redact_secret_assignments(source_code: str) -> tuple[str, int]:
     patterns = (
         _ENV_ASSIGNMENT_PATTERN,
         _KEY_VALUE_ASSIGNMENT_PATTERN,
