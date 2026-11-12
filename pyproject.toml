@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "lamin_cli==1.23.0",  # lamin-cli depends on lamindb-core; pin the matching release
-    "lamindb_setup[aws]==1.29.0",  # dependencies like Django & fsspec
+    "lamindb_setup[aws]==1.29.1",  # dependencies like Django & fsspec
 ]
 
 [project.urls]
