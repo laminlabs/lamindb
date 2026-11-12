@@ -299,10 +299,15 @@ _PASSWORD_URL_PATTERN = re.compile(
     r"(?P<prefix>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/:@\"'<>]+:)"
     r"(?P<password>[^\s/@\"'<>]+)(?=@)"
 )
+_TEXT_FIELD_BOUNDARY = (
+    r"(?:[,;][ \t]*|[ \t]+)['\"]?[A-Za-z_][A-Za-z0-9_.\-]*['\"]?[ \t]*[=:]"
+)
 _TEXT_KEY_VALUE_PATTERN = re.compile(
     r"(?<![\w.\-])(?P<prefix>(?P<quote>['\"]?)"
     r"(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)(?P=quote)[ \t]*[=:][ \t]*)"
-    r"(?P<value>(?:[^\s\"'`,;{}\[\]<>]|[,;](?=[^\s{}\[\]<>]))+)"
+    # Spaces and punctuation may belong to a passphrase. Stop only at another
+    # field, a structural delimiter, or a line ending, not the first word.
+    r"(?P<value>[^\s\"'`{}\[\]<>](?:(?!" + _TEXT_FIELD_BOUNDARY + r")[^\r\n{}\[\]<>])*)"
 )
 _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"

@@ -870,6 +870,16 @@ def test_notebook_report_redacts_source(
                 'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
             ),
             nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
+            nbformat.v4.new_code_cell(
+                "print(value)",
+                outputs=[
+                    nbformat.v4.new_output(
+                        "stream",
+                        name="stdout",
+                        text="password: correct horse battery staple\n",
+                    )
+                ],
+            ),
             *[
                 nbformat.v4.new_code_cell(
                     command,
@@ -947,10 +957,11 @@ def test_notebook_report_redacts_source(
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
     assert "CANARY_MAGIC" not in html
+    assert "horse battery staple" not in html
     assert all(secret not in html for _, secret in commands)
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
-        10
+        11
         + len(printed)
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
@@ -1445,10 +1456,20 @@ def test_redact_assignment_contexts(source, kind):
     assert redact(result, kind) == result
     if kind == "text":
         assert redact({"message": source}) == {"message": result}
-        for secret in ("CANARY,SUFFIX", "CANARY;SUFFIX"):
-            cleaned = redact(f"password={secret}")
-            assert cleaned == "password=***REDACTED***"
-            assert redact(cleaned) == cleaned
+        for secret in (
+            "CANARY,SUFFIX",
+            "CANARY;SUFFIX",
+            "correct horse battery staple",
+            "CANARY, with punctuation; and spaces",
+        ):
+            for text in (
+                f"password={secret}",
+                f"password: {secret}\ncount=3",
+                f"count=3 password={secret}, name=example",
+            ):
+                cleaned = redact(text)
+                assert cleaned == text.replace(secret, "***REDACTED***")
+                assert redact(cleaned) == cleaned
         assert redact("count=3\nname: example\npassword=\n") == (
             "count=3\nname: example\npassword=\n"
         )
@@ -1468,6 +1489,7 @@ def test_redact_assignment_contexts(source, kind):
         b"password=CANARY\r\n",
         b"token: CANARY\r\n",
         b"password=CANARY,SUFFIX\r\n",
+        b"password: correct horse battery staple\r\n",
     ],
 )
 def test_run_text_attachment_preserves_original(
