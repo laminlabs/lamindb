@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import builtins
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import sleep
 from typing import TYPE_CHECKING
 
@@ -91,19 +91,46 @@ def get_seconds_since_modified(filepath) -> float:
     return datetime.now().timestamp() - filepath.stat().st_mtime
 
 
+def _save_run_artifact(path: Path, run: Run, description: str) -> Artifact:
+    artifact = Artifact(
+        path,
+        description=description,
+        kind="__lamindb_run__",
+        run=False,
+        space=run.space,
+        skip_hash_lookup=True,
+    )
+    # The general hash lookup can return an artifact from a different space.
+    if artifact.hash is not None and artifact.size:
+        existing = (
+            Artifact.objects.filter(
+                hash=artifact.hash,
+                kind="__lamindb_run__",
+                space_id=run.space_id,
+                storage__space_id=run.space_id,
+            )
+            .exclude(branch_id=-1)
+            .exclude(size=0)
+            .first()
+        )
+        if existing is not None and not existing._storage_ongoing:
+            return existing
+    if artifact.storage.space_id != run.space_id:
+        raise ValueError(
+            "Run files must be saved in storage belonging to the run's space."
+        )
+    artifact.save(upload=True, print_progress=False)
+    return artifact
+
+
 def save_run_logs(run: Run, save_run: bool = False) -> None:
     logs_path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
     if logs_path.exists():
         if run.report is not None:
             logger.important("overwriting run.report")
-        artifact = Artifact(  # type: ignore
-            logs_path,
-            description=f"log streams of run {run.uid}",
-            kind="__lamindb_run__",
-            run=False,
+        run.report = _save_run_artifact(
+            logs_path, run, description=f"log streams of run {run.uid}"
         )
-        artifact.save(upload=True, print_progress=False)
-        run.report = artifact
         if save_run:  # defaults to false because is slow
             run.save()
 
@@ -232,7 +259,11 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
                 " finish()", "\nfinish()"
             )  # RStudio might insert a newline
             cleaned_content = cleaned_content.replace(orig_error_message, "")
-    cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
+    # Stage the generated report outside the notebook's storage so Artifact
+    # uploads it to the run's space rather than registering it in place.
+    cleaned_path = ln_setup.settings.cache_dir / (
+        f"{file_path.stem}.cleaned{file_path.suffix}"
+    )
     cleaned_path.write_text(cleaned_content, encoding="utf-8")
     return title_text, cleaned_path
 
@@ -419,7 +450,12 @@ def save_context_core(
 
         if existing_paths:
             overwrite_env = True
-            if run.environment_id is not None and from_cli:
+            if (
+                run.environment_id is not None
+                and from_cli
+                and run.environment.space_id == run.space_id
+                and run.environment.storage.space_id == run.space_id
+            ):
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
 
@@ -439,10 +475,10 @@ def save_context_core(
                         if filename == "run_env_pip.txt"
                         else filename
                     )
-                    size, env_hash, _ = hash_file(artifact_path)
+                    size, _, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
-                    size, env_hash, _, _ = hash_dir(artifact_path)
+                    size, _, _, _ = hash_dir(artifact_path)
 
                 if size == 0:
                     # Belt-and-suspenders: discovery already filters empty files, but
@@ -453,29 +489,10 @@ def save_context_core(
                         "environment file is empty, skipping linking an environment"
                     )
                 else:
-                    # Scope reuse to __lamindb_run__ artifacts only — data artifacts
-                    # with a coincidental or placeholder hash must not be returned here.
-                    artifact = (
-                        ln.Artifact.objects.filter(
-                            hash=env_hash, kind="__lamindb_run__"
-                        )
-                        .exclude(size=0)
-                        .one_or_none()
+                    run.environment = _save_run_artifact(
+                        artifact_path, run, description=description
                     )
-                    new_env_artifact = artifact is None
-
-                    if new_env_artifact:
-                        artifact = ln.Artifact(
-                            artifact_path,
-                            description=description,
-                            kind="__lamindb_run__",
-                            run=False,
-                        )
-                        artifact.save(upload=True, print_progress=False)
-
-                    run.environment = artifact
-                    if new_env_artifact:
-                        logger.debug(f"saved run.environment: {run.environment}")
+                    logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at and run is not None:
@@ -484,7 +501,7 @@ def save_context_core(
         else:
             update_finished_at = run.finished_at is None
         if update_finished_at:
-            run.finished_at = datetime.now(timezone.utc)
+            run.finished_at = datetime.now(UTC)
 
     # track report and set is_consecutive
     if save_source_code_and_report and not skip_save_report:
@@ -495,7 +512,11 @@ def save_context_core(
                     title_text, report_path = clean_r_notebook_html(report_path)
                     if title_text is not None:
                         transform.description = title_text
-                if run.report_id is not None:
+                if (
+                    run.report_id is not None
+                    and run.report.space_id == run.space_id
+                    and run.report.storage.space_id == run.space_id
+                ):
                     _, hash, _ = hash_file(report_path)  # ignore hash_type for now
                     if hash != run.report.hash:
                         response = input(
@@ -509,17 +530,12 @@ def save_context_core(
                     else:
                         logger.important("report is already saved")
                 else:
-                    report_file = ln.Artifact(  # type: ignore
-                        report_path,
-                        description=f"Report of run {run.uid}",
-                        kind="__lamindb_run__",  # hidden file
-                        run=False,
+                    run.report = _save_run_artifact(
+                        report_path, run, description=f"Report of run {run.uid}"
                     )
-                    report_file.save(upload=True, print_progress=False)
-                    run.report = report_file
                 if is_r_notebook:
                     # this is the "cleaned" report
-                    report_path.unlink()
+                    report_path.unlink(missing_ok=True)
                 logger.debug(
                     f"saved transform.latest_run.report: {transform.latest_run.report}"
                 )
