@@ -531,7 +531,9 @@ def save_context_core(
                                 f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
                             )
                             if response == "y":
-                                run.report.replace(report_path)
+                                replacement = run.report.replace(report_path)
+                                if replacement is not None:
+                                    run.report = replacement
                                 run.report.save(upload=True, print_progress=False)
                             else:
                                 logger.important("keeping old report")

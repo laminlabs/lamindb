@@ -846,7 +846,7 @@ def test_notebook_report_redacts_source(
 
 
 @pytest.mark.parametrize("has_secret", [False, True])
-@pytest.mark.parametrize("existing_report", [False, True])
+@pytest.mark.parametrize("existing_report", [False, True, "duplicate"])
 def test_r_report_skips_secrets(
     tmp_path, monkeypatch, ccaplog, has_secret, existing_report
 ):
@@ -864,6 +864,9 @@ def test_r_report_skips_secrets(
         uid="report-redaction-test", report_id=1 if existing_report else None
     )
     run.report.hash = "old-report-hash"
+    old_report = run.report
+    duplicate = MagicMock() if existing_report == "duplicate" else None
+    old_report.replace.return_value = duplicate
     transform = MagicMock(id=1)
     transform._update_source_code_from_path.return_value = None
     monkeypatch.setattr(
@@ -878,7 +881,9 @@ def test_r_report_skips_secrets(
     with patch.object(ln, "Artifact") as artifact:
         save_context_core(run=run, transform=transform, filepath=path, from_cli=True)
         assert artifact.called is (not has_secret and not existing_report)
-    assert run.report.replace.called is (not has_secret and existing_report)
+    assert old_report.replace.called is (not has_secret and bool(existing_report))
+    if not has_secret and duplicate is not None:
+        assert run.report is duplicate
     assert run.report.save.called is (not has_secret)
     assert ("skipping run attachment" in ccaplog.text) is has_secret
     transform._update_source_code_from_path.assert_called_once_with(path)

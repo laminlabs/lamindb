@@ -166,6 +166,7 @@ def test_stored_run_secrets(bulk, secret):
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as monkeypatch:
         tmp_path = Path(directory)
         monkeypatch.setattr("builtins.input", lambda _: "y")
+        monkeypatch.setattr(ln.settings.creation, "artifact_skip_size_hash", bulk)
         before = set(
             ln.Artifact.filter(kind="__lamindb_run__").values_list("id", flat=True)
         )
@@ -319,3 +320,76 @@ def test_run_attachment_rejects_changed_snapshot(tmp_path, bulk):
     assert not ln.Artifact.filter(uid=artifact.uid).exists()
     assert source.read_text() == "original log"
     artifact._redaction_stage.cleanup()
+
+
+@pytest.mark.parametrize(
+    "match", ["run", "ordinary", "other_storage", "other_space", "incomplete"]
+)
+def test_run_attachment_replace_duplicate(tmp_path, match):
+    from lamindb.core._secret_redaction import _UnsafeRunArtifact
+
+    source = tmp_path / "old.txt"
+    source.write_text("old report")
+    replacement = tmp_path / "new.txt"
+    replacement.write_text('new report: api_key = "CANARY_FIRST"')
+    other_storage = ln.Storage(root=(tmp_path / "other").as_posix()).save()
+    report = ln.Artifact(
+        source,
+        kind="__lamindb_run__",
+        description="report",
+        run=False,
+        storage=other_storage,
+    ).save()
+    # Ordinary artifacts need already-sanitized content to collide.
+    duplicate_path = tmp_path / "duplicate.txt"
+    duplicate_path.write_text('new report: api_key = "***REDACTED***"')
+    duplicate = ln.Artifact(
+        duplicate_path,
+        kind=None if match == "ordinary" else "__lamindb_run__",
+        description="duplicate",
+        run=False,
+        storage=None if match == "other_storage" else other_storage,
+    ).save()
+    space = None
+    try:
+        if match == "other_space":
+            space = ln.Space(name="replacement-space").save()
+            ln.Artifact.objects.filter(pk=duplicate.pk).update(space=space)
+        elif match == "incomplete":
+            duplicate._storage_ongoing = True
+            ln.Artifact.objects.filter(pk=duplicate.pk).update(_aux=duplicate._aux)
+        if match in {"ordinary", "other_space"}:
+            with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
+                report.replace(replacement, run=False)
+            assert report.path.read_text() == "old report"
+        else:
+            existing = report.replace(replacement, run=False)
+            if match == "other_storage":
+                assert existing is None
+                report.save()
+                updated = report
+            else:
+                assert existing.pk == duplicate.pk
+                existing.save()
+                updated = existing
+            assert updated.storage_id == other_storage.id
+            assert updated.path.read_text() == duplicate_path.read_text()
+        assert "CANARY_FIRST" in replacement.read_text()
+    finally:
+        report.delete(permanent=True, storage=True)
+        duplicate.delete(permanent=True, storage=True)
+        if space is not None:
+            space.delete()
+        other_storage.delete()
+
+
+def test_ordinary_artifact_still_skips_hash(tmp_path, monkeypatch):
+    monkeypatch.setattr(ln.settings.creation, "artifact_skip_size_hash", True)
+    path = tmp_path / "ordinary.txt"
+    path.write_text("ordinary data")
+    artifact = ln.Artifact(path, description="ordinary", run=False).save()
+    try:
+        artifact.refresh_from_db()
+        assert artifact.size is None and artifact.hash is None
+    finally:
+        artifact.delete(permanent=True, storage=True)

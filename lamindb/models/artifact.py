@@ -493,7 +493,7 @@ def get_stat_or_artifact(
         if hash is None:
             # without a hash there is nothing to deduplicate against
             return size, hash, hash_type, n_files, None
-    elif settings.creation.artifact_skip_size_hash:
+    elif settings.creation.artifact_skip_size_hash and _run_artifact_space_id is None:
         return None, None, None, n_files, None
     elif not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -3198,7 +3198,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         data: Union[AnyPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | bool | None = None,
         format: str | None = None,
-    ) -> None:
+    ) -> Artifact | None:
         """Replace the artifact content in storage **without** making a new version.
 
         **Note:** If you want to create a new version, do **not** use the `.replace()` method but rather any `Artifact` constructor.
@@ -3221,7 +3221,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             Note that you need to call `.save()` to persist the changes in storage.
         """
-        storage = settings.storage.record
+        storage = (
+            self.storage if self.kind == "__lamindb_run__" else settings.storage.record
+        )
         run = get_run(run)
         if self.kind == "__lamindb_run__":
             from ..core._secret_redaction import _stage_run_artifact
@@ -3236,10 +3238,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             version_tag=None,
             is_replace=True,
+            _run_artifact_space_id=(
+                self.space_id if self.kind == "__lamindb_run__" else None
+            ),
         )
 
         # this artifact already exists
         if isinstance(kwargs, Artifact):
+            if self.kind == "__lamindb_run__":
+                if "local_filepath" in privates:  # retry an incomplete upload
+                    kwargs.__dict__.update(
+                        _local_filepath=privates["local_filepath"],
+                        _cloud_filepath=privates["cloud_filepath"],
+                        _memory_rep=privates["memory_rep"],
+                        _to_store=True,
+                        _redaction_stage=redaction_stage,
+                    )
+                else:
+                    redaction_stage.cleanup()
             return kwargs
 
         check_path_in_storage = privates["check_path_in_storage"]
