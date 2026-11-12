@@ -141,6 +141,55 @@ def test_append_lance_keeps_one_directory_and_pins_versions():
             artifact.delete(permanent=True)
 
 
+def test_lance_open_and_append_reject_bad_calls_and_pin_missing_version():
+    from lamindb.core.storage._lance import LANCE_VERSION_AUX_KEY, lance_version
+
+    parquet = ln.Artifact.from_dataframe(
+        _cells(["parquet"]), key="lance/not-lance.parquet"
+    ).save()
+    try:
+        with pytest.raises(ValueError, match="open_lance"):
+            parquet.open_lance()
+        with pytest.raises(ValueError, match="append_lance"):
+            parquet.append_lance(_cells(["B cell"]))
+    finally:
+        parquet.delete(permanent=True)
+
+    unsaved = ln.Artifact.from_dataframe(
+        _cells(["unsaved-lance"]),
+        key="lance/unsaved.lance",
+        skip_hash_lookup=True,
+    )
+    with pytest.raises(ValueError, match="Save the artifact"):
+        unsaved.append_lance(_cells(["B cell"]))
+
+    artifact = ln.Artifact.from_dataframe(
+        _cells(["unpinned"]), key="lance/unpinned.lance"
+    ).save()
+    revised = None
+    try:
+        aux = dict(artifact._aux or {})
+        aux.pop(LANCE_VERSION_AUX_KEY, None)
+        artifact._aux = aux
+        artifact.save()
+        assert lance_version(artifact) is None
+
+        revised = artifact.append_lance(_cells(["B cell"]))
+        artifact.refresh_from_db()
+        pinned = lance_version(artifact)
+        assert pinned is not None
+        assert pinned != lance_version(revised)
+        assert artifact.open_lance().count_rows() == 1
+        assert revised.open_lance(version=pinned).count_rows() == 1
+        with pytest.raises(ValueError, match="latest"):
+            artifact.append_lance(_cells(["NK cell"]))
+    finally:
+        if revised is not None:
+            revised.delete(permanent=True)
+        elif artifact is not None:
+            artifact.delete(permanent=True)
+
+
 def test_lance_suffix_from_format_dict():
     from lamindb.core.storage.objects import infer_suffix
 
