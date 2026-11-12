@@ -2570,7 +2570,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: dict[str, Any] | None = None,
         parquet_kwargs: dict[str, Any] | None = None,
         csv_kwargs: dict[str, Any] | None = None,
-        lance_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -2593,8 +2592,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
             csv_kwargs: Additional keyword arguments passed to the `pandas.DataFrame.to_csv` method.
-            lance_kwargs: Additional keyword arguments passed to `lancedb.DBConnection.create_table`
-                when `key` ends with `.lance`. `mode` stays `"create"`.
 
         Examples:
 
@@ -2677,7 +2674,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     kwargs.setdefault("format", path_suffix)
                 # a non-coercing schema keeps the original file
         if kwargs.get("format") == ".lance":
-            to_disk_kwargs: dict[str, Any] = lance_kwargs
+            to_disk_kwargs = None
         else:
             to_disk_kwargs = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
