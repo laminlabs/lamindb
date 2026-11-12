@@ -1,12 +1,14 @@
 """Storage API.
 
-Array accessors.
+Array accessors
+---------------
 
 .. autoclass:: AnnDataAccessor
 .. autoclass:: SpatialDataAccessor
 .. autoclass:: BackedAccessor
 
-LanceDB tables.
+LanceDB tables
+--------------
 
 .. autoclass:: LanceAccessor
 """
