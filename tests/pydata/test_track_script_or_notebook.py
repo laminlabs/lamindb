@@ -725,13 +725,33 @@ def test_clean_r_notebook_html():
     orig_notebook_path.write_text(content.replace("SHORTCUT", get_shortcut()))
     comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
     compare = comparison_path.read_text()
-    comparison_path.unlink()
     title_text, cleaned_path = clean_r_notebook_html(orig_notebook_path)
-    assert comparison_path == cleaned_path
+    assert cleaned_path.parent == ln_setup.settings.cache_dir
+    assert cleaned_path.suffix == ".html"
     assert title_text == "My exemplary R analysis"
     assert compare == cleaned_path.read_text()  # check that things have been stripped
-    comparison_path.write_text(compare)
+    cleaned_path.unlink()
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
+
+
+def test_r_reports_have_independent_staging(tmp_path, monkeypatch):
+    monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
+    reports = []
+    try:
+        # Overlapping exports: same basename in different directories and the same source twice.
+        for directory, content in [("a", "first"), ("b", "second"), ("a", "third")]:
+            source = tmp_path / directory / "analysis.html"
+            source.parent.mkdir(exist_ok=True)
+            source.write_text(content)
+            _, report = clean_r_notebook_html(source)
+            reports.append(report)
+        assert len(set(reports)) == 3
+        assert [p.read_text() for p in reports] == ["first", "second", "third"]
+        reports[0].unlink()
+        assert reports[1].read_text() == "second"
+    finally:
+        for report in reports:
+            report.unlink(missing_ok=True)
 
 
 def test_notebook_to_script_notebooknode_metadata(tmp_path):
@@ -756,6 +776,8 @@ def test_notebook_to_script_notebooknode_metadata(tmp_path):
 class MockRun:
     def __init__(self, uid):
         self.uid = uid
+        self.space = ln_setup.settings.instance.storage.record.space
+        self.space_id = self.space.id
         self.report = None
         self.saved = False
 
@@ -865,6 +887,149 @@ def test_logstream_tracker_exception_handling():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+@pytest.mark.parametrize("kind", ["logs", "report", "environment", "environment_dir"])
+@pytest.mark.parametrize("registered_cache", [False, True])
+@pytest.mark.parametrize("existing", ["unlinked", "other_space", "wrong_storage"])
+def test_run_files_follow_run_space(
+    tmp_path, monkeypatch, isolated_space_settings, kind, existing, registered_cache
+):
+    from lamindb.core._finish import save_context_core, save_run_logs
+
+    monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
+    cache_storage = (
+        ln.Storage(root=ln_setup.settings.cache_dir).save()
+        if registered_cache
+        else None
+    )
+    space = ln.Space(name=f"run-files-{time.time_ns()}").save()
+    storage = ln.Storage(root=tmp_path / "private").save()
+    ln.Storage.filter(id=storage.id).update(space_id=space.id)
+    storage.refresh_from_db()
+    transform = ln.Transform(key=f"run-files-{space.uid}").save()
+    run = ln.Run(transform=transform)
+    run.space = space
+    run.save()
+    content = f"run file for {space.uid}"
+    source = tmp_path / "notebook" / "source.Rmd"
+    source.parent.mkdir()
+    notebook_storage = ln.Storage(root=source.parent).save()
+    source.write_text("# Test report")
+    if kind == "logs":
+        path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+    elif kind.startswith("environment"):
+        path = (
+            ln_setup.settings.cache_dir
+            / "environments"
+            / f"run_{run.uid}"
+            / "run_env_pip.txt"
+        )
+    else:
+        path = source.with_suffix(".html")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    old_source = tmp_path / f"old{path.suffix}"
+    if kind == "environment_dir":
+        (path.parent / "uv.lock").write_text("version = 1")
+        old_source = tmp_path / "old-environment"
+        old_source.mkdir()
+        (old_source / "run_env_pip.txt").write_text(content)
+        (old_source / "uv.lock").write_text("version = 1")
+    else:
+        old_source.write_text(content)
+    old = ln.Artifact(
+        old_source, description="existing run file", kind="__lamindb_run__", run=False
+    ).save()
+    old_path = old.path
+    field = "environment" if kind.startswith("environment") else "report"
+    if existing == "wrong_storage":
+        # Reproduce legacy metadata whose space does not match its physical storage.
+        ln.Artifact.objects.filter(id=old.id).update(space_id=space.id)
+        old.refresh_from_db()
+    if existing != "unlinked":
+        setattr(run, field, old)
+        run.save()
+    monkeypatch.setattr(transform, "_update_source_code_from_path", lambda _: None)
+
+    def save():
+        # Saving a local cache file may move it into managed storage.
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content)
+            if kind == "environment_dir":
+                (path.parent / "uv.lock").write_text("version = 1")
+        if kind == "logs":
+            save_run_logs(run, save_run=True)
+        else:
+            save_context_core(
+                run=run, transform=transform, filepath=source, from_cli=True
+            )
+
+    def read_content(location):
+        return (
+            location / "run_env_pip.txt" if kind == "environment_dir" else location
+        ).read_text()
+
+    try:
+        save()
+        run.refresh_from_db()
+        artifact = getattr(run, field)
+        assert artifact.id != old.id
+        assert artifact.space_id == space.id
+        assert artifact.storage_id == storage.id
+        assert read_content(artifact.path) == content
+        assert read_content(old_path) == content
+        if registered_cache:
+            assert path.read_text() == content
+        # Repeated saves still reuse a correctly placed file.
+        save()
+        run.refresh_from_db()
+        assert getattr(run, field).id == artifact.id
+        if kind == "report":
+            path.write_text(content + " updated")
+            monkeypatch.setattr("builtins.input", lambda _: "y")
+            save()
+            run.refresh_from_db()
+            assert run.report.id == artifact.id
+            assert run.report.storage_id == storage.id
+            assert run.report.path.read_text() == content + " updated"
+            assert read_content(old_path) == content
+    finally:
+        run.report = None
+        run.environment = None
+        run.save()
+        run.delete(permanent=True)
+        for artifact in ln.Artifact.filter(space=space):
+            artifact.delete(permanent=True, storage=True)
+        if ln.Artifact.filter(id=old.id).exists():
+            old.delete(permanent=True, storage=True)
+        transform.delete(permanent=True)
+        notebook_storage.delete()
+        if cache_storage is not None:
+            cache_storage.delete()
+        storage.delete()
+        space.delete(permanent=True)
+
+
+def test_run_files_require_space_storage(tmp_path, isolated_space_settings):
+    from lamindb.core._finish import _save_run_artifact
+    from lamindb.errors import NoStorageLocationForSpace
+
+    space = ln.Space(name=f"run-no-storage-{time.time_ns()}").save()
+    transform = ln.Transform(key=f"run-no-storage-{space.uid}").save()
+    run = ln.Run(transform=transform)
+    run.space = space
+    run.save()
+    path = tmp_path / "report.txt"
+    path.write_text("report without a storage location")
+    try:
+        with pytest.raises(NoStorageLocationForSpace):
+            _save_run_artifact(path, run, "test report")
+    finally:
+        run.delete(permanent=True)
+        transform.delete(permanent=True)
+        space.delete(permanent=True)
 
 
 def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch):
