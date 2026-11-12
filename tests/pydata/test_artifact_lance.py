@@ -37,7 +37,8 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert artifact.overwrite_versions is False
         assert artifact.path.is_dir()
 
-        loaded = cast(pd.DataFrame, artifact.load())
+        stored = ln.Artifact.get(artifact.uid)
+        loaded = cast(pd.DataFrame, stored.load())
         assert list(loaded["n_genes"]) == [0, 1, 2]
         with pytest.raises(ValueError, match="open_lance"):
             artifact.open()
