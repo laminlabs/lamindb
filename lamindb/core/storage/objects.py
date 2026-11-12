@@ -116,14 +116,18 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> N
             if Path(filepath).suffix == ".csv":
                 dmem.sink_csv(filepath, **kwargs)
             elif Path(filepath).suffix == ".lance":
-                _write_lance_table(dmem.collect(), filepath, **kwargs)
+                from ._lance import write_lance_table
+
+                write_lance_table(dmem.collect(), filepath, **kwargs)
             else:
                 dmem.sink_parquet(filepath, **kwargs)
             return
         if Path(filepath).suffix == ".csv":
             dmem.write_csv(filepath, **kwargs)
         elif Path(filepath).suffix == ".lance":
-            _write_lance_table(dmem, filepath, **kwargs)
+            from ._lance import write_lance_table
+
+            write_lance_table(dmem, filepath, **kwargs)
         else:
             dmem.write_parquet(filepath, **kwargs)
         return
@@ -175,23 +179,8 @@ def _write_dataframe(dmem: Any, filepath: Path | str, **kwargs) -> None:
         dmem.to_csv(filepath, **kwargs)
         return
     if suffix == ".lance":
-        _write_lance_table(dmem, filepath, **kwargs)
+        from ._lance import write_lance_table
+
+        write_lance_table(dmem, filepath, **kwargs)
         return
     dmem.to_parquet(filepath, **kwargs)
-
-
-def _write_lance_table(data: Any, filepath: Path | str, **kwargs) -> None:
-    """Write one LanceDB table as a `.lance` directory."""
-    try:
-        import lancedb
-    except ImportError as exc:
-        raise ImportError(
-            "Please install lancedb: pip install 'lamindb[lance]'"
-        ) from exc
-    path = Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_kwargs = dict(kwargs)
-    # A new artifact is a new table. Appends belong to a later version.
-    write_kwargs["mode"] = "create"
-    database = lancedb.connect(path.parent.as_posix())
-    database.create_table(path.stem, data, **write_kwargs)

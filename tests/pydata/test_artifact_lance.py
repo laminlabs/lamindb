@@ -120,3 +120,27 @@ def test_append_lance_keeps_one_directory_and_pins_versions():
             revised.delete(permanent=True)
         elif artifact is not None:
             artifact.delete(permanent=True)
+
+
+def test_lance_suffix_from_format_dict():
+    from lamindb.core.storage.objects import infer_suffix
+
+    frame = _cells(["T cell"])
+    assert infer_suffix(frame, format={"suffix": ".lance"}) == ".lance"
+    assert infer_suffix(frame, format=".lance") == ".lance"
+    assert infer_suffix(frame, format={"suffix": ".csv"}) == ".csv"
+
+
+def test_lance_from_polars_frame_and_lazyframe():
+    pl = pytest.importorskip("polars")
+    frame = pl.DataFrame({"cell_type": ["T cell", None], "n_genes": [1, 2]})
+    eager = ln.Artifact.from_dataframe(frame, key="lance/polars.lance").save()
+    lazy = ln.Artifact.from_dataframe(frame.lazy(), key="lance/lazy.lance").save()
+    try:
+        assert eager.n_observations == 2
+        assert lazy.n_observations == 2
+        assert eager.open_lance().count_rows() == 2
+        assert lazy.open_lance().count_rows() == 2
+    finally:
+        lazy.delete(permanent=True)
+        eager.delete(permanent=True)
