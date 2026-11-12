@@ -159,6 +159,7 @@ def test_bulk_permanent_run_delete(tmp_path):
     )
 )
 def test_stored_run_secrets(bulk, secret):
+    from django.db import transaction
     from lamindb.core._finish import save_context_core, save_run_logs
     from lamindb_setup.core.hashing import hash_file
 
@@ -200,6 +201,22 @@ def test_stored_run_secrets(bulk, secret):
             assert secret not in run.report.path.read_text()
             assert secret in logs.read_text()
             assert hash_file(run.report.path)[1] == run.report.hash
+
+            # Different inputs sanitize to the same content; reuse before INSERT,
+            # including inside the transaction used by bulk saves.
+            duplicate_path = tmp_path / "duplicate.txt"
+            duplicate_path.write_text("logged ghp_" + "D" * 36)
+            duplicate = ln.Artifact(
+                duplicate_path,
+                kind="__lamindb_run__",
+                description="same log",
+                run=False,
+            )
+            assert duplicate.pk == run.report_id
+            duplicate_stage = Path(duplicate._redaction_stage.name)
+            with transaction.atomic():
+                ln.save([duplicate]) if bulk else duplicate.save()
+            assert not duplicate_stage.exists()
 
             script = tmp_path / "script.py"
             script.write_text('print("ordinary_value")')
@@ -248,6 +265,43 @@ def test_stored_run_secrets(bulk, secret):
                 transform.delete(permanent=True)
             for artifact in artifacts:
                 artifact.delete(permanent=True, storage=True)
+
+
+@pytest.mark.parametrize("content", ["clean log", ""])
+def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
+    from lamindb.core._secret_redaction import _UnsafeRunArtifact
+
+    source = tmp_path / "source.txt"
+    source.write_text(content)
+    ordinary = ln.Artifact(source, description="ordinary data", run=False).save()
+    storage = ln.Storage(root=(tmp_path / "other-storage").as_posix()).save()
+    report = None
+    try:
+        with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
+            ln.Artifact(source, kind="__lamindb_run__", description="report", run=False)
+        report = ln.Artifact(
+            source,
+            kind="__lamindb_run__",
+            description="report",
+            storage=storage,
+            run=False,
+        ).save()
+        assert report.pk != ordinary.pk and report.storage_id == storage.id
+        ordinary.refresh_from_db()
+        assert ordinary.kind != "__lamindb_run__"
+        duplicate = ln.Artifact(
+            source,
+            kind="__lamindb_run__",
+            description="report",
+            storage=storage,
+            run=False,
+        ).save()
+        assert duplicate.pk == report.pk
+    finally:
+        if report is not None:
+            report.delete(permanent=True, storage=True)
+        ordinary.delete(permanent=True, storage=True)
+        storage.delete()
 
 
 @pytest.mark.parametrize("bulk", [False, True])

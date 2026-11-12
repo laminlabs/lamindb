@@ -484,6 +484,7 @@ def get_stat_or_artifact(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    _run_artifact_space_id: int | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -524,10 +525,30 @@ def get_stat_or_artifact(
         return size, hash, hash_type, n_files, None
     # Empty files all share the same content hash; skip cross-artifact hash
     # lookup so creating a new empty file path yields a new artifact.
-    if n_files is None and size == 0:
+    if n_files is None and size == 0 and _run_artifact_space_id is None:
         skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
+    if _run_artifact_space_id is not None and not skip_hash_lookup:
+        # Sanitized run files must not reuse an unrelated artifact or change
+        # storage/space. Resolve exact collisions before a transactional insert.
+        artifacts_qs = artifacts_qs.filter(storage=storage, key=key)
+        existing = artifacts_qs.filter(hash=hash).first()
+        if existing is not None:
+            if (
+                existing.kind != "__lamindb_run__"
+                or existing.space_id != _run_artifact_space_id
+                or existing.branch_id == -1
+            ):
+                from ..core._secret_redaction import _UnsafeRunArtifact
+
+                raise _UnsafeRunArtifact(
+                    "skipping run attachment: matching content belongs to an incompatible artifact"
+                )
+            return existing
+        artifacts_qs = artifacts_qs.filter(
+            kind="__lamindb_run__", space_id=_run_artifact_space_id
+        )
     # Only run key-based latest version lookup when creating a new artifact version from key.
     # If explicit `revises` was passed in the constructor, this flag is False so that we
     # do not override/validate version from key lookup during init.
@@ -663,6 +684,7 @@ def get_artifact_kwargs_from_data(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    _run_artifact_space_id: int | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -707,6 +729,7 @@ def get_artifact_kwargs_from_data(
         skip_key_revises_lookup=skip_key_revises_lookup,
         target_branch_id=target_branch_id,
         stats=stats,
+        _run_artifact_space_id=_run_artifact_space_id,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -2214,7 +2237,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..core._secret_redaction import _stage_run_artifact
 
             path, self._redaction_stage = _stage_run_artifact(path)
-            skip_hash_lookup = True
+            if skip_hash_lookup is None:
+                skip_hash_lookup = False
             stats = None  # supplied statistics describe the unsanitized input
 
         provisional_uid = create_uid(revises=revises, version_tag=version_tag)
@@ -2236,6 +2260,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_key_revises_lookup=revises is not None,
             target_branch_id=branch.id,
             stats=stats,
+            _run_artifact_space_id=(
+                space.id
+                if space is not None
+                else self._meta.get_field("space").get_default()
+            )
+            if kind == "__lamindb_run__"
+            else None,
         )
 
         def set_private_attributes():
