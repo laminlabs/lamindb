@@ -372,13 +372,19 @@ def redact(value, kind: str = "text", *, _secrets=None):
         return tuple(result) if isinstance(value, tuple) else result
     if not isinstance(value, str):
         return value
+
+    def env_magic(match):
+        if not _is_sensitive_param_key(match["key"]):
+            return match[0]
+        # IPython strips surrounding whitespace but keeps quotes and escapes.
+        secret = match["value"].strip()
+        if _secrets is not None and secret and secret != REDACTED_SECRET_VALUE:
+            _secrets.add(secret)
+        return match["prefix"] + REDACTED_SECRET_VALUE
+
+    # Collect the original value before assignment redaction can replace it.
+    value = _ENV_MAGIC_PATTERN.sub(env_magic, value)
     value = _redact_secret_assignments(value, _secrets)
-    value = _ENV_MAGIC_PATTERN.sub(
-        lambda m: m["prefix"] + REDACTED_SECRET_VALUE
-        if _is_sensitive_param_key(m["key"])
-        else m[0],
-        value,
-    )
 
     def formats(text):
         text = _FORMAT_PATTERN.sub(REDACTED_SECRET_VALUE, text)

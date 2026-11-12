@@ -790,6 +790,7 @@ def test_notebook_report_redacts_source(
         r"REPORT_SECRET_\BACKSLASH",
         "REPORT_SECRET_\t'\"<&",
     ]
+    magic_values = ["CANARY_MAGIC", '"CANARY_MAGIC_QUOTED"', r"CANARY_MAGIC\RAW"]
     rich_outputs = [
         "<span>REPORT_</span><span>SECRET_123</span>",
         "<span>REPORT&#95;</span><span>SECRET&#95;123</span>",
@@ -820,6 +821,19 @@ def test_notebook_report_redacts_source(
                 'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
             ),
             nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
+            *[
+                nbformat.v4.new_code_cell(
+                    f"%env API_KEY{separator}  {secret}  ",
+                    outputs=[
+                        nbformat.v4.new_output("stream", name="stdout", text=secret),
+                        nbformat.v4.new_output(
+                            "display_data", data={"text/plain": repr(secret)}
+                        ),
+                    ],
+                )
+                for separator in ("=", " ")
+                for secret in magic_values
+            ],
             *[
                 nbformat.v4.new_code_cell(
                     f"api_key = {secret!r}",
@@ -873,9 +887,14 @@ def test_notebook_report_redacts_source(
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
+    assert "CANARY_MAGIC" not in html
     # Markdown may render the asterisks as emphasis.
-    assert html.count("REDACTED") == 8 + len(printed) + 2 * len(escaped_secrets) + len(
-        rich_outputs
+    assert html.count("REDACTED") == (
+        8
+        + len(printed)
+        + 2 * len(escaped_secrets)
+        + len(rich_outputs)
+        + 6 * len(magic_values)
     )
     assert "<b>Safe rich output</b>" in html
     assert "Ordinary report text" in html
