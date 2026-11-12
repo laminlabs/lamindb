@@ -45,6 +45,7 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert list(loaded["n_genes"]) == [0, 1, 2]
         with pytest.raises(ValueError, match="lance.open"):
             artifact.open()
+        assert repr(artifact.lance) == "LanceAccessor(lance/cells.lance)"
         table = artifact.lance.open()
         filtered = (
             table.search()
