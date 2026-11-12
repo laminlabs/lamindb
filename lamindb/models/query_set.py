@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import re
 import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
@@ -503,8 +502,8 @@ def get_feature_annotate_kwargs(
         RecordJson,
         Run,
         RunJsonValue,
-        ULabel,
     )
+    from lamindb.models._feature_manager import get_categorical_link_info
     from lamindb.models.feature import parse_dtype
 
     registry = concrete_model(registry)
@@ -616,71 +615,27 @@ def get_feature_annotate_kwargs(
             )
             unique_feature_ids.append(selected_record.id)
         feature_qs = feature_qs.filter(id__in=unique_feature_ids)
-    # Get the categorical features
-    cat_feature_types = {
-        parse_dtype(feature._dtype_str)[0]["registry_str"]
-        for feature in feature_qs
-        if feature._dtype_str.startswith("cat[")
-        or feature._dtype_str.startswith("list[cat[")
-    }
-    # fields to annotate
-    cat_feature_fields = defaultdict(list)
+    # Include every registry and field contributing to a categorical union.
+    cat_feature_fields = defaultdict(set)
     for feature in feature_qs:
         dtype_str = feature._dtype_str
         if dtype_str.startswith("cat[") or dtype_str.startswith("list[cat["):
-            dtype_info = parse_dtype(dtype_str)[0]
-            registry_str = dtype_info["registry_str"]
-            field_name = dtype_info["field_str"]
-            cat_feature_fields[registry_str].append(field_name)
-    # Get relationships of labels and features
-    link_models_on_models = {
-        getattr(
-            registry, obj.related_name
-        ).through.__get_name_with_module__(): obj.related_model
-        for obj in registry._meta.related_objects
-        if obj.related_model.__get_name_with_module__() in cat_feature_types
-        and hasattr(getattr(registry, obj.related_name), "through")
-        and hasattr(getattr(registry, obj.related_name).through, "feature_id")
-    }
-    if registry is Artifact:
-        link_models_on_models["ArtifactULabel"] = ULabel
-    elif registry is Record:
-        link_models_on_models["RecordRecord"] = Record
-    link_attributes_on_models = {
-        obj.related_name: link_models_on_models[
-            obj.related_model.__get_name_with_module__()
-        ]
-        for obj in registry._meta.related_objects
-        if (
-            obj.related_model.__get_name_with_module__() in link_models_on_models
-            and (
-                (
-                    # RecordRecord.value also reverse-relates as links_record.
-                    not obj.related_name.startswith("links_record")
-                    # RecordX value tables have `value`; XRecord tagging tables do not
-                    # (`links_reference`, `links_project`, ...). Joining those as
-                    # `links_*__value` raises FilteredRelation lookup errors.
-                    and hasattr(obj.related_model, "value_id")
-                )
-                if registry is Record
-                else True
-            )
-        )
-    }
-    # Prepare Django's annotate for features with filtering
+            for dtype_info in parse_dtype(dtype_str):
+                cat_feature_fields[dtype_info["registry"]].add(dtype_info["field_str"])
+
     filtered_relations = {}
     annotate_kwargs = {}
-
-    for link_attr, feature_type_model in link_attributes_on_models.items():
-        feature_type = feature_type_model.__get_name_with_module__()
-
-        # Determine field name
-        if registry in {Artifact, Run}:
-            field_name = (
-                feature_type.split(".")[1] if "." in feature_type else feature_type
-            ).lower()
-        else:
-            field_name = "value"
+    for feature_type_model, fields in cat_feature_fields.items():
+        # Resolve the same relationship used when storing categorical values.
+        try:
+            link_model, field_name, link_attr = get_categorical_link_info(
+                registry, feature_type_model, instance=qs.db
+            )
+        except ValueError:
+            # Explicitly requested features may have no relationship on this host.
+            continue
+        if not hasattr(link_model, "feature_id"):
+            continue
 
         # Determine if this value model needs branch filtering
         # Skip user relations (RecordUser, ArtifactUser don't have branch)
@@ -712,8 +667,10 @@ def get_feature_annotate_kwargs(
             f"{link_attr}__feature__name"
         )
 
+        annotate_kwargs[f"{link_attr}__feature_id"] = F(f"{link_attr}__feature_id")
+
         # Add annotations for categorical feature fields using the filtered relation
-        for field in cat_feature_fields[feature_type]:
+        for field in sorted(fields):
             annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
                 f"{filtered_value_relation_name}__{field}"
             )
@@ -918,15 +875,18 @@ def reshape_annotate_result(
                 )
 
     # --- Process categorical/linked features ---
-    links_prefix = "links_" if registry in {Artifact, Run} else ("links_", "values_")
+    links_prefix = ("links_", "values_")
     links_features = [
         col
         for col in df.columns
-        if "feature__name" in col and col.startswith(links_prefix)
+        if "feature__name" in col
+        and col.startswith(links_prefix)
+        and col != feature_name_col
     ]
 
     if links_features:
         result_encoded = process_links_features(
+            registry,
             df_encoded,
             result_encoded,
             links_features,
@@ -1054,48 +1014,62 @@ def reshape_annotate_result(
 
 
 def process_links_features(
+    registry: Registry,
     df: pd.DataFrame,
     result: pd.DataFrame,
     feature_cols: list[str],
     feature_qs: QuerySet | None,
     pk_name: str = "id",
 ) -> pd.DataFrame:
-    """Process links_XXX feature columns."""
+    """Combine categorical feature values from all contributing relationships."""
     import pandas as pd
 
     from lamindb.models.feature import parse_dtype
 
-    # this loops over different entities that might be linked under a feature
+    values_by_feature: dict[str, dict[Any, set]] = {}
     for feature_col in feature_cols:
-        links_attribute = "links_" if feature_col.startswith("links_") else "values_"
-        regex = f"{links_attribute}(.+?)__feature__name"
-        prefix = re.match(regex, feature_col).group(1)
-
+        link_attr = feature_col.removesuffix("__feature__name")
+        feature_id_col = f"{link_attr}__feature_id"
         value_cols = [
             col
             for col in df.columns
-            if col.startswith(f"{links_attribute}{prefix}__")
-            and "feature__name" not in col
+            if col.startswith(f"{link_attr}__")
+            and col not in {feature_col, feature_id_col}
         ]
-
         if not value_cols:
             continue
 
-        value_col = value_cols[0]
+        value_prefix = value_cols[0].rsplit("__", 1)[0]
+        value_attr = value_prefix.split("__")[1]
+        link_model = registry._meta.get_field(link_attr).related_model
+        value_registry = link_model._meta.get_field(value_attr).related_model
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
 
         for feature in feature_qs:
-            if feature.name not in feature_names:
+            if feature.name not in feature_names or feature.name in result.columns:
                 continue
-            if feature.name in result.columns:
+            dtype_info = next(
+                (
+                    component
+                    for component in parse_dtype(feature._dtype_str)
+                    if component["registry"] is value_registry
+                ),
+                None,
+            )
+            if dtype_info is None:
                 continue
-            field_name = parse_dtype(feature._dtype_str)[0]["field_str"]
-            value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
-            mask = (df[feature_col] == feature.name) & df[value_col].notna()
-            feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
-            insert_loc = min(3, len(result.columns))
-            result.insert(insert_loc, feature.name, result[pk_name].map(feature_values))
+            value_col = f"{value_prefix}__{dtype_info['field_str']}"
+            mask = (df[feature_id_col] == feature.id) & df[value_col].notna()
+            grouped_values = df[mask].groupby(pk_name)[value_col].agg(set)
+            values_by_record = values_by_feature.setdefault(feature.name, {})
+            for record_id, values in grouped_values.items():
+                values_by_record.setdefault(record_id, set()).update(values)
+
+    # Insert once, after collecting every registry's contribution to each feature.
+    for feature_name, values_by_record in values_by_feature.items():
+        insert_loc = min(3, len(result.columns))
+        result.insert(insert_loc, feature_name, result[pk_name].map(values_by_record))
 
     return result
 
