@@ -1,7 +1,12 @@
 import time
+from pathlib import Path
+from string import ascii_letters, digits
+from tempfile import TemporaryDirectory
 
 import lamindb as ln
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 
 @pytest.mark.parametrize("suffix", ["", ".html", ".txt"])
@@ -147,67 +152,99 @@ def test_bulk_permanent_run_delete(tmp_path):
 
 
 @pytest.mark.parametrize("bulk", [False, True])
-def test_stored_run_secrets(tmp_path, monkeypatch, bulk):
+@settings(max_examples=20, deadline=None)
+@given(
+    secret=st.text(ascii_letters + digits, min_size=36, max_size=36).map(
+        "ghp_{}".format
+    )
+)
+def test_stored_run_secrets(bulk, secret):
     from lamindb.core._finish import save_context_core, save_run_logs
     from lamindb_setup.core.hashing import hash_file
 
-    monkeypatch.setattr("builtins.input", lambda _: "y")
-    secret = "ghp_" + "s" * 36
-    transform = ln.Transform(key=f"redaction-{bulk}.py", source_code=f'x = "{secret}"')
-    if bulk:
-        ln.save([transform])
-    else:
-        transform.save()
-    run = ln.Run(transform, params={"options": {"token": "CANARY_PARAM"}, "safe": 42})
-    run.cli_args = "script --token CANARY_ARG --count 3"
-    if bulk:
-        ln.save([run])
-    else:
-        run.save()
-    run.refresh_from_db()
-    transform.refresh_from_db()
-    run.params = {"options": {"token": "CANARY_UPDATE"}, "safe": 42}
-    if bulk:
-        ln.save([run])
-    else:
-        run.save(update_fields=["params"])
-    run.refresh_from_db()
-    assert "CANARY" not in str(run.params) + run.cli_args
-    assert secret not in transform.source_code
-    assert run.params["safe"] == 42
-    assert "--count 3" in run.cli_args
+    with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as monkeypatch:
+        tmp_path = Path(directory)
+        monkeypatch.setattr("builtins.input", lambda _: "y")
+        before = set(
+            ln.Artifact.filter(kind="__lamindb_run__").values_list("id", flat=True)
+        )
+        transform = ln.Transform(
+            key=f"redaction-{bulk}.py", source_code=f'x = "{secret}"'
+        )
+        run = None
+        try:
+            if bulk:
+                ln.save([transform])
+            else:
+                transform.save()
+            run = ln.Run(transform, params={"options": {"token": secret}, "safe": 42})
+            run.cli_args = f"script --token {secret} --count 3"
+            if bulk:
+                ln.save([run])
+            else:
+                run.save()
+            run.refresh_from_db()
+            transform.refresh_from_db()
+            run.params = {"options": {"token": secret}, "safe": 42}
+            if bulk:
+                ln.save([run])
+            else:
+                run.save(update_fields=["params"])
+            run.refresh_from_db()
+            assert run.params["safe"] == 42
+            assert "--count 3" in run.cli_args
 
-    logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
-    logs.write_text(f"logged {secret}")
-    save_run_logs(run, save_run=True)
-    assert secret not in run.report.path.read_text()
-    assert secret in logs.read_text()
-    assert hash_file(run.report.path)[1] == run.report.hash
+            logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+            logs.write_text(f"logged {secret}")
+            save_run_logs(run, save_run=True)
+            assert secret not in run.report.path.read_text()
+            assert secret in logs.read_text()
+            assert hash_file(run.report.path)[1] == run.report.hash
 
-    script = tmp_path / "script.py"
-    script.write_text('print("ordinary_value")')
-    environment = ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
-    environment.mkdir(parents=True)
-    for name in ("uv.lock", "pixi.lock", "run_env_pip.txt"):
-        (environment / name).write_text(f"pkg @ https://user:{secret}@example.org/pkg")
-    save_context_core(run=run, transform=transform, filepath=script, from_cli=True)
-    run.refresh_from_db()
-    for path in run.environment.path.rglob("*"):
-        if path.is_file():
-            assert secret not in path.read_text()
-    assert secret in (environment / "uv.lock").read_text()
-    # Replacement uses the same protection and hashes the redacted bytes.
-    replacement = tmp_path / "replacement.txt"
-    replacement.write_text(f"new log {secret}")
-    run.report.replace(replacement)
-    run.report.save()
-    assert secret not in run.report.path.read_text()
-    assert hash_file(run.report.path)[1] == run.report.hash
-    artifacts = [run.report, run.environment]
-    run.delete(permanent=True)
-    transform.delete(permanent=True)
-    for artifact in artifacts:
-        artifact.delete(permanent=True, storage=True)
+            script = tmp_path / "script.py"
+            script.write_text('print("ordinary_value")')
+            environment = (
+                ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+            )
+            environment.mkdir(parents=True)
+            for name in ("uv.lock", "pixi.lock", "run_env_pip.txt"):
+                (environment / name).write_text(
+                    f"pkg @ https://user:{secret}@example.org/pkg"
+                )
+            save_context_core(
+                run=run, transform=transform, filepath=script, from_cli=True
+            )
+            run.refresh_from_db()
+            assert secret in (environment / "uv.lock").read_text()
+            # Replacement uses the same protection and hashes the redacted bytes.
+            replacement = tmp_path / "replacement.txt"
+            replacement.write_text(f"new log {secret}")
+            run.report.replace(replacement)
+            run.report.save()
+            assert hash_file(run.report.path)[1] == run.report.hash
+            # Scan all persisted columns and every new run attachment, not a field allowlist.
+            for record in (run, transform):
+                stored = type(record).objects.filter(pk=record.pk).values().get()
+                assert secret not in str(stored)
+            artifacts = list(
+                ln.Artifact.filter(kind="__lamindb_run__").exclude(id__in=before)
+            )
+            assert {run.report_id, run.environment_id} <= {a.id for a in artifacts}
+            for artifact in artifacts:
+                path = artifact.path
+                for file in path.rglob("*") if path.is_dir() else [path]:
+                    if file.is_file():
+                        assert secret.encode() not in file.read_bytes()
+        finally:
+            artifacts = list(
+                ln.Artifact.filter(kind="__lamindb_run__").exclude(id__in=before)
+            )
+            if run is not None and not run._state.adding:
+                run.delete(permanent=True)
+            if not transform._state.adding:
+                transform.delete(permanent=True)
+            for artifact in artifacts:
+                artifact.delete(permanent=True, storage=True)
 
 
 @pytest.mark.parametrize("bulk", [False, True])

@@ -65,6 +65,7 @@ dev = [
     "nox",
     "laminci>=0.3",
     "pytest>=6.0",
+    "hypothesis>=6",
     "coverage",
     "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
     "mudata",

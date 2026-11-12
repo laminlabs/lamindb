@@ -1,14 +1,18 @@
+import base64
 import os
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+from string import ascii_letters, digits
 from unittest.mock import MagicMock, patch
 
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from lamindb.core._context import (
     LogStreamTracker,
     context,
@@ -752,12 +756,14 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
             ),
             nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
-            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
+            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789{{escaped}}"'),
             nbformat.v4.new_code_cell(
                 'print("ordinary_value")',
                 outputs=[
                     nbformat.v4.new_output(
-                        "stream", name="stdout", text="REPORT_SECRET_123 ordinary_value"
+                        "stream",
+                        name="stdout",
+                        text="REPORT_SECRET_123 REPORT_SECRET_789{escaped} ordinary_value",
                     )
                 ],
             ),
@@ -773,7 +779,7 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
-    assert html.count("REDACTED") == 7  # Markdown may render the asterisks as emphasis.
+    assert html.count("REDACTED") == 8  # Markdown may render the asterisks as emphasis.
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
@@ -1146,35 +1152,62 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
             log_path.unlink()
 
 
-@pytest.mark.parametrize(
-    "context",
-    ["x = {!r}", "printed: {}", "%env API_KEY={}", "cmd --token {}", "cmd --token={}"],
+# Generate from token shapes, independently of the detector's regexes.
+@settings(max_examples=50, deadline=None)
+@given(
+    secret=st.one_of(
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["AKIA", "ASIA"]),
+            st.text("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", min_size=16, max_size=16),
+        ),
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["ghp_", "gho_", "ghu_", "ghs_", "ghr_"]),
+            st.text(ascii_letters + digits, min_size=36, max_size=36),
+        ),
+        st.text(ascii_letters + digits, min_size=22, max_size=40).map(
+            "github_pat_{}".format
+        ),
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["sk-", "sk-proj-", "sk-svcacct-", "xoxb-", "xoxp-"]),
+            st.text(ascii_letters + digits, min_size=24, max_size=40),
+        ),
+        st.text(ascii_letters, min_size=1, max_size=20).map(
+            lambda subject: "eyJhbGciOiJIUzI1NiJ9."
+            + base64.urlsafe_b64encode(('{"sub":"' + subject + '"}').encode())
+            .decode()
+            .rstrip("=")
+            + ".c2lnbmF0dXJl"
+        ),
+        st.binary(min_size=24, max_size=48).map(
+            lambda body: "-----BEGIN {0}-----\n{1}\n-----END {0}-----".format(
+                "PRIVATE KEY", base64.b64encode(body).decode()
+            )
+        ),
+        st.text(ascii_letters + digits, min_size=16, max_size=30).map(
+            "https://user:{}@example.org/pkg".format
+        ),
+    ),
+    source_context=st.booleans(),
+    safe_value=st.text(ascii_letters + digits, max_size=30),
 )
-@pytest.mark.parametrize(
-    "secret",
-    [
-        "AKIA" + "A" * 16,
-        "ghp_" + "b" * 36,
-        "sk-proj-" + "c" * 24,
-        "xoxb-" + "1" * 24,
-        "eyJhbGciOiJIUzI1NiJ9.e30.c2lnbmF0dXJl",
-        "https://user:CANARY_PASSWORD@example.org/pkg",
-    ],
-)
-def test_redact_secret_formats(context, secret):
+def test_redact_secret_formats(secret, source_context, safe_value):
     import ast
 
     from lamindb.core._secret_redaction import redact
 
-    source = context.format(secret)
-    result = redact(source)
-    assert secret not in result
-    assert redact(result) == result
-    if context.startswith("x ="):
+    source = f"x = {secret!r}" if source_context else f"printed: {secret}"
+    kind = "source" if source_context else "text"
+    result = redact(source, kind)
+    # Checking both representations covers escaped newlines in Python source.
+    assert secret not in result and repr(secret)[1:-1] not in result
+    assert redact(result, kind) == result
+    if source_context:
         ast.parse(result)
-    assert (
-        redact("x = 42; print('ordinary_value')") == "x = 42; print('ordinary_value')"
-    )
+    safe_source = f"ordinary_value = {safe_value!r}"
+    assert redact(safe_source, "source") == safe_source
 
 
 @pytest.mark.parametrize(

@@ -206,7 +206,18 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
             continue
         if _secrets is not None:
             try:
-                secret = ast.literal_eval(source_code[start:end])
+                expression = ast.parse(source_code[start:end], mode="eval").body
+                if isinstance(expression, ast.JoinedStr) and all(
+                    isinstance(part, ast.Constant) and isinstance(part.value, str)
+                    for part in expression.values
+                ):
+                    # Static f-strings include decoded escapes and doubled braces.
+                    # Never evaluate interpolation expressions to discover a secret.
+                    secret = "".join(
+                        ast.literal_eval(part) for part in expression.values
+                    )
+                else:
+                    secret = ast.literal_eval(expression)
             except (ValueError, SyntaxError):
                 secret = None
             if isinstance(secret, str) and secret and secret != REDACTED_SECRET_VALUE:
