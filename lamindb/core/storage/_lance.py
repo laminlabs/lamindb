@@ -249,6 +249,9 @@ class LanceAccessor:
     ) -> Artifact:
         """Apply `write` to the table and save the result as a new version."""
         artifact = self._artifact
+        assert artifact._overwrite_versions, (
+            "Lance artifacts of one version family must share the same directory"
+        )
         if artifact._state.adding:
             raise ValueError("Save the artifact before revising it.")
         if not artifact.is_latest:
@@ -270,10 +273,9 @@ class LanceAccessor:
         del table
 
         stem_path = store_path.with_name(f"{artifact.stem_uid}{artifact.suffix}")
-        if store_path != stem_path:
-            store_path.rename(stem_path)
-        if not artifact._overwrite_versions:
-            artifact._overwrite_versions = True
+        assert store_path == stem_path, (
+            f"store path {store_path} and stem path {stem_path} must be the same"
+        )
         artifact.save()
 
         revised = Artifact(  # type: ignore
