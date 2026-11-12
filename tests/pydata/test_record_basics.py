@@ -2401,7 +2401,7 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
 
 @pytest.mark.parametrize("skip_validation", [False, True])
 def test_single_space_inheritance_preserves_aux(skip_validation):
-    parent = ln.Record(name="SharedAuxParent", is_type=True)
+    parent = ln.Record(name="SharedAuxParent", is_type=True).save()
     parent.settings.single_space = True
     metadata = {"foo": "bar"}
     children = [
@@ -2421,6 +2421,7 @@ def test_single_space_inheritance_preserves_aux(skip_validation):
     assert children[0]._aux == {"foo": "bar"}
     assert children[1].settings.single_space is True
     assert parent.settings.single_space is True
+    parent.delete(permanent=True)
 
 
 def test_single_space_getter_setter_paths():
