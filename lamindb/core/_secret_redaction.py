@@ -259,6 +259,16 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
                     secret = ast.literal_eval(expression)
             except (ValueError, SyntaxError):
                 secret = None
+            if (
+                isinstance(secret, bytes)
+                and secret
+                and secret != REDACTED_SECRET_VALUE.encode()
+            ):
+                _secrets.add(repr(secret))
+                try:
+                    secret = secret.decode("utf-8")
+                except UnicodeDecodeError:
+                    secret = None
             if isinstance(secret, str) and secret and secret != REDACTED_SECRET_VALUE:
                 _secrets.add(secret)
         replacement = f"{opening}{REDACTED_SECRET_VALUE}{quote}"

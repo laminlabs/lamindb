@@ -776,10 +776,28 @@ def test_clean_r_notebook_html():
 
 
 @pytest.mark.parametrize("inject_responsive_table_css", [False, True])
-def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
+@pytest.mark.parametrize(
+    "byte_secret",
+    [
+        b"REPORT_SECRET_BYTES",
+        b"REPORT_SECRET_BYTES_\xc3\xa9\n'\"",
+        b"REPORT_SECRET_BYTES_\xff",
+    ],
+)
+def test_notebook_report_redacts_source(
+    tmp_path, inject_responsive_table_css, byte_secret
+):
     import nbformat
     from lamindb.core._finish import notebook_to_report, notebook_to_script
 
+    printed = [
+        "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
+        repr(byte_secret),
+    ]
+    try:
+        printed.append(byte_secret.decode("utf-8"))
+    except UnicodeDecodeError:
+        pass
     notebook = nbformat.v4.new_notebook(
         cells=[
             nbformat.v4.new_markdown_cell("Ordinary report text"),
@@ -796,13 +814,14 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
             nbformat.v4.new_code_cell(
                 'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
             ),
+            nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
             nbformat.v4.new_code_cell(
                 'print("ordinary_value")',
                 outputs=[
                     nbformat.v4.new_output(
                         "stream",
                         name="stdout",
-                        text="REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
+                        text="\n".join(printed),
                     )
                 ],
             ),
@@ -819,7 +838,8 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
-    assert html.count("REDACTED") == 8  # Markdown may render the asterisks as emphasis.
+    # Markdown may render the asterisks as emphasis.
+    assert html.count("REDACTED") == 8 + len(printed)
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
