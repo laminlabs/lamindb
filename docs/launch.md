@@ -103,13 +103,14 @@ Register a pipeline as a transform via `lamindb`:
   ).save()
   ```
 
-- If the parameter schema is not at the repository root (e.g. Viash-built repos keep one `nextflow_schema.json` per workflow), pass its repo-root-relative path via `schema_path`. LaminHub uses it for the launch form (stored in `transform._aux["nextflow"]["launch"]["schemaName"]`):
+- If the pipeline's `nextflow_schema.json` isn't at the repository root, pass its path relative to the repository root via `schema_path`. For example, Viash-built repositories keep one schema next to each workflow's `main.nf`. LaminHub uses this schema for the launch form; it's stored in `transform._aux["nextflow"]["launch"]["schemaName"]`:
 
   ```python
   ln.Transform.from_git(
-      url="https://github.com/viash-hub/toolbox",
-      path="target/nextflow/workflows/<name>/main.nf",
-      schema_path="target/nextflow/workflows/<name>/nextflow_schema.json",
+      url="https://github.com/openpipelines-bio/openpipeline",
+      path="target/nextflow/workflows/qc/qc/main.nf",
+      version="v4.2.0",
+      schema_path="target/nextflow/workflows/qc/qc/nextflow_schema.json",
   ).save()
   ```
 

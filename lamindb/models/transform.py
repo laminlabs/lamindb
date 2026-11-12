@@ -865,9 +865,10 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             Register a nested Viash workflow together with its parameter schema::
 
                 transform = ln.Transform.from_git(
-                    url="https://github.com/viash-hub/toolbox",
-                    path="target/nextflow/workflows/<name>/main.nf",
-                    schema_path="target/nextflow/workflows/<name>/nextflow_schema.json",
+                    url="https://github.com/openpipelines-bio/openpipeline",
+                    path="target/nextflow/workflows/qc/qc/main.nf",
+                    version="v4.2.0",
+                    schema_path="target/nextflow/workflows/qc/qc/nextflow_schema.json",
                 ).save()
 
         Notes:
