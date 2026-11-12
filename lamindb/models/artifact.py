@@ -759,9 +759,10 @@ def get_artifact_kwargs_from_data(
     )
 
     if overwrite_versions is None:
-        # A `.lance` directory is one immutable table. Folders otherwise
-        # overwrite previous versions, which is the zarr default.
-        overwrite_versions = False if suffix == ".lance" else n_files is not None
+        # `overwrite_versions` stores the artifact under its 16-character stem
+        # uid, so versions share one directory. Folders use that, including
+        # `.lance`: Lance keeps versions inside the directory.
+        overwrite_versions = n_files is not None
 
     if check_path_in_storage:
         # True here means that we have a path in an existing storage with a virtual key
@@ -1501,7 +1502,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
-        overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
+        overwrite_versions: `bool | None = None` Whether versions share one store path. `True` stores the artifact under its 16-character stem uid. Defaults to `True` for folders, including `.lance`, and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
@@ -1826,7 +1827,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """:class:`~lamindb.base.types.ArtifactKind` or user-defined strings (default `None`)."""
     otype: (
-        Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma", "lance"]
+        Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma"]
         | str
         | None
     ) = CharField(max_length=64, db_index=True, null=True, editable=False)
@@ -2357,9 +2358,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     @property
     def overwrite_versions(self) -> bool:
-        """Indicates whether to keep or overwrite versions.
+        """Whether versions of this artifact share one store path.
 
-        It defaults to `False` for file-like artifacts and to `True` for folder-like artifacts.
+        `True` stores the artifact under its 16-character stem uid, so versions
+        share one directory. `False` stores each version under its full uid.
+
+        It defaults to `False` for file-like artifacts and to `True` for
+        folder-like artifacts, including `.lance`. Lance keeps versions inside
+        that directory.
 
         Note that this requires significant storage space for large folders with
         many duplicated files. Currently, `lamindb` does *not* de-duplicate files across
@@ -3438,9 +3444,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
         from ._lineage import get_run
 
-        # Capture the path before overwrite_versions changes it. A first version
-        # is stored under its full uid; versions that share the directory use the
-        # 16-character stem.
+        # Capture the path before flipping overwrite_versions. A version with
+        # the flag unset is stored under its full uid; the shared directory
+        # uses the 16-character stem. `.lance` defaults to the stem.
         store_path = self.path
         table = open_lance_table(store_path)
         if lance_version(self) is None:
