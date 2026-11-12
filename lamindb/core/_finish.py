@@ -110,8 +110,8 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         )
         if artifact is not None:
             run.report = artifact
-            if save_run:  # defaults to false because is slow
-                run.save()
+        if save_run:  # defaults to false because is slow
+            run.save()
 
 
 def prepare_notebook(

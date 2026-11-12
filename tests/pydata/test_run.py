@@ -159,6 +159,7 @@ def test_bulk_permanent_run_delete(tmp_path):
     )
 )
 def test_stored_run_secrets(bulk, secret):
+    from datetime import UTC, datetime
     from types import SimpleNamespace
 
     from django.db import transaction
@@ -210,7 +211,12 @@ def test_stored_run_secrets(bulk, secret):
 
             logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
             logs.write_text(f"logged {secret}")
+            run._status_code = status_code = 2 if bulk else 1
+            run.finished_at = finished_at = datetime.now(UTC)
             save_run_logs(run, save_run=True)
+            run.refresh_from_db()
+            assert run._status_code == status_code
+            assert run.finished_at == finished_at
             assert run.report is None  # Existing unsafe logs are skipped, not copied.
             assert secret in logs.read_text()
             logs.write_text("ordinary log")
