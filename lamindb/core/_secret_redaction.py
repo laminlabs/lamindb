@@ -14,18 +14,12 @@ SENSITIVE_PARAM_KEY_PATTERN = re.compile(
 # - my_secret = "value"
 # - my.secret: "value"
 # - mySecret := "value"
-# - my_secret <- "value" or my_secret <<- "value" (R)
 # We intentionally do not match unquoted RHS values to avoid false positives like
 # type annotations (`api_key: str`) or variable forwarding (`api_key=api_key`).
 _LITERAL_START = r"(?=(?i:br|rb|fr|rf|tr|rt|[rubft])?['\"`])"
 _KEY_VALUE_ASSIGNMENT_PATTERN = re.compile(
-    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op>:=|<<-|<-|=|:)\s*)"
+    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op>:=|=|:)\s*)"
     + _LITERAL_START
-)
-
-# Match the target after a complete literal: "value" -> my_secret (or ->>).
-_R_RIGHT_ASSIGNMENT_PATTERN = re.compile(
-    r"\s*->>?\s*(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)"
 )
 
 # Match: os.environ["API_KEY"] = "value"
@@ -131,21 +125,18 @@ def redact_secrets_in_source_code(source_code: str) -> tuple[str, int]:
         _KEY_VALUE_ASSIGNMENT_PATTERN,
         _QUOTED_KEY_ASSIGNMENT_PATTERN,
     )
-    matches = [
-        (match.start(), match.end(), match.group("key"))
-        for pattern in patterns
-        for match in pattern.finditer(source_code)
-    ]
+    matches = sorted(
+        (match for pattern in patterns for match in pattern.finditer(source_code)),
+        key=lambda match: match.start(),
+    )
     literals = list(_source_literals(source_code))
-    for start, end, opening, _ in literals:
-        if opening and (match := _R_RIGHT_ASSIGNMENT_PATTERN.match(source_code, end)):
-            matches.append((start, start, match.group("key")))
     by_start = {start: (end, opening, quote) for start, end, opening, quote in literals}
     redacted: list[str] = []
     cursor, count = 0, 0
-    for begin, start, key in sorted(matches):
-        if begin < cursor:
+    for match in matches:
+        if match.start() < cursor:
             continue
+        start = match.end()
         literal = by_start.get(start)
         if literal is None:
             # Preserve redaction inside examples, without consuming their closing quote.
@@ -171,7 +162,9 @@ def redact_secrets_in_source_code(source_code: str) -> tuple[str, int]:
             continue
         end, opening, quote = literal
         value = source_code[start + len(opening) : end - len(quote)]
-        if not is_sensitive_param_key(key) and not is_sensitive_param_value(value):
+        if not is_sensitive_param_key(
+            match.group("key")
+        ) and not is_sensitive_param_value(value):
             continue
         replacement = f"{opening}{REDACTED_SECRET_VALUE}{quote}"
         redacted.extend((source_code[cursor:start], replacement))

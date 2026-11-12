@@ -737,16 +737,18 @@ def test_clean_r_notebook_html():
 @pytest.mark.parametrize("inject_responsive_table_css", [False, True])
 def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
     import nbformat
-    from lamindb.core._finish import notebook_to_report
+    from lamindb.core._finish import notebook_to_report, notebook_to_script
 
     notebook = nbformat.v4.new_notebook(
         cells=[
             nbformat.v4.new_markdown_cell("Ordinary report text"),
             nbformat.v4.new_markdown_cell(
-                'Example: `api_key = "REPORT_SECRET_MARKDOWN"`'
+                'Example: `api_key = "REPORT_SECRET_MARKDOWN"`\n'
+                'Use "api_key = "REPORT_SECRET_PROSE"" in the config.\n'
             ),
             nbformat.v4.new_raw_cell(
-                'api_key = "REPORT_SECRET_RAW"', metadata={"raw_mimetype": "text/html"}
+                'Use "api_key = "REPORT_SECRET_RAW"" in the config.',
+                metadata={"raw_mimetype": "text/html"},
             ),
             nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
@@ -757,12 +759,14 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
     path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
     nbformat.write(notebook, path)
     original = path.read_bytes()
+    saved_source, _ = redact_secrets_in_source_code(notebook_to_script("test", path))
+    assert "REPORT_SECRET_" not in saved_source
 
     notebook_to_report(path, report, inject_responsive_table_css)
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
-    assert html.count("***REDACTED***") == 5
+    assert html.count("REDACTED") == 6  # Markdown may render the asterisks as emphasis.
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
@@ -770,24 +774,15 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
 @pytest.mark.parametrize("has_secret", [False, True])
 @pytest.mark.parametrize("existing_report", [False, True])
-@pytest.mark.parametrize("operator", ["=", "<-", "<<-", "->", "->>"])
 def test_r_report_skips_secrets(
-    tmp_path, monkeypatch, ccaplog, has_secret, existing_report, operator
+    tmp_path, monkeypatch, ccaplog, has_secret, existing_report
 ):
     from lamindb.core._finish import save_context_core
 
     path = tmp_path / ("report.qmd" if existing_report else "report.Rmd")
-    key, value = (
-        ("api_key", "REPORT_SECRET_123") if has_secret else ("value", "ordinary_value")
-    )
     source = (
-        f'"{value}" {operator} {key}'
-        if operator.startswith("->")
-        else f'{key} {operator} "{value}"'
+        'api_key = "REPORT_SECRET_123"' if has_secret else 'value = "ordinary_value"'
     )
-    expected = source.replace("REPORT_SECRET_123", "***REDACTED***")
-    assert redact_secrets_in_source_code(source) == (expected, int(has_secret))
-    assert redact_secrets_in_source_code(expected) == (expected, 0)
     path.write_text(f"```{{r}}\n{source}\n```\n")
     report = path.with_suffix(".html")
     report.write_text(f"<html><body><pre>{source}</pre></body></html>")

@@ -175,6 +175,12 @@ def notebook_to_report(
         notebook = nbformat.read(f, as_version=4)
     for cell in notebook.cells:
         cell.source, _ = redact_secrets_in_source_code(cell.source)
+        if cell.cell_type != "code":
+            # Jupytext stores prose as comments; quotes in prose aren't code delimiters.
+            cell.source = "\n".join(
+                redact_secrets_in_source_code(f"# {line}")[0][2:]
+                for line in cell.source.split("\n")
+            )
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
     # if we were to export as ipynb, the following two lines would do it
