@@ -29,6 +29,7 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
     collection = None
     schema = None
     feature = None
+    from_path = None
     try:
         assert artifact.suffix == ".lance"
         assert artifact.key == "lance/cells.lance"
@@ -53,11 +54,26 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert set(filtered["cell_type"]) == {"T cell", "B cell"}
 
         copied = tmp_path / "copied.lance"
-        # A path that is not yet the saved artifact still reports its row count.
         shutil.copytree(artifact.path, copied)
-        from_path = ln.Artifact.from_dataframe(copied, key="lance/copied.lance")
+        with pytest.raises(ValueError, match="from_lance"):
+            ln.Artifact.from_dataframe(copied, key="lance/copied.lance")
+        with pytest.raises(ValueError, match=r"\.lance"):
+            ln.Artifact.from_lance(df)
+        from_path = ln.Artifact.from_lance(
+            copied, key="lance/copied.lance", skip_hash_lookup=True
+        ).save()
+        assert from_path.uid != artifact.uid
+        assert from_path.otype == "lance"
         assert from_path.suffix == ".lance"
         assert from_path.n_observations == 3
+        table = from_path.open_lance()
+        assert table.count_rows() == 3
+        from lamindb.core.storage._lance import lance_version
+
+        assert lance_version(from_path) == int(table.version)
+        stored_path = ln.Artifact.get(from_path.uid)
+        with pytest.raises(ValueError, match="open_lance"):
+            stored_path.load()
 
         feature = ln.Feature(name="lance_schema_feature", dtype=str).save()
         schema = ln.Schema(features=[feature], suffix=".lance").save()
@@ -84,7 +100,7 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
     finally:
         if collection is not None:
             collection.delete(permanent=True)
-        for record in (revised, other, artifact, schema, feature):
+        for record in (from_path, revised, other, artifact, schema, feature):
             if record is not None:
                 record.delete(permanent=True)
 
@@ -99,6 +115,7 @@ def test_append_lance_keeps_one_directory_and_pins_versions():
         artifact.refresh_from_db()
 
         assert revised.path == artifact.path
+        assert revised.otype == "DataFrame"
         assert revised.is_latest
         assert not artifact.is_latest
         assert revised.n_observations == 2

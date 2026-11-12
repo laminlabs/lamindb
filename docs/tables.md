@@ -155,7 +155,7 @@ result = table.scan(row_filter=NotNull("cell_type")).to_arrow().to_pandas()
 :::::
 
 :::::{tab-item} LanceDB
-A `.lance` artifact is one LanceDB table. `open_lance()` returns that table, and filters run in Lance.
+A `.lance` artifact is one LanceDB table. Register an existing directory with `from_lance()`. `open_lance()` returns that table, and filters run in Lance.
 
 ```{code-block} python
 import pandas as pd

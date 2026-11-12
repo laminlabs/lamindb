@@ -920,7 +920,8 @@ _CONTENT_CONSTRUCTORS = {
     "tiledbsoma": "Artifact.from_tiledbsoma()",
 }
 # `.tsv` is tabular but `check_otype_artifact` leaves its otype unset.
-_TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc", ".lance"}
+# `.lance` is registered with `from_lance()` and is not a dataframe schema.
+_TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc"}
 
 
 def _schema_label(schema: Schema) -> str:
@@ -1522,6 +1523,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_lance`
+            Create an artifact from a `.lance` directory.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
         :meth:`~lamindb.Artifact.from_spatialdata`
@@ -1618,6 +1621,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description       :attr:`suffix`                                  :attr:`otype`     Python type examples
         ================  ==============================================  ================  ====================================================================
         table             `.csv`, `.tsv`, `.parquet`, `.ipc`, `.lance`    `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
+        lance table       `.lance`                                        `"lance"`         `lancedb.table.LanceTable`
         annotated matrix  `.h5ad`, `.zarr`, `.h5mu`                       `"AnnData"`       `anndata.AnnData`
         stacked matrix    `.zarr`                                         `"MuData"`        `mudata.MuData`
                           `.tiledbsoma`                                   `"tiledbsoma"`    `tiledbsoma.Experiment`
@@ -1822,7 +1826,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """:class:`~lamindb.base.types.ArtifactKind` or user-defined strings (default `None`)."""
     otype: (
-        Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma"]
+        Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma", "lance"]
         | str
         | None
     ) = CharField(max_length=64, db_index=True, null=True, editable=False)
@@ -2566,6 +2570,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """Create from `DataFrame`, optionally validate & annotate.
 
         Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
+        An existing `.lance` directory is registered with
+        :meth:`~lamindb.Artifact.from_lance`.
 
         Args:
             df: A pandas or Polars `DataFrame`, a Polars `LazyFrame`, or an
@@ -2613,6 +2619,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
+        if isinstance(df, (str, Path, UPath)) and UPath(df).suffix == ".lance":
+            raise ValueError("Use from_lance() to register a .lance directory.")
         is_polars = is_polars_dataframe(df)
         if (
             "format" not in kwargs
@@ -2697,10 +2705,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 with path.open("rb") as f:
                     artifact.n_observations = pq.read_metadata(f).num_rows
-            elif path.suffix == ".lance":
-                from ..core.storage._lance import open_lance_table
-
-                artifact.n_observations = open_lance_table(path).count_rows()
             else:
                 # csv/tsv/others have no metadata and would require a full expensive read
                 artifact.n_observations = None
@@ -2731,6 +2735,68 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from ..core.storage._lance import record_current_lance_version
 
             record_current_lance_version(artifact)
+        return artifact
+
+    @classmethod
+    def from_lance(
+        cls,
+        path: AnyPathStr,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Create from a `.lance` directory.
+
+        Sets `.otype` to `"lance"` and populates `.n_observations`.
+
+        Registers the directory and opens it once to record the row count and
+        the current Lance version. Read the table with
+        :meth:`~lamindb.Artifact.open_lance`. On S3, AWS credentials are read
+        from the path when the table is opened.
+
+        Args:
+            path: Path to one `.lance` directory, local or remote.
+            key: A relative path within default storage, e.g., `"myfolder/mytable.lance"`.
+            description: A description.
+            revises: An old version of the artifact.
+            run: The run that creates the artifact.
+
+        Example::
+
+            import lamindb as ln
+
+            artifact = ln.Artifact.from_lance(
+                "s3://mybucket/table.lance", description="a LanceDB table"
+            ).save()
+            artifact.open_lance()
+        """
+        if not isinstance(path, (str, Path, UPath)) or UPath(path).suffix != ".lance":
+            raise ValueError("Pass a path to a .lance directory.")
+        artifact = Artifact(  # type: ignore
+            path=path,
+            key=key,
+            run=run,
+            description=description,
+            revises=revises,
+            otype="lance",
+            kind="dataset",
+            **kwargs,
+        )
+        if artifact._state.adding:
+            from ..core.storage._lance import (
+                lance_version,
+                open_lance_table,
+                set_lance_version,
+            )
+
+            table_path = getattr(artifact, "_local_filepath", None) or artifact.path
+            table = open_lance_table(table_path)
+            artifact.n_observations = table.count_rows()
+            if lance_version(artifact) is None:
+                set_lance_version(artifact, int(table.version))
         return artifact
 
     @classmethod
@@ -3395,6 +3461,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kind=self.kind,
             run=get_run(run),
             revises=self,
+            otype=self.otype,
             overwrite_versions=True,
             _is_internal_call=True,
         )
@@ -3628,6 +3695,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
+        if self.suffix == ".lance" and self.otype != "DataFrame":
+            raise ValueError("Use open_lance() to open a .lance artifact.")
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
