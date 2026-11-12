@@ -203,11 +203,25 @@ def max_version_uid_in_family(record: IsVersioned) -> str | None:
     `Z -> a` boundary. Considering the whole family (not just `is_latest`, which is
     per-branch and thus not globally unique, and excludes trashed records) guarantees
     a derived new uid never collides with an existing one.
+
+    Artifact families also include durable streaming reservations. The maximum
+    may therefore identify a reserved or abandoned path without an artifact row.
     """
+    uids_in_family = list(
+        record.__class__.objects.using(record._state.db)
+        .filter(uid__startswith=record.stem_uid)
+        .values_list("uid", flat=True)
+    )
+    if get_registry_name(record) == "Artifact":
+        from ._artifact_uid_reservation import ArtifactUIDReservation
+
+        uids_in_family.extend(
+            ArtifactUIDReservation.objects.using(record._state.db)
+            .filter(uid__startswith=record.stem_uid)
+            .values_list("uid", flat=True)
+        )
     return max(
-        record.__class__.objects.filter(uid__startswith=record.stem_uid).values_list(
-            "uid", flat=True
-        ),
+        uids_in_family,
         key=lambda uid: base62_to_int(uid[-4:]),
         default=None,
     )

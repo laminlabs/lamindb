@@ -1,0 +1,407 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
+
+from django.db import transaction
+from lamindb_setup import logger
+from lamindb_setup import settings as setup_settings
+from lamindb_setup.core.upath import LocalPathClasses
+
+from lamindb.errors import IntegrityError
+
+from ._artifact_uid_reservation import ArtifactUIDReservation, lock_artifact_uid
+from ._is_versioned import create_uid
+from .storage import Storage
+
+if TYPE_CHECKING:
+    from polars import LazyFrame
+    from upath import UPath
+
+    from .artifact import Artifact
+    from .query_set import QuerySet
+    from .schema import Schema
+
+
+class ReservedLazyArtifact:
+    """Shared UID-reservation lifecycle for managed lazy writes."""
+
+    def __init__(
+        self,
+        *,
+        key: str | None,
+        frame: LazyFrame | None = None,
+        schema: Schema | None = None,
+        parquet_kwargs: dict[str, Any] | None = None,
+        on_validation_error: Literal["raise", "keep"] = "raise",
+        **kwargs,
+    ):
+        from .artifact import Artifact
+        from .sqlrecord import check_key, get_current_branch
+
+        if key is None and frame is None:
+            raise ValueError("Reserved lazy artifacts require an explicit virtual key.")
+        if key is not None:
+            check_key(key)
+        if kwargs.pop("key_is_virtual", True) is not True:
+            raise ValueError("Reserved lazy artifacts require virtual keys.")
+        allowed = {
+            "description",
+            "run",
+            "revises",
+            "storage",
+            "branch",
+            "version_tag",
+            "features",
+            "otype",
+            "kind",
+        }
+        unsupported = set(kwargs) - allowed
+        if unsupported:
+            raise ValueError(
+                f"Unsupported reserved-write arguments: {sorted(unsupported)}"
+            )
+        storage = kwargs.pop("storage", None)
+        if storage is None:
+            storage = setup_settings.storage.record
+            from lamindb import context
+
+            space = context.space or setup_settings.space
+            if space is not None and space.id != storage.space_id:
+                raise ValueError(
+                    "Pass storage in the active space explicitly for reserved writes."
+                )
+        if storage._state.db not in {None, "default"}:
+            raise ValueError("Reserved writes support the current database only.")
+        if storage.instance_uid != setup_settings.instance.uid:
+            raise ValueError(
+                "Reserved writes require storage managed by this instance."
+            )
+        self._root = storage.path
+        if not isinstance(self._root, LocalPathClasses) and self._root.protocol != "s3":
+            raise ValueError(
+                "Reserved writes currently support S3 and local storage only."
+            )
+        self._storage = storage
+        self._branch = kwargs.pop("branch", None) or get_current_branch()
+        self._key = key
+        self._kwargs = kwargs
+        self._result: Artifact | None = None
+        self._metadata_ready = False
+        self._cleanup_pending = False
+        self._discarded = False
+        self._frame = frame
+        self._validated_frame = None
+        self._on_validation_error = on_validation_error
+        self._sink_options = dict(parquet_kwargs or {})
+        self._sink_complete = False
+        self._sink_failed = False
+        if self._sink_options.get("lazy") or "path" in self._sink_options:
+            raise ValueError("The sink must execute at the reserved path.")
+        if frame is not None and schema is not None:
+            from lamindb.curators._polars_streaming import ValidatedLazyFrame
+
+            if schema.suffix not in {None, ".parquet"}:
+                raise ValueError("The schema suffix must match the Parquet sink.")
+            self._validated_frame = ValidatedLazyFrame(
+                frame,
+                schema,
+                features=kwargs.get("features"),
+                on_validation_error=on_validation_error,
+            )
+            self._frame = self._validated_frame.frame
+        revises = kwargs.get("revises")
+        if revises is not None and (
+            not isinstance(revises, Artifact)
+            or revises.pk is None
+            or revises.storage_id != storage.id
+            or revises.key != key
+            or revises._state.db not in {None, "default"}
+        ):
+            raise ValueError(
+                "revises must be a saved artifact in this database "
+                "with the same storage and key."
+            )
+        if transaction.get_connection().in_atomic_block:
+            raise ValueError(
+                "Create reserved lazy artifacts outside an existing database transaction."
+            )
+        self._reserve()
+
+    @property
+    def validation_error(self) -> str | None:
+        if self._validated_frame is None:
+            return None
+        return self._validated_frame.error
+
+    def _head(self) -> Artifact | None:
+        records = self._artifact_records()
+        if self._key is None:
+            revises = self._kwargs.get("revises")
+            if revises is None:
+                return None
+            records = records.filter(uid__startswith=revises.stem_uid)
+        heads = records.filter(is_latest=True)
+        head = (
+            heads.filter(branch=self._branch).order_by("-created_at", "-id").first()
+            or heads.order_by("-created_at", "-id").first()
+        )
+        if head is None and records.exists():
+            raise IntegrityError(
+                f"Artifacts exist for {self._key!r}, but none is a latest version."
+            )
+        return head
+
+    def _artifact_records(self) -> QuerySet:
+        from .artifact import Artifact
+
+        return Artifact.objects.filter(storage=self._storage, key=self._key).exclude(
+            branch_id=-1
+        )
+
+    def _make_artifact(
+        self,
+        uid: str,
+        path: UPath,
+        revises: Artifact | None,
+        stats: dict[str, Any],
+    ) -> Artifact:
+        from .artifact import Artifact
+
+        options = {k: v for k, v in self._kwargs.items() if k != "revises"}
+        options.setdefault("otype", "DataFrame")
+        options.setdefault("kind", "dataset")
+        artifact = Artifact(
+            path,
+            key=self._key,
+            storage=self._storage,
+            space=self._storage.space,
+            branch=self._branch,
+            revises=revises,
+            overwrite_versions=False,
+            _is_internal_call=True,
+            skip_check_exists=True,
+            skip_hash_lookup=True,
+            _stats=stats,
+            **options,
+        )
+        if artifact.uid != uid:
+            raise IntegrityError("Reserved destination does not match artifact UID.")
+        artifact._streaming_reserved_uid = uid
+        artifact._refresh_revises_if_stale = False
+        return artifact
+
+    def _reserve(self) -> None:
+        from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
+
+        with transaction.atomic():
+            Storage.objects.select_for_update().get(pk=self._storage.pk)
+            head = self._head()
+            explicit_revises = self._kwargs.get("revises")
+            if (
+                explicit_revises is not None
+                and head is not None
+                and explicit_revises.stem_uid != head.stem_uid
+            ):
+                raise IntegrityError(
+                    "revises does not belong to the current key's version family."
+                )
+            revises = head or explicit_revises
+            if revises is not None:
+                lock_artifact_uid(revises, None)
+            uid = create_uid(
+                revises=revises, version_tag=self._kwargs.get("version_tag")
+            )
+            path = self._root / auto_storage_key_from_artifact_uid(
+                uid, ".parquet", overwrite_versions=False
+            )
+            artifact = self._make_artifact(uid, path, revises, {})
+            reservation = ArtifactUIDReservation.objects.create(
+                uid=uid, storage=self._storage, key=self._key
+            )
+        self._baseline_uid = revises.uid if revises is not None else None
+        self._artifact = artifact
+        self._reservation = reservation
+        self.path: UPath = path
+        if isinstance(path, LocalPathClasses):
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _read_metadata(self) -> None:
+        import pyarrow.parquet as pq
+
+        from .artifact import get_stat_file_cloud, hash_file
+
+        path = self.path
+        if path.is_dir():
+            raise ValueError(
+                "Reserved writes currently support single-file Parquet only."
+            )
+        if isinstance(path, LocalPathClasses):
+            size, hash_value, hash_type = hash_file(path)
+        else:
+            path.fs.invalidate_cache(str(path))
+            size, hash_value, hash_type = get_stat_file_cloud(
+                path.stat().as_info(), protocol=path.protocol
+            )
+        if hash_value is None:
+            raise ValueError(
+                f"Storage did not provide a hash for {path}; upload retained."
+            )
+        with path.open("rb") as file:
+            n_observations = pq.read_metadata(file).num_rows
+        self._artifact.size = size
+        self._artifact.hash = hash_value
+        self._artifact._hash_type = hash_type
+        self._artifact.n_observations = n_observations
+        self._reservation.state = "uploaded"
+        self._reservation.save(update_fields=["state"])
+        self._metadata_ready = True
+
+    def _sink(self) -> None:
+        options = dict(self._sink_options)
+        if (
+            self.path.protocol == "s3"
+            and "storage_options" not in options
+            and "credential_provider" not in options
+        ):
+            from lamindb.core.storage._polars_lazy_df import _polars_options
+
+            options.update(_polars_options(self.path))
+        try:
+            self._frame.sink_parquet(self.path.as_posix(), **options)
+        except Exception as sink_error:
+            self._sink_failed = True
+            try:
+                self._reservation.state = "failed"
+                self._reservation.save(update_fields=["state"])
+            except Exception as state_error:
+                logger.error(
+                    f"Could not record the failed sink at {self.path}: {state_error}"
+                )
+            if (
+                self._on_validation_error == "raise"
+                and self.validation_error is not None
+            ):
+                logger.error(
+                    f"Validation failed at {self.path}; no artifact was published. "
+                    "Removing partial output."
+                )
+                try:
+                    self.discard()
+                except Exception as cleanup_error:
+                    logger.error(
+                        f"Validation cleanup failed at {self.path}: {cleanup_error}. "
+                        "Use discard() to retry cleanup."
+                    )
+                    raise sink_error from cleanup_error
+            else:
+                logger.error(
+                    f"Sinking failed at {self.path}; no artifact was published. "
+                    "Use discard() to remove any partial object."
+                )
+            raise
+        self._sink_complete = True
+
+    def save(self) -> Artifact:
+        """Deduplicate and publish an already-written file without renaming it."""
+        if self._discarded:
+            raise ValueError("This reserved write has been discarded.")
+        if self._result is not None:
+            if self._cleanup_pending:
+                self._cleanup()
+                self._cleanup_pending = False
+            return self._result
+        if transaction.get_connection().in_atomic_block:
+            raise ValueError(
+                "Reserved save must run outside an existing database transaction."
+            )
+        if self._sink_failed:
+            raise ValueError("The sink failed; discard this write and start a new one.")
+        if self._frame is not None and not self._sink_complete:
+            self._sink()
+        if not self._metadata_ready:
+            self._read_metadata()
+        with transaction.atomic():
+            Storage.objects.select_for_update().get(pk=self._storage.pk)
+            self._artifact.__class__.objects.select_for_update().filter(
+                uid__startswith=self._artifact.stem_uid
+            ).order_by("id").first()
+            match = (
+                self._artifact_records()
+                .filter(hash=self._artifact.hash)
+                .order_by("-created_at", "-id")
+                .first()
+            )
+            if match is not None:
+                result = match
+                state = "duplicate"
+            else:
+                head = self._head()
+                if (head.uid if head is not None else None) != self._baseline_uid:
+                    raise IntegrityError(
+                        f"A different version of {self._key!r} was published during "
+                        f"streaming. Upload retained at {self.path}; "
+                        "discard it and start a new write to revise the current head."
+                    )
+                artifact = self._make_artifact(
+                    self._reservation.uid,
+                    self.path,
+                    head,
+                    {
+                        "size": self._artifact.size,
+                        "hash": self._artifact.hash,
+                        "hash_type": self._artifact._hash_type,
+                    },
+                )
+                artifact.n_observations = self._artifact.n_observations
+                if self._validated_frame is not None:
+                    curator = self._validated_frame.curator
+                    if self.validation_error is None:
+                        curator._artifact = artifact
+                        artifact.schema = curator._schema
+                        artifact._curator = curator
+                    else:
+                        artifact.extra_data = {
+                            **(artifact.extra_data or {}),
+                            "validation": {
+                                "status": "failed",
+                                "schema_uid": curator._schema.uid,
+                                "error": self.validation_error,
+                            },
+                        }
+                result = artifact.save()
+                if result.uid != self._reservation.uid:
+                    raise IntegrityError(
+                        "Finalization changed the reserved artifact UID."
+                    )
+                state = "complete"
+            self._reservation.state = state
+            self._reservation.save(update_fields=["state"])
+        self._result = result
+        if state == "duplicate":
+            self._cleanup_pending = True
+            self._cleanup()
+            self._cleanup_pending = False
+        return result
+
+    def _cleanup(self) -> None:
+        try:
+            self.path.unlink(missing_ok=True)
+        except Exception:
+            logger.error(
+                f"Could not remove redundant or abandoned streaming object at "
+                f"{self.path}; reservation retained for cleanup."
+            )
+            raise
+
+    def discard(self) -> None:
+        """Remove this write's object but retain its UID reservation."""
+        if self._result is not None and self._result.uid == self._reservation.uid:
+            raise ValueError(
+                "Cannot discard a published artifact; use Artifact.delete()."
+            )
+        if self.path.is_dir():
+            raise ValueError("Folder cleanup is not supported by this prototype.")
+        self._cleanup()
+        self._reservation.state = "discarded"
+        self._reservation.save(update_fields=["state"])
+        self._discarded = True

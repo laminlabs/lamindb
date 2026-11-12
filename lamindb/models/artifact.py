@@ -1308,6 +1308,13 @@ class LazyArtifact:
     Args:
         suffix: The suffix for the auto-generated internal path
         overwrite_versions: Whether to overwrite versions.
+        deduplicate: Opt into UID reservation and same-key hash deduplication
+            with `"key"` (currently single-file Parquet only).
+        frame: Optional Polars LazyFrame supplied by `Artifact.from_lazyframe()`.
+        schema: A saved schema for validating batches inside the sink.
+        parquet_kwargs: Polars sink options when a frame is supplied.
+        on_validation_error: For a supplied frame, raise and remove partial
+            output, or keep the complete file without a validating schema.
         **kwargs: Keyword arguments for the artifact to be created.
 
     Examples:
@@ -1319,9 +1326,44 @@ class LazyArtifact:
             artifact = lazy.save()
     """
 
-    def __init__(self, suffix: str, overwrite_versions: bool, **kwargs):
+    def __init__(
+        self,
+        suffix: str,
+        overwrite_versions: bool,
+        *,
+        deduplicate: Literal["key"] | None = None,
+        frame: PolarsLazyFrame | None = None,
+        schema: Schema | None = None,
+        parquet_kwargs: dict[str, Any] | None = None,
+        on_validation_error: Literal["raise", "keep"] = "raise",
+        **kwargs,
+    ):
         self.kwargs = kwargs
         self.kwargs["overwrite_versions"] = overwrite_versions
+        self._pending_write = None
+        if on_validation_error not in {"raise", "keep"}:
+            raise ValueError("on_validation_error must be 'raise' or 'keep'.")
+        if frame is None and on_validation_error != "raise":
+            raise ValueError("on_validation_error='keep' requires from_lazyframe().")
+        if frame is not None:
+            import polars as pl
+
+            if not isinstance(frame, pl.LazyFrame):
+                raise ValueError("from_lazyframe() requires a Polars LazyFrame.")
+            deduplicate = "key" if deduplicate is None else deduplicate
+        elif parquet_kwargs is not None:
+            raise ValueError("Use from_lazyframe() to pass parquet_kwargs.")
+        elif schema is not None:
+            if (
+                deduplicate is not None
+                or schema_requires_content_curator(schema)
+                or (
+                    is_flat_feature_schema(schema)
+                    and (suffix in _TABULAR_SUFFIXES or kwargs.get("otype") is not None)
+                )
+            ):
+                raise ValueError("Use from_lazyframe() to validate dataframe content.")
+            self.kwargs["schema"] = schema
 
         if (key := kwargs.get("key")) is not None and (
             key_raw_suffix := CanonicalSuffix.extract_from_path(PurePosixPath(key))[1]
@@ -1329,6 +1371,27 @@ class LazyArtifact:
             raise ValueError(
                 f"The suffix argument {suffix} and the suffix of key {key_raw_suffix} should be the same."
             )
+
+        if deduplicate is not None:
+            if deduplicate != "key":
+                raise ValueError("deduplicate must be None or 'key'.")
+            if suffix != ".parquet" or overwrite_versions:
+                raise ValueError(
+                    "deduplicate='key' currently requires single-file Parquet "
+                    "and overwrite_versions=False."
+                )
+            from ._lazy_artifact import ReservedLazyArtifact
+
+            options = {k: v for k, v in kwargs.items() if k != "overwrite_versions"}
+            self._pending_write = ReservedLazyArtifact(
+                frame=frame,
+                schema=schema,
+                parquet_kwargs=parquet_kwargs,
+                on_validation_error=on_validation_error,
+                **options,
+            )
+            self._path = self._pending_write.path
+            return
 
         uid = create_uid(n_full_id=20)
         storage_key = _s().auto_storage_key_from_artifact_uid(
@@ -1342,9 +1405,29 @@ class LazyArtifact:
     def path(self) -> UPath:
         return self._path
 
+    @property
+    def validation_error(self) -> str | None:
+        """The first validation error, bounded to 4096 characters, if any."""
+        if self._pending_write is None:
+            return None
+        return self._pending_write.validation_error
+
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+        if self._pending_write is not None:
+            if upload or kwargs:
+                raise ValueError(
+                    "Reserved lazy artifacts are already in target storage; "
+                    "save() does not accept upload or additional arguments."
+                )
+            return self._pending_write.save()
         artifact = Artifact(self.path, _is_internal_call=True, **self.kwargs)
         return artifact.save(upload=upload, **kwargs)
+
+    def discard(self) -> None:
+        """Remove an unfinished reserved write, retaining its UID tombstone."""
+        if self._pending_write is None:
+            raise ValueError("discard() requires from_lazy(..., deduplicate='key').")
+        self._pending_write.discard()
 
     def __repr__(self) -> str:  # pragma: no cover
         show_kwargs = {k: v for k, v in self.kwargs.items() if v is not None}
@@ -1494,6 +1577,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_lazyframe`
+            Validate and stream a Polars `LazyFrame` directly to managed storage.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
         :meth:`~lamindb.Artifact.from_spatialdata`
@@ -2478,6 +2563,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: str | None = None,
         description: str | None = None,
         run: Run | None = None,
+        deduplicate: Literal["key"] | None = None,
         **kwargs,
     ) -> LazyArtifact:
         """Create a lazy artifact for streaming to auto-generated internal paths.
@@ -2495,6 +2581,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             key: An optional key to reference the artifact.
             description: A description.
             run: The run that creates the artifact.
+            deduplicate: Experimental opt-in: `"key"` reserves a version UID
+                before writing and reuses an existing artifact with matching
+                storage, virtual key and hash on `.save()`. Requires a `.parquet`
+                suffix, a key, and `overwrite_versions=False`. No rename or local
+                cache copy is needed. A different concurrent version raises a
+                conflict and retains the object at `lazy.path`.
             **kwargs: Other keyword arguments for the artifact to be created.
 
         Examples:
@@ -2513,8 +2605,110 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 group["ones"] = np.ones(3)
                 artifact = lazy.save()
         """
-        args = {"key": key, "description": description, "run": run, **kwargs}
-        return LazyArtifact(suffix, overwrite_versions, **args)
+        if not isinstance(suffix, str) or "frame" in kwargs:
+            raise TypeError(
+                "from_lazy() takes a suffix, not a frame; use from_lazyframe()."
+            )
+        options = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(
+            suffix, overwrite_versions, deduplicate=deduplicate, **options
+        )
+
+    @classmethod
+    def from_lazyframe(
+        cls,
+        lf: PolarsLazyFrame,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        schema: Schema | Literal["valid_features"] | None = None,
+        features: dict[str, Any] | None = None,
+        parquet_kwargs: dict[str, Any] | None = None,
+        on_validation_error: Literal["raise", "keep"] = "raise",
+        **kwargs,
+    ) -> LazyArtifact:
+        """Create from a Polars LazyFrame, validating while streaming to storage.
+
+        Like `from_dataframe()`, defaults to Parquet and accepts a schema and
+        external features. Returns a lazy artifact: `.save()` executes the sink,
+        validates and coerces each batch, and then registers the completed file.
+        No full local cache copy or separate source-validation scan is needed.
+
+        Args:
+            lf: A Polars LazyFrame.
+            key: A virtual relative path within storage, e.g.,
+                `"results/counts.parquet"`.
+            description: A description.
+            run: The run that creates the artifact.
+            revises: An old version of the artifact.
+            schema: A saved dataframe schema to validate against during sinking.
+            features: Additional external features to annotate the artifact.
+            parquet_kwargs: Additional Polars `LazyFrame.sink_parquet` options.
+            on_validation_error: `"raise"` (default) aborts on a validation
+                error, removes partial output and raises. `"keep"` finishes
+                writing all original values and registers the file without a
+                validating schema, recording the failure in
+                `artifact.extra_data["validation"]`. Keep mode requires a
+                non-coercing dataframe schema. Other source or sink errors
+                still raise and require manual cleanup.
+            **kwargs: Other artifact arguments, including `storage` and `branch`.
+                Dataframe format inference follows `from_dataframe()`, but this
+                prototype supports only single-file Parquet and virtual keys.
+
+        The managed path uses a reserved UID and is never renamed. Deduplication
+        matches storage, key and hash after uploading. A different concurrent
+        version raises a conflict; `lazy.discard()` removes the retained upload.
+        Requires the UID-reservation database migration. Folder output, CSV and
+        overwriting versions are not supported.
+
+        Example:
+            Validate and sink in one source execution::
+
+                artifact = ln.Artifact.from_lazyframe(
+                    lf, key="results/counts.parquet", schema=my_schema,
+                    parquet_kwargs={"compression": "zstd"},
+                ).save()
+        """
+        import polars as pl
+
+        if not isinstance(lf, pl.LazyFrame):
+            raise ValueError("from_lazyframe() requires a Polars LazyFrame.")
+        if key is None and isinstance(revises, Artifact):
+            key = revises.key
+        if "format" not in kwargs and key is not None and key.endswith(".csv"):
+            kwargs["format"] = ".csv"
+        format = kwargs.pop("format", None)
+        suffix = _s().infer_suffix(lf, format)
+        requested_suffix = format.get("suffix") if isinstance(format, dict) else format
+        if suffix != ".parquet" or requested_suffix not in {None, ".parquet"}:
+            raise ValueError(
+                "from_lazyframe() currently supports single-file Parquet only."
+            )
+        if kwargs.pop("overwrite_versions", False):
+            raise ValueError(
+                "from_lazyframe() does not support overwrite_versions=True."
+            )
+        if schema == "valid_features":
+            from lamindb import examples
+
+            schema = examples.schemas.valid_features()
+        return LazyArtifact(
+            suffix,
+            overwrite_versions=False,
+            deduplicate="key",
+            frame=lf,
+            schema=schema,
+            parquet_kwargs=parquet_kwargs,
+            on_validation_error=on_validation_error,
+            key=key,
+            description=description,
+            run=run,
+            revises=revises,
+            features=features,
+            **kwargs,
+        )
 
     @classmethod
     def from_dataframe(
