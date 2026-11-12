@@ -787,9 +787,16 @@ def test_clean_r_notebook_html():
 def test_notebook_report_redacts_source(
     tmp_path, inject_responsive_table_css, byte_secret
 ):
+    from html import escape
+
     import nbformat
     from lamindb.core._finish import notebook_to_report, notebook_to_script
 
+    escaped_secrets = [
+        "REPORT_SECRET_\nESCAPED",
+        r"REPORT_SECRET_\BACKSLASH",
+        "REPORT_SECRET_\t'\"<&",
+    ]
     printed = [
         "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
         repr(byte_secret),
@@ -815,6 +822,22 @@ def test_notebook_report_redacts_source(
                 'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
             ),
             nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
+            *[
+                nbformat.v4.new_code_cell(
+                    f"api_key = {secret!r}",
+                    outputs=[
+                        nbformat.v4.new_output(
+                            "execute_result",
+                            execution_count=1,
+                            data={
+                                "text/plain": repr(secret),
+                                "text/html": escape(repr(secret)),
+                            },
+                        )
+                    ],
+                )
+                for secret in escaped_secrets
+            ],
             nbformat.v4.new_code_cell(
                 'print("ordinary_value")',
                 outputs=[
@@ -839,7 +862,7 @@ def test_notebook_report_redacts_source(
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
     # Markdown may render the asterisks as emphasis.
-    assert html.count("REDACTED") == 8 + len(printed)
+    assert html.count("REDACTED") == 8 + len(printed) + 2 * len(escaped_secrets)
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original

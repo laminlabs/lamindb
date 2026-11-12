@@ -558,7 +558,12 @@ def _redact_notebook(notebook) -> None:
             from html import escape
 
             for secret in sorted(secrets, key=len, reverse=True):
-                for variant in (secret, escape(secret), escape(secret, quote=False)):
+                variants = {
+                    variant
+                    for text in (secret, repr(secret)[1:-1])
+                    for variant in (text, escape(text), escape(text, quote=False))
+                }
+                for variant in sorted(variants, key=len, reverse=True):
                     value = value.replace(variant, REDACTED_SECRET_VALUE)
             return redact(value)
         return value

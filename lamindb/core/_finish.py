@@ -461,10 +461,10 @@ def save_context_core(
                                 if filename == "run_env_pip.txt"
                                 else filename
                             )
-                            size, env_hash, _ = hash_file(artifact_path)
+                            size, _, _ = hash_file(artifact_path)
                         else:
                             description = "environments"
-                            size, env_hash, _, _ = hash_dir(artifact_path)
+                            size, _, _, _ = hash_dir(artifact_path)
 
                         if size == 0:
                             # Belt-and-suspenders: discovery already filters empty files, but
@@ -475,31 +475,17 @@ def save_context_core(
                                 "environment file is empty, skipping linking an environment"
                             )
                         else:
-                            # Scope reuse to __lamindb_run__ artifacts only — data artifacts
-                            # with a coincidental or placeholder hash must not be returned here.
-                            artifact = (
-                                ln.Artifact.objects.filter(
-                                    hash=env_hash, kind="__lamindb_run__"
-                                )
-                                .exclude(size=0)
-                                .one_or_none()
+                            # The constructor scopes reuse to the selected storage,
+                            # space and run-artifact kind after sanitization.
+                            artifact = ln.Artifact(
+                                artifact_path,
+                                description=description,
+                                kind="__lamindb_run__",
+                                run=False,
                             )
-                            new_env_artifact = artifact is None
-
-                            if new_env_artifact:
-                                artifact = ln.Artifact(
-                                    artifact_path,
-                                    description=description,
-                                    kind="__lamindb_run__",
-                                    run=False,
-                                )
-                                artifact.save(upload=True, print_progress=False)
-
+                            artifact.save(upload=True, print_progress=False)
                             run.environment = artifact
-                            if new_env_artifact:
-                                logger.debug(
-                                    f"saved run.environment: {run.environment}"
-                                )
+                            logger.debug(f"saved run.environment: {run.environment}")
 
                     finally:
                         env_stage.cleanup()

@@ -393,3 +393,67 @@ def test_ordinary_artifact_still_skips_hash(tmp_path, monkeypatch):
         assert artifact.size is None and artifact.hash is None
     finally:
         artifact.delete(permanent=True, storage=True)
+
+
+@pytest.mark.parametrize("existing_target", [False, True])
+@pytest.mark.parametrize("custom_space", [False, True])
+def test_run_environment_reuse_scope(
+    tmp_path, monkeypatch, existing_target, custom_space
+):
+    from lamindb.core._finish import save_context_core
+
+    space = ln.Space(name="environment-reuse-space").save()
+    other_storage = ln.Storage(root=(tmp_path / "other").as_posix()).save()
+    # Set up local space metadata without registering a space with the Hub.
+    ln.Storage.objects.filter(pk=other_storage.pk).update(space=space)
+    other_storage.refresh_from_db()
+    default_storage = ln.setup.settings.storage.record
+    target, foreign = (
+        (other_storage, default_storage)
+        if custom_space
+        else (default_storage, other_storage)
+    )
+    transform = ln.Transform(key="environment-reuse.py").save()
+    run = ln.Run(transform).save()
+    artifacts = []
+    try:
+        seed = tmp_path / "seed.txt"
+        seed.write_text("pkg @ https://user:CANARY_FIRST@example.org/pkg")
+        for storage in [foreign, target] if existing_target else [foreign]:
+            artifacts.append(
+                ln.Artifact(
+                    seed,
+                    storage=storage,
+                    kind="__lamindb_run__",
+                    description="environment",
+                    run=False,
+                ).save()
+            )
+        monkeypatch.setattr(ln.context, "_space", space if custom_space else None)
+        environment = ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+        environment.mkdir(parents=True)
+        source = environment / "run_env_pip.txt"
+        source.write_text("pkg @ https://user:CANARY_SECOND@example.org/pkg")
+        script = tmp_path / "script.py"
+        script.write_text('print("ordinary_value")')
+        save_context_core(run=run, transform=transform, filepath=script, from_cli=True)
+        run.refresh_from_db()
+        artifact = run.environment
+        if not existing_target:
+            artifacts.append(artifact)
+        else:
+            assert artifact.pk == artifacts[-1].pk
+        assert artifact.storage_id == target.id
+        assert artifact.space_id == target.space_id
+        assert artifact.pk != artifacts[0].pk
+        assert "CANARY" not in artifact.path.read_text()
+        assert "CANARY_SECOND" in source.read_text()
+    finally:
+        run.environment = None
+        run.save()
+        run.delete(permanent=True)
+        transform.delete(permanent=True)
+        for artifact in artifacts:
+            artifact.delete(permanent=True, storage=True)
+        other_storage.delete()
+        space.delete()
