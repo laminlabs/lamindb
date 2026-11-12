@@ -309,6 +309,10 @@ _TEXT_KEY_VALUE_PATTERN = re.compile(
     # field, a structural delimiter, or a line ending, not the first word.
     r"(?P<value>[^\s\"'`{}\[\]<>](?:(?!" + _TEXT_FIELD_BOUNDARY + r")[^\r\n{}\[\]<>])*)"
 )
+_BRACKETED_TEXT_KEY_PATTERN = re.compile(
+    r"(?<![\w.\-])(?P<quote>['\"]?)(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)"
+    r"(?P=quote)[ \t]*[=:][ \t]*(?=[{\[<])"
+)
 _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
 )
@@ -529,6 +533,12 @@ def redact(value, kind: str = "text", *, _secrets=None):
     if kind == "text":
         # Plain-text values need no quotes; keep this separate from Python source
         # and argv, where an unquoted value may be a variable or an expression.
+        for match in reversed(list(_BRACKETED_TEXT_KEY_PATTERN.finditer(value))):
+            if _is_sensitive_param_key(match["key"]):
+                # Brackets may be literal secret characters, not structure.
+                # Conservatively remove the remainder of this text value rather
+                # than guess where a nested or multiline secret ends.
+                value = value[: match.end()] + REDACTED_SECRET_VALUE
         value = _TEXT_KEY_VALUE_PATTERN.sub(
             lambda match: (
                 match["prefix"] + REDACTED_SECRET_VALUE

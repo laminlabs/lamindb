@@ -877,7 +877,10 @@ def test_notebook_report_redacts_source(
                         "stream",
                         name="stdout",
                         text="password: correct horse battery staple\n",
-                    )
+                    ),
+                    nbformat.v4.new_output(
+                        "stream", name="stdout", text="token: [BRACKET_CANARY]"
+                    ),
                 ],
             ),
             *[
@@ -958,10 +961,11 @@ def test_notebook_report_redacts_source(
     assert "SECRET_123" not in html and "SUFFIX" not in html
     assert "CANARY_MAGIC" not in html
     assert "horse battery staple" not in html
+    assert "BRACKET_CANARY" not in html
     assert all(secret not in html for _, secret in commands)
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
-        11
+        12
         + len(printed)
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
@@ -1470,6 +1474,13 @@ def test_redact_assignment_contexts(source, kind):
                 cleaned = redact(text)
                 assert cleaned == text.replace(secret, "***REDACTED***")
                 assert redact(cleaned) == cleaned
+        for secret in ("{CANARY}", "[CANARY]", "<CANARY>", "[{\nCANARY\n}]", "[CANARY"):
+            # No structural guess: the rest of this text value is removed.
+            text = f'metadata={{"password": {secret}}}\nremaining output'
+            cleaned = redact(text)
+            assert cleaned == 'metadata={"password": ***REDACTED***'
+            assert redact(cleaned) == cleaned
+        assert redact("metadata={ordinary}") == "metadata={ordinary}"
         assert redact("count=3\nname: example\npassword=\n") == (
             "count=3\nname: example\npassword=\n"
         )
@@ -1490,6 +1501,8 @@ def test_redact_assignment_contexts(source, kind):
         b"token: CANARY\r\n",
         b"password=CANARY,SUFFIX\r\n",
         b"password: correct horse battery staple\r\n",
+        b"password={CANARY}\r\n",
+        b"token: [CANARY]\r\n",
     ],
 )
 def test_run_text_attachment_preserves_original(
