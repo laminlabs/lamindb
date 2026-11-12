@@ -364,7 +364,7 @@ def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> s
     sensitive = False
     for match in _SHELL_TOKEN.finditer(text):
         argument_text = match.group()
-        if argument_text == "\\" and text[match.end() :].startswith("\n"):
+        if argument_text == "\\\n":
             continue
         # Jupytext prefixes every line of an exported command with '#'.
         if (
@@ -374,7 +374,7 @@ def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> s
         ):
             continue
         try:
-            words = shlex.split(argument_text)
+            words = shlex.split(argument_text.replace("\\\n", ""))
             word = words[0] if len(words) == 1 else argument_text
         except ValueError:
             word = argument_text
