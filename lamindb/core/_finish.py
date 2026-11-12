@@ -19,7 +19,7 @@ from ._secret_redaction import (
     _redact_notebook,
     _skip_unsafe_run_artifact,
     _stage_run_artifact,
-    redact_secret_assignments,
+    redact,
 )
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -183,12 +183,10 @@ def notebook_to_report(
         notebook = nbformat.read(f, as_version=4)
     _redact_notebook(notebook)
     for cell in notebook.cells:
-        cell.source, _ = redact_secret_assignments(cell.source)
         if cell.cell_type != "code":
             # Jupytext stores prose as comments; quotes in prose aren't code delimiters.
             cell.source = "\n".join(
-                redact_secret_assignments(f"# {line}")[0][2:]
-                for line in cell.source.split("\n")
+                redact(f"# {line}", "source")[2:] for line in cell.source.split("\n")
             )
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata

@@ -446,17 +446,15 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         notebook_runner: str | None = None,
     ) -> tuple[Transform, str]:
         from ..core._finish import notebook_to_script
-        from ..core._secret_redaction import redact_secret_assignments
+        from ..core._secret_redaction import redact
 
         source_code_to_store = source_code
         normalized_path = cls._normalize_local_path(path) if path is not None else None
         if source_code is not None:
-            source_code_to_store, redaction_count = redact_secret_assignments(
-                source_code
-            )
-            if redaction_count > 0:
+            source_code_to_store = redact(source_code, "source")
+            if source_code_to_store != source_code:
                 logger.warning(
-                    f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+                    "redacted secret-looking values before persisting transform source code"
                 )
             transform_hash = hash_string(source_code)
         else:
@@ -958,14 +956,14 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         )
 
     def _update_source_code_from_path(self, source_code_path: Path) -> None | str:
-        from ..core._secret_redaction import redact_secret_assignments
+        from ..core._secret_redaction import redact
 
         _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         source_code = source_code_path.read_text()
-        source_code_to_store, redaction_count = redact_secret_assignments(source_code)
-        if redaction_count > 0:
+        source_code_to_store = redact(source_code, "source")
+        if source_code_to_store != source_code:
             logger.warning(
-                f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+                "redacted secret-looking values before persisting transform source code"
             )
         if self.hash is not None:
             # check if the hash of the transform source code matches

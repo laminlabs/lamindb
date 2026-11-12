@@ -6,6 +6,8 @@ import re
 import tokenize
 from contextlib import contextmanager
 
+__all__ = ["redact"]
+
 REDACTED_SECRET_VALUE = "***REDACTED***"  # noqa: S105
 SENSITIVE_PARAM_KEY_PATTERN = re.compile(
     r"(^|[_\-.])(api[_-]?key|access[_-]?key|secret|token|password|passwd|private[_-]?key|client[_-]?secret)($|[_\-.])"
@@ -49,17 +51,17 @@ _POSTGRES_CREDENTIALS_URL_PATTERN = re.compile(
 )
 
 
-def normalize_sensitive_key_name(key: str) -> str:
+def _normalize_sensitive_key_name(key: str) -> str:
     normalized_key = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", key)
     normalized_key = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", normalized_key).lower()
     return normalized_key
 
 
-def is_sensitive_param_key(key: str) -> bool:
-    return bool(SENSITIVE_PARAM_KEY_PATTERN.search(normalize_sensitive_key_name(key)))
+def _is_sensitive_param_key(key: str) -> bool:
+    return bool(SENSITIVE_PARAM_KEY_PATTERN.search(_normalize_sensitive_key_name(key)))
 
 
-def is_sensitive_param_value(value: object) -> bool:
+def _is_sensitive_param_value(value: object) -> bool:
     if not isinstance(value, str):
         return False
     return bool(_POSTGRES_CREDENTIALS_URL_PATTERN.match(value.strip()))
@@ -186,7 +188,7 @@ def _annotated_assignments(source: str):
                 break
 
 
-def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int]:
+def _redact_secret_assignments(source_code: str, _secrets=None) -> str:
     patterns = (
         _ARGV_LITERAL_PATTERN,
         _ENV_ASSIGNMENT_PATTERN,
@@ -205,7 +207,7 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
     literals = list(_source_literals(source_code, join=True))
     by_start = {start: (end, opening, quote) for start, end, opening, quote in literals}
     redacted: list[str] = []
-    cursor, count = 0, 0
+    cursor = 0
     for match_start, start, key in matches:
         if match_start < cursor:
             continue
@@ -239,7 +241,7 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
             continue
         end, opening, quote = literal
         value = source_code[start + len(opening) : end - len(quote)]
-        if not is_sensitive_param_key(key) and not is_sensitive_param_value(value):
+        if not _is_sensitive_param_key(key) and not _is_sensitive_param_value(value):
             continue
         if _secrets is not None:
             try:
@@ -273,10 +275,9 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
                 _secrets.add(secret)
         replacement = f"{opening}{REDACTED_SECRET_VALUE}{quote}"
         redacted.extend((source_code[cursor:start], replacement))
-        count += replacement != source_code[start:end]
         cursor = end
     redacted.append(source_code[cursor:])
-    return "".join(redacted), count
+    return "".join(redacted)
 
 
 _ARGV_LITERAL_PATTERN = re.compile(
@@ -321,7 +322,7 @@ def _redact_argv(text: str) -> str:
             sensitive = False
         elif word.startswith("--"):
             key, sep, _ = word[2:].partition("=")
-            if is_sensitive_param_key(key):
+            if _is_sensitive_param_key(key):
                 if sep:
                     replacements.append(
                         (match.start(), match.end(), f"--{key}={REDACTED_SECRET_VALUE}")
@@ -342,7 +343,7 @@ def redact(value, kind: str = "text", *, _secrets=None):
     if isinstance(value, dict):
         return {
             key: REDACTED_SECRET_VALUE
-            if is_sensitive_param_key(str(key))
+            if _is_sensitive_param_key(str(key)) or _is_sensitive_param_value(item)
             else redact(item, kind)
             for key, item in value.items()
         }
@@ -356,7 +357,7 @@ def redact(value, kind: str = "text", *, _secrets=None):
                 isinstance(item, str)
                 and item.startswith("--")
                 and "=" in item
-                and is_sensitive_param_key(item[2:].partition("=")[0])
+                and _is_sensitive_param_key(item[2:].partition("=")[0])
             ):
                 cleaned = item.partition("=")[0] + "=" + REDACTED_SECRET_VALUE
             else:
@@ -366,15 +367,15 @@ def redact(value, kind: str = "text", *, _secrets=None):
                 isinstance(item, str)
                 and item.startswith("--")
                 and "=" not in item
-                and is_sensitive_param_key(item[2:])
+                and _is_sensitive_param_key(item[2:])
             )
         return tuple(result) if isinstance(value, tuple) else result
     if not isinstance(value, str):
         return value
-    value, _ = redact_secret_assignments(value, _secrets)
+    value = _redact_secret_assignments(value, _secrets)
     value = _ENV_MAGIC_PATTERN.sub(
         lambda m: m["prefix"] + REDACTED_SECRET_VALUE
-        if is_sensitive_param_key(m["key"])
+        if _is_sensitive_param_key(m["key"])
         else m[0],
         value,
     )
@@ -400,7 +401,7 @@ def redact(value, kind: str = "text", *, _secrets=None):
             body = literal[len(opening) : -len(quote)] if quote else ""
             if body.startswith("--") and "=" in body:
                 key = body[2:].partition("=")[0]
-                if is_sensitive_param_key(key):
+                if _is_sensitive_param_key(key):
                     cleaned = f"{opening}--{key}={REDACTED_SECRET_VALUE}{quote}"
             if cleaned != literal and quote and not body.startswith("--"):
                 cleaned = f"{opening}{REDACTED_SECRET_VALUE}{quote}"

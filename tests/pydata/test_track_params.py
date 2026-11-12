@@ -5,10 +5,10 @@ from typing import Any, Literal, Tuple
 import lamindb as ln
 import pytest
 from lamindb.core._context import (
-    REDACTED_SECRET_VALUE,
     _validate_with_virtual_schema,
     serialize_params_to_json,
 )
+from lamindb.core._secret_redaction import REDACTED_SECRET_VALUE
 from lamindb_setup.core.upath import UPath
 
 

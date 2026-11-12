@@ -32,12 +32,7 @@ from lamindb_setup.core.django import _is_running_in_marimo
 from ..errors import InvalidArgument, TrackNotCalled
 from ..models import Run, SQLRecord, Transform, format_field_value
 from ..models._feature_manager import infer_convert_dtype_key_value
-from ._secret_redaction import (
-    REDACTED_SECRET_VALUE,
-    is_sensitive_param_key,
-    is_sensitive_param_value,
-    redact,
-)
+from ._secret_redaction import redact
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
@@ -687,12 +682,6 @@ def serialize_params_to_json(
         if key not in valid_keys:
             serialized_params.pop(key, None)
             logger.warning(f"skipping param {key}: value does not match its annotation")
-
-    for key in list(serialized_params.keys()):
-        if is_sensitive_param_key(key) or is_sensitive_param_value(
-            serialized_params[key]
-        ):
-            serialized_params[key] = REDACTED_SECRET_VALUE
 
     return redact(serialized_params)
 
