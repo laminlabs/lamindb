@@ -791,12 +791,39 @@ def test_notebook_report_redacts_source(
         "REPORT_SECRET_\t'\"<&",
     ]
     magic_values = ["CANARY_MAGIC", '"CANARY_MAGIC_QUOTED"', r"CANARY_MAGIC\RAW"]
-    commands = [
-        "!tool --token {secret}",
-        "!!tool --token='{secret}'",
-        '%run tool.py --token "{secret}"',
-        "!tool --token \\\n  {secret}",
-    ]
+    commands = []
+    for prefix in (
+        "!",
+        "!!",
+        "result = !",
+        "%sx ",
+        "result = %sx ",
+        "%run ",
+        "%%bash\n",
+        "%%sh\n",
+        "%%script bash\n",
+    ):
+        for argument in (
+            "--token {secret}",
+            "--token='{secret}'",
+            '--token "{secret}"',
+            "--token \\\n  {secret}",
+            "https://user:{secret}@example.org/pkg",
+            "{secret}",
+        ):
+            index = len(commands)
+            secret = (
+                "ghp_" + str(index).zfill(36)
+                if argument == "{secret}"
+                else f"CANARY_COMMAND_{index}"
+            )
+            commands.append((prefix + "tool " + argument.format(secret=secret), secret))
+    for command, secret in commands:
+        detected = set()
+        cleaned = redact(command, "source", _secrets=detected)
+        assert secret not in cleaned
+        assert secret in detected
+        assert redact(cleaned, "source") == cleaned
     rich_outputs = [
         "<span>REPORT_</span><span>SECRET_123</span>",
         "<span>REPORT&#95;</span><span>SECRET&#95;123</span>",
@@ -832,14 +859,12 @@ def test_notebook_report_redacts_source(
             nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
             *[
                 nbformat.v4.new_code_cell(
-                    command.format(secret=f"CANARY_COMMAND_{index}"),
+                    command,
                     outputs=[
-                        nbformat.v4.new_output(
-                            "stream", name="stdout", text=f"CANARY_COMMAND_{index}"
-                        )
+                        nbformat.v4.new_output("stream", name="stdout", text=secret)
                     ],
                 )
-                for index, command in enumerate(commands)
+                for command, secret in commands
             ],
             *[
                 nbformat.v4.new_code_cell(
@@ -901,7 +926,7 @@ def test_notebook_report_redacts_source(
     original = path.read_bytes()
     saved_source = redact(notebook_to_script("test", path), "source")
     assert "REPORT_SECRET_" not in saved_source
-    assert "CANARY_COMMAND" not in saved_source
+    assert all(secret not in saved_source for _, secret in commands)
 
     notebook_to_report(path, report, inject_responsive_table_css)
 
@@ -909,7 +934,7 @@ def test_notebook_report_redacts_source(
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
     assert "CANARY_MAGIC" not in html
-    assert "CANARY_COMMAND" not in html
+    assert all(secret not in html for _, secret in commands)
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
         10
@@ -1438,8 +1463,11 @@ def test_redact_source_preserves_token_like_identifier():
 
     source = "ghp_" + "a" * 36 + ' = "ordinary_value"'
     source += (
-        '\nexample = """\n!tool --token ordinary_value\n%run tool --token example\n"""'
+        '\nexample = """\n!tool --token ordinary_value\n%run tool --token example\n'
+        'result = !tool --token example\n%%bash\ntool --token example\n"""'
     )
+    source += '\n# %% language="bash"\n# echo ordinary_value\n# %%\n'
+    source += "value = ghp_" + "b" * 36 + "\nassert 3 % 2 != 0\n"
     assert redact(source, "source") == source
     ast.parse(source)
 

@@ -304,12 +304,55 @@ _ENV_MAGIC_PATTERN = re.compile(
 )
 _SHELL_TOKEN = re.compile(r"(?:[^\s\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
 _SOURCE_COMMAND_PATTERN = re.compile(
-    r"(?m)^[ \t]*(?:\#[ \t]*)?(?:!{1,2}|%(?:run|pip|conda|mamba|sx|system)\b)"
+    r"(?m)^[ \t]*(?:\#[ \t]*)?(?:[^\n#]*?=[ \t]*)?"
+    r"(?P<command>!{1,2}(?!=)|%(?:run|pip|conda|mamba|sx|system)\b)"
     r"(?:\\\n|[^\n])*"
 )
+_SOURCE_CELL_PATTERN = re.compile(r"(?m)^[ \t]*(?:\#[ \t]*)?(?P<command>%%[^\n]*)")
 
 
-def _redact_argv(text: str, _secrets=None) -> str:
+def _source_commands(source: str):
+    """Locate shell source without treating Python strings as commands."""
+    import shlex
+
+    literals = [
+        (start, end) for start, end, _, quote in _source_literals(source) if quote
+    ]
+    cells = list(_SOURCE_CELL_PATTERN.finditer(source))
+    matches = sorted(
+        [*_SOURCE_COMMAND_PATTERN.finditer(source), *cells],
+        key=lambda match: match.start(),
+    )
+    cursor = 0
+    for match in matches:
+        start, end = match.start("command"), match.end()
+        if start < cursor or any(left <= start < right for left, right in literals):
+            continue
+        if match.re is _SOURCE_CELL_PATTERN:
+            try:
+                words = shlex.split(match["command"])
+                language = words[0][2:]
+                if not language:  # Jupytext's percent-format cell metadata.
+                    metadata = dict(
+                        word.split("=", 1) for word in words[1:] if "=" in word
+                    )
+                    language = metadata.get("language", "")
+                    words = ["%%script", *shlex.split(metadata.get("magic_args", ""))]
+                if language == "script":
+                    language = words[1] if len(words) > 1 else ""
+            except ValueError:
+                continue
+            if language not in {"bash", "sh", "zsh", "ksh", "dash", "fish"}:
+                continue
+            end = next(
+                (cell.start() for cell in cells if cell.start() > match.start()),
+                len(source),
+            )
+        yield start, end
+        cursor = end
+
+
+def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> str:
     import shlex
 
     replacements = []
@@ -320,7 +363,7 @@ def _redact_argv(text: str, _secrets=None) -> str:
             continue
         # Jupytext prefixes every line of an exported command with '#'.
         if (
-            text.lstrip().startswith("#")
+            (source_command or text.lstrip().startswith("#"))
             and argument_text == "#"
             and not text[text.rfind("\n", 0, match.start()) + 1 : match.start()].strip()
         ):
@@ -359,10 +402,16 @@ def redact(value, kind: str = "text", *, _secrets=None):
     in images, encoded payloads, or unnamed random strings.
     """
 
-    def formats(text):
-        text = _FORMAT_PATTERN.sub(REDACTED_SECRET_VALUE, text)
+    def formats(text, *, collect=False):
+        def replace(match, *, password=False):
+            secret = match["password"] if password else match[0]
+            if collect and _secrets is not None and secret != REDACTED_SECRET_VALUE:
+                _secrets.add(secret)
+            return (match["prefix"] if password else "") + REDACTED_SECRET_VALUE
+
+        text = _FORMAT_PATTERN.sub(replace, text)
         return _PASSWORD_URL_PATTERN.sub(
-            lambda m: m["prefix"] + REDACTED_SECRET_VALUE, text
+            lambda match: replace(match, password=True), text
         )
 
     if isinstance(value, dict):
@@ -409,17 +458,13 @@ def redact(value, kind: str = "text", *, _secrets=None):
         return value
 
     if kind == "source":
-        literals = [
-            (start, end) for start, end, _, quote in _source_literals(value) if quote
-        ]
-        value = _SOURCE_COMMAND_PATTERN.sub(
-            lambda match: (
-                match[0]
-                if any(start <= match.start() < end for start, end in literals)
-                else _redact_argv(match[0], _secrets)
-            ),
-            value,
-        )
+        command_parts: list[str] = []
+        cursor = 0
+        for start, end in _source_commands(value):
+            command = _redact_argv(value[start:end], _secrets, source_command=True)
+            command_parts.extend((value[cursor:start], formats(command, collect=True)))
+            cursor = end
+        value = "".join(command_parts) + value[cursor:]
 
     def env_magic(match):
         if not _is_sensitive_param_key(match["key"]):

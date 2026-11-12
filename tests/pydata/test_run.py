@@ -251,11 +251,11 @@ def test_stored_run_secrets(bulk, secret):
                 ),
             )
             assert _track_pip_freeze(environment) is None
+            assert secret not in (environment / "run_env_pip.txt").read_text()
             save_context_core(
                 run=run, transform=transform, filepath=script, from_cli=True
             )
             run.refresh_from_db()
-            assert secret not in (environment / "run_env_pip.txt").read_text()
             # Generated replacements are redacted before writing and hashing.
             replacement = tmp_path / "replacement.txt"
             replacement.write_text(redact(f"new log {secret}"))
@@ -506,8 +506,7 @@ def test_run_environment_reuse_scope(
         assert artifact.storage_id == target.id
         assert artifact.space_id == target.space_id
         assert artifact.pk != artifacts[0].pk
-        assert "CANARY" not in artifact.path.read_text()
-        assert source.read_text() == artifact.path.read_text()
+        assert artifact.path.read_text() == seed.read_text()
     finally:
         run.environment = None
         run.save()
