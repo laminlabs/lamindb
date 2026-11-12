@@ -299,6 +299,11 @@ _PASSWORD_URL_PATTERN = re.compile(
     r"(?P<prefix>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/:@\"'<>]+:)"
     r"(?P<password>[^\s/@\"'<>]+)(?=@)"
 )
+_TEXT_KEY_VALUE_PATTERN = re.compile(
+    r"(?<![\w.\-])(?P<prefix>(?P<quote>['\"]?)"
+    r"(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)(?P=quote)[ \t]*[=:][ \t]*)"
+    r"(?P<value>[^\s\"'`,;{}\[\]<>]+)"
+)
 _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
 )
@@ -501,6 +506,17 @@ def redact(value, kind: str = "text", *, _secrets=None):
             parts.extend((value[cursor:start], cleaned))
             cursor = end
         return "".join(parts) + value[cursor:]
+    if kind == "text":
+        # Plain-text values need no quotes; keep this separate from Python source
+        # and argv, where an unquoted value may be a variable or an expression.
+        value = _TEXT_KEY_VALUE_PATTERN.sub(
+            lambda match: (
+                match["prefix"] + REDACTED_SECRET_VALUE
+                if _is_sensitive_param_key(match["key"])
+                else match[0]
+            ),
+            value,
+        )
     return formats(_redact_argv(value))
 
 

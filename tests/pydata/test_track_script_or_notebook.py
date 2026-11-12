@@ -1387,6 +1387,7 @@ def test_redact_secret_formats(secret, source_context, safe_value):
         "<pre>api_key &lt;- &quot;CANARY&quot;</pre>",
         '<pre><span class=kw>api_key</span> <span class=op>&lt;-</span> <span class=st>"CANARY"</span></pre>',
         "<p>" + "ghp_" + "a" * 36 + "</p>",
+        "<pre><span>password=</span><span>CANARY</span></pre>",
     ],
 )
 def test_redact_stale_r_html(html, tmp_path):
@@ -1403,36 +1404,56 @@ def test_redact_stale_r_html(html, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "source",
+    "source, kind",
     [
-        'API_KEY: str = "CANARY"',
-        'API_KEY: dict[str, str] = "CANARY"',
-        'API_KEY: Literal["="] = "CANARY"',
-        'API_KEY: (\n str\n) = "CANARY"',
-        'api_key <- "CANARY"',
-        '["--token", "CANARY"]',
-        '["--token=CANARY"]',
-        "!tool --token CANARY",
-        "!!tool --token=CANARY",
-        "%run script.py --token CANARY",
-        "# !tool --token CANARY",
-        "# %run script.py --token CANARY",
+        ('API_KEY: str = "CANARY"', "source"),
+        ('API_KEY: dict[str, str] = "CANARY"', "source"),
+        ('API_KEY: Literal["="] = "CANARY"', "source"),
+        ('API_KEY: (\n str\n) = "CANARY"', "source"),
+        ('api_key <- "CANARY"', "source"),
+        ('["--token", "CANARY"]', "source"),
+        ('["--token=CANARY"]', "source"),
+        ("!tool --token CANARY", "source"),
+        ("!!tool --token=CANARY", "source"),
+        ("%run script.py --token CANARY", "source"),
+        ("# !tool --token CANARY", "source"),
+        ("# %run script.py --token CANARY", "source"),
+        ("password=CANARY", "text"),
+        ("token: CANARY", "text"),
+        ("INFO client_secret = CANARY, count=3", "text"),
+        ('{"api_key": CANARY}', "text"),
     ],
 )
-def test_redact_assignment_contexts(source):
+def test_redact_assignment_contexts(source, kind):
     from lamindb.core._secret_redaction import redact
 
-    result = redact(source, "source")
+    result = redact(source, kind)
     assert result == source.replace("CANARY", "***REDACTED***")
-    assert redact(result, "source") == result
+    assert redact(result, kind) == result
+    if kind == "text":
+        assert redact({"message": source}) == {"message": result}
+        assert redact("count=3\nname: example\npassword=\n") == (
+            "count=3\nname: example\npassword=\n"
+        )
+        assert redact("api_key: str\napi_key=api_key", "source") == (
+            "api_key: str\napi_key=api_key"
+        )
 
 
 @pytest.mark.parametrize(
     "name", ["uv.lock", "pixi.lock", "requirements.txt", "logs.txt"]
 )
 @pytest.mark.parametrize("folder", [False, True])
+@pytest.mark.parametrize(
+    "original",
+    [
+        b"pkg @ https://user:CANARY@example.org/pkg\r\n",
+        b"password=CANARY\r\n",
+        b"token: CANARY\r\n",
+    ],
+)
 def test_run_text_attachment_preserves_original(
-    tmp_path, name, folder, monkeypatch, ccaplog
+    tmp_path, name, folder, original, monkeypatch, ccaplog
 ):
     from lamindb.core._secret_redaction import (
         _save_run_artifact,
@@ -1445,7 +1466,6 @@ def test_run_text_attachment_preserves_original(
 
     monkeypatch.setattr("tempfile.TemporaryDirectory", no_staging)
     source = tmp_path / name
-    original = b"pkg @ https://user:CANARY@example.org/pkg\r\n"
     source.write_bytes(original)
     path = tmp_path if folder else source
     assert _save_run_artifact(path, description="unsafe attachment") is None
