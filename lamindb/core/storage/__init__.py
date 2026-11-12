@@ -5,6 +5,10 @@ Array accessors.
 .. autoclass:: AnnDataAccessor
 .. autoclass:: SpatialDataAccessor
 .. autoclass:: BackedAccessor
+
+LanceDB tables.
+
+.. autoclass:: LanceAccessor
 """
 
 from typing import TYPE_CHECKING, Any
@@ -17,6 +21,7 @@ from .paths import delete_storage
 if TYPE_CHECKING:
     from ._anndata_accessor import AnnDataAccessor
     from ._backed_access import BackedAccessor
+    from ._lance import LanceAccessor
     from ._spatialdata_accessor import SpatialDataAccessor
     from ._tiledbsoma import save_tiledbsoma_experiment
     from .objects import infer_suffix, write_to_disk
@@ -25,6 +30,7 @@ if TYPE_CHECKING:
 __all__ = [
     "AnnDataAccessor",
     "BackedAccessor",
+    "LanceAccessor",
     "LocalPathClasses",
     "SpatialDataAccessor",
     "UPath",
@@ -40,6 +46,7 @@ _LAZY_EXPORTS = frozenset(
     {
         "AnnDataAccessor",
         "BackedAccessor",
+        "LanceAccessor",
         "SpatialDataAccessor",
         "infer_suffix",
         "save_tiledbsoma_experiment",
@@ -57,6 +64,8 @@ def __getattr__(name: str) -> Any:
         from ._anndata_accessor import AnnDataAccessor as attr
     elif name == "BackedAccessor":
         from ._backed_access import BackedAccessor as attr
+    elif name == "LanceAccessor":
+        from ._lance import LanceAccessor as attr
     elif name == "SpatialDataAccessor":
         from ._spatialdata_accessor import SpatialDataAccessor as attr
     elif name == "save_tiledbsoma_experiment":

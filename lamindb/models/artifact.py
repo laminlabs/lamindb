@@ -1786,9 +1786,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def lance(self) -> LanceAccessor:
         """LanceDB table for this `.lance` artifact.
 
-        :meth:`~lamindb.models.LanceAccessor.open` reads the version pinned on
-        this artifact. :meth:`~lamindb.models.LanceAccessor.add` appends rows
-        and :meth:`~lamindb.models.LanceAccessor.add_columns` adds columns.
+        :meth:`~lamindb.core.storage.LanceAccessor.open` reads the version pinned on
+        this artifact. :meth:`~lamindb.core.storage.LanceAccessor.add` appends rows
+        and :meth:`~lamindb.core.storage.LanceAccessor.add_columns` adds columns.
         Both save a new artifact version and leave this one pinned.
 
         Examples:
@@ -2780,7 +2780,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Registers the directory and opens it once to record the row count and
         the current Lance version. Read the table with
-        :meth:`~lamindb.models.LanceAccessor.open`. On S3, AWS credentials are read
+        :meth:`~lamindb.core.storage.LanceAccessor.open`. On S3, AWS credentials are read
         from the path when the table is opened.
 
         Support for validating columns will be added soon. Use
