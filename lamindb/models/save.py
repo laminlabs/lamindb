@@ -174,8 +174,11 @@ def bulk_create(
         batch_size: Number of records to process in each batch.
         using: Optional database alias used for bulk operations.
     """
+    from ..core._secret_redaction import _redact_record
+
     records_by_orm = defaultdict(list)
     for record in records:
+        _redact_record(record)
         records_by_orm[concrete_model(record)].append(record)
 
     for registry, records_list in records_by_orm.items():
@@ -285,8 +288,11 @@ def bulk_update(
         update_fields: Specific fields to update. If None, updates all fields except created_at and id.
         using: Optional database alias used for bulk operations.
     """
+    from ..core._secret_redaction import _redact_record
+
     records_by_orm = defaultdict(list)
     for record in records:
+        _redact_record(record)
         records_by_orm[concrete_model(record)].append(record)
 
     for registry, records_list in records_by_orm.items():

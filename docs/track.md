@@ -446,6 +446,16 @@ You can also access the CLI arguments used to start the run directly:
 run.cli_args
 ```
 
+LaminDB redacts sensitive parameter keys (including nested values), CLI credentials,
+and recognizable secret formats from stored run metadata and text attachments.
+Original source and environment files are unchanged. Reports that still contain
+recognized secrets after rendering are skipped with a warning.
+
+This is best-effort protection: arbitrary secrets under ordinary names, images,
+and encoded content may be missed. Direct database/ORM updates bypass the SDK save
+checks, and previously stored reports are not cleaned up. Use environment variables
+or a secret manager instead of embedding credentials in code or output.
+
 You can also track run features in analogy to artifact features.
 
 In contrast to params, features are validated against the `Feature` registry and allow to express relationships with entities in your registries.

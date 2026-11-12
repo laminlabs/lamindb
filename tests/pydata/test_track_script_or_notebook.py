@@ -753,7 +753,14 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
             nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
             nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
-            nbformat.v4.new_code_cell('print("ordinary_value")'),
+            nbformat.v4.new_code_cell(
+                'print("ordinary_value")',
+                outputs=[
+                    nbformat.v4.new_output(
+                        "stream", name="stdout", text="REPORT_SECRET_123 ordinary_value"
+                    )
+                ],
+            ),
         ]
     )
     path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
@@ -766,7 +773,7 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
-    assert html.count("REDACTED") == 6  # Markdown may render the asterisks as emphasis.
+    assert html.count("REDACTED") == 7  # Markdown may render the asterisks as emphasis.
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
@@ -807,7 +814,7 @@ def test_r_report_skips_secrets(
         assert artifact.called is (not has_secret and not existing_report)
     assert run.report.replace.called is (not has_secret and existing_report)
     assert run.report.save.called is (not has_secret)
-    assert ("skipping HTML report upload" in ccaplog.text) is has_secret
+    assert ("skipping run attachment" in ccaplog.text) is has_secret
     transform._update_source_code_from_path.assert_called_once_with(path)
     run.save.assert_called_once()
     assert report.read_bytes() == original
@@ -1137,3 +1144,112 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+@pytest.mark.parametrize(
+    "context",
+    ["x = {!r}", "printed: {}", "%env API_KEY={}", "cmd --token {}", "cmd --token={}"],
+)
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "AKIA" + "A" * 16,
+        "ghp_" + "b" * 36,
+        "sk-proj-" + "c" * 24,
+        "xoxb-" + "1" * 24,
+        "eyJhbGciOiJIUzI1NiJ9.e30.c2lnbmF0dXJl",
+        "https://user:CANARY_PASSWORD@example.org/pkg",
+    ],
+)
+def test_redact_secret_formats(context, secret):
+    import ast
+
+    from lamindb.core._secret_redaction import redact
+
+    source = context.format(secret)
+    result = redact(source)
+    assert secret not in result
+    assert redact(result) == result
+    if context.startswith("x ="):
+        ast.parse(result)
+    assert (
+        redact("x = 42; print('ordinary_value')") == "x = 42; print('ordinary_value')"
+    )
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<pre>api_key &lt;- &quot;CANARY&quot;</pre>",
+        '<pre><span class=kw>api_key</span> <span class=op>&lt;-</span> <span class=st>"CANARY"</span></pre>',
+        "<p>" + "ghp_" + "a" * 36 + "</p>",
+    ],
+)
+def test_redact_stale_r_html(html, tmp_path):
+    from lamindb.core._secret_redaction import _stage_run_artifact, _UnsafeRunArtifact
+
+    path = tmp_path / "stale.html"
+    path.write_text(html)
+    with pytest.raises(_UnsafeRunArtifact, match="rendered HTML"):
+        _stage_run_artifact(path)
+    assert path.read_text() == html
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'API_KEY: str = "CANARY"',
+        'API_KEY: dict[str, str] = "CANARY"',
+        'API_KEY: Literal["="] = "CANARY"',
+        'API_KEY: (\n str\n) = "CANARY"',
+        'api_key <- "CANARY"',
+        '["--token", "CANARY"]',
+        '["--token=CANARY"]',
+    ],
+)
+def test_redact_assignment_contexts(source):
+    from lamindb.core._secret_redaction import redact
+
+    result = redact(source, "source")
+    assert result == source.replace("CANARY", "***REDACTED***")
+    assert redact(result, "source") == result
+
+
+@pytest.mark.parametrize("name", ["uv.lock", "pixi.lock", "requirements.txt"])
+def test_run_text_attachment_preserves_original(tmp_path, name):
+    from lamindb.core._secret_redaction import _stage_run_artifact
+
+    source = tmp_path / name
+    source.write_bytes(b"pkg @ https://user:CANARY@example.org/pkg\r\n")
+    staged, lifetime = _stage_run_artifact(source)
+    try:
+        assert "CANARY" not in staged.read_text()
+        assert "CANARY" in source.read_text()
+    finally:
+        lifetime.cleanup()
+
+
+def test_redact_source_preserves_token_like_identifier():
+    import ast
+
+    from lamindb.core._secret_redaction import redact
+
+    source = "ghp_" + "a" * 36 + ' = "ordinary_value"'
+    assert redact(source, "source") == source
+    ast.parse(source)
+
+
+@pytest.mark.parametrize(
+    "arguments", [["--token", "CANARY with spaces"], ["--token=CANARY with spaces"]]
+)
+def test_cli_redacts_before_joining_arguments(monkeypatch, arguments):
+    from lamindb.core import _context
+
+    argv = ["script.py", *arguments, "--count", "3"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(_context, "is_run_from_ipython", False)
+    name, stored = _context.get_cli_call()
+    assert name == "script.py"
+    assert "CANARY" not in stored and "with spaces" not in stored
+    assert "--count 3" in stored
+    assert argv == ["script.py", *arguments, "--count", "3"]

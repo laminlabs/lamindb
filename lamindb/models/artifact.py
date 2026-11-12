@@ -2210,6 +2210,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
+        if kind == "__lamindb_run__":
+            from ..core._secret_redaction import _stage_run_artifact
+
+            path, self._redaction_stage = _stage_run_artifact(path)
+            skip_hash_lookup = True
+            stats = None  # supplied statistics describe the unsanitized input
+
         provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
@@ -3185,6 +3192,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         storage = settings.storage.record
         run = get_run(run)
+        if self.kind == "__lamindb_run__":
+            from ..core._secret_redaction import _stage_run_artifact
+
+            data, redaction_stage = _stage_run_artifact(data)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -3257,6 +3268,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self.n_files = kwargs["n_files"]
 
         self._local_filepath = privates["local_filepath"]
+        if self.kind == "__lamindb_run__":
+            self._redaction_stage = redaction_stage
         self._cloud_filepath = privates["cloud_filepath"]
         self._memory_rep = privates["memory_rep"]
         # no need to upload if new file is already in storage
@@ -3897,6 +3910,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._external_features
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
+        if hasattr(self, "_redaction_stage"):
+            self._redaction_stage.cleanup()
+            del self._redaction_stage
         return self
 
 

@@ -144,3 +144,84 @@ def test_bulk_permanent_run_delete(tmp_path):
     assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 0
     clean_up_logs = ln.setup.settings.cache_dir / f"run_cleanup_logs_{runs[0].uid}.txt"
     assert f"deleted artifact {report_artifacts[0].id}" in clean_up_logs.read_text()
+
+
+@pytest.mark.parametrize("bulk", [False, True])
+def test_stored_run_secrets(tmp_path, monkeypatch, bulk):
+    from lamindb.core._finish import save_context_core, save_run_logs
+    from lamindb_setup.core.hashing import hash_file
+
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    secret = "ghp_" + "s" * 36
+    transform = ln.Transform(key=f"redaction-{bulk}.py", source_code=f'x = "{secret}"')
+    if bulk:
+        ln.save([transform])
+    else:
+        transform.save()
+    run = ln.Run(transform, params={"options": {"token": "CANARY_PARAM"}, "safe": 42})
+    run.cli_args = "script --token CANARY_ARG --count 3"
+    if bulk:
+        ln.save([run])
+    else:
+        run.save()
+    run.refresh_from_db()
+    transform.refresh_from_db()
+    run.params = {"options": {"token": "CANARY_UPDATE"}, "safe": 42}
+    if bulk:
+        ln.save([run])
+    else:
+        run.save(update_fields=["params"])
+    run.refresh_from_db()
+    assert "CANARY" not in str(run.params) + run.cli_args
+    assert secret not in transform.source_code
+    assert run.params["safe"] == 42
+    assert "--count 3" in run.cli_args
+
+    logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+    logs.write_text(f"logged {secret}")
+    save_run_logs(run, save_run=True)
+    assert secret not in run.report.path.read_text()
+    assert secret in logs.read_text()
+    assert hash_file(run.report.path)[1] == run.report.hash
+
+    script = tmp_path / "script.py"
+    script.write_text('print("ordinary_value")')
+    environment = ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+    environment.mkdir(parents=True)
+    for name in ("uv.lock", "pixi.lock", "run_env_pip.txt"):
+        (environment / name).write_text(f"pkg @ https://user:{secret}@example.org/pkg")
+    save_context_core(run=run, transform=transform, filepath=script, from_cli=True)
+    run.refresh_from_db()
+    for path in run.environment.path.rglob("*"):
+        if path.is_file():
+            assert secret not in path.read_text()
+    assert secret in (environment / "uv.lock").read_text()
+    # Replacement uses the same protection and hashes the redacted bytes.
+    replacement = tmp_path / "replacement.txt"
+    replacement.write_text(f"new log {secret}")
+    run.report.replace(replacement)
+    run.report.save()
+    assert secret not in run.report.path.read_text()
+    assert hash_file(run.report.path)[1] == run.report.hash
+    artifacts = [run.report, run.environment]
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    for artifact in artifacts:
+        artifact.delete(permanent=True, storage=True)
+
+
+@pytest.mark.parametrize("bulk", [False, True])
+def test_run_attachment_rejects_changed_snapshot(tmp_path, bulk):
+    from lamindb.core._secret_redaction import _UnsafeRunArtifact
+
+    source = tmp_path / "log.txt"
+    source.write_text("original log")
+    artifact = ln.Artifact(
+        source, kind="__lamindb_run__", description="run log", run=False
+    )
+    artifact._local_filepath.write_text('api_key = "CANARY_CHANGED"')
+    with pytest.raises(_UnsafeRunArtifact, match="changed after preparation"):
+        ln.save([artifact]) if bulk else artifact.save()
+    assert not ln.Artifact.filter(uid=artifact.uid).exists()
+    assert source.read_text() == "original log"
+    artifact._redaction_stage.cleanup()

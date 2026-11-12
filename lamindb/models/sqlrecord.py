@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -1505,6 +1505,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             using: Database slug for a target database that differs from the default database;
                 won't track lineage, do not use for transferring data.
         """
+        from ..core._secret_redaction import _redact_record
         from ._transfer import (
             _depth_descendants,
             _remember_target,
@@ -1516,6 +1517,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             transfer_to_default_db,
         )
 
+        _redact_record(self)
         shared_logs = kwargs.pop("_transfer_logs", None)
         summarize = kwargs.pop("_transfer_summarize", None)
 
@@ -1857,7 +1859,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_summarize=True,
                 )
             if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
                 transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
 

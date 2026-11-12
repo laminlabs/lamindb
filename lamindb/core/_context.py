@@ -10,7 +10,7 @@ import traceback
 from collections.abc import Iterable as IterableABC
 from collections.abc import Mapping as MappingABC
 from collections.abc import Sequence as SequenceABC
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import UnionType
 from typing import (
@@ -36,6 +36,7 @@ from ._secret_redaction import (
     REDACTED_SECRET_VALUE,
     is_sensitive_param_key,
     is_sensitive_param_value,
+    redact,
 )
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
@@ -220,7 +221,7 @@ def get_cli_call() -> tuple[str, str] | None:
     or when no arguments were passed.
     """
     if len(sys.argv) > 1 and sys.argv[0] and not is_run_from_ipython:
-        return Path(sys.argv[0]).name, " ".join(sys.argv[1:])
+        return Path(sys.argv[0]).name, " ".join(redact(sys.argv[1:], "argv"))
     return None
 
 
@@ -366,7 +367,7 @@ class LogStreamTracker:
                     self.run._status_code = 2  # aborted
                 else:
                     self.run._status_code = 1  # errored
-                self.run.finished_at = datetime.now(timezone.utc)
+                self.run.finished_at = datetime.now(UTC)
                 sys.stdout = self.original_stdout
                 sys.stderr = self.original_stderr
                 if not self.log_file.closed:
@@ -629,7 +630,6 @@ def serialize_params_to_json(
     serialized_params: dict[str, Any] = {}
     params_for_validation: dict[str, Any] = {}
     dtype_args_by_key: dict[str, Any] = {}
-    expected_type_by_key: dict[str, Any] = {}
 
     for key, value in params.items():
         # None and empty list are missing/empty values, skip them consistent with elsewhere in the code
@@ -660,22 +660,18 @@ def serialize_params_to_json(
             else:
                 serialized_params[key] = converted_value
             if key not in serialized_params:
-                logger.warning(
-                    f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
-                )
+                logger.warning(f"skipping param {key}: not JSON serializable")
             continue
         dtype_arg, normalized_value, reason = _annotation_to_feature_dtype_arg(
             expected_type, value
         )
         if reason is not None:
-            logger.warning(
-                f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
-            )
+            logger.warning(f"skipping param {key}: value does not match its annotation")
             continue
         serialized_value = _serialize_typed_param_value(key, value, normalized_value)
         if serialized_value is None:
             logger.warning(
-                f"skipping param {key} with value {value!r}: not JSON serializable after annotation matching"
+                f"skipping param {key}: not JSON serializable after annotation matching"
             )
             continue
         serialized_params[key] = serialized_value
@@ -683,20 +679,14 @@ def serialize_params_to_json(
             continue
         params_for_validation[key] = normalized_value
         dtype_args_by_key[key] = dtype_arg
-        expected_type_by_key[key] = expected_type
 
-    valid_keys, invalid_reasons = _validate_with_virtual_schema(
+    valid_keys, _ = _validate_with_virtual_schema(
         params_for_validation, dtype_args_by_key
     )
     for key in params_for_validation:
         if key not in valid_keys:
-            value = params[key]
             serialized_params.pop(key, None)
-            expected_type = expected_type_by_key[key]
-            reason = invalid_reasons.get(key, "virtual schema validation failed")
-            logger.warning(
-                f"skipping param {key}: value {value!r} does not match annotation {expected_type!r} ({reason})"
-            )
+            logger.warning(f"skipping param {key}: value does not match its annotation")
 
     for key in list(serialized_params.keys()):
         if is_sensitive_param_key(key) or is_sensitive_param_value(
@@ -704,7 +694,7 @@ def serialize_params_to_json(
         ):
             serialized_params[key] = REDACTED_SECRET_VALUE
 
-    return serialized_params
+    return redact(serialized_params)
 
 
 class Context:
@@ -1056,7 +1046,7 @@ class Context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.started_at = datetime.now(timezone.utc)  # update run time
+                run.started_at = datetime.now(UTC)  # update run time
                 run._status_code = -2  # re-started
                 if plan_record is not None:
                     run.plan = plan_record
@@ -1079,7 +1069,7 @@ class Context:
             )
             # run.started_at is set on insert by the database (db_default=Now()), independently of the Python code
             # hence we log datetime.now(timezone.utc) instead of run.started_at
-            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(datetime.now(timezone.utc))}"
+            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(datetime.now(UTC))}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -1090,6 +1080,7 @@ class Context:
             )
         if cli_call is not None:
             _, cli_args = cli_call
+            cli_args = redact(cli_args, "argv")
             logger.important(f"script invoked with: {cli_args}")
             run.cli_args = cli_args
         run.save()  # need to save now
@@ -1256,7 +1247,7 @@ class Context:
                 raise ValueError(
                     "Transform type is not allowed to be 'script' or 'notebook' because `context._path` is `None`."
                 )
-            self.run.finished_at = datetime.now(timezone.utc)
+            self.run.finished_at = datetime.now(UTC)
             self.run.save()
             # reset context so the next _track() starts clean (e.g. from decorator)
             self._uid = None
@@ -1281,7 +1272,7 @@ class Context:
                 self._is_finish_retry = True
                 return None
         else:
-            self.run.finished_at = datetime.now(timezone.utc)
+            self.run.finished_at = datetime.now(UTC)
             self.run.save()  # persist finished_at (save_run_logs only saves when log file exists)
             if ln_setup.settings.instance.is_on_hub and not self._is_step_decorator_run:
                 instance_slug = ln_setup.settings.instance.slug

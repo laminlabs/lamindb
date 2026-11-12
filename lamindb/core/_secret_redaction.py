@@ -4,6 +4,7 @@ import ast
 import io
 import re
 import tokenize
+from contextlib import contextmanager
 
 REDACTED_SECRET_VALUE = "***REDACTED***"  # noqa: S105
 SENSITIVE_PARAM_KEY_PATTERN = re.compile(
@@ -18,7 +19,7 @@ SENSITIVE_PARAM_KEY_PATTERN = re.compile(
 # type annotations (`api_key: str`) or variable forwarding (`api_key=api_key`).
 _LITERAL_START = r"(?=(?i:br|rb|fr|rf|tr|rt|[rubft])?['\"`])"
 _KEY_VALUE_ASSIGNMENT_PATTERN = re.compile(
-    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op>:=|=|:)\s*)"
+    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op><-|:=|=|:)\s*)"
     + _LITERAL_START
 )
 
@@ -119,24 +120,63 @@ def _source_literals(source: str):
         pass
 
 
-def redact_secret_assignments(source_code: str) -> tuple[str, int]:
+def _annotated_assignments(source: str):
+    offsets = [0]
+    for line in source.split("\n"):
+        offsets.append(offsets[-1] + len(line) + 1)
+    tokens: list[tokenize.TokenInfo] = []
+    try:
+        tokens.extend(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (tokenize.TokenError, SyntaxError):
+        pass
+    for index, item in enumerate(tokens[:-1]):
+        if item.type != tokenize.NAME or tokens[index + 1].string != ":":
+            continue
+        depth = 0
+        for following in tokens[index + 2 :]:
+            if following.type == tokenize.NEWLINE or (
+                depth == 0 and following.string in {",", ";"}
+            ):
+                break
+            if following.type != tokenize.OP:
+                continue
+            if following.string in {"(", "[", "{"}:
+                depth += 1
+            elif following.string in {")", "]", "}"}:
+                depth -= 1
+                if depth < 0:
+                    break
+            elif following.string == "=" and depth == 0:
+                start = offsets[following.end[0] - 1] + following.end[1]
+                while start < len(source) and source[start].isspace():
+                    start += 1
+                yield offsets[item.start[0] - 1] + item.start[1], start, item.string
+                break
+
+
+def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int]:
     patterns = (
+        _ARGV_LITERAL_PATTERN,
         _ENV_ASSIGNMENT_PATTERN,
         _KEY_VALUE_ASSIGNMENT_PATTERN,
         _QUOTED_KEY_ASSIGNMENT_PATTERN,
     )
     matches = sorted(
-        (match for pattern in patterns for match in pattern.finditer(source_code)),
-        key=lambda match: match.start(),
+        [
+            (match.start(), match.end(), match.group("key"))
+            for pattern in patterns
+            for match in pattern.finditer(source_code)
+        ]
+        + list(_annotated_assignments(source_code)),
+        key=lambda match: match[0],
     )
     literals = list(_source_literals(source_code))
     by_start = {start: (end, opening, quote) for start, end, opening, quote in literals}
     redacted: list[str] = []
     cursor, count = 0, 0
-    for match in matches:
-        if match.start() < cursor:
+    for match_start, start, key in matches:
+        if match_start < cursor:
             continue
-        start = match.end()
         literal = by_start.get(start)
         if literal is None:
             # Preserve redaction inside examples, without consuming their closing quote.
@@ -162,13 +202,307 @@ def redact_secret_assignments(source_code: str) -> tuple[str, int]:
             continue
         end, opening, quote = literal
         value = source_code[start + len(opening) : end - len(quote)]
-        if not is_sensitive_param_key(
-            match.group("key")
-        ) and not is_sensitive_param_value(value):
+        if not is_sensitive_param_key(key) and not is_sensitive_param_value(value):
             continue
+        if _secrets is not None:
+            try:
+                secret = ast.literal_eval(source_code[start:end])
+            except (ValueError, SyntaxError):
+                secret = None
+            if isinstance(secret, str) and secret and secret != REDACTED_SECRET_VALUE:
+                _secrets.add(secret)
         replacement = f"{opening}{REDACTED_SECRET_VALUE}{quote}"
         redacted.extend((source_code[cursor:start], replacement))
         count += replacement != source_code[start:end]
         cursor = end
     redacted.append(source_code[cursor:])
     return "".join(redacted), count
+
+
+_ARGV_LITERAL_PATTERN = re.compile(
+    r"[\"']--(?P<key>[\w-]+)[\"']\s*,\s*" + _LITERAL_START
+)
+_FORMAT_PATTERN = re.compile(
+    r"(?<![\w])(?:"
+    r"(?:AKIA|ASIA)[A-Z0-9]{16}"
+    r"|gh[pousr]_[A-Za-z0-9]{36}"
+    r"|github_pat_[A-Za-z0-9_]{22,255}"
+    r"|sk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}"
+    r"|xox[baprs]-[A-Za-z0-9-]{20,}"
+    r"|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"
+    r")(?![\w])"
+    r"|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----[\s\S]*?"
+    r"-----END (?:[A-Z]+ )?PRIVATE KEY-----"
+)
+_PASSWORD_URL_PATTERN = re.compile(
+    r"(?P<prefix>[a-zA-Z][a-zA-Z0-9+.-]*://[^\s/:@\"'<>]+:)"
+    r"(?P<password>[^\s/@\"'<>]+)(?=@)"
+)
+_ENV_MAGIC_PATTERN = re.compile(
+    r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
+)
+_SHELL_TOKEN = re.compile(r"(?:[^\s\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
+
+
+def _redact_argv(text: str) -> str:
+    import shlex
+
+    replacements = []
+    sensitive = False
+    for match in _SHELL_TOKEN.finditer(text):
+        token = match.group()
+        try:
+            words = shlex.split(token)
+            word = words[0] if len(words) == 1 else token
+        except ValueError:
+            word = token
+        if sensitive:
+            replacements.append((match.start(), match.end(), REDACTED_SECRET_VALUE))
+            sensitive = False
+        elif word.startswith("--"):
+            key, sep, _ = word[2:].partition("=")
+            if is_sensitive_param_key(key):
+                if sep:
+                    replacements.append(
+                        (match.start(), match.end(), f"--{key}={REDACTED_SECRET_VALUE}")
+                    )
+                else:
+                    sensitive = True
+    for start, end, replacement in reversed(replacements):
+        text = text[:start] + replacement + text[end:]
+    return text
+
+
+def redact(value, kind: str = "text", *, _secrets=None):
+    """Sanitize stored copies, never execution inputs. Does not evaluate code.
+
+    Recognizes sensitive keys and known credential formats, not arbitrary secrets
+    in images, encoded payloads, or unnamed random strings.
+    """
+    if isinstance(value, dict):
+        return {
+            key: REDACTED_SECRET_VALUE
+            if is_sensitive_param_key(str(key))
+            else redact(item, kind)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        result = []
+        sensitive = False
+        for item in value:
+            if sensitive:
+                cleaned = REDACTED_SECRET_VALUE
+            elif (
+                isinstance(item, str)
+                and item.startswith("--")
+                and "=" in item
+                and is_sensitive_param_key(item[2:].partition("=")[0])
+            ):
+                cleaned = item.partition("=")[0] + "=" + REDACTED_SECRET_VALUE
+            else:
+                cleaned = redact(item, kind)
+            result.append(cleaned)
+            sensitive = (
+                isinstance(item, str)
+                and item.startswith("--")
+                and "=" not in item
+                and is_sensitive_param_key(item[2:])
+            )
+        return tuple(result) if isinstance(value, tuple) else result
+    if not isinstance(value, str):
+        return value
+    value, _ = redact_secret_assignments(value, _secrets)
+    value = _ENV_MAGIC_PATTERN.sub(
+        lambda m: m["prefix"] + REDACTED_SECRET_VALUE
+        if is_sensitive_param_key(m["key"])
+        else m[0],
+        value,
+    )
+
+    def formats(text):
+        text = _FORMAT_PATTERN.sub(REDACTED_SECRET_VALUE, text)
+        return _PASSWORD_URL_PATTERN.sub(
+            lambda m: m["prefix"] + REDACTED_SECRET_VALUE, text
+        )
+
+    if kind == "source":
+        # Restrict format matching to literals/comments so token-like identifiers
+        # remain valid Python. Replace whole literals, including f-strings.
+        parts: list[str] = []
+        cursor = 0
+        for start, end, opening, quote in sorted(
+            _source_literals(value), key=lambda item: (item[0], -item[1])
+        ):
+            if start < cursor:
+                continue
+            literal = value[start:end]
+            cleaned = formats(literal)
+            body = literal[len(opening) : -len(quote)] if quote else ""
+            if body.startswith("--") and "=" in body:
+                key = body[2:].partition("=")[0]
+                if is_sensitive_param_key(key):
+                    cleaned = f"{opening}--{key}={REDACTED_SECRET_VALUE}{quote}"
+            if cleaned != literal and quote and not body.startswith("--"):
+                cleaned = f"{opening}{REDACTED_SECRET_VALUE}{quote}"
+            parts.extend((value[cursor:start], cleaned))
+            cursor = end
+        return "".join(parts) + value[cursor:]
+    return formats(_redact_argv(value))
+
+
+def _redact_record(record) -> None:
+    # Access only loaded fields: partial saves must not fetch deferred fields.
+    fields = {
+        "lamindb.run": {"cli_args": "argv", "params": "text"},
+        "lamindb.transform": {"source_code": "source"},
+    }.get(record._meta.label_lower, {})
+    if (
+        record._meta.label_lower == "lamindb.artifact"
+        and record.__dict__.get("kind") == "__lamindb_run__"
+    ):
+        path = getattr(record, "_local_filepath", None)
+        if path is not None:
+            _check_run_artifact(path, record.size, record.hash)
+    for field, kind in fields.items():
+        if field in record.__dict__:
+            setattr(record, field, redact(record.__dict__[field], kind))
+
+
+class _UnsafeRunArtifact(ValueError):
+    pass
+
+
+def _redact_html(text: str) -> str:
+    # Reports are already rendered. Never patch HTML with source-code regexes:
+    # a value may span tags, entities, attributes, or an embedded script.
+    from html import unescape
+    from html.parser import HTMLParser
+
+    class Text(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts = []
+            self.attributes = []
+
+        def handle_data(self, data):
+            self.parts.append(data)
+
+        def handle_starttag(self, tag, attrs):
+            self.attributes.extend(value for _, value in attrs if value is not None)
+
+        def handle_comment(self, data):
+            self.parts.append(data)
+
+    parsed = Text()
+    parsed.feed(text)
+    parsed.close()
+    # Check both separated and joined nodes (syntax highlighting splits tokens).
+    for candidate in (
+        unescape(text),
+        "".join(parsed.parts),
+        "\n".join(parsed.parts),
+        *parsed.attributes,
+    ):
+        if redact(candidate) != candidate:
+            raise _UnsafeRunArtifact(
+                "skipping run attachment: rendered HTML contains a secret that cannot be safely removed"
+            )
+    return text
+
+
+def _read_run_text(path):
+    try:
+        return path.read_bytes().decode("utf-8")
+    except UnicodeError as exc:
+        raise _UnsafeRunArtifact(
+            "skipping run attachment: content is not supported UTF-8 text"
+        ) from exc
+
+
+def _stage_run_artifact(path):
+    """Return an owned, sanitized snapshot and its temporary-directory lifetime."""
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+
+    if not isinstance(path, (str, Path)) or "://" in str(path):
+        raise _UnsafeRunArtifact(
+            "run attachments must be local files to check before upload"
+        )
+    path = Path(path)
+    stage = TemporaryDirectory(prefix="lamin-redacted-")
+    target = Path(stage.name) / path.name
+    try:
+        if path.is_dir():
+            target.mkdir()
+        paths = list(path.rglob("*")) if path.is_dir() else [path]
+        for source in paths:
+            if source.is_symlink():
+                raise _UnsafeRunArtifact(
+                    "skipping run attachment: symbolic links cannot be checked safely"
+                )
+            if source.is_dir():
+                continue
+            destination = target / source.relative_to(path) if path.is_dir() else target
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            text = _read_run_text(source)
+            cleaned = (
+                _redact_html(text)
+                if source.suffix.lower() in {".html", ".htm"}
+                else redact(text)
+            )
+            destination.write_bytes(cleaned.encode("utf-8"))
+    except BaseException:
+        stage.cleanup()
+        raise
+    return target, stage
+
+
+def _check_run_artifact(path, size, hash) -> None:
+    """Fail before upload if a snapshot was changed after hashing."""
+    from lamindb_setup.core.hashing import hash_dir, hash_file
+
+    clean, stage = _stage_run_artifact(path)
+    try:
+        hasher = hash_dir if path.is_dir() else hash_file
+        if hasher(path)[:2] != (size, hash) or hasher(clean)[:2] != (size, hash):
+            raise _UnsafeRunArtifact(
+                "run attachment changed after preparation; recreate it before saving"
+            )
+    finally:
+        stage.cleanup()
+
+
+@contextmanager
+def _skip_unsafe_run_artifact():
+    from lamindb_setup import logger
+
+    try:
+        yield
+    except _UnsafeRunArtifact as exc:
+        logger.warning(str(exc))
+
+
+def _redact_notebook(notebook) -> None:
+    # Remember literal secrets within this notebook only, to also remove their
+    # bare values from printed outputs. Never retain them globally or in metadata.
+    secrets: set[str] = set()
+    for cell in notebook.cells:
+        cell.source = redact(cell.source, "source", _secrets=secrets)
+
+    def clean(value):
+        if isinstance(value, dict):
+            return {k: clean(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [clean(v) for v in value]
+        if isinstance(value, str):
+            from html import escape
+
+            for secret in sorted(secrets, key=len, reverse=True):
+                for variant in (secret, escape(secret), escape(secret, quote=False)):
+                    value = value.replace(variant, REDACTED_SECRET_VALUE)
+            return redact(value)
+        return value
+
+    for cell in notebook.cells:
+        if cell.cell_type == "code":
+            cell.outputs = clean(cell.outputs)
