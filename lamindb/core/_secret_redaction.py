@@ -302,12 +302,12 @@ _PASSWORD_URL_PATTERN = re.compile(
 _TEXT_KEY_VALUE_PATTERN = re.compile(
     r"(?<![\w.\-])(?P<prefix>(?P<quote>['\"]?)"
     r"(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)(?P=quote)[ \t]*[=:][ \t]*)"
-    r"(?P<value>[^\s\"'`,;{}\[\]<>]+)"
+    r"(?P<value>(?:[^\s\"'`,;{}\[\]<>]|[,;](?=[^\s{}\[\]<>]))+)"
 )
 _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
 )
-_SHELL_TOKEN = re.compile(r"(?:[^\s\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
+_SHELL_TOKEN = re.compile(r"(?:\\[\s\S]|[^\s\\\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
 _SOURCE_COMMAND_PATTERN = re.compile(
     r"(?m)^[ \t]*(?:\#[ \t]*)?(?:[^\n#]*?=[ \t]*)?"
     r"(?P<command>!{1,2}(?!=)|%(?:run|pip|conda|mamba|sx|system)\b)"
@@ -393,6 +393,21 @@ def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> s
                     )
                 else:
                     sensitive = True
+        elif source_command:
+            # The notebook's leading ! is syntax, not part of the variable name.
+            marker = (
+                word[: len(word) - len(word.lstrip("!"))] if match.start() == 0 else ""
+            )
+            key, sep, argument = word[len(marker) :].partition("=")
+            if sep and _is_sensitive_param_key(key):
+                secret = argument
+                replacements.append(
+                    (
+                        match.start(),
+                        match.end(),
+                        f"{marker}{key}={REDACTED_SECRET_VALUE}",
+                    )
+                )
         if _secrets is not None and secret and secret != REDACTED_SECRET_VALUE:
             _secrets.add(secret)
     for start, end, replacement in reversed(replacements):
@@ -495,7 +510,7 @@ def redact(value, kind: str = "text", *, _secrets=None):
             if start < cursor:
                 continue
             literal = value[start:end]
-            cleaned = formats(literal)
+            cleaned = formats(literal, collect=True)
             body = literal[len(opening) : -len(quote)] if quote else ""
             if body.startswith("--") and "=" in body:
                 key = body[2:].partition("=")[0]

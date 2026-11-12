@@ -818,6 +818,19 @@ def test_notebook_report_redacts_source(
                 else f"CANARY_COMMAND_{index}"
             )
             commands.append((prefix + "tool " + argument.format(secret=secret), secret))
+    commands.extend(
+        [
+            ("!export API_KEY=CANARY_EXPORT", "CANARY_EXPORT"),
+            ("!API_KEY=CANARY_INLINE tool", "CANARY_INLINE"),
+            ("result = !API_KEY=CANARY_CAPTURE tool", "CANARY_CAPTURE"),
+            ("%%bash\nAPI_KEY=CANARY_CELL tool", "CANARY_CELL"),
+            ("!export API_KEY='CANARY QUOTED'", "CANARY QUOTED"),
+            (r"!API_KEY=CANARY\ ESCAPED tool", "CANARY ESCAPED"),
+            (r"!tool --token CANARY\ SPACE", "CANARY SPACE"),
+            (r"!tool --token=CANARY\ OPTION", "CANARY OPTION"),
+            ('url = "https://user:CANARY_URL@example.org/pkg"', "CANARY_URL"),
+        ]
+    )
     for command, secret in commands:
         detected = set()
         cleaned = redact(command, "source", _secrets=detected)
@@ -1432,6 +1445,10 @@ def test_redact_assignment_contexts(source, kind):
     assert redact(result, kind) == result
     if kind == "text":
         assert redact({"message": source}) == {"message": result}
+        for secret in ("CANARY,SUFFIX", "CANARY;SUFFIX"):
+            cleaned = redact(f"password={secret}")
+            assert cleaned == "password=***REDACTED***"
+            assert redact(cleaned) == cleaned
         assert redact("count=3\nname: example\npassword=\n") == (
             "count=3\nname: example\npassword=\n"
         )
@@ -1450,6 +1467,7 @@ def test_redact_assignment_contexts(source, kind):
         b"pkg @ https://user:CANARY@example.org/pkg\r\n",
         b"password=CANARY\r\n",
         b"token: CANARY\r\n",
+        b"password=CANARY,SUFFIX\r\n",
     ],
 )
 def test_run_text_attachment_preserves_original(
