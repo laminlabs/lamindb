@@ -432,7 +432,7 @@ class _UnsafeRunArtifact(ValueError):
     pass
 
 
-def _redact_html(text: str) -> str:
+def _redact_html(text: str, *, _secrets: set[str] | None = None) -> str:
     # Reports are already rendered. Never patch HTML with source-code regexes:
     # a value may span tags, entities, attributes, or an embedded script.
     from html import unescape
@@ -463,7 +463,10 @@ def _redact_html(text: str) -> str:
         "\n".join(parsed.parts),
         *parsed.attributes,
     ):
-        if redact(candidate) != candidate:
+        if redact(candidate) != candidate or any(
+            secret in candidate or repr(secret)[1:-1] in candidate
+            for secret in (_secrets or ())
+        ):
             raise _UnsafeRunArtifact(
                 "skipping run attachment: rendered HTML contains a secret that cannot be safely removed"
             )
@@ -549,11 +552,14 @@ def _redact_notebook(notebook) -> None:
     for cell in notebook.cells:
         cell.source = redact(cell.source, "source", _secrets=secrets)
 
-    def clean(value):
+    def clean(value, *, html=False):
         if isinstance(value, dict):
-            return {k: clean(v) for k, v in value.items()}
+            return {k: clean(v, html=k == "text/html") for k, v in value.items()}
         if isinstance(value, list):
-            return [clean(v) for v in value]
+            if html and all(isinstance(part, str) for part in value):
+                value = "".join(value)
+            else:
+                return [clean(v) for v in value]
         if isinstance(value, str):
             from html import escape
 
@@ -565,6 +571,12 @@ def _redact_notebook(notebook) -> None:
                 }
                 for variant in sorted(variants, key=len, reverse=True):
                     value = value.replace(variant, REDACTED_SECRET_VALUE)
+            if html:
+                try:
+                    return _redact_html(value, _secrets=secrets)
+                except _UnsafeRunArtifact:
+                    # Drop only this HTML representation, preserving safe outputs.
+                    return f"<pre>{REDACTED_SECRET_VALUE}</pre>"
             return redact(value)
         return value
 

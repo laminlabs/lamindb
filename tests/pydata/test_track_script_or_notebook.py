@@ -797,6 +797,11 @@ def test_notebook_report_redacts_source(
         r"REPORT_SECRET_\BACKSLASH",
         "REPORT_SECRET_\t'\"<&",
     ]
+    rich_outputs = [
+        "<span>REPORT_</span><span>SECRET_123</span>",
+        "<span>REPORT&#95;</span><span>SECRET&#95;123</span>",
+        "<span>REPORT_SECRET_</span><span>\\nESCAPED</span>",
+    ]
     printed = [
         "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
         repr(byte_secret),
@@ -839,6 +844,20 @@ def test_notebook_report_redacts_source(
                 for secret in escaped_secrets
             ],
             nbformat.v4.new_code_cell(
+                "display(result)",
+                outputs=[
+                    *[
+                        nbformat.v4.new_output(
+                            "display_data", data={"text/html": value}
+                        )
+                        for value in rich_outputs
+                    ],
+                    nbformat.v4.new_output(
+                        "display_data", data={"text/html": "<b>Safe rich output</b>"}
+                    ),
+                ],
+            ),
+            nbformat.v4.new_code_cell(
                 'print("ordinary_value")',
                 outputs=[
                     nbformat.v4.new_output(
@@ -862,7 +881,10 @@ def test_notebook_report_redacts_source(
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
     # Markdown may render the asterisks as emphasis.
-    assert html.count("REDACTED") == 8 + len(printed) + 2 * len(escaped_secrets)
+    assert html.count("REDACTED") == 8 + len(printed) + 2 * len(escaped_secrets) + len(
+        rich_outputs
+    )
+    assert "<b>Safe rich output</b>" in html
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
