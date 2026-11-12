@@ -742,6 +742,12 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
     notebook = nbformat.v4.new_notebook(
         cells=[
             nbformat.v4.new_markdown_cell("Ordinary report text"),
+            nbformat.v4.new_markdown_cell(
+                'Example: `api_key = "REPORT_SECRET_MARKDOWN"`'
+            ),
+            nbformat.v4.new_raw_cell(
+                'api_key = "REPORT_SECRET_RAW"', metadata={"raw_mimetype": "text/html"}
+            ),
             nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
             nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
@@ -756,7 +762,7 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
-    assert html.count("***REDACTED***") == 3
+    assert html.count("***REDACTED***") == 5
     assert "Ordinary report text" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original

@@ -174,8 +174,7 @@ def notebook_to_report(
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
     for cell in notebook.cells:
-        if cell.cell_type == "code":
-            cell.source, _ = redact_secrets_in_source_code(cell.source)
+        cell.source, _ = redact_secrets_in_source_code(cell.source)
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
     # if we were to export as ipynb, the following two lines would do it
