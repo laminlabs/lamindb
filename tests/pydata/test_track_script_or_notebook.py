@@ -791,6 +791,12 @@ def test_notebook_report_redacts_source(
         "REPORT_SECRET_\t'\"<&",
     ]
     magic_values = ["CANARY_MAGIC", '"CANARY_MAGIC_QUOTED"', r"CANARY_MAGIC\RAW"]
+    commands = [
+        "!tool --token {secret}",
+        "!!tool --token='{secret}'",
+        '%run tool.py --token "{secret}"',
+        "!tool --token \\\n  {secret}",
+    ]
     rich_outputs = [
         "<span>REPORT_</span><span>SECRET_123</span>",
         "<span>REPORT&#95;</span><span>SECRET&#95;123</span>",
@@ -824,6 +830,17 @@ def test_notebook_report_redacts_source(
                 'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
             ),
             nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
+            *[
+                nbformat.v4.new_code_cell(
+                    command.format(secret=f"CANARY_COMMAND_{index}"),
+                    outputs=[
+                        nbformat.v4.new_output(
+                            "stream", name="stdout", text=f"CANARY_COMMAND_{index}"
+                        )
+                    ],
+                )
+                for index, command in enumerate(commands)
+            ],
             *[
                 nbformat.v4.new_code_cell(
                     f"%env API_KEY{separator}  {secret}  ",
@@ -884,6 +901,7 @@ def test_notebook_report_redacts_source(
     original = path.read_bytes()
     saved_source = redact(notebook_to_script("test", path), "source")
     assert "REPORT_SECRET_" not in saved_source
+    assert "CANARY_COMMAND" not in saved_source
 
     notebook_to_report(path, report, inject_responsive_table_css)
 
@@ -891,6 +909,7 @@ def test_notebook_report_redacts_source(
     assert "REPORT_SECRET_" not in html
     assert "SECRET_123" not in html and "SUFFIX" not in html
     assert "CANARY_MAGIC" not in html
+    assert "CANARY_COMMAND" not in html
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
         10
@@ -898,6 +917,7 @@ def test_notebook_report_redacts_source(
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
         + 6 * len(magic_values)
+        + 2 * len(commands)
     )
     assert "<b>Safe rich output</b>" in html
     assert "Ordinary report text" in html
@@ -1367,6 +1387,11 @@ def test_redact_stale_r_html(html, tmp_path):
         'api_key <- "CANARY"',
         '["--token", "CANARY"]',
         '["--token=CANARY"]',
+        "!tool --token CANARY",
+        "!!tool --token=CANARY",
+        "%run script.py --token CANARY",
+        "# !tool --token CANARY",
+        "# %run script.py --token CANARY",
     ],
 )
 def test_redact_assignment_contexts(source):
@@ -1412,6 +1437,9 @@ def test_redact_source_preserves_token_like_identifier():
     from lamindb.core._secret_redaction import redact
 
     source = "ghp_" + "a" * 36 + ' = "ordinary_value"'
+    source += (
+        '\nexample = """\n!tool --token ordinary_value\n%run tool --token example\n"""'
+    )
     assert redact(source, "source") == source
     ast.parse(source)
 

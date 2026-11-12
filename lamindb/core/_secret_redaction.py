@@ -303,32 +303,50 @@ _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
 )
 _SHELL_TOKEN = re.compile(r"(?:[^\s\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
+_SOURCE_COMMAND_PATTERN = re.compile(
+    r"(?m)^[ \t]*(?:\#[ \t]*)?(?:!{1,2}|%(?:run|pip|conda|mamba|sx|system)\b)"
+    r"(?:\\\n|[^\n])*"
+)
 
 
-def _redact_argv(text: str) -> str:
+def _redact_argv(text: str, _secrets=None) -> str:
     import shlex
 
     replacements = []
     sensitive = False
     for match in _SHELL_TOKEN.finditer(text):
-        token = match.group()
+        argument_text = match.group()
+        if argument_text == "\\" and text[match.end() :].startswith("\n"):
+            continue
+        # Jupytext prefixes every line of an exported command with '#'.
+        if (
+            text.lstrip().startswith("#")
+            and argument_text == "#"
+            and not text[text.rfind("\n", 0, match.start()) + 1 : match.start()].strip()
+        ):
+            continue
         try:
-            words = shlex.split(token)
-            word = words[0] if len(words) == 1 else token
+            words = shlex.split(argument_text)
+            word = words[0] if len(words) == 1 else argument_text
         except ValueError:
-            word = token
+            word = argument_text
+        secret = None
         if sensitive:
+            secret = word
             replacements.append((match.start(), match.end(), REDACTED_SECRET_VALUE))
             sensitive = False
         elif word.startswith("--"):
-            key, sep, _ = word[2:].partition("=")
+            key, sep, argument = word[2:].partition("=")
             if _is_sensitive_param_key(key):
                 if sep:
+                    secret = argument
                     replacements.append(
                         (match.start(), match.end(), f"--{key}={REDACTED_SECRET_VALUE}")
                     )
                 else:
                     sensitive = True
+        if _secrets is not None and secret and secret != REDACTED_SECRET_VALUE:
+            _secrets.add(secret)
     for start, end, replacement in reversed(replacements):
         text = text[:start] + replacement + text[end:]
     return text
@@ -389,6 +407,19 @@ def redact(value, kind: str = "text", *, _secrets=None):
         return tuple(result) if isinstance(value, tuple) else result
     if not isinstance(value, str):
         return value
+
+    if kind == "source":
+        literals = [
+            (start, end) for start, end, _, quote in _source_literals(value) if quote
+        ]
+        value = _SOURCE_COMMAND_PATTERN.sub(
+            lambda match: (
+                match[0]
+                if any(start <= match.start() < end for start, end in literals)
+                else _redact_argv(match[0], _secrets)
+            ),
+            value,
+        )
 
     def env_magic(match):
         if not _is_sensitive_param_key(match["key"]):
