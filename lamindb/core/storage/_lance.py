@@ -221,6 +221,9 @@ class LanceAccessor:
         version stays pinned to the Lance version from before the write, so
         opening it still returns the previous schema.
 
+        Support for validating columns will be added soon. Use
+        :meth:`~lamindb.Artifact.from_dataframe` to validate columns for now.
+
         Args:
             transforms: Column definitions accepted by `LanceTable.add_columns`.
                 A dict maps a new column name to a SQL expression evaluated on

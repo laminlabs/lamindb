@@ -2783,6 +2783,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         :meth:`~lamindb.models.LanceAccessor.open`. On S3, AWS credentials are read
         from the path when the table is opened.
 
+        Support for validating columns will be added soon. Use
+        :meth:`~lamindb.Artifact.from_dataframe` to validate columns for now.
+
         Args:
             path: Path to one `.lance` directory, local or remote.
             key: A relative path within default storage, e.g., `"myfolder/mytable.lance"`.
