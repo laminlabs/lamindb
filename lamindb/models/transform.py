@@ -818,7 +818,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         branch: str | None = None,
         description: str | None = None,
         skip_hash_lookup: bool = False,
-        schema_path: str | None = None,
+        nextflow_schema: str | None = None,
     ) -> Transform:
         """Create a transform from a path in a git repository.
 
@@ -831,7 +831,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             branch: Optional branch to checkout.
             description: Optional description for the transform.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
-            schema_path: Optional repo-root-relative path to the Nextflow parameter schema used by LaminHub's launch form. Defaults to the repository root's `nextflow_schema.json` when omitted. Stored in `transform._aux["nextflow"]["launch"]["schemaName"]`.
+            nextflow_schema: Optional repo-root-relative path to the Nextflow parameter schema used by LaminHub's launch form. Defaults to the repository root's `nextflow_schema.json` when omitted. Stored in `transform._aux["nextflow"]["launch"]["schemaName"]`.
 
         Examples:
 
@@ -868,7 +868,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
                     url="https://github.com/openpipelines-bio/openpipeline",
                     path="target/nextflow/workflows/qc/qc/main.nf",
                     version="v4.2.0",
-                    schema_path="target/nextflow/workflows/qc/qc/nextflow_schema.json",
+                    nextflow_schema="target/nextflow/workflows/qc/qc/nextflow_schema.json",
                 ).save()
 
         Notes:
@@ -901,7 +901,7 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         from ..core._sync_git import get_and_validate_git_metadata
 
         url, commit_hash = get_and_validate_git_metadata(
-            url, path, version, branch, schema_path
+            url, path, version, branch, nextflow_schema
         )
         if key is None:
             key = (
@@ -938,12 +938,12 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
             source_code=source_code,
             skip_hash_lookup=skip_hash_lookup,
         )
-        if schema_path is not None:
+        if nextflow_schema is not None:
             # the transform can be an existing record with LaminHub settings in _aux
             aux = dict(transform._aux or {})
             nextflow = dict(aux.get("nextflow") or {})
             launch = dict(nextflow.get("launch") or {})
-            launch["schemaName"] = schema_path
+            launch["schemaName"] = nextflow_schema
             nextflow["launch"] = launch
             aux["nextflow"] = nextflow
             transform._aux = aux

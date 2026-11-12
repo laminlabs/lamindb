@@ -204,7 +204,7 @@ def get_and_validate_git_metadata(
     path: str,
     version: str | None = None,
     branch: str | None = None,
-    schema_path: str | None = None,
+    nextflow_schema: str | None = None,
 ) -> tuple[str, str]:
     """Get metadata from a git repository.
 
@@ -213,7 +213,7 @@ def get_and_validate_git_metadata(
         path: Path to the main script within the repository
         version: Optional version/tag to checkout
         branch: Optional branch name (defaults to repository's default branch)
-        schema_path: Optional repo-root-relative path to a Nextflow parameter schema (JSON object)
+        nextflow_schema: Optional repo-root-relative path to a Nextflow parameter schema (JSON object)
 
     Returns:
         Dictionary containing:
@@ -225,19 +225,19 @@ def get_and_validate_git_metadata(
 
     Raises:
         RuntimeError: If git operations fail
-        FileNotFoundError: If the specified path or schema_path does not exist in the repository
-        ValueError: If schema_path is absolute, contains `..` or is not a JSON object
+        FileNotFoundError: If the specified path or nextflow_schema does not exist in the repository
+        ValueError: If nextflow_schema is absolute, contains `..` or is not a JSON object
     """
-    if schema_path is not None:
-        schema_parts = PurePath(schema_path)
+    if nextflow_schema is not None:
+        schema_parts = PurePath(nextflow_schema)
         if (
             schema_parts.is_absolute()
-            or PureWindowsPath(schema_path).is_absolute()
+            or PureWindowsPath(nextflow_schema).is_absolute()
             or ".." in schema_parts.parts
-            or ".." in PureWindowsPath(schema_path).parts
+            or ".." in PureWindowsPath(nextflow_schema).parts
         ):
             raise ValueError(
-                f"schema_path must be relative to the repository root and must not contain '..', got '{schema_path}'"
+                f"nextflow_schema must be relative to the repository root and must not contain '..', got '{nextflow_schema}'"
             )
     url = sanitize_git_repo_url(url)
     repo_dir = get_git_repo_from_remote(url, depth=None)
@@ -314,21 +314,21 @@ def get_and_validate_git_metadata(
         raise FileNotFoundError(
             f"Path '{path}' exists but is not a file in repository {url}"
         )
-    if schema_path is not None:
-        schema_file = repo_dir / schema_path
+    if nextflow_schema is not None:
+        schema_file = repo_dir / nextflow_schema
         checked_at = f"version {version}" if version is not None else f"branch {branch}"
         if not schema_file.is_file():
             raise FileNotFoundError(
-                f"Schema path '{schema_path}' does not exist or is not a file in repository {url} at {checked_at}"
+                f"Nextflow schema '{nextflow_schema}' does not exist or is not a file in repository {url} at {checked_at}"
             )
         try:
             schema = json.loads(schema_file.read_text())
         except ValueError as e:  # includes JSONDecodeError and UnicodeDecodeError
             raise ValueError(
-                f"Schema path '{schema_path}' in repository {url} at {checked_at} is not valid JSON: {e}"
+                f"Nextflow schema '{nextflow_schema}' in repository {url} at {checked_at} is not valid JSON: {e}"
             ) from e
         if not isinstance(schema, dict):
             raise ValueError(
-                f"Schema path '{schema_path}' in repository {url} at {checked_at} is not a JSON object"
+                f"Nextflow schema '{nextflow_schema}' in repository {url} at {checked_at} is not a JSON object"
             )
     return url, commit_hash
