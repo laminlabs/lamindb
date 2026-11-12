@@ -14,11 +14,12 @@ SENSITIVE_PARAM_KEY_PATTERN = re.compile(
 # - my_secret = "value"
 # - my.secret: "value"
 # - mySecret := "value"
+# - my_secret <- "value" (R)
 # We intentionally do not match unquoted RHS values to avoid false positives like
 # type annotations (`api_key: str`) or variable forwarding (`api_key=api_key`).
 _LITERAL_START = r"(?=(?i:br|rb|fr|rf|tr|rt|[rubft])?['\"`])"
 _KEY_VALUE_ASSIGNMENT_PATTERN = re.compile(
-    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op>:=|=|:)\s*)"
+    r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op>:=|<-|=|:)\s*)"
     + _LITERAL_START
 )
 

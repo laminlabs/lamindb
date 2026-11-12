@@ -764,13 +764,18 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
 @pytest.mark.parametrize("has_secret", [False, True])
 @pytest.mark.parametrize("existing_report", [False, True])
+@pytest.mark.parametrize("operator", ["=", "<-"])
 def test_r_report_skips_secrets(
-    tmp_path, monkeypatch, ccaplog, has_secret, existing_report
+    tmp_path, monkeypatch, ccaplog, has_secret, existing_report, operator
 ):
     from lamindb.core._finish import save_context_core
 
     path = tmp_path / ("report.qmd" if existing_report else "report.Rmd")
-    source = 'api_key = "REPORT_SECRET_123"' if has_secret else "value = 42"
+    source = (
+        f'api_key {operator} "REPORT_SECRET_123"'
+        if has_secret
+        else f'value {operator} "ordinary_value"'
+    )
     path.write_text(f"```{{r}}\n{source}\n```\n")
     report = path.with_suffix(".html")
     report.write_text(f"<html><body><pre>{source}</pre></body></html>")
