@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "lamin_cli==1.23.0",  # lamin-cli depends on lamindb-core; pin the matching release
-    "lamindb_setup[aws]==1.29.0",  # dependencies like Django & fsspec
+    "lamindb_setup[aws]==1.29.1",  # dependencies like Django & fsspec
 ]
 
 [project.urls]
@@ -53,6 +53,9 @@ zarr_v2 = [  # remove for lamindb v3
 polars = [
     "polars>=1.23",
     "pandera[pandas,polars]>=0.24.0",
+]
+lance = [
+    "lancedb>=0.24",
 ]
 fcs = [  # remove for lamindb v3
     "readfcs",

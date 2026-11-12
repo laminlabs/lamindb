@@ -142,20 +142,21 @@ Today's most popular framework is **Iceberg**.[^apache-iceberg] Like Delta Lake[
 
 </div>
 
-An increasingly popular approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata. A complementary development in operational workloads is **Lakebase**, which decouples Postgres database compute and storage via Write-Ahead Logs in object storage. This brings serverless, transactional Postgres to live applications and agents, while continuously syncing operational row changes into analytical lakehouses like Delta Lake.
+One approach to addressing Iceberg's limitations is **DuckLake**,[^ducklake-format][^ducklake-v1] developed by the DuckDB team. Rather than storing metadata in files, DuckLake keeps all metadata in a relational database, leaving only parquet files in storage. This gives it cheap writes that can be more frequent, transactions with true concurrent writer support, automatic maintenance via the database's native mechanisms, and native multi-table transactions — all things that are difficult or impossible with Iceberg's file-based metadata.
 
-**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond tables to support any format, in particular, parquet, zarr, AnnData, HDF5, and others.
-This enables unified schema management, data lineage, and registry annotations across complex, multimodal datasets (Table 1).
+**LaminDB** shares DuckLake's core architectural pattern — using a relational database for metadata and object storage for data — but extends it beyond parquet to support artifacts in any format, in particular, parquet, zarr, lance, AnnData, SpatialData, HDF5, and others. LaminDB comes with a data catalog that tracks where each artifact lives, which run produced it, and how it is annotated. Schema management, versioning (time travel), validation, and ACID transactions add typical lakehouse capabilities. While schema management is generally format-agnostic, some aspects of how these capabilities are achieved depend on the format:
 
-While Iceberg & DuckLake are based on the parquet format, and LaminDB is format-agnostic, **LanceDB** manages datasets in the Lance format, a columnar format inspired by parquet that's optimized for arrays.[^lancedb-format] To use LanceDB, you need to convert your data into the Lance format.
-While LanceDB fits the lakehouse architecture, non-lakehouse architectures for managing array-like data exist, too, in particular, `arraylake` & `tensorstore` for `.zarr` arrays, and `tiledb` for `.tiledb` arrays.[^tiledb] These non-lakehouse technologies are out of scope for this post given the established query engines don't apply to them.
+- **Parquet.** One file is one shard and tracked as an {class}`~lamindb.Artifact`. A {class}`~lamindb.Collection` assembles many artifacts into one dataset similar to DuckLake or Iceberg.
+- **Zarr.** One `.zarr` folder contains chunked arrays and tracked as an {class}`~lamindb.Artifact`. {class}`~lamindb.Collection` can version and validate a collection of such `.zarr` folders. If versioning of a single `.zarr` folder is desired, **Icechunk** provides an engine for a single `.zarr` folder with commits, branches, and snapshots over immutable chunks.[^icechunk] Also **Tensorstore** reads `.zarr` folders.
+- **Lance.** One `.lance` folder contains one table including fragments, a manifest, and versions and is tracked as an {class}`~lamindb.Artifact`.[^lancedb-format] **LanceDB** adds a high-level API on that directory with methods such as `search`, `add`, and `checkout`. A LanceDB database is a parent folder of `<name>.lance` folders.
+- **TileDB.** One `.tiledb` folder contains chunked arrays.[^tiledb]
 
 ## Decoupled compute
 
 Rather than locking metadata resolution inside a dedicated query engine or custom SQL driver, LaminDB acts as an independent semantic orchestration layer.
 
-When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths directly to modern open-source engines like DuckDB, Polars, or PySpark.
-Because these engines read native Parquet and Zarr files directly over object storage, query execution retains full optimization benefits:
+When executing analytical queries, LaminDB first resolves metadata in Postgres or SQLite to yield precise object storage paths. You then pass these paths to the engine for that format: DuckDB, Polars, or PySpark for parquet; the LanceDB table for `.lance`; Zarr or Icechunk for arrays.
+Because these engines read the native files directly over object storage, query execution retains full optimization benefits:
 
 - **Projection Pushdowns**: Only downloading requested columns.
 - **Filter Pushdowns**: Reading file footers to execute row-group pruning and skip irrelevant data blocks before fetching them.
@@ -171,14 +172,14 @@ To safely delegate tasks to autonomous agents and distributed teams, data infras
 
 (time-travel)=
 
-## Schema evolution & time travel
-
-To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling.
+## Dataset mutation, schema evolution, time travel
 
 The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
 
+While under-the-hood, a collection of `.parquet` files is handled differently than a `.lance` store, both has a similar API in LaminDB.
+
 ::::::{tab-set}
-:::::{tab-item} LaminDB
+:::::{tab-item} Parquet
 Atomic and snapshot-isolated. A new parquet file creates a new collection version.
 
 ```python
@@ -186,20 +187,11 @@ collection.append(batch)  # batch is an artifact
 ```
 
 :::::
-:::::{tab-item} Iceberg
-Atomic and snapshot-isolated. New Parquet files and a snapshot manifest are written to S3; concurrent readers see a consistent state throughout.
+
+:::::{tab-item} Lance
 
 ```python
-table.append(batch)  # batch is a pyarrow dataset
-```
-
-:::::
-
-:::::{tab-item} LanceDB
-`add()` writes new rows to S3 and automatically increments the table version.
-
-```python
-table.add(batch)  # batch is a pyarrow dataset
+artifact.lance.add(batch)  # batch is a pyarrow dataset
 ```
 
 :::::
@@ -208,8 +200,7 @@ table.add(batch)  # batch is a pyarrow dataset
 Similarly, when an analysis requires new features, the following snippets ensure that columns are updated consistently across the entire dataset, and future incoming datasets.
 
 ::::::{tab-set}
-:::::{tab-item} LaminDB
-LaminDB registers the feature in its schema registry, validating all future artifacts instance-wide.
+:::::{tab-item} Parquet
 
 ```python
 feature = ln.Feature(name="QC_PASS", dtype=bool).save()
@@ -218,22 +209,10 @@ collection.schema.add(feature)
 
 :::::
 
-:::::{tab-item} Iceberg
-A new metadata file records the updated schema. Existing Parquet files are not modified; reads of old files return `null` for the new column.
-
-```python
-from pyiceberg.types import BooleanType
-with table.update_schema() as update:
-    update.add_column("QC_PASS", BooleanType())
-```
-
-:::::
-
 :::::{tab-item} LanceDB
-`add_columns` takes a per-column SQL value expression — hence the `CAST(NULL AS BOOLEAN)` string, which supplies both the value and its type for existing rows.
 
 ```python
-table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
+artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 ```
 
 :::::
@@ -243,7 +222,7 @@ table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
 
 ::::::{tab-set}
-:::::{tab-item} LaminDB
+:::::{tab-item} Parquet
 
 ```python
 collection.versions.get(version="1")  # get a previous version
@@ -251,19 +230,10 @@ collection.versions.get(version="1")  # get a previous version
 
 :::::
 
-:::::{tab-item} Iceberg
+:::::{tab-item} Lance
 
 ```python
-first_snapshot = table.history()[0].snapshot_id  # access version 0
-table.scan(snapshot_id=first_snapshot)
-```
-
-:::::
-
-:::::{tab-item} LanceDB
-
-```python
-table.checkout(1)             # checkout a previous version
+artifact.versions.get(version="1")   # checkout a previous version
 ```
 
 :::::
@@ -347,7 +317,9 @@ There is a public repository for LaminHub:
 
 [^databricks]: Databricks (2020). Accurately Building Genomic Cohorts at Scale with Delta Lake and Spark. [Databricks Blog](https://www.databricks.com/blog/2020/09/22/accurately-building-genomic-cohorts-at-scale-with-delta-lake-and-spark.html).
 
-[^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown).
+[^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown). The format specification and the `lancedb` package are both Apache 2.0.
+
+[^icechunk]: Earthmover. Icechunk: open-source transactional storage engine for Zarr, Apache 2.0. [Icechunk](https://github.com/earth-mover/icechunk).
 
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
 

@@ -25,21 +25,21 @@ Existing data lakehouses aren't a comprehensive solution. They only address the 
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **lakehouse** → manage datasets in any format (`parquet`, `zarr`, ...) with time travel, schema evolution & [ACID guarantees](https://docs.lamin.ai/acid); load/query with your favorite engine (Polars, DuckDB, `annbatch`, ...)
+- **catalog** → annotate, validate & query files & folders, `DataFrame`, `AnnData`, `SpatialData`, …
+- **lakehouse** → schema management, time travel & [ACID guarantees](https://docs.lamin.ai/acid) for datasets in any format (`parquet`, `lance`, `zarr`, ...); load/query with your favorite engine (Polars, DuckDB, `annbatch`, ...)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
-- **FAIR datasets** → validate & annotate files, `DataFrame`, `AnnData`, `SpatialData`, …
 - **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & versioning
 
 Architecture? → [docs](https://docs.lamin.ai/architecture)
 
 - **zero lock-in** → open source, using open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → `pip install lamindb` or `install.packages('laminr')` · no Docker required, no separate backend
-- **unified access** → local, S3, GCP, etc. · Postgres, SQLite · ontologies
+- **simple** → `pip install lamindb` or `install.packages('laminr')`, no Docker required, no separate backend
+- **unified access** → local, S3, GCP, etc. / Postgres, SQLite / ontologies
 - **distributed** → [zero-copy data sharing across databases & storage](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - **ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
-- **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplications or overwrites
+- **idempotent** → [re-run](https://docs.lamin.ai/idempotency) logic without worries about duplicates or overwrites
 - **decoupled compute** → run your favorite engine (Polars, DuckDB, data loaders, ...) with all its benefits
 - **integrations** → [bio ontologies](https://docs.lamin.ai/bionty), [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
@@ -53,12 +53,12 @@ Scientists and engineers at leading research institutions and biotech companies,
 - **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
 - **Research Hospitals** → Global Immunological Swarm Learning Network: Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
 
-From personal research projects to pharma-scale deployments managing petabytes of data across:
+From personal research projects to pharma-scale deployments managing petabytes of data:
 
 entities | OOMs
 --- | ---
 observations & datasets | 10¹² & 10⁶
-runs & transforms| 10⁹ & 10⁵
+runs & transforms | 10⁹ & 10⁵
 proteins & genes | 10⁹ & 10⁶
 biosamples & species | 10⁵ & 10²
 ... | ...
@@ -151,7 +151,7 @@ collection.schema.describe()
 ```
 
 <details>
-<summary>Ad-hoc query a sharded dataset.</summary>
+<summary>Query a sharded dataset ad hoc.</summary>
 
 See the validating schema of the collection ([explore](https://lamin.ai/laminlabs/1000genomes/collection/hVu9puwdRGskm1I6)):
 
@@ -162,6 +162,8 @@ This example uses `polars` to filter the collection of parquet files:
 <!-- #region -->
 
 ```python
+import polars as pl
+
 chrom = "1"
 lo, hi = 150_000_000, 200_000_000
 
@@ -323,7 +325,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is a re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is a reconstruction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
@@ -471,6 +473,9 @@ df = pd.DataFrame({
     "seq_date": [date(2025, 10, 24), date(2025, 10, 25)],
 })
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
+
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.lance").save()
+table = artifact.lance.open()
 ```
 
 Let's now define a schema that validates the columns of the dataframe against the feature type `sequences` that we defined above:
@@ -481,7 +486,7 @@ ln.Feature(name="experiment_note", dtype=str, type=sequences).save()
 schema = ln.Schema(itype=sequences).save()
 ```
 
-If we pass it `from_dataframe()`, the resulting artifact is validated and auto-anntotated:
+If we pass it to `from_dataframe()`, the resulting artifact is validated and auto-annotated:
 
 ```python
 
