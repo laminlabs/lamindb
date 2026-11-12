@@ -475,7 +475,7 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 
 artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.lance").save()
-table = artifact.open_lance()
+table = artifact.lance.open()
 ```
 
 Let's now define a schema that validates the columns of the dataframe against the feature type `sequences` that we defined above:

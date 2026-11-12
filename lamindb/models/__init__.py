@@ -28,6 +28,7 @@ Managers
 
 .. autoclass:: FeatureManager
 .. autoclass:: LabelManager
+.. autoclass:: LanceAccessor
 .. autoclass:: QueryManager
 .. autoclass:: RelatedManager
 
@@ -172,6 +173,7 @@ from .ulabel import ULabel
 from .artifact import Artifact, LazyArtifact
 from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
+from ._lance_accessor import LanceAccessor
 from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
 from .query_manager import RelatedManager, QueryManager

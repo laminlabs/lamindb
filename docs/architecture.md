@@ -172,14 +172,14 @@ To safely delegate tasks to autonomous agents and distributed teams, data infras
 
 (time-travel)=
 
-## Schema evolution & time travel
-
-To see how these concepts translate into developer experience, let's compare the code required to perform these essential agentic operations—appending data, evolving schemas, and time-traveling. For parquet shards the calls go through a collection. For one Lance table or one Icechunk repository they are the engine's calls on the artifact path.
+## Dataset mutation, schema evolution, time travel
 
 The first type of write operation we need to perform is adding new data to the system. Rather than just dropping a raw file into a bucket, the following code snippets ensure that a new dataset complies with the schema of the existing dataset, and that it's added in an ACID fashion.
 
+While under-the-hood, a collection of `.parquet` files is handled differently than a `.lance` store, both has a similar API in LaminDB.
+
 ::::::{tab-set}
-:::::{tab-item} LaminDB
+:::::{tab-item} Parquet
 Atomic and snapshot-isolated. A new parquet file creates a new collection version.
 
 ```python
@@ -187,20 +187,11 @@ collection.append(batch)  # batch is an artifact
 ```
 
 :::::
-:::::{tab-item} Iceberg
-Atomic and snapshot-isolated. New Parquet files and a snapshot manifest are written to S3; concurrent readers see a consistent state throughout.
+
+:::::{tab-item} Lance
 
 ```python
-table.append(batch)  # batch is a pyarrow dataset
-```
-
-:::::
-
-:::::{tab-item} LanceDB
-`add()` writes new rows to S3 and automatically increments the table version.
-
-```python
-table.add(batch)  # batch is a pyarrow dataset
+artifact.lance.add(batch)  # batch is a pyarrow dataset
 ```
 
 :::::
@@ -209,8 +200,7 @@ table.add(batch)  # batch is a pyarrow dataset
 Similarly, when an analysis requires new features, the following snippets ensure that columns are updated consistently across the entire dataset, and future incoming datasets.
 
 ::::::{tab-set}
-:::::{tab-item} LaminDB
-LaminDB registers the feature in its schema registry, validating all future artifacts instance-wide.
+:::::{tab-item} Parquet
 
 ```python
 feature = ln.Feature(name="QC_PASS", dtype=bool).save()
@@ -219,22 +209,10 @@ collection.schema.add(feature)
 
 :::::
 
-:::::{tab-item} Iceberg
-A new metadata file records the updated schema. Existing Parquet files are not modified; reads of old files return `null` for the new column.
-
-```python
-from pyiceberg.types import BooleanType
-with table.update_schema() as update:
-    update.add_column("QC_PASS", BooleanType())
-```
-
-:::::
-
 :::::{tab-item} LanceDB
-`add_columns` takes a per-column SQL value expression — hence the `CAST(NULL AS BOOLEAN)` string, which supplies both the value and its type for existing rows.
 
 ```python
-table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
+artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 ```
 
 :::::
@@ -244,7 +222,7 @@ table.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
 
 ::::::{tab-set}
-:::::{tab-item} LaminDB
+:::::{tab-item} Parquet
 
 ```python
 collection.versions.get(version="1")  # get a previous version
@@ -252,19 +230,10 @@ collection.versions.get(version="1")  # get a previous version
 
 :::::
 
-:::::{tab-item} Iceberg
+:::::{tab-item} Lance
 
 ```python
-first_snapshot = table.history()[0].snapshot_id  # access version 0
-table.scan(snapshot_id=first_snapshot)
-```
-
-:::::
-
-:::::{tab-item} LanceDB
-
-```python
-table.checkout(1)             # checkout a previous version
+artifact.versions.get(version="1")   # checkout a previous version
 ```
 
 :::::

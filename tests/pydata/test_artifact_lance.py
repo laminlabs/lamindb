@@ -43,9 +43,9 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         stored = ln.Artifact.get(artifact.uid)
         loaded = cast(pd.DataFrame, stored.load())
         assert list(loaded["n_genes"]) == [0, 1, 2]
-        with pytest.raises(ValueError, match="open_lance"):
+        with pytest.raises(ValueError, match="lance.open"):
             artifact.open()
-        table = artifact.open_lance()
+        table = artifact.lance.open()
         filtered = (
             table.search()
             .where("cell_type IS NOT NULL", prefilter=True)
@@ -67,13 +67,13 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert from_path.otype == "lance"
         assert from_path.suffix == ".lance"
         assert from_path.n_observations == 3
-        table = from_path.open_lance()
+        table = from_path.lance.open()
         assert table.count_rows() == 3
         from lamindb.core.storage._lance import lance_version
 
         assert lance_version(from_path) == int(table.version)
         stored_path = ln.Artifact.get(from_path.uid)
-        with pytest.raises(ValueError, match="open_lance"):
+        with pytest.raises(ValueError, match="lance.open"):
             stored_path.load()
 
         feature = ln.Feature(name="lance_schema_feature", dtype=str).save()
@@ -90,7 +90,7 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert revised.overwrite_versions is True
         assert artifact.overwrite_versions is True
         assert not artifact.is_latest
-        assert revised.open_lance().count_rows() == 2
+        assert revised.lance.open().count_rows() == 2
         with pytest.raises(ValueError, match="overwritten"):
             artifact.open()
 
@@ -100,8 +100,8 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         collection = ln.Collection([revised, other], key="lance/release").save()
         with pytest.raises(ValueError, match="separate tables"):
             collection.open()
-        assert revised.open_lance().count_rows() == 2
-        assert other.open_lance().count_rows() == 1
+        assert revised.lance.open().count_rows() == 2
+        assert other.lance.open().count_rows() == 1
     finally:
         if collection is not None:
             collection.delete(permanent=True)
@@ -110,13 +110,13 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
                 record.delete(permanent=True)
 
 
-def test_append_lance_keeps_one_directory_and_pins_versions():
+def test_lance_add_keeps_one_directory_and_pins_versions():
     artifact = ln.Artifact.from_dataframe(
         _cells(["T cell"]), key="lance/append.lance"
     ).save()
     revised = None
     try:
-        revised = artifact.append_lance(_cells(["B cell"]))
+        revised = artifact.lance.add(_cells(["B cell"]))
         artifact.refresh_from_db()
 
         assert revised.path == artifact.path
@@ -126,16 +126,16 @@ def test_append_lance_keeps_one_directory_and_pins_versions():
         assert revised.n_observations == 2
         assert artifact.overwrite_versions
         assert revised.overwrite_versions
-        assert artifact.open_lance().count_rows() == 1
-        assert revised.open_lance().count_rows() == 2
+        assert artifact.lance.open().count_rows() == 1
+        assert revised.lance.open().count_rows() == 2
         with pytest.raises(ValueError, match="overwritten"):
             artifact.open()
 
-        again = revised.append_lance(_cells(["NK cell"]))
+        again = revised.lance.add(_cells(["NK cell"]))
         revised.refresh_from_db()
         assert again.path == revised.path
-        assert again.open_lance().count_rows() == 3
-        assert revised.open_lance().count_rows() == 2
+        assert again.lance.open().count_rows() == 3
+        assert revised.lance.open().count_rows() == 2
         again.delete(permanent=True)
         revised = None
     finally:
@@ -146,17 +146,41 @@ def test_append_lance_keeps_one_directory_and_pins_versions():
             artifact.delete(permanent=True)
 
 
-def test_lance_open_and_append_reject_bad_calls_and_pin_missing_version():
+def test_lance_add_columns_pins_the_previous_schema():
+    artifact = ln.Artifact.from_dataframe(
+        _cells(["T cell"]), key="lance/columns.lance"
+    ).save()
+    revised = None
+    try:
+        revised = artifact.lance.add_columns({"score": "n_genes * 2"})
+        artifact.refresh_from_db()
+
+        assert revised.path == artifact.path
+        assert revised.is_latest
+        assert not artifact.is_latest
+        assert revised.n_observations == 1
+        previous = artifact.lance.open().to_arrow()
+        current = revised.lance.open().to_arrow()
+        assert "score" not in previous.column_names
+        assert current.column("score").to_pylist() == [0]
+    finally:
+        if revised is not None:
+            revised.delete(permanent=True)
+        elif artifact is not None:
+            artifact.delete(permanent=True)
+
+
+def test_lance_open_and_add_reject_bad_calls_and_pin_missing_version():
     from lamindb.core.storage._lance import LANCE_VERSION_AUX_KEY, lance_version
 
     parquet = ln.Artifact.from_dataframe(
         _cells(["parquet"]), key="lance/not-lance.parquet"
     ).save()
     try:
-        with pytest.raises(ValueError, match="open_lance"):
-            parquet.open_lance()
-        with pytest.raises(ValueError, match="append_lance"):
-            parquet.append_lance(_cells(["B cell"]))
+        with pytest.raises(ValueError, match="artifact.lance"):
+            parquet.lance.open()
+        with pytest.raises(ValueError, match="artifact.lance"):
+            parquet.lance.add(_cells(["B cell"]))
     finally:
         parquet.delete(permanent=True)
 
@@ -166,7 +190,7 @@ def test_lance_open_and_append_reject_bad_calls_and_pin_missing_version():
         skip_hash_lookup=True,
     )
     with pytest.raises(ValueError, match="Save the artifact"):
-        unsaved.append_lance(_cells(["B cell"]))
+        unsaved.lance.add(_cells(["B cell"]))
 
     artifact = ln.Artifact.from_dataframe(
         _cells(["unpinned"]), key="lance/unpinned.lance"
@@ -179,15 +203,15 @@ def test_lance_open_and_append_reject_bad_calls_and_pin_missing_version():
         artifact.save()
         assert lance_version(artifact) is None
 
-        revised = artifact.append_lance(_cells(["B cell"]))
+        revised = artifact.lance.add(_cells(["B cell"]))
         artifact.refresh_from_db()
         pinned = lance_version(artifact)
         assert pinned is not None
         assert pinned != lance_version(revised)
-        assert artifact.open_lance().count_rows() == 1
-        assert revised.open_lance(version=pinned).count_rows() == 1
+        assert artifact.lance.open().count_rows() == 1
+        assert revised.lance.open(version=pinned).count_rows() == 1
         with pytest.raises(ValueError, match="latest"):
-            artifact.append_lance(_cells(["NK cell"]))
+            artifact.lance.add(_cells(["NK cell"]))
     finally:
         if revised is not None:
             revised.delete(permanent=True)
@@ -212,8 +236,8 @@ def test_lance_from_polars_frame_and_lazyframe():
     try:
         assert eager.n_observations == 2
         assert lazy.n_observations == 2
-        assert eager.open_lance().count_rows() == 2
-        assert lazy.open_lance().count_rows() == 2
+        assert eager.lance.open().count_rows() == 2
+        assert lazy.lance.open().count_rows() == 2
     finally:
         lazy.delete(permanent=True)
         eager.delete(permanent=True)
@@ -304,3 +328,39 @@ def test_open_lance_table_passes_s3_storage_options(monkeypatch):
         "kwargs": {"storage_options": {"aws_access_key_id": "AKIA"}},
         "name": "cells",
     }
+
+
+def test_record_current_lance_version_keeps_an_existing_pin(monkeypatch):
+    from lamindb.core.storage._lance import (
+        lance_version,
+        record_current_lance_version,
+        set_lance_version,
+    )
+
+    artifact = SimpleNamespace(_aux=None)
+    set_lance_version(artifact, 4)
+
+    def fail(path):
+        raise AssertionError("pinned artifacts do not reopen the table")
+
+    monkeypatch.setattr("lamindb.core.storage._lance.open_lance_table", fail)
+    record_current_lance_version(artifact)
+    assert lance_version(artifact) == 4
+
+
+def test_import_lancedb_missing_extra(monkeypatch):
+    import builtins
+
+    from lamindb.core.storage._lance import import_lancedb
+
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "lancedb" or name.startswith("lancedb."):
+            raise ImportError("No module named 'lancedb'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    with pytest.raises(ImportError, match=r"lamindb\[lance\]") as exc_info:
+        import_lancedb()
+    assert isinstance(exc_info.value.__cause__, ImportError)

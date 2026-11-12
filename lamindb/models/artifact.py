@@ -72,6 +72,7 @@ from ._is_versioned import (
     IsVersioned,
     create_uid,
 )
+from ._lance_accessor import LanceAccessor
 from ._lineage import (
     get_run,
     populate_recreating_run,
@@ -172,10 +173,6 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     try:
-        from lancedb.table import LanceTable
-    except Exception:  # pragma: no cover
-        LanceTable = Any
-    try:
         from spatialdata import SpatialData  # noqa: TC004
     except Exception:  # pragma: no cover
         SpatialData = Any
@@ -216,7 +213,6 @@ else:
     PyArrowDataset = Any
     PolarsDataFrame = Any
     PolarsLazyFrame = Any
-    LanceTable = Any
     AbstractFileSystem = Any
     ArtifactKind = Any
     StrField = Any
@@ -1526,6 +1522,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_lance`
             Create an artifact from a `.lance` directory.
+        :attr:`~lamindb.Artifact.lance`
+            Read a `.lance` artifact and save a new version after adding rows or columns.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
         :meth:`~lamindb.Artifact.from_spatialdata`
@@ -1783,6 +1781,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         from ._label_manager import LabelManager
 
         return LabelManager(self)
+
+    @property
+    def lance(self) -> LanceAccessor:
+        """LanceDB table for this `.lance` artifact.
+
+        :meth:`~lamindb.models.LanceAccessor.open` reads the version pinned on
+        this artifact. :meth:`~lamindb.models.LanceAccessor.add` appends rows
+        and :meth:`~lamindb.models.LanceAccessor.add_columns` adds columns.
+        Both save a new artifact version and leave this one pinned.
+
+        Examples:
+
+            Open the pinned Lance version::
+
+                table = artifact.lance.open()
+
+            Append rows::
+
+                revised = artifact.lance.add(new_rows)
+
+            Add a column::
+
+                revised = artifact.lance.add_columns({"score": "n_genes * 2"})
+        """
+        return LanceAccessor(self)
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -2602,7 +2625,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Store the same dataframe as one LanceDB table::
 
                 artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.lance").save()
-                artifact.open_lance()
+                artifact.lance.open()
 
             With validation and annotation::
 
@@ -2757,7 +2780,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Registers the directory and opens it once to record the row count and
         the current Lance version. Read the table with
-        :meth:`~lamindb.Artifact.open_lance`. On S3, AWS credentials are read
+        :meth:`~lamindb.models.LanceAccessor.open`. On S3, AWS credentials are read
         from the path when the table is opened.
 
         Args:
@@ -2774,7 +2797,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact.from_lance(
                 "s3://mybucket/table.lance", description="a LanceDB table"
             ).save()
-            artifact.open_lance()
+            artifact.lance.open()
         """
         if not isinstance(path, (str, Path, UPath)) or UPath(path).suffix != ".lance":
             raise ValueError("Pass a path to a .lance directory.")
@@ -3371,110 +3394,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # replace() supports changing the suffix
         self._original_values["suffix"] = self.suffix
 
-    def open_lance(self, *, version: int | None = None) -> LanceTable:
-        """Open this artifact as one LanceDB table.
-
-        Returns a :class:`lancedb.table.LanceTable`. When this artifact version
-        has a pinned Lance version and that version is not the directory's
-        latest, the table is checked out at the pin. Pass `version` to check
-        out a specific Lance version instead.
-
-        On S3, AWS credentials are read from the artifact path when the table
-        is opened. A refreshable session is snapshotted at that moment.
-
-        Args:
-            version: Lance version to check out. Defaults to the version pinned
-                when this artifact version was written.
-        """
-        if self.suffix != ".lance":
-            raise ValueError("open_lance() expects a .lance artifact.")
-        from ..core.storage._lance import lance_version, open_lance_table
-
-        path = getattr(self, "_local_filepath", None)
-        if path is None or not path.exists():
-            path = self.path
-        table = open_lance_table(path)
-        pinned = lance_version(self)
-        if version is not None:
-            table.checkout(version)
-        elif pinned is not None and pinned != int(table.version):
-            table.checkout(pinned)
-        return table
-
-    def append_lance(self, data: Any, *, run: Run | None = None) -> Artifact:
-        """Append rows to this `.lance` artifact and save a new version.
-
-        Calls `LanceTable.add(data, mode="append")` on this artifact's
-        directory, then registers a new artifact version of that same directory.
-        The previous version stays pinned to the Lance version from before the
-        append. `open_lance()` checks out that version.
-
-        The directory is shared across these artifact versions, as with a
-        `.tiledbsoma` store. `from_dataframe()` still writes a new directory.
-        Writes stay on Lance's default branch. Coupling LaminDB branches to
-        Lance branches is not supported and not needed for isolation: a version
-        saved on another LaminDB branch is not visible on main.
-
-        Args:
-            data: Rows to append. Any object accepted by `LanceTable.add`.
-            run: The run that creates the new artifact version.
-
-        Examples:
-
-            Append rows and keep the previous Lance version readable::
-
-                revised = artifact.append_lance(new_rows)
-                artifact.open_lance().count_rows()
-                revised.open_lance().count_rows()
-        """
-        if self.suffix != ".lance":
-            raise ValueError("append_lance() expects a .lance artifact.")
-        if self._state.adding:
-            raise ValueError("Save the artifact before calling append_lance().")
-        if not self.is_latest:
-            raise ValueError("Append to the latest version of the artifact.")
-
-        from ..core.storage._lance import (
-            lance_version,
-            open_lance_table,
-            set_lance_version,
-        )
-        from ._lineage import get_run
-
-        # Capture the path before flipping overwrite_versions. A version with
-        # the flag unset is stored under its full uid; the shared directory
-        # uses the 16-character stem. `.lance` defaults to the stem.
-        store_path = self.path
-        table = open_lance_table(store_path)
-        if lance_version(self) is None:
-            set_lance_version(self, int(table.version))
-        table.add(data, mode="append")
-        n_observations = table.count_rows()
-        new_lance_version = int(table.version)
-        del table
-
-        stem_path = store_path.with_name(f"{self.stem_uid}{self.suffix}")
-        if store_path != stem_path:
-            store_path.rename(stem_path)
-        if not self._overwrite_versions:
-            self._overwrite_versions = True
-        self.save()
-
-        revised = Artifact(  # type: ignore
-            stem_path,
-            key=self.key,
-            description=self.description,
-            kind=self.kind,
-            run=get_run(run),
-            revises=self,
-            otype=self.otype,
-            overwrite_versions=True,
-            _is_internal_call=True,
-        )
-        revised.n_observations = n_observations
-        set_lance_version(revised, new_lance_version)
-        return revised.save()
-
     def open(
         self,
         mode: str = "r",
@@ -3561,7 +3480,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
         if self.suffix == ".lance":
-            raise ValueError("Use open_lance() to open a .lance artifact.")
+            raise ValueError("Use artifact.lance.open() to open a .lance artifact.")
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_gz_suffixes = []
@@ -3702,7 +3621,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
         if self.suffix == ".lance" and self.otype != "DataFrame":
-            raise ValueError("Use open_lance() to open a .lance artifact.")
+            raise ValueError("Use artifact.lance.open() to open a .lance artifact.")
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
