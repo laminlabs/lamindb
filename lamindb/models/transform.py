@@ -446,12 +446,12 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         notebook_runner: str | None = None,
     ) -> tuple[Transform, str]:
         from ..core._finish import notebook_to_script
-        from ..core._secret_redaction import redact_secrets_in_source_code
+        from ..core._secret_redaction import redact_secret_assignments
 
         source_code_to_store = source_code
         normalized_path = cls._normalize_local_path(path) if path is not None else None
         if source_code is not None:
-            source_code_to_store, redaction_count = redact_secrets_in_source_code(
+            source_code_to_store, redaction_count = redact_secret_assignments(
                 source_code
             )
             if redaction_count > 0:
@@ -958,13 +958,11 @@ class Transform(SQLRecord, IsVersioned, TracksRun):
         )
 
     def _update_source_code_from_path(self, source_code_path: Path) -> None | str:
-        from ..core._secret_redaction import redact_secrets_in_source_code
+        from ..core._secret_redaction import redact_secret_assignments
 
         _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         source_code = source_code_path.read_text()
-        source_code_to_store, redaction_count = redact_secrets_in_source_code(
-            source_code
-        )
+        source_code_to_store, redaction_count = redact_secret_assignments(source_code)
         if redaction_count > 0:
             logger.warning(
                 f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
