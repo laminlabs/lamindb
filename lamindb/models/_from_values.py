@@ -381,7 +381,7 @@ def _format_values(
 
 def _bulk_create_dicts_from_df(
     keys: set | list, column_name: str, df: DataFrame
-) -> tuple[dict, str]:
+) -> tuple[list[dict], str]:
     """Get fields from a DataFrame for many rows."""
     multi_msg = ""
     if df.index.name != column_name:
@@ -397,7 +397,15 @@ def _bulk_create_dicts_from_df(
                 f" {print_values}"
             )
 
-    return df.reset_index().to_dict(orient="records"), multi_msg
+    from bionty._source import _none_if_missing
+
+    # Pandas 3 string columns surface missing values as float("nan") here.
+    # Django text fields would otherwise persist that as the literal "nan".
+    records = [
+        {key: _none_if_missing(value) for key, value in record.items()}
+        for record in df.reset_index().to_dict(orient="records")
+    ]
+    return records, multi_msg
 
 
 def get_organism_record_from_field(  # type: ignore
