@@ -56,6 +56,7 @@ from ..core._compat import (
     with_package_obj,
 )
 from ..core._settings import settings
+from ..core.storage._lance import LanceAccessor
 from ..errors import (
     FieldValidationError,
     IntegrityError,
@@ -72,7 +73,6 @@ from ._is_versioned import (
     IsVersioned,
     create_uid,
 )
-from ._lance_accessor import LanceAccessor
 from ._lineage import (
     get_run,
     populate_recreating_run,
