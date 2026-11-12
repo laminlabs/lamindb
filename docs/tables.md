@@ -87,7 +87,7 @@ with collection.open(engine="polars") as lazy_df:
     display(lazy_df.collect().to_pandas())
 ```
 
-LaminDB artifacts are plain files on S3, so any engine that reads the format works. DuckDB and Iceberg read Parquet. A `.lance` artifact opens as a LanceDB table. You pick the engine based on your query pattern.
+LaminDB artifacts are plain files on S3, so any engine that reads the format works. DuckDB and Iceberg read Parquet. A `.lance` artifact opens with `open_lance()` as a LanceDB table. You pick the engine based on your query pattern.
 
 ::::::{tab-set}
 :::::{tab-item} PyArrow
@@ -155,7 +155,7 @@ result = table.scan(row_filter=NotNull("cell_type")).to_arrow().to_pandas()
 :::::
 
 :::::{tab-item} LanceDB
-A `.lance` artifact is one LanceDB table. `open()` returns that table, and filters run in Lance.
+A `.lance` artifact is one LanceDB table. `open_lance()` returns that table, and filters run in Lance.
 
 ```{code-block} python
 import pandas as pd
@@ -167,7 +167,7 @@ df = pd.DataFrame(
     }
 )
 artifact = ln.Artifact.from_dataframe(df, key="example_datasets/small.lance").save()
-table = artifact.open()
+table = artifact.open_lance()
 
 result = table.search().where("cell_type IS NOT NULL", prefilter=True).limit(5).to_pandas()
 ```

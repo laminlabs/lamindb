@@ -120,12 +120,6 @@ def backed_access(
             from ._spatialdata_accessor import SpatialDataAccessor
 
             return SpatialDataAccessor(storage, name, artifact)
-    elif suffix == ".lance":
-        if mode != "r":
-            raise ValueError("`mode` should be 'r' for a LanceDB table.")
-        from ._lance import open_lance_table
-
-        return open_lance_table(objectpath, **kwargs)
     elif len(df_suffixes := _flat_suffixes(objectpath)) == 1 and (
         df_suffix := df_suffixes.pop()
     ) in set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES):

@@ -7,6 +7,34 @@ if TYPE_CHECKING:
     from upath import UPath
 
 
+# Lance version pinned on the artifact that wrote it. Stored in `Artifact._aux` as "lv".
+LANCE_VERSION_AUX_KEY = "lv"
+
+
+def lance_version(artifact: Any) -> int | None:
+    """Return the Lance version pinned on an artifact, if one was recorded."""
+    aux = getattr(artifact, "_aux", None) or {}
+    value = aux.get(LANCE_VERSION_AUX_KEY)
+    if value is None:
+        return None
+    return int(value)
+
+
+def set_lance_version(artifact: Any, version: int) -> None:
+    """Pin a Lance version on an artifact."""
+    aux = dict(getattr(artifact, "_aux", None) or {})
+    aux[LANCE_VERSION_AUX_KEY] = int(version)
+    artifact._aux = aux
+
+
+def record_current_lance_version(artifact: Any) -> None:
+    """Pin whatever Lance version the artifact's directory is currently at."""
+    if lance_version(artifact) is not None:
+        return
+    path = getattr(artifact, "_local_filepath", None) or artifact.path
+    set_lance_version(artifact, int(open_lance_table(path).version))
+
+
 def open_lance_table(path: UPath, **kwargs: Any) -> LanceTable:
     """Open one `.lance` directory as a LanceDB table.
 

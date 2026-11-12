@@ -2002,6 +2002,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
+        # `_aux` abbreviations:
+        # "so": storage_ongoing
+        # "lv": lance version pinned for this artifact version
         # check whether we are called with db args
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
@@ -2590,7 +2593,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Store the same dataframe as one LanceDB table::
 
                 artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.lance").save()
-                artifact.open()
+                artifact.open_lance()
 
             With validation and annotation::
 
@@ -2724,6 +2727,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 curator.validate()
             artifact.schema = schema
             artifact._curator = curator
+        if artifact.suffix == ".lance" and artifact._state.adding:
+            from ..core.storage._lance import record_current_lance_version
+
+            record_current_lance_version(artifact)
         return artifact
 
     @classmethod
@@ -3295,6 +3302,103 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # replace() supports changing the suffix
         self._original_values["suffix"] = self.suffix
 
+    def open_lance(self, *, version: int | None = None) -> LanceTable:
+        """Open this artifact as one LanceDB table.
+
+        Returns a :class:`lancedb.table.LanceTable`. When this artifact version
+        has a pinned Lance version and that version is not the directory's
+        latest, the table is checked out at the pin. Pass ``version`` to check
+        out a specific Lance version instead.
+
+        Args:
+            version: Lance version to check out. Defaults to the version pinned
+                when this artifact version was written.
+        """
+        if self.suffix != ".lance":
+            raise ValueError("open_lance() expects a .lance artifact.")
+        from ..core.storage._lance import lance_version, open_lance_table
+
+        path = getattr(self, "_local_filepath", None)
+        if path is None or not path.exists():
+            path = self.path
+        table = open_lance_table(path)
+        pinned = lance_version(self)
+        if version is not None:
+            table.checkout(version)
+        elif pinned is not None and pinned != int(table.version):
+            table.checkout(pinned)
+        return table
+
+    def append_lance(self, data: Any, *, run: Run | None = None) -> Artifact:
+        """Append rows to this `.lance` artifact and save a new version.
+
+        Calls ``LanceTable.add(data, mode="append")`` on this artifact's
+        directory, then registers a new artifact version of that same directory.
+        The previous version stays pinned to the Lance version from before the
+        append. ``open_lance()`` checks out that version.
+
+        The directory is shared across these artifact versions, as with a
+        ``.tiledbsoma`` store. ``from_dataframe()`` still writes a new directory.
+
+        Args:
+            data: Rows to append. Any object accepted by ``LanceTable.add``.
+            run: The run that creates the new artifact version.
+
+        Examples:
+
+            Append rows and keep the previous Lance version readable::
+
+                revised = artifact.append_lance(new_rows)
+                artifact.open_lance().count_rows()
+                revised.open_lance().count_rows()
+        """
+        if self.suffix != ".lance":
+            raise ValueError("append_lance() expects a .lance artifact.")
+        if self._state.adding:
+            raise ValueError("Save the artifact before calling append_lance().")
+        if not self.is_latest:
+            raise ValueError("Append to the latest version of the artifact.")
+
+        from ..core.storage._lance import (
+            lance_version,
+            open_lance_table,
+            set_lance_version,
+        )
+        from ._lineage import get_run
+
+        # Capture the path before overwrite_versions changes it. A first version
+        # is stored under its full uid; versions that share the directory use the
+        # 16-character stem.
+        store_path = self.path
+        table = open_lance_table(store_path)
+        if lance_version(self) is None:
+            set_lance_version(self, int(table.version))
+        table.add(data, mode="append")
+        n_observations = table.count_rows()
+        new_lance_version = int(table.version)
+        del table
+
+        stem_path = store_path.with_name(f"{self.stem_uid}{self.suffix}")
+        if store_path != stem_path:
+            store_path.rename(stem_path)
+        if not self._overwrite_versions:
+            self._overwrite_versions = True
+        self.save()
+
+        revised = Artifact(  # type: ignore
+            stem_path,
+            key=self.key,
+            description=self.description,
+            kind=self.kind,
+            run=get_run(run),
+            revises=self,
+            overwrite_versions=True,
+            _is_internal_call=True,
+        )
+        revised.n_observations = n_observations
+        set_lance_version(revised, new_lance_version)
+        return revised.save()
+
     def open(
         self,
         mode: str = "r",
@@ -3313,13 +3417,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         | SOMACollection
         | SOMAExperiment
         | SOMAMeasurement
-        | LanceTable
     ):
         """Open a dataset for streaming.
 
         Works for the following object types (storage formats):
 
-        - `DataFrame` (`.parquet`, `.csv`, `.ipc` files or directories with such files, and a `.lance` table)
+        - `DataFrame` (`.parquet`, `.csv`, `.ipc` files or directories with such files)
         - `AnnData` (`.h5ad`, `.zarr`)
         - `SpatialData` (`.zarr`)
         - `tiledbsoma` (`.tiledbsoma`)
@@ -3333,7 +3436,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 from `pyarrow` or `polars` compatible formats.
                 This has no effect if the artifact is not a dataframe, i.e.
                 if it is an `AnnData,` `hdf5`, `zarr`, `tiledbsoma` object etc.
-                A `.lance` artifact opens as a LanceDB table.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
@@ -3341,7 +3443,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Returns:
             Streaming accessors, in particular,
             a :class:`pyarrow:pyarrow.dataset.Dataset` object,
-            a :class:`lancedb:lancedb.table.LanceTable` for a `.lance` artifact,
             a context manager yielding a `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
             and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
@@ -3366,12 +3467,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 with artifact.open(engine="polars") as df:
                     # use the `polars.LazyFrame` object similar to a `DataFrame` object
 
-            Open a `.lance` artifact as a LanceDB table::
-
-                artifact = ln.Artifact.get(key="sequences/mydataset.lance")
-                table = artifact.open()
-                table.search().where("cell_type IS NOT NULL").limit(5).to_pandas()
-
             Open an `AnnData`-like artifact via :class:`~lamindb.core.storage.AnnDataAccessor`::
 
                 import lamindb as ln
@@ -3389,6 +3484,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
+        if self.suffix == ".lance":
+            raise ValueError("Use open_lance() to open a .lance artifact.")
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_gz_suffixes = []
@@ -3402,7 +3499,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 ".zarr",
                 ".anndata.zarr",
                 ".tiledbsoma",
-                ".lance",
             )
             + tuple(h5_gz_suffixes)
             + df_suffixes
