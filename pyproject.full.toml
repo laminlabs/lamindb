@@ -25,6 +25,9 @@ Home = "https://github.com/laminlabs/lamindb"
 polars = [
     "lamindb-core[polars]",
 ]
+lance = [
+    "lamindb-core[lance]",
+]
 gcp = [
     "lamindb-core[gcp]",
 ]

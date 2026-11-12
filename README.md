@@ -2,7 +2,7 @@
 
 # LaminDB: Data management for traceable, multimodal AI
 
-LaminDB is an open-source data management tool that makes it easy to catalog, query, trace, and govern FAIR datasets across diverse storage formats and locations.
+LaminDB is an open-source data management tool that makes it easy to query, trace, and govern datasets across diverse storage formats and locations.
 Like git, LaminDB runs anywhere and captures relevant context about your work.
 This includes the data flow through models and analyses, the entities and notes defining your work, and the features & schemas of datasets.
 It takes about a minute to install LaminDB and create a database on your laptop or in the cloud.
@@ -25,8 +25,8 @@ Existing data lakehouses aren't a comprehensive solution. They only address the 
 How?
 
 - **lineage** → trace results across agent sessions, notebooks, scripts & workflows
-- **catalog** → validate, annotate & query files & folders, `DataFrame`, `AnnData`, `SpatialData`, …
-- **lakehouse** → schema management, time travel & [ACID guarantees](https://docs.lamin.ai/acid) for datasets in any format (`parquet`, `zarr`, ...); load/query with your favorite engine (Polars, DuckDB, `annbatch`, ...)
+- **catalog** → annotate, validate & query files & folders, `DataFrame`, `AnnData`, `SpatialData`, …
+- **lakehouse** → schema management, time travel & [ACID guarantees](https://docs.lamin.ai/acid) for datasets in any format (`parquet`, `lance`, `zarr`, ...); load/query with your favorite engine (Polars, DuckDB, `annbatch`, ...)
 - **LIMS & ELN** → unified schema-based records management with support for ontologies & notes
 - **governance** → [manage changes](https://docs.lamin.ai/manage-changes) via branching & versioning
 
