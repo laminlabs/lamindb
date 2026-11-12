@@ -734,6 +734,73 @@ def test_clean_r_notebook_html():
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
 
 
+@pytest.mark.parametrize("inject_responsive_table_css", [False, True])
+def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
+    import nbformat
+    from lamindb.core._finish import notebook_to_report
+
+    notebook = nbformat.v4.new_notebook(
+        cells=[
+            nbformat.v4.new_markdown_cell("Ordinary report text"),
+            nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
+            nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
+            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
+            nbformat.v4.new_code_cell('print("ordinary_value")'),
+        ]
+    )
+    path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
+    nbformat.write(notebook, path)
+    original = path.read_bytes()
+
+    notebook_to_report(path, report, inject_responsive_table_css)
+
+    html = report.read_text()
+    assert "REPORT_SECRET_" not in html
+    assert html.count("***REDACTED***") == 3
+    assert "Ordinary report text" in html
+    assert "ordinary_value" in html
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("has_secret", [False, True])
+@pytest.mark.parametrize("existing_report", [False, True])
+def test_r_report_skips_secrets(
+    tmp_path, monkeypatch, ccaplog, has_secret, existing_report
+):
+    from lamindb.core._finish import save_context_core
+
+    path = tmp_path / ("report.qmd" if existing_report else "report.Rmd")
+    source = 'api_key = "REPORT_SECRET_123"' if has_secret else "value = 42"
+    path.write_text(f"```{{r}}\n{source}\n```\n")
+    report = path.with_suffix(".html")
+    report.write_text(f"<html><body><pre>{source}</pre></body></html>")
+    original = report.read_bytes()
+    run = MagicMock(
+        uid="report-redaction-test", report_id=1 if existing_report else None
+    )
+    run.report.hash = "old-report-hash"
+    transform = MagicMock(id=1)
+    transform._update_source_code_from_path.return_value = None
+    monkeypatch.setattr(
+        type(ln_setup.settings), "cache_dir", property(lambda _: tmp_path)
+    )
+    monkeypatch.setattr(ln.settings, "verbosity", ln.settings.verbosity)
+    monkeypatch.setattr(
+        ln.settings.creation, "artifact_silence_missing_run_warning", True
+    )
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+
+    with patch.object(ln, "Artifact") as artifact:
+        save_context_core(run=run, transform=transform, filepath=path, from_cli=True)
+        assert artifact.called is (not has_secret and not existing_report)
+    assert run.report.replace.called is (not has_secret and existing_report)
+    assert run.report.save.called is (not has_secret)
+    assert ("skipping HTML report upload" in ccaplog.text) is has_secret
+    transform._update_source_code_from_path.assert_called_once_with(path)
+    run.save.assert_called_once()
+    assert report.read_bytes() == original
+
+
 def test_notebook_to_script_notebooknode_metadata(tmp_path):
     """Test that notebook_to_script handles NotebookNode metadata.
 

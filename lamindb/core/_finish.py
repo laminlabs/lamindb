@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import builtins
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import sleep
 from typing import TYPE_CHECKING
 
@@ -12,6 +12,8 @@ from lamindb_setup.core._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_CO
 from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform
+
+from ._secret_redaction import redact_secrets_in_source_code
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -171,6 +173,9 @@ def notebook_to_report(
 
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
+    for cell in notebook.cells:
+        if cell.cell_type == "code":
+            cell.source, _ = redact_secrets_in_source_code(cell.source)
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
     # if we were to export as ipynb, the following two lines would do it
@@ -358,6 +363,14 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
+        if report_path is not None and save_source_code_and_report:
+            _, redaction_count = redact_secrets_in_source_code(filepath.read_text())
+            if redaction_count:
+                logger.warning(
+                    f"skipping HTML report upload for {filepath.name}: source contains "
+                    "secret-looking assignments and the pre-rendered report cannot be safely redacted"
+                )
+                report_path = None
     elif notebook_runner == "marimo":
         ipynb_path = (
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
@@ -484,7 +497,7 @@ def save_context_core(
         else:
             update_finished_at = run.finished_at is None
         if update_finished_at:
-            run.finished_at = datetime.now(timezone.utc)
+            run.finished_at = datetime.now(UTC)
 
     # track report and set is_consecutive
     if save_source_code_and_report and not skip_save_report:
