@@ -118,7 +118,15 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
 
 
 @pytest.mark.parametrize(
-    "literal", [r'"escaped\"SECRETVALUE"', "f\"SECRETVALUE{f'nested{1 / 0}'}\""]
+    "literal",
+    [
+        r'"escaped\"SECRETVALUE"',
+        "f\"SECRETVALUE{f'nested{1 / 0}'}\"",
+        '"CANARY_" "TAIL"',
+        "\"CANARY_\" 'TAIL'",
+        '"CANARY_" \\\n"TAIL"',
+        '"CANARY_" f"TAIL{1 / 0}"',
+    ],
 )
 def test_redact_secrets_escaped_and_nested_quotes(literal):
     prefix = "f" if literal.startswith("f") else ""
@@ -126,6 +134,32 @@ def test_redact_secrets_escaped_and_nested_quotes(literal):
         f'api_key = {prefix}"***REDACTED***"',
         1,
     )
+
+
+@pytest.mark.parametrize(
+    "source, expected, secret",
+    [
+        (
+            '{"token": "CANARY_" # comment\n "TAIL"}',
+            '{"token": "***REDACTED***"}',
+            "CANARY_TAIL",
+        ),
+        (
+            'api_key = "CANARY"\n"ordinary"',
+            'api_key = "***REDACTED***"\n"ordinary"',
+            "CANARY",
+        ),
+        (
+            'api_key = "CANARY"; "ordinary"',
+            'api_key = "***REDACTED***"; "ordinary"',
+            "CANARY",
+        ),
+    ],
+)
+def test_redact_concatenated_literal_boundaries(source, expected, secret):
+    secrets = set()
+    assert redact_secret_assignments(source, _secrets=secrets) == (expected, 1)
+    assert secrets == {secret}
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 requires Python 3.12")
@@ -145,7 +179,10 @@ def test_redact_secrets_incomplete_examples(example):
     )
 
 
-@pytest.mark.parametrize("literal", ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"'])
+@pytest.mark.parametrize(
+    "literal",
+    ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"', 't"CANARY_" t"TAIL{1 / 0}"'],
+)
 def test_redact_secrets_template_interpolation(literal):
     prefix = literal.split('"')[0]
     assert redact_secret_assignments(f"api_key = {literal}") == (
@@ -754,16 +791,18 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
                 'Use "api_key = "REPORT_SECRET_RAW"" in the config.',
                 metadata={"raw_mimetype": "text/html"},
             ),
-            nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
+            nbformat.v4.new_code_cell('api_key = "REPORT_" "SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
-            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789{{escaped}}"'),
+            nbformat.v4.new_code_cell(
+                'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
+            ),
             nbformat.v4.new_code_cell(
                 'print("ordinary_value")',
                 outputs=[
                     nbformat.v4.new_output(
                         "stream",
                         name="stdout",
-                        text="REPORT_SECRET_123 REPORT_SECRET_789{escaped} ordinary_value",
+                        text="REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
                     )
                 ],
             ),
@@ -779,6 +818,7 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
+    assert "SECRET_123" not in html and "SUFFIX" not in html
     assert html.count("REDACTED") == 8  # Markdown may render the asterisks as emphasis.
     assert "Ordinary report text" in html
     assert "ordinary_value" in html

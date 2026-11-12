@@ -503,6 +503,9 @@ def store_artifacts(artifacts: Iterable[Artifact], using: str | None = None) -> 
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
             break
+        if hasattr(artifact, "_redaction_stage"):
+            artifact._redaction_stage.cleanup()
+            del artifact._redaction_stage
 
     if exception is not None:
         # clean up metadata for artifacts not uploaded to storage

@@ -220,7 +220,10 @@ def test_stored_run_secrets(bulk, secret):
             replacement = tmp_path / "replacement.txt"
             replacement.write_text(f"new log {secret}")
             run.report.replace(replacement)
-            run.report.save()
+            stage = Path(run.report._redaction_stage.name)
+            ln.save([run.report]) if bulk else run.report.save()
+            assert not stage.exists()
+            assert not hasattr(run.report, "_redaction_stage")
             assert hash_file(run.report.path)[1] == run.report.hash
             # Scan all persisted columns and every new run attachment, not a field allowlist.
             for record in (run, transform):

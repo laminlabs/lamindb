@@ -65,23 +65,40 @@ def is_sensitive_param_value(value: object) -> bool:
     return bool(_POSTGRES_CREDENTIALS_URL_PATTERN.match(value.strip()))
 
 
-def _source_literals(source: str):
+def _source_literals(source: str, *, join: bool = False):
     """Yield complete literal/comment spans without evaluating Python source."""
     offsets = [0]
     for line in source.split("\n"):
         offsets.append(offsets[-1] + len(line) + 1)
-    stack = []
-    previous = None
+    stack: list[tokenize.TokenInfo] = []
+    previous: tokenize.TokenInfo | None = None
+    pending: tuple[int, int, str, str] | None = None
     try:
         for item in tokenize.generate_tokens(io.StringIO(source).readline):
             prefix, previous = previous, item
             kind = tokenize.tok_name[item.type]
+            if (
+                pending is not None
+                and not stack
+                and item.type not in (tokenize.STRING, tokenize.COMMENT, tokenize.NL)
+                and kind not in ("FSTRING_START", "TSTRING_START")
+                and not (
+                    item.type == tokenize.NAME
+                    and item.string.lower() in ("t", "tr", "rt")
+                )
+            ):
+                yield pending
+                pending = None
             if kind in ("FSTRING_START", "TSTRING_START"):
                 stack.append(item)
                 continue
             first = item
             if kind in ("FSTRING_END", "TSTRING_END"):
                 first = stack.pop()
+                if join and stack:
+                    continue
+            elif join and stack:
+                continue
             elif item.type not in (tokenize.STRING, tokenize.COMMENT):
                 continue
             if (
@@ -103,21 +120,36 @@ def _source_literals(source: str):
                 first = item._replace(
                     start=prefix.start, string=prefix.string + item.string
                 )
+            elif (
+                pending is not None
+                and prefix is not None
+                and prefix.type == tokenize.NAME
+            ):
+                yield pending
+                pending = None
             opening = _LITERAL_OPENING_PATTERN.match(first.string)
             if kind == "STRING" and opening and "f" in opening.group(0).lower():
                 try:
                     ast.parse(first.string, mode="eval")
                 except SyntaxError:
                     continue
-            yield (
+            span = (
                 offsets[first.start[0] - 1] + first.start[1],
                 offsets[item.end[0] - 1] + item.end[1],
                 opening.group(0) if opening else "",
                 opening.group("quote") if opening else "",
             )
+            if join and opening:
+                # Only tokens on the same logical line can concatenate. NL and
+                # comments inside brackets are allowed; NEWLINE ends a statement.
+                pending = (pending[0], span[1], *pending[2:]) if pending else span
+            else:
+                yield span
     except (tokenize.TokenError, SyntaxError):
         # Incomplete examples, notebook magics, and non-Python source are allowed.
         pass
+    if pending is not None:
+        yield pending
 
 
 def _annotated_assignments(source: str):
@@ -170,7 +202,7 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
         + list(_annotated_assignments(source_code)),
         key=lambda match: match[0],
     )
-    literals = list(_source_literals(source_code))
+    literals = list(_source_literals(source_code, join=True))
     by_start = {start: (end, opening, quote) for start, end, opening, quote in literals}
     redacted: list[str] = []
     cursor, count = 0, 0
@@ -194,7 +226,12 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
                 literal = (start + backtick.end(), "`", "`") if backtick else None
             else:
                 parsed = next(
-                    (item for item in _source_literals(fragment) if item[0] == 0), None
+                    (
+                        item
+                        for item in _source_literals(fragment, join=True)
+                        if item[0] == 0
+                    ),
+                    None,
                 )
                 if parsed is not None:
                     literal = (start + parsed[1], parsed[2], parsed[3])
@@ -206,7 +243,9 @@ def redact_secret_assignments(source_code: str, _secrets=None) -> tuple[str, int
             continue
         if _secrets is not None:
             try:
-                expression = ast.parse(source_code[start:end], mode="eval").body
+                expression = ast.parse(
+                    "(" + source_code[start:end] + ")", mode="eval"
+                ).body
                 if isinstance(expression, ast.JoinedStr) and all(
                     isinstance(part, ast.Constant) and isinstance(part.value, str)
                     for part in expression.values
