@@ -425,7 +425,7 @@ def _redact_record(record) -> None:
     }.get(record._meta.label_lower, {})
     if (
         record._meta.label_lower == "lamindb.artifact"
-        and record.__dict__.get("kind") == "__lamindb_run__"
+        and "_redaction_stage" in record.__dict__
     ):
         path = getattr(record, "_local_filepath", None)
         if path is not None:
@@ -525,6 +525,28 @@ def _stage_run_artifact(path):
         stage.cleanup()
         raise
     return target, stage
+
+
+def _save_run_artifact(path, *, description: str, artifact=None):
+    """Save a sanitized run attachment; leave generic internal artifacts alone."""
+    from lamindb import Artifact
+
+    with _skip_unsafe_run_artifact():
+        if artifact is None:
+            artifact = Artifact(  # type: ignore[call-overload]
+                path,
+                description=description,
+                kind="__lamindb_run__",
+                run=False,
+                _redact_run=True,
+            )
+        else:
+            replacement = artifact.replace(path, run=False, _redact_run=True)
+            if replacement is not None:
+                artifact = replacement
+        artifact.save(upload=True, print_progress=False)
+        return artifact
+    return None
 
 
 def _check_run_artifact(path, size, hash) -> None:

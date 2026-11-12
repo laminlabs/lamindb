@@ -210,6 +210,7 @@ def test_stored_run_secrets(bulk, secret):
             duplicate = ln.Artifact(
                 duplicate_path,
                 kind="__lamindb_run__",
+                _redact_run=True,
                 description="same log",
                 run=False,
             )
@@ -237,7 +238,7 @@ def test_stored_run_secrets(bulk, secret):
             # Replacement uses the same protection and hashes the redacted bytes.
             replacement = tmp_path / "replacement.txt"
             replacement.write_text(f"new log {secret}")
-            run.report.replace(replacement)
+            run.report.replace(replacement, _redact_run=True)
             stage = Path(run.report._redaction_stage.name)
             ln.save([run.report]) if bulk else run.report.save()
             assert not stage.exists()
@@ -279,10 +280,17 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
     report = None
     try:
         with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
-            ln.Artifact(source, kind="__lamindb_run__", description="report", run=False)
+            ln.Artifact(
+                source,
+                kind="__lamindb_run__",
+                _redact_run=True,
+                description="report",
+                run=False,
+            )
         report = ln.Artifact(
             source,
             kind="__lamindb_run__",
+            _redact_run=True,
             description="report",
             storage=storage,
             run=False,
@@ -293,6 +301,7 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
         duplicate = ln.Artifact(
             source,
             kind="__lamindb_run__",
+            _redact_run=True,
             description="report",
             storage=storage,
             run=False,
@@ -312,7 +321,11 @@ def test_run_attachment_rejects_changed_snapshot(tmp_path, bulk):
     source = tmp_path / "log.txt"
     source.write_text("original log")
     artifact = ln.Artifact(
-        source, kind="__lamindb_run__", description="run log", run=False
+        source,
+        kind="__lamindb_run__",
+        _redact_run=True,
+        description="run log",
+        run=False,
     )
     artifact._local_filepath.write_text('api_key = "CANARY_CHANGED"')
     with pytest.raises(_UnsafeRunArtifact, match="changed after preparation"):
@@ -336,6 +349,7 @@ def test_run_attachment_replace_duplicate(tmp_path, match):
     report = ln.Artifact(
         source,
         kind="__lamindb_run__",
+        _redact_run=True,
         description="report",
         run=False,
         storage=other_storage,
@@ -360,10 +374,10 @@ def test_run_attachment_replace_duplicate(tmp_path, match):
             ln.Artifact.objects.filter(pk=duplicate.pk).update(_aux=duplicate._aux)
         if match in {"ordinary", "other_space"}:
             with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
-                report.replace(replacement, run=False)
+                report.replace(replacement, run=False, _redact_run=True)
             assert report.path.read_text() == "old report"
         else:
-            existing = report.replace(replacement, run=False)
+            existing = report.replace(replacement, run=False, _redact_run=True)
             if match == "other_storage":
                 assert existing is None
                 report.save()
@@ -391,6 +405,33 @@ def test_ordinary_artifact_still_skips_hash(tmp_path, monkeypatch):
     try:
         artifact.refresh_from_db()
         assert artifact.size is None and artifact.hash is None
+    finally:
+        artifact.delete(permanent=True, storage=True)
+
+
+@pytest.mark.parametrize("set_kind_after_init", [False, True])
+def test_internal_binary_artifact_is_not_a_run_attachment(
+    tmp_path, set_kind_after_init
+):
+    import pandas as pd
+
+    path = tmp_path / "ontology.parquet"
+    frame = pd.DataFrame({"name": ["T cell"], "ontology_id": ["CL:0000084"]})
+    frame.to_parquet(path)
+    original = path.read_bytes()
+    artifact = (
+        ln.Artifact.from_dataframe(path, description="ontology", run=False)
+        if set_kind_after_init
+        else ln.Artifact(
+            path, kind="__lamindb_run__", description="ontology", run=False
+        )
+    )
+    # Bionty marks reference data as internal after constructing the artifact.
+    artifact.kind = "__lamindb_run__"
+    artifact.save()
+    try:
+        assert artifact.path.read_bytes() == original
+        pd.testing.assert_frame_equal(pd.read_parquet(artifact.path), frame)
     finally:
         artifact.delete(permanent=True, storage=True)
 
@@ -425,6 +466,7 @@ def test_run_environment_reuse_scope(
                     seed,
                     storage=storage,
                     kind="__lamindb_run__",
+                    _redact_run=True,
                     description="environment",
                     run=False,
                 ).save()

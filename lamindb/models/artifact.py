@@ -2027,6 +2027,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Only one non-keyword arg allowed: path")
         path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
+        _redact_run = kwargs.pop("_redact_run", False)
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
@@ -2233,7 +2234,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
-        if kind == "__lamindb_run__":
+        if _redact_run:
             from ..core._secret_redaction import _stage_run_artifact
 
             path, self._redaction_stage = _stage_run_artifact(path)
@@ -2265,7 +2266,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if space is not None
                 else self._meta.get_field("space").get_default()
             )
-            if kind == "__lamindb_run__"
+            if _redact_run
             else None,
         )
 
@@ -3198,6 +3199,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         data: Union[AnyPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | bool | None = None,
         format: str | None = None,
+        *,
+        _redact_run: bool = False,
     ) -> Artifact | None:
         """Replace the artifact content in storage **without** making a new version.
 
@@ -3221,11 +3224,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             Note that you need to call `.save()` to persist the changes in storage.
         """
-        storage = (
-            self.storage if self.kind == "__lamindb_run__" else settings.storage.record
-        )
+        storage = self.storage if _redact_run else settings.storage.record
         run = get_run(run)
-        if self.kind == "__lamindb_run__":
+        if _redact_run:
             from ..core._secret_redaction import _stage_run_artifact
 
             data, redaction_stage = _stage_run_artifact(data)
@@ -3238,14 +3239,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             version_tag=None,
             is_replace=True,
-            _run_artifact_space_id=(
-                self.space_id if self.kind == "__lamindb_run__" else None
-            ),
+            _run_artifact_space_id=(self.space_id if _redact_run else None),
         )
 
         # this artifact already exists
         if isinstance(kwargs, Artifact):
-            if self.kind == "__lamindb_run__":
+            if _redact_run:
                 if "local_filepath" in privates:  # retry an incomplete upload
                     kwargs.__dict__.update(
                         _local_filepath=privates["local_filepath"],
@@ -3315,7 +3314,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self.n_files = kwargs["n_files"]
 
         self._local_filepath = privates["local_filepath"]
-        if self.kind == "__lamindb_run__":
+        if _redact_run:
             self._redaction_stage = redaction_stage
         self._cloud_filepath = privates["cloud_filepath"]
         self._memory_rep = privates["memory_rep"]

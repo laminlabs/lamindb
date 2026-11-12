@@ -9,16 +9,14 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamindb_setup import logger
 from lamindb_setup.core._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
-from lamindb_setup.core.hashing import hash_dir, hash_file
-
-from lamindb.models import Artifact, Run, Transform
+from lamindb_setup.core.hashing import hash_file
 
 from ._secret_redaction import (
     _read_run_text,
     _redact_html,
     _redact_notebook,
+    _save_run_artifact,
     _skip_unsafe_run_artifact,
-    _stage_run_artifact,
     redact,
 )
 
@@ -26,6 +24,8 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lamindb.models import Run, Transform
 
 
 def get_save_notebook_message() -> str:
@@ -105,14 +105,10 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
     if logs_path.exists():
         if run.report is not None:
             logger.important("overwriting run.report")
-        with _skip_unsafe_run_artifact():
-            artifact = Artifact(  # type: ignore
-                logs_path,
-                description=f"log streams of run {run.uid}",
-                kind="__lamindb_run__",
-                run=False,
-            )
-            artifact.save(upload=True, print_progress=False)
+        artifact = _save_run_artifact(
+            logs_path, description=f"log streams of run {run.uid}"
+        )
+        if artifact is not None:
             run.report = artifact
             if save_run:  # defaults to false because is slow
                 run.save()
@@ -440,53 +436,22 @@ def save_context_core(
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
 
-            with _skip_unsafe_run_artifact():
-                if overwrite_env:
-                    # Use directory if multiple files exist, otherwise use the single file
-                    artifact_path: Path = (
-                        base_path if len(existing_paths) > 1 else existing_paths[0]
-                    )
-
-                    artifact_path, env_stage = _stage_run_artifact(artifact_path)
-                    try:
-                        # Set description based on what we're saving
-                        if len(existing_paths) == 1:
-                            filename = existing_paths[0].name
-                            # use the filename as description, except pip freeze which is
-                            # stored as run_env_pip.txt but shown as requirements.txt
-                            description = (
-                                "requirements.txt"
-                                if filename == "run_env_pip.txt"
-                                else filename
-                            )
-                            size, _, _ = hash_file(artifact_path)
-                        else:
-                            description = "environments"
-                            size, _, _, _ = hash_dir(artifact_path)
-
-                        if size == 0:
-                            # Belt-and-suspenders: discovery already filters empty files, but
-                            # guard here too so an empty hash never reaches the DB query.
-                            # An empty hash (MD5 of b"") can collide with data artifacts that
-                            # were registered with a placeholder hash.
-                            logger.warning(
-                                "environment file is empty, skipping linking an environment"
-                            )
-                        else:
-                            # The constructor scopes reuse to the selected storage,
-                            # space and run-artifact kind after sanitization.
-                            artifact = ln.Artifact(
-                                artifact_path,
-                                description=description,
-                                kind="__lamindb_run__",
-                                run=False,
-                            )
-                            artifact.save(upload=True, print_progress=False)
-                            run.environment = artifact
-                            logger.debug(f"saved run.environment: {run.environment}")
-
-                    finally:
-                        env_stage.cleanup()
+            if overwrite_env:
+                artifact_path = (
+                    base_path if len(existing_paths) > 1 else existing_paths[0]
+                )
+                filename = existing_paths[0].name
+                description = (
+                    "environments"
+                    if len(existing_paths) > 1
+                    else "requirements.txt"
+                    if filename == "run_env_pip.txt"
+                    else filename
+                )
+                artifact = _save_run_artifact(artifact_path, description=description)
+                if artifact is not None:
+                    run.environment = artifact
+                    logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at and run is not None:
@@ -515,23 +480,23 @@ def save_context_core(
                                 f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
                             )
                             if response == "y":
-                                replacement = run.report.replace(report_path)
-                                if replacement is not None:
-                                    run.report = replacement
-                                run.report.save(upload=True, print_progress=False)
+                                report_file = _save_run_artifact(
+                                    report_path,
+                                    description=f"Report of run {run.uid}",
+                                    artifact=run.report,
+                                )
+                                if report_file is not None:
+                                    run.report = report_file
                             else:
                                 logger.important("keeping old report")
                         else:
                             logger.important("report is already saved")
                     else:
-                        report_file = ln.Artifact(  # type: ignore
-                            report_path,
-                            description=f"Report of run {run.uid}",
-                            kind="__lamindb_run__",  # hidden file
-                            run=False,
+                        report_file = _save_run_artifact(
+                            report_path, description=f"Report of run {run.uid}"
                         )
-                        report_file.save(upload=True, print_progress=False)
-                        run.report = report_file
+                        if report_file is not None:
+                            run.report = report_file
                     if is_r_notebook:
                         # this is the "cleaned" report
                         report_path.unlink()

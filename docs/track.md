@@ -447,7 +447,9 @@ run.cli_args
 ```
 
 LaminDB redacts sensitive parameter keys (including nested values), CLI credentials,
-and recognizable secret formats from stored run metadata and text attachments.
+and recognizable secret formats from stored run metadata and attachments saved by
+its report, log and environment upload helpers. The artifact kind alone does not
+enable redaction: it is also used for binary reference data.
 Original source and environment files are unchanged. Reports that still contain
 recognized secrets after rendering are skipped with a warning.
 
