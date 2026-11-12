@@ -8,11 +8,22 @@ from lamindb.core._context import (
     _validate_with_virtual_schema,
     serialize_params_to_json,
 )
-from lamindb.core._secret_redaction import REDACTED_SECRET_VALUE
+from lamindb.core._secret_redaction import REDACTED_SECRET_VALUE, redact
 from lamindb_setup.core.upath import UPath
 
 
-def test_serialize_params_to_json(ccaplog):
+@pytest.mark.parametrize("reverse_keys", [False, True])
+def test_serialize_params_to_json(ccaplog, reverse_keys):
+    credentials = ["ghp_" + "A" * 36, "gho_" + "B" * 36]
+    labels = {
+        credentials[0]: "primary",
+        credentials[1]: "secondary",
+        REDACTED_SECRET_VALUE: "existing placeholder",
+        f"{REDACTED_SECRET_VALUE} (1)": "existing numbered placeholder",
+        "ordinary": "unchanged",
+    }
+    if reverse_keys:
+        labels = dict(reversed(list(labels.items())))
     a_path = Path("/some/local/folder")
     a_upath = UPath("s3://bucket/key")
     params = {
@@ -24,7 +35,7 @@ def test_serialize_params_to_json(ccaplog):
         "str_key": "plain",
         "api_key": "test-api-key-value",
         "openAIApiKey": "another-secret",
-        "nested": {"auth": [{"token": "nested-secret"}], "keep": 42},
+        "nested": {"auth": [{"token": "nested-secret"}], "keep": 42, "labels": labels},
         "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
         "opaque": object(),
     }
@@ -43,7 +54,16 @@ def test_serialize_params_to_json(ccaplog):
     assert result["str_key"] == "plain"
     assert result["api_key"] == REDACTED_SECRET_VALUE
     assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
-    assert result["nested"] == {"auth": [{"token": REDACTED_SECRET_VALUE}], "keep": 42}
+    assert result["nested"]["auth"] == [{"token": REDACTED_SECRET_VALUE}]
+    assert result["nested"]["keep"] == 42
+    cleaned_labels = result["nested"]["labels"]
+    assert len(cleaned_labels) == len(labels)
+    assert set(cleaned_labels.values()) == set(labels.values())
+    for key in ("ordinary", REDACTED_SECRET_VALUE, f"{REDACTED_SECRET_VALUE} (1)"):
+        assert cleaned_labels[key] == labels[key]
+    assert all(credential not in str(result) for credential in credentials)
+    assert all(credential in labels for credential in credentials)
+    assert redact(result) == result
     assert result["database_url"] == REDACTED_SECRET_VALUE
     assert set(result.keys()) == {
         "path_key",

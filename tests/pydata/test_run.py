@@ -183,7 +183,13 @@ def test_stored_run_secrets(bulk, secret):
                 ln.save([transform])
             else:
                 transform.save()
-            run = ln.Run(transform, params={"options": {"token": secret}, "safe": 42})
+            params = {
+                "options": {"token": secret},
+                "labels": {secret: "primary"},
+                secret: "top level",
+                "safe": 42,
+            }
+            run = ln.Run(transform, params=params)
             run.cli_args = f"script --token {secret} --count 3"
             if bulk:
                 ln.save([run])
@@ -191,13 +197,15 @@ def test_stored_run_secrets(bulk, secret):
                 run.save()
             run.refresh_from_db()
             transform.refresh_from_db()
-            run.params = {"options": {"token": secret}, "safe": 42}
+            run.params = params
             if bulk:
                 ln.save([run])
             else:
                 run.save(update_fields=["params"])
             run.refresh_from_db()
             assert run.params["safe"] == 42
+            assert run.params["labels"] == {"***REDACTED***": "primary"}
+            assert run.params["***REDACTED***"] == "top level"
             assert "--count 3" in run.cli_args
 
             logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"

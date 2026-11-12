@@ -340,13 +340,30 @@ def redact(value, kind: str = "text", *, _secrets=None):
     Recognizes sensitive keys and known credential formats, not arbitrary secrets
     in images, encoded payloads, or unnamed random strings.
     """
+
+    def formats(text):
+        text = _FORMAT_PATTERN.sub(REDACTED_SECRET_VALUE, text)
+        return _PASSWORD_URL_PATTERN.sub(
+            lambda m: m["prefix"] + REDACTED_SECRET_VALUE, text
+        )
+
     if isinstance(value, dict):
-        return {
-            key: REDACTED_SECRET_VALUE
-            if _is_sensitive_param_key(str(key)) or _is_sensitive_param_value(item)
-            else redact(item, kind)
-            for key, item in value.items()
-        }
+        cleaned_dict = {}
+        for key, item in value.items():
+            cleaned_key = formats(key) if isinstance(key, str) else key
+            if cleaned_key != key:
+                base = cleaned_key
+                suffix = 1
+                # Reserve original keys too, so later entries cannot be overwritten.
+                while cleaned_key in value or cleaned_key in cleaned_dict:
+                    cleaned_key = f"{base} ({suffix})"
+                    suffix += 1
+            cleaned_dict[cleaned_key] = (
+                REDACTED_SECRET_VALUE
+                if _is_sensitive_param_key(str(key)) or _is_sensitive_param_value(item)
+                else redact(item, kind)
+            )
+        return cleaned_dict
     if isinstance(value, (list, tuple)):
         result = []
         sensitive = False
@@ -385,12 +402,6 @@ def redact(value, kind: str = "text", *, _secrets=None):
     # Collect the original value before assignment redaction can replace it.
     value = _ENV_MAGIC_PATTERN.sub(env_magic, value)
     value = _redact_secret_assignments(value, _secrets)
-
-    def formats(text):
-        text = _FORMAT_PATTERN.sub(REDACTED_SECRET_VALUE, text)
-        return _PASSWORD_URL_PATTERN.sub(
-            lambda m: m["prefix"] + REDACTED_SECRET_VALUE, text
-        )
 
     if kind == "source":
         # Restrict format matching to literals/comments so token-like identifiers
