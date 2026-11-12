@@ -350,11 +350,7 @@ There is a public repository for LaminHub:
 
 [^lancedb-format]: LanceDB (2024). Lance Format v2.2 Benchmarks: Half the storage, none of the slowdown. [LanceDB Blog](https://lancedb.com/blog/lance-format-v2-2-benchmarks-half-the-storage-none-of-the-slowdown). The format specification and the `lancedb` package are both Apache 2.0.
 
-[^unitycatalog]: Unity Catalog contributors. Unity Catalog: open, multimodal catalog for data and AI. Apache 2.0, LF AI & Data. [Unity Catalog](https://github.com/unitycatalog/unitycatalog).
-
 [^icechunk]: Earthmover. Icechunk: open-source transactional storage engine for Zarr, Apache 2.0. [Icechunk](https://github.com/earth-mover/icechunk).
-
-[^arraylake]: Earthmover. ArrayLake: proprietary managed platform built on Icechunk. Icechunk, the storage engine underneath, is open source. [ArrayLake](https://icechunk.io/en/latest/arraylake/).
 
 [^tiledb]: TileDB (2020). Population Genomics Data with TileDB. [TileDB Blog](https://tiledb.com/blog/population-genomics-data-with-tiledb).
 
