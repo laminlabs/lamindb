@@ -159,8 +159,12 @@ def test_bulk_permanent_run_delete(tmp_path):
     )
 )
 def test_stored_run_secrets(bulk, secret):
+    from types import SimpleNamespace
+
     from django.db import transaction
     from lamindb.core._finish import save_context_core, save_run_logs
+    from lamindb.core._secret_redaction import redact
+    from lamindb.core._track_environment import _track_pip_freeze
     from lamindb_setup.core.hashing import hash_file
 
     with TemporaryDirectory() as directory, pytest.MonkeyPatch.context() as monkeypatch:
@@ -199,50 +203,50 @@ def test_stored_run_secrets(bulk, secret):
             logs = ln.setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
             logs.write_text(f"logged {secret}")
             save_run_logs(run, save_run=True)
-            assert secret not in run.report.path.read_text()
+            assert run.report is None  # Existing unsafe logs are skipped, not copied.
             assert secret in logs.read_text()
+            logs.write_text("ordinary log")
+            save_run_logs(run, save_run=True)
+            assert run.report.path.read_text() == "ordinary log"
             assert hash_file(run.report.path)[1] == run.report.hash
 
-            # Different inputs sanitize to the same content; reuse before INSERT,
+            # Already-safe files reuse content before INSERT,
             # including inside the transaction used by bulk saves.
             duplicate_path = tmp_path / "duplicate.txt"
-            duplicate_path.write_text("logged ghp_" + "D" * 36)
+            duplicate_path.write_text("ordinary log")
             duplicate = ln.Artifact(
                 duplicate_path,
                 kind="__lamindb_run__",
-                _redact_run=True,
+                _check_run=True,
                 description="same log",
                 run=False,
             )
             assert duplicate.pk == run.report_id
-            duplicate_stage = Path(duplicate._redaction_stage.name)
             with transaction.atomic():
                 ln.save([duplicate]) if bulk else duplicate.save()
-            assert not duplicate_stage.exists()
 
             script = tmp_path / "script.py"
             script.write_text('print("ordinary_value")')
             environment = (
                 ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
             )
-            environment.mkdir(parents=True)
-            for name in ("uv.lock", "pixi.lock", "run_env_pip.txt"):
-                (environment / name).write_text(
-                    f"pkg @ https://user:{secret}@example.org/pkg"
-                )
+            monkeypatch.setattr(
+                "lamindb.core._track_environment.subprocess.run",
+                lambda *a, **kw: SimpleNamespace(
+                    returncode=0, stdout=f"pkg @ https://user:{secret}@example.org/pkg"
+                ),
+            )
+            assert _track_pip_freeze(environment) is None
             save_context_core(
                 run=run, transform=transform, filepath=script, from_cli=True
             )
             run.refresh_from_db()
-            assert secret in (environment / "uv.lock").read_text()
-            # Replacement uses the same protection and hashes the redacted bytes.
+            assert secret not in (environment / "run_env_pip.txt").read_text()
+            # Generated replacements are redacted before writing and hashing.
             replacement = tmp_path / "replacement.txt"
-            replacement.write_text(f"new log {secret}")
-            run.report.replace(replacement, _redact_run=True)
-            stage = Path(run.report._redaction_stage.name)
+            replacement.write_text(redact(f"new log {secret}"))
+            run.report.replace(replacement, _check_run=True)
             ln.save([run.report]) if bulk else run.report.save()
-            assert not stage.exists()
-            assert not hasattr(run.report, "_redaction_stage")
             assert hash_file(run.report.path)[1] == run.report.hash
             # Scan all persisted columns and every new run attachment, not a field allowlist.
             for record in (run, transform):
@@ -283,14 +287,14 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
             ln.Artifact(
                 source,
                 kind="__lamindb_run__",
-                _redact_run=True,
+                _check_run=True,
                 description="report",
                 run=False,
             )
         report = ln.Artifact(
             source,
             kind="__lamindb_run__",
-            _redact_run=True,
+            _check_run=True,
             description="report",
             storage=storage,
             run=False,
@@ -301,7 +305,7 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
         duplicate = ln.Artifact(
             source,
             kind="__lamindb_run__",
-            _redact_run=True,
+            _check_run=True,
             description="report",
             storage=storage,
             run=False,
@@ -315,7 +319,7 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
 
 
 @pytest.mark.parametrize("bulk", [False, True])
-def test_run_attachment_rejects_changed_snapshot(tmp_path, bulk):
+def test_run_attachment_rejects_changed_file(tmp_path, bulk):
     from lamindb.core._secret_redaction import _UnsafeRunArtifact
 
     source = tmp_path / "log.txt"
@@ -323,16 +327,16 @@ def test_run_attachment_rejects_changed_snapshot(tmp_path, bulk):
     artifact = ln.Artifact(
         source,
         kind="__lamindb_run__",
-        _redact_run=True,
+        _check_run=True,
         description="run log",
         run=False,
     )
-    artifact._local_filepath.write_text('api_key = "CANARY_CHANGED"')
+    artifact._local_filepath.write_text("changed clean log")
     with pytest.raises(_UnsafeRunArtifact, match="changed after preparation"):
         ln.save([artifact]) if bulk else artifact.save()
     assert not ln.Artifact.filter(uid=artifact.uid).exists()
-    assert source.read_text() == "original log"
-    artifact._redaction_stage.cleanup()
+    assert artifact._local_filepath == source
+    assert source.read_text() == "changed clean log"
 
 
 @pytest.mark.parametrize(
@@ -344,12 +348,12 @@ def test_run_attachment_replace_duplicate(tmp_path, match):
     source = tmp_path / "old.txt"
     source.write_text("old report")
     replacement = tmp_path / "new.txt"
-    replacement.write_text('new report: api_key = "CANARY_FIRST"')
+    replacement.write_text('new report: api_key = "***REDACTED***"')
     other_storage = ln.Storage(root=(tmp_path / "other").as_posix()).save()
     report = ln.Artifact(
         source,
         kind="__lamindb_run__",
-        _redact_run=True,
+        _check_run=True,
         description="report",
         run=False,
         storage=other_storage,
@@ -374,10 +378,10 @@ def test_run_attachment_replace_duplicate(tmp_path, match):
             ln.Artifact.objects.filter(pk=duplicate.pk).update(_aux=duplicate._aux)
         if match in {"ordinary", "other_space"}:
             with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
-                report.replace(replacement, run=False, _redact_run=True)
+                report.replace(replacement, run=False, _check_run=True)
             assert report.path.read_text() == "old report"
         else:
-            existing = report.replace(replacement, run=False, _redact_run=True)
+            existing = report.replace(replacement, run=False, _check_run=True)
             if match == "other_storage":
                 assert existing is None
                 report.save()
@@ -388,7 +392,7 @@ def test_run_attachment_replace_duplicate(tmp_path, match):
                 updated = existing
             assert updated.storage_id == other_storage.id
             assert updated.path.read_text() == duplicate_path.read_text()
-        assert "CANARY_FIRST" in replacement.read_text()
+        assert replacement.read_text() == duplicate_path.read_text()
     finally:
         report.delete(permanent=True, storage=True)
         duplicate.delete(permanent=True, storage=True)
@@ -459,14 +463,14 @@ def test_run_environment_reuse_scope(
     artifacts = []
     try:
         seed = tmp_path / "seed.txt"
-        seed.write_text("pkg @ https://user:CANARY_FIRST@example.org/pkg")
+        seed.write_text("pkg @ https://user:***REDACTED***@example.org/pkg")
         for storage in [foreign, target] if existing_target else [foreign]:
             artifacts.append(
                 ln.Artifact(
                     seed,
                     storage=storage,
                     kind="__lamindb_run__",
-                    _redact_run=True,
+                    _check_run=True,
                     description="environment",
                     run=False,
                 ).save()
@@ -475,7 +479,7 @@ def test_run_environment_reuse_scope(
         environment = ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
         environment.mkdir(parents=True)
         source = environment / "run_env_pip.txt"
-        source.write_text("pkg @ https://user:CANARY_SECOND@example.org/pkg")
+        source.write_text("pkg @ https://user:***REDACTED***@example.org/pkg")
         script = tmp_path / "script.py"
         script.write_text('print("ordinary_value")')
         save_context_core(run=run, transform=transform, filepath=script, from_cli=True)
@@ -489,7 +493,7 @@ def test_run_environment_reuse_scope(
         assert artifact.space_id == target.space_id
         assert artifact.pk != artifacts[0].pk
         assert "CANARY" not in artifact.path.read_text()
-        assert "CANARY_SECOND" in source.read_text()
+        assert source.read_text() == artifact.path.read_text()
     finally:
         run.environment = None
         run.save()

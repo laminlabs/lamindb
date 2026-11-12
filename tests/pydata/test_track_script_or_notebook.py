@@ -797,7 +797,7 @@ def test_notebook_report_redacts_source(
         "<span>REPORT_SECRET_</span><span>\\nESCAPED</span>",
     ]
     printed = [
-        "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value",
+        "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value prose_word raw_word",
         repr(byte_secret),
     ]
     try:
@@ -806,7 +806,10 @@ def test_notebook_report_redacts_source(
         pass
     notebook = nbformat.v4.new_notebook(
         cells=[
-            nbformat.v4.new_markdown_cell("Ordinary report text"),
+            nbformat.v4.new_markdown_cell(
+                'Ordinary report text. Example: api_key = "prose_word"'
+            ),
+            nbformat.v4.new_raw_cell('Example: password = "raw_word"'),
             nbformat.v4.new_markdown_cell(
                 'Example: `api_key = "REPORT_SECRET_MARKDOWN"`\n'
                 'Use "api_key = "REPORT_SECRET_PROSE"" in the config.\n'
@@ -890,7 +893,7 @@ def test_notebook_report_redacts_source(
     assert "CANARY_MAGIC" not in html
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
-        8
+        10
         + len(printed)
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
@@ -898,6 +901,7 @@ def test_notebook_report_redacts_source(
     )
     assert "<b>Safe rich output</b>" in html
     assert "Ordinary report text" in html
+    assert "prose_word" in html and "raw_word" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
 
@@ -1341,12 +1345,15 @@ def test_redact_secret_formats(secret, source_context, safe_value):
     ],
 )
 def test_redact_stale_r_html(html, tmp_path):
-    from lamindb.core._secret_redaction import _stage_run_artifact, _UnsafeRunArtifact
+    from lamindb.core._secret_redaction import (
+        _UnsafeRunArtifact,
+        _validate_run_artifact,
+    )
 
     path = tmp_path / "stale.html"
     path.write_text(html)
     with pytest.raises(_UnsafeRunArtifact, match="rendered HTML"):
-        _stage_run_artifact(path)
+        _validate_run_artifact(path)
     assert path.read_text() == html
 
 
@@ -1370,18 +1377,33 @@ def test_redact_assignment_contexts(source):
     assert redact(result, "source") == result
 
 
-@pytest.mark.parametrize("name", ["uv.lock", "pixi.lock", "requirements.txt"])
-def test_run_text_attachment_preserves_original(tmp_path, name):
-    from lamindb.core._secret_redaction import _stage_run_artifact
+@pytest.mark.parametrize(
+    "name", ["uv.lock", "pixi.lock", "requirements.txt", "logs.txt"]
+)
+@pytest.mark.parametrize("folder", [False, True])
+def test_run_text_attachment_preserves_original(
+    tmp_path, name, folder, monkeypatch, ccaplog
+):
+    from lamindb.core._secret_redaction import (
+        _save_run_artifact,
+        _validate_run_artifact,
+    )
 
+    # Neither checking nor rejecting an existing file should create a staging copy.
+    def no_staging(*args, **kwargs):
+        pytest.fail("redaction must not create temporary copies")
+
+    monkeypatch.setattr("tempfile.TemporaryDirectory", no_staging)
     source = tmp_path / name
-    source.write_bytes(b"pkg @ https://user:CANARY@example.org/pkg\r\n")
-    staged, lifetime = _stage_run_artifact(source)
-    try:
-        assert "CANARY" not in staged.read_text()
-        assert "CANARY" in source.read_text()
-    finally:
-        lifetime.cleanup()
+    original = b"pkg @ https://user:CANARY@example.org/pkg\r\n"
+    source.write_bytes(original)
+    path = tmp_path if folder else source
+    assert _save_run_artifact(path, description="unsafe attachment") is None
+    assert "existing file contains a detected secret" in ccaplog.text
+    assert source.read_bytes() == original
+    source.write_bytes(b"ordinary content\r\n")
+    assert _validate_run_artifact(path) == path
+    assert source.read_bytes() == b"ordinary content\r\n"
 
 
 def test_redact_source_preserves_token_like_identifier():

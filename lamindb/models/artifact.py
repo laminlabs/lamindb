@@ -530,7 +530,7 @@ def get_stat_or_artifact(
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
     if _run_artifact_space_id is not None and not skip_hash_lookup:
-        # Sanitized run files must not reuse an unrelated artifact or change
+        # Checked run files must not reuse an unrelated artifact or change
         # storage/space. Resolve exact collisions before a transactional insert.
         artifacts_qs = artifacts_qs.filter(storage=storage, key=key)
         existing = artifacts_qs.filter(hash=hash).first()
@@ -2027,7 +2027,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Only one non-keyword arg allowed: path")
         path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
-        _redact_run = kwargs.pop("_redact_run", False)
+        _check_run = kwargs.pop("_check_run", False)
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
@@ -2234,13 +2234,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
-        if _redact_run:
-            from ..core._secret_redaction import _stage_run_artifact
+        if _check_run:
+            from ..core._secret_redaction import _validate_run_artifact
 
-            path, self._redaction_stage = _stage_run_artifact(path)
+            path = _validate_run_artifact(path)
+            self._check_run = True
             if skip_hash_lookup is None:
                 skip_hash_lookup = False
-            stats = None  # supplied statistics describe the unsanitized input
+            stats = None  # compute statistics from the file being checked
 
         provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
@@ -2266,7 +2267,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if space is not None
                 else self._meta.get_field("space").get_default()
             )
-            if _redact_run
+            if _check_run
             else None,
         )
 
@@ -3200,7 +3201,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | bool | None = None,
         format: str | None = None,
         *,
-        _redact_run: bool = False,
+        _check_run: bool = False,
     ) -> Artifact | None:
         """Replace the artifact content in storage **without** making a new version.
 
@@ -3224,12 +3225,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             Note that you need to call `.save()` to persist the changes in storage.
         """
-        storage = self.storage if _redact_run else settings.storage.record
+        storage = self.storage if _check_run else settings.storage.record
         run = get_run(run)
-        if _redact_run:
-            from ..core._secret_redaction import _stage_run_artifact
+        if _check_run:
+            from ..core._secret_redaction import _validate_run_artifact
 
-            data, redaction_stage = _stage_run_artifact(data)
+            data = _validate_run_artifact(data)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -3239,22 +3240,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             version_tag=None,
             is_replace=True,
-            _run_artifact_space_id=(self.space_id if _redact_run else None),
+            _run_artifact_space_id=(self.space_id if _check_run else None),
         )
 
         # this artifact already exists
         if isinstance(kwargs, Artifact):
-            if _redact_run:
+            if _check_run:
                 if "local_filepath" in privates:  # retry an incomplete upload
                     kwargs.__dict__.update(
                         _local_filepath=privates["local_filepath"],
                         _cloud_filepath=privates["cloud_filepath"],
                         _memory_rep=privates["memory_rep"],
                         _to_store=True,
-                        _redaction_stage=redaction_stage,
+                        _check_run=True,
                     )
-                else:
-                    redaction_stage.cleanup()
             return kwargs
 
         check_path_in_storage = privates["check_path_in_storage"]
@@ -3314,8 +3313,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self.n_files = kwargs["n_files"]
 
         self._local_filepath = privates["local_filepath"]
-        if _redact_run:
-            self._redaction_stage = redaction_stage
+        if _check_run:
+            self._check_run = True
         self._cloud_filepath = privates["cloud_filepath"]
         self._memory_rep = privates["memory_rep"]
         # no need to upload if new file is already in storage
@@ -3956,9 +3955,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._external_features
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
-        if hasattr(self, "_redaction_stage"):
-            self._redaction_stage.cleanup()
-            del self._redaction_stage
+        self.__dict__.pop("_check_run", None)
         return self
 
 

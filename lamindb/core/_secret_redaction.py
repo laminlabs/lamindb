@@ -423,9 +423,8 @@ def _redact_record(record) -> None:
         "lamindb.run": {"cli_args": "argv", "params": "text"},
         "lamindb.transform": {"source_code": "source"},
     }.get(record._meta.label_lower, {})
-    if (
-        record._meta.label_lower == "lamindb.artifact"
-        and "_redaction_stage" in record.__dict__
+    if record._meta.label_lower == "lamindb.artifact" and record.__dict__.get(
+        "_check_run", False
     ):
         path = getattr(record, "_local_filepath", None)
         if path is not None:
@@ -489,46 +488,38 @@ def _read_run_text(path):
         ) from exc
 
 
-def _stage_run_artifact(path):
-    """Return an owned, sanitized snapshot and its temporary-directory lifetime."""
+def _validate_run_artifact(path):
+    """Check local upload files without modifying them or making staging copies."""
     from pathlib import Path
-    from tempfile import TemporaryDirectory
 
     if not isinstance(path, (str, Path)) or "://" in str(path):
         raise _UnsafeRunArtifact(
             "run attachments must be local files to check before upload"
         )
     path = Path(path)
-    stage = TemporaryDirectory(prefix="lamin-redacted-")
-    target = Path(stage.name) / path.name
-    try:
-        if path.is_dir():
-            target.mkdir()
-        paths = list(path.rglob("*")) if path.is_dir() else [path]
-        for source in paths:
-            if source.is_symlink():
-                raise _UnsafeRunArtifact(
-                    "skipping run attachment: symbolic links cannot be checked safely"
-                )
-            if source.is_dir():
-                continue
-            destination = target / source.relative_to(path) if path.is_dir() else target
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            text = _read_run_text(source)
-            cleaned = (
-                _redact_html(text)
-                if source.suffix.lower() in {".html", ".htm"}
-                else redact(text)
+    if path.is_symlink():
+        raise _UnsafeRunArtifact(
+            "skipping run attachment: symbolic links cannot be checked safely"
+        )
+    for source in path.rglob("*") if path.is_dir() else [path]:
+        if source.is_symlink():
+            raise _UnsafeRunArtifact(
+                "skipping run attachment: symbolic links cannot be checked safely"
             )
-            destination.write_bytes(cleaned.encode("utf-8"))
-    except BaseException:
-        stage.cleanup()
-        raise
-    return target, stage
+        if source.is_dir():
+            continue
+        text = _read_run_text(source)
+        if source.suffix.lower() in {".html", ".htm"}:
+            _redact_html(text)
+        elif redact(text) != text:
+            raise _UnsafeRunArtifact(
+                "skipping run attachment: existing file contains a detected secret"
+            )
+    return path
 
 
 def _save_run_artifact(path, *, description: str, artifact=None):
-    """Save a sanitized run attachment; leave generic internal artifacts alone."""
+    """Upload checked run files; skip unsafe files without changing originals."""
     from lamindb import Artifact
 
     with _skip_unsafe_run_artifact():
@@ -538,10 +529,10 @@ def _save_run_artifact(path, *, description: str, artifact=None):
                 description=description,
                 kind="__lamindb_run__",
                 run=False,
-                _redact_run=True,
+                _check_run=True,
             )
         else:
-            replacement = artifact.replace(path, run=False, _redact_run=True)
+            replacement = artifact.replace(path, run=False, _check_run=True)
             if replacement is not None:
                 artifact = replacement
         artifact.save(upload=True, print_progress=False)
@@ -550,18 +541,15 @@ def _save_run_artifact(path, *, description: str, artifact=None):
 
 
 def _check_run_artifact(path, size, hash) -> None:
-    """Fail before upload if a snapshot was changed after hashing."""
+    """Recheck upload content and reject changes since its statistics were computed."""
     from lamindb_setup.core.hashing import hash_dir, hash_file
 
-    clean, stage = _stage_run_artifact(path)
-    try:
-        hasher = hash_dir if path.is_dir() else hash_file
-        if hasher(path)[:2] != (size, hash) or hasher(clean)[:2] != (size, hash):
-            raise _UnsafeRunArtifact(
-                "run attachment changed after preparation; recreate it before saving"
-            )
-    finally:
-        stage.cleanup()
+    path = _validate_run_artifact(path)
+    hasher = hash_dir if path.is_dir() else hash_file
+    if hasher(path)[:2] != (size, hash):
+        raise _UnsafeRunArtifact(
+            "run attachment changed after preparation; recreate it before saving"
+        )
 
 
 @contextmanager
@@ -579,7 +567,11 @@ def _redact_notebook(notebook) -> None:
     # bare values from printed outputs. Never retain them globally or in metadata.
     secrets: set[str] = set()
     for cell in notebook.cells:
-        cell.source = redact(cell.source, "source", _secrets=secrets)
+        cell.source = redact(
+            cell.source,
+            "source",
+            _secrets=secrets if cell.cell_type == "code" else None,
+        )
 
     def clean(value, *, html=False):
         if isinstance(value, dict):
