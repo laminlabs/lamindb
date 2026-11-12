@@ -9,6 +9,10 @@ if TYPE_CHECKING:
 
 
 # Lance version pinned on the artifact that wrote it. Stored in `Artifact._aux` as "lv".
+# This is a version on Lance's default branch. Coupling LaminDB branches to Lance
+# branches is not supported and not needed for isolation: an artifact version on
+# LaminDB main points at the latest Lance version visible on main, and a version
+# saved on another LaminDB branch is not visible there.
 LANCE_VERSION_AUX_KEY = "lv"
 
 

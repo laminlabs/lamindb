@@ -3373,7 +3373,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Returns a :class:`lancedb.table.LanceTable`. When this artifact version
         has a pinned Lance version and that version is not the directory's
-        latest, the table is checked out at the pin. Pass ``version`` to check
+        latest, the table is checked out at the pin. Pass `version` to check
         out a specific Lance version instead.
 
         On S3, AWS credentials are read from the artifact path when the table
@@ -3401,16 +3401,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def append_lance(self, data: Any, *, run: Run | None = None) -> Artifact:
         """Append rows to this `.lance` artifact and save a new version.
 
-        Calls ``LanceTable.add(data, mode="append")`` on this artifact's
+        Calls `LanceTable.add(data, mode="append")` on this artifact's
         directory, then registers a new artifact version of that same directory.
         The previous version stays pinned to the Lance version from before the
-        append. ``open_lance()`` checks out that version.
+        append. `open_lance()` checks out that version.
 
         The directory is shared across these artifact versions, as with a
-        ``.tiledbsoma`` store. ``from_dataframe()`` still writes a new directory.
+        `.tiledbsoma` store. `from_dataframe()` still writes a new directory.
+        Writes stay on Lance's default branch. Coupling LaminDB branches to
+        Lance branches is not supported and not needed for isolation: a version
+        saved on another LaminDB branch is not visible on main.
 
         Args:
-            data: Rows to append. Any object accepted by ``LanceTable.add``.
+            data: Rows to append. Any object accepted by `LanceTable.add`.
             run: The run that creates the new artifact version.
 
         Examples:

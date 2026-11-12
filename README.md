@@ -34,8 +34,8 @@ Architecture? → [docs](https://docs.lamin.ai/architecture)
 
 - **zero lock-in** → open source, using open standards (metadata in SQLite/Postgres, data in `parquet`, `zarr`, etc.)
 - **scalable** → hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → `pip install lamindb` or `install.packages('laminr')` · no Docker required, no separate backend
-- **unified access** → local, S3, GCP, etc. · Postgres, SQLite · ontologies
+- **simple** → `pip install lamindb` or `install.packages('laminr')`, no Docker required, no separate backend
+- **unified access** → local, S3, GCP, etc. / Postgres, SQLite / ontologies
 - **distributed** → [zero-copy data sharing across databases & storage](https://docs.lamin.ai/transfer)
 - **reproducible** → [track](https://docs.lamin.ai/track) agent traces, source code & compute environments
 - **ACID** → snapshot isolation & time travel via transactional metadata records across datasets in any format (`parquet`, `zarr`, etc.)
