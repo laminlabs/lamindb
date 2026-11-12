@@ -1617,11 +1617,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # (is_latest is per-branch) -- we look it up. Same-branch explicit heads
                     # (the common case) thus skip this query.
                     cross_branch = has_branch_id and revises.branch_id != self.branch_id
-                    with transaction.atomic(using=using):
-                        if get_registry_name(self) == "Artifact" and self._state.adding:
-                            from ._artifact_uid_reservation import lock_artifact_uid
-
-                            lock_artifact_uid(self, using)
+                    with transaction.atomic():
                         if refresh or cross_branch:
                             head_qs = self.__class__.objects.filter(
                                 uid__startswith=self.stem_uid, is_latest=True
@@ -1675,14 +1671,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     self._revises = None
                 # save unversioned record
                 else:
-                    if get_registry_name(self) == "Artifact" and self._state.adding:
-                        from ._artifact_uid_reservation import lock_artifact_uid
-
-                        with transaction.atomic(using=using):
-                            lock_artifact_uid(self, using)
-                            super().save(*args, **kwargs)
-                    else:
-                        super().save(*args, **kwargs)
+                    super().save(*args, **kwargs)
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
                 # error for hash/uid duplication

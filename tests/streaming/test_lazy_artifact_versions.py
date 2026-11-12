@@ -32,11 +32,11 @@ def test_managed_path_and_no_cache(monkeypatch):
 
     monkeypatch.setattr(_s(), "write_to_disk", unexpected_cache)
     pending = lazy()
-    reserved_path = pending.path
-    assert not reserved_path.exists()
+    managed_path = pending.path
+    assert not managed_path.exists()
     assert not connection.in_atomic_block
     artifact = write(pending).save()
-    assert artifact.path == reserved_path
+    assert artifact.path == managed_path
     assert artifact.path.name == f"{artifact.uid}.parquet"
     assert artifact._real_key is None
     assert artifact._key_is_virtual
@@ -49,7 +49,7 @@ def test_managed_path_and_no_cache(monkeypatch):
     assert pending.save() is artifact
     artifact.key = f"renamed/{uuid4().hex}.parquet"
     artifact.save()
-    assert artifact.path == reserved_path
+    assert artifact.path == managed_path
     with pytest.raises(ValueError, match="published"):
         pending.discard()
 
@@ -63,25 +63,25 @@ def test_same_key_dedup_and_different_key_duplicates():
     assert write(lazy()).save().uid != first.uid
 
 
-def test_versions_skip_abandoned_reservations():
+def test_abandoned_writes_do_not_reserve_uids_or_insert_rows():
     import lamindb as ln
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     first = write(lazy()).save()
+    count = ln.Artifact.objects.count()
     abandoned = lazy(key=first.key)
-    reserved_uid = abandoned.path.stem
-    assert not ln.Artifact.objects.filter(uid=reserved_uid).exists()
+    abandoned_uid = abandoned.path.stem
+    assert ln.Artifact.objects.count() == count
     abandoned.discard()
     second = write(lazy(key=first.key), [3]).save()
     assert second.stem_uid == first.stem_uid
-    assert second.uid[-4:] == "0002"
-    assert ArtifactUIDReservation.objects.get(uid=reserved_uid).state == "discarded"
+    assert second.uid == abandoned_uid
+    assert second.uid[-4:] == "0001"
     first.refresh_from_db()
     assert not first.is_latest
     assert second.is_latest
 
 
-def test_normal_creation_respects_reservations():
+def test_normal_creation_is_not_changed_by_pending_stream():
     import lamindb as ln
 
     first = write(lazy()).save()
@@ -90,11 +90,13 @@ def test_normal_creation_respects_reservations():
         pl.LazyFrame({"value": [7]}), key=first.key, skip_hash_lookup=True
     ).save()
     assert normal.stem_uid == first.stem_uid
-    assert normal.uid[-4:] == "0002"
-    pending.discard()
+    assert normal.uid == pending.path.stem
+    assert normal.uid[-4:] == "0001"
+    with pytest.raises(ValueError, match="published"):
+        pending.discard()
 
 
-def test_stale_normal_candidate_cannot_claim_reserved_path():
+def test_pending_stream_cannot_overwrite_or_discard_published_uid():
     import lamindb as ln
     from lamindb.errors import IntegrityError
 
@@ -104,18 +106,70 @@ def test_stale_normal_candidate_cannot_claim_reserved_path():
     )
     pending = lazy(key=first.key)
     assert normal.uid == pending.path.stem
-    with pytest.raises(IntegrityError, match="reserved"):
-        normal.save()
+    normal.save()
+    with pytest.raises(IntegrityError, match="published by another writer"):
+        pending.save()
+    with pytest.raises(ValueError, match="published"):
+        pending.discard()
+    assert pl.read_parquet(normal.path)["value"].to_list() == [7]
+
+
+def test_lazyframe_refuses_occupied_path_before_sinking():
+    import lamindb as ln
+    from lamindb.errors import IntegrityError
+
+    pending = ln.Artifact.from_lazyframe(
+        pl.LazyFrame({"value": [1]}), key=f"occupied/{uuid4().hex}.parquet"
+    )
+    pending.path.write_bytes(b"unfinished data")
+    with pytest.raises(IntegrityError, match="refusing to overwrite"):
+        pending.save()
+    assert pending.path.read_bytes() == b"unfinished data"
     pending.discard()
 
 
-def test_duplicate_published_during_streaming():
+def test_existing_partial_revision_must_be_cleaned_up():
+    from lamindb.errors import IntegrityError
+
     first = write(lazy()).save()
-    pending = lazy(key=first.key)
-    concurrent = write(lazy(key=first.key), [9]).save()
+    pending = write(lazy(key=first.key), [8])
+    with pytest.raises(IntegrityError, match="destination already exists"):
+        lazy(key=first.key)
+    pending.discard()
+
+
+def test_two_pending_revisions_have_no_reservation():
+    first = write(lazy()).save()
+    left = lazy(key=first.key)
+    right = lazy(key=first.key)
+    assert left.path == right.path
+    left.discard()
+    right.discard()
+
+
+def test_explicit_revises_works_when_writes_are_serialized():
+    import lamindb as ln
+
+    first = write(lazy()).save()
+    pending = ln.Artifact.from_lazyframe(pl.LazyFrame({"value": [7]}), revises=first)
+    assert pending.path.stem == f"{first.stem_uid}0001"
+    assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()
+    revised = pending.save()
+    assert revised.uid == pending.path.stem
+    assert revised.key == first.key
+    assert pl.read_parquet(first.path)["value"].to_list() == [1, 2]
+    assert pl.read_parquet(revised.path)["value"].to_list() == [7]
+    first.refresh_from_db()
+    assert not first.is_latest
+    assert revised.is_latest
+
+
+def test_duplicate_published_during_streaming():
+    pending = lazy()
+    concurrent = write(lazy(key=pending.kwargs["key"]), [9]).save()
     result = write(pending, [9]).save()
     assert result.uid == concurrent.uid
-    assert result.uid[-4:] == "0002"
+    assert result.uid != pending.path.stem
     concurrent.refresh_from_db()
     assert concurrent.is_latest
     assert not pending.path.exists()
@@ -125,9 +179,8 @@ def test_different_version_published_during_streaming():
     import lamindb as ln
     from lamindb.errors import IntegrityError
 
-    first = write(lazy()).save()
-    pending = write(lazy(key=first.key), [9])
-    concurrent = write(lazy(key=first.key), [8]).save()
+    pending = write(lazy(), [9])
+    concurrent = write(lazy(key=pending.kwargs["key"]), [8]).save()
     with pytest.raises(IntegrityError, match="different version"):
         pending.save()
     assert pending.path.exists()
@@ -205,16 +258,6 @@ def test_cleanup_failure_can_retry(monkeypatch):
     assert not pending.path.exists()
 
 
-def test_reservations_are_not_reused_after_artifact_deletion():
-    first = write(lazy()).save()
-    second = write(lazy(key=first.key), [8]).save()
-    abandoned_uid = second.uid
-    second.delete(permanent=True, storage=True)
-    next_version = write(lazy(key=first.key), [9]).save()
-    assert next_version.uid != abandoned_uid
-    assert next_version.uid[-4:] == "0002"
-
-
 def test_legacy_from_lazy_unchanged():
     import lamindb as ln
 
@@ -237,7 +280,7 @@ def test_missing_file_can_be_written_then_saved():
     assert write(pending).save().path == pending.path
 
 
-def test_reservation_rejects_outer_transaction():
+def test_streaming_rejects_outer_transaction():
     from django.db import transaction
 
     with transaction.atomic():
@@ -287,7 +330,6 @@ def test_validates_and_coerces_inside_single_source_execution():
 def test_invalid_batch_prevents_registration():
     import lamindb as ln
     from lamindb.errors import ValidationError
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     name = f"invalid_stream_{uuid4().hex}"
     schema = ln.Schema(
@@ -303,9 +345,6 @@ def test_invalid_batch_prevents_registration():
     assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()
     assert not pending.path.exists()
     assert pending.validation_error is not None
-    assert (
-        ArtifactUIDReservation.objects.get(uid=pending.path.stem).state == "discarded"
-    )
     with pytest.raises(ValueError, match="discarded"):
         pending.save()
     pending.discard()
@@ -452,14 +491,13 @@ def test_lazyframe_rejects_non_lazyframes(data):
         {"key": "file.parquet", "on_validation_error": "ignore"},
     ],
 )
-def test_lazyframe_rejects_unsupported_output_before_reserving(options):
+def test_lazyframe_rejects_unsupported_output_before_inserting(options):
     import lamindb as ln
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
-    count = ArtifactUIDReservation.objects.count()
+    count = ln.Artifact.objects.count()
     with pytest.raises(ValueError):
         ln.Artifact.from_lazyframe(pl.LazyFrame({"value": [1]}), **options)
-    assert ArtifactUIDReservation.objects.count() == count
+    assert ln.Artifact.objects.count() == count
 
 
 def test_from_lazy_does_not_accept_a_frame():
@@ -537,7 +575,6 @@ def test_invalid_late_batch_is_not_published():
 
 def test_database_failure_retries_without_resinking(monkeypatch):
     import lamindb as ln
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     first = write(lazy()).save()
     pending = ln.Artifact.from_lazyframe(
@@ -545,14 +582,15 @@ def test_database_failure_retries_without_resinking(monkeypatch):
         key=first.key,
     )
     with monkeypatch.context() as patch:
-        save_reservation = ArtifactUIDReservation.save
+        save_artifact = ln.Artifact.save
 
-        def fail_finalization(reservation, *args, **kwargs):
-            if reservation.state == "complete":
+        def fail_finalization(artifact, *args, **kwargs):
+            result = save_artifact(artifact, *args, **kwargs)
+            if artifact.uid == pending.path.stem:
                 raise OSError("database unavailable")
-            return save_reservation(reservation, *args, **kwargs)
+            return result
 
-        patch.setattr(ArtifactUIDReservation, "save", fail_finalization)
+        patch.setattr(ln.Artifact, "save", fail_finalization)
         with pytest.raises(OSError, match="database unavailable"):
             pending.save()
     assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()

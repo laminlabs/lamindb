@@ -146,7 +146,6 @@ Utils
 # ruff: noqa: I001
 
 from ._is_versioned import IsVersioned
-from ._artifact_uid_reservation import ArtifactUIDReservation
 from .can_curate import CanCurate, HasAbbr, HasSynonyms, InspectResult
 from .sqlrecord import (
     BaseSQLRecord,

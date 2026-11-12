@@ -1308,7 +1308,7 @@ class LazyArtifact:
     Args:
         suffix: The suffix for the auto-generated internal path
         overwrite_versions: Whether to overwrite versions.
-        deduplicate: Opt into UID reservation and same-key hash deduplication
+        deduplicate: Opt into same-key hash deduplication
             with `"key"` (currently single-file Parquet only).
         frame: Optional Polars LazyFrame supplied by `Artifact.from_lazyframe()`.
         schema: A saved schema for validating batches inside the sink.
@@ -1380,10 +1380,10 @@ class LazyArtifact:
                     "deduplicate='key' currently requires single-file Parquet "
                     "and overwrite_versions=False."
                 )
-            from ._lazy_artifact import ReservedLazyArtifact
+            from ._lazy_artifact import StreamedLazyArtifact
 
             options = {k: v for k, v in kwargs.items() if k != "overwrite_versions"}
-            self._pending_write = ReservedLazyArtifact(
+            self._pending_write = StreamedLazyArtifact(
                 frame=frame,
                 schema=schema,
                 parquet_kwargs=parquet_kwargs,
@@ -1416,7 +1416,7 @@ class LazyArtifact:
         if self._pending_write is not None:
             if upload or kwargs:
                 raise ValueError(
-                    "Reserved lazy artifacts are already in target storage; "
+                    "Streamed lazy artifacts are already in target storage; "
                     "save() does not accept upload or additional arguments."
                 )
             return self._pending_write.save()
@@ -1424,7 +1424,7 @@ class LazyArtifact:
         return artifact.save(upload=upload, **kwargs)
 
     def discard(self) -> None:
-        """Remove an unfinished reserved write, retaining its UID tombstone."""
+        """Remove an unfinished streamed write."""
         if self._pending_write is None:
             raise ValueError("discard() requires from_lazy(..., deduplicate='key').")
         self._pending_write.discard()
@@ -2581,12 +2581,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             key: An optional key to reference the artifact.
             description: A description.
             run: The run that creates the artifact.
-            deduplicate: Experimental opt-in: `"key"` reserves a version UID
-                before writing and reuses an existing artifact with matching
+            deduplicate: Experimental opt-in: `"key"` reuses an existing artifact with matching
                 storage, virtual key and hash on `.save()`. Requires a `.parquet`
                 suffix, a key, and `overwrite_versions=False`. No rename or local
                 cache copy is needed. A different concurrent version raises a
                 conflict and retains the object at `lazy.path`.
+                UIDs are allocated in memory only: serialize all writers for
+                the same key/version family, including ordinary artifact saves.
             **kwargs: Other keyword arguments for the artifact to be created.
 
         Examples:
@@ -2657,11 +2658,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 Dataframe format inference follows `from_dataframe()`, but this
                 prototype supports only single-file Parquet and virtual keys.
 
-        The managed path uses a reserved UID and is never renamed. Deduplication
+        The managed path uses an in-memory UID and is never renamed. Deduplication
         matches storage, key and hash after uploading. A different concurrent
         version raises a conflict; `lazy.discard()` removes the retained upload.
-        Requires the UID-reservation database migration. Folder output, CSV and
-        overwriting versions are not supported.
+        No database migration or durable UID reservation is used. Serialize all
+        writers for the same key/version family, especially with `revises`:
+        another writer can allocate the same version UID while this write runs.
+        Finalization checks cannot prevent storage overwrites during the sink.
+        Folder output, CSV and overwriting versions are not supported.
 
         Example:
             Validate and sink in one source execution::

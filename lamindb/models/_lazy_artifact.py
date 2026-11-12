@@ -9,9 +9,7 @@ from lamindb_setup.core.upath import LocalPathClasses
 
 from lamindb.errors import IntegrityError
 
-from ._artifact_uid_reservation import ArtifactUIDReservation, lock_artifact_uid
 from ._is_versioned import create_uid
-from .storage import Storage
 
 if TYPE_CHECKING:
     from polars import LazyFrame
@@ -22,8 +20,8 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class ReservedLazyArtifact:
-    """Shared UID-reservation lifecycle for managed lazy writes."""
+class StreamedLazyArtifact:
+    """Managed lazy writes with in-memory UID allocation, not reservations."""
 
     def __init__(
         self,
@@ -39,11 +37,13 @@ class ReservedLazyArtifact:
         from .sqlrecord import check_key, get_current_branch
 
         if key is None and frame is None:
-            raise ValueError("Reserved lazy artifacts require an explicit virtual key.")
+            raise ValueError(
+                "Caller-managed streaming requires an explicit virtual key."
+            )
         if key is not None:
             check_key(key)
         if kwargs.pop("key_is_virtual", True) is not True:
-            raise ValueError("Reserved lazy artifacts require virtual keys.")
+            raise ValueError("Streamed lazy artifacts require virtual keys.")
         allowed = {
             "description",
             "run",
@@ -57,9 +57,7 @@ class ReservedLazyArtifact:
         }
         unsupported = set(kwargs) - allowed
         if unsupported:
-            raise ValueError(
-                f"Unsupported reserved-write arguments: {sorted(unsupported)}"
-            )
+            raise ValueError(f"Unsupported streaming arguments: {sorted(unsupported)}")
         storage = kwargs.pop("storage", None)
         if storage is None:
             storage = setup_settings.storage.record
@@ -68,19 +66,15 @@ class ReservedLazyArtifact:
             space = context.space or setup_settings.space
             if space is not None and space.id != storage.space_id:
                 raise ValueError(
-                    "Pass storage in the active space explicitly for reserved writes."
+                    "Pass storage in the active space explicitly for streaming."
                 )
         if storage._state.db not in {None, "default"}:
-            raise ValueError("Reserved writes support the current database only.")
+            raise ValueError("Streaming supports the current database only.")
         if storage.instance_uid != setup_settings.instance.uid:
-            raise ValueError(
-                "Reserved writes require storage managed by this instance."
-            )
+            raise ValueError("Streaming requires storage managed by this instance.")
         self._root = storage.path
         if not isinstance(self._root, LocalPathClasses) and self._root.protocol != "s3":
-            raise ValueError(
-                "Reserved writes currently support S3 and local storage only."
-            )
+            raise ValueError("Streaming currently supports S3 and local storage only.")
         self._storage = storage
         self._branch = kwargs.pop("branch", None) or get_current_branch()
         self._key = key
@@ -96,7 +90,7 @@ class ReservedLazyArtifact:
         self._sink_complete = False
         self._sink_failed = False
         if self._sink_options.get("lazy") or "path" in self._sink_options:
-            raise ValueError("The sink must execute at the reserved path.")
+            raise ValueError("The sink must execute at the managed path.")
         if frame is not None and schema is not None:
             from lamindb.curators._polars_streaming import ValidatedLazyFrame
 
@@ -123,9 +117,9 @@ class ReservedLazyArtifact:
             )
         if transaction.get_connection().in_atomic_block:
             raise ValueError(
-                "Create reserved lazy artifacts outside an existing database transaction."
+                "Create streamed lazy artifacts outside an existing database transaction."
             )
-        self._reserve()
+        self._allocate_path()
 
     @property
     def validation_error(self) -> str | None:
@@ -185,42 +179,36 @@ class ReservedLazyArtifact:
             **options,
         )
         if artifact.uid != uid:
-            raise IntegrityError("Reserved destination does not match artifact UID.")
-        artifact._streaming_reserved_uid = uid
+            raise IntegrityError("Managed destination does not match artifact UID.")
         artifact._refresh_revises_if_stale = False
         return artifact
 
-    def _reserve(self) -> None:
+    def _allocate_path(self) -> None:
         from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
 
-        with transaction.atomic():
-            Storage.objects.select_for_update().get(pk=self._storage.pk)
-            head = self._head()
-            explicit_revises = self._kwargs.get("revises")
-            if (
-                explicit_revises is not None
-                and head is not None
-                and explicit_revises.stem_uid != head.stem_uid
-            ):
-                raise IntegrityError(
-                    "revises does not belong to the current key's version family."
-                )
-            revises = head or explicit_revises
-            if revises is not None:
-                lock_artifact_uid(revises, None)
-            uid = create_uid(
-                revises=revises, version_tag=self._kwargs.get("version_tag")
+        head = self._head()
+        explicit_revises = self._kwargs.get("revises")
+        if (
+            explicit_revises is not None
+            and head is not None
+            and explicit_revises.stem_uid != head.stem_uid
+        ):
+            raise IntegrityError(
+                "revises does not belong to the current key's version family."
             )
-            path = self._root / auto_storage_key_from_artifact_uid(
-                uid, ".parquet", overwrite_versions=False
-            )
-            artifact = self._make_artifact(uid, path, revises, {})
-            reservation = ArtifactUIDReservation.objects.create(
-                uid=uid, storage=self._storage, key=self._key
+        revises = head or explicit_revises
+        uid = create_uid(revises=revises, version_tag=self._kwargs.get("version_tag"))
+        path = self._root / auto_storage_key_from_artifact_uid(
+            uid, ".parquet", overwrite_versions=False
+        )
+        if path.exists():
+            raise IntegrityError(
+                f"Streaming destination already exists at {path}. "
+                "Clean up its unfinished writer before starting another write."
             )
         self._baseline_uid = revises.uid if revises is not None else None
-        self._artifact = artifact
-        self._reservation = reservation
+        self._artifact = self._make_artifact(uid, path, revises, {})
+        self._uid = uid
         self.path: UPath = path
         if isinstance(path, LocalPathClasses):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,9 +220,7 @@ class ReservedLazyArtifact:
 
         path = self.path
         if path.is_dir():
-            raise ValueError(
-                "Reserved writes currently support single-file Parquet only."
-            )
+            raise ValueError("Streaming currently supports single-file Parquet only.")
         if isinstance(path, LocalPathClasses):
             size, hash_value, hash_type = hash_file(path)
         else:
@@ -252,11 +238,14 @@ class ReservedLazyArtifact:
         self._artifact.hash = hash_value
         self._artifact._hash_type = hash_type
         self._artifact.n_observations = n_observations
-        self._reservation.state = "uploaded"
-        self._reservation.save(update_fields=["state"])
         self._metadata_ready = True
 
     def _sink(self) -> None:
+        if self.path.exists():
+            raise IntegrityError(
+                f"Streaming destination already exists at {self.path}; "
+                "refusing to overwrite it. Writers must be serialized."
+            )
         options = dict(self._sink_options)
         if (
             self.path.protocol == "s3"
@@ -270,13 +259,6 @@ class ReservedLazyArtifact:
             self._frame.sink_parquet(self.path.as_posix(), **options)
         except Exception as sink_error:
             self._sink_failed = True
-            try:
-                self._reservation.state = "failed"
-                self._reservation.save(update_fields=["state"])
-            except Exception as state_error:
-                logger.error(
-                    f"Could not record the failed sink at {self.path}: {state_error}"
-                )
             if (
                 self._on_validation_error == "raise"
                 and self.validation_error is not None
@@ -304,7 +286,7 @@ class ReservedLazyArtifact:
     def save(self) -> Artifact:
         """Deduplicate and publish an already-written file without renaming it."""
         if self._discarded:
-            raise ValueError("This reserved write has been discarded.")
+            raise ValueError("This streamed write has been discarded.")
         if self._result is not None:
             if self._cleanup_pending:
                 self._cleanup()
@@ -312,19 +294,20 @@ class ReservedLazyArtifact:
             return self._result
         if transaction.get_connection().in_atomic_block:
             raise ValueError(
-                "Reserved save must run outside an existing database transaction."
+                "Streaming save must run outside an existing database transaction."
             )
         if self._sink_failed:
             raise ValueError("The sink failed; discard this write and start a new one.")
+        if self._artifact.__class__.objects.filter(uid=self._uid).exists():
+            raise IntegrityError(
+                f"The streaming UID {self._uid} was published by another writer; "
+                "refusing to finalize or remove its object. Writers must be serialized."
+            )
         if self._frame is not None and not self._sink_complete:
             self._sink()
         if not self._metadata_ready:
             self._read_metadata()
         with transaction.atomic():
-            Storage.objects.select_for_update().get(pk=self._storage.pk)
-            self._artifact.__class__.objects.select_for_update().filter(
-                uid__startswith=self._artifact.stem_uid
-            ).order_by("id").first()
             match = (
                 self._artifact_records()
                 .filter(hash=self._artifact.hash)
@@ -333,7 +316,7 @@ class ReservedLazyArtifact:
             )
             if match is not None:
                 result = match
-                state = "duplicate"
+                duplicate = True
             else:
                 head = self._head()
                 if (head.uid if head is not None else None) != self._baseline_uid:
@@ -343,7 +326,7 @@ class ReservedLazyArtifact:
                         "discard it and start a new write to revise the current head."
                     )
                 artifact = self._make_artifact(
-                    self._reservation.uid,
+                    self._uid,
                     self.path,
                     head,
                     {
@@ -369,39 +352,35 @@ class ReservedLazyArtifact:
                             },
                         }
                 result = artifact.save()
-                if result.uid != self._reservation.uid:
+                if result.uid != self._uid:
                     raise IntegrityError(
-                        "Finalization changed the reserved artifact UID."
+                        "Finalization changed the streaming artifact UID."
                     )
-                state = "complete"
-            self._reservation.state = state
-            self._reservation.save(update_fields=["state"])
+                duplicate = False
         self._result = result
-        if state == "duplicate":
+        if duplicate:
             self._cleanup_pending = True
             self._cleanup()
             self._cleanup_pending = False
         return result
 
     def _cleanup(self) -> None:
+        if self._artifact.__class__.objects.filter(uid=self._uid).exists():
+            raise ValueError(
+                "Cannot discard a published artifact; use Artifact.delete()."
+            )
         try:
             self.path.unlink(missing_ok=True)
         except Exception:
             logger.error(
                 f"Could not remove redundant or abandoned streaming object at "
-                f"{self.path}; reservation retained for cleanup."
+                f"{self.path}; use discard() to retry cleanup."
             )
             raise
 
     def discard(self) -> None:
-        """Remove this write's object but retain its UID reservation."""
-        if self._result is not None and self._result.uid == self._reservation.uid:
-            raise ValueError(
-                "Cannot discard a published artifact; use Artifact.delete()."
-            )
+        """Remove an unfinished write, never an object with a published UID."""
         if self.path.is_dir():
             raise ValueError("Folder cleanup is not supported by this prototype.")
         self._cleanup()
-        self._reservation.state = "discarded"
-        self._reservation.save(update_fields=["state"])
         self._discarded = True

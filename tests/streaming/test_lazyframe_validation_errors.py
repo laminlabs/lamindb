@@ -149,9 +149,8 @@ def test_keep_categorical_failure_does_not_attach_partial_annotations():
 
 
 @pytest.mark.parametrize("coercion", ["schema", "feature"])
-def test_keep_rejects_coercion_before_execution_or_reservation(coercion):
+def test_keep_rejects_coercion_before_execution_or_insertion(coercion):
     import lamindb as ln
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     name = f"coercing_policy_{uuid4().hex}"
     schema = ln.Schema(
@@ -169,7 +168,7 @@ def test_keep_rejects_coercion_before_execution_or_reservation(coercion):
     frame = pl.LazyFrame({name: ["1", "invalid"]}).map_batches(
         observe, schema={name: pl.String}, streamable=True
     )
-    count = ArtifactUIDReservation.objects.count()
+    count = ln.Artifact.objects.count()
     with pytest.raises(ValueError, match="non-coercing schema"):
         ln.Artifact.from_lazyframe(
             frame,
@@ -178,13 +177,12 @@ def test_keep_rejects_coercion_before_execution_or_reservation(coercion):
             on_validation_error="keep",
         )
     assert not seen_rows
-    assert ArtifactUIDReservation.objects.count() == count
+    assert ln.Artifact.objects.count() == count
 
 
 def test_raise_cleans_partial_output_and_preserves_head(integer_schema, monkeypatch):
     import lamindb as ln
     from lamindb.errors import ValidationError
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     name = integer_schema.members.first().name
     first = ln.Artifact.from_lazyframe(
@@ -209,9 +207,6 @@ def test_raise_cleans_partial_output_and_preserves_head(integer_schema, monkeypa
         pending.save()
     assert not pending.path.exists()
     assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()
-    assert (
-        ArtifactUIDReservation.objects.get(uid=pending.path.stem).state == "discarded"
-    )
     first.refresh_from_db()
     assert first.is_latest
     assert first.schema == integer_schema
@@ -222,7 +217,6 @@ def test_cleanup_failure_preserves_validation_error_and_can_retry(
 ):
     import lamindb as ln
     from lamindb.errors import ValidationError
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     name = integer_schema.members.first().name
     pending = ln.Artifact.from_lazyframe(
@@ -241,12 +235,10 @@ def test_cleanup_failure_preserves_validation_error_and_can_retry(
     assert isinstance(error.value.__cause__, OSError)
     assert "cleanup unavailable" in str(error.value.__cause__)
     assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()
-    assert ArtifactUIDReservation.objects.get(uid=pending.path.stem).state == "failed"
     pending.discard()
     assert not pending.path.exists()
-    assert (
-        ArtifactUIDReservation.objects.get(uid=pending.path.stem).state == "discarded"
-    )
+    with pytest.raises(ValueError, match="discarded"):
+        pending.save()
 
 
 @pytest.mark.parametrize("on_validation_error", ["raise", "keep"])
@@ -303,7 +295,6 @@ def test_keep_deduplication_does_not_modify_existing_validation(integer_schema):
 
 def test_keep_validation_failure_survives_database_retry(integer_schema, monkeypatch):
     import lamindb as ln
-    from lamindb.models._artifact_uid_reservation import ArtifactUIDReservation
 
     name = integer_schema.members.first().name
     pending = ln.Artifact.from_lazyframe(
@@ -312,15 +303,16 @@ def test_keep_validation_failure_survives_database_retry(integer_schema, monkeyp
         schema=integer_schema,
         on_validation_error="keep",
     )
-    save_reservation = ArtifactUIDReservation.save
+    save_artifact = ln.Artifact.save
 
-    def fail_finalization(reservation, *args, **kwargs):
-        if reservation.state == "complete":
+    def fail_finalization(artifact, *args, **kwargs):
+        result = save_artifact(artifact, *args, **kwargs)
+        if artifact.uid == pending.path.stem:
             raise OSError("database unavailable")
-        return save_reservation(reservation, *args, **kwargs)
+        return result
 
     with monkeypatch.context() as patch:
-        patch.setattr(ArtifactUIDReservation, "save", fail_finalization)
+        patch.setattr(ln.Artifact, "save", fail_finalization)
         with pytest.raises(OSError, match="database unavailable"):
             pending.save()
     assert not ln.Artifact.objects.filter(uid=pending.path.stem).exists()

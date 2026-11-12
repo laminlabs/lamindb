@@ -43,7 +43,7 @@ Choose how dataframe validation failures are handled with `on_validation_error`:
 
 - `"raise"` (default) aborts at the first failing batch, removes partial output,
   and raises the validation error. No artifact is registered, existing version
-  heads remain unchanged, and the UID reservation is retained as a tombstone.
+  heads remain unchanged.
   If cleanup fails, the validation error is raised with the cleanup failure as
   its cause; call `lazy.discard()` to retry cleanup.
 - `"keep"` completes the file with all original rows, including invalid values.
@@ -52,7 +52,7 @@ Choose how dataframe validation failures are handled with `on_validation_error`:
   containing `status`, the attempted `schema_uid`, and the first error.
   It is registered as a normal new version and can become the latest version.
   Keep mode rejects `Schema.coerce` or dataframe `Feature.coerce` before any
-  source execution or UID reservation: an unconvertible later value cannot be
+  source execution or artifact insertion: an unconvertible later value cannot be
   preserved in a column whose earlier batches were already coerced.
 
 ```{code-block} python
@@ -73,8 +73,8 @@ Source, I/O, and configuration errors are not treated as validation failures:
 they still raise, and an incomplete sink may need `lazy.discard()`.
 
 The existing `Artifact.from_lazy()` flow remains caller-managed. You can keep
-writing to `lazy.path` yourself and opt into UID reservation
-and same-key deduplication explicitly with `deduplicate="key"`:
+writing to `lazy.path` yourself and opt into same-key deduplication explicitly
+with `deduplicate="key"`:
 
 ```{code-block} python
 lazy = ln.Artifact.from_lazy(
@@ -92,14 +92,27 @@ sink; passing a dataframe-content schema in that form is rejected rather than
 marking the file validated. Legacy external-metadata schemas remain supported
 without a frame.
 
-This opt-in prototype requires the new UID-reservation database migration. Creating
-the lazy artifact reserves a normal artifact UID before exposing `lazy.path`,
-keeping the existing physical filename
-`.lamindb/{uid}.parquet`, virtual key semantics, and `_real_key=None`. No rename or
-bucket-side copy is needed. Ordinary artifact version allocation skips reserved
-UIDs, including abandoned reservations.
-An ordinary unsaved artifact constructed before a conflicting reservation must
-be reconstructed to obtain a new UID; its save fails before uploading.
+This prototype requires **no database migration** and does not change ordinary
+artifact saves or version allocation. It allocates a UID in memory before
+exposing `lazy.path`, keeping the existing physical filename
+`.lamindb/{uid}.parquet`, virtual key semantics, and `_real_key=None`. No rename
+or bucket-side copy is needed.
+
+**Concurrency caveat:** there is no durable UID reservation. Serialize the entire
+create/write/save lifecycle of all writers targeting the same key/version
+family, including ordinary `Artifact` and `from_dataframe()` writers. This is
+especially important with `revises` or an existing key: two writers can both
+allocate the same next version UID and hence the same physical destination.
+Finalization rechecks the head, but cannot undo an object overwritten during
+sinking. Existing-path and published-UID checks catch some stale writers; they
+are not an atomic storage claim and do not make concurrent writes safe.
+
+A future shared UID-reservation mechanism would also benefit the existing
+caller-managed `from_lazy()` API: it could reserve a family-compatible UID
+before exposing a path, coordinate with ordinary writers, and prevent abandoned
+UIDs from being reused. This matters for explicit `revises`, repeated writes to
+an existing key, long-running streams, and concurrent or retried jobs. It is
+deliberately outside this prototype.
 
 Deduplication checks storage, virtual key, and hash **after** the upload.
 Identical content under different keys is allowed. A matching artifact published
@@ -115,13 +128,13 @@ If a different version is published during streaming, finalization raises a
 conflict and retains the uploaded object at `lazy.path`. Call
 `lazy.discard()` to remove that object before starting another write. Close the
 writer before calling `.save()`. Transient metadata or database failures can be
-retried with `.save()` without repeating the upload. UID reservations are
-retained as tombstones, so version numbers may have gaps.
+retried with `.save()` without repeating the upload. Abandoned writes have no
+database record; clean up their objects explicitly before reusing a destination.
 
 This prototype supports the current instance only, single-file Parquet, and
 non-overwriting virtual keys. Create the lazy artifact and run `.save()` outside
-an enclosing database transaction. It does not provide automatic cleanup or process-restart recovery;
-reservations track unfinished paths for manual recovery. S3 deployments should
+an enclosing database transaction. It does not provide automatic cleanup or process-restart recovery.
+S3 deployments should
 configure lifecycle cleanup for abandoned multipart uploads. Folder/partitioned
 output and other cloud providers are not supported in the opt-in flow. The
 existing `from_lazy()` behavior, including folder artifacts, is unchanged when
