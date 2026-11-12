@@ -911,6 +911,38 @@ def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     schema.delete(permanent=True)
 
 
+def test_schema_hash_lookup_respects_type():
+    feature = ln.Feature(name="hash_lookup_feature", dtype=str).save()
+    type1 = ln.Schema(name="HashLookupType1", is_type=True).save()
+    type2 = ln.Schema(name="HashLookupType2", is_type=True).save()
+    schemas = []
+    try:
+        for schema_type in (type1, type2):
+            schemas.append(
+                ln.Schema(
+                    name="hash lookup schema",
+                    type=schema_type,
+                    features=[feature],
+                    flexible=True,
+                    coerce=True,
+                ).save()
+            )
+        first, second = schemas
+        first.refresh_from_db()
+
+        assert first.hash == second.hash
+        assert first.type_id == type1.id
+        assert second.type_id == type2.id
+        assert first.uid != second.uid
+    finally:
+        ln.Schema.filter(id__in=[schema.id for schema in schemas]).delete(
+            permanent=True
+        )
+        type2.delete(permanent=True)
+        type1.delete(permanent=True)
+        feature.delete(permanent=True)
+
+
 def _hash_feature_type_schema(feature_type: ln.Feature) -> str:
     from lamindb_setup.core.hashing import hash_string
 
