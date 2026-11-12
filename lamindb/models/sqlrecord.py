@@ -476,9 +476,7 @@ def _copy_type_single_space(record: models.Model) -> None:
     parent_ss = type_record._aux.get("ss")
     if not parent_ss:
         return
-    if record._aux is None:
-        record._aux = {}
-    record._aux["ss"] = parent_ss
+    record._aux = {**(record._aux or {}), "ss": parent_ss}
 
 
 def _inherit_type_emoji(record: models.Model) -> None:
