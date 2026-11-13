@@ -176,12 +176,13 @@ jobs:
 
           path = Path("sub/lamin-cli/tests/core/test_save_annotate_scripts.py")
           source = path.read_text()
-          before, marker, rest = source.partition("    # lamin delete by key (parallel to lamin load/save)")
+          before, function, rest = source.partition("def test_run_save_cache_with_git_and_uid():")
+          setup, marker, rest = rest.partition("    # lamin delete by key (parallel to lamin load/save)")
           block, end, after = rest.partition("\ndef test_run_save_with_params():")
-          assert marker and end
+          assert function and marker and end
           assert block.count("assert result.returncode == 0") == 2
           block = block.replace("assert result.returncode == 0", "assert result.returncode == 0, result.stderr.decode(errors='replace')")
-          path.write_text(before + marker + block + end + after)
+          path.write_text(before + function + setup + marker + block + end + after)
           PY
       - run: nox -s "test(group='${{ matrix.group }}')"
         env:
