@@ -473,7 +473,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: `str | None = None` Description of the schema.
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
             Is automatically set to the type of the passed `features`.
-        type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
+        type: `Schema | None | Unset = UNSET` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
+            Hash lookup searches all types when omitted, only root schemas for explicit `None`,
+            and only the immediate type when a schema type is passed. Multiple matches raise an error.
         is_type: `bool = False` Whether this is a schema type.
         index: `Feature | None = None` Index analogous to a `DataFrame` index. In `DataFrame` curation, validates `df.index`.
             When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
@@ -779,6 +781,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """A hash of the set of feature identifiers.
 
     For a composite schema, the hash of hashes.
+
+    Independent of the schema's type; schemas under different types can share a hash.
     """
     minimal_set: bool = BooleanField(default=True, db_index=True, editable=False)
     """Whether all passed features are to be considered required by default (default `True`).
@@ -872,7 +876,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         itype: str | SQLRecord | DeferredAttribute | None = kwargs.pop("itype", None)
         flexible: bool | None = kwargs.pop("flexible", None)
-        type: Feature | None | Unset = kwargs.pop("type", UNSET)
+        type: Schema | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         otype: str | None = kwargs.pop("otype", None)
         suffix: str | None = kwargs.pop("suffix", None)
@@ -946,14 +950,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 "Please pass features or slots or itype or set is_type=True"
             )
         if lookup and not is_type:
-            schema = (
-                Schema.objects.using(using)
-                .filter(
-                    ~Q(branch_id=-1),
-                    hash=validated_kwargs["hash"],
-                )
-                .one_or_none()
+            matching_schemas = Schema.objects.using(using).filter(
+                ~Q(branch_id=-1),
+                hash=validated_kwargs["hash"],
             )
+            if type is not UNSET:
+                matching_schemas = matching_schemas.filter(type=type)
+            schema = matching_schemas.one_or_none()
             if schema is not None:
                 logger.important(f"returning schema with same hash: {schema}")
                 init_self_from_db(self, schema)
@@ -980,8 +983,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     )
             self._slots = slots
 
-        if validated_kwargs["hash"] in KNOWN_SCHEMAS:
-            validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
+        known_uid = KNOWN_SCHEMAS.get(validated_kwargs["hash"])
+        # Typed copies share the structural hash, not the canonical root UID.
+        # The canonical record may also have been moved to a type or trashed.
+        if (
+            known_uid is not None
+            and (type is UNSET or type is None)
+            and not Schema.objects.using(using).filter(uid=known_uid).exists()
+        ):
+            validated_kwargs["uid"] = known_uid
         else:
             validated_kwargs["uid"] = base62_16()
 
@@ -1009,7 +1019,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         description: str | None,
         itype: str | SQLRecord | DeferredAttribute | None,
         flexible: bool | None,
-        type: Feature | None,
+        type: Schema | None | Unset,
         is_type: bool,
         otype: str | None,
         suffix: str | None,
@@ -1117,7 +1127,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
             itype_str = itype
-        validated_kwargs = {
+        validated_kwargs: dict[str, Any] = {
             "name": name,
             "description": description,
             "type": type,
@@ -1456,13 +1466,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             if validated_kwargs["hash"] != self.hash:
                 if (
                     Schema.objects.using(using)
-                    .filter(~Q(branch_id=-1), hash=validated_kwargs["hash"])
+                    .filter(
+                        ~Q(branch_id=-1),
+                        hash=validated_kwargs["hash"],
+                        type_id=self.type_id,
+                    )
                     .exclude(pk=self.pk)
                     .exists()
                 ):
                     raise ValidationError(
-                        "Another schema already has this hash. "
-                        "This feature order matches an existing schema."
+                        "Another schema already has this hash in the same type scope."
                     )
                 from .artifact import Artifact
 
