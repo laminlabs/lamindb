@@ -327,8 +327,7 @@ def get_and_validate_git_metadata(
             raise ValueError(
                 f"Nextflow schema '{nextflow_schema}' in repository {url} at {checked_at} is not valid JSON: {e}"
             ) from e
-        if not isinstance(schema, dict):
-            raise ValueError(
+        assert isinstance(schema, dict), (
                 f"Nextflow schema '{nextflow_schema}' in repository {url} at {checked_at} is not a JSON object"
             )
     return url, commit_hash
