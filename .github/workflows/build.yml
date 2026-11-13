@@ -168,6 +168,21 @@ jobs:
           aws-region: us-east-1
       - run: nox -s prepare
         if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') && matrix.group != 'minimal' }}
+      - name: Expose CLI deletion error (temporary)
+        if: ${{ matrix.group == 'cli' }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("sub/lamin-cli/tests/core/test_save_annotate_scripts.py")
+          source = path.read_text()
+          before, marker, rest = source.partition("    # lamin delete by key (parallel to lamin load/save)")
+          block, end, after = rest.partition("\ndef test_run_save_with_params():")
+          assert marker and end
+          assert block.count("assert result.returncode == 0") == 2
+          block = block.replace("assert result.returncode == 0", "assert result.returncode == 0, result.stderr.decode(errors='replace')")
+          path.write_text(before + marker + block + end + after)
+          PY
       - run: nox -s "test(group='${{ matrix.group }}')"
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
