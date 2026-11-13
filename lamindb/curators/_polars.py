@@ -6,7 +6,7 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
 
-from lamindb.base._regex import matches_regex, regex_error
+from lamindb.models.feature import matches_regex, regex_error
 
 
 def _all_missing(data) -> bool:

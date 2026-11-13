@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 import warnings
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -20,7 +21,6 @@ from lamindb_setup.errors import (
     ModuleWasntConfigured,
 )
 
-from lamindb.base._regex import compile_regex, matches_regex
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -78,6 +78,24 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
+
+
+def compile_regex(pattern: str) -> re.Pattern:
+    if not isinstance(pattern, str):
+        raise TypeError("Feature.regex must be a string or None")
+    try:
+        return re.compile(pattern)
+    except re.error as error:
+        raise ValidationError(f"Invalid feature regex {pattern!r}: {error}") from error
+
+
+def matches_regex(value: object, pattern: re.Pattern) -> bool:
+    """Match a complete non-null string without coercing its value."""
+    return isinstance(value, str) and pattern.fullmatch(value) is not None
+
+
+def regex_error(feature) -> str:
+    return f"Feature '{feature.name}' must fully match regex {feature.regex!r}"
 
 
 def _normalize_feature_value(value: Any) -> Any:
@@ -1431,8 +1449,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
         if cat_filters:
-            if regex is not None or self.regex is not None:
-                raise ValidationError("regex is incompatible with cat_filters")
             if "|" in dtype_str:
                 raise ValidationError(
                     f"cat_filters are incompatible with union dtypes: '{dtype_str}'"

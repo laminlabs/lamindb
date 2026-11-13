@@ -48,9 +48,11 @@ from lamindb.models.artifact import (
     data_is_soma_experiment,
 )
 from lamindb.models.feature import (
+    matches_regex,
     parse_cat_dtype,
     parse_dtype,
     parse_filter_string,
+    regex_error,
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
@@ -1084,8 +1086,6 @@ class ComponentCurator(Curator):
                         required=required,
                     )
                 if pattern is not None and not self._is_polars:
-                    from lamindb.base._regex import matches_regex, regex_error
-
                     pandera_columns[feature.name].checks.append(
                         pandera.Check(
                             lambda value, pattern=pattern: matches_regex(
@@ -1133,8 +1133,6 @@ class ComponentCurator(Curator):
                 else:
                     pandera_index = pandera.Index(index_dtype)
                 if index_pattern is not None:
-                    from lamindb.base._regex import matches_regex, regex_error
-
                     pandera_index.nullable = index_feature.nullable
                     pandera_index.checks.append(
                         pandera.Check(

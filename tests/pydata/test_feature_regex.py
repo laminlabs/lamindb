@@ -53,7 +53,12 @@ def test_regex_definition_validation():
     with pytest.raises(ValidationError, match="regex"):
         ln.Feature(name="regex_type", is_type=True, regex="A")
     with pytest.raises(ValidationError, match="regex"):
-        ln.Feature(name="regex_sample", dtype=str, regex="A", cat_filters={"name": "A"})
+        ln.Feature(
+            name="regex_sample",
+            dtype="cat[ULabel]",
+            regex="A",
+            cat_filters={"name": "A"},
+        )
     for default in [1, "B"]:
         with pytest.raises(ValidationError, match="default_value"):
             ln.Feature(name="regex_sample", dtype=str, regex="A", default_value=default)
