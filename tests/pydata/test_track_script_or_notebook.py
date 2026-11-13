@@ -51,6 +51,8 @@ api_key = os.getenv("OPENAI_API_KEY")
 openAIApiKey = getenv("OPENAI_API_KEY")
 model_api_key = os.environ["MODEL_API_KEY"]
 provider_token = os.environ.get("PROVIDER_TOKEN")
+password = (os.getenv("PASSWORD"))
+token = ((existing_token))
 """
     redacted = redact(source_code, "source")
     # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
@@ -145,6 +147,11 @@ def test_redact_secrets_escaped_and_nested_quotes(literal):
             "CANARY_TAIL",
         ),
         (
+            'api_key = ((\n # before\n "CANARY_" # between\n "TAIL"\n # after\n))',
+            'api_key = ((\n # before\n "***REDACTED***"\n # after\n))',
+            "CANARY_TAIL",
+        ),
+        (
             'api_key = "CANARY"\n"ordinary"',
             'api_key = "***REDACTED***"\n"ordinary"',
             "CANARY",
@@ -169,7 +176,12 @@ def test_redact_secrets_fstring_reuses_quotes():
 
 
 @pytest.mark.parametrize(
-    "example", ['# api_key = "unfinished\n', '"""Example: api_key = "unfinished\n"""\n']
+    "example",
+    [
+        '# api_key = "unfinished\n',
+        '"""Example: api_key = "unfinished\n"""\n',
+        '# api_key = ("unfinished"\n',
+    ],
 )
 def test_redact_secrets_incomplete_examples(example):
     source = example + 'api_key = "SECRETVALUE"\n'
@@ -1451,6 +1463,11 @@ def test_redact_stale_r_html(html, tmp_path):
         ('API_KEY: dict[str, str] = "CANARY"', "source"),
         ('API_KEY: Literal["="] = "CANARY"', "source"),
         ('API_KEY: (\n str\n) = "CANARY"', "source"),
+        ('API_KEY = (\n    "CANARY"\n)', "source"),
+        ('API_KEY: str = (("CANARY"))', "source"),
+        ('client.token = (f"CANARY")', "source"),
+        ('os.environ["API_KEY"] = (b"CANARY")', "source"),
+        ('{"client_secret": (r"CANARY")}', "source"),
         ('api_key <- "CANARY"', "source"),
         ('["--token", "CANARY"]', "source"),
         ('["--token=CANARY"]', "source"),

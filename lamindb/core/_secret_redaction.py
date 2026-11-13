@@ -19,7 +19,7 @@ SENSITIVE_PARAM_KEY_PATTERN = re.compile(
 # - mySecret := "value"
 # We intentionally do not match unquoted RHS values to avoid false positives like
 # type annotations (`api_key: str`) or variable forwarding (`api_key=api_key`).
-_LITERAL_START = r"(?=(?i:br|rb|fr|rf|tr|rt|[rubft])?['\"`])"
+_LITERAL_START = r"(?=\(|(?i:br|rb|fr|rf|tr|rt|[rubft])?['\"`])"
 _KEY_VALUE_ASSIGNMENT_PATTERN = re.compile(
     r"(?P<prefix>(?P<key>[A-Za-z_][A-Za-z0-9_.\-]*)\s*(?P<op><-|:=|=|:)\s*)"
     + _LITERAL_START
@@ -154,6 +154,35 @@ def _source_literals(source: str, *, join: bool = False):
         yield pending
 
 
+def _parenthesized_literal(source: str):
+    literal = next(
+        (span for span in _source_literals(source, join=True) if span[3]), None
+    )
+    if literal is None:
+        return None
+    start, end, _, _ = literal
+    offsets = [0]
+    for line in source.split("\n"):
+        offsets.append(offsets[-1] + len(line) + 1)
+    depth = 0
+    try:
+        for item in tokenize.generate_tokens(io.StringIO(source).readline):
+            position = offsets[item.start[0] - 1] + item.start[1]
+            if start <= position < end or item.type in (tokenize.COMMENT, tokenize.NL):
+                continue
+            if item.type == tokenize.OP and position < start and item.string == "(":
+                depth += 1
+            elif item.type == tokenize.OP and position >= end and item.string == ")":
+                depth -= 1
+                if depth == 0:
+                    return literal
+            else:
+                return None  # Not just a literal surrounded by parentheses.
+    except (tokenize.TokenError, SyntaxError):
+        pass
+    return None
+
+
 def _annotated_assignments(source: str):
     offsets = [0]
     for line in source.split("\n"):
@@ -223,7 +252,12 @@ def _redact_secret_assignments(source_code: str, _secrets=None) -> str:
                 default=len(source_code),
             )
             fragment = source_code[start:limit]
-            if fragment.startswith("`"):
+            if fragment.startswith("("):
+                parsed = _parenthesized_literal(fragment)
+                if parsed is not None:
+                    literal = (start + parsed[1], parsed[2], parsed[3])
+                    start += parsed[0]
+            elif fragment.startswith("`"):
                 backtick = _BACKTICK_LITERAL_PATTERN.match(fragment)
                 literal = (start + backtick.end(), "`", "`") if backtick else None
             else:
