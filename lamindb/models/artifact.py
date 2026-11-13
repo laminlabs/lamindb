@@ -19,8 +19,8 @@ from typing import (
 import fsspec
 import lamindb_setup as ln_setup
 from django.db import models
-from django.db.models import CASCADE, PROTECT, Q
-from django.db.models.functions import Length
+from django.db.models import CASCADE, PROTECT, Case, Q, When
+from django.db.models.functions import Coalesce, Length
 from lamindb_setup import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import colors
@@ -683,6 +683,12 @@ def get_artifact_kwargs_from_data(
         inferred_key = get_relative_path_to_directory(
             path=path, directory=UPath(storage.root)
         ).as_posix()
+        if not is_replace and not skip_key_revises_lookup:
+            folder_artifact = _get_folder_artifact_containing_key(
+                storage, inferred_key, using, target_branch_id
+            )
+            if folder_artifact is not None:
+                return folder_artifact, {"path_is_in_folder_artifact": True}
         if key is None:
             key = inferred_key
         elif key != inferred_key:
@@ -1441,6 +1447,41 @@ def _get_artifact_by_automanaged_path(
         if folder_path is None:
             raise
         return registry_or_queryset.get(path=folder_path)
+
+
+def _get_folder_artifact_containing_key(
+    storage: Storage,
+    key: str,
+    using: str | None = None,
+    target_branch_id: int | None = None,
+) -> Artifact | None:
+    """Return the folder-like artifact in `storage` that `key` is nested in, if any.
+
+    Example: `my_folder/subdir/file.txt` → the artifact stored at `my_folder`.
+    """
+    # the key itself, followed by its parent folders from innermost to outermost
+    keys = [key, *(parent.as_posix() for parent in PurePosixPath(key).parents)][:-1]
+    if len(keys) < 2:
+        return None
+    # artifacts stored at any of these keys; two indexed lookups rather than a
+    # scan over a computed path
+    matches = Artifact.objects.using(using).filter(
+        ~Q(branch_id=-1),
+        Q(_real_key__in=keys)
+        | Q(_real_key__isnull=True, _key_is_virtual=False, key__in=keys),
+        storage=storage,
+    )
+    # innermost first, then the head on the target branch as is_latest is per-branch
+    artifact = matches.order_by(
+        Length(Coalesce("_real_key", "key")).desc(),
+        Case(When(branch_id=target_branch_id, then=0), default=1),
+        "-is_latest",
+        "-created_at",
+    ).first()
+    # an artifact stored at the key itself is handled by the caller
+    if artifact is None or (artifact._real_key or artifact.key) == key:
+        return None
+    return artifact
 
 
 _SCANNABLE_SUFFIXES = (".parquet", ".csv", ".tsv")
@@ -2287,6 +2328,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
+
+            # same as for a path inside a folder-like artifact under `.lamindb/`
+            if privates.get("path_is_in_folder_artifact"):
+                logger.important(
+                    f"initializing from existing artifact with uid={kwargs_or_artifact.uid}"
+                )
+                init_self_from_db(
+                    self, kwargs_or_artifact, db=kwargs_or_artifact._state.db
+                )
+                return None
 
             validated_features = _validated_external_features(
                 schema, features, kwargs_or_artifact, otype=otype
