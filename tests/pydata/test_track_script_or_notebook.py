@@ -881,6 +881,16 @@ def test_notebook_report_redacts_source(
                     nbformat.v4.new_output(
                         "stream", name="stdout", text="token: [BRACKET_CANARY]"
                     ),
+                    *[
+                        nbformat.v4.new_output(
+                            "stream", name="stdout", text=f"password: {value}"
+                        )
+                        for value in (
+                            "\n  MULTILINE_CANARY",
+                            "|\n  MULTILINE_CANARY",
+                            "first part\n  MULTILINE_CANARY",
+                        )
+                    ],
                 ],
             ),
             *[
@@ -962,10 +972,11 @@ def test_notebook_report_redacts_source(
     assert "CANARY_MAGIC" not in html
     assert "horse battery staple" not in html
     assert "BRACKET_CANARY" not in html
+    assert "MULTILINE_CANARY" not in html
     assert all(secret not in html for _, secret in commands)
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
-        12
+        15
         + len(printed)
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
@@ -1416,6 +1427,8 @@ def test_redact_secret_formats(secret, source_context, safe_value):
         '<pre><span class=kw>api_key</span> <span class=op>&lt;-</span> <span class=st>"CANARY"</span></pre>',
         "<p>" + "ghp_" + "a" * 36 + "</p>",
         "<pre><span>password=</span><span>CANARY</span></pre>",
+        "<pre>password:\n  CANARY</pre>",
+        "<pre>password: |\n  CANARY</pre>",
     ],
 )
 def test_redact_stale_r_html(html, tmp_path):
@@ -1475,13 +1488,31 @@ def test_redact_assignment_contexts(source, kind):
                 cleaned = redact(text)
                 assert cleaned == text.replace(secret, "***REDACTED***")
                 assert redact(cleaned) == cleaned
-        for secret in ("{CANARY}", "[CANARY]", "<CANARY>", "[{\nCANARY\n}]", "[CANARY"):
+        for secret in (
+            "{CANARY}",
+            "[CANARY]",
+            "<CANARY>",
+            "[{\nCANARY\n}]",
+            "[CANARY",
+            "\n  CANARY",
+            "\nCANARY",
+            "|\n  CANARY",
+            ">-\n  CANARY",
+            "|2+\r\n  CANARY",
+            "first\n  CANARY",
+            '"first"\n  CANARY',
+            "first\r\n\r\n\tCANARY",
+            "\r\tCANARY",
+        ):
             # No structural guess: the rest of this text value is removed.
             text = f'metadata={{"password": {secret}}}\nremaining output'
             cleaned = redact(text)
             assert cleaned == 'metadata={"password": ***REDACTED***'
             assert redact(cleaned) == cleaned
         assert redact("metadata={ordinary}") == "metadata={ordinary}"
+        assert (
+            redact("message: |\n  ordinary output") == "message: |\n  ordinary output"
+        )
         assert redact("count=3\nname: example\npassword=\n") == (
             "count=3\nname: example\npassword=\n"
         )
@@ -1504,6 +1535,9 @@ def test_redact_assignment_contexts(source, kind):
         b"password: correct horse battery staple\r\n",
         b"password={CANARY}\r\n",
         b"token: [CANARY]\r\n",
+        b"password:\r\n  CANARY\r\n",
+        b"password: |\n  CANARY\n",
+        b"password: first\n  CANARY\n",
     ],
 )
 def test_run_text_attachment_preserves_original(
