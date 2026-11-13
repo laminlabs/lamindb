@@ -485,6 +485,7 @@ def get_stat_or_artifact(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    _run_artifact_space_id: int | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -493,7 +494,7 @@ def get_stat_or_artifact(
         if hash is None:
             # without a hash there is nothing to deduplicate against
             return size, hash, hash_type, n_files, None
-    elif settings.creation.artifact_skip_size_hash:
+    elif settings.creation.artifact_skip_size_hash and _run_artifact_space_id is None:
         return None, None, None, n_files, None
     elif not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
@@ -525,10 +526,30 @@ def get_stat_or_artifact(
         return size, hash, hash_type, n_files, None
     # Empty files all share the same content hash; skip cross-artifact hash
     # lookup so creating a new empty file path yields a new artifact.
-    if n_files is None and size == 0:
+    if n_files is None and size == 0 and _run_artifact_space_id is None:
         skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
+    if _run_artifact_space_id is not None and not skip_hash_lookup:
+        # Checked run files must not reuse an unrelated artifact or change
+        # storage/space. Resolve exact collisions before a transactional insert.
+        artifacts_qs = artifacts_qs.filter(storage=storage, key=key)
+        existing = artifacts_qs.filter(hash=hash).first()
+        if existing is not None:
+            if (
+                existing.kind != "__lamindb_run__"
+                or existing.space_id != _run_artifact_space_id
+                or existing.branch_id == -1
+            ):
+                from ..core._secret_redaction import _UnsafeRunArtifact
+
+                raise _UnsafeRunArtifact(
+                    "skipping run attachment: matching content belongs to an incompatible artifact"
+                )
+            return existing
+        artifacts_qs = artifacts_qs.filter(
+            kind="__lamindb_run__", space_id=_run_artifact_space_id
+        )
     # Only run key-based latest version lookup when creating a new artifact version from key.
     # If explicit `revises` was passed in the constructor, this flag is False so that we
     # do not override/validate version from key lookup during init.
@@ -664,6 +685,7 @@ def get_artifact_kwargs_from_data(
     skip_key_revises_lookup: bool = False,
     target_branch_id: int | None = None,
     stats: dict[str, Any] | None = None,
+    _run_artifact_space_id: int | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -708,6 +730,7 @@ def get_artifact_kwargs_from_data(
         skip_key_revises_lookup=skip_key_revises_lookup,
         target_branch_id=target_branch_id,
         stats=stats,
+        _run_artifact_space_id=_run_artifact_space_id,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -2042,6 +2065,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Only one non-keyword arg allowed: path")
         path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
+        _check_run = kwargs.pop("_check_run", False)
         key: str | None = kwargs.pop("key", None)
         using = kwargs.pop("using", None)
         description: str | None = kwargs.pop("description", None)
@@ -2248,6 +2272,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
 
+        if _check_run:
+            from ..core._secret_redaction import _validate_run_artifact
+
+            path = _validate_run_artifact(path)
+            self._check_run = True
+            if skip_hash_lookup is None:
+                skip_hash_lookup = False
+            stats = None  # compute statistics from the file being checked
+
         provisional_uid = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
@@ -2267,6 +2300,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_key_revises_lookup=revises is not None,
             target_branch_id=branch.id,
             stats=stats,
+            _run_artifact_space_id=(
+                space.id
+                if space is not None
+                else self._meta.get_field("space").get_default()
+            )
+            if _check_run
+            else None,
         )
 
         def set_private_attributes():
@@ -2292,6 +2332,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 schema, features, kwargs_or_artifact, otype=otype
             )
             init_self_from_db(self, kwargs_or_artifact)
+            if _check_run:
+                # Reusing a checked attachment must honor run=False: the shared
+                # initializer can otherwise attach the current run implicitly.
+                self.run_id = kwargs_or_artifact.run_id
             # update key from inferred value
             key = privates.pop("key")
             # adding "key" here is dangerous because key might be auto-populated
@@ -3291,7 +3335,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         data: Union[AnyPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | bool | None = None,
         format: str | None = None,
-    ) -> None:
+        *,
+        _check_run: bool = False,
+    ) -> Artifact | None:
         """Replace the artifact content in storage **without** making a new version.
 
         **Note:** If you want to create a new version, do **not** use the `.replace()` method but rather any `Artifact` constructor.
@@ -3314,8 +3360,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             Note that you need to call `.save()` to persist the changes in storage.
         """
-        storage = settings.storage.record
+        storage = self.storage if _check_run else settings.storage.record
         run = get_run(run)
+        if _check_run:
+            from ..core._secret_redaction import _validate_run_artifact
+
+            data = _validate_run_artifact(data)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -3325,10 +3375,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             version_tag=None,
             is_replace=True,
+            _run_artifact_space_id=(self.space_id if _check_run else None),
         )
 
         # this artifact already exists
         if isinstance(kwargs, Artifact):
+            if _check_run:
+                if "local_filepath" in privates:  # retry an incomplete upload
+                    kwargs.__dict__.update(
+                        _local_filepath=privates["local_filepath"],
+                        _cloud_filepath=privates["cloud_filepath"],
+                        _memory_rep=privates["memory_rep"],
+                        _to_store=True,
+                        _check_run=True,
+                    )
             return kwargs
 
         check_path_in_storage = privates["check_path_in_storage"]
@@ -3388,6 +3448,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self.n_files = kwargs["n_files"]
 
         self._local_filepath = privates["local_filepath"]
+        if _check_run:
+            self._check_run = True
         self._cloud_filepath = privates["cloud_filepath"]
         self._memory_rep = privates["memory_rep"]
         # no need to upload if new file is already in storage
@@ -4032,6 +4094,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._external_features
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
+        self.__dict__.pop("_check_run", None)
         return self
 
 

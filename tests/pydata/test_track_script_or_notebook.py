@@ -1,21 +1,25 @@
+import base64
 import os
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+from string import ascii_letters, digits
 from unittest.mock import MagicMock, patch
 
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from lamindb.core._context import (
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
 )
 from lamindb.core._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._secret_redaction import redact_secret_assignments
+from lamindb.core._secret_redaction import redact
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -31,8 +35,8 @@ db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
 os.environ["API_KEY"] = "sdk-key"
 config = {"client_secret": "client-secret-value", "id": "abc123"}
 """
-    redacted, redaction_count = redact_secret_assignments(source_code)
-    assert redaction_count == 5
+    redacted = redact(source_code, "source")
+    assert redacted.count("***REDACTED***") == 5
     assert 'api_key = "***REDACTED***"' in redacted
     assert 'openAIApiKey = "***REDACTED***"' in redacted
     assert 'db_url = "***REDACTED***"' in redacted
@@ -47,10 +51,12 @@ api_key = os.getenv("OPENAI_API_KEY")
 openAIApiKey = getenv("OPENAI_API_KEY")
 model_api_key = os.environ["MODEL_API_KEY"]
 provider_token = os.environ.get("PROVIDER_TOKEN")
+password = (os.getenv("PASSWORD"))
+token = ((existing_token))
 """
-    redacted, redaction_count = redact_secret_assignments(source_code)
+    redacted = redact(source_code, "source")
     # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
-    assert redaction_count == 0
+    assert redacted == source_code
     assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
     assert 'openAIApiKey = getenv("OPENAI_API_KEY")' in redacted
     assert 'model_api_key = os.environ["MODEL_API_KEY"]' in redacted
@@ -66,9 +72,9 @@ run_agent(
     api_key=api_key,
 )
 """
-    redacted, redaction_count = redact_secret_assignments(source_code)
+    redacted = redact(source_code, "source")
     # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
-    assert redaction_count == 0
+    assert redacted == source_code
     assert "def run(api_key: str) -> None:" in redacted
     assert "api_key=api_key," in redacted
 
@@ -81,8 +87,8 @@ ANTHROPIC_API_KEY = "anthropic-super-secret"
 GEMINI_API_KEY = "gemini-super-secret"
 provider = "openai"
 """
-    redacted, redaction_count = redact_secret_assignments(source_code)
-    assert redaction_count == 4
+    redacted = redact(source_code, "source")
+    assert redacted.count("***REDACTED***") == 4
     assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
     assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
     assert 'ANTHROPIC_API_KEY = "***REDACTED***"' in redacted
@@ -109,61 +115,101 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
         value += "\nsecond line"
     source = assignment.format(f"{prefix}{quote}{value}{quote}")
     expected = assignment.format(f"{prefix}{quote}***REDACTED***{quote}")
-    assert redact_secret_assignments(source) == (expected, 1)
-    assert redact_secret_assignments(expected) == (expected, 0)
+    assert redact(source, "source") == expected
+    assert redact(expected, "source") == expected
 
 
 @pytest.mark.parametrize(
-    "literal", [r'"escaped\"SECRETVALUE"', "f\"SECRETVALUE{f'nested{1 / 0}'}\""]
+    "literal",
+    [
+        r'"escaped\"SECRETVALUE"',
+        "f\"SECRETVALUE{f'nested{1 / 0}'}\"",
+        '"CANARY_" "TAIL"',
+        "\"CANARY_\" 'TAIL'",
+        '"CANARY_" \\\n"TAIL"',
+        '"CANARY_" f"TAIL{1 / 0}"',
+    ],
 )
 def test_redact_secrets_escaped_and_nested_quotes(literal):
     prefix = "f" if literal.startswith("f") else ""
-    assert redact_secret_assignments(f"api_key = {literal}") == (
-        f'api_key = {prefix}"***REDACTED***"',
-        1,
+    assert (
+        redact(f"api_key = {literal}", "source")
+        == f'api_key = {prefix}"***REDACTED***"'
     )
+
+
+@pytest.mark.parametrize(
+    "source, expected, secret",
+    [
+        (
+            '{"token": "CANARY_" # comment\n "TAIL"}',
+            '{"token": "***REDACTED***"}',
+            "CANARY_TAIL",
+        ),
+        (
+            'api_key = ((\n # before\n "CANARY_" # between\n "TAIL"\n # after\n))',
+            'api_key = ((\n # before\n "***REDACTED***"\n # after\n))',
+            "CANARY_TAIL",
+        ),
+        (
+            'api_key = "CANARY"\n"ordinary"',
+            'api_key = "***REDACTED***"\n"ordinary"',
+            "CANARY",
+        ),
+        (
+            'api_key = "CANARY"; "ordinary"',
+            'api_key = "***REDACTED***"; "ordinary"',
+            "CANARY",
+        ),
+    ],
+)
+def test_redact_concatenated_literal_boundaries(source, expected, secret):
+    secrets = set()
+    assert redact(source, "source", _secrets=secrets) == expected
+    assert secrets == {secret}
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 requires Python 3.12")
 def test_redact_secrets_fstring_reuses_quotes():
     source = 'api_key = f"SECRETVALUE{mapping["key"]}{f"nested{value}"}"'
-    assert redact_secret_assignments(source) == ('api_key = f"***REDACTED***"', 1)
+    assert redact(source, "source") == 'api_key = f"***REDACTED***"'
 
 
 @pytest.mark.parametrize(
-    "example", ['# api_key = "unfinished\n', '"""Example: api_key = "unfinished\n"""\n']
+    "example",
+    [
+        '# api_key = "unfinished\n',
+        '"""Example: api_key = "unfinished\n"""\n',
+        '# api_key = ("unfinished"\n',
+    ],
 )
 def test_redact_secrets_incomplete_examples(example):
     source = example + 'api_key = "SECRETVALUE"\n'
-    assert redact_secret_assignments(source) == (
-        example + 'api_key = "***REDACTED***"\n',
-        1,
-    )
+    assert redact(source, "source") == example + 'api_key = "***REDACTED***"\n'
 
 
-@pytest.mark.parametrize("literal", ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"'])
+@pytest.mark.parametrize(
+    "literal",
+    ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"', 't"CANARY_" t"TAIL{1 / 0}"'],
+)
 def test_redact_secrets_template_interpolation(literal):
     prefix = literal.split('"')[0]
-    assert redact_secret_assignments(f"api_key = {literal}") == (
-        f'api_key = {prefix}"***REDACTED***"',
-        1,
+    assert (
+        redact(f"api_key = {literal}", "source")
+        == f'api_key = {prefix}"***REDACTED***"'
     )
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 14), reason="Native template-string tokens")
 def test_redact_secrets_template_does_not_partially_match_nested_quotes():
     source = 'api_key = t"{mapping["SECRETVALUE"]}"'
-    assert redact_secret_assignments(source) == (source, 0)
+    assert redact(source, "source") == source
 
 
 def test_redact_secrets_legacy_fstring_does_not_partially_match():
     source = 'api_key = f"{mapping["x"]}SECRETVALUE"'
-    expected = (
-        ('api_key = f"***REDACTED***"', 1)
-        if sys.version_info >= (3, 12)
-        else (source, 0)
-    )
-    assert redact_secret_assignments(source) == expected
+    expected = 'api_key = f"***REDACTED***"' if sys.version_info >= (3, 12) else source
+    assert redact(source, "source") == expected
 
 
 def test_track_basic_invocation(monkeypatch, ccaplog):
@@ -735,13 +781,102 @@ def test_clean_r_notebook_html():
 
 
 @pytest.mark.parametrize("inject_responsive_table_css", [False, True])
-def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
+@pytest.mark.parametrize(
+    "byte_secret",
+    [
+        b"REPORT_SECRET_BYTES",
+        b"REPORT_SECRET_BYTES_\xc3\xa9\n'\"",
+        b"REPORT_SECRET_BYTES_\xff",
+    ],
+)
+def test_notebook_report_redacts_source(
+    tmp_path, inject_responsive_table_css, byte_secret
+):
+    from html import escape
+
     import nbformat
     from lamindb.core._finish import notebook_to_report, notebook_to_script
 
+    escaped_secrets = [
+        "REPORT_SECRET_\nESCAPED",
+        r"REPORT_SECRET_\BACKSLASH",
+        "REPORT_SECRET_\t'\"<&",
+    ]
+    magic_values = ["CANARY_MAGIC", '"CANARY_MAGIC_QUOTED"', r"CANARY_MAGIC\RAW"]
+    commands = []
+    for prefix in (
+        "!",
+        "!!",
+        "result = !",
+        "%sx ",
+        "result = %sx ",
+        "%run ",
+        "%%bash\n",
+        "%%sh\n",
+        "%%script bash\n",
+    ):
+        for argument in (
+            "--token {secret}",
+            "--token='{secret}'",
+            '--token "{secret}"',
+            "--token \\\n  {secret}",
+            "https://user:{secret}@example.org/pkg",
+            "{secret}",
+        ):
+            index = len(commands)
+            secret = (
+                "ghp_" + str(index).zfill(36)
+                if argument == "{secret}"
+                else f"CANARY_COMMAND_{index}"
+            )
+            commands.append((prefix + "tool " + argument.format(secret=secret), secret))
+    commands.extend(
+        [
+            ("!export API_KEY=CANARY_EXPORT", "CANARY_EXPORT"),
+            ("!API_KEY=CANARY_INLINE tool", "CANARY_INLINE"),
+            ("result = !API_KEY=CANARY_CAPTURE tool", "CANARY_CAPTURE"),
+            ("%%bash\nAPI_KEY=CANARY_CELL tool", "CANARY_CELL"),
+            ("!export API_KEY='CANARY QUOTED'", "CANARY QUOTED"),
+            (r"!API_KEY=CANARY\ ESCAPED tool", "CANARY ESCAPED"),
+            (r"!tool --token CANARY\ SPACE", "CANARY SPACE"),
+            (r"!tool --token=CANARY\ OPTION", "CANARY OPTION"),
+            ('url = "https://user:CANARY_URL@example.org/pkg"', "CANARY_URL"),
+            ("api_key = `CANARY_BACKTICK`", "CANARY_BACKTICK"),
+            ('!export API_KEY=CANARY_OPERATOR; echo "$API_KEY"', "CANARY_OPERATOR"),
+            (
+                '%%bash\nAPI_KEY=CANARY_CELL_OPERATOR;echo "$API_KEY"',
+                "CANARY_CELL_OPERATOR",
+            ),
+            ('!tool --token "CANARY;QUOTED";echo done', "CANARY;QUOTED"),
+            (r"!tool --token CANARY\;ESCAPED;echo done", "CANARY;ESCAPED"),
+            ("%run script.py --token CANARY;ARGUMENT", "CANARY;ARGUMENT"),
+        ]
+    )
+    for command, secret in commands:
+        detected = set()
+        cleaned = redact(command, "source", _secrets=detected)
+        assert secret not in cleaned
+        assert secret in detected
+        assert redact(cleaned, "source") == cleaned
+    rich_outputs = [
+        "<span>REPORT_</span><span>SECRET_123</span>",
+        "<span>REPORT&#95;</span><span>SECRET&#95;123</span>",
+        "<span>REPORT_SECRET_</span><span>\\nESCAPED</span>",
+    ]
+    printed = [
+        "REPORT_SECRET_123 REPORT_SECRET_789{escaped}SUFFIX ordinary_value prose_word raw_word",
+        repr(byte_secret),
+    ]
+    try:
+        printed.append(byte_secret.decode("utf-8"))
+    except UnicodeDecodeError:
+        pass
     notebook = nbformat.v4.new_notebook(
         cells=[
-            nbformat.v4.new_markdown_cell("Ordinary report text"),
+            nbformat.v4.new_markdown_cell(
+                'Ordinary report text. Example: api_key = "prose_word"'
+            ),
+            nbformat.v4.new_raw_cell('Example: password = "raw_word"'),
             nbformat.v4.new_markdown_cell(
                 'Example: `api_key = "REPORT_SECRET_MARKDOWN"`\n'
                 'Use "api_key = "REPORT_SECRET_PROSE"" in the config.\n'
@@ -750,30 +885,134 @@ def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
                 'Use "api_key = "REPORT_SECRET_RAW"" in the config.',
                 metadata={"raw_mimetype": "text/html"},
             ),
-            nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
+            nbformat.v4.new_code_cell('api_key = "REPORT_" "SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
-            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
-            nbformat.v4.new_code_cell('print("ordinary_value")'),
+            nbformat.v4.new_code_cell(
+                'access_token = f"REPORT_SECRET_789{{escaped}}" "SUFFIX"'
+            ),
+            nbformat.v4.new_code_cell(f"client_secret = {byte_secret!r}"),
+            nbformat.v4.new_code_cell(
+                "print(value)",
+                outputs=[
+                    nbformat.v4.new_output(
+                        "stream",
+                        name="stdout",
+                        text="password: correct horse battery staple\n",
+                    ),
+                    nbformat.v4.new_output(
+                        "stream", name="stdout", text="token: [BRACKET_CANARY]"
+                    ),
+                    *[
+                        nbformat.v4.new_output(
+                            "stream", name="stdout", text=f"password: {value}"
+                        )
+                        for value in (
+                            "\n  MULTILINE_CANARY",
+                            "|\n  MULTILINE_CANARY",
+                            "first part\n  MULTILINE_CANARY",
+                        )
+                    ],
+                ],
+            ),
+            *[
+                nbformat.v4.new_code_cell(
+                    command,
+                    outputs=[
+                        nbformat.v4.new_output("stream", name="stdout", text=secret)
+                    ],
+                )
+                for command, secret in commands
+            ],
+            *[
+                nbformat.v4.new_code_cell(
+                    f"%env API_KEY{separator}  {secret}  ",
+                    outputs=[
+                        nbformat.v4.new_output("stream", name="stdout", text=secret),
+                        nbformat.v4.new_output(
+                            "display_data", data={"text/plain": repr(secret)}
+                        ),
+                    ],
+                )
+                for separator in ("=", " ")
+                for secret in magic_values
+            ],
+            *[
+                nbformat.v4.new_code_cell(
+                    f"api_key = {secret!r}",
+                    outputs=[
+                        nbformat.v4.new_output(
+                            "execute_result",
+                            execution_count=1,
+                            data={
+                                "text/plain": repr(secret),
+                                "text/html": escape(repr(secret)),
+                            },
+                        )
+                    ],
+                )
+                for secret in escaped_secrets
+            ],
+            nbformat.v4.new_code_cell(
+                "display(result)",
+                outputs=[
+                    *[
+                        nbformat.v4.new_output(
+                            "display_data", data={"text/html": value}
+                        )
+                        for value in rich_outputs
+                    ],
+                    nbformat.v4.new_output(
+                        "display_data", data={"text/html": "<b>Safe rich output</b>"}
+                    ),
+                ],
+            ),
+            nbformat.v4.new_code_cell(
+                'print("ordinary_value")',
+                outputs=[
+                    nbformat.v4.new_output(
+                        "stream",
+                        name="stdout",
+                        text="\n".join(printed),
+                    )
+                ],
+            ),
         ]
     )
     path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
     nbformat.write(notebook, path)
     original = path.read_bytes()
-    saved_source, _ = redact_secret_assignments(notebook_to_script("test", path))
+    saved_source = redact(notebook_to_script("test", path), "source")
     assert "REPORT_SECRET_" not in saved_source
+    assert all(secret not in saved_source for _, secret in commands)
 
     notebook_to_report(path, report, inject_responsive_table_css)
 
     html = report.read_text()
     assert "REPORT_SECRET_" not in html
-    assert html.count("REDACTED") == 6  # Markdown may render the asterisks as emphasis.
+    assert "SECRET_123" not in html and "SUFFIX" not in html
+    assert "CANARY_MAGIC" not in html
+    assert "horse battery staple" not in html
+    assert "BRACKET_CANARY" not in html
+    assert "MULTILINE_CANARY" not in html
+    assert all(secret not in html for _, secret in commands)
+    # Markdown may render the asterisks as emphasis.
+    assert html.count("REDACTED") == (
+        15
+        + len(printed)
+        + 2 * len(escaped_secrets)
+        + len(rich_outputs)
+        + 6 * len(magic_values)
+        + 2 * len(commands)
+    )
+    assert "<b>Safe rich output</b>" in html
     assert "Ordinary report text" in html
+    assert "prose_word" in html and "raw_word" in html
     assert "ordinary_value" in html
     assert path.read_bytes() == original
 
 
 @pytest.mark.parametrize("has_secret", [False, True])
-@pytest.mark.parametrize("existing_report", [False, True])
+@pytest.mark.parametrize("existing_report", [False, True, "duplicate"])
 def test_r_report_skips_secrets(
     tmp_path, monkeypatch, ccaplog, has_secret, existing_report
 ):
@@ -791,6 +1030,9 @@ def test_r_report_skips_secrets(
         uid="report-redaction-test", report_id=1 if existing_report else None
     )
     run.report.hash = "old-report-hash"
+    old_report = run.report
+    duplicate = MagicMock() if existing_report == "duplicate" else None
+    old_report.replace.return_value = duplicate
     transform = MagicMock(id=1)
     transform._update_source_code_from_path.return_value = None
     monkeypatch.setattr(
@@ -805,9 +1047,11 @@ def test_r_report_skips_secrets(
     with patch.object(ln, "Artifact") as artifact:
         save_context_core(run=run, transform=transform, filepath=path, from_cli=True)
         assert artifact.called is (not has_secret and not existing_report)
-    assert run.report.replace.called is (not has_secret and existing_report)
+    assert old_report.replace.called is (not has_secret and bool(existing_report))
+    if not has_secret and duplicate is not None:
+        assert run.report is duplicate
     assert run.report.save.called is (not has_secret)
-    assert ("skipping HTML report upload" in ccaplog.text) is has_secret
+    assert ("skipping run attachment" in ccaplog.text) is has_secret
     transform._update_source_code_from_path.assert_called_once_with(path)
     run.save.assert_called_once()
     assert report.read_bytes() == original
@@ -1137,3 +1381,271 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+# Generate from token shapes, independently of the detector's regexes.
+@settings(max_examples=50, deadline=None)
+@given(
+    secret=st.one_of(
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["AKIA", "ASIA"]),
+            st.text("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", min_size=16, max_size=16),
+        ),
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["ghp_", "gho_", "ghu_", "ghs_", "ghr_"]),
+            st.text(ascii_letters + digits, min_size=36, max_size=36),
+        ),
+        st.text(ascii_letters + digits, min_size=22, max_size=40).map(
+            "github_pat_{}".format
+        ),
+        st.builds(
+            "{}{}".format,
+            st.sampled_from(["sk-", "sk-proj-", "sk-svcacct-", "xoxb-", "xoxp-"]),
+            st.text(ascii_letters + digits, min_size=24, max_size=40),
+        ),
+        st.text(ascii_letters, min_size=1, max_size=20).map(
+            lambda subject: "eyJhbGciOiJIUzI1NiJ9."
+            + base64.urlsafe_b64encode(('{"sub":"' + subject + '"}').encode())
+            .decode()
+            .rstrip("=")
+            + ".c2lnbmF0dXJl"
+        ),
+        st.binary(min_size=24, max_size=48).map(
+            lambda body: "-----BEGIN {0}-----\n{1}\n-----END {0}-----".format(
+                "PRIVATE KEY", base64.b64encode(body).decode()
+            )
+        ),
+        st.text(ascii_letters + digits, min_size=16, max_size=30).map(
+            "https://user:{}@example.org/pkg".format
+        ),
+    ),
+    source_context=st.booleans(),
+    safe_value=st.text(ascii_letters + digits, max_size=30),
+)
+def test_redact_secret_formats(secret, source_context, safe_value):
+    import ast
+
+    from lamindb.core._secret_redaction import redact
+
+    source = f"x = {secret!r}" if source_context else f"printed: {secret}"
+    kind = "source" if source_context else "text"
+    result = redact(source, kind)
+    # Checking both representations covers escaped newlines in Python source.
+    assert secret not in result and repr(secret)[1:-1] not in result
+    assert redact(result, kind) == result
+    if source_context:
+        ast.parse(result)
+    safe_source = f"ordinary_value = {safe_value!r}"
+    assert redact(safe_source, "source") == safe_source
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<pre>api_key &lt;- &quot;CANARY&quot;</pre>",
+        '<pre><span class=kw>api_key</span> <span class=op>&lt;-</span> <span class=st>"CANARY"</span></pre>',
+        "<p>" + "ghp_" + "a" * 36 + "</p>",
+        "<pre><span>password=</span><span>CANARY</span></pre>",
+        "<pre>password:\n  CANARY</pre>",
+        "<pre>password: |\n  CANARY</pre>",
+    ],
+)
+def test_redact_stale_r_html(html, tmp_path):
+    from lamindb.core._secret_redaction import (
+        _UnsafeRunArtifact,
+        _validate_run_artifact,
+    )
+
+    path = tmp_path / "stale.html"
+    path.write_text(html)
+    with pytest.raises(_UnsafeRunArtifact, match="rendered HTML"):
+        _validate_run_artifact(path)
+    assert path.read_text() == html
+
+
+@pytest.mark.parametrize(
+    "source, kind",
+    [
+        ('API_KEY: str = "CANARY"', "source"),
+        ('API_KEY: dict[str, str] = "CANARY"', "source"),
+        ('API_KEY: Literal["="] = "CANARY"', "source"),
+        ('API_KEY: (\n str\n) = "CANARY"', "source"),
+        ('API_KEY = (\n    "CANARY"\n)', "source"),
+        ('API_KEY: str = (("CANARY"))', "source"),
+        ('client.token = (f"CANARY")', "source"),
+        ('os.environ["API_KEY"] = (b"CANARY")', "source"),
+        ('{"client_secret": (r"CANARY")}', "source"),
+        ('api_key <- "CANARY"', "source"),
+        ('["--token", "CANARY"]', "source"),
+        ('["--token=CANARY"]', "source"),
+        ("!tool --token CANARY", "source"),
+        ("!!tool --token=CANARY", "source"),
+        ("%run script.py --token CANARY", "source"),
+        ("# !tool --token CANARY", "source"),
+        ("# %run script.py --token CANARY", "source"),
+        ("# !tool --token \\\n#   CANARY", "source"),
+        *[
+            (f"!tool --token CANARY{operator}echo done", "source")
+            for operator in (";", "&&", "||", "|", ">")
+        ],
+        ('!export API_KEY=CANARY;echo "$API_KEY"', "source"),
+        ("!tool --token=CANARY;echo done", "source"),
+        ("api_key = `CANARY`", "source"),
+        ("password=CANARY", "text"),
+        ("token: CANARY", "text"),
+        ("INFO client_secret = CANARY, count=3", "text"),
+        ('{"api_key": CANARY}', "text"),
+    ],
+)
+def test_redact_assignment_contexts(source, kind):
+    from lamindb.core._secret_redaction import redact
+
+    result = redact(source, kind)
+    assert result == source.replace("CANARY", "***REDACTED***")
+    assert redact(result, kind) == result
+    if kind == "text":
+        assert redact({"message": source}) == {"message": result}
+        for secret in (
+            "CANARY,SUFFIX",
+            "CANARY;SUFFIX",
+            "correct horse battery staple",
+            "CANARY, with punctuation; and spaces",
+        ):
+            for text in (
+                f"password={secret}",
+                f"password: {secret}\ncount=3",
+                f"count=3 password={secret}, name=example",
+            ):
+                cleaned = redact(text)
+                assert cleaned == text.replace(secret, "***REDACTED***")
+                assert redact(cleaned) == cleaned
+        for secret in (
+            "{CANARY}",
+            "[CANARY]",
+            "<CANARY>",
+            "[{\nCANARY\n}]",
+            "[CANARY",
+            "\n  CANARY",
+            "\nCANARY",
+            "|\n  CANARY",
+            ">-\n  CANARY",
+            "|2+\r\n  CANARY",
+            "first\n  CANARY",
+            '"first"\n  CANARY',
+            "first\r\n\r\n\tCANARY",
+            "\r\tCANARY",
+        ):
+            # No structural guess: the rest of this text value is removed.
+            text = f'metadata={{"password": {secret}}}\nremaining output'
+            cleaned = redact(text)
+            assert cleaned == 'metadata={"password": ***REDACTED***'
+            assert redact(cleaned) == cleaned
+        assert redact("metadata={ordinary}") == "metadata={ordinary}"
+        assert (
+            redact("message: |\n  ordinary output") == "message: |\n  ordinary output"
+        )
+        assert redact("count=3\nname: example\npassword=\n") == (
+            "count=3\nname: example\npassword=\n"
+        )
+        assert redact("api_key: str\napi_key=api_key", "source") == (
+            "api_key: str\napi_key=api_key"
+        )
+
+
+@pytest.mark.parametrize(
+    "name", ["uv.lock", "pixi.lock", "requirements.txt", "logs.txt"]
+)
+@pytest.mark.parametrize("folder", [False, True])
+@pytest.mark.parametrize(
+    "original",
+    [
+        b"pkg @ https://user:CANARY@example.org/pkg\r\n",
+        b"password=CANARY\r\n",
+        b"token: CANARY\r\n",
+        b"password=CANARY,SUFFIX\r\n",
+        b"password: correct horse battery staple\r\n",
+        b"password={CANARY}\r\n",
+        b"token: [CANARY]\r\n",
+        b"password:\r\n  CANARY\r\n",
+        b"password: |\n  CANARY\n",
+        b"password: first\n  CANARY\n",
+    ],
+)
+def test_run_text_attachment_preserves_original(
+    tmp_path, name, folder, original, monkeypatch, ccaplog
+):
+    from lamindb.core._secret_redaction import (
+        _save_run_artifact,
+        _validate_run_artifact,
+    )
+
+    # Neither checking nor rejecting an existing file should create a staging copy.
+    def no_staging(*args, **kwargs):
+        pytest.fail("redaction must not create temporary copies")
+
+    monkeypatch.setattr("tempfile.TemporaryDirectory", no_staging)
+    source = tmp_path / name
+    source.write_bytes(original)
+    path = tmp_path if folder else source
+    assert _save_run_artifact(path, description="unsafe attachment") is None
+    assert "existing file contains a detected secret" in ccaplog.text
+    assert source.read_bytes() == original
+    source.write_bytes(b"ordinary content\r\n")
+    assert _validate_run_artifact(path) == path
+    assert source.read_bytes() == b"ordinary content\r\n"
+
+
+def test_redact_source_preserves_token_like_identifier():
+    import ast
+
+    from lamindb.core._secret_redaction import redact
+
+    source = "ghp_" + "a" * 36 + ' = "ordinary_value"'
+    source += (
+        '\nexample = """\n!tool --token ordinary_value\n%run tool --token example\n'
+        'result = !tool --token example\n%%bash\ntool --token example\n"""'
+    )
+    source += '\n# %% language="bash"\n# echo ordinary_value\n# %%\n'
+    source += "value = ghp_" + "b" * 36 + "\nassert 3 % 2 != 0\n"
+    assert redact(source, "source") == source
+    ast.parse(source)
+
+
+@pytest.mark.parametrize(
+    "arguments", [["--token", "CANARY with spaces"], ["--token=CANARY with spaces"]]
+)
+def test_cli_redacts_before_joining_arguments(monkeypatch, arguments):
+    from lamindb.core import _context
+
+    argv = ["script.py", *arguments, "--count", "3"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(_context, "is_run_from_ipython", False)
+    name, stored = _context.get_cli_call()
+    assert name == "script.py"
+    assert "CANARY" not in stored and "with spaces" not in stored
+    assert "--count 3" in stored
+    assert argv == ["script.py", *arguments, "--count", "3"]
+
+
+@pytest.mark.parametrize("from_path", [False, True])
+@pytest.mark.parametrize("value", ["ordinary_value", "ghp_" + "A" * 36])
+def test_redact_transform_source(tmp_path, ccaplog, from_path, value):
+    source = f'x = "{value}"'
+    path = tmp_path / "redact-transform.py"
+    path.write_text(source)
+    if from_path:
+        transform = ln.Transform.from_path(path)
+    else:
+        transform, _ = ln.Transform._create_or_load_from_source(
+            key=path.name, source_code=source, transform_kind="script"
+        )
+    try:
+        assert transform.source_code == redact(source, "source")
+        assert ("redacted secret-looking values" in ccaplog.text) is (
+            value != "ordinary_value"
+        )
+        assert path.read_text() == source
+    finally:
+        transform.delete(permanent=True)

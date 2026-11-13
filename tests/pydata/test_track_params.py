@@ -5,14 +5,25 @@ from typing import Any, Literal, Tuple
 import lamindb as ln
 import pytest
 from lamindb.core._context import (
-    REDACTED_SECRET_VALUE,
     _validate_with_virtual_schema,
     serialize_params_to_json,
 )
+from lamindb.core._secret_redaction import REDACTED_SECRET_VALUE, redact
 from lamindb_setup.core.upath import UPath
 
 
-def test_serialize_params_to_json(ccaplog):
+@pytest.mark.parametrize("reverse_keys", [False, True])
+def test_serialize_params_to_json(ccaplog, reverse_keys):
+    credentials = ["ghp_" + "A" * 36, "gho_" + "B" * 36]
+    labels = {
+        credentials[0]: "primary",
+        credentials[1]: "secondary",
+        REDACTED_SECRET_VALUE: "existing placeholder",
+        f"{REDACTED_SECRET_VALUE} (1)": "existing numbered placeholder",
+        "ordinary": "unchanged",
+    }
+    if reverse_keys:
+        labels = dict(reversed(list(labels.items())))
     a_path = Path("/some/local/folder")
     a_upath = UPath("s3://bucket/key")
     params = {
@@ -24,6 +35,7 @@ def test_serialize_params_to_json(ccaplog):
         "str_key": "plain",
         "api_key": "test-api-key-value",
         "openAIApiKey": "another-secret",
+        "nested": {"auth": [{"token": "nested-secret"}], "keep": 42, "labels": labels},
         "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
         "opaque": object(),
     }
@@ -42,6 +54,16 @@ def test_serialize_params_to_json(ccaplog):
     assert result["str_key"] == "plain"
     assert result["api_key"] == REDACTED_SECRET_VALUE
     assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
+    assert result["nested"]["auth"] == [{"token": REDACTED_SECRET_VALUE}]
+    assert result["nested"]["keep"] == 42
+    cleaned_labels = result["nested"]["labels"]
+    assert len(cleaned_labels) == len(labels)
+    assert set(cleaned_labels.values()) == set(labels.values())
+    for key in ("ordinary", REDACTED_SECRET_VALUE, f"{REDACTED_SECRET_VALUE} (1)"):
+        assert cleaned_labels[key] == labels[key]
+    assert all(credential not in str(result) for credential in credentials)
+    assert all(credential in labels for credential in credentials)
+    assert redact(result) == result
     assert result["database_url"] == REDACTED_SECRET_VALUE
     assert set(result.keys()) == {
         "path_key",
@@ -51,6 +73,7 @@ def test_serialize_params_to_json(ccaplog):
         "api_key",
         "openAIApiKey",
         "database_url",
+        "nested",
     }
     assert "opaque" not in result
     assert "not JSON serializable" in ccaplog.text
@@ -117,21 +140,9 @@ def test_serialize_params_to_json_skips_annotation_mismatch(ccaplog):
         },
     )
     assert result == {"label": "ok"}
-    assert "does not match annotation" in ccaplog.text
-    assert "expected list" in ccaplog.text
-    assert "expected mapping" in ccaplog.text
-    assert "tuple arity mismatch" in ccaplog.text
-    assert "expected set" in ccaplog.text
-    assert "expected frozenset" in ccaplog.text
-    assert "expected sequence" in ccaplog.text
-    assert "mapping key mismatch" in ccaplog.text
-    assert "mapping value mismatch" in ccaplog.text
-    assert "expected tuple" in ccaplog.text
-    assert "tuple item mismatch" in ccaplog.text
-    assert "expected None" in ccaplog.text
-    assert "unsupported annotation origin" in ccaplog.text
-    assert "unsupported annotation type" in ccaplog.text
-    assert "unsupported annotation" in ccaplog.text
+    assert "does not match its annotation" in ccaplog.text
+    for key in params.keys() - {"label"}:
+        assert f"skipping param {key}:" in ccaplog.text
     assert "not JSON serializable after annotation matching" in ccaplog.text
 
 
@@ -159,7 +170,7 @@ def test_serialize_params_to_json_skips_unsupported_annotation(ccaplog):
         params, expected_param_types={"mode": Literal["fast", "slow"]}
     )
     assert "mode" not in result
-    assert "literal value mismatch" in ccaplog.text
+    assert "does not match its annotation" in ccaplog.text
 
 
 def test_serialize_params_to_json_supports_literal_annotation():
@@ -222,7 +233,7 @@ def test_serialize_params_to_json_skips_unresolved_string_annotation(ccaplog):
         params, expected_param_types={"value": "UnknownType"}
     )
     assert result == {}
-    assert "unresolved string annotation" in ccaplog.text
+    assert "does not match its annotation" in ccaplog.text
 
 
 @pytest.mark.parametrize(
@@ -264,3 +275,11 @@ def test_virtual_schema_validation_uses_params_key_label(monkeypatch, error):
         assert valid_keys == set()
         assert invalid_reasons == {"count": error}
         assert error in next(iter(invalid_reasons.values()))
+
+
+def test_param_validation_does_not_log_values(ccaplog):
+    from lamindb.core._context import serialize_params_to_json
+
+    serialize_params_to_json({"count": "CANARY_VALIDATION_SECRET"}, {"count": int})
+    assert "CANARY_VALIDATION_SECRET" not in ccaplog.text
+    assert "count" in ccaplog.text
