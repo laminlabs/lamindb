@@ -354,6 +354,42 @@ def validate_data_record_type_assignment(
         ) from error
 
 
+def validate_mapped_record_fields(record: Record, update_fields=None) -> None:
+    """Validate schema fields stored on the row before writing them."""
+    if record.type_id is None or record.type.schema is None:
+        return
+    from lamindb.curators.core import DictCurator
+
+    from .schema import Schema
+
+    index, features = _schema_features(record.type.schema)
+    mappings = get_feature_record_field_mappings(features)
+    if index is not None:
+        mappings[index.uid] = "name"
+    for feature in features:
+        field_name = mappings.get(feature.uid)
+        if field_name is None or (
+            update_fields is not None and field_name not in update_fields
+        ):
+            continue
+        # Pending constructor features are validated by set_values after save.
+        # They can supply a field that has not been assigned on the row yet.
+        pending = getattr(record, "_features", {})
+        if any(
+            (key.uid if isinstance(key, Feature) else key)
+            in {feature.uid, feature.name}
+            for key in pending
+        ):
+            continue
+        value = _feature_value_from_mapped_record_field(record, feature, field_name)
+        DictCurator(
+            {feature.name: value},
+            Schema([feature]),
+            members=[feature],
+            using=record._state.db,
+        ).validate()
+
+
 def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
     """Convert an index feature value to a `Record.name` string."""
     import pandas as pd
@@ -1216,7 +1252,8 @@ class RecordBatch:
                 # checks would query the schema again for every record.
                 "_skip_type_curator": True,
             }
-            if features:
+            # Index-only rows still need the shared bulk validation path.
+            if features or index_feature is not None:
                 record_kwargs["features"] = features
             records.append(self._cls(name=name, **record_kwargs))
         return records
@@ -1665,6 +1702,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         if self.is_type:
             validate_record_type_schema_index(self.schema)
+        else:
+            validate_mapped_record_fields(self, kwargs.get("update_fields"))
         super().save(*args, **kwargs)
         if hasattr(self, "_features"):
             pending_features = self._features

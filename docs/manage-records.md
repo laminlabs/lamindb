@@ -52,6 +52,43 @@ sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 sample1.describe()
 ```
 
+## Validate string values with a regex
+
+Use `Feature.regex` to constrain scalar string, path, or URL values:
+
+```python
+sample_id = ln.Feature(
+    name="sample_id", dtype=str, nullable=False, regex=r"[A-Za-z0-9_-]+"
+).save()
+sample = ln.Record(features={sample_id: "sample_1"}).save()
+```
+
+Values such as `sample 1`, `sample(1)`, and `sample:1` raise `ValidationError`
+when passed to `sample.features.update_values()`. The stored value remains
+unchanged. The rule also applies in dataframe curators (including pandas
+indexes), artifact and run annotations, and bulk Record feature validation.
+For a Record type's schema index or a schema feature mapped with
+`values_through`, direct edits to the mapped Record field are checked on save.
+
+Matching uses Python `re.fullmatch`, including in Polars. Inline flags such as
+`(?i)` are supported. An empty pattern matches only an empty string. Nulls follow
+`nullable`, defaults must satisfy the rule, and values are never implicitly
+converted to strings by the regex check. Lists and categorical features cannot
+have a regex.
+
+Assign `sample_id.regex = None` and save to remove the rule. Passing `regex=None`
+or omitting it when reconstructing an existing feature preserves its rule;
+passing a string replaces the rule in memory until saved. Pattern syntax is
+checked on assignment; dtype and default compatibility are checked on
+construction and save, so related fields can be edited in either order.
+
+Rules are stored in the existing `_aux["regex"]` metadata, without a database
+migration. Changing a rule does not scan historical values or refresh existing
+curators. Rebuild a curator to validate against updated definitions. Raw SQL
+and Django bulk updates bypass these checks. Sheet applications must use the
+validated server write paths and expose the feature metadata; browser regex
+engines are not interchangeable with Python's engine.
+
 ## Organize records by type
 
 To create and use a record type call:

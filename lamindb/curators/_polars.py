@@ -6,6 +6,8 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
 
+from lamindb.base._regex import matches_regex, regex_error
+
 
 def _all_missing(data) -> bool:
     return data.lazyframe.select(pl.col(data.key).is_null().all()).collect().item()
@@ -122,6 +124,7 @@ def polars_dtype(dtype_str: str):
 def column(feature, required: bool, schema_coerce: bool = False):
     """Translate a Lamin feature into a native Polars Pandera column."""
     dtype_str = feature._dtype_str
+    pattern = feature._validate_regex()
     kwargs = {
         "nullable": feature.nullable,
         "coerce": feature.coerce or schema_coerce,
@@ -161,12 +164,25 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 feature.nullable and _all_missing(data)
             )
 
-        return pandera.Column(
-            dtype=None,
-            checks=pandera.Check(
+        checks = [
+            pandera.Check(
                 check,
                 error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
-            ),
-            **kwargs,
-        )
+            )
+        ]
+        if pattern is not None:
+
+            def check_regex(data):
+                return data.lazyframe.select(
+                    pl.col(data.key)
+                    .map_elements(
+                        lambda value: matches_regex(value, pattern),
+                        return_dtype=pl.Boolean,
+                    )
+                    .fill_null(True)
+                    .alias(CHECK_OUTPUT_KEY)
+                )
+
+            checks.append(pandera.Check(check_regex, error=regex_error(feature)))
+        return pandera.Column(dtype=None, checks=checks, **kwargs)
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
