@@ -841,6 +841,15 @@ def test_notebook_report_redacts_source(
             (r"!tool --token CANARY\ SPACE", "CANARY SPACE"),
             (r"!tool --token=CANARY\ OPTION", "CANARY OPTION"),
             ('url = "https://user:CANARY_URL@example.org/pkg"', "CANARY_URL"),
+            ("api_key = `CANARY_BACKTICK`", "CANARY_BACKTICK"),
+            ('!export API_KEY=CANARY_OPERATOR; echo "$API_KEY"', "CANARY_OPERATOR"),
+            (
+                '%%bash\nAPI_KEY=CANARY_CELL_OPERATOR;echo "$API_KEY"',
+                "CANARY_CELL_OPERATOR",
+            ),
+            ('!tool --token "CANARY;QUOTED";echo done', "CANARY;QUOTED"),
+            (r"!tool --token CANARY\;ESCAPED;echo done", "CANARY;ESCAPED"),
+            ("%run script.py --token CANARY;ARGUMENT", "CANARY;ARGUMENT"),
         ]
     )
     for command, secret in commands:
@@ -1477,6 +1486,13 @@ def test_redact_stale_r_html(html, tmp_path):
         ("# !tool --token CANARY", "source"),
         ("# %run script.py --token CANARY", "source"),
         ("# !tool --token \\\n#   CANARY", "source"),
+        *[
+            (f"!tool --token CANARY{operator}echo done", "source")
+            for operator in (";", "&&", "||", "|", ">")
+        ],
+        ('!export API_KEY=CANARY;echo "$API_KEY"', "source"),
+        ("!tool --token=CANARY;echo done", "source"),
+        ("api_key = `CANARY`", "source"),
         ("password=CANARY", "text"),
         ("token: CANARY", "text"),
         ("INFO client_secret = CANARY, count=3", "text"),

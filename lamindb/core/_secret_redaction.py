@@ -294,7 +294,8 @@ def _redact_secret_assignments(source_code: str, _secrets=None) -> str:
                 else:
                     secret = ast.literal_eval(expression)
             except (ValueError, SyntaxError):
-                secret = None
+                # Backticks are supported source literals, but not Python syntax.
+                secret = value if quote == "`" else None
             if (
                 isinstance(secret, bytes)
                 and secret
@@ -355,6 +356,10 @@ _ENV_MAGIC_PATTERN = re.compile(
     r"(?m)^(?P<prefix>[ \t]*%env[ \t]+(?P<key>\w+)[ \t]*(?:=[ \t]*|[ \t]+))(?P<value>[^\n]+)"
 )
 _SHELL_TOKEN = re.compile(r"(?:\\[\s\S]|[^\s\\\"']|\"(?:\\.|[^\"\\])*\"|'[^']*')+")
+_SHELL_COMMAND_TOKEN = re.compile(
+    r"(?P<operator>[;&|<>()]+)|"
+    r"(?:\\[\s\S]|[^\s\\\"';&|<>()]|\"(?:\\.|[^\"\\])*\"|'[^']*')+"
+)
 _SOURCE_COMMAND_PATTERN = re.compile(
     r"(?m)^[ \t]*(?:\#[ \t]*)?(?:[^\n#]*?=[ \t]*)?"
     r"(?P<command>!{1,2}(?!=)|%(?:run|pip|conda|mamba|sx|system)\b)"
@@ -409,7 +414,16 @@ def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> s
 
     replacements = []
     sensitive = False
-    for match in _SHELL_TOKEN.finditer(text):
+    # %run passes arguments to Python; shell punctuation there is argument data.
+    tokens = (
+        _SHELL_COMMAND_TOKEN
+        if source_command and not re.match(r"%run\b", text)
+        else _SHELL_TOKEN
+    )
+    for match in tokens.finditer(text):
+        if match.lastgroup == "operator":
+            sensitive = False
+            continue
         argument_text = match.group()
         # Jupytext can place its next-line comment marker immediately after a
         # continuation, so both become one token. Neither is an argument value.
