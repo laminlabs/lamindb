@@ -1446,6 +1446,7 @@ def test_redact_stale_r_html(html, tmp_path):
         ("%run script.py --token CANARY", "source"),
         ("# !tool --token CANARY", "source"),
         ("# %run script.py --token CANARY", "source"),
+        ("# !tool --token \\\n#   CANARY", "source"),
         ("password=CANARY", "text"),
         ("token: CANARY", "text"),
         ("INFO client_secret = CANARY, count=3", "text"),

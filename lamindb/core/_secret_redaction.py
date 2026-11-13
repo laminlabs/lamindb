@@ -373,7 +373,9 @@ def _redact_argv(text: str, _secrets=None, *, source_command: bool = False) -> s
     sensitive = False
     for match in _SHELL_TOKEN.finditer(text):
         argument_text = match.group()
-        if argument_text == "\\\n":
+        # Jupytext can place its next-line comment marker immediately after a
+        # continuation, so both become one token. Neither is an argument value.
+        if argument_text == "\\\n" or (source_command and argument_text == "\\\n#"):
             continue
         # Jupytext prefixes every line of an exported command with '#'.
         if (
