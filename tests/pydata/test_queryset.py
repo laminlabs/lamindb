@@ -243,7 +243,7 @@ def test_to_dataframe_include_features_uses_queryset_measured_features():
         assert measured_feature.name not in empty_df.columns
         assert unmeasured_feature.name not in empty_df.columns
 
-        _, feature_qs, _ = get_feature_annotate_kwargs(
+        _, feature_qs, _, _ = get_feature_annotate_kwargs(
             ln.Artifact,
             "queryset",
             ln.Artifact.filter(id=empty_artifact.id),

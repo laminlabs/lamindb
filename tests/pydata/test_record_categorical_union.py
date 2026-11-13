@@ -211,3 +211,43 @@ def test_record_union_export_keeps_selected_feature_id():
         include="features", is_run_input=False
     )
     assert frame[feature.name].iloc[0] == label.name
+
+
+@pytest.mark.parametrize("include_feature_id", [False, True])
+@pytest.mark.parametrize("union_dtype", [False, True])
+def test_record_feature_export_keeps_incoming_links_separate(
+    include_feature_id, union_dtype
+):
+    feature = ln.Feature(
+        name="incoming_export_relation",
+        dtype="cat[Record.name|ULabel.name]" if union_dtype else "cat[Record.name]",
+    ).save()
+    target = ln.Record(name="incoming_export_target").save()
+    expected = target.name
+    if union_dtype:
+        label = ln.ULabel(name="incoming_export_label").save()
+        expected = [target.name, label.name]
+    host = ln.Record(
+        name="incoming_export_host", features={feature.name: expected}
+    ).save()
+    referrer = ln.Record(
+        name="incoming_export_referrer", features={feature.name: host.name}
+    ).save()
+    include = ["links_record__feature__name", "links_record__record__name"]
+    if include_feature_id:
+        include.append("links_record__feature_id")
+
+    frame = ln.Record.filter(id=host.id).to_dataframe(
+        features=[feature.name], include=include.copy(), is_run_input=False
+    )
+
+    actual = frame[feature.name].iloc[0]
+    if union_dtype:
+        assert actual == set(expected)
+    else:
+        assert actual == expected
+    assert frame["links_record__feature__name"].iloc[0] == {feature.name}
+    assert frame["links_record__record__name"].iloc[0] == {referrer.name}
+    if include_feature_id:
+        assert frame["links_record__feature_id"].iloc[0] == {feature.id}
+    assert set(frame.columns) == {"uid", "name", feature.name, *include}

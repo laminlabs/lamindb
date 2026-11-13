@@ -489,11 +489,19 @@ def get_basic_field_names(
     return field_names
 
 
+class _CategoricalFeatureSource(NamedTuple):
+    """A categorical relationship selected for dataframe feature export."""
+
+    link_attr: str
+    value_field: str
+    value_registry: Registry
+
+
 def get_feature_annotate_kwargs(
     registry: Registry,
     features: list[str] | str | None,
     qs: QuerySet,
-) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
+) -> tuple[dict[str, Any], QuerySet, dict[str, Any], list[_CategoricalFeatureSource]]:
     from lamindb.models import (
         Artifact,
         ArtifactJsonValue,
@@ -625,6 +633,7 @@ def get_feature_annotate_kwargs(
 
     filtered_relations = {}
     annotate_kwargs = {}
+    categorical_sources: list[_CategoricalFeatureSource] = []
     for feature_type_model, fields in cat_feature_fields.items():
         # Resolve the same relationship used when storing categorical values.
         try:
@@ -674,6 +683,9 @@ def get_feature_annotate_kwargs(
             annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
                 f"{filtered_value_relation_name}__{field}"
             )
+        categorical_sources.append(
+            _CategoricalFeatureSource(link_attr, field_name, feature_type_model)
+        )
 
     # Handle JSON values (no branch filtering needed)
     json_values_attribute = (
@@ -689,7 +701,7 @@ def get_feature_annotate_kwargs(
         f"{json_values_attribute}__value"
     )
 
-    return annotate_kwargs, feature_qs, filtered_relations
+    return annotate_kwargs, feature_qs, filtered_relations, categorical_sources
 
 
 def analyze_lookup_cardinality(
@@ -781,6 +793,7 @@ def reshape_annotate_result(
     field_names: list[str],
     cols_from_include: dict[str, str] | None,
     feature_qs: QuerySet | None,
+    categorical_sources: list[_CategoricalFeatureSource],
     record_metadata: bool = True,
 ) -> pd.DataFrame:
     """Reshapes tidy table to wide format.
@@ -792,6 +805,7 @@ def reshape_annotate_result(
         cols_from_include: Dict specifying additional columns to process with types
             ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
         feature_qs: QuerySet of features
+        categorical_sources: Relationships selected for categorical feature export
     """
     import pandas as pd
 
@@ -875,21 +889,11 @@ def reshape_annotate_result(
                 )
 
     # --- Process categorical/linked features ---
-    links_prefix = ("links_", "values_")
-    links_features = [
-        col
-        for col in df.columns
-        if "feature__name" in col
-        and col.startswith(links_prefix)
-        and col != feature_name_col
-    ]
-
-    if links_features:
+    if categorical_sources:
         result_encoded = process_links_features(
-            registry,
             df_encoded,
             result_encoded,
-            links_features,
+            categorical_sources,
             feature_qs,
             pk_name_encoded,
         )
@@ -1014,10 +1018,9 @@ def reshape_annotate_result(
 
 
 def process_links_features(
-    registry: Registry,
     df: pd.DataFrame,
     result: pd.DataFrame,
-    feature_cols: list[str],
+    categorical_sources: list[_CategoricalFeatureSource],
     feature_qs: QuerySet | None,
     pk_name: str = "id",
 ) -> pd.DataFrame:
@@ -1027,22 +1030,10 @@ def process_links_features(
     from lamindb.models.feature import parse_dtype
 
     values_by_feature: dict[str, dict[Any, set]] = {}
-    for feature_col in feature_cols:
-        link_attr = feature_col.removesuffix("__feature__name")
-        feature_id_col = f"{link_attr}__feature_id"
-        value_cols = [
-            col
-            for col in df.columns
-            if col.startswith(f"{link_attr}__")
-            and col not in {feature_col, feature_id_col}
-        ]
-        if not value_cols:
-            continue
-
-        value_prefix = value_cols[0].rsplit("__", 1)[0]
-        value_attr = value_prefix.split("__")[1]
-        link_model = registry._meta.get_field(link_attr).related_model
-        value_registry = link_model._meta.get_field(value_attr).related_model
+    for source in categorical_sources:
+        feature_col = f"{source.link_attr}__feature__name"
+        feature_id_col = f"{source.link_attr}__feature_id"
+        value_prefix = f"{source.link_attr}__{source.value_field}"
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
 
@@ -1053,7 +1044,7 @@ def process_links_features(
                 (
                     component
                     for component in parse_dtype(feature._dtype_str)
-                    if component["registry"] is value_registry
+                    if component["registry"] is source.value_registry
                 ),
                 None,
             )
@@ -1230,10 +1221,14 @@ class BasicQuerySet(models.QuerySet):
         annotate_kwargs = {}
         filtered_relations = {}  # type: ignore
         feature_qs = None
+        categorical_sources: list[_CategoricalFeatureSource] = []
         if features:
-            feature_annotate_kwargs, feature_qs, filtered_relations = (
-                get_feature_annotate_kwargs(subset.model, features, subset)
-            )
+            (
+                feature_annotate_kwargs,
+                feature_qs,
+                filtered_relations,
+                categorical_sources,
+            ) = get_feature_annotate_kwargs(subset.model, features, subset)
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
             include_input = include_input.copy()[::-1]  # type: ignore
@@ -1278,7 +1273,13 @@ class BasicQuerySet(models.QuerySet):
             return df
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
         df_reshaped = reshape_annotate_result(
-            self.model, df, field_names, cols_from_include, feature_qs, record_metadata
+            self.model,
+            df,
+            field_names,
+            cols_from_include,
+            feature_qs,
+            categorical_sources,
+            record_metadata,
         )
         pk_name = self.model._meta.pk.name
         if record_metadata:
