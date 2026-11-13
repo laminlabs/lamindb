@@ -2294,6 +2294,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 schema, features, kwargs_or_artifact, otype=otype
             )
             init_self_from_db(self, kwargs_or_artifact)
+            if _check_run:
+                # Reusing a checked attachment must honor run=False: the shared
+                # initializer can otherwise attach the current run implicitly.
+                self.run_id = kwargs_or_artifact.run_id
             # update key from inferred value
             key = privates.pop("key")
             # adding "key" here is dangerous because key might be auto-populated

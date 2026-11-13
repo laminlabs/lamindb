@@ -288,13 +288,18 @@ def test_stored_run_secrets(bulk, secret):
 
 
 @pytest.mark.parametrize("content", ["clean log", ""])
-def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
+def test_run_attachment_dedup_preserves_kind_and_storage(
+    tmp_path, monkeypatch, content
+):
     from lamindb.core._secret_redaction import _UnsafeRunArtifact
 
     source = tmp_path / "source.txt"
     source.write_text(content)
     ordinary = ln.Artifact(source, description="ordinary data", run=False).save()
     storage = ln.Storage(root=(tmp_path / "other-storage").as_posix()).save()
+    transform = ln.Transform(key="attachment-reuse.py").save()
+    active_run = ln.Run(transform).save()
+    original_run = ln.Run(transform).save()
     report = None
     try:
         with pytest.raises(_UnsafeRunArtifact, match="incompatible artifact"):
@@ -316,20 +321,30 @@ def test_run_attachment_dedup_preserves_kind_and_storage(tmp_path, content):
         assert report.pk != ordinary.pk and report.storage_id == storage.id
         ordinary.refresh_from_db()
         assert ordinary.kind != "__lamindb_run__"
-        duplicate = ln.Artifact(
-            source,
-            kind="__lamindb_run__",
-            _check_run=True,
-            description="report",
-            storage=storage,
-            run=False,
-        ).save()
-        assert duplicate.pk == report.pk
+        for previous_run in (None, original_run):
+            report.run = previous_run
+            report.save()
+            with monkeypatch.context() as patch:
+                patch.setattr(ln.context, "_run", active_run)
+                duplicate = ln.Artifact(
+                    source,
+                    kind="__lamindb_run__",
+                    _check_run=True,
+                    description="report",
+                    storage=storage,
+                    run=False,
+                ).save()
+            duplicate.refresh_from_db()
+            assert duplicate.pk == report.pk
+            assert duplicate.run_id == report.run_id
     finally:
         if report is not None:
             report.delete(permanent=True, storage=True)
         ordinary.delete(permanent=True, storage=True)
         storage.delete()
+        active_run.delete(permanent=True)
+        original_run.delete(permanent=True)
+        transform.delete(permanent=True)
 
 
 @pytest.mark.parametrize("bulk", [False, True])
