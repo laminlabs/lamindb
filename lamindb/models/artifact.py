@@ -1661,7 +1661,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description       :attr:`suffix`                                  :attr:`otype`     Python type examples
         ================  ==============================================  ================  ====================================================================
         table             `.csv`, `.tsv`, `.parquet`, `.ipc`, `.lance`    `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
-        lance table       `.lance`                                        `"lance"`         `lancedb.table.LanceTable`
+        lance table       `.lance`                                        ---               `lancedb.table.LanceTable`
         annotated matrix  `.h5ad`, `.zarr`, `.h5mu`                       `"AnnData"`       `anndata.AnnData`
         stacked matrix    `.zarr`                                         `"MuData"`        `mudata.MuData`
                           `.tiledbsoma`                                   `"tiledbsoma"`    `tiledbsoma.Experiment`
@@ -2827,7 +2827,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> Artifact:
         """Create from a `.lance` directory.
 
-        Sets `.otype` to `"lance"` and populates `.n_observations`.
+        Populates `.n_observations`.
 
         Registers the directory and opens it once to record the row count and
         the current Lance version. Read the table with
@@ -2861,7 +2861,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             run=run,
             description=description,
             revises=revises,
-            otype="lance",
             kind="dataset",
             **kwargs,
         )

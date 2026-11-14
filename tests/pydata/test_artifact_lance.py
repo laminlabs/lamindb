@@ -65,7 +65,6 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
             copied, key="lance/copied.lance", skip_hash_lookup=True
         ).save()
         assert from_path.uid != artifact.uid
-        assert from_path.otype == "lance"
         assert from_path.suffix == ".lance"
         assert from_path.n_observations == 3
         table = from_path.lance.open()
