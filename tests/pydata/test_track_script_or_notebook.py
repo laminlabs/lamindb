@@ -1137,3 +1137,25 @@ def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+def test_run_cli_args_not_length_limited(monkeypatch):
+    from django.db.models import TextField
+
+    field = ln.Run._meta.get_field("cli_args")
+    assert isinstance(field, TextField)
+    assert field.max_length is None
+    cli_args = " ".join(f"--param{i} {i}" for i in range(400))
+    assert len(cli_args) > 1024
+    transform = ln.Transform(
+        key="test_run_cli_args_not_length_limited.py", kind="pipeline"
+    ).save()
+    monkeypatch.setattr(sys, "argv", ["pipeline.py", *cli_args.split()])
+    monkeypatch.setattr("lamindb.core._context.is_run_from_ipython", False)
+    try:
+        ln.track(transform=transform)
+        assert ln.Run.get(ln.context.run.uid).cli_args == cli_args
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        transform.delete(permanent=True)
