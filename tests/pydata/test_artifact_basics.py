@@ -261,6 +261,105 @@ def test_cloud_path_init_file_in_folder_artifact_missing_raises(monkeypatch):
     )
 
 
+@pytest.fixture
+def folder_in_storage():
+    """A folder inside the default storage location, but not under `.lamindb/`."""
+    root_dir = ln.settings.storage.root / "subpath_tests"
+    folder_path = root_dir / "folder"
+    (folder_path / "subdir").mkdir(parents=True)
+    (folder_path / "subdir" / "file.txt").write_text("hello")
+    (folder_path / "other.txt").write_text("world")
+    yield folder_path
+    try:
+        for artifact in ln.Artifact.filter(
+            ln.Q(key__startswith="subpath_tests")
+            | ln.Q(_real_key__startswith="subpath_tests")
+        ):
+            artifact.delete(permanent=True, storage=False)
+    finally:
+        shutil.rmtree(root_dir)
+
+
+def test_path_init_file_in_folder_artifact_outside_lamindb(folder_in_storage):
+    folder = ln.Artifact(folder_in_storage).save()
+    assert folder.key == "subpath_tests/folder"
+    assert not folder._key_is_virtual
+
+    for nested_path in [
+        folder_in_storage / "subdir" / "file.txt",
+        folder_in_storage / "subdir",
+    ]:
+        # arguments meant for a new artifact don't alter the folder artifact
+        artifact = ln.Artifact(nested_path, description="nested").save()
+        assert artifact.uid == folder.uid
+        assert artifact.description is None
+    assert ln.Artifact.filter(key__startswith="subpath_tests").count() == 1
+
+    # a path that merely shares the folder's name as a prefix is not inside it
+    sibling_path = folder_in_storage.with_name("folder_sibling") / "file.txt"
+    sibling_path.parent.mkdir()
+    sibling_path.write_text("hello")
+    artifact = ln.Artifact(sibling_path)
+    assert artifact._state.adding
+    assert artifact.key == "subpath_tests/folder_sibling/file.txt"
+
+
+def test_path_init_file_in_folder_artifact_with_virtual_key(folder_in_storage):
+    folder = ln.Artifact(folder_in_storage, key="subpath_tests_virtual/folder").save()
+    assert folder._real_key == "subpath_tests/folder"
+
+    artifact = ln.Artifact(folder_in_storage / "other.txt")
+    assert artifact.uid == folder.uid
+
+
+def test_path_init_file_not_in_artifact_with_same_virtual_key(
+    folder_in_storage, tmp_path
+):
+    # stored under `.lamindb/`, only its virtual key equals the folder's path
+    (tmp_path / "file.txt").write_text("unrelated")
+    uploaded = ln.Artifact(tmp_path, key="subpath_tests/folder").save()
+    assert uploaded._key_is_virtual and uploaded._real_key is None
+
+    artifact = ln.Artifact(folder_in_storage / "other.txt")
+    assert artifact._state.adding
+
+
+def test_path_init_nearest_artifact_takes_precedence(folder_in_storage):
+    # registered before the folder that contains them
+    file = ln.Artifact(folder_in_storage / "other.txt").save()
+    subdir = ln.Artifact(folder_in_storage / "subdir").save()
+    folder = ln.Artifact(folder_in_storage).save()
+    assert len({file.uid, subdir.uid, folder.uid}) == 3
+
+    # a path that is registered itself is not resolved to its parent folder
+    assert ln.Artifact(folder_in_storage / "other.txt").stem_uid == file.stem_uid
+    # otherwise the innermost folder wins
+    assert ln.Artifact(folder_in_storage / "subdir" / "file.txt").uid == subdir.uid
+
+
+def test_path_init_file_in_folder_artifact_prefers_target_branch(folder_in_storage):
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_subpath_branch").save()
+    folder_main = ln.Artifact(folder_in_storage).save()
+    try:
+        # a more recently created head of the same folder on another branch
+        ln.setup.switch(branch.name)
+        (folder_in_storage / "new.txt").write_text("new")
+        folder_branch = ln.Artifact(folder_in_storage).save()
+        assert folder_branch.stem_uid == folder_main.stem_uid
+        assert folder_branch.branch_id == branch.id
+        assert ln.Artifact(folder_in_storage / "other.txt").uid == folder_branch.uid
+
+        ln.setup.switch(main_branch.name)
+        assert ln.Artifact(folder_in_storage / "other.txt").uid == folder_main.uid
+    finally:
+        ln.setup.switch(main_branch.name)
+        for record in ln.Artifact.objects.filter(uid__startswith=folder_main.stem_uid):
+            record.delete(permanent=True, storage=False)
+        branch.delete(permanent=True)
+
+
 def test_path_init_existing_artifact():
     # any artifact on s3 fits this test
     artifact = ln.Artifact.connect("laminlabs/lamindata").get("cGi8QjXNQQfZzL4n")
