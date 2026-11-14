@@ -103,6 +103,17 @@ Register a pipeline as a transform via `lamindb`:
   ).save()
   ```
 
+- If the pipeline's `nextflow_schema.json` isn't at the repository root, pass its path relative to the repository root via `nextflow_schema`. For example, Viash-built repositories keep one schema next to each workflow's `main.nf`. LaminHub uses this schema for the launch form; it's stored in `transform._aux["nextflow"]["launch"]["schemaName"]`:
+
+  ```python
+  ln.Transform.from_git(
+      url="https://github.com/openpipelines-bio/openpipeline",
+      path="target/nextflow/workflows/qc/qc/main.nf",
+      version="v4.2.0",
+      nextflow_schema="target/nextflow/workflows/qc/qc/nextflow_schema.json",
+  ).save()
+  ```
+
 Configure the settings of a pipeline:
 
 1. Switch on the `Show configuration` toggle and you will see the `Configuration` section.
