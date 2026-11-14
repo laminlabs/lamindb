@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 import warnings
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -77,6 +78,24 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
+
+
+def compile_regex(pattern: str) -> re.Pattern:
+    if not isinstance(pattern, str):
+        raise TypeError("Feature.regex must be a string or None")
+    try:
+        return re.compile(pattern)
+    except re.error as error:
+        raise ValidationError(f"Invalid feature regex {pattern!r}: {error}") from error
+
+
+def matches_regex(value: object, pattern: re.Pattern) -> bool:
+    """Match a complete non-null string without coercing its value."""
+    return isinstance(value, str) and pattern.fullmatch(value) is not None
+
+
+def regex_error(feature) -> str:
+    return f"Feature '{feature.name}' must fully match regex {feature.regex!r}"
 
 
 def _normalize_feature_value(value: Any) -> Any:
@@ -948,6 +967,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         coerce: `bool | None = None` When `True`, coerces this feature's values during validation.
             `Schema.coerce=True` also coerces it when this is left unset. See :attr:`~lamindb.Feature.coerce`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
+        regex: Python regular expression for full-string validation of scalar `str`, `path`, or `url` values.
         values_through: `Feature | SQLRecordFieldName | None = None` Source of values
             for this feature. Pass a related :class:`~lamindb.Feature` to read and write
             values through the backward relationship; writes store inverted links on
@@ -1366,6 +1386,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
+        regex: str | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
         values_through: Feature | SQLRecordFieldName | None = None,
         branch: Branch | None = None,
@@ -1395,6 +1416,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
+        regex = kwargs.pop("regex", None)
+        if regex is not None:
+            compile_regex(regex)
+        has_default_value = "default_value" in kwargs
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
         # Default nullable to True for non-type features
@@ -1414,7 +1439,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         values_through = kwargs.pop("values_through", None)
         kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
-        self.default_value = default_value
+        if (
+            has_default_value
+            or self._state.adding
+            or (regex is None and self.regex is None)
+        ):
+            self.default_value = default_value
         self.nullable = nullable
         self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
@@ -1515,6 +1545,58 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 )
         # validation happens in save()
         self._values_through_input = values_through
+        if regex is not None:
+            if not self._state.adding and self.regex != regex:
+                logger.warning(f"updated regex from {self.regex} to {regex}")
+            self.regex = regex
+        self._validate_regex()
+
+    @property
+    def regex(self) -> str | None:
+        """Python regular expression that non-null string values must fully match.
+
+        Supported for scalar `str`, `path`, and `url` features. Inline flags are
+        supported. An empty pattern matches only an empty string; assign `None`
+        to remove the rule. Save to persist changes. Changing a rule does not
+        revalidate existing values or refresh previously constructed curators.
+        """
+        return (self._aux or {}).get("regex")
+
+    @regex.setter
+    def regex(self, value: str | None) -> None:
+        if value is not None:
+            compile_regex(value)
+        aux = dict(self._aux or {})
+        if value is None:
+            aux.pop("regex", None)
+        else:
+            aux["regex"] = value
+        self._aux = aux
+
+    def _validate_regex(self):
+        """Validate the effective definition without importing curator backends."""
+        if self.regex is None:
+            return None
+        pattern = compile_regex(self.regex)
+        if self.is_type or self._dtype_str not in {"str", "path", "url"}:
+            raise ValidationError(
+                "regex requires a scalar str, path, or url feature (not a feature type)"
+            )
+        source = self.values_through
+        if isinstance(source, Feature):
+            raise ValidationError("regex is incompatible with reverse values_through")
+        if isinstance(source, str):
+            from .record import validate_record_feature_field_mapping
+
+            validate_record_feature_field_mapping(self, source)
+        if self.default_value is not None and not matches_regex(
+            self.default_value, pattern
+        ):
+            raise ValidationError(
+                f"default_value {self.default_value!r} for feature '{self.name}' "
+                f"must fully match regex {self.regex!r}"
+            )
+        return pattern
 
     def _should_build_model_predicate(self, other: models.Model) -> bool:
         """Return whether a model value should be treated as a feature predicate value."""
@@ -1681,6 +1763,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature in the database."""
+        self._validate_regex()
         # distinguish between explicit None and UNSET
         # if the user wants to clear the values_through relationship, they can pass None
         # via the Feature.values_through setter

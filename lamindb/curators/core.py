@@ -48,9 +48,11 @@ from lamindb.models.artifact import (
     data_is_soma_experiment,
 )
 from lamindb.models.feature import (
+    matches_regex,
     parse_cat_dtype,
     parse_dtype,
     parse_filter_string,
+    regex_error,
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
@@ -996,6 +998,7 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
+                pattern = feature._validate_regex()
                 if self._is_polars:
                     pandera_columns[feature.name] = polars_column(
                         feature, required, schema.coerce
@@ -1082,6 +1085,16 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
+                if pattern is not None and not self._is_polars:
+                    pandera_columns[feature.name].checks.append(
+                        pandera.Check(
+                            lambda value, pattern=pattern: matches_regex(
+                                value, pattern
+                            ),
+                            element_wise=True,
+                            error=regex_error(feature),
+                        )
+                    )
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
@@ -1100,7 +1113,8 @@ class ComponentCurator(Curator):
                     if index_feature._dtype_str.startswith("cat")
                     else index_feature._dtype_str
                 )
-                if index_dtype == "str":
+                index_pattern = index_feature._validate_regex()
+                if index_dtype in {"str", "path", "url"}:
                     # same str rules as columns (incl. empty default RangeIndex)
                     pandera_index = pandera.Index(
                         dtype=None,
@@ -1118,6 +1132,17 @@ class ComponentCurator(Curator):
                     )
                 else:
                     pandera_index = pandera.Index(index_dtype)
+                if index_pattern is not None:
+                    pandera_index.nullable = index_feature.nullable
+                    pandera_index.checks.append(
+                        pandera.Check(
+                            lambda value, pattern=index_pattern: matches_regex(
+                                value, pattern
+                            ),
+                            element_wise=True,
+                            error=regex_error(index_feature),
+                        )
+                    )
             else:
                 pandera_index = None
             if schema.maximal_set:
