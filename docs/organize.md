@@ -40,6 +40,8 @@ In this scenario, save the entire directory as a single artifact:
 ln.Artifact("./folder_abc", key="folder_abc").save()
 ```
 
+A path inside a folder that is registered this way resolves to the folder artifact, see the notes of {class}`~lamindb.Artifact`.
+
 :::
 
 ## Via relationships in the database

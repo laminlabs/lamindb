@@ -1685,6 +1685,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
         detects the duplication and will return the existing artifact.
 
+    .. dropdown:: What happens if I pass a path inside a folder that is already an artifact?
+
+        If a folder in a storage location is registered as an artifact, `Artifact()` returns that folder artifact for any path inside it, rather than creating a new artifact for the file or subfolder::
+
+            folder = ln.Artifact("s3://my_bucket/my_folder").save()
+            artifact = ln.Artifact("s3://my_bucket/my_folder/subdir/my_file.csv")
+            assert artifact.uid == folder.uid
+
+        Arguments meant for a new artifact, such as `description`, are ignored in this case.
+        If several registered folders contain the path, the innermost one is returned.
+
+        A path that was registered before its folder still resolves to its own artifact.
+        The lookup is skipped when `revises` is passed.
+
     .. dropdown:: I cannot come up with a good file name, can I avoid mapping artifacts into a hierarchy?
 
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**. You can do so by omitting the `key` argument and only passing `description`.
