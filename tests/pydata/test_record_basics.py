@@ -3290,7 +3290,9 @@ def test_record_feature_predicate_query(ccaplog):
 
 def test_record_features_accept_feature_object_keys():
     feature_score = ln.Feature(name="record_feature_object_score", dtype=int).save()
-    feature_tag = ln.Feature(name="record_feature_object_tag", dtype=str).save()
+    feature_tag = ln.Feature(
+        name="record_feature_object_tag", dtype=str, regex="[a-z]+"
+    ).save()
     record = ln.Record(name="record_feature_object_test").save()
 
     record.features.set_values({feature_score: 7, "record_feature_object_tag": "a"})
@@ -3354,6 +3356,8 @@ def test_record_features_accept_feature_object_keys():
         "record_feature_object_numbers": [3],
     }
     record.features.update_values({})
+    with pytest.raises(ln.errors.ValidationError, match="regex"):
+        record.features.update_values({feature_tag: "keep!"})
     assert record.features.get_values()["record_feature_object_tag"] == "keep"
     record.features.update_values({feature_score: None, feature_numbers: []})
     assert record.features.get_values() == {

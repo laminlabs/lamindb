@@ -1,6 +1,6 @@
 import re
 import textwrap
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -554,7 +554,7 @@ def test_nullable():
         # Django stores aware timestamps. dtype datetime is naive datetime64[ns].
         for value in (
             datetime(2024, 1, 1),
-            datetime(2024, 1, 1, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, tzinfo=UTC),
         ):
             assert DictCurator({when.name: value}, datetime_schema).validate() is None
         # Null normalization must not enable coercion of non-null strings.
@@ -664,7 +664,7 @@ def test_pandera_dataframe_schema(
     schema_all_required = ln.Schema(
         name="my-schema all required",
         features=[
-            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_id", dtype=str, regex=r"sample[0-9]+").save(),
             ln.Feature(name="sample_name", dtype=str).save(),
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
@@ -691,6 +691,10 @@ def test_pandera_dataframe_schema(
 
     # minimal_set=True, all three columns are required
     ln.curators.DataFrameCurator(df, schema=schema_all_required).validate()
+    with pytest.raises(ValidationError, match="regex"):
+        ln.curators.DataFrameCurator(
+            df.assign(sample_id="sample!"), schema=schema_all_required
+        ).validate()
     # can't miss a required column
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(

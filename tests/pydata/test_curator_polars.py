@@ -155,7 +155,7 @@ def test_polars_nullability(as_frame, nullable):
 
 def test_polars_column_constraints(as_frame):
     schema = make_schema(
-        [("pl_first", int, {}), ("pl_second", str, {})],
+        [("pl_first", int, {}), ("pl_second", str, {"regex": "a+"})],
         maximal_set=True,
         ordered_set=True,
     )
@@ -163,6 +163,7 @@ def test_polars_column_constraints(as_frame):
         pl.DataFrame({"pl_first": [1]}),
         pl.DataFrame({"pl_second": ["a"], "pl_first": [1]}),
         pl.DataFrame({"pl_first": [1], "pl_second": ["a"], "extra": [1]}),
+        pl.DataFrame({"pl_first": [1], "pl_second": ["ab"]}),
     ]:
         with pytest.raises(ValidationError):
             ln.curators.DataFrameCurator(as_frame(df), schema).validate()

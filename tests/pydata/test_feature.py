@@ -57,6 +57,9 @@ def test_feature_init():
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
 
+    with pytest.raises(ValidationError, match="Invalid feature regex"):
+        ln.Feature(name="feat", dtype=str, regex="[")
+
     # categorical dtype must specify valid types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
