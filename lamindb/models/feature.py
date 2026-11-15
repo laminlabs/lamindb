@@ -967,7 +967,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         coerce: `bool | None = None` When `True`, coerces this feature's values during validation.
             `Schema.coerce=True` also coerces it when this is left unset. See :attr:`~lamindb.Feature.coerce`.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
-        regex: Python regular expression for full-string validation of scalar `str`, `path`, or `url` values.
+        regex: `str | None = None` Python regular expression for full-string validation
+            of scalar `str`, `path`, or `url` values.
         values_through: `Feature | SQLRecordFieldName | None = None` Source of values
             for this feature. Pass a related :class:`~lamindb.Feature` to read and write
             values through the backward relationship; writes store inverted links on
@@ -1042,6 +1043,15 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             name="image_path",
             dtype="path",   # will be validated as `str`
         ).save()
+
+    Restrict string values with a regular expression::
+
+        sample_id = ln.Feature(
+            name="sample_id", dtype=str, regex=r"[A-Za-z0-9_-]+"
+        ).save()
+
+    During validation, `sample_1` matches; `sample(1)`, spaces, and trailing
+    newlines raise `ValidationError`. See :attr:`~lamindb.Feature.regex` for matching semantics.
 
     Restrict categories via filters::
 
@@ -1553,12 +1563,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     @property
     def regex(self) -> str | None:
-        """Python regular expression that non-null string values must fully match.
+        """Python regular expression that string values must fully match.
 
-        Supported for scalar `str`, `path`, and `url` features. Inline flags are
-        supported. An empty pattern matches only an empty string; assign `None`
-        to remove the rule. Save to persist changes. Changing a rule does not
-        revalidate existing values or refresh previously constructed curators.
+        Uses Python `re.fullmatch` for scalar `str`, `path`, and `url` values,
+        including in Polars. Inline flags such as `(?i)` are supported.
+        Nulls follow `nullable`, defaults must match, and values are not converted
+        to strings.
         """
         return (self._aux or {}).get("regex")
 
