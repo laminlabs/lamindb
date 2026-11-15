@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections, transaction
-from django.db.models import Aggregate, Subquery
+from django.db.models import Aggregate, JSONField, Subquery
 from django.db.models.expressions import OrderBy, RawSQL
 from django.db.utils import IntegrityError
 from lamindb_setup import logger
@@ -302,16 +302,17 @@ def format_dtype_for_display(dtype_str: str) -> str:
 
 
 # Custom aggregation for SQLite
-class GroupConcat(Aggregate):
-    function = "GROUP_CONCAT"
-    template = '%(function)s(%(expressions)s, ", ")'
+class JsonGroupArray(Aggregate):
+    function = "JSON_GROUP_ARRAY"
+    template = "%(function)s(JSON(%(expressions)s))"
+    output_field = JSONField()
 
 
 def custom_aggregate(field, using: str):
     if connections[using].vendor == "postgresql":
         return ArrayAgg(field)
     else:
-        return GroupConcat(field)
+        return JsonGroupArray(field)
 
 
 def get_categoricals_postgres(
@@ -508,21 +509,12 @@ def get_non_categoricals(
                     f"    record.features.set_values({{{feature_name!r}: <value>}})"
                 )
 
-            if (
-                not isinstance(self, Record)
-                and connections[self._state.db].vendor == "sqlite"
-            ):
-                # undo GROUP_CONCAT (Artifact/Run only; Record stores one JSON value)
-                if isinstance(values, str):
-                    values = {value.strip('"') for value in values.split(", ")}
-
-            # PostgreSQL ArrayAgg wraps Artifact and Run JSON values in a list.
+            # Aggregation wraps Artifact and Run JSON values in a list.
             # Scalars are converted to sets below; dict and list features must be
             # unwrapped here instead. Records store one JSON value directly, so a
             # one-element list such as [3] is the annotation, not an aggregate wrapper.
             if (
                 not isinstance(self, Record)
-                and connections[self._state.db].vendor == "postgresql"
                 and isinstance(values, list)
                 and len(values) == 1
                 and (feature_dtype == "dict" or feature_dtype.startswith("list"))
@@ -551,15 +543,6 @@ def get_non_categoricals(
                 values = {
                     pd.to_datetime(value, format="ISO8601").date() for value in values
                 }
-            if connections[self._state.db].vendor == "sqlite":
-                # undo GROUP_CONCAT
-                if feature_dtype == "int":
-                    values = {int(value) for value in values}
-                if feature_dtype == "float":
-                    values = {float(value) for value in values}
-                if feature_dtype == "num":
-                    values = {float(value) for value in values}
-
             non_categoricals[(feature_name, feature_dtype)] = values
 
     return non_categoricals
