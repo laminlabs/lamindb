@@ -1086,12 +1086,13 @@ class ComponentCurator(Curator):
                         required=required,
                     )
                 if pattern is not None and not self._is_polars:
+                    # Mapping categoricals directly can produce categorical booleans.
                     pandera_columns[feature.name].checks.append(
                         pandera.Check(
-                            lambda value, pattern=pattern: matches_regex(
-                                value, pattern
+                            lambda series, pattern=pattern: series.astype(object).map(
+                                lambda value: matches_regex(value, pattern)
                             ),
-                            element_wise=True,
+                            element_wise=False,
                             error=regex_error(feature),
                         )
                     )
@@ -1133,13 +1134,12 @@ class ComponentCurator(Curator):
                 else:
                     pandera_index = pandera.Index(index_dtype)
                 if index_pattern is not None:
-                    pandera_index.nullable = index_feature.nullable
                     pandera_index.checks.append(
                         pandera.Check(
-                            lambda value, pattern=index_pattern: matches_regex(
-                                value, pattern
-                            ),
-                            element_wise=True,
+                            lambda series, pattern=index_pattern: series.astype(
+                                object
+                            ).map(lambda value: matches_regex(value, pattern)),
+                            element_wise=False,
                             error=regex_error(index_feature),
                         )
                     )

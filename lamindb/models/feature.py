@@ -1568,8 +1568,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
         Uses Python `re.fullmatch` for scalar `str`, `path`, and `url` values,
         including in Polars. Inline flags such as `(?i)` are supported.
-        Nulls follow `nullable`, defaults must match, and values are not converted
-        to strings.
+        Column nulls follow `nullable`; index values cannot be null.
+        Defaults must match, and values are not converted to strings.
         """
         return (self._aux or {}).get("rx")
 

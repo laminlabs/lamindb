@@ -691,6 +691,10 @@ def test_pandera_dataframe_schema(
 
     # minimal_set=True, all three columns are required
     ln.curators.DataFrameCurator(df, schema=schema_all_required).validate()
+    ln.curators.DataFrameCurator(
+        df.assign(sample_id=pd.Categorical(["sample1", None])),
+        schema=schema_all_required,
+    ).validate()
     with pytest.raises(ValidationError, match="regex"):
         ln.curators.DataFrameCurator(
             df.assign(sample_id="sample!"), schema=schema_all_required
@@ -1429,6 +1433,20 @@ def test_hash_index_feature(df):
         ],
     ).save()
     assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
+
+    df_null_index = df_index.copy()
+    df_null_index.index = pd.Index(["sample1", None], name="sample_id")
+    with pytest.raises(ValidationError) as before_regex:
+        ln.curators.DataFrameCurator(df_null_index, schema_index).validate()
+    sample_id.regex = r"sample[0-9]+"
+    sample_id.save()
+    with pytest.raises(ValidationError) as with_regex:
+        ln.curators.DataFrameCurator(df_null_index, schema_index).validate()
+    assert str(with_regex.value) == str(before_regex.value)
+
+    df_categorical_index = df_index.iloc[:1].copy()
+    df_categorical_index.index = pd.CategoricalIndex(df_categorical_index.index)
+    ln.curators.DataFrameCurator(df_categorical_index, schema_index).validate()
 
     artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
