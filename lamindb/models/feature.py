@@ -1204,6 +1204,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     #   vf: values_feature_uid (str) — UID of feature that provides values through the backward relationship
     #   rf: related_feature_uid (str) — UID of the related feature that draws its values from the current feature
     #   sf: sqlrecord_field (SQLRecordFieldName) — concrete SQLRecord field (currently only supports Record)
+    #   rx: regex (str) — Python regular expression for full-string value validation
     #   ss: single_space (int | str) — type single-space policy
     #   renamed: dict — name-change history from update_feature_on_name_change
 
@@ -1570,7 +1571,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         Nulls follow `nullable`, defaults must match, and values are not converted
         to strings.
         """
-        return (self._aux or {}).get("regex")
+        return (self._aux or {}).get("rx")
 
     @regex.setter
     def regex(self, value: str | None) -> None:
@@ -1578,9 +1579,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             compile_regex(value)
         aux = dict(self._aux or {})
         if value is None:
-            aux.pop("regex", None)
+            aux.pop("rx", None)
         else:
-            aux["regex"] = value
+            aux["rx"] = value
         self._aux = aux
 
     def _validate_regex(self):

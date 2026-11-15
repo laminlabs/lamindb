@@ -17,7 +17,10 @@ def isolate_records():
 
 def test_regex_roundtrip_and_reuse():
     feature = ln.Feature(name="regex_sample", dtype=str, regex="A+").save()
-    assert ln.Feature.get(uid=feature.uid).regex == "A+"
+    stored = ln.Feature.get(uid=feature.uid)
+    assert stored.regex == "A+"
+    assert stored._aux["rx"] == "A+"
+    assert "regex" not in stored._aux
     assert ln.Feature(name=feature.name, dtype=str).regex == "A+"
     assert ln.Feature(name=feature.name, dtype=str, regex=None).regex == "A+"
     replacement = ln.Feature(name=feature.name, dtype=str, regex="")
@@ -30,6 +33,7 @@ def test_regex_roundtrip_and_reuse():
     replacement.save()
     restored = ln.Feature.get(uid=feature.uid)
     assert restored.regex is None
+    assert "rx" not in restored._aux
     assert restored._aux["unrelated"] == {"keep": True}
 
 
@@ -168,7 +172,7 @@ def test_regex_annotation_without_schema():
 def test_regex_malformed_persisted_rule():
     feature = ln.Feature(name="regex_sample", dtype=str).save()
     schema = ln.Schema([feature]).save()
-    ln.Feature.filter(uid=feature.uid).update(_aux={"regex": "["})
+    ln.Feature.filter(uid=feature.uid).update(_aux={"rx": "["})
     assert ln.Feature.get(uid=feature.uid).regex == "["
     with pytest.raises(ValidationError, match="regex"):
         ln.curators.DataFrameCurator(pd.DataFrame({feature.name: ["A"]}), schema)

@@ -13,6 +13,7 @@ def test_feature_regex_transfer():
     ln.DB(f"{handle}/testdb1").Feature.get(uid=feature.uid).save()
     transferred = ln.Feature.get(uid=feature.uid)
     assert transferred.regex == "A+"
+    assert transferred._aux["rx"] == "A+"
     assert transferred._aux["other_metadata"] is True
     from lamindb.curators.core import DictCurator
 
