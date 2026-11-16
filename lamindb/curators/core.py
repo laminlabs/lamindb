@@ -144,6 +144,18 @@ def _coerce_lossless(series, expected_type: str):
     return coerced
 
 
+def _pandas_regex_check(feature: Feature, pattern: re.Pattern) -> pandera.Check:
+    """Build the same full-string check for pandas columns and indexes."""
+    # Mapping categoricals directly can produce categorical booleans.
+    return pandera.Check(
+        lambda series: series.astype(object).map(
+            lambda value: matches_regex(value, pattern)
+        ),
+        element_wise=False,
+        error=regex_error(feature),
+    )
+
+
 # Registered with no "int"/"float" equivalents, so pandera's fixed-width
 # dtypes stay unchanged. A real dtype is what pandera coerces; a Check cannot.
 @pandas_engine.Engine.register_dtype
@@ -998,7 +1010,7 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                pattern = feature._validate_regex()
+                pattern = None if self._is_polars else feature._validate_regex()
                 if self._is_polars:
                     pandera_columns[feature.name] = polars_column(
                         feature, required, schema.coerce
@@ -1085,16 +1097,9 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce,
                         required=required,
                     )
-                if pattern is not None and not self._is_polars:
-                    # Mapping categoricals directly can produce categorical booleans.
+                if pattern is not None:
                     pandera_columns[feature.name].checks.append(
-                        pandera.Check(
-                            lambda series, pattern=pattern: series.astype(object).map(
-                                lambda value: matches_regex(value, pattern)
-                            ),
-                            element_wise=False,
-                            error=regex_error(feature),
-                        )
+                        _pandas_regex_check(feature, pattern)
                     )
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
@@ -1135,13 +1140,7 @@ class ComponentCurator(Curator):
                     pandera_index = pandera.Index(index_dtype)
                 if index_pattern is not None:
                     pandera_index.checks.append(
-                        pandera.Check(
-                            lambda series, pattern=index_pattern: series.astype(
-                                object
-                            ).map(lambda value: matches_regex(value, pattern)),
-                            element_wise=False,
-                            error=regex_error(index_feature),
-                        )
+                        _pandas_regex_check(index_feature, index_pattern)
                     )
             else:
                 pandera_index = None
