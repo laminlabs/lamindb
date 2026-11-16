@@ -80,7 +80,7 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(SimpleDtypeStr))
 
 
-def compile_regex(pattern: str) -> re.Pattern:
+def _compile_regex(pattern: str) -> re.Pattern:
     if not isinstance(pattern, str):
         raise TypeError("Feature.regex must be a string or None")
     try:
@@ -89,12 +89,12 @@ def compile_regex(pattern: str) -> re.Pattern:
         raise ValidationError(f"Invalid feature regex {pattern!r}: {error}") from error
 
 
-def matches_regex(value: object, pattern: re.Pattern) -> bool:
+def _matches_regex(value: object, pattern: re.Pattern) -> bool:
     """Match a complete non-null string without coercing its value."""
     return isinstance(value, str) and pattern.fullmatch(value) is not None
 
 
-def regex_error(feature) -> str:
+def _regex_error(feature) -> str:
     return f"Feature '{feature.name}' must fully match regex {feature.regex!r}"
 
 
@@ -1050,8 +1050,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             name="sample_id", dtype=str, regex=r"[A-Za-z0-9_-]+"
         ).save()
 
-    During validation, `sample_1` matches; `sample(1)`, spaces, and trailing
-    newlines raise `ValidationError`. See :attr:`~lamindb.Feature.regex` for matching semantics.
+    See :attr:`~lamindb.Feature.regex` for matching semantics.
 
     Restrict categories via filters::
 
@@ -1429,8 +1428,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             return None
         regex = kwargs.pop("regex", None)
         if regex is not None:
-            compile_regex(regex)
-        has_default_value = "default_value" in kwargs
+            _compile_regex(regex)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
         # Default nullable to True for non-type features
@@ -1450,12 +1448,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         values_through = kwargs.pop("values_through", None)
         kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
-        if (
-            has_default_value
-            or self._state.adding
-            or (regex is None and self.regex is None)
-        ):
-            self.default_value = default_value
+        self.default_value = default_value
         self.nullable = nullable
         self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
@@ -1570,13 +1563,16 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         including in Polars. Inline flags such as `(?i)` are supported.
         Column nulls follow `nullable`; index values cannot be null.
         Defaults must match, and values are not converted to strings.
+
+        For example, `[A-Za-z0-9_-]+` accepts `sample_1`; `sample(1)`, spaces,
+        and trailing newlines raise `ValidationError` during validation.
         """
         return (self._aux or {}).get("rx")
 
     @regex.setter
     def regex(self, value: str | None) -> None:
         if value is not None:
-            compile_regex(value)
+            _compile_regex(value)
         aux = dict(self._aux or {})
         if value is None:
             aux.pop("rx", None)
@@ -1588,7 +1584,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         """Validate the effective definition without importing curator backends."""
         if self.regex is None:
             return None
-        pattern = compile_regex(self.regex)
+        pattern = _compile_regex(self.regex)
         if self.is_type or self._dtype_str not in {"str", "path", "url"}:
             raise ValidationError(
                 "regex requires a scalar str, path, or url feature (not a feature type)"
@@ -1596,11 +1592,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         source = self.values_through
         if isinstance(source, Feature):
             raise ValidationError("regex is incompatible with reverse values_through")
-        if isinstance(source, str):
-            from .record import validate_record_feature_field_mapping
-
-            validate_record_feature_field_mapping(self, source)
-        if self.default_value is not None and not matches_regex(
+        if self.default_value is not None and not _matches_regex(
             self.default_value, pattern
         ):
             raise ValidationError(

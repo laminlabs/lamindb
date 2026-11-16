@@ -48,11 +48,11 @@ from lamindb.models.artifact import (
     data_is_soma_experiment,
 )
 from lamindb.models.feature import (
-    matches_regex,
+    _matches_regex,
+    _regex_error,
     parse_cat_dtype,
     parse_dtype,
     parse_filter_string,
-    regex_error,
     resolve_relation_filters,
 )
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
@@ -149,10 +149,10 @@ def _pandas_regex_check(feature: Feature, pattern: re.Pattern) -> pandera.Check:
     # Mapping categoricals directly can produce categorical booleans.
     return pandera.Check(
         lambda series: series.astype(object).map(
-            lambda value: matches_regex(value, pattern)
+            lambda value: _matches_regex(value, pattern)
         ),
         element_wise=False,
-        error=regex_error(feature),
+        error=_regex_error(feature),
     )
 
 
@@ -1120,7 +1120,7 @@ class ComponentCurator(Curator):
                     else index_feature._dtype_str
                 )
                 index_pattern = index_feature._validate_regex()
-                if index_dtype in {"str", "path", "url"}:
+                if index_dtype == "str":
                     # same str rules as columns (incl. empty default RangeIndex)
                     pandera_index = pandera.Index(
                         dtype=None,

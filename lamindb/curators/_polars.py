@@ -6,7 +6,7 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
 
-from lamindb.models.feature import matches_regex, regex_error
+from lamindb.models.feature import _matches_regex, _regex_error
 
 
 def _all_missing(data) -> bool:
@@ -176,13 +176,13 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 return data.lazyframe.select(
                     pl.col(data.key)
                     .map_elements(
-                        lambda value: matches_regex(value, pattern),
+                        lambda value: _matches_regex(value, pattern),
                         return_dtype=pl.Boolean,
                     )
                     .fill_null(True)
                     .alias(CHECK_OUTPUT_KEY)
                 )
 
-            checks.append(pandera.Check(check_regex, error=regex_error(feature)))
+            checks.append(pandera.Check(check_regex, error=_regex_error(feature)))
         return pandera.Column(dtype=None, checks=checks, **kwargs)
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
