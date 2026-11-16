@@ -1074,7 +1074,7 @@ def test_record_schema_index_stored_on_name():
 
     # An index marker that is not a schema member is still required, even when
     # minimal_set is false and the other columns are not.
-    bare_key = ln.Feature(name="bare_row_key", dtype=str).save()
+    bare_key = ln.Feature(name="bare_row_key", dtype=str, regex=r"row-\d+").save()
     bare_score = ln.Feature(name="bare_score", dtype=float).save()
     bare_schema = ln.Schema(
         features=[bare_score],
@@ -1094,6 +1094,24 @@ def test_record_schema_index_stored_on_name():
         features={"bare_row_key": "row-1", "bare_score": 1.0},
     ).save()
     assert bare_record.name == "row-1"
+
+    # Index-only frames must validate even though they have no feature columns.
+    for value in ("invalid", None):
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match="regex" if value is not None else "bare_row_key",
+        ):
+            ln.Record.from_dataframe(
+                pd.DataFrame(index=pd.Index([value], name=bare_key.name)),
+                type=bare_sheet,
+            ).save()
+    assert bare_sheet.records.count() == 1
+    saved = ln.Record.from_dataframe(
+        pd.DataFrame(index=pd.Index(["row-2", "row-3"], name=bare_key.name)),
+        type=bare_sheet,
+    ).save()
+    assert [record.name for record in saved] == ["row-2", "row-3"]
+
     ln.Record.filter(type=bare_sheet).delete(permanent=True)
     bare_sheet.delete(permanent=True)
     bare_schema.delete(permanent=True)
