@@ -3080,7 +3080,6 @@ def bulk_set_features_in_records(
     prepared_records: list[
         tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
     ] = []
-    prepared_rows: list[dict[str, Any]] = []
     for record in records_with_features:
         schema = None
         if record.type is not None and record.type.schema is not None:
@@ -3106,7 +3105,6 @@ def bulk_set_features_in_records(
 
         if batch_schema_index is not None and record.name is not None:
             dictionary[batch_schema_index.name] = record.name
-        prepared_rows.append(dictionary)
         prepared_records.append(
             (record, manager, dictionary, explicit_features, values_by_feature_uid)
         )
@@ -3114,7 +3112,31 @@ def bulk_set_features_in_records(
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
     from .feature import convert_to_pandas_dtype
-    from .record import move_schema_index_column_to_dataframe_index
+    from .record import (
+        _overlay_values_through_features,
+        move_schema_index_column_to_dataframe_index,
+    )
+
+    prepared_rows: list[dict[str, Any]] = []
+    for record, _, dictionary, _, _ in prepared_records:
+        values_by_uid = {
+            feature.uid: dictionary[feature.name]
+            for feature in schema_features
+            if feature.name in dictionary
+        }
+        # Validate mapped fields already present on the record, such as created_by,
+        # without treating them as new feature writes or overriding explicit input.
+        _overlay_values_through_features(record, schema_features, values_by_uid)
+        prepared_rows.append(
+            {
+                **dictionary,
+                **{
+                    feature.name: values_by_uid[feature.uid]
+                    for feature in schema_features
+                    if feature.uid in values_by_uid
+                },
+            }
+        )
 
     # Build the validation dataframe column-by-column with the dtype declared by
     # each schema feature, instead of calling pd.DataFrame(prepared_rows) and
