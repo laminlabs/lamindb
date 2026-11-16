@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      # Groups whose nox session logs in via AWS Secrets Manager or uses private buckets.
+      uses_aws: ${{ steps.set-matrix.outputs.uses_aws }}
+      # Subset that cannot pass without those credentials. Fork PRs skip these jobs.
+      requires_secrets: ${{ steps.set-matrix.outputs.requires_secrets }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -91,8 +95,36 @@ jobs:
           echo "Generated matrix:"
           echo "$MATRIX"
 
+          # Keep uses_aws aligned with _LOGIN_GROUPS in noxfile.py, plus curator.
+          # curator does not log in, but it reads the public lamindata bucket and should
+          # keep CI credentials when they exist.
+          # requires_secrets: skip the job on fork PRs. transfer-*, integrations, and
+          # curator still run; cloud-only cases skip inside the tests.
+          echo 'uses_aws=["unit-pydata-sqlite","unit-pydata-postgres","unit-storage","tutorial","guide","tiledbsoma","biology","faq","storage","transfer-sqlite","transfer-postgres","integrations","curator","cli","permissions"]' >> "$GITHUB_OUTPUT"
+          echo 'requires_secrets=["unit-pydata-sqlite","unit-pydata-postgres","unit-storage","tutorial","guide","tiledbsoma","biology","faq","storage","cli","permissions"]' >> "$GITHUB_OUTPUT"
+
+  # Fork pull requests, and any other run GitHub strips secrets from, see an empty
+  # value here. Jobs that need credentials are skipped; jobs that do not never read them.
+  secrets-available:
+    runs-on: ubuntu-latest
+    outputs:
+      aws: ${{ steps.check.outputs.aws }}
+    steps:
+      - id: check
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        run: |
+          if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            echo "aws=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "aws=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
-    needs: pre-filter
+    needs: [pre-filter, secrets-available]
+    if: >-
+      needs.secrets-available.outputs.aws == 'true' ||
+      !contains(fromJSON(needs.pre-filter.outputs.requires_secrets), matrix.group)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -162,6 +194,9 @@ jobs:
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
 
       - uses: aws-actions/configure-aws-credentials@v4
+        if: >-
+          needs.secrets-available.outputs.aws == 'true' &&
+          contains(fromJSON(needs.pre-filter.outputs.uses_aws), matrix.group)
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -170,7 +205,7 @@ jobs:
         if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') && matrix.group != 'minimal' }}
       - run: nox -s "test(group='${{ matrix.group }}')"
         env:
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_TOKEN: ${{ matrix.group == 'integrations' && secrets.NOTION_TOKEN || '' }}
 
       - name: upload coverage
         uses: actions/upload-artifact@v4
@@ -187,7 +222,8 @@ jobs:
           path: ./docs/${{ matrix.group }}
 
   docs:
-    needs: test
+    needs: [test, secrets-available]
+    if: needs.secrets-available.outputs.aws == 'true' && needs.test.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -267,6 +303,7 @@ jobs:
           coverage report --fail-under=0
           coverage xml
       - uses: codecov/codecov-action@v2
+        if: secrets.CODECOV_TOKEN != ''
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 

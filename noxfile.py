@@ -328,6 +328,34 @@ def prepare(session):
     )
 
 
+# Matches uses_aws in .github/workflows/build.yml, except curator, which reads
+# cloud data but does not log in. login_testuser* loads API keys from AWS Secrets Manager.
+_LOGIN_GROUPS = {
+    "unit-pydata-sqlite",
+    "unit-pydata-postgres",
+    "unit-storage",
+    "tutorial",
+    "guide",
+    "tiledbsoma",
+    "biology",
+    "faq",
+    "storage",
+    "transfer-sqlite",
+    "transfer-postgres",
+    "integrations",
+    "cli",
+    "permissions",
+}
+# Fork CI has no AWS credentials. These groups still run; cloud-only tests skip.
+_ANONYMOUS_OK = {"transfer-sqlite", "transfer-postgres", "integrations"}
+
+
+def _ci_missing_aws_credentials() -> bool:
+    if not os.getenv("CI"):
+        return False
+    return not (os.getenv("AWS_ACCESS_KEY_ID") and os.getenv("AWS_SECRET_ACCESS_KEY"))
+
+
 @nox.session
 @nox.parametrize(
     "group",
@@ -352,10 +380,19 @@ def prepare(session):
     ],
 )
 def test(session, group):
-    # we likely don't need auth in many other groups, but have to carefully expand this
-    if group not in {"curator", "no-instance", "minimal"}:
-        login_testuser2(session)
-        login_testuser1(session)
+    # curator, no-instance, and minimal never log in.
+    # Other groups log in when AWS credentials are configured. Fork CI does not
+    # receive those secrets; anonymous-ok groups run without hub auth.
+    if group in _LOGIN_GROUPS:
+        if _ci_missing_aws_credentials():
+            if group not in _ANONYMOUS_OK:
+                session.error(
+                    "AWS credentials are required for this group. "
+                    "Fork pull requests cannot access GitHub Actions secrets."
+                )
+        else:
+            login_testuser2(session)
+            login_testuser1(session)
     # this is mostly needed for the docs so that we don't render Django's entire public API
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
