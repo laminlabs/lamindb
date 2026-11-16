@@ -96,13 +96,18 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
         ("list[object]", [["a"]]),
     ],
 )
-def test_polars_invalid_dtype(as_frame, dtype, values):
-    schema = make_schema([("pl_invalid", dtype, {})])
-    curator = ln.curators.DataFrameCurator(
-        as_frame(pl.DataFrame({"pl_invalid": values})), schema
-    )
-    with pytest.raises(ValidationError):
+@pytest.mark.parametrize("regex", [None, "a+"])
+def test_polars_invalid_dtype(as_frame, dtype, values, regex):
+    features = [("pl_invalid", dtype, {"regex": regex} if dtype is str else {})]
+    data = {"pl_invalid": values}
+    if regex is not None:
+        features.append(("pl_regex", str, {"regex": regex}))
+        data["pl_regex"] = ["b"]
+    schema = make_schema(features)
+    curator = ln.curators.DataFrameCurator(as_frame(pl.DataFrame(data)), schema)
+    with pytest.raises(ValidationError) as error:
         curator.validate()
+    assert "must fully match regex" not in str(error.value)
     assert not curator._is_validated
 
 
@@ -141,15 +146,18 @@ def test_polars_coercion_is_lossless(as_frame):
 
 
 @pytest.mark.parametrize("nullable", [True, False])
-def test_polars_nullability(as_frame, nullable):
-    schema = make_schema([("pl_nullable", str, {"nullable": nullable})])
+@pytest.mark.parametrize("value", ["a", "b"])
+def test_polars_nullability(as_frame, nullable, value):
+    schema = make_schema([("pl_nullable", str, {"nullable": nullable, "regex": "a+"})])
     curator = ln.curators.DataFrameCurator(
-        as_frame(pl.DataFrame({"pl_nullable": ["a", None]})), schema
+        as_frame(pl.DataFrame({"pl_nullable": [value, None]})), schema
     )
-    if nullable:
+    if nullable and value == "a":
         curator.validate()
     else:
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="regex" if nullable else "non-nullable"
+        ):
             curator.validate()
 
 
@@ -179,7 +187,7 @@ def test_polars_column_constraints(as_frame):
 
 def test_polars_optional_column(as_frame):
     required = ln.Feature(name="pl_required", dtype=int).save()
-    optional = ln.Feature(name="pl_optional", dtype=str).save()
+    optional = ln.Feature(name="pl_optional", dtype=str, regex="a+").save()
     schema = ln.Schema(features=[required, optional]).save()
     schema.optionals.add(optional)
     ln.curators.DataFrameCurator(

@@ -928,6 +928,7 @@ class ComponentCurator(Curator):
             from pandera import polars as polars_pandera
 
             from ._polars import column as polars_column
+            from ._polars import regex_column as polars_regex_column
 
             if index_feature is not None:
                 raise InvalidArgument(
@@ -996,9 +997,11 @@ class ComponentCurator(Curator):
             self._coercion_requested = True
 
         pandera_columns = {}
+        polars_regex_columns = {}
         self._pandera_schema: pandera.DataFrameSchema | PolarsDataFrameSchema | None = (
             None
         )
+        self._polars_regex_schema: PolarsDataFrameSchema | None = None
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
@@ -1010,7 +1013,7 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                pattern = None if self._is_polars else feature._validate_regex()
+                pattern = feature._validate_regex()
                 if self._is_polars:
                     pandera_columns[feature.name] = polars_column(
                         feature, required, schema.coerce
@@ -1098,9 +1101,14 @@ class ComponentCurator(Curator):
                         required=required,
                     )
                 if pattern is not None:
-                    pandera_columns[feature.name].checks.append(
-                        _pandas_regex_check(feature, pattern)
-                    )
+                    if self._is_polars:
+                        polars_regex_columns[feature.name] = polars_regex_column(
+                            feature, pattern
+                        )
+                    else:
+                        pandera_columns[feature.name].checks.append(
+                            _pandas_regex_check(feature, pattern)
+                        )
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
@@ -1159,6 +1167,10 @@ class ComponentCurator(Curator):
                     strict=schema.maximal_set,
                     ordered=schema.ordered_set,
                 )
+                if polars_regex_columns:
+                    self._polars_regex_schema = polars_pandera.DataFrameSchema(
+                        polars_regex_columns
+                    )
             else:
                 self._pandera_schema = pandera.DataFrameSchema(
                     pandera_columns,
@@ -1306,6 +1318,12 @@ class ComponentCurator(Curator):
                         validated = self._pandera_schema.validate(
                             self._dataset, lazy=True
                         )
+                        if self._polars_regex_schema is not None:
+                            # Pandera cannot combine scalar dtype failures with
+                            # row-level regex failures in one error report.
+                            validated = self._polars_regex_schema.validate(
+                                validated, lazy=True
+                            )
                     self._set_dataset(validated)
                 else:
                     validated = self._pandera_schema.validate(self._dataset, lazy=True)

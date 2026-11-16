@@ -124,7 +124,6 @@ def polars_dtype(dtype_str: str):
 def column(feature, required: bool, schema_coerce: bool = False):
     """Translate a Lamin feature into a native Polars Pandera column."""
     dtype_str = feature._dtype_str
-    pattern = feature._validate_regex()
     kwargs = {
         "nullable": feature.nullable,
         "coerce": feature.coerce or schema_coerce,
@@ -170,19 +169,27 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
             )
         ]
-        if pattern is not None:
-
-            def check_regex(data):
-                return data.lazyframe.select(
-                    pl.col(data.key)
-                    .map_elements(
-                        lambda value: _matches_regex(value, pattern),
-                        return_dtype=pl.Boolean,
-                    )
-                    .fill_null(True)
-                    .alias(CHECK_OUTPUT_KEY)
-                )
-
-            checks.append(pandera.Check(check_regex, error=_regex_error(feature)))
         return pandera.Column(dtype=None, checks=checks, **kwargs)
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
+
+
+def regex_column(feature, pattern):
+    """Check regex after the column's dtype and nullability have been validated."""
+
+    def check_regex(data):
+        return data.lazyframe.select(
+            pl.col(data.key)
+            .map_elements(
+                lambda value: _matches_regex(value, pattern),
+                return_dtype=pl.Boolean,
+            )
+            .fill_null(True)
+            .alias(CHECK_OUTPUT_KEY)
+        )
+
+    return pandera.Column(
+        dtype=None,
+        checks=pandera.Check(check_regex, error=_regex_error(feature)),
+        nullable=True,
+        required=False,
+    )
