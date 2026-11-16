@@ -1550,8 +1550,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         # validation happens in save()
         self._values_through_input = values_through
         if regex is not None:
-            if not self._state.adding and self.regex != regex:
-                logger.warning(f"updated regex from {self.regex} to {regex}")
             self.regex = regex
         self._validate_regex()
 
