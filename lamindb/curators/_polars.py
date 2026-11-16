@@ -6,6 +6,8 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
 
+from lamindb.models.feature import _matches_regex, _regex_error
+
 
 def _all_missing(data) -> bool:
     return data.lazyframe.select(pl.col(data.key).is_null().all()).collect().item()
@@ -161,12 +163,31 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 feature.nullable and _all_missing(data)
             )
 
-        return pandera.Column(
-            dtype=None,
-            checks=pandera.Check(
+        checks = [
+            pandera.Check(
                 check,
                 error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
-            ),
-            **kwargs,
-        )
+            )
+        ]
+        return pandera.Column(dtype=None, checks=checks, **kwargs)
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
+
+
+def _regex_column(feature, pattern):
+    def check_regex(data):
+        return data.lazyframe.select(
+            pl.col(data.key)
+            .map_elements(
+                lambda value: _matches_regex(value, pattern),
+                return_dtype=pl.Boolean,
+            )
+            .fill_null(True)
+            .alias(CHECK_OUTPUT_KEY)
+        )
+
+    return pandera.Column(
+        dtype=None,
+        checks=pandera.Check(check_regex, error=_regex_error(feature)),
+        nullable=True,
+        required=False,
+    )
