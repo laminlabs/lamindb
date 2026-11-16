@@ -173,9 +173,7 @@ def column(feature, required: bool, schema_coerce: bool = False):
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
 
 
-def regex_column(feature, pattern):
-    """Check regex after the column's dtype and nullability have been validated."""
-
+def _regex_column(feature, pattern):
     def check_regex(data):
         return data.lazyframe.select(
             pl.col(data.key)

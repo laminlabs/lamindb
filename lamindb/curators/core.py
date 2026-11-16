@@ -927,8 +927,8 @@ class ComponentCurator(Curator):
         if self._is_polars:
             from pandera import polars as polars_pandera
 
+            from ._polars import _regex_column as _polars_regex_column
             from ._polars import column as polars_column
-            from ._polars import regex_column as polars_regex_column
 
             if index_feature is not None:
                 raise InvalidArgument(
@@ -1102,7 +1102,7 @@ class ComponentCurator(Curator):
                     )
                 if pattern is not None:
                     if self._is_polars:
-                        polars_regex_columns[feature.name] = polars_regex_column(
+                        polars_regex_columns[feature.name] = _polars_regex_column(
                             feature, pattern
                         )
                     else:

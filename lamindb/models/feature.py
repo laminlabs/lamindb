@@ -1581,7 +1581,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         self._aux = aux
 
     def _validate_regex(self):
-        """Validate the effective definition without importing curator backends."""
+        """Validate the effective definition."""
         if self.regex is None:
             return None
         pattern = _compile_regex(self.regex)
