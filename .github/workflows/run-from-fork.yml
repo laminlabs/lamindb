@@ -1,0 +1,141 @@
+name: run from fork
+
+on:
+  issue_comment:
+    types: [created]
+
+# The workflow file is the one on the default branch. A collaborator comment
+# opts in to running that pull request's code with the test AWS credentials.
+# A later push needs another /ci comment.
+permissions:
+  contents: read
+
+concurrency:
+  group: run-from-fork-${{ github.event.issue.number }}-${{ github.event.comment.body }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    if: github.event.issue.pull_request && github.event.comment.body == '/ci' && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    outputs:
+      repo: ${{ steps.pr.outputs.repo }}
+      sha: ${{ steps.pr.outputs.sha }}
+    steps:
+      - id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}" \
+            --jq '"repo=\(.head.repo.full_name)\nsha=\(.head.sha)"' >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: gate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # permissions needs the private laminhub checkout and stays on same-repo runs.
+        group:
+          - unit-pydata-sqlite
+          - unit-pydata-postgres
+          - unit-storage
+          - transfer-sqlite
+          - transfer-postgres
+          - cli
+          - no-instance
+          - minimal
+          - tutorial
+          - guide
+          - tiledbsoma
+          - biology
+          - faq
+          - storage
+          - curator
+          - integrations
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ needs.gate.outputs.repo }}
+          ref: ${{ needs.gate.outputs.sha }}
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            ${{ matrix.group == 'minimal' && '3.11' ||
+                matrix.group == 'tiledbsoma' && '3.13' ||
+                '3.14'
+                }}
+
+      - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
+
+      - run: nox -s configure_coverage -- '{"group":["unit-pydata-sqlite","unit-pydata-postgres","unit-storage","transfer-sqlite","transfer-postgres","cli","no-instance","minimal","tutorial","guide","tiledbsoma","biology","faq","storage","curator","integrations"]}'
+
+      - name: install postgres
+        if: ${{ matrix.group == 'faq' }}
+        run: sudo apt-get install libpq-dev
+
+      - name: install graphviz
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq'}}
+        run: sudo apt-get -y install graphviz
+
+      - run: nox -s "install_ci(group='${{ matrix.group }}')"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - run: nox -s prepare
+        if: ${{ !startsWith(matrix.group, 'unit-') && matrix.group != 'minimal' }}
+
+      - run: nox -s "test(group='${{ matrix.group }}')"
+
+      - name: upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage--${{ matrix.group }}
+          path: .coverage
+          include-hidden-files: true
+
+  coverage:
+    needs: [gate, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ needs.gate.outputs.repo }}
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: |
+          python -m pip install -U uv
+          uv pip install --system coverage[toml]
+          uv pip install --system --no-deps .
+      - uses: actions/download-artifact@v4
+      - name: run coverage
+        run: |
+          coverage combine coverage--*/.coverage*
+          coverage report --fail-under=0
+          coverage xml
+
+  report:
+    needs: [gate, test, coverage]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh pr comment "${{ github.event.issue.number }}"
+          --body '/ci for ${{ needs.gate.outputs.sha }}: test ${{ needs.test.result }}, coverage ${{ needs.coverage.result }}. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
