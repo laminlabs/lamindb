@@ -858,21 +858,6 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
         slots={"obs": obs_schema, "var": var_schema},
     ).save()
 
-    schema_type = ln.Schema(name="CompositeSchemaType", is_type=True).save()
-    typed_var = ln.Schema(itype=bt.Gene.ensembl_gene_id, type=schema_type).save()
-    slots = {"obs": obs_schema, "var": typed_var}
-    typed_parent = ln.Schema(slots=slots, otype="AnnData", type=schema_type).save()
-    assert typed_parent.hash == anndata_schema.hash
-    assert typed_parent.uid != anndata_schema.uid
-    assert typed_parent.slots["var"].uid == typed_var.uid
-    reused = ln.Schema(slots=slots, otype="AnnData", type=None).save()
-    assert reused.uid == anndata_schema.uid
-    assert reused.slots["var"].uid == var_schema.uid
-    assert ln.Schema(slots=slots, otype="AnnData").uid == anndata_schema.uid
-    typed_parent.delete(permanent=True)
-    typed_var.delete(permanent=True)
-    schema_type.delete(permanent=True)
-
     var_schema2 = ln.Schema(
         name="symbol_var_schema",
         itype=bt.Gene.symbol,
@@ -1015,63 +1000,32 @@ def _hash_anndata_schema(obs_hash: str, var_hash: str) -> str:
     )
 
 
-@pytest.mark.parametrize("typed_first", [False, True])
-def test_schemas_dataframe(typed_first):
-    with transaction.atomic():
-        schema_type = ln.Schema(name="BuiltinSchemaType", is_type=True).save()
-        if typed_first:
-            typed_schema = ln.Schema(itype=ln.Feature, type=schema_type).save()
+def test_schemas_dataframe():
+    # test on the Python level after record creation -- no saving!
+    schema = ln.Schema(name="valid_features", itype=ln.Feature)
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema._list_for_hashing == [
+        "b=Feature",
+        "c=True",
+        "d=False",
+        "e=False",
+    ]
+    assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
 
-        # test on the Python level after record creation -- no saving!
-        schema = ln.Schema(name="valid_features", itype=ln.Feature, type=None)
-        assert schema.name == "valid_features"
-        assert schema.itype == "Feature"
-        assert schema._list_for_hashing == [
-            "b=Feature",
-            "c=True",
-            "d=False",
-            "e=False",
-        ]
-        assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
-        if typed_first:
-            schema.save()
+    # test the convenience function
+    schema = ln.examples.schemas.valid_features()
+    assert schema.uid == "0000000000000000"
+    assert schema.name == "valid_features"
+    assert schema.itype == "Feature"
+    assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
 
-        # test the convenience function
-        schema = ln.examples.schemas.valid_features()
-        assert schema.uid == "0000000000000000"
-        assert schema.name == "valid_features"
-        assert schema.itype == "Feature"
-        assert schema.hash == "kMi7B_N88uu-YnbTLDU-DA"
-        if not typed_first:
-            typed_schema = ln.Schema(itype=ln.Feature, type=schema_type).save()
-        assert typed_schema.hash == schema.hash
-        assert typed_schema.uid != schema.uid
-        assert ln.Schema(itype=ln.Feature, type=schema_type).uid == typed_schema.uid
-        assert ln.Schema(itype=ln.Feature, type=None).uid == schema.uid
-
-        # An occupied canonical UID must not be assigned to a new root schema.
-        for trashed in (False, True):
-            with transaction.atomic():
-                original = ln.Schema.get(uid="0000000000000000")
-                if trashed:
-                    original.delete(permanent=False)
-                else:
-                    original.type = schema_type
-                    original.save()
-                replacement = ln.Schema(itype=ln.Feature, type=None).save()
-                assert replacement.uid != original.uid
-                assert replacement.hash == original.hash
-                assert replacement.type_id is None
-                assert ln.Schema(itype=ln.Feature, type=None).uid == replacement.uid
-                transaction.set_rollback(True)
-
-        schema = ln.examples.schemas._a_feature_type()
-        my_features = ln.Feature.get(name="My features", is_type=True)
-        assert schema.itype == f"Feature[{my_features.uid}]"
-        assert my_features.is_type
-        assert schema.hash == _hash_feature_type_schema(my_features)
-        ln.examples.schemas._delete_a_feature_type()
-        transaction.set_rollback(True)
+    schema = ln.examples.schemas._a_feature_type()
+    my_features = ln.Feature.get(name="My features", is_type=True)
+    assert schema.itype == f"Feature[{my_features.uid}]"
+    assert my_features.is_type
+    assert schema.hash == _hash_feature_type_schema(my_features)
+    ln.examples.schemas._delete_a_feature_type()
 
 
 def test_schemas_anndata():

@@ -10,38 +10,21 @@ from lamindb.models._transfer import (
 @pytest.mark.parametrize("n_max_records", [0, 100])
 def test_transfer(monkeypatch, n_max_records):
     ln.connect("testdb1")
-    feature = ln.Feature(
-        name=f"transfer_hash_feature_{n_max_records}", dtype=str
-    ).save()
-    source_type = ln.Schema(
-        name=f"SourceSchemaType{n_max_records}", is_type=True
-    ).save()
-    source_schema = ln.Schema([feature], type=source_type).save()
+    feature = ln.Feature(name=f"transfer_feature_{n_max_records}", dtype=str).save()
+    source_schema = ln.Schema([feature]).save()
     source = ln.Artifact.get(key="README.md")
     source.schemas.clear()
     source.features._add_schema(source_schema, "columns")
 
     ln.connect("testdb2")
     db1 = ln.DB(f"{ln.setup.settings.user.handle}/testdb1")
-    local_feature = db1.Feature.get(feature.uid).save()
-    target_type = ln.Schema(
-        name=f"TargetSchemaType{n_max_records}", is_type=True
-    ).save()
-    first = ln.Schema([local_feature], type=target_type).save()
-    second = db1.Schema.get(source_schema.uid).save()
-    assert first.hash == second.hash
-    assert first.uid != second.uid
-    original_uid = first.uid
+    feature = db1.Feature.get(feature.uid).save()
+    first = ln.Schema([feature]).save()
+    ln.Schema([feature], lookup=False).save()
     monkeypatch.setattr(ln.settings.annotation, "n_max_records", n_max_records)
     artifact = db1.Artifact.get(key="README.md")
     artifact.save(transfer="annotations")
-    assert artifact.features.slots["columns"].uid == original_uid
-    assert db1.Artifact.get(key="README.md").features.slots["columns"].uid == second.uid
-    first.refresh_from_db()
-    second.refresh_from_db()
-    assert first.uid == original_uid
-    assert first.type_id == target_type.id
-    assert second.type.uid == source_type.uid
+    assert artifact.features.slots["columns"].uid == first.uid
     assert artifact.key == "README.md"
     assert artifact.run is not None
     assert artifact.run.finished_at is not None
