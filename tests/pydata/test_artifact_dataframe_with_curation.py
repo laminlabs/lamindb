@@ -110,11 +110,19 @@ def test_create_artifact_with_external_feature_annotations(
         record.delete(permanent=True)
 
 
-def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
+@pytest.mark.parametrize("multiple_matches", [False, True])
+def test_artifact_from_dataframe_with_schema(
+    example_dataframe: pd.DataFrame, multiple_matches
+):
     df = example_dataframe
     schema = ln.examples.schemas._a_feature_type()
     feature_type = ln.Feature.get(name="My features", is_type=True)
     feat1 = ln.Feature(name="feat1", dtype=int, type=feature_type).save()
+    if multiple_matches:
+        type1 = ln.Schema(name="InferredSchemaType", is_type=True).save()
+        type2 = ln.Schema(name="ValidatingSchemaType", is_type=True).save()
+        first = ln.Schema([feat1], itype=schema.itype, type=type1).save()
+        schema = ln.Schema([feat1], itype=schema.itype, type=type2).save()
     artifact = ln.Artifact.from_dataframe(
         df, key="test_df.parquet", schema=schema
     ).save()
@@ -143,10 +151,20 @@ Artifact: test_df.parquet (0000)
     assert inferred_schema_link.schema.members.count() == 1
     assert inferred_schema_link.schema.members.first() == feat1
     inferred_schema = inferred_schema_link.schema
+    if multiple_matches:
+        assert inferred_schema.uid == first.uid
+        assert artifact.features.slots["columns"].uid == first.uid
+        assert inferred_schema.type_id == type1.id
+        schema.refresh_from_db()
+        assert schema.type_id == type2.id
     inferred_schema_link.delete()
     inferred_schema.delete(permanent=True)
-    feat1.delete(permanent=True)
     artifact.delete(permanent=True)
+    if multiple_matches:
+        schema.delete(permanent=True)
+        type2.delete(permanent=True)
+        type1.delete(permanent=True)
+    feat1.delete(permanent=True)
     ln.examples.schemas._delete_a_feature_type()
 
 
@@ -204,12 +222,20 @@ def test_describe_feature_type_schema_with_mixed_dtypes():
     sequence.delete(permanent=True)
 
 
-def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
+@pytest.mark.parametrize("method", ["add_values", "set_values", "update_values"])
+def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame, method):
     """Test column names encoding when features with the same names are present."""
     artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
     id_feature = ln.Feature(name="id", dtype=int).save()
     uid_feature = ln.Feature(name="uid", dtype=str).save()
-    artifact.features.add_values({"id": 1, "uid": "test-uid"})
+    schema_type = ln.Schema(name="AnnotationSchemaType", is_type=True).save()
+    root = ln.Schema([id_feature, uid_feature], type=None).save()
+    typed = ln.Schema([id_feature, uid_feature], type=schema_type).save()
+    getattr(artifact.features, method)({"id": 1, "uid": "test-uid"})
+    root.refresh_from_db()
+    typed.refresh_from_db()
+    assert root.type_id is None
+    assert typed.type_id == schema_type.id
     df = ln.Artifact.filter(key="df.parquet").to_dataframe(
         include=["description"], features=True
     )
@@ -225,6 +251,9 @@ def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     assert df.iloc[0]["uid"] == "test-uid"
 
     artifact.delete(permanent=True)
+    typed.delete(permanent=True)
+    root.delete(permanent=True)
+    schema_type.delete(permanent=True)
     id_feature.delete(permanent=True)
     uid_feature.delete(permanent=True)
 
