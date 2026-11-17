@@ -474,9 +474,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
             Is automatically set to the type of the passed `features`.
         type: `Schema | None | Unset = UNSET` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
-            Hash lookup searches all types when omitted, only root schemas for explicit `None`,
-            and only the immediate type when a schema type is passed.
-            When omitted, multiple hash matches are permitted and the record with the lowest ID is reused; explicit type scopes require at most one match.
+            Also used for schema lookup. `None` refers to root schemas.
         is_type: `bool = False` Whether this is a schema type.
         index: `Feature | None = None` Index analogous to a `DataFrame` index. In `DataFrame` curation, validates `df.index`.
             When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
@@ -595,6 +593,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         4. An explicitly configured `ln.setup.settings.space`.
         5. The immediate type's space, if a type is provided.
         6. `all`.
+
+    .. dropdown:: How do schema lookup and hashing work?
+
+        A schema's hash is computed from feature identifiers, structural settings,
+        and slot names and component hashes. `type` is not included in the hash,
+        but is used to scope lookups: omitted `type` searches all types, `None`
+        searches root schemas, and a schema type searches that immediate type.
+        With multiple matches, omitted `type` reuses the lowest-ID
+        record and an explicit `type` raises `MultipleResultsFound`.
 
     """
 
