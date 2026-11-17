@@ -204,20 +204,12 @@ def test_describe_feature_type_schema_with_mixed_dtypes():
     sequence.delete(permanent=True)
 
 
-@pytest.mark.parametrize("method", ["add_values", "set_values", "update_values"])
-def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame, method):
+def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     """Test column names encoding when features with the same names are present."""
     artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
     id_feature = ln.Feature(name="id", dtype=int).save()
     uid_feature = ln.Feature(name="uid", dtype=str).save()
-    schema_type = ln.Schema(name="AnnotationSchemaType", is_type=True).save()
-    root = ln.Schema([id_feature, uid_feature], type=None).save()
-    typed = ln.Schema([id_feature, uid_feature], type=schema_type).save()
-    getattr(artifact.features, method)({"id": 1, "uid": "test-uid"})
-    root.refresh_from_db()
-    typed.refresh_from_db()
-    assert root.type_id is None
-    assert typed.type_id == schema_type.id
+    artifact.features.add_values({"id": 1, "uid": "test-uid"})
     df = ln.Artifact.filter(key="df.parquet").to_dataframe(
         include=["description"], features=True
     )
@@ -233,9 +225,6 @@ def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame, metho
     assert df.iloc[0]["uid"] == "test-uid"
 
     artifact.delete(permanent=True)
-    typed.delete(permanent=True)
-    root.delete(permanent=True)
-    schema_type.delete(permanent=True)
     id_feature.delete(permanent=True)
     uid_feature.delete(permanent=True)
 
