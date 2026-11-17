@@ -18,19 +18,21 @@ the original record by hash, copies its identity, and applies the second type.
 
 | Constructor argument     | Search scope                                    | Multiple matches             |
 | ------------------------ | ----------------------------------------------- | ---------------------------- |
-| Omitted `type` (`UNSET`) | All types, including root                       | Raise `MultipleResultsFound` |
+| Omitted `type` (`UNSET`) | All types, including root                       | Reuse the lowest-ID match    |
 | Explicit `type=None`     | Root schemas only                               | Raise `MultipleResultsFound` |
 | Explicit saved type      | That immediate type only, excluding descendants | Raise `MultipleResultsFound` |
 
-Continue excluding trashed schemas. Keep `.one_or_none()`; never select an
-arbitrary match. No match proceeds through the existing type-aware name lookup
-and then normal creation. `lookup=False` continues to bypass only hash lookup.
+Continue excluding trashed schemas. Unscoped hash lookup accepts multiple
+structural matches and deterministically reuses the record with the lowest ID.
+Explicit type scopes keep `.one_or_none()`. No match proceeds through the existing
+type-aware name lookup and then normal creation. `lookup=False` continues to bypass only hash lookup.
 Type records (`is_type=True`) continue to have no structural hash.
 
 ## Where to change the code
 
 1. **`lamindb/models/schema.py`, `Schema.__init__`:** build the existing hash
-   queryset, then add `type=type` only when the argument is not `UNSET`. This is
+   queryset, then add `type=type` only when the argument is not `UNSET`. Use
+   `.one_or_none()` for explicit scopes and `.order_by("id").first()` otherwise. This is
    the smallest natural change and preserves existing hash calculation, branch
    exclusion, database selection, and name fallback behavior. Document the three
    argument states in the constructor documentation.
@@ -53,17 +55,17 @@ rehashing is needed.
 ## Affected methods and boundaries
 
 - **`Schema.from_values()` and `Schema.from_dataframe()`:** call the constructor
-  without a type. They still reuse a unique match across types and now raise if
-  the newly supported duplicates make that lookup ambiguous.
+  without a type. They reuse the lowest-ID structural match across types when
+  multiple equivalent schemas exist.
 - **`curators/core.py`, `annotate_artifact()`:** inferred feature sets still omit
   `type`, as agreed in Slack. No automatic inheritance from `artifact.schema.type`
-  is introduced. Duplicate matches raise; an explicit schema does not yet define
-  type propagation for every inferred feature set.
+  is introduced. Multiple structural matches are permitted. The inferred schema
+  is saved if new and linked through `ArtifactSchema`; the artifact retains its
+  explicitly supplied validating schema.
 - **`FeatureManager` validation and `_add_from()`:** inferred/transfer feature-set
-  lookup remains unscoped. The direct hash lookup already uses `.one_or_none()`,
-  and the other path calls `Schema.from_values()`. Both reject ambiguity rather
-  than choosing a type. Transfer redesign and the pre-existing UID-copy behavior
-  are outside this patch; no new `.first()` fallback is added.
+  lookup remains unscoped. The direct hash lookup and the `Schema.from_values()`
+  path both reuse the lowest-ID match. A reused schema keeps its UID; the source
+  UID is copied only onto a newly constructed schema with the same hash.
 - **Composite schemas:** slot hashes remain based on slot names and child hashes.
   Equal-hash children under different types can produce equal-hash parents.
   Different explicit parent types separate the parent records. Within one parent
@@ -73,31 +75,34 @@ rehashing is needed.
   separate design.
 - **Type-only moves:** preserve the hash and UID. No new database uniqueness or
   automatic merge policy is introduced. A move can create multiple records with
-  the same `(type, hash)`; subsequent constructor lookups raise. This is distinct
+  the same `(type, hash)`; subsequent explicitly scoped constructor lookups raise. This is distinct
   from the existing guard on structural edits and is tested explicitly.
 - **Artifacts, features, records, and collections:** their hashes and constructor
   matching rules remain unchanged.
 
 ## Edge cases and verification plan
 
-| Case                                                          | Expected behavior                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------ |
-| Original issue, same name and structure under different types | Distinct UIDs; first type preserved; equal hashes      |
-| Same structure under the same explicit type                   | Reuse existing record                                  |
-| Omitted type with one typed match                             | Reuse without changing its type                        |
-| Omitted type with multiple matches, even with a matching name | Raise before updating any record                       |
-| Explicit `None` with only typed matches                       | Create a root record; never adopt a typed record       |
-| Root plus typed duplicates                                    | Explicit scope resolves each correctly                 |
-| Parent and child schema types                                 | Match only the immediate type                          |
-| Trashed match                                                 | Excluded from lookup                                   |
-| Unsaved type                                                  | Reject rather than reuse and mutate a saved record     |
-| `lookup=False`                                                | No hash lookup or ambiguity error                      |
-| Built-in schema created root-first or typed-first             | Root canonical UID when available; distinct typed UIDs |
-| Canonical UID occupied by a moved or trashed record           | New root uses a distinct generated UID                 |
-| Structural edit matches another type                          | Allow; both records remain distinct                    |
-| Structural edit matches the same type, including root         | Reject before persistence                              |
-| Type-only move, including into an occupied scope              | Hash and UID unchanged; ambiguous future lookup raises |
-| Composite parent reuse                                        | Preserve structural hashes and existing child links    |
+| Case                                                          | Expected behavior                                          |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| Original issue, same name and structure under different types | Distinct UIDs; first type preserved; equal hashes          |
+| Same structure under the same explicit type                   | Reuse existing record                                      |
+| Omitted type with one typed match                             | Reuse without changing its type                            |
+| Omitted type with multiple matches, even with a matching name | Reuse the lowest-ID match without changing its type        |
+| Explicit `None` with only typed matches                       | Create a root record; never adopt a typed record           |
+| Root plus typed duplicates                                    | Explicit scope resolves each correctly                     |
+| Parent and child schema types                                 | Match only the immediate type                              |
+| Trashed match                                                 | Excluded from lookup                                       |
+| Unsaved type                                                  | Reject rather than reuse and mutate a saved record         |
+| `lookup=False`                                                | No hash lookup or ambiguity error                          |
+| Built-in schema created root-first or typed-first             | Root canonical UID when available; distinct typed UIDs     |
+| Canonical UID occupied by a moved or trashed record           | New root uses a distinct generated UID                     |
+| Structural edit matches another type                          | Allow; both records remain distinct                        |
+| Structural edit matches the same type, including root         | Reject before persistence                                  |
+| Type-only move, including into an occupied scope              | Hash and UID unchanged; ambiguous scoped lookup raises     |
+| Composite parent reuse                                        | Preserve structural hashes and existing child links        |
+| Curation with equivalent schemas under different types        | Save and link an inferred schema; retain validating schema |
+| Feature-value validation with multiple schema matches         | Validate and persist values successfully                   |
+| Feature-set transfer with multiple matches                    | Reuse the lowest-ID match without replacing its UID        |
 
 Use the existing isolated SQLite pytest fixture and small synthetic features.
 Keep cleanup in `finally`. Run the original regression, the added edge cases,
@@ -161,3 +166,55 @@ env \
 The isolated Bionty root contains a copy of `sub/bionty/bionty/base/sources.yaml`.
 No runtime dependencies were changed. Repository commit checks cover formatting,
 lint, and type checking before the final commit.
+
+## Follow-up: permit unscoped multiple matches (2026-11-17)
+
+The requested contract now permits multiple structural matches when `type` is
+omitted. The constructor docstring states that the lowest-ID match is reused.
+Explicit type scopes, including root, still reject multiple matches. Name-only
+lookups are unchanged.
+
+The regression was reproduced at PR head `5970f002`: curation with an explicit
+schema failed in `annotate_artifact()` when it constructed an unscoped feature
+set, after the artifact had already been saved. The updated regression tests also
+exercise factory methods, built-in and composite schemas, feature-value
+annotations, and both feature-set transfer branches.
+
+The direct transfer hash lookup now follows the same selection rule. Testing the
+other transfer branch exposed a UID collision: it overwrote a reused schema's UID
+with the source UID. Only newly constructed equivalent schemas now copy that UID;
+existing matches retain their identity and type.
+
+Verification uses Python 3.12.3, Django 5.2.17, SQLite 3.45.1, and the dependency
+submodule revisions pinned by the PR. Settings, caches, databases, and storage are
+isolated under temporary directories. No playground or production records were
+created, and test fixtures remove their local databases and storage.
+
+- Updated hash-lookup suite before implementation: **11 failed, 9 passed**. The
+  failures were the expected `MultipleResultsFound` exceptions.
+- After permitting hash matches, with both transfer branches covered: **20 passed,
+  1 failed**. The remaining failure exposed the reused-UID collision.
+- After preserving reused UIDs, the schema, hash-lookup, and dataframe-curation
+  suites: **103 passed, 6 optional-dependency skips**. The tests verify both the
+  artifact's validating schema and the persisted inferred-schema link.
+- Existing cross-instance tests in `tests/transfer/test_transfer_core.py`:
+  **35 passed** on SQLite.
+
+The final test invocation, from the worktree:
+
+```sh
+env \
+  LAMIN_SETTINGS_DIR=/private/tmp/lamindb-multimatch-runtime/settings \
+  LAMIN_CACHE_DIR=/private/tmp/lamindb-multimatch-runtime/cache \
+  BIONTY_ROOT_DIR=/private/tmp/lamindb-multimatch-runtime/bionty \
+  PYTHONPATH="$PWD:$PWD/sub/lamindb-setup:$PWD/sub/bionty:$PWD/sub/lamin-cli" \
+  LAMINDB_TEST_DB_VENDOR=sqlite \
+  PYTHONDONTWRITEBYTECODE=1 \
+  /Users/joelottosson/Documents/programming/laminlabs/lamindb/.venv/bin/python \
+  -m pytest tests/pydata/test_schema.py tests/pydata/test_schema_hash_lookup.py \
+  tests/pydata/test_artifact_dataframe_with_curation.py -q --tb=short
+```
+
+This follow-up is committed locally on `codex/allow-multiple-schema-hash-matches`
+in `/private/tmp/lamindb-allow-multiple-schema-hash-matches`. It is not pushed and
+does not update the GitHub PR. PostgreSQL is not exercised by this verification.

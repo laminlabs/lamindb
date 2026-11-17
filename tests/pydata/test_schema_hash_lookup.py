@@ -34,18 +34,16 @@ def test_schema_hash_lookup_omitted_and_explicit_type(schema_hash_records):
     assert ln.Schema([feature], type=None).uid == root.uid
     assert ln.Schema([feature], type=type2).uid == second.uid
 
-    # Even a matching name cannot disambiguate the initial hash lookup.
-    with pytest.raises(MultipleResultsFound):
-        ln.Schema([feature], name=first.name, description="must not be applied")
+    # Unscoped lookup reuses the oldest structural match without moving its type.
+    assert ln.Schema([feature]).save().uid == first.uid
+    assert ln.Schema([feature], name=first.name).uid == first.uid
     first.refresh_from_db()
     assert first.type_id == type1.id
     assert first.description is None
 
     # Inferred feature sets retain the same unscoped lookup contract.
-    with pytest.raises(MultipleResultsFound):
-        ln.Schema.from_values([feature.name])
-    with pytest.raises(MultipleResultsFound):
-        ln.Schema.from_dataframe(df)
+    assert ln.Schema.from_values([feature.name]).uid == first.uid
+    assert ln.Schema.from_dataframe(df).uid == first.uid
     inferred = ln.Schema([feature], lookup=False)
     assert inferred._state.adding
     assert inferred.hash == first.hash
@@ -61,12 +59,15 @@ def test_schema_hash_lookup_only_matches_immediate_type(schema_hash_records):
     assert ln.Schema([feature], type=subtype).uid == child.uid
 
 
-def test_schema_hash_lookup_rejects_duplicates_within_type(schema_hash_records):
+@pytest.mark.parametrize("typed", [False, True])
+def test_schema_hash_lookup_rejects_duplicates_within_type(schema_hash_records, typed):
     feature, type1, _ = schema_hash_records
-    ln.Schema([feature], type=type1).save()
-    ln.Schema([feature], type=type1, lookup=False).save()
+    scope = type1 if typed else None
+    first = ln.Schema([feature], type=scope).save()
+    ln.Schema([feature], type=scope, lookup=False).save()
     with pytest.raises(MultipleResultsFound):
-        ln.Schema([feature], type=type1)
+        ln.Schema([feature], type=scope)
+    assert ln.Schema([feature]).uid == first.uid
 
 
 def test_schema_hash_lookup_excludes_trash(schema_hash_records):
@@ -100,8 +101,7 @@ def test_known_schema_hash_has_distinct_typed_uids(schema_hash_records, typed_fi
     assert len({schema.uid for schema in schemas}) == 3
     for scope, schema in zip(scopes, schemas, strict=True):
         assert ln.Schema(itype=ln.Feature, type=scope).uid == schema.uid
-    with pytest.raises(MultipleResultsFound):
-        ln.Schema(itype=ln.Feature)
+    assert ln.Schema(itype=ln.Feature).uid == schemas[0].uid
 
 
 @pytest.mark.parametrize("occupied_by", ["typed", "trashed"])
@@ -179,5 +179,76 @@ def test_composite_hash_lookup_remains_structural(schema_hash_records):
     reused = ln.Schema(slots={"obs": child2}, otype="AnnData", type=type1).save()
     assert reused.uid == parent1.uid
     assert reused.slots["obs"].uid == child1.uid
-    with pytest.raises(MultipleResultsFound):
-        ln.Schema(slots={"obs": child1}, otype="AnnData")
+    assert ln.Schema(slots={"obs": child1}, otype="AnnData").uid == parent1.uid
+
+
+def test_curation_saves_inferred_schema_with_multiple_matches(schema_hash_records):
+    feature, type1, type2 = schema_hash_records
+    first = ln.Schema([feature], type=type1).save()
+    second = ln.Schema([feature], type=type2).save()
+    frame = pd.DataFrame({feature.name: ["value"]})
+    curator = ln.curators.DataFrameCurator(frame, second)
+    key = "hash-lookup/curated.parquet"
+    try:
+        artifact = curator.save_artifact(key=key)
+        assert artifact.schema_id == second.id
+        assert artifact.features.slots["columns"].uid == first.uid
+        assert (
+            artifact.schemas.through.get(artifact=artifact, slot="columns").schema_id
+            == first.id
+        )
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.type_id == type1.id
+        assert second.type_id == type2.id
+    finally:
+        ln.Artifact.filter(key=key).delete(permanent=True)
+
+
+@pytest.mark.parametrize("method", ["add_values", "set_values", "update_values"])
+def test_feature_values_allow_multiple_schema_matches(schema_hash_records, method):
+    feature, type1, type2 = schema_hash_records
+    first = ln.Schema([feature], type=type1).save()
+    second = ln.Schema([feature], type=type2).save()
+    frame = pd.DataFrame({feature.name: ["value"]})
+    artifact = ln.Artifact.from_dataframe(
+        frame, key="hash-lookup/annotations.parquet"
+    ).save()
+    try:
+        getattr(artifact.features, method)({feature.name: "value"})
+        assert artifact.features.get_values() == {feature.name: "value"}
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.type_id == type1.id
+        assert second.type_id == type2.id
+    finally:
+        artifact.delete(permanent=True)
+
+
+@pytest.mark.parametrize("n_max_records", [0, 100])
+def test_feature_set_transfer_allows_multiple_schema_matches(
+    schema_hash_records, monkeypatch, n_max_records
+):
+    feature, type1, type2 = schema_hash_records
+    first = ln.Schema([feature], type=type1).save()
+    second = ln.Schema([feature], type=type2).save()
+    source = ln.Artifact.from_dataframe(
+        pd.DataFrame({feature.name: ["source"]}), key="hash-lookup/source.parquet"
+    ).save()
+    target = ln.Artifact.from_dataframe(
+        pd.DataFrame({feature.name: ["target"]}), key="hash-lookup/target.parquet"
+    ).save()
+    try:
+        source.features._add_schema(second, "columns")
+        monkeypatch.setattr(ln.settings.annotation, "n_max_records", n_max_records)
+        with transaction.atomic():
+            target.features._add_from(source)
+        assert target.features.slots["columns"].uid == first.uid
+        assert source.features.slots["columns"].uid == second.uid
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert first.type_id == type1.id
+        assert second.type_id == type2.id
+    finally:
+        target.delete(permanent=True)
+        source.delete(permanent=True)

@@ -2945,7 +2945,9 @@ class FeatureManager:
                     f"skipping creating {len(members)} > {settings.annotation.n_max_records} new {members[0].__class__.__name__} records"
                 )
                 schema_self = schema
-                schema_exists = Schema.filter(hash=schema_self.hash).one_or_none()
+                schema_exists = (
+                    Schema.filter(hash=schema_self.hash).order_by("id").first()
+                )
                 if schema_exists is not None:
                     schema_self = schema_exists
                 else:
@@ -2996,8 +2998,8 @@ class FeatureManager:
                             f"Schema is not transferred, check if organism is set correctly: {schema}"
                         )
                     continue
-                # make sure the uid matches if schema is composed of same features
-                if schema_self.hash == schema.hash:
+                # Preserve reused records; only new equivalent schemas take the source UID.
+                if schema_self._state.adding and schema_self.hash == schema.hash:
                     schema_self.uid = schema.uid
                 logger.info(f"saving {slot} schema: {schema_self}")
             try:

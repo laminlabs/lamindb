@@ -475,7 +475,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None | Unset = UNSET` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
             Hash lookup searches all types when omitted, only root schemas for explicit `None`,
-            and only the immediate type when a schema type is passed. Multiple matches raise an error.
+            and only the immediate type when a schema type is passed.
+            When omitted, multiple hash matches are permitted and the record with the lowest ID is reused; explicit type scopes require at most one match.
         is_type: `bool = False` Whether this is a schema type.
         index: `Feature | None = None` Index analogous to a `DataFrame` index. In `DataFrame` curation, validates `df.index`.
             When stored in :class:`~lamindb.Record`, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`.
@@ -955,8 +956,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 hash=validated_kwargs["hash"],
             )
             if type is not UNSET:
-                matching_schemas = matching_schemas.filter(type=type)
-            schema = matching_schemas.one_or_none()
+                schema = matching_schemas.filter(type=type).one_or_none()
+            else:
+                schema = matching_schemas.order_by("id").first()
             if schema is not None:
                 logger.important(f"returning schema with same hash: {schema}")
                 init_self_from_db(self, schema)
