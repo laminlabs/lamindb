@@ -199,12 +199,8 @@ def test_huggingface_paths():
 
 
 def test_gcp_paths():
-    artifact_folder = ln.Artifact(
-        "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
-    ).save()
-    assert artifact_folder.hash == "91wp4sNOCUyeK7kOEz3MiQ"
-    assert artifact_folder.n_files == 14772
-
+    # registered before the folder that contains it, as a path inside a
+    # registered folder resolves to the folder artifact
     artifact_file = ln.Artifact(
         "gs://rxrx1-europe-west4/images/test/HEPG2-08/Plate1/B02_s1_w1.png",
         description="Test GCP file",
@@ -212,6 +208,12 @@ def test_gcp_paths():
     assert artifact_file.hash == "foEgLjmuUHO62CazxN97rA"
     cache_path = artifact_file.cache()
     assert cache_path.is_file()
+
+    artifact_folder = ln.Artifact(
+        "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
+    ).save()
+    assert artifact_folder.hash == "91wp4sNOCUyeK7kOEz3MiQ"
+    assert artifact_folder.n_files == 14772
 
     cache_path.unlink()
     artifact_folder.delete(permanent=True, storage=False)
