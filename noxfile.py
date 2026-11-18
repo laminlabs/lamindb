@@ -118,6 +118,7 @@ def install_ci(session, group):
             f"uv pip install --system {SPATIALDATA_CONSTRAINT} {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
         run(session, "uv pip install --system s3fs==2026.9.0")  # check the upper bound
+        run(session, "uv pip install --system 'lancedb>=0.24'")
     elif group == "unit-storage":
         extras += "gcp"
 

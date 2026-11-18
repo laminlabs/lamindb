@@ -469,6 +469,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Works for `pyarrow` and `polars` compatible formats
         (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
+        A collection of `.lance` tables opens through each artifact, not as one scan.
 
         Args:
             engine: Which module to use for lazy loading of a dataframe
@@ -485,6 +486,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
+        if any(artifact.suffix == ".lance" for artifact in artifacts):
+            raise ValueError(
+                "A collection of .lance artifacts is a release of separate tables. "
+                "Open each artifact to get its LanceDB table."
+            )
 
         from ..core.storage._backed_access import _open_dataframe
 

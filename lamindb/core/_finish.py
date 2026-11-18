@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import builtins
 import re
-import shutil
-from contextlib import contextmanager
 from datetime import UTC, datetime
-from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
 from time import sleep
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamindb_setup import logger
@@ -16,7 +13,12 @@ from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform
 
+from ._secret_redaction import redact_secret_assignments
+
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def get_save_notebook_message() -> str:
@@ -91,68 +93,20 @@ def get_seconds_since_modified(filepath) -> float:
     return datetime.now().timestamp() - filepath.stat().st_mtime
 
 
-@contextmanager
-def _stage_run_file(path: Path):
-    from lamindb.models.artifact import check_path_in_existing_storage
-
-    if check_path_in_existing_storage(path) is None:
-        yield path
-        return
-    # Registered paths are otherwise reused in place, regardless of run.space.
-    with TemporaryDirectory(prefix="lamindb-run-") as directory:
-        staged = Path(directory) / path.name
-        if check_path_in_existing_storage(staged) is not None:
-            raise ValueError(
-                "Run-file staging requires a temporary directory outside registered storage."
-            )
-        if path.is_dir():
-            shutil.copytree(path, staged)
-        else:
-            shutil.copyfile(path, staged)
-        yield staged
-
-
-def _save_run_artifact(path: Path, run: Run, description: str) -> Artifact:
-    with _stage_run_file(path) as path:
-        artifact = Artifact(
-            path,
-            description=description,
-            kind="__lamindb_run__",
-            run=False,
-            space=run.space,
-            skip_hash_lookup=True,
-        )
-        # The general hash lookup can return an artifact from a different space.
-        if artifact.hash is not None and artifact.size:
-            existing = (
-                Artifact.objects.filter(
-                    hash=artifact.hash,
-                    kind="__lamindb_run__",
-                    space_id=run.space_id,
-                    storage__space_id=run.space_id,
-                )
-                .exclude(branch_id=-1)
-                .exclude(size=0)
-                .first()
-            )
-            if existing is not None and not existing._storage_ongoing:
-                return existing
-        if artifact.storage.space_id != run.space_id:
-            raise ValueError(
-                "Run files must be saved in storage belonging to the run's space."
-            )
-        artifact.save(upload=True, print_progress=False)
-        return artifact
-
-
 def save_run_logs(run: Run, save_run: bool = False) -> None:
     logs_path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
     if logs_path.exists():
         if run.report is not None:
             logger.important("overwriting run.report")
-        run.report = _save_run_artifact(
-            logs_path, run, description=f"log streams of run {run.uid}"
+        artifact = Artifact(  # type: ignore
+            logs_path,
+            description=f"log streams of run {run.uid}",
+            kind="__lamindb_run__",
+            run=False,
+            space=run.space,
         )
+        artifact.save(upload=True, print_progress=False)
+        run.report = artifact
         if save_run:  # defaults to false because is slow
             run.save()
 
@@ -220,6 +174,14 @@ def notebook_to_report(
 
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
+    for cell in notebook.cells:
+        cell.source, _ = redact_secret_assignments(cell.source)
+        if cell.cell_type != "code":
+            # Jupytext stores prose as comments; quotes in prose aren't code delimiters.
+            cell.source = "\n".join(
+                redact_secret_assignments(f"# {line}")[0][2:]
+                for line in cell.source.split("\n")
+            )
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
     # if we were to export as ipynb, the following two lines would do it
@@ -281,17 +243,9 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
                 " finish()", "\nfinish()"
             )  # RStudio might insert a newline
             cleaned_content = cleaned_content.replace(orig_error_message, "")
-    # Each export needs its own file, even for same-named notebooks.
-    with NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        suffix=file_path.suffix,
-        prefix="run-report-",
-        dir=ln_setup.settings.cache_dir,
-        delete=False,
-    ) as report:
-        report.write(cleaned_content)
-    return title_text, Path(report.name)
+    cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
+    cleaned_path.write_text(cleaned_content, encoding="utf-8")
+    return title_text, cleaned_path
 
 
 # Waits up to ~30s for a notebook save; not part of the coverage run.
@@ -415,6 +369,14 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
+        if report_path is not None and save_source_code_and_report:
+            _, redaction_count = redact_secret_assignments(filepath.read_text())
+            if redaction_count:
+                logger.warning(
+                    f"skipping HTML report upload for {filepath.name}: source contains "
+                    "secret-looking assignments and the pre-rendered report cannot be safely redacted"
+                )
+                report_path = None
     elif notebook_runner == "marimo":
         ipynb_path = (
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
@@ -476,12 +438,7 @@ def save_context_core(
 
         if existing_paths:
             overwrite_env = True
-            if (
-                run.environment_id is not None
-                and from_cli
-                and run.environment.space_id == run.space_id
-                and run.environment.storage.space_id == run.space_id
-            ):
+            if run.environment_id is not None and from_cli:
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
 
@@ -501,10 +458,10 @@ def save_context_core(
                         if filename == "run_env_pip.txt"
                         else filename
                     )
-                    size, _, _ = hash_file(artifact_path)
+                    size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
-                    size, _, _, _ = hash_dir(artifact_path)
+                    size, env_hash, _, _ = hash_dir(artifact_path)
 
                 if size == 0:
                     # Belt-and-suspenders: discovery already filters empty files, but
@@ -515,10 +472,30 @@ def save_context_core(
                         "environment file is empty, skipping linking an environment"
                     )
                 else:
-                    run.environment = _save_run_artifact(
-                        artifact_path, run, description=description
+                    # Scope reuse to __lamindb_run__ artifacts only — data artifacts
+                    # with a coincidental or placeholder hash must not be returned here.
+                    artifact = (
+                        ln.Artifact.objects.filter(
+                            hash=env_hash, kind="__lamindb_run__"
+                        )
+                        .exclude(size=0)
+                        .one_or_none()
                     )
-                    logger.debug(f"saved run.environment: {run.environment}")
+                    new_env_artifact = artifact is None
+
+                    if new_env_artifact:
+                        artifact = ln.Artifact(
+                            artifact_path,
+                            description=description,
+                            kind="__lamindb_run__",
+                            run=False,
+                            space=run.space,
+                        )
+                        artifact.save(upload=True, print_progress=False)
+
+                    run.environment = artifact
+                    if new_env_artifact:
+                        logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at and run is not None:
@@ -538,32 +515,32 @@ def save_context_core(
                     title_text, report_path = clean_r_notebook_html(report_path)
                     if title_text is not None:
                         transform.description = title_text
-                try:
-                    if (
-                        run.report_id is not None
-                        and run.report.space_id == run.space_id
-                        and run.report.storage.space_id == run.space_id
-                    ):
-                        _, hash, _ = hash_file(report_path)  # ignore hash_type for now
-                        if hash != run.report.hash:
-                            response = input(
-                                f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
-                            )
-                            if response == "y":
-                                with _stage_run_file(report_path) as staged:
-                                    run.report.replace(staged)
-                                    run.report.save(upload=True, print_progress=False)
-                            else:
-                                logger.important("keeping old report")
-                        else:
-                            logger.important("report is already saved")
-                    else:
-                        run.report = _save_run_artifact(
-                            report_path, run, description=f"Report of run {run.uid}"
+                if run.report_id is not None:
+                    _, hash, _ = hash_file(report_path)  # ignore hash_type for now
+                    if hash != run.report.hash:
+                        response = input(
+                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
                         )
-                finally:
-                    if is_r_notebook:
-                        report_path.unlink(missing_ok=True)
+                        if response == "y":
+                            run.report.replace(report_path)
+                            run.report.save(upload=True, print_progress=False)
+                        else:
+                            logger.important("keeping old report")
+                    else:
+                        logger.important("report is already saved")
+                else:
+                    report_file = ln.Artifact(  # type: ignore
+                        report_path,
+                        description=f"Report of run {run.uid}",
+                        kind="__lamindb_run__",  # hidden file
+                        run=False,
+                        space=run.space,
+                    )
+                    report_file.save(upload=True, print_progress=False)
+                    run.report = report_file
+                if is_r_notebook:
+                    # this is the "cleaned" report
+                    report_path.unlink()
                 logger.debug(
                     f"saved transform.latest_run.report: {transform.latest_run.report}"
                 )

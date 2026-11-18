@@ -1171,7 +1171,7 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        from lamindb.curators.core import validate_external_schema
+        from lamindb.curators.core import ComponentCurator, validate_external_schema
 
         if len(self._df) == 0:
             return []
@@ -1181,6 +1181,7 @@ class RecordBatch:
             index_feature, members = _schema_features(schema)
             validate_external_schema(schema, members=members)
         records: list[Record] = []
+        index_only_names: list[str | None] = []
         work_df = dataframe_for_record_batch(self._df, index_feature)
         row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
@@ -1218,7 +1219,22 @@ class RecordBatch:
             }
             if features:
                 record_kwargs["features"] = features
-            records.append(self._cls(name=name, **record_kwargs))
+            record = self._cls(name=name, **record_kwargs)
+            records.append(record)
+            if not features and index_feature is not None:
+                index_only_names.append(record.name)
+        if index_only_names:
+            # Rows without feature annotations skip bulk feature validation.
+            index_df = pd.DataFrame(
+                index=pd.Index(index_only_names, name=index_feature.name)
+            )
+            ComponentCurator(
+                index_df,
+                schema,
+                members=[],
+                index=index_feature,
+                using=schema._state.db,
+            ).validate()
         return records
 
     def save(self, using: str | None = None) -> SQLRecordList[Record]:

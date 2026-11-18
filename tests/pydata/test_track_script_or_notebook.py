@@ -15,14 +15,14 @@ from lamindb.core._context import (
     detect_and_process_source_code_file,
 )
 from lamindb.core._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._secret_redaction import redact_secrets_in_source_code
+from lamindb.core._secret_redaction import redact_secret_assignments
 from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
 
 
-def test_redact_secrets_in_source_code():
+def test_redact_secret_assignments():
     source_code = """
 api_key = "test-api-key-value"
 openAIApiKey = "another-secret"
@@ -31,7 +31,7 @@ db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
 os.environ["API_KEY"] = "sdk-key"
 config = {"client_secret": "client-secret-value", "id": "abc123"}
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     assert redaction_count == 5
     assert 'api_key = "***REDACTED***"' in redacted
     assert 'openAIApiKey = "***REDACTED***"' in redacted
@@ -41,14 +41,14 @@ config = {"client_secret": "client-secret-value", "id": "abc123"}
     assert 'uid = "a6yhtobqTjQM6q8t"' in redacted
 
 
-def test_redact_secrets_in_source_code_keeps_env_references():
+def test_redact_secret_assignments_keeps_env_references():
     source_code = """
 api_key = os.getenv("OPENAI_API_KEY")
 openAIApiKey = getenv("OPENAI_API_KEY")
 model_api_key = os.environ["MODEL_API_KEY"]
 provider_token = os.environ.get("PROVIDER_TOKEN")
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
     assert redaction_count == 0
     assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
@@ -57,7 +57,7 @@ provider_token = os.environ.get("PROVIDER_TOKEN")
     assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
 
 
-def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+def test_redact_secret_assignments_ignores_annotations_and_forwarding():
     source_code = """
 def run(api_key: str) -> None:
     raise RuntimeError("fail")
@@ -66,14 +66,14 @@ run_agent(
     api_key=api_key,
 )
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
     assert redaction_count == 0
     assert "def run(api_key: str) -> None:" in redacted
     assert "api_key=api_key," in redacted
 
 
-def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+def test_redact_secret_assignments_redacts_provider_api_key_names():
     source_code = """
 LAMIN_API_KEY = "lamin-super-secret"
 OPENAI_API_KEY = "openai-super-secret"
@@ -81,7 +81,7 @@ ANTHROPIC_API_KEY = "anthropic-super-secret"
 GEMINI_API_KEY = "gemini-super-secret"
 provider = "openai"
 """
-    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    redacted, redaction_count = redact_secret_assignments(source_code)
     assert redaction_count == 4
     assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
     assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
@@ -109,8 +109,8 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
         value += "\nsecond line"
     source = assignment.format(f"{prefix}{quote}{value}{quote}")
     expected = assignment.format(f"{prefix}{quote}***REDACTED***{quote}")
-    assert redact_secrets_in_source_code(source) == (expected, 1)
-    assert redact_secrets_in_source_code(expected) == (expected, 0)
+    assert redact_secret_assignments(source) == (expected, 1)
+    assert redact_secret_assignments(expected) == (expected, 0)
 
 
 @pytest.mark.parametrize(
@@ -118,7 +118,7 @@ def test_redact_secrets_literal_forms(assignment, prefix, quote):
 )
 def test_redact_secrets_escaped_and_nested_quotes(literal):
     prefix = "f" if literal.startswith("f") else ""
-    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+    assert redact_secret_assignments(f"api_key = {literal}") == (
         f'api_key = {prefix}"***REDACTED***"',
         1,
     )
@@ -127,7 +127,7 @@ def test_redact_secrets_escaped_and_nested_quotes(literal):
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 requires Python 3.12")
 def test_redact_secrets_fstring_reuses_quotes():
     source = 'api_key = f"SECRETVALUE{mapping["key"]}{f"nested{value}"}"'
-    assert redact_secrets_in_source_code(source) == ('api_key = f"***REDACTED***"', 1)
+    assert redact_secret_assignments(source) == ('api_key = f"***REDACTED***"', 1)
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ def test_redact_secrets_fstring_reuses_quotes():
 )
 def test_redact_secrets_incomplete_examples(example):
     source = example + 'api_key = "SECRETVALUE"\n'
-    assert redact_secrets_in_source_code(source) == (
+    assert redact_secret_assignments(source) == (
         example + 'api_key = "***REDACTED***"\n',
         1,
     )
@@ -144,7 +144,7 @@ def test_redact_secrets_incomplete_examples(example):
 @pytest.mark.parametrize("literal", ['t"SECRETVALUE{1 / 0}"', 'tr"SECRETVALUE{1 / 0}"'])
 def test_redact_secrets_template_interpolation(literal):
     prefix = literal.split('"')[0]
-    assert redact_secrets_in_source_code(f"api_key = {literal}") == (
+    assert redact_secret_assignments(f"api_key = {literal}") == (
         f'api_key = {prefix}"***REDACTED***"',
         1,
     )
@@ -153,7 +153,7 @@ def test_redact_secrets_template_interpolation(literal):
 @pytest.mark.skipif(sys.version_info >= (3, 14), reason="Native template-string tokens")
 def test_redact_secrets_template_does_not_partially_match_nested_quotes():
     source = 'api_key = t"{mapping["SECRETVALUE"]}"'
-    assert redact_secrets_in_source_code(source) == (source, 0)
+    assert redact_secret_assignments(source) == (source, 0)
 
 
 def test_redact_secrets_legacy_fstring_does_not_partially_match():
@@ -163,7 +163,7 @@ def test_redact_secrets_legacy_fstring_does_not_partially_match():
         if sys.version_info >= (3, 12)
         else (source, 0)
     )
-    assert redact_secrets_in_source_code(source) == expected
+    assert redact_secret_assignments(source) == expected
 
 
 def test_track_basic_invocation(monkeypatch, ccaplog):
@@ -725,33 +725,92 @@ def test_clean_r_notebook_html():
     orig_notebook_path.write_text(content.replace("SHORTCUT", get_shortcut()))
     comparison_path = NOTEBOOKS_DIR / "basic-r-notebook.Rmd.cleaned.html"
     compare = comparison_path.read_text()
+    comparison_path.unlink()
     title_text, cleaned_path = clean_r_notebook_html(orig_notebook_path)
-    assert cleaned_path.parent == ln_setup.settings.cache_dir
-    assert cleaned_path.suffix == ".html"
+    assert comparison_path == cleaned_path
     assert title_text == "My exemplary R analysis"
     assert compare == cleaned_path.read_text()  # check that things have been stripped
-    cleaned_path.unlink()
+    comparison_path.write_text(compare)
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
 
 
-def test_r_reports_have_independent_staging(tmp_path, monkeypatch):
-    monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
-    reports = []
-    try:
-        # Overlapping exports: same basename in different directories and the same source twice.
-        for directory, content in [("a", "first"), ("b", "second"), ("a", "third")]:
-            source = tmp_path / directory / "analysis.html"
-            source.parent.mkdir(exist_ok=True)
-            source.write_text(content)
-            _, report = clean_r_notebook_html(source)
-            reports.append(report)
-        assert len(set(reports)) == 3
-        assert [p.read_text() for p in reports] == ["first", "second", "third"]
-        reports[0].unlink()
-        assert reports[1].read_text() == "second"
-    finally:
-        for report in reports:
-            report.unlink(missing_ok=True)
+@pytest.mark.parametrize("inject_responsive_table_css", [False, True])
+def test_notebook_report_redacts_source(tmp_path, inject_responsive_table_css):
+    import nbformat
+    from lamindb.core._finish import notebook_to_report, notebook_to_script
+
+    notebook = nbformat.v4.new_notebook(
+        cells=[
+            nbformat.v4.new_markdown_cell("Ordinary report text"),
+            nbformat.v4.new_markdown_cell(
+                'Example: `api_key = "REPORT_SECRET_MARKDOWN"`\n'
+                'Use "api_key = "REPORT_SECRET_PROSE"" in the config.\n'
+            ),
+            nbformat.v4.new_raw_cell(
+                'Use "api_key = "REPORT_SECRET_RAW"" in the config.',
+                metadata={"raw_mimetype": "text/html"},
+            ),
+            nbformat.v4.new_code_cell('api_key = "REPORT_SECRET_123"'),
+            nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
+            nbformat.v4.new_code_cell('access_token = f"REPORT_SECRET_789"'),
+            nbformat.v4.new_code_cell('print("ordinary_value")'),
+        ]
+    )
+    path, report = tmp_path / "report.ipynb", tmp_path / "report.html"
+    nbformat.write(notebook, path)
+    original = path.read_bytes()
+    saved_source, _ = redact_secret_assignments(notebook_to_script("test", path))
+    assert "REPORT_SECRET_" not in saved_source
+
+    notebook_to_report(path, report, inject_responsive_table_css)
+
+    html = report.read_text()
+    assert "REPORT_SECRET_" not in html
+    assert html.count("REDACTED") == 6  # Markdown may render the asterisks as emphasis.
+    assert "Ordinary report text" in html
+    assert "ordinary_value" in html
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("has_secret", [False, True])
+@pytest.mark.parametrize("existing_report", [False, True])
+def test_r_report_skips_secrets(
+    tmp_path, monkeypatch, ccaplog, has_secret, existing_report
+):
+    from lamindb.core._finish import save_context_core
+
+    path = tmp_path / ("report.qmd" if existing_report else "report.Rmd")
+    source = (
+        'api_key = "REPORT_SECRET_123"' if has_secret else 'value = "ordinary_value"'
+    )
+    path.write_text(f"```{{r}}\n{source}\n```\n")
+    report = path.with_suffix(".html")
+    report.write_text(f"<html><body><pre>{source}</pre></body></html>")
+    original = report.read_bytes()
+    run = MagicMock(
+        uid="report-redaction-test", report_id=1 if existing_report else None
+    )
+    run.report.hash = "old-report-hash"
+    transform = MagicMock(id=1)
+    transform._update_source_code_from_path.return_value = None
+    monkeypatch.setattr(
+        type(ln_setup.settings), "cache_dir", property(lambda _: tmp_path)
+    )
+    monkeypatch.setattr(ln.settings, "verbosity", ln.settings.verbosity)
+    monkeypatch.setattr(
+        ln.settings.creation, "artifact_silence_missing_run_warning", True
+    )
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+
+    with patch.object(ln, "Artifact") as artifact:
+        save_context_core(run=run, transform=transform, filepath=path, from_cli=True)
+        assert artifact.called is (not has_secret and not existing_report)
+    assert run.report.replace.called is (not has_secret and existing_report)
+    assert run.report.save.called is (not has_secret)
+    assert ("skipping HTML report upload" in ccaplog.text) is has_secret
+    transform._update_source_code_from_path.assert_called_once_with(path)
+    run.save.assert_called_once()
+    assert report.read_bytes() == original
 
 
 def test_notebook_to_script_notebooknode_metadata(tmp_path):
@@ -777,7 +836,6 @@ class MockRun:
     def __init__(self, uid):
         self.uid = uid
         self.space = ln_setup.settings.instance.storage.record.space
-        self.space_id = self.space.id
         self.report = None
         self.saved = False
 
@@ -889,36 +947,25 @@ def test_logstream_tracker_exception_handling():
             log_path.unlink()
 
 
-@pytest.mark.parametrize("kind", ["logs", "report", "environment", "environment_dir"])
-@pytest.mark.parametrize("registered_cache", [False, True])
-@pytest.mark.parametrize("existing", ["unlinked", "other_space", "wrong_storage"])
+@pytest.mark.parametrize("kind", ["logs", "report", "environment"])
 def test_run_files_follow_run_space(
-    tmp_path, monkeypatch, isolated_space_settings, kind, existing, registered_cache
+    tmp_path, monkeypatch, isolated_space_settings, kind
 ):
     from lamindb.core._finish import save_context_core, save_run_logs
 
     monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
-    cache_storage = (
-        ln.Storage(root=ln_setup.settings.cache_dir).save()
-        if registered_cache
-        else None
-    )
     space = ln.Space(name=f"run-files-{time.time_ns()}").save()
     storage = ln.Storage(root=tmp_path / "private").save()
     ln.Storage.filter(id=storage.id).update(space_id=space.id)
-    storage.refresh_from_db()
     transform = ln.Transform(key=f"run-files-{space.uid}").save()
     run = ln.Run(transform=transform)
     run.space = space
     run.save()
-    content = f"run file for {space.uid}"
-    source = tmp_path / "notebook" / "source.Rmd"
-    source.parent.mkdir()
-    notebook_storage = ln.Storage(root=source.parent).save()
+    source = tmp_path / "report.Rmd"
     source.write_text("# Test report")
     if kind == "logs":
         path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
-    elif kind.startswith("environment"):
+    elif kind == "environment":
         path = (
             ln_setup.settings.cache_dir
             / "environments"
@@ -928,73 +975,22 @@ def test_run_files_follow_run_space(
     else:
         path = source.with_suffix(".html")
     path.parent.mkdir(parents=True, exist_ok=True)
+    content = f"run file for {space.uid}"
     path.write_text(content)
-    old_source = tmp_path / f"old{path.suffix}"
-    if kind == "environment_dir":
-        (path.parent / "uv.lock").write_text("version = 1")
-        old_source = tmp_path / "old-environment"
-        old_source.mkdir()
-        (old_source / "run_env_pip.txt").write_text(content)
-        (old_source / "uv.lock").write_text("version = 1")
-    else:
-        old_source.write_text(content)
-    old = ln.Artifact(
-        old_source, description="existing run file", kind="__lamindb_run__", run=False
-    ).save()
-    old_path = old.path
-    field = "environment" if kind.startswith("environment") else "report"
-    if existing == "wrong_storage":
-        # Reproduce legacy metadata whose space does not match its physical storage.
-        ln.Artifact.objects.filter(id=old.id).update(space_id=space.id)
-        old.refresh_from_db()
-    if existing != "unlinked":
-        setattr(run, field, old)
-        run.save()
     monkeypatch.setattr(transform, "_update_source_code_from_path", lambda _: None)
-
-    def save():
-        # Saving a local cache file may move it into managed storage.
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content)
-            if kind == "environment_dir":
-                (path.parent / "uv.lock").write_text("version = 1")
+    field = "environment" if kind == "environment" else "report"
+    try:
         if kind == "logs":
             save_run_logs(run, save_run=True)
         else:
             save_context_core(
                 run=run, transform=transform, filepath=source, from_cli=True
             )
-
-    def read_content(location):
-        return (
-            location / "run_env_pip.txt" if kind == "environment_dir" else location
-        ).read_text()
-
-    try:
-        save()
         run.refresh_from_db()
         artifact = getattr(run, field)
-        assert artifact.id != old.id
         assert artifact.space_id == space.id
         assert artifact.storage_id == storage.id
-        assert read_content(artifact.path) == content
-        assert read_content(old_path) == content
-        if registered_cache:
-            assert path.read_text() == content
-        # Repeated saves still reuse a correctly placed file.
-        save()
-        run.refresh_from_db()
-        assert getattr(run, field).id == artifact.id
-        if kind == "report":
-            path.write_text(content + " updated")
-            monkeypatch.setattr("builtins.input", lambda _: "y")
-            save()
-            run.refresh_from_db()
-            assert run.report.id == artifact.id
-            assert run.report.storage_id == storage.id
-            assert run.report.path.read_text() == content + " updated"
-            assert read_content(old_path) == content
+        assert artifact.path.read_text() == content
     finally:
         run.report = None
         run.environment = None
@@ -1002,33 +998,8 @@ def test_run_files_follow_run_space(
         run.delete(permanent=True)
         for artifact in ln.Artifact.filter(space=space):
             artifact.delete(permanent=True, storage=True)
-        if ln.Artifact.filter(id=old.id).exists():
-            old.delete(permanent=True, storage=True)
         transform.delete(permanent=True)
-        notebook_storage.delete()
-        if cache_storage is not None:
-            cache_storage.delete()
         storage.delete()
-        space.delete(permanent=True)
-
-
-def test_run_files_require_space_storage(tmp_path, isolated_space_settings):
-    from lamindb.core._finish import _save_run_artifact
-    from lamindb.errors import NoStorageLocationForSpace
-
-    space = ln.Space(name=f"run-no-storage-{time.time_ns()}").save()
-    transform = ln.Transform(key=f"run-no-storage-{space.uid}").save()
-    run = ln.Run(transform=transform)
-    run.space = space
-    run.save()
-    path = tmp_path / "report.txt"
-    path.write_text("report without a storage location")
-    try:
-        with pytest.raises(NoStorageLocationForSpace):
-            _save_run_artifact(path, run, "test report")
-    finally:
-        run.delete(permanent=True)
-        transform.delete(permanent=True)
         space.delete(permanent=True)
 
 
