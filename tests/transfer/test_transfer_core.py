@@ -30,10 +30,12 @@ def test_schema_transfer_ulabel_dtype():
     perturbation_feature = ln.Feature(
         name="perturbation", dtype=perturbation_type
     ).save()
+    schema_type = ln.Schema(name="PerturbationSchema", is_type=True).save()
     schema_uid = (
         ln.Schema(
             name="transfer_schema_ulabel_perturbation",
             features=[perturbation_feature],
+            type=schema_type,
         )
         .save()
         .uid
@@ -61,9 +63,11 @@ def test_schema_transfer_ulabel_dtype():
 
     record_only = db1.Schema.get(schema_uid).save(transfer="record")
     assert record_only.members.count() == 0
+    assert record_only.type.uid == schema_type.uid
 
     transferred = db1.Schema.get(schema_uid).save()
     assert transferred.members.to_list("name") == remote_member_names
+    assert transferred.type.uid == schema_type.uid
 
     perturbation = transferred.members.get(name="perturbation")
     assert perturbation.dtype_as_str.startswith("cat[ULabel[")
@@ -78,6 +82,7 @@ def test_schema_transfer_ulabel_dtype():
     transferred_repeat = db1.Schema.get(schema_uid).save()
     assert transferred_repeat.id == transferred.id
     assert transferred_repeat.links_feature.count() == before_count
+    assert transferred_repeat.type.uid == schema_type.uid
 
 
 def test_ulabel_type_is_stubbed_with_the_label():
