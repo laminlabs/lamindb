@@ -202,6 +202,38 @@ except ln.errors.ValidationError as error:
     print(error)
 ```
 
+### Column and row-order constraints
+
+Set `unique=True` on a feature for per-column uniqueness, and
+`min_value`/`max_value` for inclusive numeric bounds. Use `Schema.unique` for a
+unique combination of columns. Uniqueness checks skip rows with a missing
+value in any of the checked columns.
+`Schema.sorted_by` checks the existing lexicographic row order—it does not sort
+the data. Column names mean ascending order, while
+`(column_name, False)` selects descending order:
+
+```python
+schema = ln.Schema(
+    features=[
+        ln.Feature(name="sample_id", dtype=str, unique=True),
+        ln.Feature(name="study", dtype=str),
+        ln.Feature(name="timepoint", dtype=int, min_value=0, max_value=24),
+    ],
+    unique=["study", "timepoint"],
+    sorted_by=["study", ("timepoint", False)],
+)
+```
+
+These constraints validate pandas DataFrames, Polars DataFrames, and Polars
+LazyFrames. Sorting metadata is optional: pass
+`write_parquet_sorting_metadata=True` to `curator.save_artifact()` or
+`Artifact.from_dataframe()` with a schema containing `sorted_by` to write
+Parquet row-group `sorting_columns` metadata using PyArrow. The order is
+checked again before metadata is written; nulls must be last for each sort key.
+This does not sort the data. The opt-in writer materializes LazyFrames to
+verify the data it writes. By default, no schema-derived sorting metadata is
+written and Polars LazyFrames still use the native Parquet sink.
+
 ### (4) Fix validation errors
 
 Check the non-validated terms:

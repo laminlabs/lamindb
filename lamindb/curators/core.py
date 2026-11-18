@@ -156,6 +156,72 @@ def _pandas_regex_check(feature: Feature, pattern: re.Pattern) -> pandera.Check:
     )
 
 
+def _is_sorted(
+    data: Any,
+    sort_keys: list[tuple[str, bool]],
+    is_polars: bool,
+) -> bool:
+    columns = [name for name, _ in sort_keys]
+    ascending = [ascending for _, ascending in sort_keys]
+    if not is_polars:
+        keys = data[columns].reset_index(drop=True)
+        return keys.sort_values(
+            by=columns,
+            ascending=ascending,
+            kind="stable",
+            na_position="last",
+        ).equals(keys)
+
+    import polars as pl
+
+    frame = data
+    if isinstance(frame, pl.DataFrame):
+        frame = frame.lazy()
+    keys = frame.select(columns).with_columns(pl.selectors.float().fill_nan(None))
+    row_index = "__lamindb_sort_row__"
+    while row_index in columns:
+        row_index += "_"
+    return (
+        keys.with_row_index(row_index)
+        .sort(
+            by=columns,
+            descending=[not value for value in ascending],
+            nulls_last=True,
+            maintain_order=True,
+        )
+        .select(pl.col(row_index).is_sorted())
+        .collect()
+        .item()
+    )
+
+
+def _validate_dataframe_rules(data, unique_groups, sort_keys, is_polars):
+    names = data.collect_schema().names() if is_polars else data.columns
+    for columns in [*unique_groups, [name for name, _ in sort_keys]]:
+        missing = [name for name in columns if name not in names]
+        if missing:
+            raise ValidationError(f"Missing dataframe rule columns: {missing}")
+    for columns in unique_groups:
+        if is_polars:
+            import polars as pl
+
+            keys = data.select(columns).drop_nulls()
+            dtypes = keys.collect_schema()
+            for name in columns:
+                if dtypes[name].is_float():
+                    keys = keys.filter(pl.col(name).is_not_nan())
+            duplicated = keys.select(pl.struct(columns).is_duplicated().any())
+            if isinstance(duplicated, pl.LazyFrame):
+                duplicated = duplicated.collect()
+            has_duplicates = duplicated.item()
+        else:
+            has_duplicates = data[columns].dropna().duplicated().any()
+        if has_duplicates:
+            raise ValidationError(f"Columns {columns} must be unique")
+    if sort_keys and not _is_sorted(data, sort_keys, is_polars):
+        raise ValidationError(f"Dataframe is not sorted by {sort_keys}")
+
+
 # Registered with no "int"/"float" equivalents, so pandera's fixed-width
 # dtypes stay unchanged. A real dtype is what pandera coerces; a Check cannot.
 @pandas_engine.Engine.register_dtype
@@ -670,6 +736,7 @@ class SlotsCurator(Curator):
         description: str | None = None,
         revises: Artifact | None = None,
         run: Run | None = None,
+        _parquet_sorting_columns: list[tuple[str, bool]] | None = None,
     ) -> Artifact:
         """{}"""  # noqa: D415
         if not self._is_validated:
@@ -702,12 +769,21 @@ class SlotsCurator(Curator):
             ]
             for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
+                    artifact_kwargs = {}
+                    if _parquet_sorting_columns and (
+                        isinstance(self._dataset, pd.DataFrame)
+                        or is_polars_dataframe(self._dataset)
+                    ):
+                        artifact_kwargs["_parquet_sorting_columns"] = (
+                            _parquet_sorting_columns
+                        )
                     self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
                         description=description,
                         revises=revises,
                         run=run,
+                        **artifact_kwargs,
                     )
                     break
         cat_vectors = {}
@@ -1002,11 +1078,19 @@ class ComponentCurator(Curator):
             None
         )
         self._polars_regex_schema: PolarsDataFrameSchema | None = None
+        self._feature_unique_columns = {
+            feature.name for feature in features if feature.unique
+        }
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
             for feature in features:
+                feature_checks = []
+                if feature.min_value is not None:
+                    feature_checks.append(pandera.Check.ge(feature.min_value))
+                if feature.max_value is not None:
+                    feature_checks.append(pandera.Check.le(feature.max_value))
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
@@ -1041,6 +1125,7 @@ class ComponentCurator(Curator):
                         nullable=feature.nullable,
                         coerce=feature.coerce,
                         required=required,
+                        checks=feature_checks,
                     )
                 # "str" via check_dtype/check_pandera_str: keep pandas 2
                 # Column("str") results on pandas 3 (see check_pandera_str).
@@ -1062,11 +1147,14 @@ class ComponentCurator(Curator):
                         dtype = None
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
-                        checks=pandera.Check(
-                            check_dtype(dtype_str, feature.nullable),
-                            element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
-                        ),
+                        checks=[
+                            pandera.Check(
+                                check_dtype(dtype_str, feature.nullable),
+                                element_wise=False,
+                                error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
+                            ),
+                            *feature_checks,
+                        ],
                         nullable=feature.nullable,
                         coerce=feature.coerce,
                         required=required,
@@ -1306,6 +1394,7 @@ class ComponentCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        self._is_validated = False
         if self._pandera_schema is not None:
             try:
                 # first validate through pandera
@@ -1345,8 +1434,6 @@ class ComponentCurator(Curator):
                         )
                     ):
                         self._set_dataset(validated)
-                # then validate lamindb categoricals
-                self._cat_manager_validate()
             except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
                 self._is_validated = False
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
@@ -1354,8 +1441,23 @@ class ComponentCurator(Curator):
                 if has_dtype_error:
                     error_msg += "   ▶ Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
-        else:
-            self._cat_manager_validate()
+        if (
+            self._feature_unique_columns
+            or self._schema.unique
+            or self._schema.sorted_by
+        ):
+            data = self._dataset
+            names = data.collect_schema().names() if self._is_polars else data.columns
+            unique_groups = [
+                [name] for name in sorted(self._feature_unique_columns) if name in names
+            ]
+            if self._schema.unique:
+                unique_groups.append(self._schema.unique)
+            _validate_dataframe_rules(
+                data, unique_groups, self._schema.sorted_by, self._is_polars
+            )
+        # then validate lamindb categoricals
+        self._cat_manager_validate()
 
 
 class DataFrameCurator(SlotsCurator):
@@ -1490,16 +1592,42 @@ class DataFrameCurator(SlotsCurator):
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
-        self, *, key=None, description=None, revises=None, run=None
+        self,
+        *,
+        key=None,
+        description=None,
+        revises=None,
+        run=None,
+        write_parquet_sorting_metadata: bool = False,
     ) -> Artifact:
-        """{}."""
+        """{}.
+
+        Args:
+            write_parquet_sorting_metadata: Write verified `schema.sorted_by` as
+                Parquet row-group metadata. Defaults to `False`.
+        """
+        if write_parquet_sorting_metadata and (
+            not self._schema.sorted_by
+            or self._artifact is not None
+            or (key is not None and key.endswith((".csv", ".lance")))
+        ):
+            raise InvalidArgument(
+                "Parquet sorting metadata requires a new Parquet artifact and "
+                "a schema with sorted_by."
+            )
         if not self._is_validated or not self._atomic_curator._is_validated:
             self.validate()
         self._dataset = self.dataset
         self._slots["columns"] = self._atomic_curator
         try:
             return super().save_artifact(
-                key=key, description=description, revises=revises, run=run
+                key=key,
+                description=description,
+                revises=revises,
+                run=run,
+                _parquet_sorting_columns=(
+                    self._schema.sorted_by if write_parquet_sorting_metadata else None
+                ),
             )
         finally:
             del self._slots["columns"]

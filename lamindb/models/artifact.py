@@ -2593,6 +2593,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: dict[str, Any] | None = None,
         parquet_kwargs: dict[str, Any] | None = None,
         csv_kwargs: dict[str, Any] | None = None,
+        write_parquet_sorting_metadata: bool = False,
+        _parquet_sorting_columns: list[tuple[str, bool]] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -2615,6 +2617,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
             csv_kwargs: Additional keyword arguments passed to the `pandas.DataFrame.to_csv` method.
+            write_parquet_sorting_metadata: Write verified `schema.sorted_by` as
+                Parquet row-group metadata (requires a dataframe and a sorted schema).
 
         Examples:
 
@@ -2654,6 +2658,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and key.endswith((".csv", ".lance"))
         ):
             kwargs["format"] = PurePosixPath(key).suffix
+        if write_parquet_sorting_metadata:
+            if (
+                not isinstance(schema, Schema)
+                or not schema.sorted_by
+                or not (is_polars or data_is_dataframe(df))
+                or kwargs.get("format") in {".csv", ".lance"}
+                or (key is not None and key.endswith((".csv", ".lance")))
+            ):
+                raise InvalidArgument(
+                    "Parquet sorting metadata requires a dataframe, a Parquet "
+                    "artifact, and a schema with sorted_by."
+                )
+            _parquet_sorting_columns = schema.sorted_by
         if schema == "valid_features":
             from lamindb import examples
 
@@ -2700,6 +2717,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs = None
         else:
             to_disk_kwargs = parquet_kwargs or csv_kwargs
+        if _parquet_sorting_columns:
+            to_disk_kwargs = {
+                **(to_disk_kwargs or {}),
+                "_lamindb_sorting_columns": _parquet_sorting_columns,
+            }
         artifact = Artifact(  # type: ignore
             path=df,
             key=key,

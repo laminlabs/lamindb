@@ -129,8 +129,12 @@ def column(feature, required: bool, schema_coerce: bool = False):
         "coerce": feature.coerce or schema_coerce,
         "required": required,
     }
+    checks = []
+    for bound, lower in ((feature.min_value, True), (feature.max_value, False)):
+        if bound is not None:
+            checks.append(_numeric_bound_check(bound, lower=lower))
     if dtype_str in {"int", "float"}:
-        return pandera.Column(f"lamindb.{dtype_str}", **kwargs)
+        return pandera.Column(f"lamindb.{dtype_str}", checks=checks, **kwargs)
     if (
         dtype_str in {"bool", "num", "str", "path", "url", "dict"}
         or dtype_str.startswith("list")
@@ -163,14 +167,26 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 feature.nullable and _all_missing(data)
             )
 
-        checks = [
+        checks.append(
             pandera.Check(
                 check,
                 error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
             )
-        ]
+        )
         return pandera.Column(dtype=None, checks=checks, **kwargs)
-    return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
+    return pandera.Column(polars_dtype(dtype_str) or dtype_str, checks=checks, **kwargs)
+
+
+def _numeric_bound_check(bound, *, lower):
+    def check(data):
+        value = pl.col(data.key)
+        if data.lazyframe.collect_schema()[data.key].is_float():
+            value = value.fill_nan(None)
+        return data.lazyframe.select(value >= bound if lower else value <= bound)
+
+    return pandera.Check(
+        check, error=f"{'min_value' if lower else 'max_value'}={bound}"
+    )
 
 
 def _regex_column(feature, pattern):
