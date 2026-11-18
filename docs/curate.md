@@ -230,8 +230,8 @@ LazyFrames. Sorting metadata is optional: pass
 `Artifact.from_dataframe()` with a schema containing `sorted_by` to write
 Parquet row-group `sorting_columns` metadata using PyArrow. The order is
 checked again before metadata is written; nulls must be last for each sort key.
-This does not sort the data. The opt-in writer materializes LazyFrames to
-verify the data it writes. By default, no schema-derived sorting metadata is
+This does not sort the data. Polars LazyFrames are streamed in batches, and the
+order is checked across batch boundaries while writing. By default, no schema-derived sorting metadata is
 written and Polars LazyFrames still use the native Parquet sink.
 
 ### (4) Fix validation errors

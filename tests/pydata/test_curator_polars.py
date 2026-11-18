@@ -674,6 +674,50 @@ def test_lazyframe_metadata_opt_in_multiple_row_groups():
     artifact.delete(permanent=True)
 
 
+def test_lazyframe_metadata_opt_in_streams_batches(monkeypatch, tmp_path):
+    import pyarrow.parquet as pq
+    from lamindb.core.storage.objects import write_to_disk
+
+    batches = pl.LazyFrame.collect_batches
+
+    def unexpected_collect(*args, **kwargs):
+        raise AssertionError("Sorted Parquet writes must not collect the LazyFrame")
+
+    monkeypatch.setattr(
+        pl.LazyFrame,
+        "collect_batches",
+        lambda self, **kwargs: batches(self, chunk_size=2),
+    )
+    monkeypatch.setattr(pl.LazyFrame, "collect", unexpected_collect)
+    sorted_path = tmp_path / "sorted.parquet"
+    write_to_disk(
+        pl.LazyFrame({"value": [1, 2, 2, 3, None]}),
+        sorted_path,
+        _lamindb_sorting_columns=[("value", True)],
+    )
+    metadata = pq.ParquetFile(sorted_path).metadata
+    assert metadata.num_row_groups == 3
+    assert list(metadata.row_group(2).sorting_columns) == [
+        pq.SortingColumn(0, descending=False, nulls_first=False)
+    ]
+    assert pq.read_table(sorted_path).column("value").to_pylist() == [
+        1,
+        2,
+        2,
+        3,
+        None,
+    ]
+    # Each batch is sorted, but the order breaks between batches.
+    unsorted_path = tmp_path / "unsorted.parquet"
+    with pytest.raises(ValidationError, match="not sorted"):
+        write_to_disk(
+            pl.LazyFrame({"value": [1, 3, 2, 4]}),
+            unsorted_path,
+            _lamindb_sorting_columns=[("value", True)],
+        )
+    assert not unsorted_path.exists()
+
+
 @pytest.mark.parametrize(
     "dtype,values,lower,upper",
     [
