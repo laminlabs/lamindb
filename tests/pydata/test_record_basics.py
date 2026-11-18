@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.core.exceptions import FieldError
-from django.db import IntegrityError, ProgrammingError, connections
+from django.db import IntegrityError, ProgrammingError, connections, transaction
 from django.db.models import JSONField, Value
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
@@ -2313,6 +2313,28 @@ def test_record_creation_space_precedence(
         space.delete(permanent=True)
 
 
+def test_constructor_reuse_preserves_space_with_type_fallback(isolated_space_settings):
+    type_space = ln.Space(name="reuse-type-fallback-space").save()
+    record_type = ln.Record(
+        name="ReuseTypeFallback", is_type=True, space=type_space
+    ).save()
+    original = ln.Record(
+        name="reuse-type-fallback-record", type=record_type, space_id=1
+    ).save()
+    try:
+        reused = ln.Record(
+            name=original.name, type=record_type, description="updated description"
+        ).save()
+        original.refresh_from_db()
+        assert reused.pk == original.pk
+        assert reused.space_id == original.space_id == 1
+        assert original.description == "updated description"
+    finally:
+        original.delete(permanent=True)
+        record_type.delete(permanent=True)
+        type_space.delete(permanent=True)
+
+
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
@@ -2335,7 +2357,6 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     explicit_record.refresh_from_db()
     assert explicit_record.space_id == 1
-    explicit_record.delete(permanent=True)
 
     constrained_type.settings.single_space = True
     constrained_type.save()
@@ -2343,6 +2364,16 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     assert constrained_type.settings.single_space is True
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
+
+    # Reuse preserves the old space even if a later policy makes it invalid.
+    reused = ln.Record(name=explicit_record.name, type=constrained_type)
+    assert reused.pk == explicit_record.pk
+    assert reused.space_id == explicit_record.space_id
+    with pytest.raises(
+        ProgrammingError, match="record space must match locked type space"
+    ):
+        with transaction.atomic():
+            reused.save()
 
     # Without an explicit space, default to the type's owning space.
     auto_type_space_record = ln.Record(
@@ -2408,6 +2439,7 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     assert unconstrained_record_2.space_id == constrained_type.space_id
 
+    explicit_record.delete(permanent=True)
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
     auto_type_space_record.delete(permanent=True)
