@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
+import pandas as pd
 import pytest
 from django.db import transaction
 from lamindb.errors import InvalidArgument, ValidationError
@@ -193,6 +194,79 @@ def test_polars_optional_column(as_frame):
     ln.curators.DataFrameCurator(
         as_frame(pl.DataFrame({"pl_required": [1]})), schema
     ).validate()
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [pl.String, pl.Categorical, pl.Enum(["ID-12", "ID-12\n", "prefixID-12", "ID-١٢"])],
+)
+@pytest.mark.parametrize("pattern", [r"^ID-[0-9]+$", r"ID-[0-9]+"])
+def test_polars_regex_native_fullmatch(as_frame, monkeypatch, dtype, pattern):
+    from lamindb.curators import _polars
+
+    def unexpected_fallback(*args):
+        pytest.fail("A compatible pattern should not invoke the Python matcher")
+
+    monkeypatch.setattr(_polars, "_matches_regex", unexpected_fallback)
+    schema = make_schema([("pl_id", str, {"regex": pattern, "nullable": True})])
+    for value, valid in [
+        ("ID-12", True),
+        ("ID-12\n", False),
+        ("prefixID-12", False),
+        ("ID-١٢", False),
+        (None, True),
+    ]:
+        polars = as_frame(
+            pl.DataFrame({"pl_id": pl.Series([value, None], dtype=dtype)})
+        )
+        pandas = pd.DataFrame({"pl_id": pd.Series([value, None], dtype="string")})
+        for frame in (polars, pandas):
+            curator = ln.curators.DataFrameCurator(frame, schema)
+            if valid:
+                curator.validate()
+            else:
+                with pytest.raises(ValidationError, match="must fully match regex"):
+                    curator.validate()
+
+
+@pytest.mark.parametrize(
+    "pattern,valid,invalid",
+    [
+        (r"(?=ID-)[A-Z]+-[0-9]+", "ID-12", "XX-12"),
+        (r"(a+)-\1", "aa-aa", "aa-a"),
+        (r"(?P<key>[a-z]+)-(?P=key)", "ab-ab", "ab-ba"),
+        (r"(?i)id-[0-9]+", "ID-12", "ID-12\n"),
+        (r"\w+", "abc١", "abc!"),
+        (r"\s+", "\x1c", "a"),
+        (r"[^a]", "&", "a"),
+        (r"ID-[0-9]{2}", "ID-12", "ID-123"),
+    ],
+)
+def test_polars_regex_python_fallback(as_frame, monkeypatch, pattern, valid, invalid):
+    from lamindb.curators import _polars
+
+    original = _polars._matches_regex
+    calls = []
+
+    def track_match(value, compiled):
+        calls.append(value)
+        return original(value, compiled)
+
+    monkeypatch.setattr(_polars, "_matches_regex", track_match)
+    schema = make_schema([("pl_id", str, {"regex": pattern, "nullable": True})])
+    for value in (valid, invalid):
+        calls.clear()
+        for frame in (
+            as_frame(pl.DataFrame({"pl_id": [value, None]})),
+            pd.DataFrame({"pl_id": [value, None]}),
+        ):
+            curator = ln.curators.DataFrameCurator(frame, schema)
+            if value == valid:
+                curator.validate()
+            else:
+                with pytest.raises(ValidationError, match="must fully match regex"):
+                    curator.validate()
+        assert value in calls
 
 
 @pytest.mark.parametrize("dtype", [pl.String, pl.Categorical])
