@@ -18,11 +18,18 @@ def zip_file():
     filepath.unlink()
 
 
-@pytest.fixture(scope="module")
-def html_filepath():
+@pytest.fixture(
+    scope="module",
+    params=[
+        "<html><head><style>h1 {color: blue}</style></head><body><h1>Test</h1></body></html>",
+        '"><script>parent.document.body.dataset.compromised = "yes"</script>'
+        '<p title="a & b">Fragment</p></iframe><img src=x onerror="alert(1)">',
+    ],
+)
+def html_filepath(request):
     filepath = Path("./tmp.html")
     with open(filepath, "w") as f:
-        f.write("<html><body><h1>Test</h1></body></html>")
+        f.write(request.param)
     yield filepath
     filepath.unlink()
 
@@ -145,9 +152,29 @@ def load_blobs__repr__():
     assert example_blobs_sdata.__repr__
 
 
-def test_load_html(html_filepath):
+@pytest.mark.parametrize("in_notebook", [False, True])
+def test_load_html(html_filepath, monkeypatch, in_notebook):
+    from xml.etree import ElementTree
+
+    import IPython.display
+    from lamindb.core import loaders
+
+    monkeypatch.setattr(loaders, "is_run_from_ipython", in_notebook)
+    displayed = []
+    monkeypatch.setattr(IPython.display, "display", displayed.append)
     artifact = ln.Artifact(html_filepath, key=str(html_filepath))
-    artifact.load()
+    result = artifact.load()
+    if in_notebook:
+        assert result is None
+        assert len(displayed) == 1
+        frame = ElementTree.fromstring(displayed[0].data)  # noqa: S314
+        assert frame.tag == "iframe"
+        assert frame.attrib["sandbox"] == "allow-scripts"
+        assert frame.attrib["srcdoc"] == html_filepath.read_text()
+        assert len(frame) == 0
+    else:
+        assert Path(result).resolve() == html_filepath.resolve()
+        assert displayed == []
 
 
 def test_load_json(json_filepath):
