@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamindb_setup import logger
 
+from ._secret_redaction import redact
+
 if TYPE_CHECKING:
     from lamindb.models import Run
 
@@ -130,7 +132,7 @@ def _track_pip_freeze(env_dir: Path) -> str | None:
         return "pip freeze returned empty output"
     env_dir.mkdir(parents=True, exist_ok=True)
     filepath = env_dir / "run_env_pip.txt"
-    filepath.write_text(result.stdout)
+    filepath.write_text(redact(result.stdout), encoding="utf-8")
     logger.info(f"tracked pip freeze > {filepath}")
     return None
 

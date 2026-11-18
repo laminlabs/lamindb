@@ -9,16 +9,23 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamindb_setup import logger
 from lamindb_setup.core._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
-from lamindb_setup.core.hashing import hash_dir, hash_file
+from lamindb_setup.core.hashing import hash_file
 
-from lamindb.models import Artifact, Run, Transform
-
-from ._secret_redaction import redact_secret_assignments
+from ._secret_redaction import (
+    _read_run_text,
+    _redact_html,
+    _redact_notebook,
+    _save_run_artifact,
+    _skip_unsafe_run_artifact,
+    redact,
+)
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lamindb.models import Run, Transform
 
 
 def get_save_notebook_message() -> str:
@@ -98,14 +105,11 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
     if logs_path.exists():
         if run.report is not None:
             logger.important("overwriting run.report")
-        artifact = Artifact(  # type: ignore
-            logs_path,
-            description=f"log streams of run {run.uid}",
-            kind="__lamindb_run__",
-            run=False,
+        artifact = _save_run_artifact(
+            logs_path, description=f"log streams of run {run.uid}"
         )
-        artifact.save(upload=True, print_progress=False)
-        run.report = artifact
+        if artifact is not None:
+            run.report = artifact
         if save_run:  # defaults to false because is slow
             run.save()
 
@@ -173,13 +177,12 @@ def notebook_to_report(
 
     with open(notebook_path, encoding="utf-8") as f:
         notebook = nbformat.read(f, as_version=4)
+    _redact_notebook(notebook)
     for cell in notebook.cells:
-        cell.source, _ = redact_secret_assignments(cell.source)
         if cell.cell_type != "code":
             # Jupytext stores prose as comments; quotes in prose aren't code delimiters.
             cell.source = "\n".join(
-                redact_secret_assignments(f"# {line}")[0][2:]
-                for line in cell.source.split("\n")
+                redact(f"# {line}", "source")[2:] for line in cell.source.split("\n")
             )
     prepare_notebook(notebook, strip_title=True)
     notebook.metadata.clear()  # strip notebook metadata
@@ -368,14 +371,6 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
-        if report_path is not None and save_source_code_and_report:
-            _, redaction_count = redact_secret_assignments(filepath.read_text())
-            if redaction_count:
-                logger.warning(
-                    f"skipping HTML report upload for {filepath.name}: source contains "
-                    "secret-looking assignments and the pre-rendered report cannot be safely redacted"
-                )
-                report_path = None
     elif notebook_runner == "marimo":
         ipynb_path = (
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
@@ -442,58 +437,21 @@ def save_context_core(
                 overwrite_env = False
 
             if overwrite_env:
-                # Use directory if multiple files exist, otherwise use the single file
-                artifact_path: Path = (
+                artifact_path = (
                     base_path if len(existing_paths) > 1 else existing_paths[0]
                 )
-
-                # Set description based on what we're saving
-                if len(existing_paths) == 1:
-                    filename = existing_paths[0].name
-                    # use the filename as description, except pip freeze which is
-                    # stored as run_env_pip.txt but shown as requirements.txt
-                    description = (
-                        "requirements.txt"
-                        if filename == "run_env_pip.txt"
-                        else filename
-                    )
-                    size, env_hash, _ = hash_file(artifact_path)
-                else:
-                    description = "environments"
-                    size, env_hash, _, _ = hash_dir(artifact_path)
-
-                if size == 0:
-                    # Belt-and-suspenders: discovery already filters empty files, but
-                    # guard here too so an empty hash never reaches the DB query.
-                    # An empty hash (MD5 of b"") can collide with data artifacts that
-                    # were registered with a placeholder hash.
-                    logger.warning(
-                        "environment file is empty, skipping linking an environment"
-                    )
-                else:
-                    # Scope reuse to __lamindb_run__ artifacts only — data artifacts
-                    # with a coincidental or placeholder hash must not be returned here.
-                    artifact = (
-                        ln.Artifact.objects.filter(
-                            hash=env_hash, kind="__lamindb_run__"
-                        )
-                        .exclude(size=0)
-                        .one_or_none()
-                    )
-                    new_env_artifact = artifact is None
-
-                    if new_env_artifact:
-                        artifact = ln.Artifact(
-                            artifact_path,
-                            description=description,
-                            kind="__lamindb_run__",
-                            run=False,
-                        )
-                        artifact.save(upload=True, print_progress=False)
-
+                filename = existing_paths[0].name
+                description = (
+                    "environments"
+                    if len(existing_paths) > 1
+                    else "requirements.txt"
+                    if filename == "run_env_pip.txt"
+                    else filename
+                )
+                artifact = _save_run_artifact(artifact_path, description=description)
+                if artifact is not None:
                     run.environment = artifact
-                    if new_env_artifact:
-                        logger.debug(f"saved run.environment: {run.environment}")
+                    logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at and run is not None:
@@ -509,38 +467,42 @@ def save_context_core(
         if run is not None:
             # do not save a run report if executing through nbconvert
             if report_path is not None and notebook_runner != "nbconvert":
-                if is_r_notebook:
-                    title_text, report_path = clean_r_notebook_html(report_path)
-                    if title_text is not None:
-                        transform.description = title_text
-                if run.report_id is not None:
-                    _, hash, _ = hash_file(report_path)  # ignore hash_type for now
-                    if hash != run.report.hash:
-                        response = input(
-                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
-                        )
-                        if response == "y":
-                            run.report.replace(report_path)
-                            run.report.save(upload=True, print_progress=False)
+                with _skip_unsafe_run_artifact():
+                    if is_r_notebook:
+                        _redact_html(_read_run_text(report_path))
+                        title_text, report_path = clean_r_notebook_html(report_path)
+                        if title_text is not None:
+                            transform.description = title_text
+                    if run.report_id is not None:
+                        _, hash, _ = hash_file(report_path)  # ignore hash_type for now
+                        if hash != run.report.hash:
+                            response = input(
+                                f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
+                            )
+                            if response == "y":
+                                report_file = _save_run_artifact(
+                                    report_path,
+                                    description=f"Report of run {run.uid}",
+                                    artifact=run.report,
+                                )
+                                if report_file is not None:
+                                    run.report = report_file
+                            else:
+                                logger.important("keeping old report")
                         else:
-                            logger.important("keeping old report")
+                            logger.important("report is already saved")
                     else:
-                        logger.important("report is already saved")
-                else:
-                    report_file = ln.Artifact(  # type: ignore
-                        report_path,
-                        description=f"Report of run {run.uid}",
-                        kind="__lamindb_run__",  # hidden file
-                        run=False,
+                        report_file = _save_run_artifact(
+                            report_path, description=f"Report of run {run.uid}"
+                        )
+                        if report_file is not None:
+                            run.report = report_file
+                    if is_r_notebook:
+                        # this is the "cleaned" report
+                        report_path.unlink()
+                    logger.debug(
+                        f"saved transform.latest_run.report: {transform.latest_run.report}"
                     )
-                    report_file.save(upload=True, print_progress=False)
-                    run.report = report_file
-                if is_r_notebook:
-                    # this is the "cleaned" report
-                    report_path.unlink()
-                logger.debug(
-                    f"saved transform.latest_run.report: {transform.latest_run.report}"
-                )
             run._is_consecutive = is_consecutive
         if report_path is not None and notebook_runner == "nbconvert":
             logger.important(f"to save the notebook html, run: lamin save {filepath}")

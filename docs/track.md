@@ -446,6 +446,20 @@ You can also access the CLI arguments used to start the run directly:
 run.cli_args
 ```
 
+LaminDB redacts sensitive parameter keys (including nested values), CLI credentials,
+and recognizable secret formats from stored run metadata. Notebook reports and
+captured `pip freeze` output are redacted before their upload files are written.
+The report, log and environment upload helpers check existing files without
+changing them or making temporary sanitized copies. Uploads with detected secrets
+are skipped with a warning. The artifact kind alone does not enable these checks:
+it is also used for binary reference data. Original notebooks, logs and lockfiles
+are unchanged.
+
+This is best-effort protection: arbitrary secrets under ordinary names, images,
+and encoded content may be missed. Direct database/ORM updates bypass the SDK save
+checks, and previously stored reports are not cleaned up. Use environment variables
+or a secret manager instead of embedding credentials in code or output.
+
 You can also track run features in analogy to artifact features.
 
 In contrast to params, features are validated against the `Feature` registry and allow to express relationships with entities in your registries.
