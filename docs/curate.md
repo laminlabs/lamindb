@@ -213,15 +213,15 @@ the data. Column names mean ascending order, while
 `(column_name, False)` selects descending order:
 
 ```python
-schema = ln.Schema(
+ordered_sample_schema = ln.Schema(
     features=[
-        ln.Feature(name="sample_id", dtype=str, unique=True),
-        ln.Feature(name="study", dtype=str),
-        ln.Feature(name="timepoint", dtype=int, min_value=0, max_value=24),
+        ln.Feature(name="sample_id", dtype=str, unique=True).save(),
+        ln.Feature(name="study", dtype=str).save(),
+        ln.Feature(name="timepoint_hours", dtype=int, min_value=0, max_value=24).save(),
     ],
-    unique=["study", "timepoint"],
-    sorted_by=["study", ("timepoint", False)],
-)
+    unique=["study", "timepoint_hours"],
+    sorted_by=["study", ("timepoint_hours", False)],
+).save()
 ```
 
 These constraints validate pandas DataFrames, Polars DataFrames, and Polars
