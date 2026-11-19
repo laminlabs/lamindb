@@ -161,38 +161,48 @@ def _is_sorted(
     sort_keys: list[tuple[str, bool]],
     is_polars: bool,
 ) -> bool:
-    columns = [name for name, _ in sort_keys]
-    ascending = [ascending for _, ascending in sort_keys]
     if not is_polars:
-        keys = data[columns].reset_index(drop=True)
-        return keys.sort_values(
-            by=columns,
-            ascending=ascending,
-            kind="stable",
-            na_position="last",
-        ).equals(keys)
+        if len(data) < 2:
+            return True
+        # Only ties on preceding keys need to be compared on the next key.
+        tied = np.ones(len(data) - 1, dtype=bool)
+        for name, ascending in sort_keys:
+            values = data[name]
+            missing = values.isna().to_numpy()
+            if (tied & missing[:-1] & ~missing[1:]).any():
+                return False
+            present = tied & ~missing[:-1] & ~missing[1:]
+            if isinstance(values.dtype, pd.CategoricalDtype):
+                values = values.cat.codes
+            left = values.iloc[:-1].reset_index(drop=True)[present]
+            right = values.iloc[1:].reset_index(drop=True)[present]
+            if (left.gt(right) if ascending else left.lt(right)).any():
+                return False
+            tied &= missing[:-1] & missing[1:]
+            tied[present] = left.eq(right).to_numpy(dtype=bool)
+            if not tied.any():
+                break
+        return True
 
     import polars as pl
 
     frame = data
     if isinstance(frame, pl.DataFrame):
         frame = frame.lazy()
-    keys = frame.select(columns).with_columns(pl.selectors.float().fill_nan(None))
-    row_index = "__lamindb_sort_row__"
-    while row_index in columns:
-        row_index += "_"
-    return (
-        keys.with_row_index(row_index)
-        .sort(
-            by=columns,
-            descending=[not value for value in ascending],
-            nulls_last=True,
-            maintain_order=True,
-        )
-        .select(pl.col(row_index).is_sorted())
-        .collect()
-        .item()
+    keys = frame.select([name for name, _ in sort_keys]).with_columns(
+        pl.selectors.float().fill_nan(None)
     )
+    ordered = pl.lit(True)
+    for name, ascending in reversed(sort_keys):
+        current = pl.col(name)
+        previous = current.shift(1)
+        before = previous < current if ascending else previous > current
+        ordered = (
+            before.fill_null(False)
+            | (previous.is_not_null() & current.is_null())
+            | (previous.eq_missing(current) & ordered)
+        )
+    return keys.select(ordered.slice(1).all()).collect().item()
 
 
 def _validate_dataframe_rules(data, unique_groups, sort_keys, is_polars):

@@ -598,6 +598,36 @@ def test_polars_column_rules_and_parquet_sorting_metadata(as_frame):
             ln.curators.DataFrameCurator(as_frame(invalid), schema).validate()
 
 
+@pytest.mark.parametrize("backend", ["pandas", "polars", "lazyframe"])
+@pytest.mark.parametrize(
+    "rows, expected",
+    [
+        ([], True),
+        ([(1.0, 1)], True),
+        ([(1.0, 2), (1.0, 2), (1.0, 1), (2.0, 3), (None, 2), (float("nan"), 1)], True),
+        ([(1.0, 1), (1.0, 2)], False),
+        ([(2.0, 3), (1.0, 2)], False),
+        ([(None, 2), (1.0, 1)], False),
+        ([(None, 1), (float("nan"), 2)], False),
+    ],
+)
+def test_sort_order_adjacent_rows(backend, rows, expected):
+    import pandas as pd
+    from lamindb.curators.core import _is_sorted
+
+    if backend == "pandas":
+        frame = pd.DataFrame(rows, columns=["a", "b"], index=[0] * len(rows))
+    else:
+        frame = pl.DataFrame(
+            rows, schema={"a": pl.Float64, "b": pl.Int64}, orient="row"
+        )
+        if backend == "lazyframe":
+            frame = frame.lazy()
+    assert (
+        _is_sorted(frame, [("a", True), ("b", False)], backend != "pandas") is expected
+    )
+
+
 def test_lazyframe_default_sorted_save_uses_native_sink(monkeypatch):
     import pyarrow.parquet as pq
 
