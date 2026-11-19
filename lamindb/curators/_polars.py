@@ -181,6 +181,8 @@ def _numeric_bound_check(bound, *, lower):
     def check(data):
         value = pl.col(data.key)
         if data.lazyframe.collect_schema()[data.key].is_float():
+            # Pandera's Polars bounds skip nulls but not NaN:
+            # https://github.com/unionai-oss/pandera/issues/2598
             value = value.fill_nan(None)
         return data.lazyframe.select(value >= bound if lower else value <= bound)
 
