@@ -2484,23 +2484,22 @@ def test_single_space_getter_setter_paths():
     constrained_type.settings.single_space = False
     assert constrained_type._aux is None
 
-    # The UI stores the type-space policy as the string "1", not the int 1.
     # A new record inherits .emoji unless it already has one.
     constrained_type.space = restricted_space
-    constrained_type._aux = {"ss": "1"}
+    constrained_type.settings.single_space = True
     assert constrained_type.emoji is None
     constrained_type.emoji = None
-    assert constrained_type._aux == {"ss": "1"}
+    assert constrained_type._aux == {"ss": 1}
     no_emoji = ln.Record(name=f"NoEmoji-{suffix}", type=constrained_type)
     assert no_emoji.space_id == restricted_space.id
     assert no_emoji.emoji is None
     constrained_type.emoji = " 🧬 "
     assert constrained_type.emoji == "🧬"
-    assert constrained_type._aux["ss"] == "1"
+    assert constrained_type._aux["ss"] == 1
     constrained_type.save()
     constrained_type.refresh_from_db()
     assert constrained_type.emoji == "🧬"
-    child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
+    child = ln.Record(name=f"InheritedEmoji-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
     assert child.emoji == "🧬"
     explicit = ln.Record(
@@ -2512,10 +2511,10 @@ def test_single_space_getter_setter_paths():
     assert explicit._aux["foo"] == 1
     constrained_type.emoji = "🧪"
     assert constrained_type.emoji == "🧪"
-    assert constrained_type._aux["ss"] == "1"
+    assert constrained_type._aux["ss"] == 1
     constrained_type.emoji = None
     assert constrained_type.emoji is None
-    assert constrained_type._aux == {"ss": "1"}
+    assert constrained_type._aux == {"ss": 1}
     child.emoji = None
     assert child.emoji is None
     assert child._aux is None

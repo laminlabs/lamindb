@@ -395,7 +395,7 @@ class SQLRecordSettings:
         if aux is None:
             return False
         if (ss := aux.get("ss")) is not None:
-            if ss == 1 or ss == "1":
+            if ss == 1:
                 return True
             else:
                 return Space.get(ss)
@@ -444,7 +444,7 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
 
     Mirrors the frontend single-space policy used for default write-space selection:
 
-    - `_aux.ss = 1` or `"1"` → the type's own owning space
+    - `_aux.ss = 1` → the type's own owning space
     - `_aux.ss = "<space uid>"` → that exact space
     - missing / unset → `None` (no enforced space; the caller selects a default)
     """
@@ -454,7 +454,7 @@ def resolve_space_from_single_space_policy(type_record: HasType) -> Space | None
     ss = aux.get("ss")
     if ss is None:
         return None
-    if ss == 1 or ss == "1":
+    if ss == 1:
         return getattr(type_record, "space", None)
     if isinstance(ss, str) and ss:
         return Space.get(ss)
