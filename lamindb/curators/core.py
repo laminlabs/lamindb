@@ -215,17 +215,12 @@ def _validate_dataframe_rules(data, unique_groups, sort_keys, is_polars):
         if is_polars:
             import polars as pl
 
-            keys = data.select(columns).drop_nulls()
-            dtypes = keys.collect_schema()
-            for name in columns:
-                if dtypes[name].is_float():
-                    keys = keys.filter(pl.col(name).is_not_nan())
-            duplicated = keys.select(pl.struct(columns).is_duplicated().any())
+            duplicated = data.select(pl.struct(columns).is_duplicated().any())
             if isinstance(duplicated, pl.LazyFrame):
                 duplicated = duplicated.collect()
             has_duplicates = duplicated.item()
         else:
-            has_duplicates = data[columns].dropna().duplicated().any()
+            has_duplicates = data.duplicated(subset=columns).any()
         if has_duplicates:
             raise ValidationError(f"Columns {columns} must be unique")
     if sort_keys and not _is_sorted(data, sort_keys, is_polars):

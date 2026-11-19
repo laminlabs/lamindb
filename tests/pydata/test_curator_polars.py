@@ -555,7 +555,7 @@ def test_polars_column_rules_and_parquet_sorting_metadata(as_frame):
     schema = make_schema(
         [
             ("pl_rule_id", str, {"unique": True}),
-            ("pl_rule_group", str, {}),
+            ("pl_rule_group", str, {"nullable": True}),
             ("pl_rule_rank", int, {}),
         ],
         unique=["pl_rule_group", "pl_rule_rank"],
@@ -563,7 +563,7 @@ def test_polars_column_rules_and_parquet_sorting_metadata(as_frame):
     )
     df = pl.DataFrame(
         {
-            "pl_rule_id": [None, "ID-2", None, "ID-4"],
+            "pl_rule_id": [None, "ID-2", "ID-3", "ID-4"],
             "pl_rule_group": ["a", "a", "b", "b"],
             "pl_rule_rank": [2, 1, 2, 1],
         }
@@ -588,7 +588,18 @@ def test_polars_column_rules_and_parquet_sorting_metadata(as_frame):
             r"\['pl_rule_id'\] must be unique",
         ),
         (
+            df.with_columns(pl.Series("pl_rule_id", [None, "ID-2", None, "ID-4"])),
+            r"\['pl_rule_id'\] must be unique",
+        ),
+        (
             df.with_columns(pl.Series("pl_rule_rank", [2, 2, 2, 1])),
+            r"\['pl_rule_group', 'pl_rule_rank'\] must be unique",
+        ),
+        (
+            df.with_columns(
+                pl.Series("pl_rule_group", ["a", "a", None, None]),
+                pl.Series("pl_rule_rank", [2, 1, 2, 2]),
+            ),
             r"\['pl_rule_group', 'pl_rule_rank'\] must be unique",
         ),
         (df.with_columns(pl.Series("pl_rule_rank", [1, 2, 2, 1])), "not sorted"),

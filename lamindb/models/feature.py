@@ -968,7 +968,8 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, coerces this feature's values during validation.
             `Schema.coerce=True` also coerces it when this is left unset. See :attr:`~lamindb.Feature.coerce`.
-        unique: `bool = False` Whether non-null values in this feature must be unique in a dataframe.
+        unique: `bool = False` Whether values in this feature must be unique in a dataframe.
+            Repeated nulls count as duplicates.
         min_value: `int | float | None = None` Inclusive minimum for numeric feature values.
         max_value: `int | float | None = None` Inclusive maximum for numeric feature values.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.

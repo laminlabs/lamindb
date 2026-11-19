@@ -768,7 +768,7 @@ def test_pandera_column_rules_and_parquet_sorting_metadata():
                 dtype=str,
                 unique=True,
             ).save(),
-            ln.Feature(name="rule_group", dtype=str).save(),
+            ln.Feature(name="rule_group", dtype=str, nullable=True).save(),
             ln.Feature(name="rule_rank", dtype=int).save(),
         ],
         unique=["rule_group", "rule_rank"],
@@ -776,7 +776,7 @@ def test_pandera_column_rules_and_parquet_sorting_metadata():
     ).save()
     df = pd.DataFrame(
         {
-            "rule_id": [None, "ID-2", None, "ID-4"],
+            "rule_id": [None, "ID-2", "ID-3", "ID-4"],
             "rule_group": ["a", "a", "b", "b"],
             "rule_rank": [2, 1, 2, 1],
         }
@@ -797,6 +797,10 @@ def test_pandera_column_rules_and_parquet_sorting_metadata():
         ln.curators.DataFrameCurator(
             df.assign(rule_id=["ID-1", "ID-1", "ID-3", "ID-4"]), schema
         ).validate()
+    with pytest.raises(ValidationError, match=r"\['rule_id'\] must be unique"):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_id=[None, "ID-2", None, "ID-4"]), schema
+        ).validate()
     duplicate_combination = pd.DataFrame(
         {
             "rule_id": ["ID-5", "ID-6", "ID-7"],
@@ -808,6 +812,13 @@ def test_pandera_column_rules_and_parquet_sorting_metadata():
         ValidationError, match=r"\['rule_group', 'rule_rank'\] must be unique"
     ):
         ln.curators.DataFrameCurator(duplicate_combination, schema).validate()
+    with pytest.raises(
+        ValidationError, match=r"\['rule_group', 'rule_rank'\] must be unique"
+    ):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_group=["a", "a", None, None], rule_rank=[2, 1, 2, 2]),
+            schema,
+        ).validate()
     with pytest.raises(ValidationError, match="not sorted"):
         ln.curators.DataFrameCurator(
             df.assign(rule_rank=[1, 2, 2, 1]), schema
