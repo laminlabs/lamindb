@@ -335,7 +335,7 @@ class Run(SQLRecord, TracksUpdates):
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """The type of the `reference` such as a workflow manager execution ID."""
-    cli_args: str | None = CharField(max_length=1024, null=True, default=None)
+    cli_args: str | None = TextField(null=True, default=None)
     """CLI arguments if the run was invoked from the command line."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
