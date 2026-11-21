@@ -758,6 +758,114 @@ def test_pandera_dataframe_schema(
     ln.Feature.filter(is_type=True).delete(permanent=True)
 
 
+def test_pandera_column_rules_and_parquet_sorting_metadata():
+    import pyarrow.parquet as pq
+
+    schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="rule_id",
+                dtype=str,
+                unique=True,
+            ).save(),
+            ln.Feature(name="rule_group", dtype=str, nullable=True).save(),
+            ln.Feature(name="rule_rank", dtype=int).save(),
+        ],
+        unique=["rule_group", "rule_rank"],
+        sorted_by=["rule_group", ("rule_rank", False)],
+    ).save()
+    df = pd.DataFrame(
+        {
+            "rule_id": [None, "ID-2", "ID-3", "ID-4"],
+            "rule_group": ["a", "a", "b", "b"],
+            "rule_rank": [2, 1, 2, 1],
+        }
+    )
+    curator = ln.curators.DataFrameCurator(df, schema)
+    curator.validate()
+    artifact = curator.save_artifact(
+        key="curation/rules-pandas.parquet", write_parquet_sorting_metadata=True
+    )
+    metadata = pq.ParquetFile(artifact.path).metadata
+    assert list(metadata.row_group(0).sorting_columns) == [
+        pq.SortingColumn(1, descending=False, nulls_first=False),
+        pq.SortingColumn(2, descending=True, nulls_first=False),
+    ]
+    artifact.delete(permanent=True)
+
+    with pytest.raises(ValidationError, match=r"\['rule_id'\] must be unique"):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_id=["ID-1", "ID-1", "ID-3", "ID-4"]), schema
+        ).validate()
+    with pytest.raises(ValidationError, match=r"\['rule_id'\] must be unique"):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_id=[None, "ID-2", None, "ID-4"]), schema
+        ).validate()
+    duplicate_combination = pd.DataFrame(
+        {
+            "rule_id": ["ID-5", "ID-6", "ID-7"],
+            "rule_group": ["a", "a", "a"],
+            "rule_rank": [2, 2, 1],
+        }
+    )
+    with pytest.raises(
+        ValidationError, match=r"\['rule_group', 'rule_rank'\] must be unique"
+    ):
+        ln.curators.DataFrameCurator(duplicate_combination, schema).validate()
+    with pytest.raises(
+        ValidationError, match=r"\['rule_group', 'rule_rank'\] must be unique"
+    ):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_group=["a", "a", None, None], rule_rank=[2, 1, 2, 2]),
+            schema,
+        ).validate()
+    with pytest.raises(ValidationError, match="not sorted"):
+        ln.curators.DataFrameCurator(
+            df.assign(rule_rank=[1, 2, 2, 1]), schema
+        ).validate()
+
+
+@pytest.mark.parametrize(
+    "dtype,values,lower,upper",
+    [
+        (int, [0, 5, 10], 0, 10),
+        (float, [0.0, 5.5, 10.0], 0.0, 10.0),
+        ("num", [0, 5.5, 10], 0, 10),
+    ],
+)
+def test_pandera_numeric_feature_bounds(dtype, values, lower, upper):
+    feature_name = (
+        f"bounded_numeric_{dtype.__name__ if isinstance(dtype, type) else dtype}"
+    )
+    feature = ln.Feature(
+        name=feature_name,
+        dtype=dtype,
+        min_value=lower,
+        max_value=upper,
+    ).save()
+    schema = ln.Schema(features=[feature]).save()
+    assert feature.min_value == lower
+    assert feature.max_value == upper
+    ln.curators.DataFrameCurator(
+        pd.DataFrame({feature_name: values}), schema
+    ).validate()
+
+    for invalid_values in ([lower - 1, upper], [lower, upper + 1]):
+        with pytest.raises(ValidationError):
+            ln.curators.DataFrameCurator(
+                pd.DataFrame({feature_name: invalid_values}), schema
+            ).validate()
+
+
+def test_numeric_feature_bounds_validate_configuration():
+    with pytest.raises(ln.errors.InvalidArgument, match="only valid"):
+        ln.Feature(name="bounded_text", dtype=str, min_value=0)
+    with pytest.raises(ln.errors.InvalidArgument, match="cannot be greater"):
+        ln.Feature(name="inverted_bounds", dtype=int, min_value=10, max_value=0)
+    with pytest.raises(TypeError, match="finite number"):
+        ln.Feature(name="boolean_bound", dtype=int, min_value=True)
+
+
 def test_schema_not_saved(df):
     """Attempting to validate an unsaved Schema must error."""
     feature = ln.Feature(name="cell_type", dtype=str).save()

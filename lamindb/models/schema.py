@@ -193,6 +193,50 @@ def get_features_config(
         return features, configs  # type: ignore
 
 
+def _normalize_sorted_by(
+    sorted_by: list[str | tuple[str, bool]] | None,
+) -> list[tuple[str, bool]]:
+    if sorted_by is None:
+        return []
+    if not isinstance(sorted_by, (list, tuple)):
+        raise InvalidArgument("sorted_by must be a sequence of column names")
+    if not sorted_by:
+        return []
+    normalized = []
+    for item in sorted_by:
+        if isinstance(item, str):
+            normalized.append((item, True))
+        elif (
+            isinstance(item, tuple)
+            and len(item) == 2
+            and isinstance(item[0], str)
+            and isinstance(item[1], bool)
+        ):
+            normalized.append(item)
+        else:
+            raise InvalidArgument(
+                "sorted_by items must be column names or (column_name, ascending) pairs"
+            )
+    names = [name for name, _ in normalized]
+    if not names or any(not name for name in names) or len(set(names)) != len(names):
+        raise InvalidArgument("sorted_by must contain distinct non-empty column names")
+    return normalized
+
+
+def _normalize_unique(unique: list[str] | None) -> list[str]:
+    if unique is None:
+        return []
+    if not isinstance(unique, (list, tuple)):
+        raise InvalidArgument("unique must be a sequence of column names")
+    if not unique:
+        return []
+    if any(not isinstance(name, str) or not name for name in unique) or len(
+        set(unique)
+    ) != len(unique):
+        raise InvalidArgument("unique must contain distinct non-empty column names")
+    return list(unique)
+
+
 def transfer_schema_members(
     schema: Schema,
     source_db: str,
@@ -494,6 +538,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ordered_set: `bool = False` Whether features are required to be ordered.
         coerce: `bool | None = None` When `True`, coerces every column and the index during validation,
             including features that leave `coerce` unset. See :attr:`~lamindb.Schema.coerce`.
+        unique: `list[str] | None = None` Column names whose combination must be unique per row.
+        sorted_by: `list[str | tuple[str, bool]] | None = None` Required lexicographic row order.
+            Strings mean ascending order; pairs specify `(column_name, ascending)`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
         branch: `Branch | None = None` A branch. If `None`, uses the current branch.
         space: `Space | None = None` A space. If omitted, follows the selection order below.
@@ -675,6 +722,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     _name_field: str = "name"
     # Top-level `_aux` keys beyond HasType's `ss` (single space) and `ei` (emoji):
     #   af: auxiliary feature config — see `_aux_fields`
+    #   validation: dataframe validation constraints
     #   zarr: format constraints — see Schema.formats.zarr
     _aux_fields: dict[str, tuple[str, type]] = {
         # define optional features in the schema as a list of their uids
@@ -852,6 +900,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         maximal_set: bool = False,
         ordered_set: bool = False,
         coerce: bool | None = None,
+        unique: list[str] | None = None,
+        sorted_by: list[str | tuple[str, bool]] | None = None,
         n_members: int | None = None,
         lookup: bool = True,
         branch: Branch | None = None,
@@ -892,6 +942,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
+        unique = _normalize_unique(kwargs.pop("unique", None))
+        sorted_by = _normalize_sorted_by(kwargs.pop("sorted_by", None))
         if "coerce_dtype" in kwargs:
             warnings.warn(
                 "`coerce_dtype` argument was renamed to `coerce` and will be removed in a future release.",
@@ -950,6 +1002,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ordered_set=ordered_set,
             maximal_set=maximal_set,
             coerce=coerce_dtype,
+            unique=unique,
+            sorted_by=sorted_by,
             n_features=n_features,
         )
         # pop before update_attributes/super so it never reaches Django fields or getattr
@@ -1019,6 +1073,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         """
         return _query_relatives([self], "schemas", depth=depth)  # type: ignore
 
+    @property
+    def unique(self) -> list[str]:
+        """Columns whose combination must be unique within a dataframe."""
+        if not isinstance(self._aux, dict):
+            return []
+        validation = self._aux.get("validation", {})
+        return validation.get("unique", []) if isinstance(validation, dict) else []
+
+    @property
+    def sorted_by(self) -> list[tuple[str, bool]]:
+        """Required lexicographic dataframe order as (column, ascending) pairs."""
+        if not isinstance(self._aux, dict):
+            return []
+        validation = self._aux.get("validation", {})
+        entries = (
+            validation.get("sorted_by", []) if isinstance(validation, dict) else []
+        )
+        return [(name, ascending) for name, ascending in entries]
+
     def _validate_kwargs_calculate_hash(
         self,
         features: list[SQLRecord],
@@ -1037,6 +1110,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ordered_set: bool,
         maximal_set: bool,
         coerce: bool | None,
+        unique: list[str],
+        sorted_by: list[tuple[str, bool]],
         n_features: int | None,
         optional_features_manual: list[Feature] | None = None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
@@ -1156,7 +1231,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             None  # None means flexible schema (no fixed number of features)
         )
         coerce_default = False
-        aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
+        aux_dict: dict[str, Any] = {}
 
         # optional features (key "1") - remains in _aux
         if optional_features:
@@ -1165,6 +1240,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         # index feature (key "3") - remains in _aux
         if index is not None:
             aux_dict.setdefault("af", {})["3"] = index.uid
+        if unique or sorted_by:
+            aux_dict["validation"] = {}
+            if unique:
+                aux_dict["validation"]["unique"] = unique
+            if sorted_by:
+                aux_dict["validation"]["sorted_by"] = [
+                    [name, ascending] for name, ascending in sorted_by
+                ]
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
         HASH_CODE = {
@@ -1181,6 +1264,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "index": "k",
             "slots_hash": "l",
             "suffix": "m",
+            "unique": "o",
+            "sorted_by": "p",
         }
         # we do not want pure informational annotations like otype, name, type,
         # is_type, or format constraints (`formats.zarr`) to be part of the hash
@@ -1196,15 +1281,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce}")
         if suffix is not None:
             list_for_hashing.append(f"{HASH_CODE['suffix']}={suffix}")
+        if unique:
+            list_for_hashing.append(f"{HASH_CODE['unique']}={sorted(unique)!r}")
+        if sorted_by:
+            list_for_hashing.append(f"{HASH_CODE['sorted_by']}={sorted_by!r}")
         if n_features is not None and n_features != n_features_default:
             list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
         if index is not None:
             list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
         if features:
             if optional_features:
+                optional_feature_set = set(optional_features)
                 feature_list_for_hashing = [
                     feature.uid
-                    if feature not in set(optional_features)
+                    if feature not in optional_feature_set
                     else f"{feature.uid}({HASH_CODE['optional']})"
                     for feature in features
                 ]
@@ -1469,6 +1559,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 ordered_set=self.ordered_set,
                 maximal_set=self.maximal_set,
                 coerce=self.coerce,
+                unique=self.unique,
+                sorted_by=self.sorted_by,
                 n_features=self.n_members,
                 optional_features_manual=self.optionals.get(),
             )

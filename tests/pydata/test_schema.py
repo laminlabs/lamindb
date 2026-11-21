@@ -25,7 +25,47 @@ def df():
     )
 
 
+def test_dataframe_rules_preserve_legacy_schema_identity():
+    from lamindb_setup.core.hashing import hash_string
+
+    column = ln.Feature(name="stable_rule_column", dtype=str, regex=".*").save()
+    index = ln.Feature(name="stable_rule_index", dtype=int).save()
+    schema = ln.Schema([column], index=index).save()
+    members_hash = hash_string(":".join(sorted([column.uid, index.uid])))
+    legacy_hash = hash_string(
+        f"b=Feature:c=True:d=False:e=False:h=2:j={members_hash}:k={index.uid}"
+    )
+    assert schema.hash == legacy_hash
+    column.unique = True
+    column.save()
+    assert ln.Schema([column], index=index).uid == schema.uid
+    assert ln.Schema.get(uid=schema.uid).save().hash == legacy_hash
+
+
+def test_dataframe_rules_participate_in_schema_identity():
+    first = ln.Feature(name="identity_rule_first", dtype=int).save()
+    second = ln.Feature(name="identity_rule_second", dtype=int).save()
+    members = [first, second]
+    unique = [first.name, second.name]
+    sorted_schema = ln.Schema(members, unique=unique, sorted_by=[first.name]).save()
+    restored = ln.Schema.get(uid=sorted_schema.uid)
+    assert restored.unique == unique
+    assert restored.sorted_by == [(first.name, True)]
+    assert restored.save().hash == sorted_schema.hash
+    assert (
+        ln.Schema(members, unique=unique[::-1], sorted_by=[(first.name, True)]).uid
+        == sorted_schema.uid
+    )
+    assert ln.Schema(members, sorted_by=[first.name]).hash != sorted_schema.hash
+    assert (
+        ln.Schema(members, unique=unique, sorted_by=[(first.name, False)]).hash
+        != sorted_schema.hash
+    )
+
+
 def test_schema_from_values():
+    from lamindb_setup.core.hashing import hash_string
+
     gene_symbols = ["TCF7", "MYC"]
     bt.Gene.filter(symbol__in=gene_symbols).delete(permanent=True)
     with pytest.raises(ValidationError) as error:
@@ -48,6 +88,10 @@ def test_schema_from_values():
     assert schema._state.adding
     assert schema.dtype == "int"
     assert schema.itype == "bionty.Gene"
+    gene_hash = hash_string(":".join(sorted(gene.uid for gene in schema._features[1])))
+    assert schema.hash == hash_string(
+        f"a=int:b=bionty.Gene:c=True:d=False:e=False:h=2:j={gene_hash}"
+    )
     schema.save()
     assert set(schema.members) == set(schema.genes.all())
     id = schema.id

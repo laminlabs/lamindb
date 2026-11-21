@@ -469,7 +469,10 @@ def test_get_record_kwargs():
             "Any | None",
         ),
         ("coerce", "bool | None"),
+        ("unique", "bool"),
         ("regex", "str | None"),
+        ("min_value", "int | float | None"),
+        ("max_value", "int | float | None"),
         (
             "cat_filters",
             "dict[str",

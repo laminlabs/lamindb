@@ -202,6 +202,44 @@ except ln.errors.ValidationError as error:
     print(error)
 ```
 
+### Column and row-order constraints
+
+Set `unique=True` on a feature for per-column uniqueness, and
+`min_value`/`max_value` for inclusive numeric bounds. Use `Schema.unique` for a
+unique combination of columns. Repeated keys count as duplicates even if
+they contain nulls.
+`Schema.sorted_by` checks the existing lexicographic row order—it does not sort
+the data. Column names mean ascending order, while
+`(column_name, False)` selects descending order:
+
+```python
+ordered_sample_schema = ln.Schema(
+    features=[
+        ln.Feature(name="sample_id", dtype=str, unique=True).save(),
+        ln.Feature(name="study", dtype=str).save(),
+        ln.Feature(name="timepoint_hours", dtype=int, min_value=0, max_value=24).save(),
+    ],
+    unique=["study", "timepoint_hours"],
+    sorted_by=["study", ("timepoint_hours", False)],
+).save()
+```
+
+These constraints validate pandas DataFrames, Polars DataFrames, and Polars
+LazyFrames. Sorting metadata is optional: pass
+`write_parquet_sorting_metadata=True` to `curator.save_artifact()` or
+`Artifact.from_dataframe()` with a schema containing `sorted_by` to write
+Parquet row-group `sorting_columns` metadata using PyArrow. The order is
+checked again before metadata is written; nulls must be last for each sort key.
+The metadata records the sort keys, direction, and null placement for each row
+group. Engines such as [DataFusion](https://github.com/apache/datafusion/pull/22493)
+can use it to avoid a redundant `ORDER BY` sort when the scan preserves the
+requested order. Separately, sorted data often makes filter pushdown more
+effective by narrowing the min/max ranges of row groups on the leading sort key.
+The writer does not sort the data. Polars LazyFrames are streamed in batches, and the
+order is checked across batch boundaries while writing. By default, no
+schema-derived sorting metadata is written and Polars LazyFrames still use the
+native Parquet sink.
+
 ### (4) Fix validation errors
 
 Check the non-validated terms:
