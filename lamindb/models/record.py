@@ -1887,8 +1887,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 elif transform.uid != export_transform_uid:
                     transform.uid = export_transform_uid
                     transform.save()
-                # Export is treated as a discrete user action, so always create a new
-                # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+                # Export is a discrete user action, so always create a new run.
+                # Repeated `.save()` transfers share one bookkeeping run.
+                # `sync()` creates its own run per call.
                 run = Run(
                     transform=transform,
                     initiated_by_run=initiated_by_run,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast, get_args
 
 import lamindb_setup as ln_setup
@@ -136,10 +137,10 @@ def transfer_fk_to_default_db_bulk(
         update_fk_to_default_db(records, fk, using, transfer_logs=transfer_logs)
 
 
-def get_transfer_run(record) -> Run:
+def get_transfer_transform(record):
+    """The `__lamindb_transfer__/{source_instance_uid}` transform for `record`'s database."""
     from lamindb import settings
-    from lamindb.core._context import context
-    from lamindb.models import Run, Transform
+    from lamindb.models import Transform
 
     slug = record._state.db
     owner, name = get_owner_name_from_identifier(slug)
@@ -160,19 +161,69 @@ def get_transfer_run(record) -> Run:
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
         settings.creation.search_names = search_names
-    # The transfer run is the lineage. An ambient ln.track() run, when present,
-    # is only the parent (initiated_by_run). `lamin io sync` has no such parent.
+    return transform
+
+
+def _remember_initiator(run: Run, initiated_by_run: Run | None) -> Run:
+    # The FK is saved. Assign the object so callers can read it without a query.
+    run.initiated_by_run = initiated_by_run
+    return run
+
+
+def get_transfer_run(record) -> Run:
+    """Bookkeeping run for repeated `.save()` transfers.
+
+    One run per transfer transform and initiating run. `sync()` does not use
+    this: each call inserts its own run via `start_sync_run`.
+    """
+    from lamindb.core._context import context
+    from lamindb.models import Run
+
+    transform = get_transfer_transform(record)
     initiated_by_run = context.run
-    # it doesn't seem to make sense to create new runs for every transfer
-    run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
+    # An ambient run of this same transfer is the lineage. Do not parent another one.
+    if initiated_by_run is not None and initiated_by_run.transform_id == transform.id:
+        return initiated_by_run
+    # `entrypoint` is unset on the shared bookkeeping run. `sync()` sets it, so
+    # those per-call runs stay out of this lookup.
+    run = Run.filter(
+        transform=transform,
+        initiated_by_run=initiated_by_run,
+        entrypoint__isnull=True,
+    ).first()
     if run is None:
         run = Run(
             transform=transform,
             initiated_by_run=initiated_by_run,
             status="started",
         ).save()  # type: ignore
-        run.initiated_by_run = initiated_by_run  # so that it's available in memory
+        _remember_initiator(run, initiated_by_run)
     return run
+
+
+def start_sync_run(record, *, params: dict) -> Run:
+    """A new run of the transfer transform for one `sync()` call."""
+    from lamindb.core._context import context
+    from lamindb.models import Run
+
+    initiated_by_run = context.run
+    run = Run(
+        transform=get_transfer_transform(record),
+        initiated_by_run=initiated_by_run,
+        entrypoint="sync",
+        params=params,
+        status="started",
+    ).save()  # type: ignore
+    return _remember_initiator(run, initiated_by_run)
+
+
+def finish_transfer_run(run: Run | None, *, status_code: int = 0) -> None:
+    """Mark a transfer run completed (`0`) or errored (`1`)."""
+    if run is None:
+        return
+    run.finished_at = datetime.now(UTC)
+    run._status_code = status_code
+    run.save()
 
 
 TRANSFER_MODES = set(get_args(TransferMode))
