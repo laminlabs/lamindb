@@ -53,6 +53,8 @@ To sync annotations in addition to the bare object, pass the `--transfer` / `tra
 
 You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. For details, see {func}`~lamindb.core.sync`.
 
+Each `lamin io sync` or {func}`~lamindb.core.sync` call creates one new run of `__lamindb_transfer__/{source_database_uid}`. Rows written by that call point at that run. A surrounding `ln.track()` run is linked as `initiated_by_run`.
+
 `space`, `branch`, and `created_on` are handled differently from every other foreign key. Other foreign keys, such as `created_by`, `storage`, `schema`, and `type`, are copied, and a missing row is created on the target.
 
 - **Space.** Mapped by uid. When that space is not attached to the target database, sync raises. Attach the space, then sync again. Sync does not create a space.

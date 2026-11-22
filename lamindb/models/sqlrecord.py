@@ -6,7 +6,6 @@ import os
 import re
 import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from itertools import chain
 from typing import (
     TYPE_CHECKING,
@@ -100,6 +99,8 @@ from .query_manager import (
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import pandas as pd
 
     from ..models.query_set import QuerySet
@@ -1535,6 +1536,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         from ._transfer import (
             _depth_descendants,
             _remember_target,
+            finish_transfer_run,
             log_transferred_record,
             normalize_transfer_config,
             prime_annotation_transfer,
@@ -1840,7 +1842,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 if len(artifacts) > 0:
                     logger.info("transfer artifacts")
                     for artifact in artifacts:
-                        artifact.save()
+                        artifact.save(
+                            _transfer_logs=transfer_logs,
+                            _transfer_summarize=True,
+                        )
                     self.artifacts.add(*artifacts)
             if transfer_config in {"notes", "annotations"}:
                 transfer_notes(self, db, pk_on_db)
@@ -1883,10 +1888,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     _transfer_logs=transfer_logs,
                     _transfer_summarize=True,
                 )
-            if owns_logs and transfer_logs["run"] is not None:
-                transfer_logs["run"].finished_at = datetime.now(UTC)  # type: ignore
-                transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
-                transfer_logs["run"].save()  # type: ignore
+            if owns_logs:
+                finish_transfer_run(transfer_logs["run"])  # type: ignore[arg-type]
 
         if get_registry_name(self) in {
             "Artifact",
