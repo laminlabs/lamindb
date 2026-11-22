@@ -10,6 +10,8 @@ from lamindb.models._transfer import (
 def test_transfer():
     source = f"{ln.setup.settings.user.handle}/testdb1"
     db1 = ln.DB(source)
+    # save() moves this instance onto the target, so keep a source copy.
+    source_artifact = db1.Artifact.get(key="README.md")
     artifact = db1.Artifact.get(key="README.md")
     artifact.save()
     assert artifact.key == "README.md"
@@ -30,6 +32,36 @@ def test_transfer():
     assert sync_run.finished_at is not None
     assert sync_run.initiated_by_run is None
     assert sync_run.transform.uid == artifact.run.transform.uid
+
+    # Members of a collection share the sync run that writes them.
+    from pathlib import Path
+
+    path = Path("transfer-collection.txt")
+    path.write_text("collection member\n")
+    try:
+        ln.connect("testdb1")
+        member = ln.Artifact(path, key="transfer-collection.txt").save()
+        collection = ln.Collection(member, key="transfer-collection").save()
+    finally:
+        path.unlink(missing_ok=True)
+    ln.connect("testdb2")
+    transferred = ln.core.sync(
+        registry=ln.Collection, uid=collection.uid, source_db=source
+    )
+    assert transferred.run.entrypoint == "sync"
+    assert transferred.run.uid != artifact.run.uid
+    assert ln.Artifact.get(member.uid).run.uid == transferred.run.uid
+
+    # An ambient run of this transfer is reused instead of nested under itself.
+    from lamindb.core._context import context
+    from lamindb.models._transfer import get_transfer_run
+
+    context._run = artifact.run
+    try:
+        reused = get_transfer_run(source_artifact)
+    finally:
+        context._run = None
+    assert reused.uid == artifact.run.uid
 
 
 def test_schema_transfer_ulabel_dtype():
@@ -1114,10 +1146,13 @@ def test_transfer_helper_early_returns():
         _put_entity,
         _read_link_rows,
         _remember_target,
+        finish_transfer_run,
         log_transferred_record,
         prime_annotation_transfer,
         transfer_notes,
     )
+
+    finish_transfer_run(None)
 
     ln.connect("testdb2")
     nameless = type("Nameless", (), {"uid": None})()
@@ -1173,3 +1208,15 @@ def test_depth_rejected_for_non_hastype_and_none():
             source_db=f"{user_handle}/testdb1",
             depth=None,
         )
+    # depth is rejected inside save(), after the sync run has started.
+    with pytest.raises(ValueError, match="depth applies only"):
+        sync(
+            registry=ln.Artifact,
+            uid=artifact.uid,
+            source_db=f"{user_handle}/testdb1",
+            depth=1,
+        )
+    failed = ln.Run.get(entrypoint="sync", params__uid=artifact.uid, params__depth=1)
+    assert failed.status == "errored"
+    assert failed.finished_at is not None
+    assert failed.entrypoint == "sync"
