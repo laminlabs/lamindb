@@ -8,16 +8,28 @@ from lamindb.models._transfer import (
 
 
 def test_transfer():
-    db1 = ln.DB(f"{ln.setup.settings.user.handle}/testdb1")
+    source = f"{ln.setup.settings.user.handle}/testdb1"
+    db1 = ln.DB(source)
     artifact = db1.Artifact.get(key="README.md")
     artifact.save()
     assert artifact.key == "README.md"
     assert artifact.run is not None
+    assert artifact.run.entrypoint is None
     assert artifact.run.finished_at is not None
     assert artifact.run.status == "completed"
     assert artifact.run.started_at is not None
     assert ln.setup.settings.storage.root_as_str.endswith("testdb2")
     assert artifact.storage.root.endswith("testdb1")
+
+    # A sync of an object already on the target keeps that run and records its own.
+    synced = ln.core.sync(registry=ln.Artifact, uid=artifact.uid, source_db=source)
+    assert synced.id == artifact.id
+    assert synced.run.uid == artifact.run.uid
+    sync_run = ln.Run.get(entrypoint="sync", params__uid=artifact.uid)
+    assert sync_run.status == "completed"
+    assert sync_run.finished_at is not None
+    assert sync_run.initiated_by_run is None
+    assert sync_run.transform.uid == artifact.run.transform.uid
 
 
 def test_schema_transfer_ulabel_dtype():
@@ -918,8 +930,17 @@ def test_transfer_depth_follows_type_children():
     }
 
     _wipe_depth_chain(uids)
-    db1.Record.get(uids[DEPTH_ROOT]).save(depth=2)
+    synced = ln.core.sync(
+        registry=ln.Record,
+        uid=uids[DEPTH_ROOT],
+        source_db=f"{user_handle}/testdb1",
+        depth=2,
+    )
     assert _transferred_depth_uids(uids) == set(uids.values())
+    assert synced.run.entrypoint == "sync"
+    assert synced.run.status == "completed"
+    for uid in uids.values():
+        assert ln.Record.get(uid).run.uid == synced.run.uid
     _wipe_depth_chain(uids)
 
 
