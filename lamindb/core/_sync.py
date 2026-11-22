@@ -109,10 +109,9 @@ def sync(
     `transfer="annotations"` completes annotations.
 
     Each call creates a new run of the transform
-    `__lamindb_transfer__/{source_database_uid}`. Rows this call writes have
-    `.run` set to that run. When `ln.track()` is active, that tracked run is
-    stored as `run.initiated_by_run`. To undo one sync, delete the objects
-    whose `.run` is that run. Objects that were already on the target and only
+    `__lamindb_transfer__/{source_database_uid}`. `SQLRecord` objects this call writes have
+    `.run` set to that run. When a run context is active, it is
+    stored as `run.initiated_by_run`. Objects that were already on the target and only
     got mapped keep their previous `.run`.
 
     Repeated `.save()` calls under the same initiating run share one run of
