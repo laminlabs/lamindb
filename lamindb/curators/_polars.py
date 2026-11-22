@@ -1,5 +1,7 @@
 """Native Pandera validation for the optional Polars backend."""
 
+import re
+
 import polars as pl
 from pandera import polars as pandera
 from pandera.constants import CHECK_OUTPUT_KEY
@@ -173,17 +175,38 @@ def column(feature, required: bool, schema_coerce: bool = False):
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
 
 
-def _regex_column(feature, pattern):
+# Allow only ASCII literals and positive ASCII classes/ranges, with simple
+# quantifiers and optional outer anchors. Cap the size to keep Rust compilation
+# bounded; everything outside this subset uses Python.
+_ASCII_REGEX_ATOM = r"(?:[A-Za-z0-9_ -]|\[-?(?:[A-Za-z0-9_](?:-[A-Za-z0-9_])?)+-?\])"
+_NATIVE_REGEX_SUBSET = re.compile(rf"\^?(?:{_ASCII_REGEX_ATOM}[?*+]?)+\$?")
+
+
+def _regex_column(feature, pattern: re.Pattern[str]):
+    source = pattern.pattern
+    native_pattern = (
+        rf"\A(?:{source})\z"
+        if pattern.flags == re.UNICODE
+        and len(source) <= 128
+        and _NATIVE_REGEX_SUBSET.fullmatch(source)
+        else None
+    )
+
     def check_regex(data):
-        return data.lazyframe.select(
-            pl.col(data.key)
-            .map_elements(
+        values = pl.col(data.key)
+        dtype = data.lazyframe.collect_schema()[data.key] if native_pattern else None
+        if native_pattern and (
+            dtype in (pl.String, pl.Null)
+            or isinstance(dtype, (pl.Categorical, pl.Enum))
+        ):
+            strings = values if dtype == pl.String else values.cast(pl.String)
+            matches = strings.str.contains(native_pattern)
+        else:
+            matches = values.map_elements(
                 lambda value: _matches_regex(value, pattern),
                 return_dtype=pl.Boolean,
             )
-            .fill_null(True)
-            .alias(CHECK_OUTPUT_KEY)
-        )
+        return data.lazyframe.select(matches.fill_null(True).alias(CHECK_OUTPUT_KEY))
 
     return pandera.Column(
         dtype=None,

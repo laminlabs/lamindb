@@ -1557,8 +1557,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     def regex(self) -> str | None:
         """Python regular expression that string values must fully match.
 
-        Uses Python `re.fullmatch` for scalar `str`, `path`, and `url` values,
-        including in Polars. Inline flags such as `(?i)` are supported.
+        Follows Python `re.fullmatch` semantics for scalar `str`, `path`, and
+        `url` values. Polars evaluates a conservative subset natively and
+        falls back to Python for other patterns, including inline flags such
+        as `(?i)`.
         Column nulls follow `nullable`; index values cannot be null.
         Defaults must match, and values are not converted to strings.
 
