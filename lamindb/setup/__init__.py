@@ -14,7 +14,7 @@ from lamindb_setup import (
 from . import core, errors, types
 
 if TYPE_CHECKING:
-    from . import evolve as evolve
+    from lamindb_setup import evolve as evolve
 
 del connect  # we have this at the root level, hence, we don't want it here
 __doc__ = _lamindb_setup.__doc__.replace("lamindb_setup", "lamindb.setup")

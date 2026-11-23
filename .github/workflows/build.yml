@@ -206,7 +206,7 @@ jobs:
           repository: laminlabs/lndocs
           ssh-key: ${{ secrets.READ_LNDOCS }}
           path: lndocs
-          ref: dee14f1397e63f03451c1be0e63d169b7703f89a # Qualify registry links in relation types.
+          ref: main
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:

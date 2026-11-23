@@ -38,8 +38,7 @@ assert "lamindb_setup.evolve" not in sys.modules
         statement
         + """
 import lamindb_setup.evolve as backend
-assert evolve.FeatureType is backend.FeatureType
-assert evolve.create_plan is backend.create_plan
+assert evolve is backend
 assert ln.setup.evolve is evolve
 
 @evolve.create_plan
