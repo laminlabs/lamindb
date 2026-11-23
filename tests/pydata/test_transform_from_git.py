@@ -107,3 +107,74 @@ def test_transform_from_git_failure_modes():
             branch="invalid",
         )
     assert error.exconly().startswith("ValueError: Failed to checkout branch invalid")
+
+
+SCHEMA_URL = "https://github.com/nf-core/demo"
+# a root schema and a nested one (as in Viash-built repos)
+ROOT_SCHEMA = "nextflow_schema.json"
+NESTED_SCHEMA = "subworkflows/nf-core/utils_nfschema_plugin/tests/nextflow_schema.json"
+
+
+def test_transform_from_git_nextflow_schema():
+    kwargs = {"url": SCHEMA_URL, "path": "main.nf"}
+    plain = ln.Transform.from_git(**kwargs)
+    assert plain._aux is None
+
+    # root-level and nested schema: stored, and nothing else changes
+    for nextflow_schema in [ROOT_SCHEMA, NESTED_SCHEMA]:
+        transform = ln.Transform.from_git(**kwargs, nextflow_schema=nextflow_schema)
+        assert transform._aux == {"nextflow": {"launch": {"schemaName": nextflow_schema}}}
+        assert transform.source_code == plain.source_code
+        assert transform.hash == plain.hash
+        assert transform.key == plain.key
+        assert transform.reference == plain.reference
+        assert transform.reference_type == plain.reference_type
+
+    # merge into the _aux of an existing record returned by the hash lookup
+    saved = ln.Transform.from_git(**kwargs).save()
+    try:
+        saved._aux = {
+            "nextflow": {
+                "launch": {"configProfiles": ["docker"]},
+                "parameter_config": {"input": {}},
+            }
+        }
+        saved.save()
+        transform = ln.Transform.from_git(**kwargs, nextflow_schema=NESTED_SCHEMA)
+        assert transform.uid == saved.uid
+        assert transform._aux["nextflow"]["launch"] == {
+            "configProfiles": ["docker"],
+            "schemaName": NESTED_SCHEMA,
+        }
+        assert transform._aux["nextflow"]["parameter_config"] == {"input": {}}
+        transform.save()
+        refetched = ln.Transform.get(saved.uid)
+        assert refetched._aux["nextflow"]["launch"] == {
+            "configProfiles": ["docker"],
+            "schemaName": NESTED_SCHEMA,
+        }
+        assert refetched._aux["nextflow"]["parameter_config"] == {"input": {}}
+    finally:
+        saved.delete(permanent=True)
+
+
+def test_transform_from_git_nextflow_schema_failure_modes():
+    kwargs = {"url": SCHEMA_URL, "path": "main.nf"}
+
+    with pytest.raises(FileNotFoundError) as error:
+        ln.Transform.from_git(**kwargs, nextflow_schema="nope/nextflow_schema.json")
+    assert "nope/nextflow_schema.json" in str(error.value)
+    assert SCHEMA_URL in str(error.value)
+    assert "master" in str(error.value)
+
+    # a directory is not a file
+    with pytest.raises(FileNotFoundError):
+        ln.Transform.from_git(**kwargs, nextflow_schema="subworkflows")
+
+    for bad_path in ["/etc/passwd", "../nextflow_schema.json", "a/../../b.json"]:
+        with pytest.raises(ValueError):
+            ln.Transform.from_git(**kwargs, nextflow_schema=bad_path)
+
+    # not JSON
+    with pytest.raises(ValueError, match="JSON"):
+        ln.Transform.from_git(**kwargs, nextflow_schema="main.nf")

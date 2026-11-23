@@ -704,7 +704,7 @@ def _validate_run_artifact(path):
     return path
 
 
-def _save_run_artifact(path, *, description: str, artifact=None):
+def _save_run_artifact(path, *, description: str, artifact=None, space=None):
     """Upload checked run files; skip unsafe files without changing originals."""
     from lamindb import Artifact
 
@@ -715,6 +715,7 @@ def _save_run_artifact(path, *, description: str, artifact=None):
                 description=description,
                 kind="__lamindb_run__",
                 run=False,
+                space=space,
                 _check_run=True,
             )
         else:

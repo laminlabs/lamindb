@@ -1,6 +1,6 @@
 import re
 import textwrap
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -554,7 +554,7 @@ def test_nullable():
         # Django stores aware timestamps. dtype datetime is naive datetime64[ns].
         for value in (
             datetime(2024, 1, 1),
-            datetime(2024, 1, 1, tzinfo=timezone.utc),
+            datetime(2024, 1, 1, tzinfo=UTC),
         ):
             assert DictCurator({when.name: value}, datetime_schema).validate() is None
         # Null normalization must not enable coercion of non-null strings.
@@ -664,7 +664,7 @@ def test_pandera_dataframe_schema(
     schema_all_required = ln.Schema(
         name="my-schema all required",
         features=[
-            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_id", dtype=str, regex=r"sample[0-9]+").save(),
             ln.Feature(name="sample_name", dtype=str).save(),
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
@@ -691,6 +691,14 @@ def test_pandera_dataframe_schema(
 
     # minimal_set=True, all three columns are required
     ln.curators.DataFrameCurator(df, schema=schema_all_required).validate()
+    ln.curators.DataFrameCurator(
+        df.assign(sample_id=pd.Categorical(["sample1", None])),
+        schema=schema_all_required,
+    ).validate()
+    with pytest.raises(ValidationError, match="regex"):
+        ln.curators.DataFrameCurator(
+            df.assign(sample_id="sample!"), schema=schema_all_required
+        ).validate()
     # can't miss a required column
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
@@ -1425,6 +1433,20 @@ def test_hash_index_feature(df):
         ],
     ).save()
     assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
+
+    df_null_index = df_index.copy()
+    df_null_index.index = pd.Index(["sample1", None], name="sample_id")
+    with pytest.raises(ValidationError) as before_regex:
+        ln.curators.DataFrameCurator(df_null_index, schema_index).validate()
+    sample_id.regex = r"sample[0-9]+"
+    sample_id.save()
+    with pytest.raises(ValidationError) as with_regex:
+        ln.curators.DataFrameCurator(df_null_index, schema_index).validate()
+    assert str(with_regex.value) == str(before_regex.value)
+
+    df_categorical_index = df_index.iloc[:1].copy()
+    df_categorical_index.index = pd.CategoricalIndex(df_categorical_index.index)
+    ln.curators.DataFrameCurator(df_categorical_index, schema_index).validate()
 
     artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index

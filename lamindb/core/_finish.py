@@ -106,7 +106,7 @@ def save_run_logs(run: Run, save_run: bool = False) -> None:
         if run.report is not None:
             logger.important("overwriting run.report")
         artifact = _save_run_artifact(
-            logs_path, description=f"log streams of run {run.uid}"
+            logs_path, description=f"log streams of run {run.uid}", space=run.space
         )
         if artifact is not None:
             run.report = artifact
@@ -448,7 +448,9 @@ def save_context_core(
                     if filename == "run_env_pip.txt"
                     else filename
                 )
-                artifact = _save_run_artifact(artifact_path, description=description)
+                artifact = _save_run_artifact(
+                    artifact_path, description=description, space=run.space
+                )
                 if artifact is not None:
                     run.environment = artifact
                     logger.debug(f"saved run.environment: {run.environment}")
@@ -493,7 +495,9 @@ def save_context_core(
                             logger.important("report is already saved")
                     else:
                         report_file = _save_run_artifact(
-                            report_path, description=f"Report of run {run.uid}"
+                            report_path,
+                            description=f"Report of run {run.uid}",
+                            space=run.space,
                         )
                         if report_file is not None:
                             run.report = report_file

@@ -8,16 +8,60 @@ from lamindb.models._transfer import (
 
 
 def test_transfer():
-    db1 = ln.DB(f"{ln.setup.settings.user.handle}/testdb1")
+    source = f"{ln.setup.settings.user.handle}/testdb1"
+    db1 = ln.DB(source)
+    # save() moves this instance onto the target, so keep a source copy.
+    source_artifact = db1.Artifact.get(key="README.md")
     artifact = db1.Artifact.get(key="README.md")
     artifact.save()
     assert artifact.key == "README.md"
     assert artifact.run is not None
+    assert artifact.run.entrypoint is None
     assert artifact.run.finished_at is not None
     assert artifact.run.status == "completed"
     assert artifact.run.started_at is not None
     assert ln.setup.settings.storage.root_as_str.endswith("testdb2")
     assert artifact.storage.root.endswith("testdb1")
+
+    # A sync of an object already on the target keeps that run and records its own.
+    synced = ln.core.sync(registry=ln.Artifact, uid=artifact.uid, source_db=source)
+    assert synced.id == artifact.id
+    assert synced.run.uid == artifact.run.uid
+    sync_run = ln.Run.get(entrypoint="sync", params__uid=artifact.uid)
+    assert sync_run.status == "completed"
+    assert sync_run.finished_at is not None
+    assert sync_run.initiated_by_run is None
+    assert sync_run.transform.uid == artifact.run.transform.uid
+
+    # Members of a collection share the sync run that writes them.
+    from pathlib import Path
+
+    path = Path("transfer-collection.txt")
+    path.write_text("collection member\n")
+    try:
+        ln.connect("testdb1")
+        member = ln.Artifact(path, key="transfer-collection.txt").save()
+        collection = ln.Collection(member, key="transfer-collection").save()
+    finally:
+        path.unlink(missing_ok=True)
+    ln.connect("testdb2")
+    transferred = ln.core.sync(
+        registry=ln.Collection, uid=collection.uid, source_db=source
+    )
+    assert transferred.run.entrypoint == "sync"
+    assert transferred.run.uid != artifact.run.uid
+    assert ln.Artifact.get(member.uid).run.uid == transferred.run.uid
+
+    # An ambient run of this transfer is reused instead of nested under itself.
+    from lamindb.core._context import context
+    from lamindb.models._transfer import get_transfer_run
+
+    context._run = artifact.run
+    try:
+        reused = get_transfer_run(source_artifact)
+    finally:
+        context._run = None
+    assert reused.uid == artifact.run.uid
 
 
 def test_schema_transfer_ulabel_dtype():
@@ -30,10 +74,12 @@ def test_schema_transfer_ulabel_dtype():
     perturbation_feature = ln.Feature(
         name="perturbation", dtype=perturbation_type
     ).save()
+    schema_type = ln.Schema(name="PerturbationSchema", is_type=True).save()
     schema_uid = (
         ln.Schema(
             name="transfer_schema_ulabel_perturbation",
             features=[perturbation_feature],
+            type=schema_type,
         )
         .save()
         .uid
@@ -61,9 +107,11 @@ def test_schema_transfer_ulabel_dtype():
 
     record_only = db1.Schema.get(schema_uid).save(transfer="record")
     assert record_only.members.count() == 0
+    assert record_only.type.uid == schema_type.uid
 
     transferred = db1.Schema.get(schema_uid).save()
     assert transferred.members.to_list("name") == remote_member_names
+    assert transferred.type.uid == schema_type.uid
 
     perturbation = transferred.members.get(name="perturbation")
     assert perturbation.dtype_as_str.startswith("cat[ULabel[")
@@ -78,6 +126,7 @@ def test_schema_transfer_ulabel_dtype():
     transferred_repeat = db1.Schema.get(schema_uid).save()
     assert transferred_repeat.id == transferred.id
     assert transferred_repeat.links_feature.count() == before_count
+    assert transferred_repeat.type.uid == schema_type.uid
 
 
 def test_ulabel_type_is_stubbed_with_the_label():
@@ -913,8 +962,17 @@ def test_transfer_depth_follows_type_children():
     }
 
     _wipe_depth_chain(uids)
-    db1.Record.get(uids[DEPTH_ROOT]).save(depth=2)
+    synced = ln.core.sync(
+        registry=ln.Record,
+        uid=uids[DEPTH_ROOT],
+        source_db=f"{user_handle}/testdb1",
+        depth=2,
+    )
     assert _transferred_depth_uids(uids) == set(uids.values())
+    assert synced.run.entrypoint == "sync"
+    assert synced.run.status == "completed"
+    for uid in uids.values():
+        assert ln.Record.get(uid).run.uid == synced.run.uid
     _wipe_depth_chain(uids)
 
 
@@ -1088,10 +1146,13 @@ def test_transfer_helper_early_returns():
         _put_entity,
         _read_link_rows,
         _remember_target,
+        finish_transfer_run,
         log_transferred_record,
         prime_annotation_transfer,
         transfer_notes,
     )
+
+    finish_transfer_run(None)
 
     ln.connect("testdb2")
     nameless = type("Nameless", (), {"uid": None})()
@@ -1147,3 +1208,15 @@ def test_depth_rejected_for_non_hastype_and_none():
             source_db=f"{user_handle}/testdb1",
             depth=None,
         )
+    # depth is rejected inside save(), after the sync run has started.
+    with pytest.raises(ValueError, match="depth applies only"):
+        sync(
+            registry=ln.Artifact,
+            uid=artifact.uid,
+            source_db=f"{user_handle}/testdb1",
+            depth=1,
+        )
+    failed = ln.Run.get(entrypoint="sync", params__uid=artifact.uid, params__depth=1)
+    assert failed.status == "errored"
+    assert failed.finished_at is not None
+    assert failed.entrypoint == "sync"

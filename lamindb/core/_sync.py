@@ -108,12 +108,40 @@ def sync(
     first run with `transfer="sqlrecord"` and a second run with
     `transfer="annotations"` completes annotations.
 
-    Every row this transfer writes has `.run` set to a run of the transform
-    `__lamindb_transfer__/{source_database_uid}`. To undo it, find that run and
-    delete the objects whose `.run` is that run. Objects that were already on
-    the target and only got mapped are not part of that run.
+    Each call creates a new run of the transform
+    `__lamindb_transfer__/{source_database_uid}`. `SQLRecord` objects this call writes have
+    `.run` set to that run. When a run context is active, it is
+    stored as `run.initiated_by_run`. Objects that were already on the target and only
+    got mapped keep their previous `.run`.
+
+    Repeated `.save()` calls under the same initiating run share one run of
+    that transform. `sync()` does not: every call is its own run.
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
+    from lamindb.base.utils import get_registry_name
+
+    from ..models._transfer import finish_transfer_run, start_sync_run
+
     sqlrecord = registry.connect(source_db).get(uid)
-    return sqlrecord.save(depth=depth, transfer=transfer)
+    run = start_sync_run(
+        sqlrecord,
+        params={
+            "registry": get_registry_name(sqlrecord),
+            "uid": uid,
+            "source_db": source_db,
+            "transfer": transfer,
+            "depth": depth,
+        },
+    )
+    try:
+        saved = sqlrecord.save(
+            depth=depth,
+            transfer=transfer,
+            _transfer_logs={"mapped": [], "transferred": [], "run": run},
+        )
+    except Exception:
+        finish_transfer_run(run, status_code=1)
+        raise
+    finish_transfer_run(run, status_code=0)
+    return saved

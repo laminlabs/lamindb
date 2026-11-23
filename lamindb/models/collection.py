@@ -469,6 +469,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Works for `pyarrow` and `polars` compatible formats
         (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
+        A collection of `.lance` tables opens through each artifact, not as one scan.
 
         Args:
             engine: Which module to use for lazy loading of a dataframe
@@ -485,6 +486,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
+        if any(artifact.suffix == ".lance" for artifact in artifacts):
+            raise ValueError(
+                "A collection of .lance artifacts is a release of separate tables. "
+                "Open each artifact to get its LanceDB table."
+            )
 
         from ..core.storage._backed_access import _open_dataframe
 
@@ -649,11 +655,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema=self.schema,
         )
 
-    def save(self, using: str | None = None) -> Collection:
+    def save(self, using: str | None = None, **kwargs) -> Collection:
         """Save the collection.
 
         Args:
             using: The database to which you want to save.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
@@ -665,7 +672,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 collection_uid=self.uid,
                 schema=self.schema,
             )
-        super().save()
+        super().save(**kwargs)
         if self._original_values is not None:
             self._original_values["schema_id"] = self.schema_id
         # we don't allow updating the collection of artifacts

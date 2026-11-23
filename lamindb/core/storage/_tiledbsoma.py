@@ -223,7 +223,7 @@ def save_tiledbsoma_experiment(
     else:
         uid = create_uid(n_full_id=20)
         storage_key = auto_storage_key_from_artifact_uid(
-            uid, ".tiledbsoma", overwrite_versions=True
+            uid, ".tiledbsoma", single_path_across_versions=True
         )
         storepath = setup_settings.storage.root / storage_key
 

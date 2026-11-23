@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections, transaction
-from django.db.models import Aggregate, Subquery
+from django.db.models import Aggregate, JSONField, Subquery
 from django.db.models.expressions import OrderBy, RawSQL
 from django.db.utils import IntegrityError
 from lamindb_setup import logger
@@ -302,16 +302,17 @@ def format_dtype_for_display(dtype_str: str) -> str:
 
 
 # Custom aggregation for SQLite
-class GroupConcat(Aggregate):
-    function = "GROUP_CONCAT"
-    template = '%(function)s(%(expressions)s, ", ")'
+class JsonGroupArray(Aggregate):
+    function = "JSON_GROUP_ARRAY"
+    template = "%(function)s(JSON(%(expressions)s))"
+    output_field = JSONField()
 
 
 def custom_aggregate(field, using: str):
     if connections[using].vendor == "postgresql":
         return ArrayAgg(field)
     else:
-        return GroupConcat(field)
+        return JsonGroupArray(field)
 
 
 def get_categoricals_postgres(
@@ -508,21 +509,12 @@ def get_non_categoricals(
                     f"    record.features.set_values({{{feature_name!r}: <value>}})"
                 )
 
-            if (
-                not isinstance(self, Record)
-                and connections[self._state.db].vendor == "sqlite"
-            ):
-                # undo GROUP_CONCAT (Artifact/Run only; Record stores one JSON value)
-                if isinstance(values, str):
-                    values = {value.strip('"') for value in values.split(", ")}
-
-            # PostgreSQL ArrayAgg wraps Artifact and Run JSON values in a list.
+            # Aggregation wraps Artifact and Run JSON values in a list.
             # Scalars are converted to sets below; dict and list features must be
             # unwrapped here instead. Records store one JSON value directly, so a
             # one-element list such as [3] is the annotation, not an aggregate wrapper.
             if (
                 not isinstance(self, Record)
-                and connections[self._state.db].vendor == "postgresql"
                 and isinstance(values, list)
                 and len(values) == 1
                 and (feature_dtype == "dict" or feature_dtype.startswith("list"))
@@ -551,15 +543,6 @@ def get_non_categoricals(
                 values = {
                     pd.to_datetime(value, format="ISO8601").date() for value in values
                 }
-            if connections[self._state.db].vendor == "sqlite":
-                # undo GROUP_CONCAT
-                if feature_dtype == "int":
-                    values = {int(value) for value in values}
-                if feature_dtype == "float":
-                    values = {float(value) for value in values}
-                if feature_dtype == "num":
-                    values = {float(value) for value in values}
-
             non_categoricals[(feature_name, feature_dtype)] = values
 
     return non_categoricals
@@ -1362,8 +1345,6 @@ def filter_base(
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
-    import numpy as np
-
     from lamindb.models import BasicQuerySet, QuerySet
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
@@ -1373,8 +1354,10 @@ def filter_base(
             keys_normalized, field="name", mute=True
         )
         if sum(validated) != len(keys_normalized):
+            invalid = [key for key, ok in zip(keys_normalized, validated) if not ok]
             raise ValidationError(
-                f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
+                "Some keys in the filter expression are not registered as features: "
+                + ", ".join(invalid)
             )
     features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
     qs = queryset
@@ -1396,8 +1379,6 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    import numpy as np
-
     from lamindb.models import BasicQuerySet, QuerySet
 
     feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
@@ -1429,7 +1410,10 @@ def filter_with_features(
             )._to_class(type(queryset), copy=False)
             qs = qs.filter(*non_feature_queries, **filter_kwargs)
         else:
-            features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
+            invalid = [
+                key for key, ok in zip(keys_normalized, features_validated) if not ok
+            ]
+            features = ", ".join(sorted(invalid))
             message = f"feature names: {features}"
             avail_fields = registry.__get_available_fields__()
             fields = ", ".join(sorted(avail_fields))
@@ -2962,7 +2946,9 @@ class FeatureManager:
                     f"skipping creating {len(members)} > {settings.annotation.n_max_records} new {members[0].__class__.__name__} records"
                 )
                 schema_self = schema
-                schema_exists = Schema.filter(hash=schema_self.hash).one_or_none()
+                schema_exists = (
+                    Schema.filter(hash=schema_self.hash).order_by("id").first()
+                )
                 if schema_exists is not None:
                     schema_self = schema_exists
                 else:
@@ -3013,8 +2999,8 @@ class FeatureManager:
                             f"Schema is not transferred, check if organism is set correctly: {schema}"
                         )
                     continue
-                # make sure the uid matches if schema is composed of same features
-                if schema_self.hash == schema.hash:
+                # Preserve reused records; only new equivalent schemas take the source UID.
+                if schema_self._state.adding and schema_self.hash == schema.hash:
                     schema_self.uid = schema.uid
                 logger.info(f"saving {slot} schema: {schema_self}")
             try:

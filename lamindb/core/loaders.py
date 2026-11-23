@@ -70,6 +70,14 @@ def load_parquet(path: Path | str, **kwargs) -> DataFrame:
     return pd.read_parquet(path_sanitized, **kwargs)
 
 
+def load_lance(path: Path | str, **kwargs) -> DataFrame:
+    """Load a `.lance` directory to `DataFrame`."""
+    from .storage._lance import open_lance_table
+
+    table = open_lance_table(create_path(path))
+    return table.to_pandas(**kwargs)
+
+
 def load_tsv(path: Path | str, **kwargs) -> DataFrame:
     """Load `.tsv` file to `DataFrame`."""
     import pandas as pd
@@ -194,6 +202,7 @@ FILE_LOADERS = {
     ".h5ad.gz": load_h5ad,
     ".h5ad.tar.gz": load_h5ad,
     ".parquet": load_parquet,
+    ".lance": load_lance,
     ".fcs": load_fcs,
     ".zarr": load_zarr,
     ".anndata.zarr": load_zarr,

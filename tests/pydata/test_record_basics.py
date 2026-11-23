@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.core.exceptions import FieldError
-from django.db import IntegrityError, ProgrammingError, connections
+from django.db import IntegrityError, ProgrammingError, connections, transaction
 from django.db.models import JSONField, Value
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
@@ -1074,7 +1074,7 @@ def test_record_schema_index_stored_on_name():
 
     # An index marker that is not a schema member is still required, even when
     # minimal_set is false and the other columns are not.
-    bare_key = ln.Feature(name="bare_row_key", dtype=str).save()
+    bare_key = ln.Feature(name="bare_row_key", dtype=str, regex=r"row-\d+").save()
     bare_score = ln.Feature(name="bare_score", dtype=float).save()
     bare_schema = ln.Schema(
         features=[bare_score],
@@ -1094,6 +1094,24 @@ def test_record_schema_index_stored_on_name():
         features={"bare_row_key": "row-1", "bare_score": 1.0},
     ).save()
     assert bare_record.name == "row-1"
+
+    # Index-only frames must validate even though they have no feature columns.
+    for value in ("invalid", None):
+        with pytest.raises(
+            ln.errors.ValidationError,
+            match="regex" if value is not None else "bare_row_key",
+        ):
+            ln.Record.from_dataframe(
+                pd.DataFrame(index=pd.Index([value], name=bare_key.name)),
+                type=bare_sheet,
+            ).save()
+    assert bare_sheet.records.count() == 1
+    saved = ln.Record.from_dataframe(
+        pd.DataFrame(index=pd.Index(["row-2", "row-3"], name=bare_key.name)),
+        type=bare_sheet,
+    ).save()
+    assert [record.name for record in saved] == ["row-2", "row-3"]
+
     ln.Record.filter(type=bare_sheet).delete(permanent=True)
     bare_sheet.delete(permanent=True)
     bare_schema.delete(permanent=True)
@@ -2295,6 +2313,28 @@ def test_record_creation_space_precedence(
         space.delete(permanent=True)
 
 
+def test_constructor_reuse_preserves_space_with_type_fallback(isolated_space_settings):
+    type_space = ln.Space(name="reuse-type-fallback-space").save()
+    record_type = ln.Record(
+        name="ReuseTypeFallback", is_type=True, space=type_space
+    ).save()
+    original = ln.Record(
+        name="reuse-type-fallback-record", type=record_type, space_id=1
+    ).save()
+    try:
+        reused = ln.Record(
+            name=original.name, type=record_type, description="updated description"
+        ).save()
+        original.refresh_from_db()
+        assert reused.pk == original.pk
+        assert reused.space_id == original.space_id == 1
+        assert original.description == "updated description"
+    finally:
+        original.delete(permanent=True)
+        record_type.delete(permanent=True)
+        type_space.delete(permanent=True)
+
+
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
@@ -2317,7 +2357,6 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     explicit_record.refresh_from_db()
     assert explicit_record.space_id == 1
-    explicit_record.delete(permanent=True)
 
     constrained_type.settings.single_space = True
     constrained_type.save()
@@ -2325,6 +2364,16 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     assert constrained_type.settings.single_space is True
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
+
+    # Reuse preserves the old space even if a later policy makes it invalid.
+    reused = ln.Record(name=explicit_record.name, type=constrained_type)
+    assert reused.pk == explicit_record.pk
+    assert reused.space_id == explicit_record.space_id
+    with pytest.raises(
+        ProgrammingError, match="record space must match locked type space"
+    ):
+        with transaction.atomic():
+            reused.save()
 
     # Without an explicit space, default to the type's owning space.
     auto_type_space_record = ln.Record(
@@ -2390,6 +2439,7 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     ).save()
     assert unconstrained_record_2.space_id == constrained_type.space_id
 
+    explicit_record.delete(permanent=True)
     unconstrained_record.delete(permanent=True)
     unconstrained_record_2.delete(permanent=True)
     auto_type_space_record.delete(permanent=True)
@@ -2397,6 +2447,31 @@ def test_single_space_enforces_type_space_or_specific_space(isolated_space_setti
     valid_record.delete(permanent=True)
     constrained_type.delete(permanent=True)
     restricted_space.delete(permanent=True)
+
+
+@pytest.mark.parametrize("skip_validation", [False, True])
+def test_single_space_inheritance_preserves_aux(skip_validation):
+    parent = ln.Record(name="SharedAuxParent", is_type=True).save()
+    parent.settings.single_space = True
+    metadata = {"foo": "bar"}
+    children = [
+        ln.Record(
+            name=f"SharedAuxChild-{index}",
+            type=parent,
+            is_type=True,
+            _aux=metadata,
+            _skip_validation=skip_validation,
+        )
+        for index in range(2)
+    ]
+
+    assert metadata == {"foo": "bar"}
+    assert children[0]._aux == children[1]._aux == {"foo": "bar", "ss": 1}
+    children[0].settings.single_space = False
+    assert children[0]._aux == {"foo": "bar"}
+    assert children[1].settings.single_space is True
+    assert parent.settings.single_space is True
+    parent.delete(permanent=True)
 
 
 def test_single_space_getter_setter_paths():
@@ -2421,6 +2496,18 @@ def test_single_space_getter_setter_paths():
     assert constrained_type._aux is not None
     assert constrained_type._aux.get("ss") == 1
     assert constrained_type._aux.get("foo") == "bar"
+
+    child_type = ln.Record(
+        name=f"ChildType-{suffix}", type=constrained_type, is_type=True
+    )
+    assert child_type.settings.single_space is True
+    explicit_child = ln.Record(
+        name=f"ExplicitChild-{suffix}",
+        type=constrained_type,
+        is_type=True,
+        _aux={"ss": restricted_space.uid},
+    )
+    assert explicit_child.settings.single_space == restricted_space
 
     constrained_type.settings.single_space = restricted_space
     single_space_setting = constrained_type.settings.single_space
@@ -2447,23 +2534,22 @@ def test_single_space_getter_setter_paths():
     constrained_type.settings.single_space = False
     assert constrained_type._aux is None
 
-    # The UI stores the type-space policy as the string "1", not the int 1.
     # A new record inherits .emoji unless it already has one.
     constrained_type.space = restricted_space
-    constrained_type._aux = {"ss": "1"}
+    constrained_type.settings.single_space = True
     assert constrained_type.emoji is None
     constrained_type.emoji = None
-    assert constrained_type._aux == {"ss": "1"}
+    assert constrained_type._aux == {"ss": 1}
     no_emoji = ln.Record(name=f"NoEmoji-{suffix}", type=constrained_type)
     assert no_emoji.space_id == restricted_space.id
     assert no_emoji.emoji is None
     constrained_type.emoji = " 🧬 "
     assert constrained_type.emoji == "🧬"
-    assert constrained_type._aux["ss"] == "1"
+    assert constrained_type._aux["ss"] == 1
     constrained_type.save()
     constrained_type.refresh_from_db()
     assert constrained_type.emoji == "🧬"
-    child = ln.Record(name=f"StringOne-{suffix}", type=constrained_type)
+    child = ln.Record(name=f"InheritedEmoji-{suffix}", type=constrained_type)
     assert child.space_id == restricted_space.id
     assert child.emoji == "🧬"
     explicit = ln.Record(
@@ -2475,10 +2561,10 @@ def test_single_space_getter_setter_paths():
     assert explicit._aux["foo"] == 1
     constrained_type.emoji = "🧪"
     assert constrained_type.emoji == "🧪"
-    assert constrained_type._aux["ss"] == "1"
+    assert constrained_type._aux["ss"] == 1
     constrained_type.emoji = None
     assert constrained_type.emoji is None
-    assert constrained_type._aux == {"ss": "1"}
+    assert constrained_type._aux == {"ss": 1}
     child.emoji = None
     assert child.emoji is None
     assert child._aux is None
@@ -3290,7 +3376,9 @@ def test_record_feature_predicate_query(ccaplog):
 
 def test_record_features_accept_feature_object_keys():
     feature_score = ln.Feature(name="record_feature_object_score", dtype=int).save()
-    feature_tag = ln.Feature(name="record_feature_object_tag", dtype=str).save()
+    feature_tag = ln.Feature(
+        name="record_feature_object_tag", dtype=str, regex="[a-z]+"
+    ).save()
     record = ln.Record(name="record_feature_object_test").save()
 
     record.features.set_values({feature_score: 7, "record_feature_object_tag": "a"})
@@ -3354,6 +3442,8 @@ def test_record_features_accept_feature_object_keys():
         "record_feature_object_numbers": [3],
     }
     record.features.update_values({})
+    with pytest.raises(ln.errors.ValidationError, match="regex"):
+        record.features.update_values({feature_tag: "keep!"})
     assert record.features.get_values()["record_feature_object_tag"] == "keep"
     record.features.update_values({feature_score: None, feature_numbers: []})
     assert record.features.get_values() == {

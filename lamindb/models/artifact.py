@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import types
+import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import (
@@ -56,6 +57,7 @@ from ..core._compat import (
     with_package_obj,
 )
 from ..core._settings import settings
+from ..core.storage._lance import LanceAccessor
 from ..errors import (
     FieldValidationError,
     IntegrityError,
@@ -677,7 +679,7 @@ def get_artifact_kwargs_from_data(
     using: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
-    overwrite_versions: bool | None = None,
+    single_path_across_versions: bool | None = None,
     skip_hash_lookup: bool | None = None,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
@@ -776,8 +778,11 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
-    if overwrite_versions is None:
-        overwrite_versions = n_files is not None
+    if single_path_across_versions is None:
+        # `_single_path_across_versions` stores the artifact under its 16-character stem
+        # uid, so versions share one directory. Folders use that, including
+        # `.lance`: Lance keeps versions inside the directory.
+        single_path_across_versions = n_files is not None
 
     if check_path_in_storage:
         # True here means that we have a path in an existing storage with a virtual key
@@ -811,7 +816,7 @@ def get_artifact_kwargs_from_data(
         "size": size,
         "storage_id": storage.id,
         "n_files": n_files,
-        "_overwrite_versions": overwrite_versions,  # True for folder, False for file
+        "_overwrite_versions": single_path_across_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -936,6 +941,7 @@ _CONTENT_CONSTRUCTORS = {
     "tiledbsoma": "Artifact.from_tiledbsoma()",
 }
 # `.tsv` is tabular but `check_otype_artifact` leaves its otype unset.
+# `.lance` is registered with `from_lance()` and is not a dataframe schema.
 _TABULAR_SUFFIXES = {".parquet", ".csv", ".tsv", ".ipc"}
 
 
@@ -1021,18 +1027,20 @@ def _validated_external_features(
     refused when no feature values are available. Content schemas are rejected
     before this runs.
     """
-    from lamindb.curators.core import (
-        DictCurator,
-        validate_external_features,
-        validate_external_schema,
-    )
-
     if schema is None:
         return features
     external_only = is_external_only_schema(schema)
     flat_external = otype is None and is_flat_feature_schema(schema)
     if features is None and not external_only and not flat_external:
         return None
+
+    # Curators import numpy. Blob artifacts have no schema, so keep that import
+    # off the `lamin save` path.
+    from lamindb.curators.core import (
+        DictCurator,
+        validate_external_features,
+        validate_external_schema,
+    )
 
     annotation_schema = external_slot_schema(schema) if external_only else schema
     members = list(annotation_schema.members)
@@ -1312,7 +1320,7 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         delete_in_storage = False
         if storage:
             logger.warning(
-                "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
+                "storage argument is ignored; can't delete store of a previous version if _single_path_across_versions is True"
             )
     elif artifact.key is None or (
         artifact._key_is_virtual and artifact._real_key is None
@@ -1376,7 +1384,7 @@ class LazyArtifact:
 
         uid = create_uid(n_full_id=20)
         storage_key = _s().auto_storage_key_from_artifact_uid(
-            uid, suffix, overwrite_versions=overwrite_versions
+            uid, suffix, single_path_across_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
 
@@ -1516,7 +1524,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
-        overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
@@ -1538,6 +1545,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_lance`
+            Create an artifact from a `.lance` directory.
+        :attr:`~lamindb.Artifact.lance`
+            Read a `.lance` artifact and save a new version after adding rows or columns.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
         :meth:`~lamindb.Artifact.from_spatialdata`
@@ -1630,17 +1641,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
 
-        ================  ======================================  ================  ====================================================================
-        description       :attr:`suffix`                          :attr:`otype`     Python type examples
-        ================  ======================================  ================  ====================================================================
-        table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
-        annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
-        stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
-                            `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
-        spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
-        generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
-        unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
-        ================  ======================================  ================  ====================================================================
+        ================  ==============================================  ================  ====================================================================
+        description       :attr:`suffix`                                  :attr:`otype`     Python type examples
+        ================  ==============================================  ================  ====================================================================
+        table             `.csv`, `.tsv`, `.parquet`, `.ipc`, `.lance`    `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
+        lance table       `.lance`                                        ---               `lancedb.table.LanceTable`
+        annotated matrix  `.h5ad`, `.zarr`, `.h5mu`                       `"AnnData"`       `anndata.AnnData`
+        stacked matrix    `.zarr`                                         `"MuData"`        `mudata.MuData`
+                          `.tiledbsoma`                                   `"tiledbsoma"`    `tiledbsoma.Experiment`
+        spatial data      `.zarr`                                         `"SpatialData"`   `spatialdata.SpatialData`
+        generic arrays    `.h5`, `.zarr`, `.tiledb`                       ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
+        unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`               ---               ---
+        ================  ==============================================  ================  ====================================================================
 
         You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
 
@@ -1795,6 +1807,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         return LabelManager(self)
 
+    @property
+    def lance(self) -> LanceAccessor:
+        """LanceDB table for this `.lance` artifact.
+
+        :meth:`~lamindb.core.storage.LanceAccessor.open` reads the version pinned on
+        this artifact. :meth:`~lamindb.core.storage.LanceAccessor.add` appends rows
+        and :meth:`~lamindb.core.storage.LanceAccessor.add_columns` adds columns.
+        Both save a new artifact version and leave this one pinned.
+
+        Examples:
+
+            Open the pinned Lance version::
+
+                table = artifact.lance.open()
+
+            Append rows::
+
+                revised = artifact.lance.add(new_rows)
+
+            Add a column::
+
+                revised = artifact.lance.add_columns({"score": "n_genes * 2"})
+        """
+        return LanceAccessor(self)
+
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(
@@ -1826,7 +1863,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """:class:`~lamindb.base.types.CanonicalSuffix` or user-defined strings.
 
-    A canonical suffix such as `".csv"`, `".parquet"`, or `".zarr"` indicates the storage format of an artifact.
+    A canonical suffix such as `".csv"`, `".parquet"`, `".lance"`, or `".zarr"` indicates the storage format of an artifact.
 
     Unknown formats map to the empty string: `""`.
     Known formats are based on MIME types and can be extended via :class:`~lamindb.base.types.CanonicalSuffix`.
@@ -1955,7 +1992,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """The creator of this artifact ← :attr:`~lamindb.User.created_artifacts`."""
     _overwrite_versions: bool = BooleanField(default=None)
-    """See corresponding property `overwrite_versions`."""
+    """See corresponding property `_single_path_across_versions`."""
     ulabels: RelatedManager[ULabel]
     """The ulabels annotating this artifact ← :attr:`~lamindb.ULabel.artifacts`."""
     users: RelatedManager[User]
@@ -2018,6 +2055,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
+        # `_aux` abbreviations:
+        # "so": storage_ongoing
+        # "lv": lance version pinned for this artifact version
         # check whether we are called with db args
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
@@ -2037,6 +2077,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         refresh_revises_if_stale = revises is None
         if revises is not None and description is None:
             description = revises.description
+        passed_overwrite_versions = "overwrite_versions" in kwargs
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
@@ -2052,6 +2093,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             _key_is_virtual = key_is_virtual
 
         _is_internal_call = kwargs.pop("_is_internal_call", False)
+        if passed_overwrite_versions and not _is_internal_call:
+            warnings.warn(
+                "`overwrite_versions` is deprecated and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # precomputed size/hash/hash_type/n_files, e.g. via API
         stats: dict[str, Any] | None = kwargs.pop("_stats", None)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -2255,7 +2302,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             using=using,
             skip_check_exists=skip_check_exists,
-            overwrite_versions=overwrite_versions,
+            single_path_across_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
@@ -2386,16 +2433,27 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.run.transform if self.run is not None else None
 
     @property
-    def overwrite_versions(self) -> bool:
-        """Indicates whether to keep or overwrite versions.
+    def _single_path_across_versions(self) -> bool:
+        """Whether versions of this artifact share one store path.
 
-        It defaults to `False` for file-like artifacts and to `True` for folder-like artifacts.
+        `True` stores the artifact under its 16-character stem uid or a fixed version-independent storage key,
+        so versions share a single storage path. `False` stores each version under its full uid.
+
+        It defaults to `False` for file-like artifacts and to `True` for
+        folder-like artifacts, including `.lance`. Lance keeps versions inside
+        that directory.
 
         Note that this requires significant storage space for large folders with
         many duplicated files. Currently, `lamindb` does *not* de-duplicate files across
         versions as in git, but keeps all files for all versions of the folder in storage.
         """
         return self._overwrite_versions
+
+    @property
+    @deprecated("_single_path_across_versions")
+    def overwrite_versions(self) -> bool:
+        """Deprecated. Whether versions of this artifact share one store path."""
+        return self._single_path_across_versions
 
     @property
     def _storage_ongoing(self) -> bool:
@@ -2599,6 +2657,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """Create from `DataFrame`, optionally validate & annotate.
 
         Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
+        An existing `.lance` directory is registered with
+        :meth:`~lamindb.Artifact.from_lance`.
 
         Args:
             df: A pandas or Polars `DataFrame`, a Polars `LazyFrame`, or an
@@ -2621,6 +2681,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
+            Store the same dataframe as one LanceDB table::
+
+                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.lance").save()
+                artifact.lance.open()
+
             With validation and annotation::
 
                 ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet", schema="valid_features").save()
@@ -2639,9 +2704,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
+        if isinstance(df, (str, Path, UPath)) and UPath(df).suffix == ".lance":
+            raise ValueError("Use from_lance() to register a .lance directory.")
         is_polars = is_polars_dataframe(df)
-        if "format" not in kwargs and key is not None and key.endswith(".csv"):
-            kwargs["format"] = ".csv"
+        if (
+            "format" not in kwargs
+            and key is not None
+            and key.endswith((".csv", ".lance"))
+        ):
+            kwargs["format"] = PurePosixPath(key).suffix
         if schema == "valid_features":
             from lamindb import examples
 
@@ -2684,7 +2755,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     is_polars = True
                     kwargs.setdefault("format", path_suffix)
                 # a non-coercing schema keeps the original file
-        to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
+        if kwargs.get("format") == ".lance":
+            to_disk_kwargs = None
+        else:
+            to_disk_kwargs = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             path=df,
             key=key,
@@ -2724,7 +2798,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from lamindb.curators.core import DataFrameCurator
 
-            if not artifact._state.adding and artifact.suffix != ".parquet":
+            if not artifact._state.adding and artifact.suffix not in {
+                ".parquet",
+                ".lance",
+            }:
                 logger.warning(
                     f"not re-validating existing artifact as it was stored as {artifact.suffix}, "
                     "which does not maintain categorical dtype information"
@@ -2739,6 +2816,74 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 curator.validate()
             artifact.schema = schema
             artifact._curator = curator
+        if artifact.suffix == ".lance" and artifact._state.adding:
+            from ..core.storage._lance import record_current_lance_version
+
+            record_current_lance_version(artifact)
+        return artifact
+
+    @classmethod
+    def from_lance(
+        cls,
+        path: AnyPathStr,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        **kwargs,
+    ) -> Artifact:
+        """Create from a `.lance` directory.
+
+        Populates `.n_observations`.
+
+        Registers the directory and opens it once to record the row count and
+        the current Lance version. Read the table with
+        :meth:`~lamindb.core.storage.LanceAccessor.open`. On S3, AWS credentials are read
+        from the path when the table is opened.
+
+        Support for validating columns will be added soon. Use
+        :meth:`~lamindb.Artifact.from_dataframe` to validate columns for now.
+
+        Args:
+            path: Path to one `.lance` directory, local or remote.
+            key: A relative path within default storage, e.g., `"myfolder/mytable.lance"`.
+            description: A description.
+            revises: An old version of the artifact.
+            run: The run that creates the artifact.
+
+        Example::
+
+            import lamindb as ln
+
+            artifact = ln.Artifact.from_lance(
+                "s3://mybucket/table.lance", description="a LanceDB table"
+            ).save()
+            artifact.lance.open()
+        """
+        if not isinstance(path, (str, Path, UPath)) or UPath(path).suffix != ".lance":
+            raise ValueError("Pass a path to a .lance directory.")
+        artifact = Artifact(  # type: ignore
+            path=path,
+            key=key,
+            run=run,
+            description=description,
+            revises=revises,
+            kind="dataset",
+            **kwargs,
+        )
+        if artifact._state.adding:
+            from ..core.storage._lance import (
+                lance_version,
+                open_lance_table,
+                set_lance_version,
+            )
+
+            table_path = getattr(artifact, "_local_filepath", None) or artifact.path
+            table = open_lance_table(table_path)
+            artifact.n_observations = table.count_rows()
+            if lance_version(artifact) is None:
+                set_lance_version(artifact, int(table.version))
         return artifact
 
     @classmethod
@@ -3413,6 +3558,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
+        if self.suffix == ".lance":
+            raise ValueError("Use artifact.lance.open() to open a .lance artifact.")
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_gz_suffixes = []
@@ -3455,9 +3602,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     "a tiledbsoma store with `mode='w'`, "
                     "AnnData or SpatialData zarr store with `mode='r+'`."
                 )
-            elif not self.overwrite_versions:
+            elif not self._single_path_across_versions:
                 raise ValueError(
-                    "It is not possible to open artifacts having `overwrite_versions=False` "
+                    "It is not possible to open artifacts having `_single_path_across_versions=False` "
                     "in non-read mode (other than `mode='r'`)."
                 )
         # consider the case where an object is already locally cached
@@ -3552,6 +3699,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
+        if self.suffix == ".lance" and self.otype != "DataFrame":
+            raise ValueError("Use artifact.lance.open() to open a .lance artifact.")
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
@@ -3638,7 +3787,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         A first call to `.delete()` puts an artifact into the trash (sets `branch_id` to `-1`).
         A second call permanently deletes the artifact.
 
-        For an `artifact` that has multiple versions and for which `artifact.overwrite_versions is True`, the default behavior for folders,
+        For an `artifact` that has multiple versions and for which `artifact._single_path_across_versions is True`, the default behavior for folders,
         deleting a non-latest version will not delete the underlying storage unless `storage=True` is passed.
         Deleting the latest version will delete all versions.
 
