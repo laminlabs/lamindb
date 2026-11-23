@@ -285,7 +285,7 @@ jobs:
           PY
           lamin save coverage.xml \
             --key coverage/lamindb/coverage.xml \
-            --description "Coverage report for ${GITHUB_EVENT_NAME} ${ref}@${GITHUB_SHA} via GH_RUN_ID=${GITHUB_RUN_ID}"
+            --description "Coverage report for ${GITHUB_EVENT_NAME} ${ref}@${GITHUB_SHA} via GH_RUN_ID=${GITHUB_RUN_ID}" \
             --features git_commit="${GITHUB_SHA:0:16}"
 
   dispatch:
