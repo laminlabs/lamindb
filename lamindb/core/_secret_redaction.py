@@ -790,4 +790,7 @@ def _redact_notebook(notebook) -> None:
 
     for cell in notebook.cells:
         if cell.cell_type == "code":
-            cell.outputs = clean(cell.outputs)
+            for output in cell.outputs:
+                for key, value in output.items():
+                    if key not in {"output_type", "name", "execution_count"}:
+                        output[key] = clean(value)

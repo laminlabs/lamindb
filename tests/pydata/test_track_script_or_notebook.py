@@ -885,6 +885,28 @@ def test_notebook_report_redacts_source(
                 'Use "api_key = "REPORT_SECRET_RAW"" in the config.',
                 metadata={"raw_mimetype": "text/html"},
             ),
+            *[
+                nbformat.v4.new_code_cell(
+                    f'password = "{output.output_type}"', outputs=[output]
+                )
+                for output in (
+                    nbformat.v4.new_output("stream", name="stdout", text="stream"),
+                    nbformat.v4.new_output(
+                        "display_data", data={"text/plain": "display_data"}
+                    ),
+                    nbformat.v4.new_output(
+                        "execute_result",
+                        execution_count=1,
+                        data={"text/plain": "execute_result"},
+                    ),
+                    nbformat.v4.new_output(
+                        "error",
+                        ename="ValueError",
+                        evalue="error",
+                        traceback=["error"],
+                    ),
+                )
+            ],
             nbformat.v4.new_code_cell('api_key = "REPORT_" "SECRET_123"'),
             nbformat.v4.new_code_cell('password = """REPORT_SECRET_456"""'),
             nbformat.v4.new_code_cell(
@@ -997,7 +1019,7 @@ def test_notebook_report_redacts_source(
     assert all(secret not in html for _, secret in commands)
     # Markdown may render the asterisks as emphasis.
     assert html.count("REDACTED") == (
-        15
+        23
         + len(printed)
         + 2 * len(escaped_secrets)
         + len(rich_outputs)
