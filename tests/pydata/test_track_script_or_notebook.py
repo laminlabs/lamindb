@@ -53,6 +53,10 @@ model_api_key = os.environ["MODEL_API_KEY"]
 provider_token = os.environ.get("PROVIDER_TOKEN")
 password = (os.getenv("PASSWORD"))
 token = ((existing_token))
+os.putenv("API_KEY", existing_token)
+os.environ.setdefault("API_KEY", existing_token)
+os.putenv("MODE", "ordinary_value")
+os.environ.setdefault("MODE", "ordinary_value")
 """
     redacted = redact(source_code, "source")
     # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
@@ -844,6 +848,11 @@ def test_notebook_report_redacts_source(
             (r"!tool --token=CANARY\ OPTION", "CANARY OPTION"),
             ('url = "https://user:CANARY_URL@example.org/pkg"', "CANARY_URL"),
             ("api_key = `CANARY_BACKTICK`", "CANARY_BACKTICK"),
+            ('os.putenv("API_KEY", "CANARY_PUTENV")', "CANARY_PUTENV"),
+            (
+                'os.environ.setdefault("API_KEY", "CANARY_SETDEFAULT")',
+                "CANARY_SETDEFAULT",
+            ),
             ('!export API_KEY=CANARY_OPERATOR; echo "$API_KEY"', "CANARY_OPERATOR"),
             (
                 '%%bash\nAPI_KEY=CANARY_CELL_OPERATOR;echo "$API_KEY"',
@@ -1561,6 +1570,8 @@ def test_redact_stale_r_html(html, tmp_path):
         ('API_KEY: str = (("CANARY"))', "source"),
         ('client.token = (f"CANARY")', "source"),
         ('os.environ["API_KEY"] = (b"CANARY")', "source"),
+        ('os.putenv("API_KEY", "CANARY")', "source"),
+        ('os.environ.setdefault("API_KEY", "CANARY")', "source"),
         ('{"client_secret": (r"CANARY")}', "source"),
         ('api_key <- "CANARY"', "source"),
         ('["--token", "CANARY"]', "source"),

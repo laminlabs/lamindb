@@ -31,6 +31,11 @@ _ENV_ASSIGNMENT_PATTERN = re.compile(
     + _LITERAL_START
 )
 
+_ENV_MUTATION_PATTERN = re.compile(
+    r"\bos\.(?:putenv|environ\.setdefault)\(\s*"
+    r"(?P<kquote>['\"])(?P<key>[^'\"]+)(?P=kquote)\s*,\s*" + _LITERAL_START
+)
+
 # Match: {"client_secret": "value"}
 _QUOTED_KEY_ASSIGNMENT_PATTERN = re.compile(
     r"(?P<prefix>(?P<kquote>['\"])(?P<key>[^'\"]+)(?P=kquote)\s*:\s*)" + _LITERAL_START
@@ -221,6 +226,7 @@ def _redact_secret_assignments(source_code: str, _secrets=None) -> str:
     patterns = (
         _ARGV_LITERAL_PATTERN,
         _ENV_ASSIGNMENT_PATTERN,
+        _ENV_MUTATION_PATTERN,
         _KEY_VALUE_ASSIGNMENT_PATTERN,
         _QUOTED_KEY_ASSIGNMENT_PATTERN,
     )
