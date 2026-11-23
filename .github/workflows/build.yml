@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [release]
+    branches: [release, coverage]
     paths-ignore:
       - "lamindb/.agents/**"
   pull_request:
@@ -49,7 +49,8 @@ jobs:
           CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
           SELECTED_GROUPS=()
 
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Pushes to release and coverage run every suite. Pull requests run a subset.
+          if [[ "${{ github.ref }}" == "refs/heads/release" || "${{ github.ref }}" == "refs/heads/coverage" ]]; then
             SELECTED_GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
           else
             if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
@@ -241,7 +242,7 @@ jobs:
           edit-mode: replace
 
       - uses: peter-evans/repository-dispatch@v2
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.ref == 'refs/heads/release' }}
         with:
           token: ${{ secrets.LAMIN_BUILD_DOCS }}
           repository: "laminlabs/lamin-docs"
@@ -288,7 +289,7 @@ jobs:
             --features git_commit="${GITHUB_SHA:0:16}"
 
   dispatch:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.ref == 'refs/heads/release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: peter-evans/repository-dispatch@v2
