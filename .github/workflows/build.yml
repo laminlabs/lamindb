@@ -44,8 +44,8 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          DOCS_GROUPS=("biology")
-          CORE_NON_DOCS_GROUPS=("minimal")
+          DOCS_GROUPS=("tutorial" "guide" "tiledbsoma" "biology" "faq" "storage")
+          CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer-sqlite" "transfer-postgres" "cli" "permissions" "no-instance" "minimal")
           CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
           SELECTED_GROUPS=()
 
