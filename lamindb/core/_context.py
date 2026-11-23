@@ -1267,8 +1267,8 @@ class Context:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url
                 logger.important(f"go to: {ui_url}/{instance_slug}/run/{self.run.uid}")
-            save_run_logs(self.run, save_run=True)
             self._stream_tracker.finish()
+            save_run_logs(self.run, save_run=True)
         # reset the context attributes so that somebody who runs `track()` after finish
         # starts fresh
         self._uid = None

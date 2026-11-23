@@ -722,6 +722,8 @@ def test_run_scripts():
         key__endswith="duplicate5/script-to-test-versioning.py"
     )
     assert transform.latest_run.finished_at is not None
+    assert transform.latest_run.report is not None
+    assert "finished script output" in transform.latest_run.report.path.read_text()
 
 
 def test_run_external_script():

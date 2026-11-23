@@ -471,9 +471,7 @@ def test_internal_binary_artifact_is_not_a_run_attachment(
 
 @pytest.mark.parametrize("existing_target", [False, True])
 @pytest.mark.parametrize("custom_space", [False, True])
-def test_run_environment_reuse_scope(
-    tmp_path, monkeypatch, existing_target, custom_space
-):
+def test_run_environment_reuse_scope(tmp_path, existing_target, custom_space):
     from lamindb.core._finish import save_context_core
 
     space = ln.Space(name="environment-reuse-space").save()
@@ -488,7 +486,9 @@ def test_run_environment_reuse_scope(
         else (default_storage, other_storage)
     )
     transform = ln.Transform(key="environment-reuse.py").save()
-    run = ln.Run(transform).save()
+    run = ln.Run(transform)
+    run.space = target.space
+    run.save()
     artifacts = []
     try:
         seed = tmp_path / "seed.txt"
@@ -504,7 +504,6 @@ def test_run_environment_reuse_scope(
                     run=False,
                 ).save()
             )
-        monkeypatch.setattr(ln.context, "_space", space if custom_space else None)
         environment = ln.setup.settings.cache_dir / "environments" / f"run_{run.uid}"
         environment.mkdir(parents=True)
         source = environment / "run_env_pip.txt"
