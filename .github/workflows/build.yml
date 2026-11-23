@@ -271,7 +271,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: save coverage artifact
         env:
-          LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
+          LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_LAMINDB_DEV_BOT }}
         run: |
           uv pip install --system .
           lamin login
