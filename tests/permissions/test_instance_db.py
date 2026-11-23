@@ -596,7 +596,7 @@ def test_consistency_enforcement():
         actor_id, original_name, user_created_at = cur.fetchone()
         cur.execute("SELECT id FROM lamindb_user WHERE handle = 'testuser'")
         other_user_id = cur.fetchone()[0]
-        # authenticated account with no lamindb user: writes must fail closed
+        # authenticated account with no lamindb user: updates fail closed
         cur.execute(
             """
             INSERT INTO hubmodule_account (id, uid, role)
@@ -619,29 +619,46 @@ def test_consistency_enforcement():
         )
         with pg_connect(jwt_db) as conn, conn.cursor() as cur:
             cur.execute("SELECT set_token(%s);", (token_no_user,))
+            # Insert keeps the values sent. The trigger runs only on update.
+            cur.execute(
+                """
+                INSERT INTO lamindb_ulabel (
+                    uid, name, space_id, created_by_id, created_at, updated_at
+                )
+                VALUES ('noaccess', 'missing user label', %s, %s, %s, %s)
+                RETURNING created_by_id, created_at, updated_at
+                """,
+                (space_id, other_user_id, forged_created_at, forged_updated_at),
+            )
+            assert cur.fetchone() == (
+                other_user_id,
+                forged_created_at,
+                forged_updated_at,
+            )
             with pytest.raises(psycopg.errors.RaiseException) as exc:
                 cur.execute(
                     """
-                    INSERT INTO lamindb_ulabel (uid, name, space_id, created_by_id)
-                    VALUES ('noaccess', 'missing user label', %s, %s)
+                    UPDATE lamindb_ulabel
+                    SET name = 'missing user update',
+                        created_by_id = %s,
+                        created_at = %s,
+                        updated_at = %s
+                    WHERE uid = 'noaccess'
                     """,
-                    (space_id, other_user_id),
+                    (actor_id, admin_created_at, admin_updated_at),
                 )
             assert "lamin user id is not set" in str(exc.value)
             conn.rollback()
 
         with pg_connect(jwt_db) as conn, conn.cursor() as cur:
             cur.execute("SELECT set_token(%s);", (token,))
-            # A later statement must not reuse the transaction start time.
-            cur.execute("SELECT pg_sleep(0.01)")
             cur.execute(
                 """
                 INSERT INTO lamindb_ulabel (
                     uid, name, space_id, created_by_id, created_at, updated_at
                 )
                 VALUES ('forged01', 'forged label', %s, %s, %s, %s)
-                RETURNING created_by_id, created_at, updated_at,
-                          statement_timestamp(), transaction_timestamp()
+                RETURNING created_by_id, created_at, updated_at
                 """,
                 (
                     space_id,
@@ -650,16 +667,13 @@ def test_consistency_enforcement():
                     forged_updated_at,
                 ),
             )
-            created_by_id, created_at, updated_at, statement_ts, transaction_ts = (
-                cur.fetchone()
+            assert cur.fetchone() == (
+                other_user_id,
+                forged_created_at,
+                forged_updated_at,
             )
-            assert created_by_id == actor_id
-            assert created_at == statement_ts
-            assert updated_at == statement_ts
-            assert created_at > transaction_ts
-            assert created_at != forged_created_at
-            assert updated_at != forged_updated_at
 
+            # A later statement must not reuse the transaction start time.
             cur.execute("SELECT pg_sleep(0.01)")
             cur.execute(
                 """
@@ -669,17 +683,25 @@ def test_consistency_enforcement():
                     created_at = %s,
                     updated_at = %s
                 WHERE uid = 'forged01'
-                RETURNING created_by_id, created_at, updated_at, statement_timestamp()
+                RETURNING created_by_id, created_at, updated_at,
+                          statement_timestamp(), transaction_timestamp()
                 """,
-                (other_user_id, forged_created_at, forged_updated_at),
+                (actor_id, admin_created_at, admin_updated_at),
             )
-            updated_by_id, updated_created_at, updated_at, statement_ts = cur.fetchone()
-            assert updated_by_id == actor_id
-            assert updated_created_at == created_at
+            (
+                updated_by_id,
+                updated_created_at,
+                updated_at,
+                statement_ts,
+                transaction_ts,
+            ) = cur.fetchone()
+            assert updated_by_id == other_user_id
+            assert updated_created_at == forged_created_at
             assert updated_at == statement_ts
-            assert updated_at > created_at
+            assert updated_at > transaction_ts
+            assert updated_at != forged_updated_at
+            assert updated_at != admin_updated_at
 
-            cur.execute("SELECT pg_sleep(0.01)")
             cur.execute(
                 """
                 UPDATE lamindb_user
