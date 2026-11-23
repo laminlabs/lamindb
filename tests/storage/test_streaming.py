@@ -314,7 +314,7 @@ def test_zarr_open_mode_overwrite_versions_false():
     store["test"] = np.array(["test"])
     artifact = lazy.save()
 
-    with pytest.raises(ValueError, match="_store_under_stem_uid=False"):
+    with pytest.raises(ValueError, match="_single_path_across_versions=False"):
         artifact.open(mode="r+")
 
     artifact.delete(permanent=True, storage=True)
