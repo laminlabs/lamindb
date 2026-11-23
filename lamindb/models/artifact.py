@@ -658,7 +658,7 @@ def get_artifact_kwargs_from_data(
     using: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
-    overwrite_versions: bool | None = None,
+    single_path_across_versions: bool | None = None,
     skip_hash_lookup: bool | None = None,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
@@ -755,11 +755,11 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
-    if overwrite_versions is None:
+    if single_path_across_versions is None:
         # `_single_path_across_versions` stores the artifact under its 16-character stem
         # uid, so versions share one directory. Folders use that, including
         # `.lance`: Lance keeps versions inside the directory.
-        overwrite_versions = n_files is not None
+        single_path_across_versions = n_files is not None
 
     if check_path_in_storage:
         # True here means that we have a path in an existing storage with a virtual key
@@ -793,7 +793,7 @@ def get_artifact_kwargs_from_data(
         "size": size,
         "storage_id": storage.id,
         "n_files": n_files,
-        "_overwrite_versions": overwrite_versions,  # True for folder, False for file
+        "_overwrite_versions": single_path_across_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -1359,7 +1359,7 @@ class LazyArtifact:
 
         uid = create_uid(n_full_id=20)
         storage_key = _s().auto_storage_key_from_artifact_uid(
-            uid, suffix, overwrite_versions=overwrite_versions
+            uid, suffix, single_path_across_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
 
@@ -2267,7 +2267,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             using=using,
             skip_check_exists=skip_check_exists,
-            overwrite_versions=overwrite_versions,
+            single_path_across_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
