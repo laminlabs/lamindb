@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import types
+import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import (
@@ -657,7 +658,7 @@ def get_artifact_kwargs_from_data(
     using: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
-    overwrite_versions: bool | None = None,
+    single_path_across_versions: bool | None = None,
     skip_hash_lookup: bool | None = None,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
@@ -754,11 +755,11 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
-    if overwrite_versions is None:
-        # `overwrite_versions` stores the artifact under its 16-character stem
+    if single_path_across_versions is None:
+        # `_single_path_across_versions` stores the artifact under its 16-character stem
         # uid, so versions share one directory. Folders use that, including
         # `.lance`: Lance keeps versions inside the directory.
-        overwrite_versions = n_files is not None
+        single_path_across_versions = n_files is not None
 
     if check_path_in_storage:
         # True here means that we have a path in an existing storage with a virtual key
@@ -792,7 +793,7 @@ def get_artifact_kwargs_from_data(
         "size": size,
         "storage_id": storage.id,
         "n_files": n_files,
-        "_overwrite_versions": overwrite_versions,  # True for folder, False for file
+        "_overwrite_versions": single_path_across_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
@@ -1294,7 +1295,7 @@ def delete_permanently(artifact: Artifact, storage: bool | None, using: str):
         delete_in_storage = False
         if storage:
             logger.warning(
-                "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
+                "storage argument is ignored; can't delete store of a previous version if _single_path_across_versions is True"
             )
     elif artifact.key is None or (
         artifact._key_is_virtual and artifact._real_key is None
@@ -1358,7 +1359,7 @@ class LazyArtifact:
 
         uid = create_uid(n_full_id=20)
         storage_key = _s().auto_storage_key_from_artifact_uid(
-            uid, suffix, overwrite_versions=overwrite_versions
+            uid, suffix, single_path_across_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
 
@@ -1498,7 +1499,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
-        overwrite_versions: `bool | None = None` Whether versions share one store path. `True` stores the artifact under its 16-character stem uid. Defaults to `True` for folders, including `.lance`, and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses a storage location of the `space` if `space` is passed; otherwise uses the default storage location (:attr:`~lamindb.core.Settings.storage`).
@@ -1967,7 +1967,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """The creator of this artifact ← :attr:`~lamindb.User.created_artifacts`."""
     _overwrite_versions: bool = BooleanField(default=None)
-    """See corresponding property `overwrite_versions`."""
+    """See corresponding property `_single_path_across_versions`."""
     ulabels: RelatedManager[ULabel]
     """The ulabels annotating this artifact ← :attr:`~lamindb.ULabel.artifacts`."""
     users: RelatedManager[User]
@@ -2051,6 +2051,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         refresh_revises_if_stale = revises is None
         if revises is not None and description is None:
             description = revises.description
+        passed_overwrite_versions = "overwrite_versions" in kwargs
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
@@ -2066,6 +2067,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             _key_is_virtual = key_is_virtual
 
         _is_internal_call = kwargs.pop("_is_internal_call", False)
+        if passed_overwrite_versions and not _is_internal_call:
+            warnings.warn(
+                "`overwrite_versions` is deprecated and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         # precomputed size/hash/hash_type/n_files, e.g. via API
         stats: dict[str, Any] | None = kwargs.pop("_stats", None)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -2260,7 +2267,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage=storage,
             using=using,
             skip_check_exists=skip_check_exists,
-            overwrite_versions=overwrite_versions,
+            single_path_across_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
@@ -2380,11 +2387,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.run.transform if self.run is not None else None
 
     @property
-    def overwrite_versions(self) -> bool:
+    def _single_path_across_versions(self) -> bool:
         """Whether versions of this artifact share one store path.
 
-        `True` stores the artifact under its 16-character stem uid, so versions
-        share one directory. `False` stores each version under its full uid.
+        `True` stores the artifact under its 16-character stem uid or a fixed version-independent storage key,
+        so versions share a single storage path. `False` stores each version under its full uid.
 
         It defaults to `False` for file-like artifacts and to `True` for
         folder-like artifacts, including `.lance`. Lance keeps versions inside
@@ -2395,6 +2402,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         versions as in git, but keeps all files for all versions of the folder in storage.
         """
         return self._overwrite_versions
+
+    @property
+    @deprecated("_single_path_across_versions")
+    def overwrite_versions(self) -> bool:
+        """Deprecated. Whether versions of this artifact share one store path."""
+        return self._single_path_across_versions
 
     @property
     def _storage_ongoing(self) -> bool:
@@ -3525,9 +3538,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     "a tiledbsoma store with `mode='w'`, "
                     "AnnData or SpatialData zarr store with `mode='r+'`."
                 )
-            elif not self.overwrite_versions:
+            elif not self._single_path_across_versions:
                 raise ValueError(
-                    "It is not possible to open artifacts having `overwrite_versions=False` "
+                    "It is not possible to open artifacts having `_single_path_across_versions=False` "
                     "in non-read mode (other than `mode='r'`)."
                 )
         # consider the case where an object is already locally cached
@@ -3710,7 +3723,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         A first call to `.delete()` puts an artifact into the trash (sets `branch_id` to `-1`).
         A second call permanently deletes the artifact.
 
-        For an `artifact` that has multiple versions and for which `artifact.overwrite_versions is True`, the default behavior for folders,
+        For an `artifact` that has multiple versions and for which `artifact._single_path_across_versions is True`, the default behavior for folders,
         deleting a non-latest version will not delete the underlying storage unless `storage=True` is passed.
         Deleting the latest version will delete all versions.
 

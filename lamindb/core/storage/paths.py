@@ -28,16 +28,16 @@ def auto_storage_key_from_artifact(artifact: Artifact):
     key = artifact.key
     if key is None or artifact._key_is_virtual:
         return auto_storage_key_from_artifact_uid(
-            artifact.uid, artifact.suffix, artifact.overwrite_versions
+            artifact.uid, artifact.suffix, artifact._single_path_across_versions
         )
     return artifact.key
 
 
 def auto_storage_key_from_artifact_uid(
-    uid: str, suffix: str, overwrite_versions: bool
+    uid: str, suffix: str, single_path_across_versions: bool
 ) -> str:
     assert isinstance(suffix, str)  # noqa: S101 Suffix cannot be None.
-    if overwrite_versions:
+    if single_path_across_versions:
         uid_storage = uid[:16]  # 16 chars, leave 4 chars for versioning
     else:
         uid_storage = uid
