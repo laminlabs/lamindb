@@ -185,4 +185,4 @@ These are declaration objects from {mod}`lamindb.evolve`, distinct from the data
 
 See the {mod}`Python reference <lamindb.evolve>` for declarations, migration helpers, and tracking settings, and the {ref}`CLI reference <cli-evolve>` for command options, repairs, introspection, and CI workflows.
 
-To see these concepts in code, run {ref}`lamin evolve init <cli-evolve-init>` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.
+To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.
