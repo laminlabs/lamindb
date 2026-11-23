@@ -279,10 +279,23 @@ jobs:
           lamin connect laminlabs/lamindb-dev
           ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           python <<PY
+          import xml.etree.ElementTree as ET
+
           import lamindb as ln
+
+          root = ET.parse("coverage.xml").getroot()
+          lines_covered = int(root.attrib["lines-covered"])
+          lines_valid = int(root.attrib["lines-valid"])
           commits = ln.Record.get(name="GitCommits")
           hash16 = "${GITHUB_SHA:0:16}"
-          ln.Record(features={"hash16": hash16, "repo": "lamindb"}, type=commits).save()
+          ln.Record(
+              features={
+                  "hash16": hash16,
+                  "repo": "lamindb",
+                  "coverage": lines_covered / lines_valid,
+              },
+              type=commits,
+          ).save()
           ln.Artifact(
               "coverage.xml",
               key="coverage/lamindb/coverage.xml",
