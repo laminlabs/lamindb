@@ -4,7 +4,7 @@ Schemas define the expected structure of data in LaminDB. As requirements change
 
 ## General workflow
 
-In this example, you’ll define a sample schema and update it as requirements change.
+In this example, you’ll define a schema called `samples`. Each row has a `sample_id` and a numeric `measurement`. Later, you’ll update the schema to allow samples with a missing measurement.
 
 Before you start, you’ll need:
 
@@ -35,14 +35,14 @@ Add a unique ID so LaminDB can recognize the plan each time you apply it:
 lamin evolve utils add-uid plans/plan_samples.py
 ```
 
-Keep the generated UID when editing the plan. Note that this file imports directly from `lamindb_setup.evolve` and not from `lamindb`. This so you can validate the plan before connecting to an instance.
+Keep the generated UID when editing the plan. Importing from `lamindb_setup.evolve` lets you validate the plan before connecting to an instance.
 
 ### Validate and preview
 
 Check the plan declarations offline:
 
 ```bash
-lamin evolve validate plans/plan_measurements.py
+lamin evolve validate plans/plan_samples.py
 ```
 
 ::::{dropdown} Example validation output
@@ -71,7 +71,7 @@ lamin evolve validate plans/plan_measurements.py
 Preview changes by comparing the plan with the live instance and any existing lock file:
 
 ```bash
-lamin evolve plan plans/plan_measurements.py -i account/dev
+lamin evolve plan plans/plan_samples.py -i account/dev
 ```
 
 ::::{dropdown} Example preview output for an empty instance
@@ -96,15 +96,15 @@ Commit and push the plan so the update can be traced to a Git revision:
 git add plans/
 git commit -m "Define the samples schema"
 git push
-lamin evolve apply plans/plan_measurements.py -i account/dev
+lamin evolve apply plans/plan_samples.py -i account/dev
 ```
 
-Review the preview and confirm the prompt. The tool applies the definitions, tracks the operation, and writes `plans/plan_measurements.account-dev.lock`. Commit the generated lock file with your plans.
+Review the preview and confirm the prompt. The tool applies the definitions, tracks the operation, and writes `plans/plan_samples.account-dev.lock`. Commit the generated lock file with your plans.
 
 To verify that the instance matches the plan after applying it, run `lamin evolve plan` with `--fail-on-diff`. The command exits with an error if it finds any pending changes:
 
 ```bash
-lamin evolve plan plans/plan_measurements.py -i account/dev --fail-on-diff
+lamin evolve plan plans/plan_samples.py -i account/dev --fail-on-diff
 ```
 
 ### Update
@@ -124,8 +124,8 @@ Validate and preview the change, then commit and push the plan and apply it. The
 If you create the plan file by hand and skip the UID step, `validate` reports that the file does not define `PLAN_TRANSFORM_STEM_UID`. Add the ID, then validate again:
 
 ```bash
-lamin evolve utils add-uid plans/plan_measurements.py
-lamin evolve validate plans/plan_measurements.py
+lamin evolve utils add-uid plans/plan_samples.py
+lamin evolve validate plans/plan_samples.py
 ```
 
 #### Type narrowing
