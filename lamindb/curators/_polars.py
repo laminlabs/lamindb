@@ -1,10 +1,14 @@
 """Native Pandera validation for the optional Polars backend."""
 
+import re
+
 import polars as pl
 from pandera import polars as pandera
 from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
+
+from lamindb.models.feature import _matches_regex, _regex_error
 
 
 def _all_missing(data) -> bool:
@@ -161,12 +165,52 @@ def column(feature, required: bool, schema_coerce: bool = False):
                 feature.nullable and _all_missing(data)
             )
 
-        return pandera.Column(
-            dtype=None,
-            checks=pandera.Check(
+        checks = [
+            pandera.Check(
                 check,
                 error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
-            ),
-            **kwargs,
-        )
+            )
+        ]
+        return pandera.Column(dtype=None, checks=checks, **kwargs)
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
+
+
+# Allow only ASCII literals and positive ASCII classes/ranges, with simple
+# quantifiers and optional outer anchors. Cap the size to keep Rust compilation
+# bounded; everything outside this subset uses Python.
+_ASCII_REGEX_ATOM = r"(?:[A-Za-z0-9_ -]|\[-?(?:[A-Za-z0-9_](?:-[A-Za-z0-9_])?)+-?\])"
+_NATIVE_REGEX_SUBSET = re.compile(rf"\^?(?:{_ASCII_REGEX_ATOM}[?*+]?)+\$?")
+
+
+def _regex_column(feature, pattern: re.Pattern[str]):
+    source = pattern.pattern
+    native_pattern = (
+        rf"\A(?:{source})\z"
+        if pattern.flags == re.UNICODE
+        and len(source) <= 128
+        and _NATIVE_REGEX_SUBSET.fullmatch(source)
+        else None
+    )
+
+    def check_regex(data):
+        values = pl.col(data.key)
+        dtype = data.lazyframe.collect_schema()[data.key] if native_pattern else None
+        if native_pattern and (
+            dtype in (pl.String, pl.Null)
+            or isinstance(dtype, (pl.Categorical, pl.Enum))
+        ):
+            strings = values if dtype == pl.String else values.cast(pl.String)
+            matches = strings.str.contains(native_pattern)
+        else:
+            matches = values.map_elements(
+                lambda value: _matches_regex(value, pattern),
+                return_dtype=pl.Boolean,
+            )
+        return data.lazyframe.select(matches.fill_null(True).alias(CHECK_OUTPUT_KEY))
+
+    return pandera.Column(
+        dtype=None,
+        checks=pandera.Check(check_regex, error=_regex_error(feature)),
+        nullable=True,
+        required=False,
+    )

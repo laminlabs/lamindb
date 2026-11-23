@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
+import pandas as pd
 import pytest
 from django.db import transaction
 from lamindb.errors import InvalidArgument, ValidationError
@@ -96,13 +97,18 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
         ("list[object]", [["a"]]),
     ],
 )
-def test_polars_invalid_dtype(as_frame, dtype, values):
-    schema = make_schema([("pl_invalid", dtype, {})])
-    curator = ln.curators.DataFrameCurator(
-        as_frame(pl.DataFrame({"pl_invalid": values})), schema
-    )
-    with pytest.raises(ValidationError):
+@pytest.mark.parametrize("regex", [None, "a+"])
+def test_polars_invalid_dtype(as_frame, dtype, values, regex):
+    features = [("pl_invalid", dtype, {"regex": regex} if dtype is str else {})]
+    data = {"pl_invalid": values}
+    if regex is not None:
+        features.append(("pl_regex", str, {"regex": regex}))
+        data["pl_regex"] = ["b"]
+    schema = make_schema(features)
+    curator = ln.curators.DataFrameCurator(as_frame(pl.DataFrame(data)), schema)
+    with pytest.raises(ValidationError) as error:
         curator.validate()
+    assert "must fully match regex" not in str(error.value)
     assert not curator._is_validated
 
 
@@ -141,21 +147,24 @@ def test_polars_coercion_is_lossless(as_frame):
 
 
 @pytest.mark.parametrize("nullable", [True, False])
-def test_polars_nullability(as_frame, nullable):
-    schema = make_schema([("pl_nullable", str, {"nullable": nullable})])
+@pytest.mark.parametrize("value", ["a", "b"])
+def test_polars_nullability(as_frame, nullable, value):
+    schema = make_schema([("pl_nullable", str, {"nullable": nullable, "regex": "a+"})])
     curator = ln.curators.DataFrameCurator(
-        as_frame(pl.DataFrame({"pl_nullable": ["a", None]})), schema
+        as_frame(pl.DataFrame({"pl_nullable": [value, None]})), schema
     )
-    if nullable:
+    if nullable and value == "a":
         curator.validate()
     else:
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="regex" if nullable else "non-nullable"
+        ):
             curator.validate()
 
 
 def test_polars_column_constraints(as_frame):
     schema = make_schema(
-        [("pl_first", int, {}), ("pl_second", str, {})],
+        [("pl_first", int, {}), ("pl_second", str, {"regex": "a+"})],
         maximal_set=True,
         ordered_set=True,
     )
@@ -163,6 +172,7 @@ def test_polars_column_constraints(as_frame):
         pl.DataFrame({"pl_first": [1]}),
         pl.DataFrame({"pl_second": ["a"], "pl_first": [1]}),
         pl.DataFrame({"pl_first": [1], "pl_second": ["a"], "extra": [1]}),
+        pl.DataFrame({"pl_first": [1], "pl_second": ["ab"]}),
     ]:
         with pytest.raises(ValidationError):
             ln.curators.DataFrameCurator(as_frame(df), schema).validate()
@@ -178,12 +188,85 @@ def test_polars_column_constraints(as_frame):
 
 def test_polars_optional_column(as_frame):
     required = ln.Feature(name="pl_required", dtype=int).save()
-    optional = ln.Feature(name="pl_optional", dtype=str).save()
+    optional = ln.Feature(name="pl_optional", dtype=str, regex="a+").save()
     schema = ln.Schema(features=[required, optional]).save()
     schema.optionals.add(optional)
     ln.curators.DataFrameCurator(
         as_frame(pl.DataFrame({"pl_required": [1]})), schema
     ).validate()
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [pl.String, pl.Categorical, pl.Enum(["ID-12", "ID-12\n", "prefixID-12", "ID-١٢"])],
+)
+@pytest.mark.parametrize("pattern", [r"^ID-[0-9]+$", r"ID-[0-9]+"])
+def test_polars_regex_native_fullmatch(as_frame, monkeypatch, dtype, pattern):
+    from lamindb.curators import _polars
+
+    def unexpected_fallback(*args):
+        pytest.fail("A compatible pattern should not invoke the Python matcher")
+
+    monkeypatch.setattr(_polars, "_matches_regex", unexpected_fallback)
+    schema = make_schema([("pl_id", str, {"regex": pattern, "nullable": True})])
+    for value, valid in [
+        ("ID-12", True),
+        ("ID-12\n", False),
+        ("prefixID-12", False),
+        ("ID-١٢", False),
+        (None, True),
+    ]:
+        polars = as_frame(
+            pl.DataFrame({"pl_id": pl.Series([value, None], dtype=dtype)})
+        )
+        pandas = pd.DataFrame({"pl_id": pd.Series([value, None], dtype="string")})
+        for frame in (polars, pandas):
+            curator = ln.curators.DataFrameCurator(frame, schema)
+            if valid:
+                curator.validate()
+            else:
+                with pytest.raises(ValidationError, match="must fully match regex"):
+                    curator.validate()
+
+
+@pytest.mark.parametrize(
+    "pattern,valid,invalid",
+    [
+        (r"(?=ID-)[A-Z]+-[0-9]+", "ID-12", "XX-12"),
+        (r"(a+)-\1", "aa-aa", "aa-a"),
+        (r"(?P<key>[a-z]+)-(?P=key)", "ab-ab", "ab-ba"),
+        (r"(?i)id-[0-9]+", "ID-12", "ID-12\n"),
+        (r"\w+", "abc١", "abc!"),
+        (r"\s+", "\x1c", "a"),
+        (r"[^a]", "&", "a"),
+        (r"ID-[0-9]{2}", "ID-12", "ID-123"),
+    ],
+)
+def test_polars_regex_python_fallback(as_frame, monkeypatch, pattern, valid, invalid):
+    from lamindb.curators import _polars
+
+    original = _polars._matches_regex
+    calls = []
+
+    def track_match(value, compiled):
+        calls.append(value)
+        return original(value, compiled)
+
+    monkeypatch.setattr(_polars, "_matches_regex", track_match)
+    schema = make_schema([("pl_id", str, {"regex": pattern, "nullable": True})])
+    for value in (valid, invalid):
+        calls.clear()
+        for frame in (
+            as_frame(pl.DataFrame({"pl_id": [value, None]})),
+            pd.DataFrame({"pl_id": [value, None]}),
+        ):
+            curator = ln.curators.DataFrameCurator(frame, schema)
+            if value == valid:
+                curator.validate()
+            else:
+                with pytest.raises(ValidationError, match="must fully match regex"):
+                    curator.validate()
+        assert value in calls
 
 
 @pytest.mark.parametrize("dtype", [pl.String, pl.Categorical])

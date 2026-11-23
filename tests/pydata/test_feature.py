@@ -57,6 +57,18 @@ def test_feature_init():
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
 
+    with pytest.raises(ValidationError, match="Invalid feature regex"):
+        ln.Feature(name="feat", dtype=str, regex="[")
+
+    with pytest.raises(TypeError, match="Feature.regex must be a string"):
+        ln.Feature(name="feat", dtype=str, regex=123)
+    with pytest.raises(ValidationError, match="regex requires a scalar"):
+        ln.Feature(name="feat", dtype=int, regex="a+")
+    with pytest.raises(ValidationError, match="regex requires a scalar"):
+        ln.Feature(name="Feat", is_type=True, regex="a+")
+    with pytest.raises(ValidationError, match="default_value.*must fully match regex"):
+        ln.Feature(name="feat", dtype=str, regex="a+", default_value="b")
+
     # categorical dtype must specify valid types
     with pytest.raises(ValidationError):
         ln.Feature(name="feat", dtype="cat[1]")
@@ -102,9 +114,16 @@ def test_feature_init():
     feat1.delete(permanent=True)
 
     # string and list syntax for categorical dtypes should be equivalent and work
-    feat2 = ln.Feature(name="feat2", dtype="str", description="feat2").save()
+    feat2 = ln.Feature(
+        name="feat2", dtype="str", description="feat2", regex="a+"
+    ).save()
     feat2_again = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     assert feat2 == feat2_again
+    assert feat2_again.regex == "a+"
+    feat2_again.regex = None
+    feat2_again.save()
+    feat2.refresh_from_db()
+    assert feat2.regex is None
     feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
@@ -170,6 +189,13 @@ def test_feature_values_through_roundtrip():
         assert books_feature._aux is None or "vf" not in books_feature._aux
         assert author_feature.related_feature is None
         assert author_feature._aux is None or "rf" not in author_feature._aux
+        with pytest.raises(ValidationError, match="regex is incompatible with reverse"):
+            ln.Feature(
+                name="regex-values-through",
+                dtype=str,
+                regex="a+",
+                values_through=author_feature,
+            )
     finally:
         books_feature.delete(permanent=True)
         author_feature.delete(permanent=True)

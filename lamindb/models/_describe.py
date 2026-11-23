@@ -306,7 +306,7 @@ def describe_artifact(
         else f".lamindb/{record.uid}"
     )
     if record.uid in storage_key:
-        if record.overwrite_versions:
+        if record._single_path_across_versions:
             storage_key = storage_key[:-4]
         storage_key = f"{storage_key}{record.suffix}"
     tree.add(

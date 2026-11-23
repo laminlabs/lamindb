@@ -655,11 +655,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema=self.schema,
         )
 
-    def save(self, using: str | None = None) -> Collection:
+    def save(self, using: str | None = None, **kwargs) -> Collection:
         """Save the collection.
 
         Args:
             using: The database to which you want to save.
+            transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
         """
         if self.meta_artifact is not None:
             self.meta_artifact.save()
@@ -671,7 +672,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 collection_uid=self.uid,
                 schema=self.schema,
             )
-        super().save()
+        super().save(**kwargs)
         if self._original_values is not None:
             self._original_values["schema_id"] = self.schema_id
         # we don't allow updating the collection of artifacts

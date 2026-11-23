@@ -1345,8 +1345,6 @@ def filter_base(
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
-    import numpy as np
-
     from lamindb.models import BasicQuerySet, QuerySet
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
@@ -1356,8 +1354,10 @@ def filter_base(
             keys_normalized, field="name", mute=True
         )
         if sum(validated) != len(keys_normalized):
+            invalid = [key for key, ok in zip(keys_normalized, validated) if not ok]
             raise ValidationError(
-                f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
+                "Some keys in the filter expression are not registered as features: "
+                + ", ".join(invalid)
             )
     features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
     qs = queryset
@@ -1379,8 +1379,6 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    import numpy as np
-
     from lamindb.models import BasicQuerySet, QuerySet
 
     feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
@@ -1412,7 +1410,10 @@ def filter_with_features(
             )._to_class(type(queryset), copy=False)
             qs = qs.filter(*non_feature_queries, **filter_kwargs)
         else:
-            features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
+            invalid = [
+                key for key, ok in zip(keys_normalized, features_validated) if not ok
+            ]
+            features = ", ".join(sorted(invalid))
             message = f"feature names: {features}"
             avail_fields = registry.__get_available_fields__()
             fields = ", ".join(sorted(avail_fields))
@@ -2945,7 +2946,9 @@ class FeatureManager:
                     f"skipping creating {len(members)} > {settings.annotation.n_max_records} new {members[0].__class__.__name__} records"
                 )
                 schema_self = schema
-                schema_exists = Schema.filter(hash=schema_self.hash).one_or_none()
+                schema_exists = (
+                    Schema.filter(hash=schema_self.hash).order_by("id").first()
+                )
                 if schema_exists is not None:
                     schema_self = schema_exists
                 else:
@@ -2996,8 +2999,8 @@ class FeatureManager:
                             f"Schema is not transferred, check if organism is set correctly: {schema}"
                         )
                     continue
-                # make sure the uid matches if schema is composed of same features
-                if schema_self.hash == schema.hash:
+                # Preserve reused records; only new equivalent schemas take the source UID.
+                if schema_self._state.adding and schema_self.hash == schema.hash:
                     schema_self.uid = schema.uid
                 logger.info(f"saving {slot} schema: {schema_self}")
             try:

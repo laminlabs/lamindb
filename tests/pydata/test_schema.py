@@ -2,8 +2,14 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from django.db import transaction
 from django.db.utils import IntegrityError
-from lamindb.errors import FieldValidationError, InvalidArgument, ValidationError
+from lamindb.errors import (
+    FieldValidationError,
+    InvalidArgument,
+    MultipleResultsFound,
+    ValidationError,
+)
 from lamindb.models.schema import get_related_name, validate_features
 
 
@@ -899,16 +905,74 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
     )
 
 
-def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
+@pytest.mark.parametrize("typed", [False, True])
+def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema, typed):
     feature1 = ln.Feature.get(name="perturbation")
     feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema = ln.Schema(features=[feature1, feature2]).save()
-    schema2 = ln.Schema(features=[feature1, feature2])
-    assert schema == schema2
-    schema.delete()
-    schema2 = ln.Schema(features=[feature1, feature2])
-    assert schema != schema2
-    schema.delete(permanent=True)
+    features = [feature1, feature2]
+    with transaction.atomic():
+        parent = ln.Schema(name="HashLookupType", is_type=True).save()
+        child = ln.Schema(name="HashLookupSubtype", is_type=True, type=parent).save()
+        scope = parent if typed else None
+        schema = ln.Schema(features, name="hash lookup schema", type=scope).save()
+        assert ln.Schema(features).uid == schema.uid
+        second = ln.Schema(features, name=schema.name, type=child).save()
+        schema.refresh_from_db()
+        assert schema.hash == second.hash
+        assert schema.uid != second.uid
+        assert schema.type_id == (parent.id if typed else None)
+        assert second.type_id == child.id
+        assert ln.Schema(features, type=scope).uid == schema.uid
+        assert ln.Schema(features, type=child).uid == second.uid
+        root = ln.Schema(features, type=None).save()
+        assert root.type_id is None
+        assert (root.uid != schema.uid) == typed
+        assert ln.Schema(features).save().uid == schema.uid
+        assert ln.Schema.from_values([f.name for f in features]).uid == schema.uid
+        frame = pd.DataFrame({f.name: [] for f in features})
+        assert ln.Schema.from_dataframe(frame).uid == schema.uid
+        assert ln.Schema(features, lookup=False)._state.adding
+        with pytest.raises(ValueError, match="saved"):
+            ln.Schema(features, type=ln.Schema(name="UnsavedType", is_type=True))
+
+        # Hash-changing saves check collisions within the schema's current type.
+        original_hash = schema.hash
+        for same_type in (True, False):
+            with transaction.atomic():
+                other = ln.Schema(
+                    features, coerce=True, type=scope if same_type else child
+                ).save()
+                schema.coerce = True
+                if same_type:
+                    with pytest.raises(ValidationError, match="same type scope"):
+                        schema.save()
+                    schema.refresh_from_db()
+                    assert schema.hash == original_hash
+                    assert not schema.coerce
+                else:
+                    schema.save()
+                    schema.refresh_from_db()
+                    assert schema.hash == other.hash
+                    assert schema.uid != other.uid
+                transaction.set_rollback(True)
+            schema.refresh_from_db()
+
+        # Moving a type preserves identity and can create an explicit-scope clash.
+        original_uid, original_hash = second.uid, second.hash
+        second.type = scope
+        second.save()
+        second.refresh_from_db()
+        assert (second.uid, second.hash) == (original_uid, original_hash)
+        with pytest.raises(MultipleResultsFound):
+            ln.Schema(features, type=scope)
+        assert ln.Schema(features).uid == schema.uid
+
+        schema.delete(permanent=False)
+        assert ln.Schema(features, type=scope).uid == second.uid
+        assert ln.Schema(features).uid == second.uid
+        second.delete(permanent=False)
+        assert ln.Schema(features, type=scope)._state.adding
+        transaction.set_rollback(True)
 
 
 def _hash_feature_type_schema(feature_type: ln.Feature) -> str:

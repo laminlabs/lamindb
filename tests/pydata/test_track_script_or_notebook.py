@@ -835,6 +835,7 @@ def test_notebook_to_script_notebooknode_metadata(tmp_path):
 class MockRun:
     def __init__(self, uid):
         self.uid = uid
+        self.space = ln_setup.settings.instance.storage.record.space
         self.report = None
         self.saved = False
 
@@ -944,6 +945,62 @@ def test_logstream_tracker_exception_handling():
         log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
         if log_path.exists():
             log_path.unlink()
+
+
+@pytest.mark.parametrize("kind", ["logs", "report", "environment"])
+def test_run_files_follow_run_space(
+    tmp_path, monkeypatch, isolated_space_settings, kind
+):
+    from lamindb.core._finish import save_context_core, save_run_logs
+
+    monkeypatch.setenv("LAMIN_CACHE_DIR", str(tmp_path / "cache"))
+    space = ln.Space(name=f"run-files-{time.time_ns()}").save()
+    storage = ln.Storage(root=tmp_path / "private").save()
+    ln.Storage.filter(id=storage.id).update(space_id=space.id)
+    transform = ln.Transform(key=f"run-files-{space.uid}").save()
+    run = ln.Run(transform=transform)
+    run.space = space
+    run.save()
+    source = tmp_path / "report.Rmd"
+    source.write_text("# Test report")
+    if kind == "logs":
+        path = ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt"
+    elif kind == "environment":
+        path = (
+            ln_setup.settings.cache_dir
+            / "environments"
+            / f"run_{run.uid}"
+            / "run_env_pip.txt"
+        )
+    else:
+        path = source.with_suffix(".html")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = f"run file for {space.uid}"
+    path.write_text(content)
+    monkeypatch.setattr(transform, "_update_source_code_from_path", lambda _: None)
+    field = "environment" if kind == "environment" else "report"
+    try:
+        if kind == "logs":
+            save_run_logs(run, save_run=True)
+        else:
+            save_context_core(
+                run=run, transform=transform, filepath=source, from_cli=True
+            )
+        run.refresh_from_db()
+        artifact = getattr(run, field)
+        assert artifact.space_id == space.id
+        assert artifact.storage_id == storage.id
+        assert artifact.path.read_text() == content
+    finally:
+        run.report = None
+        run.environment = None
+        run.save()
+        run.delete(permanent=True)
+        for artifact in ln.Artifact.filter(space=space):
+            artifact.delete(permanent=True, storage=True)
+        transform.delete(permanent=True)
+        storage.delete()
+        space.delete(permanent=True)
 
 
 def test_track_environment_pixi_lock_copied_when_detected(tmp_path, monkeypatch):
