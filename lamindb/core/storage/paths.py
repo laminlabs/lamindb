@@ -144,6 +144,21 @@ def store_file_or_folder(
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
+    # A `.lance` directory is an append-only version store. Copying it by
+    # replacing the destination would drop fragments written only there.
+    if local_path.suffix == ".lance" and local_path.is_dir():
+        from ._lance import continues_lance_dataset, store_lance_directory
+
+        # A new table, such as a later `from_dataframe()`, does not continue
+        # the dataset already stored here. Replacing that directory is unchanged.
+        if continues_lance_dataset(local_path, storage_path):
+            store_lance_directory(
+                local_path,
+                storage_path,
+                print_progress=print_progress,
+                **kwargs,
+            )
+            return None
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
         if local_path.is_dir():

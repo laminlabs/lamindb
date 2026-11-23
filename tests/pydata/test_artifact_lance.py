@@ -348,6 +348,107 @@ def test_record_current_lance_version_keeps_an_existing_pin(monkeypatch):
     assert lance_version(artifact) == 4
 
 
+def _stored_inodes(root: Path) -> dict[str, int]:
+    """Inodes of stored Lance files, excluding the mutable latest-version pointer."""
+    root = Path(root)
+    mutable = {"_versions/latest_version_hint.json", "_latest.manifest"}
+    return {
+        file.relative_to(root).as_posix(): file.stat().st_ino
+        for file in root.rglob("*")
+        if file.is_file() and file.relative_to(root).as_posix() not in mutable
+    }
+
+
+def test_lance_save_keeps_fragments_and_pins_manifest_hash(tmp_path: Path):
+    from lamindb.core.storage._lance import lance_manifest_path, lance_version
+    from lamindb_setup.core.hashing import hash_file
+
+    local = tmp_path / "cells.lance"
+    database = lancedb.connect(tmp_path.as_posix())
+    table = database.create_table("cells", _cells(["T cell"]))
+    key = "lance/incremental.lance"
+    artifact = ln.Artifact(local, key=key).save()
+    revised = None
+    try:
+        same = ln.Artifact(local, key=key).save()
+        assert same.uid == artifact.uid
+
+        stored = Path(artifact.path)
+        marker = stored / "remote-only.bin"
+        marker.write_bytes(b"remote-only")
+        before = _stored_inodes(stored)
+
+        table.add(_cells(["B cell"]), mode="append")
+        local_version = int(table.version)
+        del table
+        del database
+        revised = ln.Artifact(local, key=key).save()
+        artifact.refresh_from_db()
+
+        after = _stored_inodes(stored)
+        for relative, inode in before.items():
+            assert after[relative] == inode
+        assert marker.read_bytes() == b"remote-only"
+        assert not list(stored.rglob("*.tmp"))
+        assert lance_version(revised) == local_version
+        assert lance_version(artifact) != lance_version(revised)
+        assert artifact.lance.open().count_rows() == 1
+        assert revised.lance.open().count_rows() == 2
+
+        manifest = lance_manifest_path(stored, lance_version(artifact))
+        _, digest, _ = hash_file(Path(manifest))
+        assert artifact.hash == digest
+        hint = (stored / "_versions" / "latest_version_hint.json").read_text()
+        assert f'"version":{lance_version(revised)}' in hint.replace(" ", "")
+    finally:
+        if revised is not None:
+            revised.delete(permanent=True)
+        elif artifact is not None:
+            artifact.delete(permanent=True)
+
+
+def test_lance_save_of_older_copy_keeps_remote_fragment(tmp_path: Path):
+    from lamin_cli._save import save as lamin_save
+
+    local = tmp_path / "older.lance"
+    database = lancedb.connect(tmp_path.as_posix())
+    database.create_table("older", _cells(["T cell"]))
+    del database
+    key = "lance/older-copy.lance"
+    artifact = ln.Artifact(local, key=key).save()
+    revised = None
+    try:
+        stored = Path(artifact.path)
+        before = {
+            path.relative_to(stored).as_posix()
+            for path in stored.rglob("*")
+            if path.is_file()
+        }
+        revised = artifact.lance.add(_cells(["B cell"]))
+        artifact.refresh_from_db()
+        remote_only = {
+            path.relative_to(stored).as_posix()
+            for path in stored.rglob("*")
+            if path.is_file()
+        } - before
+        remote_only = {path for path in remote_only if path.startswith("data/")}
+        assert remote_only
+        assert all(not (local / relative).exists() for relative in remote_only)
+
+        versions = ln.Artifact.filter(key=key).count()
+        assert lamin_save(local, key=key) is None
+        assert ln.Artifact.filter(key=key).count() == versions
+        for relative in remote_only:
+            assert (stored / relative).is_file()
+        assert artifact.lance.open().count_rows() == 1
+        assert revised.lance.open().count_rows() == 2
+    finally:
+        if revised is not None:
+            revised.delete(permanent=True)
+        elif artifact is not None:
+            artifact.delete(permanent=True)
+
+
 def test_import_lancedb_missing_extra(monkeypatch):
     import builtins
 
