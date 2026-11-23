@@ -517,6 +517,8 @@ def clidocs(session):
                     else:
                         pyr_alt_string = ""
 
+                    if command_name == "evolve":
+                        page += "(cli-evolve)=\n\n"
                     page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring.strip()}\n"
@@ -524,6 +526,21 @@ def clidocs(session):
                     page += f"\n\nOptions:\n\n{command_block}\n\n"
                     if pyr_alt_string:
                         page += f"{pyr_alt_delimiter} {pyr_alt_string.strip()}\n\n"
+
+                    if command_name == "evolve":
+                        for nested_key, nested_help in helps.items():
+                            if not nested_key.startswith(full_key + " "):
+                                continue
+                            command = nested_key.replace("main", "lamin", 1)
+                            nested_options = normalize_help_usage(
+                                nested_help["help"].replace("Usage: main", "lamin")
+                            )
+                            description = (nested_help["docstring"] or "").split(
+                                "\n\n", 1
+                            )[0]
+                            page += f"::::{{dropdown}} {command}\n"
+                            page += f":name: cli-{command.removeprefix('lamin ').replace(' ', '-')}\n\n"
+                            page += f"{description}\n\n```text\n{nested_options}\n```\n::::\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []

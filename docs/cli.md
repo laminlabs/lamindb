@@ -650,6 +650,957 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.setup.merge`
 
+## Manage schemas
+
+(cli-evolve)=
+
+### evolve
+
+Manage schema plans, migrations, and repairs.
+
+Options:
+
+```text
+lamin evolve [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --version            Print the installed lamindb-setup evolution version and
+                       exit.
+  --log-queries        Log every SQL statement issued against an instance to
+                       stderr, with its duration, and a total when the command
+                       finishes. Use it to see which query a slow command is
+                       waiting on.
+  --project-root PATH  Directory plan files are imported relative to, so a
+                       plan can import another one by its full dotted path
+                       ('from plans.wetlab.plan_x import y'). Defaults to the
+                       nearest ancestor of each plan holding a
+                       lamin_schemas.yml, pyproject.toml or .git, else the
+                       plan's own directory. Pass this only when the plans are
+                       scattered or vendored outside such a root.
+  --profile PATH       Profile the command with pyinstrument and write the
+                       report here. A '.html' suffix produces the interactive
+                       flame view, anything else a plain-text tree. Needs the
+                       'profile' extra.
+  --help               Show this message and exit.
+
+Commands:
+  init               Scaffold a new plan file with a fresh transform stem...
+  validate           Finalize and render one or more plans offline (no...
+  plan               Show a read-only diff of what applying the plan(s)...
+  apply              Create the plan(s)' objects in the instance and...
+  destroy            Tear down the plan(s)' objects, refusing if any are...
+  introspect         Generate a plan file from an existing instance.
+  repair             Repair an instance: dangling objects, duplicates,...
+  utils              Miscellaneous helpers for authoring plans.
+  ci                 Run plan checks in CI from a lamin_schemas.yml...
+  prune-dangling     Deprecated alias for 'repair dangling'. (DEPRECATED)
+  remove-duplicates  Deprecated alias for 'repair duplicates'. (DEPRECATED)
+  verify-dtypes      Deprecated alias for 'repair dtypes'. (DEPRECATED)
+```
+
+::::{dropdown} lamin evolve init
+:name: cli-evolve-init
+
+Scaffold a new plan file with a fresh transform stem uid.
+
+```text
+lamin evolve init [OPTIONS] [NAME]
+
+Options:
+  -d, --output-dir, --directory PATH
+                                  Directory in which to create the new plan
+                                  file.  [default: .]
+  --add-uid PATH                  Deprecated: use 'lamin evolve utils add-uid
+                                  <plan>'. Add a stem uid to this existing
+                                  plan file instead of scaffolding.
+  --minimal                       Scaffold a bare plan without the commented
+                                  building-block examples.
+  -i, --instance TEXT             Instance(s) to check the generated uid
+                                  against for collisions. Repeat to require
+                                  the uid to be free on several instances.
+  --help                          Show this message and exit.
+
+Arguments:
+  NAME  Plan name, e.g. 'mynewplan' -> plan_mynewplan.py.
+```
+
+::::
+
+::::{dropdown} lamin evolve validate
+:name: cli-evolve-validate
+
+Finalize and render one or more plans offline (no instance connection).
+
+```text
+lamin evolve validate [OPTIONS] TARGETS...
+
+Options:
+  -a, --all-plans                 Include every plan defined in each provided
+                                  file, instead of a single plan per target.
+                                  Targets must be plain file paths without a
+                                  ':plan_variable' suffix.
+  -f, --format [terminal|markdown|json]
+                                  Output format: 'terminal' for colored output
+                                  (default), 'markdown' for a GitHub-flavored
+                                  fragment to post on a pull request, or
+                                  'json' for a machine-readable document to
+                                  pipe into a script.  [default: terminal]
+  -o, --output PATH               Also write the rendered document to this
+                                  file. Needs --format markdown or --format
+                                  json.
+  --help                          Show this message and exit.
+
+Arguments:
+  TARGETS  One or more plans to act on, each as
+           'path/to/plan.py:plan_variable' (the ':plan_variable' suffix is
+           optional when the file defines exactly one plan). When several are
+           given they are evaluated together: an object dropped from one plan
+           but still declared by another listed plan is treated as moved
+           between plans, not deleted.
+```
+
+::::
+
+::::{dropdown} lamin evolve plan
+:name: cli-evolve-plan
+
+Show a read-only diff of what applying the plan(s) would create.
+
+```text
+lamin evolve plan [OPTIONS] TARGETS...
+
+Options:
+  -i, --instance TEXT             LaminDB instance to act against, as
+                                  'account/instance'.  [required]
+  -f, --format [terminal|markdown|json]
+                                  Output format: 'terminal' for colored output
+                                  (default), 'markdown' for a GitHub-flavored
+                                  fragment to post on a pull request, or
+                                  'json' for a machine-readable document to
+                                  pipe into a script.  [default: terminal]
+  -o, --output PATH               Also write the rendered document to this
+                                  file. Needs --format markdown or --format
+                                  json.
+  --preview-migrations            Rehearse the apply inside a transaction that
+                                  is always rolled back: create what the plan
+                                  creates, run every declared ctx.migrate()
+                                  migration and its checks, and report the
+                                  outcome in the diff -- or fail as the apply
+                                  would. Nothing is persisted. Off by default
+                                  so the diff stays a pure read-only preview
+                                  that never runs migration code.
+  --strict-uids / --no-strict-uids
+                                  Judge an object whose uid differs from the
+                                  uid the plan's lock files for other
+                                  instances record as 'apply' does (default):
+                                  --fail-on-diff counts it as pending, and
+                                  --preview-migrations refuses to create an
+                                  object such a lock pins but something else
+                                  holds here. --no-strict-uids only reports
+                                  the misalignment and rehearses the apply
+                                  that creates the object with a fresh uid
+                                  instead.  [default: strict-uids]
+  --strict-renames / --no-strict-renames
+                                  Refuse to apply a delete+create that looks
+                                  like a rename not declared with ctx.moved
+                                  (default). Use --no-strict-renames to allow
+                                  it when the objects are genuinely distinct.
+                                  'plan' shows the diff and exits 1 wherever
+                                  'apply' would refuse; --no-strict-renames
+                                  only warns.  [default: strict-renames]
+  --allow-data-validated-changes  Allow a blocked validation-affecting change
+                                  to a feature when the live data proves it
+                                  safe: the feature has no stored values, or
+                                  every value validates against the new dtype.
+                                  Off by default. 'plan' then shows the diff
+                                  'apply --allow-data-validated-changes' would
+                                  apply.
+  --fail-on-diff                  Exit 1 once every plan is shown (and
+                                  --output written) when any of them has a
+                                  pending change of its own, or has a
+                                  misaligned uid 'apply' would refuse (see
+                                  --strict-uids). Off by default: only a
+                                  refusal fails the run.
+  --show-unchanged                List every object of the plan in the
+                                  terminal diff, unchanged ones included.
+  --help                          Show this message and exit.
+
+Arguments:
+  TARGETS  One or more plans to act on, each as
+           'path/to/plan.py:plan_variable' (the ':plan_variable' suffix is
+           optional when the file defines exactly one plan). When several are
+           given they are evaluated together: an object dropped from one plan
+           but still declared by another listed plan is treated as moved
+           between plans, not deleted.
+```
+
+::::
+
+::::{dropdown} lamin evolve apply
+:name: cli-evolve-apply
+
+Create the plan(s)' objects in the instance and write the lock file(s).
+
+```text
+lamin evolve apply [OPTIONS] TARGETS...
+
+Options:
+  -i, --instance TEXT             LaminDB instance to act against, as
+                                  'account/instance'.  [required]
+  -y, --yes                       Skip the confirmation prompt.
+  --strict-renames / --no-strict-renames
+                                  Refuse to apply a delete+create that looks
+                                  like a rename not declared with ctx.moved
+                                  (default). Use --no-strict-renames to allow
+                                  it when the objects are genuinely distinct.
+                                  With --config, 'strict_renames: false' there
+                                  allows it too.  [default: strict-renames]
+  --allow-data-validated-changes  Allow a blocked validation-affecting change
+                                  to a feature when the live data proves it
+                                  safe: the feature has no stored values, or
+                                  every value validates against the new dtype.
+                                  Off by default. With --config,
+                                  'allow_data_validated_changes: true' there
+                                  opts in too.
+  --strict-uids / --no-strict-uids
+                                  Refuse to apply while an object's uid
+                                  differs from the uid the plan's lock files
+                                  for other instances record (default); align
+                                  them with 'repair align-uids'. Use --no-
+                                  strict-uids (or, with --config,
+                                  'strict_uids: false' there) to apply anyway,
+                                  creating an object that cannot be pinned
+                                  with a fresh uid.  [default: strict-uids]
+  -f, --format [terminal|markdown|json]
+                                  Output format: 'terminal' for colored output
+                                  (default), 'markdown' for a GitHub-flavored
+                                  fragment to post on a pull request, or
+                                  'json' for a machine-readable document to
+                                  pipe into a script.  [default: terminal]
+  -o, --output PATH               Also write the rendered document to this
+                                  file. Needs --format markdown or --format
+                                  json.
+  -c, --config PATH               Path to a lamin_schemas.yml whose settings
+                                  this apply honours as 'ci apply' does: the
+                                  instance's 'track_space'/'track_prefix'
+                                  (falling back to the LAMIN_SCHEMA_EVOLUTION_
+                                  TRACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PRE
+                                  FIX env vars),
+                                  'allow_data_validated_changes' (ORed with
+                                  the flag), and
+                                  'strict_uids'/'strict_renames' (ANDed with
+                                  the flags).
+  --show-unchanged                List every object of the plan in the
+                                  terminal diff, unchanged ones included.
+  --help                          Show this message and exit.
+
+Arguments:
+  TARGETS  One or more plans to act on, each as
+           'path/to/plan.py:plan_variable' (the ':plan_variable' suffix is
+           optional when the file defines exactly one plan). When several are
+           given they are evaluated together: an object dropped from one plan
+           but still declared by another listed plan is treated as moved
+           between plans, not deleted.
+```
+
+::::
+
+::::{dropdown} lamin evolve destroy
+:name: cli-evolve-destroy
+
+Tear down the plan(s)' objects, refusing if any are referenced.
+
+```text
+lamin evolve destroy [OPTIONS] TARGETS...
+
+Options:
+  -i, --instance TEXT  LaminDB instance to act against, as 'account/instance'.
+                       [required]
+  --permanent          Delete irreversibly instead of moving objects to the
+                       trash.
+  --force              Permanently delete the blocking references first, then
+                       the targets. This destroys data that cannot be
+                       recovered.
+  --trash-references   Instead of refusing, move the blocking references that
+                       support it to the trash (recoverable) and trash the
+                       targets too. Link rows that cannot be trashed are left
+                       in place. Cannot be combined with --force or
+                       --permanent.
+  -y, --yes            Skip the confirmation prompt.
+  -c, --config PATH    Path to a lamin_schemas.yml: the destroy's run is
+                       recorded under the instance's
+                       'track_space'/'track_prefix' there, as 'apply -c' does
+                       (falling back to the LAMIN_SCHEMA_EVOLUTION_TRACK_SPACE
+                       /LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env vars).
+  --help               Show this message and exit.
+
+Arguments:
+  TARGETS  One or more plans to act on, each as
+           'path/to/plan.py:plan_variable' (the ':plan_variable' suffix is
+           optional when the file defines exactly one plan). When several are
+           given they are evaluated together: an object dropped from one plan
+           but still declared by another listed plan is treated as moved
+           between plans, not deleted.
+```
+
+::::
+
+::::{dropdown} lamin evolve introspect
+:name: cli-evolve-introspect
+
+Generate a plan file from an existing instance.
+
+```text
+lamin evolve introspect [OPTIONS] NAME
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  -d, --output-dir PATH     Directory to write the plan file into (default:
+                            the current directory).
+  -s, --space TEXT          Restrict introspection to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from introspection
+                            (repeat to add spaces); applied after --space.
+  --overwrite               Overwrite the output file if it already exists.
+  --no-verify               Skip verifying that applying the plan would make
+                            no changes.
+  --help                    Show this message and exit.
+
+Arguments:
+  NAME  Plan name; the file is written as 'plan_<name>.py'.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair
+:name: cli-evolve-repair
+
+Repair an instance: dangling objects, duplicates, broken dtypes, stranded values, sheet schemas and misaligned uids.
+
+```text
+lamin evolve repair [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  align-uids       Rewrite plan-managed uids on other instances to the...
+  dangling         Trash live objects that still reference deleted...
+  dtypes           Repair features whose stored dtype string is broken.
+  duplicates       Trash duplicate features and schemas, keeping the most...
+  sheet-schemas    Detach record types whose schema is a schema type.
+  stranded-values  Delete values left behind by a feature that was deleted.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair dangling
+:name: cli-evolve-repair-dangling
+
+Trash live objects that still reference deleted (trashed) objects.
+
+```text
+lamin evolve repair dangling [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  --permanent               Delete irreversibly instead of moving objects to
+                            the trash.
+  -s, --space TEXT          Restrict pruning to one or more space uids (repeat
+                            to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from pruning
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair duplicates
+:name: cli-evolve-repair-duplicates
+
+Trash duplicate features and schemas, keeping the most recent of each.
+
+```text
+lamin evolve repair duplicates [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  --permanent               Delete irreversibly instead of moving objects to
+                            the trash.
+  -s, --space TEXT          Restrict the scan to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from the scan
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair dtypes
+:name: cli-evolve-repair-dtypes
+
+Repair features whose stored dtype string is broken.
+
+```text
+lamin evolve repair dtypes [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  -s, --space TEXT          Restrict verification to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from verification
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair stranded-values
+:name: cli-evolve-repair-stranded-values
+
+Delete values left behind by a feature that was deleted.
+
+```text
+lamin evolve repair stranded-values [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  -s, --space TEXT          Restrict the scan to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from the scan
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair sheet-schemas
+:name: cli-evolve-repair-sheet-schemas
+
+Detach record types whose schema is a schema type.
+
+```text
+lamin evolve repair sheet-schemas [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  -s, --space TEXT          Restrict the scan to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from the scan
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve repair align-uids
+:name: cli-evolve-repair-align-uids
+
+Rewrite plan-managed uids on other instances to the source instance's.
+
+```text
+lamin evolve repair align-uids [OPTIONS] [TARGETS]...
+
+Options:
+  --source TEXT         Instance whose uids win, as 'account/instance'. Its
+                        lock files say which uids those are, and are checked
+                        against it before anything changes. It is only read.
+                        [required]
+  -i, --instance TEXT   Target instance to rewrite (repeat for several). With
+                        -c and no -i, every configured instance sharing plans
+                        with the source.
+  -c, --config PATH     lamin_schemas.yml to select targets and plans from,
+                        and to read each target's 'track_space' from.
+  --merge-duplicates    When a live record already holds the uid an object
+                        needs and is the same object (same kind, name, parent
+                        and shape -- e.g. a stub 'lamin io sync' created),
+                        merge it into the plan's object: move everything
+                        referencing it over, then delete it permanently.
+                        Likewise, when a schema no plan manages already holds
+                        the content of a plan's schema and is not an inferred
+                        schema (which is absorbed anyway), merge it into the
+                        plan's schema: move everything referencing it over,
+                        then move it to the trash.
+  --reassign-colliding  When a live record that cannot be merged holds the uid
+                        an object needs, give it a fresh uid instead; its
+                        references follow it.
+  -y, --yes             Skip the per-instance confirmation prompt.
+  --dry-run             Stop after each target's rolled-back preview: never
+                        prompt, change no instance or lock file and record no
+                        run. Lock files that are not committed are only noted.
+                        Exits 0 even when a real run would refuse. Cannot be
+                        combined with --yes.
+  --help                Show this message and exit.
+
+Arguments:
+  TARGETS  Plans to align, as 'path/to/plan.py[:plan_variable]'. Their
+           prerequisite plans are always included. Omit with -c to align every
+           plan the source shares with each target.
+```
+
+::::
+
+::::{dropdown} lamin evolve prune-dangling
+:name: cli-evolve-prune-dangling
+
+Deprecated alias for 'repair dangling'.
+
+```text
+lamin evolve prune-dangling [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  --permanent               Delete irreversibly instead of moving objects to
+                            the trash.
+  -s, --space TEXT          Restrict pruning to one or more space uids (repeat
+                            to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from pruning
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve remove-duplicates
+:name: cli-evolve-remove-duplicates
+
+Deprecated alias for 'repair duplicates'.
+
+```text
+lamin evolve remove-duplicates [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  --permanent               Delete irreversibly instead of moving objects to
+                            the trash.
+  -s, --space TEXT          Restrict the scan to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from the scan
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve verify-dtypes
+:name: cli-evolve-verify-dtypes
+
+Deprecated alias for 'repair dtypes'.
+
+```text
+lamin evolve verify-dtypes [OPTIONS]
+
+Options:
+  -i, --instance TEXT       LaminDB instance to act against, as
+                            'account/instance'.  [required]
+  -s, --space TEXT          Restrict verification to one or more space uids
+                            (repeat to add spaces).
+  -x, --exclude-space TEXT  Exclude one or more space uids from verification
+                            (repeat to add spaces); applied after --space.
+  -y, --yes                 Skip the confirmation prompt.
+  --dry-run                 Print the report and stop: never prompt, change
+                            nothing and record no run. Exits 0 even when a
+                            real run would refuse. Cannot be combined with
+                            --yes.
+  -c, --config PATH         Path to a lamin_schemas.yml: the repair's run is
+                            recorded under the instance's
+                            'track_space'/'track_prefix' there, as 'apply -c'
+                            does (falling back to the LAMIN_SCHEMA_EVOLUTION_T
+                            RACK_SPACE/LAMIN_SCHEMA_EVOLUTION_TRACK_PREFIX env
+                            vars).
+  --help                    Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve utils
+:name: cli-evolve-utils
+
+Miscellaneous helpers for authoring plans.
+
+```text
+lamin evolve utils [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  add-uid            Add a transform stem uid to an existing plan file.
+  fingerprint        Fingerprint one or more plans to prove a refactor is...
+  generate-stem-uid  Generate one or more fresh 12-character base62...
+```
+
+::::
+
+::::{dropdown} lamin evolve utils add-uid
+:name: cli-evolve-utils-add-uid
+
+Add a transform stem uid to an existing plan file.
+
+```text
+lamin evolve utils add-uid [OPTIONS] PLAN
+
+Options:
+  -i, --instance TEXT  Instance(s) to check the generated uid against for
+                       collisions. Repeat to require the uid to be free on
+                       several instances.
+  --help               Show this message and exit.
+
+Arguments:
+  PLAN  Existing plan file to add a PLAN_TRANSFORM_STEM_UID to.
+```
+
+::::
+
+::::{dropdown} lamin evolve utils generate-stem-uid
+:name: cli-evolve-utils-generate-stem-uid
+
+Generate one or more fresh 12-character base62 transform stem uids.
+
+```text
+lamin evolve utils generate-stem-uid [OPTIONS]
+
+Options:
+  -i, --instance TEXT        Instance(s) to check the generated uid(s) against
+                             for collisions. Repeat to require the uids to be
+                             free on several instances.
+  -n, --count INTEGER RANGE  Number of stem uids to generate.  [default: 1;
+                             x>=1]
+  --help                     Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve utils fingerprint
+:name: cli-evolve-utils-fingerprint
+
+Fingerprint one or more plans to prove a refactor is drift-free.
+
+```text
+lamin evolve utils fingerprint [OPTIONS] TARGETS...
+
+Options:
+  -b, --baseline PATH  Compare the plans against this captured fingerprint and
+                       exit non-zero on drift, instead of capturing a new one.
+  -o, --output PATH    Write the captured fingerprint JSON here (printed to
+                       stdout when omitted); also honored in --baseline mode
+                       to save the current one.
+  --help               Show this message and exit.
+
+Arguments:
+  TARGETS  One or more plans to fingerprint, each as
+           'path/to/plan.py:plan_variable' (the ':plan_variable' suffix is
+           optional when the file defines exactly one plan). Pass every plan
+           the refactor involves: their fingerprints are combined into one.
+```
+
+::::
+
+::::{dropdown} lamin evolve ci
+:name: cli-evolve-ci
+
+Run plan checks in CI from a lamin_schemas.yml configuration.
+
+```text
+lamin evolve ci [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  apply            Apply the configured plans to their instances from the...
+  drift            Detect drift across the configured instances for...
+  missing-exports  Report the full closure of tracked objects that plans...
+  plan             Validate the configured plans and diff them against...
+  verify-config    Verify every committed plan is referenced or...
+```
+
+::::
+
+::::{dropdown} lamin evolve ci plan
+:name: cli-evolve-ci-plan
+
+Validate the configured plans and diff them against their instances.
+
+```text
+lamin evolve ci plan [OPTIONS]
+
+Options:
+  -c, --config PATH               Path to the CI configuration file (default:
+                                  lamin_schemas.yml).  [default:
+                                  lamin_schemas.yml]
+  --changed TEXT                  Restrict the check to these changed plan
+                                  files (repeat to add files).
+  -i, --instance TEXT             Restrict the run to this configured instance
+                                  (repeat for several); intersects with
+                                  --changed.
+  -o, --output PATH               Write the Markdown report to this file
+                                  (always also printed).
+  --fail-on-diff                  Exit non-zero when any instance would see
+                                  changes, not only on errors.
+  --strict-uids / --no-strict-uids
+                                  Count an object whose uid differs from the
+                                  uid the plan's lock files for other
+                                  instances record as pending, since apply
+                                  refuses it (default). --no-strict-uids, or
+                                  'strict_uids: false' in the config, only
+                                  reports it, matching what 'ci apply' then
+                                  does.  [default: strict-uids]
+  --strict-renames / --no-strict-renames
+                                  Refuse to apply a delete+create that looks
+                                  like a rename not declared with ctx.moved
+                                  (default). Use --no-strict-renames to allow
+                                  it when the objects are genuinely distinct.
+                                  'ci plan' reports it as an error for that
+                                  plan and instance, failing the run as 'ci
+                                  apply' would fail; --no-strict-renames, or
+                                  'strict_renames: false' in the config, only
+                                  warns.  [default: strict-renames]
+  --allow-data-validated-changes  Allow a blocked validation-affecting change
+                                  to a feature when the live data proves it
+                                  safe: the feature has no stored values, or
+                                  every value validates against the new dtype.
+                                  Off by default.
+                                  'allow_data_validated_changes: true' in the
+                                  config opts in too; either way the diff is
+                                  the one 'ci apply' applies with the same
+                                  setting.
+  --preview-migrations            Rehearse each instance's configured plans,
+                                  dependencies-first as 'ci apply' runs them,
+                                  in one transaction that is always rolled
+                                  back: run every declared ctx.migrate()
+                                  migration and its checks, and report the
+                                  outcome under each diff -- or record the
+                                  failure for that plan and instance, as 'ci
+                                  apply' would fail. The rehearsal attempts
+                                  writes, so the CI account needs write access
+                                  to the instances; nothing is persisted and
+                                  no lock file is written.
+                                  'preview_migrations: true' in the config
+                                  opts in too.
+  --help                          Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve ci apply
+:name: cli-evolve-ci-apply
+
+Apply the configured plans to their instances from the configuration.
+
+```text
+lamin evolve ci apply [OPTIONS]
+
+Options:
+  -c, --config PATH               Path to the CI configuration file (default:
+                                  lamin_schemas.yml).  [default:
+                                  lamin_schemas.yml]
+  --changed TEXT                  Restrict the apply to the instances that
+                                  have at least one of these changed plan
+                                  files (repeat to add files).
+  -i, --instance TEXT             Restrict the run to this configured instance
+                                  (repeat for several); intersects with
+                                  --changed.
+  --strict-renames / --no-strict-renames
+                                  Refuse to apply a delete+create that looks
+                                  like a rename not declared with ctx.moved
+                                  (default). Use --no-strict-renames to allow
+                                  it when the objects are genuinely distinct.
+                                  'strict_renames: false' in the config allows
+                                  it too.  [default: strict-renames]
+  --allow-data-validated-changes  Allow a blocked validation-affecting change
+                                  to a feature when the live data proves it
+                                  safe: the feature has no stored values, or
+                                  every value validates against the new dtype.
+                                  Off by default.
+                                  'allow_data_validated_changes: true' in the
+                                  config opts in too.
+  --strict-uids / --no-strict-uids
+                                  Refuse to apply while an object's uid
+                                  differs from the uid the plan's lock files
+                                  for other instances record (default). --no-
+                                  strict-uids, or 'strict_uids: false' in the
+                                  config, applies anyway.  [default: strict-
+                                  uids]
+  -f, --format [terminal|markdown|json]
+                                  Output format: 'terminal' for colored output
+                                  (default), 'markdown' for a GitHub-flavored
+                                  fragment to post on a pull request, or
+                                  'json' for a machine-readable document to
+                                  pipe into a script.  [default: terminal]
+  -o, --output PATH               Also write the rendered document to this
+                                  file. Needs --format markdown or --format
+                                  json.
+  --help                          Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve ci drift
+:name: cli-evolve-ci-drift
+
+Detect drift across the configured instances for scheduled runs.
+
+```text
+lamin evolve ci drift [OPTIONS]
+
+Options:
+  -c, --config PATH           Path to the CI configuration file (default:
+                              lamin_schemas.yml).  [default:
+                              lamin_schemas.yml]
+  -i, --instance TEXT         Restrict the run to this configured instance
+                              (repeat for several).
+  -d, --output-dir PATH       Directory to write each instance's drift plan
+                              into (default: 'drift_output_dir' from the
+                              config, else the current dir).
+  -o, --output PATH           Write the Markdown drift report to this file
+                              (always also printed).
+  --exit-zero                 Always exit 0, even when drift is detected.
+  --format-max-chars INTEGER  Truncate the rendered report to at most this
+                              many characters (e.g. to fit GitHub's issue-body
+                              limit).
+  --github-issue              Deprecated: use '--format-max-chars'. Condense
+                              the report to fit GitHub's issue-body character
+                              limit.
+  --help                      Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve ci missing-exports
+:name: cli-evolve-ci-missing-exports
+
+Report the full closure of tracked objects that plans must export.
+
+```text
+lamin evolve ci missing-exports [OPTIONS]
+
+Options:
+  -c, --config PATH             Path to the CI configuration file (default:
+                                lamin_schemas.yml).  [default:
+                                lamin_schemas.yml]
+  --changed TEXT                Restrict to the instances that declare these
+                                plan files (repeat).
+  -i, --instance TEXT           Restrict the run to this configured instance
+                                (repeat for several); intersects with
+                                --changed.
+  -o, --output PATH             Write the report to this file (always also
+                                printed).
+  -f, --format [markdown|json]  Output format: 'markdown' (default) for a
+                                report, or 'json' payload.  [default:
+                                markdown]
+  --json                        Deprecated: use '--format json'. Emit a JSON
+                                payload.
+  --fail-on-missing             Exit non-zero when any object still needs
+                                exporting.
+  --help                        Show this message and exit.
+```
+
+::::
+
+::::{dropdown} lamin evolve ci verify-config
+:name: cli-evolve-ci-verify-config
+
+Verify every committed plan is referenced or explicitly ignored.
+
+```text
+lamin evolve ci verify-config [OPTIONS]
+
+Options:
+  -c, --config PATH  Path to the CI configuration file (default:
+                     lamin_schemas.yml).  [default: lamin_schemas.yml]
+  -o, --output PATH  Write the Markdown report to this file (always also
+                     printed).
+  --help             Show this message and exit.
+```
+
+::::
+
 ## Track agents & shell scripts
 
 ### track
