@@ -2070,6 +2070,16 @@ def test_record_feature_values_through_validation_no_symmetric_config():
         name="values-self-pointing", dtype=list[ln.Record]
     ).save()
 
+    plain = ln.Feature(name="values-plain", dtype=str).save()
+    with pytest.raises(AssertionError, match="Record, Artifact, or Run"):
+        ln.Feature(
+            name="values-not-a-link", dtype=ln.Artifact, values_through=plain
+        ).save()
+    with pytest.raises(AssertionError, match="list\\[Record\\]"):
+        ln.Feature(
+            name="values-scalar-record", dtype=ln.Record, values_through=source
+        ).save()
+
     with pytest.raises(
         AssertionError,
         match="cannot point to itself",
@@ -2105,6 +2115,7 @@ def test_record_feature_values_through_validation_no_symmetric_config():
     related.delete(permanent=True)
     target.delete(permanent=True)
     source.delete(permanent=True)
+    plain.delete(permanent=True)
 
 
 def test_record_from_dataframe_requires_named_type():
