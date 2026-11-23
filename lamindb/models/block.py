@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models import (
     CASCADE,
     PROTECT,
+    RESTRICT,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -24,7 +25,7 @@ from .collection import Collection
 from .feature import Feature
 from .project import Project
 from .record import Record
-from .run import Run, User, current_user_id
+from .run import Run, User, current_run, current_user_id
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -32,6 +33,7 @@ from .sqlrecord import (
     IsVersioned,
     Space,
     SQLRecord,
+    get_branch_id_for_create,
     init_self_from_db,
     pop_space_branch_kwargs,
     update_attributes,
@@ -120,26 +122,43 @@ def _init_versioned_attached_block(
         )
         return None
     # kind == "readme" (versioned)
-    if revises is None and fk_value is not None:
-        candidate_for_revises = (
-            cls.objects.using(using)
-            .filter(
-                **{fk_field_name: fk_value},
-                kind=kind,
-                is_latest=True,
-            )
-            .order_by("-created_at")
-            .first()
+    inferred_revises = revises is None
+    if revises is None:
+        candidates = cls.objects.using(using).filter(
+            **{fk_field_name: fk_value}, kind=kind, is_latest=True
         )
-        if candidate_for_revises is not None:
-            revises = candidate_for_revises
+        if cls.__name__ == "RecordBlock":
+            branch_id = get_branch_id_for_create(
+                extra_kwargs.get("branch"), extra_kwargs.get("branch_id")
+            )
+            revises = (
+                candidates.filter(branch_id=branch_id)
+                .order_by("-created_at", "-id")
+                .first()
+            )
+            if revises is None and branch_id != 1:
+                revises = (
+                    candidates.filter(branch_id=1)
+                    .order_by("-created_at", "-id")
+                    .first()
+                )
+        else:
+            revises = candidates.order_by("-created_at").first()
+        if revises is not None:
             content_blank = getattr(revises, "content", None) in (None, "")
-            if content_blank:
+            if content_blank and (cls.__name__ != "RecordBlock" or not content):
                 logger.important(
                     "no content was yet saved, returning existing "
                     f"block with same {fk_field_name} and kind"
                 )
                 uid = revises.uid
+    if cls.__name__ == "RecordBlock" and revises is not None:
+        if not isinstance(revises, cls):
+            raise TypeError("`revises` must be a RecordBlock")
+        if revises.record_id != fk_value.id or revises.kind != kind:
+            raise ValueError("`revises` must belong to the same record and kind")
+        if uid is not None and not uid.startswith(revises.stem_uid):
+            raise ValueError("The new uid must belong to the revised version family")
     block_hash = hash_string(content) if content else None
     if (
         revises is not None
@@ -169,6 +188,7 @@ def _init_versioned_attached_block(
         kind=kind,
         version_tag=version_tag,
         revises=revises,
+        _refresh_revises_if_stale=inferred_revises and cls.__name__ == "RecordBlock",
         **{fk_field_name: fk_value},
         **extra_kwargs,
     )
@@ -411,9 +431,23 @@ class RecordBlock(BaseBlock, BaseSQLRecord, HasBranch):
 
     record: Record = ForeignKey(Record, CASCADE, related_name="ablocks")
     """The record to which the block is attached."""
+    previous_version: RecordBlock | None = ForeignKey(
+        "self", RESTRICT, null=True, related_name="next_versions"
+    )
+    """Exact note version revised by this version; unknown for legacy versions."""
+    run: Run | None = ForeignKey(
+        Run,
+        PROTECT,
+        null=True,
+        default=current_run,
+        related_name="output_record_blocks",
+    )
+    """Run that created this version; existing versions retain their attribution."""
 
     def __init__(self, *args, **kwargs):
-        _init_versioned_attached_block(self, "record", *args, **kwargs)
+        _init_versioned_attached_block(
+            self, "record", *args, allowed_extra=("run", "run_id"), **kwargs
+        )
 
 
 class ArtifactBlock(BaseBlock, BaseSQLRecord, HasBranch):
