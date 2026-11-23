@@ -371,6 +371,14 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
+        if report_path is not None and save_source_code_and_report:
+            source = filepath.read_text()
+            if redact(source, "source") != source:
+                logger.warning(
+                    "skipping run attachment: source contains detected secrets and "
+                    "the rendered R report cannot be safely redacted"
+                )
+                report_path = None
     elif notebook_runner == "marimo":
         ipynb_path = (
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name

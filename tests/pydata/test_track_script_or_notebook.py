@@ -1011,20 +1011,24 @@ def test_notebook_report_redacts_source(
     assert path.read_bytes() == original
 
 
-@pytest.mark.parametrize("has_secret", [False, True])
+@pytest.mark.parametrize(
+    "source, rendered, has_secret",
+    [
+        ('value = "ordinary_value"', 'value = "ordinary_value"', False),
+        ('api_key = "REPORT_SECRET_123"', 'api_key = "REPORT_SECRET_123"', True),
+        ('api_key = "REPORT_SECRET_123"', "REPORT_SECRET_123", True),
+    ],
+)
 @pytest.mark.parametrize("existing_report", [False, True, "duplicate"])
 def test_r_report_skips_secrets(
-    tmp_path, monkeypatch, ccaplog, has_secret, existing_report
+    tmp_path, monkeypatch, ccaplog, source, rendered, has_secret, existing_report
 ):
     from lamindb.core._finish import save_context_core
 
     path = tmp_path / ("report.qmd" if existing_report else "report.Rmd")
-    source = (
-        'api_key = "REPORT_SECRET_123"' if has_secret else 'value = "ordinary_value"'
-    )
     path.write_text(f"```{{r}}\n{source}\n```\n")
     report = path.with_suffix(".html")
-    report.write_text(f"<html><body><pre>{source}</pre></body></html>")
+    report.write_text(f"<html><body><pre>{rendered}</pre></body></html>")
     original = report.read_bytes()
     run = MagicMock(
         uid="report-redaction-test", report_id=1 if existing_report else None
