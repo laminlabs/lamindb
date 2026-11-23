@@ -517,8 +517,6 @@ def clidocs(session):
                     else:
                         pyr_alt_string = ""
 
-                    if command_name == "evolve":
-                        page += "(cli-evolve)=\n\n"
                     page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring.strip()}\n"

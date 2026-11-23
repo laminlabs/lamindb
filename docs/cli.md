@@ -652,8 +652,6 @@ Options:
 
 ## Manage schemas
 
-(cli-evolve)=
-
 ### evolve
 
 Manage schema plans, migrations, and repairs.

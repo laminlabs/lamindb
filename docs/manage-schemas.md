@@ -183,6 +183,6 @@ These are declaration objects from {mod}`lamindb.evolve`, distinct from the data
 | Migrate stored data  | Use `ctx.migrate()` to backfill values, convert types, or update seeded records.                                           |
 | Remove definitions   | Remove a declaration. References or retained values can require a removal policy. Seeded records require explicit removal. |
 
-See the {mod}`Python reference <lamindb.evolve>` for declarations, migration helpers, and tracking settings, and the {ref}`CLI reference <cli-evolve>` for command options, repairs, introspection, and CI workflows.
+See the {mod}`Python reference <lamindb.evolve>` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
 
 To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.
