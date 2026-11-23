@@ -87,16 +87,6 @@ Define features & schemas to validate artifacts & records.
    Feature
    Schema
 
-Schema management
-=================
-
-Define, review, and apply changes to metadata schemas.
-
-.. autosummary::
-   :toctree: .
-
-   evolve
-
 Managing operations
 ===================
 
@@ -167,7 +157,7 @@ from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
-from . import base, errors, evolve, setup
+from . import base, errors, setup
 
 _check_instance_setup(from_module="lamindb")
 
@@ -242,7 +232,6 @@ __all__ = [
     "examples",
     "errors",
     "setup",
-    "evolve",
     # low-level functionality
     "base",
     "core",

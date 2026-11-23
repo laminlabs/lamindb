@@ -9,9 +9,9 @@ import pytest
 @pytest.mark.parametrize(
     "statement",
     [
-        "from lamindb import evolve",
-        "import lamindb.evolve as evolve",
-        "evolve = ln.evolve",
+        "from lamindb.setup import evolve",
+        "import lamindb.setup.evolve as evolve",
+        "evolve = ln.setup.evolve",
     ],
 )
 def test_evolve_imports_share_plan_declarations(tmp_path, statement):
@@ -31,7 +31,8 @@ settings._instance_settings = InstanceSettings(
     id=UUID(int=0), owner="none", name="none", storage=None, modules="bionty,pertdb"
 )
 import lamindb as ln
-assert ln.evolve is sys.modules["lamindb.evolve"]
+assert not hasattr(ln, "evolve")
+assert "lamindb_setup.evolve" not in sys.modules
 """
     code += (
         statement
@@ -39,7 +40,7 @@ assert ln.evolve is sys.modules["lamindb.evolve"]
 import lamindb_setup.evolve as backend
 assert evolve.FeatureType is backend.FeatureType
 assert evolve.create_plan is backend.create_plan
-assert ln.evolve is evolve
+assert ln.setup.evolve is evolve
 
 @evolve.create_plan
 def measurements(ctx: backend.PlanContext, exports: None) -> None:

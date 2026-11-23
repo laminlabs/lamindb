@@ -725,7 +725,7 @@ Commands:
   verify-dtypes      Deprecated alias for 'repair dtypes'. (DEPRECATED)
 ```
 
-→ Python/R alternative: {mod}`lamindb.evolve`
+→ Python/R alternative: {mod}`lamindb.setup.evolve`
 
 ## Track agents & shell scripts
 
