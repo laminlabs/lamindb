@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import builtins
-import re
+from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
@@ -114,22 +114,21 @@ def load_zarr(storepath, **kwargs):  # type: ignore
 
 
 def load_html(path: Path | str) -> None | Path | str:
-    """Display `.html` in ipython, otherwise return path."""
+    """Display `.html` in a sandboxed iframe in IPython, otherwise return path."""
     if is_run_from_ipython:
         path_sanitized = Path(path)
         with path_sanitized.open(encoding="utf-8") as f:
             html_content = f.read()
-        # Extract the body content using regular expressions
-        body_content = re.findall(
-            r"<body(?:.*?)>(?:.*?)</body>", html_content, re.DOTALL
-        )
-        # Remove any empty body tags
-        if body_content:
-            body_content = body_content[0]
-            body_content = body_content.strip()  # type: ignore
         from IPython.display import HTML, display
 
-        display(HTML(data=body_content))
+        # Keep report scripts isolated from the notebook: never allow-same-origin.
+        display(
+            HTML(
+                '<iframe sandbox="allow-scripts" title="HTML report" '
+                'style="width:100%;height:500px;border:0" '
+                f'srcdoc="{escape(html_content, quote=True)}"></iframe>'
+            )
+        )
         return None
     else:
         return path
