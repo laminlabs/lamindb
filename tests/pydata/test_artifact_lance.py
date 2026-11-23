@@ -36,7 +36,7 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         assert artifact.otype == "DataFrame"
         assert artifact.kind == "dataset"
         assert artifact.n_observations == 3
-        assert artifact.overwrite_versions is True
+        assert artifact._store_under_stem_uid is True
         assert artifact.path.name == f"{artifact.stem_uid}.lance"
         assert artifact.path.is_dir()
 
@@ -87,8 +87,8 @@ def test_lance_table_roundtrip_filter_schema_and_versions(tmp_path: Path):
         artifact.refresh_from_db()
         assert revised.path == previous_path
         assert revised.n_observations == 2
-        assert revised.overwrite_versions is True
-        assert artifact.overwrite_versions is True
+        assert revised._store_under_stem_uid is True
+        assert artifact._store_under_stem_uid is True
         assert not artifact.is_latest
         assert revised.lance.open().count_rows() == 2
         with pytest.raises(ValueError, match="overwritten"):
@@ -124,8 +124,8 @@ def test_lance_add_keeps_one_directory_and_pins_versions():
         assert revised.is_latest
         assert not artifact.is_latest
         assert revised.n_observations == 2
-        assert artifact.overwrite_versions
-        assert revised.overwrite_versions
+        assert artifact._store_under_stem_uid
+        assert revised._store_under_stem_uid
         assert artifact.lance.open().count_rows() == 1
         assert revised.lance.open().count_rows() == 2
         with pytest.raises(ValueError, match="overwritten"):

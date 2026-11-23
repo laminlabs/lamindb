@@ -28,7 +28,7 @@ def auto_storage_key_from_artifact(artifact: Artifact):
     key = artifact.key
     if key is None or artifact._key_is_virtual:
         return auto_storage_key_from_artifact_uid(
-            artifact.uid, artifact.suffix, artifact.overwrite_versions
+            artifact.uid, artifact.suffix, artifact._single_path_across_versions
         )
     return artifact.key
 
