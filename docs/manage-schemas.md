@@ -169,8 +169,6 @@ These are declaration objects from {mod}`lamindb.setup.evolve`, distinct from th
 | `Sheet`       | Define a record type whose rows follow a schema.                                                                                             |
 | `Record`      | Seed a named record, such as a vocabulary term. Existing records require an explicit `update_record` declaration for their values to change. |
 
-`SchemaModel` provides an alternative way to declare schemas using Python annotations. `LaminDType` and the categorical helpers describe the feature dtypes.
-
 ### Kinds of changes
 
 | Change               | Example and handling                                                                                                       |

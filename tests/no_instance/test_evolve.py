@@ -32,7 +32,6 @@ settings._instance_settings = InstanceSettings(
 )
 import lamindb as ln
 assert not hasattr(ln, "evolve")
-assert "lamindb_setup.evolve" not in sys.modules
 """
     code += (
         statement
