@@ -1814,18 +1814,26 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         )
         configured_dtype = parse_dtype(self._dtype_str)
         source_dtype = parse_dtype(values_through._dtype_str)
+        link_registries = {"Record", "Artifact", "Run"}
+        configured_registry = None
+        if len(configured_dtype) == 1:
+            configured_registry = configured_dtype[0].get("registry_str")
+        source_registry = None
+        if len(source_dtype) == 1:
+            source_registry = source_dtype[0].get("registry_str")
         assert (
-            len(configured_dtype) == 1
-            and len(source_dtype) == 1
-            and configured_dtype[0].get("registry_str") == "Record"
-            and source_dtype[0].get("registry_str") == "Record"
+            configured_registry in link_registries
+            and source_registry in link_registries
         ), (
-            "Feature(..., values_through=...) requires both features to have a Record dtype"
+            "Feature(..., values_through=...) requires both features to have a "
+            "Record, Artifact, or Run dtype"
         )
-        assert configured_dtype[0].get("list", False), (
-            "Feature(..., values_through=...) requires the configured feature "
-            "to have a list[Record] dtype"
-        )
+        # Reverse record relations are many-valued. Artifact and Run may be scalar.
+        if configured_registry == "Record":
+            assert configured_dtype[0].get("list", False), (
+                "Feature(..., values_through=...) requires the configured feature "
+                "to have a list[Record] dtype"
+            )
 
     def _clear_values_feature_pair(self) -> None:
         source_uid = self._values_feature_uid

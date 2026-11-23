@@ -164,6 +164,12 @@ def test_feature_values_through_roundtrip():
     )
     assert get_feature_values_through_source_uid(books_feature) == author_feature.uid
     books_feature.save()
+    # Artifact and Run are valid values_through dtypes, including scalar targets.
+    link_dtypes = (
+        ("values-from-coverage", ln.Artifact, "values-from-commit", ln.Record),
+        ("values-from-run-report", ln.Run, "values-from-run", ln.Run),
+    )
+    extra_features = []
     try:
         assert books_feature._aux["vf"] == author_feature.uid
         assert books_feature.values_through.uid == author_feature.uid
@@ -171,6 +177,14 @@ def test_feature_values_through_roundtrip():
         assert author_feature.related_feature.uid == books_feature.uid
         reloaded_books_feature = ln.Feature.get(uid=books_feature.uid)
         assert reloaded_books_feature.values_through.uid == author_feature.uid
+        for derived_name, derived_dtype, source_name, source_dtype in link_dtypes:
+            source = ln.Feature(name=source_name, dtype=source_dtype).save()
+            extra_features.append(source)
+            derived = ln.Feature(
+                name=derived_name, dtype=derived_dtype, values_through=source
+            ).save()
+            extra_features.append(derived)
+            assert derived.values_through.uid == source.uid
 
         # Derived features cannot be used for ordering, including after reload.
         for model in (ln.Artifact, ln.Run, ln.Record):
@@ -197,6 +211,8 @@ def test_feature_values_through_roundtrip():
                 values_through=author_feature,
             )
     finally:
+        for feature in reversed(extra_features):
+            feature.delete(permanent=True)
         books_feature.delete(permanent=True)
         author_feature.delete(permanent=True)
 
