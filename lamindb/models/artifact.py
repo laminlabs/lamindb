@@ -1004,18 +1004,20 @@ def _validated_external_features(
     refused when no feature values are available. Content schemas are rejected
     before this runs.
     """
-    from lamindb.curators.core import (
-        DictCurator,
-        validate_external_features,
-        validate_external_schema,
-    )
-
     if schema is None:
         return features
     external_only = is_external_only_schema(schema)
     flat_external = otype is None and is_flat_feature_schema(schema)
     if features is None and not external_only and not flat_external:
         return None
+
+    # Curators import numpy. Blob artifacts have no schema, so keep that import
+    # off the `lamin save` path.
+    from lamindb.curators.core import (
+        DictCurator,
+        validate_external_features,
+        validate_external_schema,
+    )
 
     annotation_schema = external_slot_schema(schema) if external_only else schema
     members = list(annotation_schema.members)
