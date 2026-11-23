@@ -269,6 +269,17 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - name: save coverage artifact
+        env:
+          LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
+        run: |
+          uv pip install --system .
+          lamin login
+          lamin connect laminlabs/lamindb-dev
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          lamin save coverage.xml \
+            --key coverage/lamindb/coverage.xml \
+            --description "Coverage report for ${GITHUB_REPOSITORY} ${GITHUB_EVENT_NAME} ${ref} @ ${GITHUB_SHA} (${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
 
   dispatch:
     if: ${{ github.event_name == 'push' }}
