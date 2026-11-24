@@ -722,8 +722,6 @@ Commands:
   ci          Run plan checks in CI from a lamin_schemas.yml configuration.
 ```
 
-→ Python alternative: {mod}`lamindb.setup.evolve`
-
 ## Track agents & shell scripts
 
 ### track
