@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from lamindb_setup.core.hashing import hash_file
@@ -156,9 +156,9 @@ def _manifest_version(relative_path: str) -> int | None:
     """Return the Lance version encoded in a manifest's relative path."""
     prefix = "_versions/"
     suffix = ".manifest"
-    if not relative_path.startswith(prefix) or not relative_path.endswith(suffix):
-        return None
-    stem = relative_path[len(prefix) : -len(suffix)]
+    stem = ""
+    if relative_path.startswith(prefix) and relative_path.endswith(suffix):
+        stem = relative_path[len(prefix) : -len(suffix)]
     if not stem.isdigit():
         return None
     number = int(stem)
@@ -190,38 +190,24 @@ def hash_lance_directory(path: Any) -> tuple[int, str, str, int]:
 
 
 def _hash_manifest(manifest: Any) -> tuple[int, str, str]:
-    if isinstance(manifest, LocalPathClasses):
-        return hash_file(Path(manifest))
+    # `hash_file` reads a local path. A cloud manifest is copied there first.
+    # Both use this path: `Path.read_bytes` and `UPath.read_bytes`.
+    data = manifest.read_bytes()
     with tempfile.TemporaryDirectory() as directory:
         target = Path(directory) / "manifest"
-        manifest.download_to(target, print_progress=False)
+        target.write_bytes(data)
         return hash_file(target)
 
 
 def _directory_size(path: Any) -> tuple[int, int]:
-    if isinstance(path, LocalPathClasses):
-        size = 0
-        n_files = 0
-        for file in Path(path).rglob("*"):
-            if file.is_file():
-                n_files += 1
-                size += file.stat().st_size
-        return size, n_files
-
     size = 0
     n_files = 0
-    for stat in path.fs.find(path.as_posix(), detail=True).values():
-        if _is_directory_marker(stat):
-            continue
-        n_files += 1
-        size += int(stat.get("size") or 0)
+    root = Path(path) if isinstance(path, LocalPathClasses) else path
+    for file in root.rglob("*"):
+        if file.is_file():
+            n_files += 1
+            size += file.stat().st_size
     return size, n_files
-
-
-def _is_directory_marker(stat: dict) -> bool:
-    if stat.get("type") == "directory":
-        return True
-    return stat.get("size") == 0 and str(stat.get("name", "")).endswith("/")
 
 
 def _relative_posix(path: Path, root: Path) -> str:
@@ -234,56 +220,16 @@ def _local_relative_paths(root: Path) -> list[tuple[str, Path]]:
 
 
 def _existing_relative_paths(directory: Any) -> set[str]:
-    if isinstance(directory, LocalPathClasses):
-        if not directory.exists():
-            return set()
-        if not directory.is_dir():
-            raise FileExistsError(
-                f"Lance destination {directory} exists and is not a directory."
-            )
-        root = Path(directory)
-        return {
-            _relative_posix(path, root) for path in root.rglob("*") if path.is_file()
-        }
-
-    try:
-        info = directory.stat().as_info()
-    except FileNotFoundError:
+    if not directory.exists():
         return set()
-    if info.get("type") != "directory":
+    if not directory.is_dir():
         raise FileExistsError(
             f"Lance destination {directory} exists and is not a directory."
         )
-
-    cloud_root = PurePosixPath(str(directory.path).strip("/"))
-    found: set[str] = set()
-    for name, stat in directory.fs.find(directory.as_posix(), detail=True).items():
-        if _is_directory_marker(stat):
-            continue
-        name_path = PurePosixPath(str(name).strip("/"))
-        try:
-            relative = name_path.relative_to(cloud_root).as_posix()
-        except ValueError:
-            root_posix = cloud_root.as_posix()
-            name_posix = name_path.as_posix()
-            prefix = f"{root_posix}/"
-            if not name_posix.startswith(prefix):
-                continue
-            relative = name_posix[len(prefix) :]
-        if relative:
-            found.add(relative)
-    return found
-
-
-def _same_location(source: Any, destination: Any) -> bool:
-    if not isinstance(source, LocalPathClasses) or not isinstance(
-        destination, LocalPathClasses
-    ):
-        return (
-            getattr(source, "as_posix", lambda: str(source))()
-            == getattr(destination, "as_posix", lambda: str(destination))()
-        )
-    return Path(source).resolve() == Path(destination).resolve()
+    root = Path(directory) if isinstance(directory, LocalPathClasses) else directory
+    return {
+        path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+    }
 
 
 def _copy_lance_file(
@@ -313,10 +259,7 @@ def _copy_lance_file(
 
 
 def _read_bytes(path: Any) -> bytes:
-    if isinstance(path, LocalPathClasses):
-        return Path(path).read_bytes()
-    data = path.read_bytes()
-    return data if isinstance(data, bytes) else bytes(data)
+    return path.read_bytes()
 
 
 def continues_lance_dataset(local_path: Any, storage_path: Any) -> bool:
@@ -341,12 +284,7 @@ def continues_lance_dataset(local_path: Any, storage_path: Any) -> bool:
         source_file = source_files.get(relative)
         if source_file is None:
             continue
-        try:
-            destination_bytes = _read_bytes(storage_path / relative)
-        except OSError:
-            # Keep the destination when its manifest cannot be read.
-            return True
-        if destination_bytes != source_file.read_bytes():
+        if _read_bytes(storage_path / relative) != source_file.read_bytes():
             return False
         saw_same_manifest = True
     destination_has_manifest = any(
@@ -371,9 +309,6 @@ def store_lance_directory(
     those files, and only when this directory's manifest version is newer.
     """
     source = Path(local_path)
-    if _same_location(source, storage_path):
-        return
-
     kwargs.pop("create_folder", None)
     kwargs.pop("print_progress", None)
     files = _local_relative_paths(source)
@@ -556,26 +491,17 @@ class LanceAccessor:
         from lamindb.models._lineage import get_run
         from lamindb.models.artifact import Artifact
 
-        # Capture the path before flipping overwrite_versions. A version with
-        # the flag unset is stored under its full uid; the shared directory
-        # uses the 16-character stem. `.lance` defaults to the stem.
+        # `artifact.path` is the stored directory, or the local checkout when
+        # one is attached. A separate checkout is published by `save()`, which
+        # adds missing files and then advances the pointer.
         store_path = artifact.path
-        # Write in place when this table is already the stored directory.
-        # A different checkout is published by adding its missing files and
-        # then advancing the pointer, the same rule as `lamin save`.
-        write_path = getattr(artifact, "_local_filepath", None)
-        if not isinstance(write_path, LocalPathClasses) or not write_path.exists():
-            write_path = store_path
-        table = open_lance_table(write_path)
+        table = open_lance_table(store_path)
         if lance_version(artifact) is None:
             set_lance_version(artifact, int(table.version))
         write(table)
         n_observations = table.count_rows()
         new_lance_version = int(table.version)
         del table
-
-        if not _same_location(write_path, store_path):
-            store_lance_directory(write_path, store_path, print_progress=False)
 
         stem_path = store_path.with_name(f"{artifact.stem_uid}{artifact.suffix}")
         assert store_path == stem_path, (

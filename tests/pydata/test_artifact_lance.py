@@ -359,14 +359,27 @@ def _stored_inodes(root: Path) -> dict[str, int]:
     }
 
 
-def test_lance_save_keeps_fragments_and_pins_manifest_hash(tmp_path: Path):
-    from lamindb.core.storage._lance import lance_manifest_path, lance_version
+@pytest.mark.parametrize("v2_manifests", [True, False])
+def test_lance_save_keeps_fragments_and_pins_manifest_hash(
+    tmp_path: Path, v2_manifests: bool
+):
+    from lamindb.core.storage._lance import (
+        _copy_lance_file,
+        continues_lance_dataset,
+        lance_manifest_path,
+        lance_version,
+    )
     from lamindb_setup.core.hashing import hash_file
 
     local = tmp_path / "cells.lance"
-    database = lancedb.connect(tmp_path.as_posix())
+    database = lancedb.connect(
+        tmp_path.as_posix(),
+        storage_options={
+            "new_table_enable_v2_manifest_paths": str(v2_manifests).lower()
+        },
+    )
     table = database.create_table("cells", _cells(["T cell"]))
-    key = "lance/incremental.lance"
+    key = f"lance/incremental-{v2_manifests}.lance"
     artifact = ln.Artifact(local, key=key).save()
     revised = None
     try:
@@ -400,6 +413,30 @@ def test_lance_save_keeps_fragments_and_pins_manifest_hash(tmp_path: Path):
         assert artifact.hash == digest
         hint = (stored / "_versions" / "latest_version_hint.json").read_text()
         assert f'"version":{lance_version(revised)}' in hint.replace(" ", "")
+        with pytest.raises(FileNotFoundError):
+            lance_manifest_path(stored, 999)
+
+        occupied = tmp_path / "occupied"
+        occupied.write_text("not a lance directory")
+        assert continues_lance_dataset(local, occupied) is False
+        other = tmp_path / "other.lance"
+        (other / "_versions").mkdir(parents=True)
+        (other / "_versions" / "1.manifest").write_bytes(b"other-table")
+        assert continues_lance_dataset(local, other) is False
+
+        uploaded: dict[str, bytes] = {}
+
+        class CloudFile:
+            def upload_from(
+                self, source, create_folder=False, print_progress=True, **kwargs
+            ):
+                uploaded["body"] = Path(source).read_bytes()
+                uploaded["print_progress"] = print_progress
+
+        hint_file = stored / "_versions" / "latest_version_hint.json"
+        _copy_lance_file(hint_file, CloudFile(), overwrite=False, print_progress=False)
+        assert uploaded["body"] == hint_file.read_bytes()
+        assert uploaded["print_progress"] is False
     finally:
         if revised is not None:
             revised.delete(permanent=True)
@@ -434,6 +471,9 @@ def test_lance_save_of_older_copy_keeps_remote_fragment(tmp_path: Path):
         remote_only = {path for path in remote_only if path.startswith("data/")}
         assert remote_only
         assert all(not (local / relative).exists() for relative in remote_only)
+        from lamindb.core.storage._lance import store_lance_directory
+
+        store_lance_directory(local, stored, print_progress=False)
 
         versions = ln.Artifact.filter(key=key).count()
         assert lamin_save(local, key=key) is None

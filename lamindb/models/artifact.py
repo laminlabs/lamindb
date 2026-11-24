@@ -496,14 +496,14 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_files, None
     elif settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
+    elif getattr(path, "suffix", None) == ".lance" and path.is_dir():
+        from ..core.storage._lance import hash_lance_directory
+
+        size, hash, hash_type, n_files = hash_lance_directory(path)
     elif not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         try:
-            if path.suffix == ".lance":
-                from ..core.storage._lance import hash_lance_directory
-
-                size, hash, hash_type, n_files = hash_lance_directory(path)
-            elif (stat := path.stat()) is not None:  # one network request
+            if (stat := path.stat()) is not None:  # one network request
                 # convert UPathStatResult to fsspec info dict
                 stat = stat.as_info()
                 if (store_type := stat["type"]) == "file":
@@ -521,11 +521,7 @@ def get_stat_or_artifact(
             logger.warning(f"did not add hash for {path}")
             return size, hash, hash_type, n_files, None
     else:
-        if path.is_dir() and path.suffix == ".lance":
-            from ..core.storage._lance import hash_lance_directory
-
-            size, hash, hash_type, n_files = hash_lance_directory(path)
-        elif path.is_dir():
+        if path.is_dir():
             size, hash, hash_type, n_files = hash_dir(path)
         else:
             size, hash, hash_type = hash_file(path)
