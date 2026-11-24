@@ -691,8 +691,6 @@ Options:
 lamin evolve [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --version            Print the installed lamindb-setup evolution version and
-                       exit.
   --log-queries        Log every SQL statement issued against an instance to
                        stderr, with its duration, and a total when the command
                        finishes. Use it to see which query a slow command is
