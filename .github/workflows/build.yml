@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [release]
+    branches: [release, coverage]
     paths-ignore:
       - "lamindb/.agents/**"
   pull_request:
@@ -49,7 +49,8 @@ jobs:
           CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
           SELECTED_GROUPS=()
 
-          if [[ "${{ github.event_name }}" == "push" ]]; then
+          # Pushes to release and coverage run every suite. Pull requests run a subset.
+          if [[ "${{ github.ref }}" == "refs/heads/release" || "${{ github.ref }}" == "refs/heads/coverage" ]]; then
             SELECTED_GROUPS=("${CORE_GROUPS[@]}" "curator" "integrations")
           else
             if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
@@ -241,7 +242,7 @@ jobs:
           edit-mode: replace
 
       - uses: peter-evans/repository-dispatch@v2
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.ref == 'refs/heads/release' }}
         with:
           token: ${{ secrets.LAMIN_BUILD_DOCS }}
           repository: "laminlabs/lamin-docs"
@@ -269,9 +270,43 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - name: save coverage artifact
+        if: ${{ github.ref == 'refs/heads/release' || github.ref == 'refs/heads/coverage' }}
+        env:
+          LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_LAMINDB_DEV_BOT }}
+        run: |
+          uv pip install --system ".[full]"
+          lamin login
+          lamin connect laminlabs/lamindb-dev
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          python <<PY
+          import xml.etree.ElementTree as ET
+
+          import lamindb as ln
+
+          root = ET.parse("coverage.xml").getroot()
+          lines_covered = int(root.attrib["lines-covered"])
+          lines_valid = int(root.attrib["lines-valid"])
+          commits = ln.Record.get(name="GitCommits")
+          hash16 = "${GITHUB_SHA:0:16}"
+          ln.Record(
+              features={
+                  "hash16": hash16,
+                  "repo": "lamindb",
+                  "coverage": lines_covered / lines_valid,
+              },
+              type=commits,
+          ).save()
+          ln.Artifact(
+              "coverage.xml",
+              key="coverage/lamindb/coverage.xml",
+              description="Coverage report for ${GITHUB_EVENT_NAME} ${ref}@${GITHUB_SHA} via GH_RUN_ID=${GITHUB_RUN_ID}",
+              features={"git_commit": hash16},
+          ).save()
+          PY
 
   dispatch:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.ref == 'refs/heads/release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: peter-evans/repository-dispatch@v2
