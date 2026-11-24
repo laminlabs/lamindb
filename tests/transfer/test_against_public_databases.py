@@ -1,13 +1,60 @@
 """Transfer from public LaminDB instances. These do not need authentication."""
 
+from datetime import UTC, datetime
+from pathlib import Path
+
 import lamindb as ln
 from lamindb.models.feature import parse_dtype
 
 
-def test_schema_transfer_defaults_to_annotations(connected_bionty):
+def _describe_source(connection):
+    details = (
+        f"Schema transfer source alias={connection.alias} backend={connection.vendor} "
+        f"lamin_user={ln.setup.settings.user.handle}"
+    )
+    try:
+        if connection.vendor == "sqlite":
+            path = Path(connection.settings_dict["NAME"])
+            modified = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+            return f"{details} file={path.name} modified={modified.isoformat()}"
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT current_database(), current_user")
+                database, role = cursor.fetchone()
+            return f"{details} database={database} role={role}"
+    except Exception as exc:
+        return f"{details} metadata_error={type(exc).__name__}"
+    return details
+
+
+def test_schema_transfer_defaults_to_annotations(connected_bionty, capsys):
+    # Switching instances in the fixtures reloads Django's connection registry.
+    from django.core.exceptions import ObjectDoesNotExist
+    from django.db import connections
+
     db = ln.DB("laminlabs/lamindata")
     schema_uid = "pnQvQVcQ417bfmVq"
-    remote_schema = db.Schema.get(schema_uid)
+    schemas = db.Schema
+    source = connections[schemas.db]
+    description = _describe_source(source)
+    with capsys.disabled():
+        print(description, flush=True)
+    try:
+        remote_schema = schemas.get(schema_uid)
+    except ObjectDoesNotExist as exc:
+        try:
+            with source.cursor() as cursor:
+                cursor.execute(
+                    "SELECT EXISTS (SELECT 1 FROM lamindb_schema WHERE uid = %s)",
+                    [schema_uid],
+                )
+                exists = bool(cursor.fetchone()[0])
+            exc.add_note(
+                f"Direct lookup on {source.alias} for {schema_uid}: exists={exists}"
+            )
+        except Exception as diagnostic_error:
+            exc.add_note(f"Direct lookup failed with {type(diagnostic_error).__name__}")
+        raise
     remote_member_names = remote_schema.members.to_list("name")
     assert len(remote_member_names) > 0
 
