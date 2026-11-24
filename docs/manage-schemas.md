@@ -35,7 +35,7 @@ Add a unique ID so LaminDB can recognize the plan each time you apply it:
 lamin evolve utils add-uid plans/plan_samples.py
 ```
 
-Keep the generated UID when editing the plan. Importing from `lamindb_setup.evolve` lets you validate the plan before connecting to an instance.
+Keep the generated UID when editing the plan. Importing from `lamindb_setup.evolve` lets you validate the plan before connecting to an instance. See [Schema plan authoring](schema-plan-authoring.md) for the declarations available in a plan.
 
 ### Validate and preview
 
@@ -46,6 +46,7 @@ lamin evolve validate plans/plan_samples.py
 ```
 
 ::::{dropdown} Example validation output
+
 ```text
 ╭─────────────────────────── Plan summary: samples ────────────────────────────╮
 │                                                                              │
@@ -66,6 +67,7 @@ lamin evolve validate plans/plan_samples.py
 │                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
+
 ::::
 
 Preview changes by comparing the plan with the live instance and any existing lock file:
@@ -75,6 +77,7 @@ lamin evolve plan plans/plan_samples.py -i account/dev
 ```
 
 ::::{dropdown} Example preview output for an empty instance
+
 ```text
 Plan: samples
 
@@ -84,6 +87,7 @@ Plan: samples
 
 Plan: 3 to create, 0 to update, 0 to delete, 0 unchanged
 ```
+
 ::::
 
 Review the proposed changes before applying them.
@@ -130,11 +134,12 @@ lamin evolve validate plans/plan_samples.py
 
 #### Type narrowing
 
-Suppose a sheet uses the `samples` schema and some rows lack a `measurement` value. The tool refuses to make the feature non-nullable without a way to handle those rows. Set `nullable=False` and, if zero is a valid replacement, import {func}`~lamindb.setup.evolve.fill_nulls` and add this line inside the plan:
+Suppose a sheet uses the `samples` schema and some rows lack a `measurement` value. The tool refuses to make the feature non-nullable without a way to handle those rows. Set `nullable=False` and, if zero is a valid replacement, import {func}`~lamindb_setup.evolve.fill_nulls` and add this line inside the plan:
 
 ```python
 ctx.migrate(value, fill_nulls(0.0))
 ```
+
 If every sheet row already has a value and no artifact datasets were validated against a schema that uses the feature, preview with `--allow-data-validated-changes`. Use the same flag on `apply` if the preview accepts the change. If validated datasets exist, check their contents separately. Once you confirm they have no null measurements, you can record that finding with `ctx.migrate(value, accept_non_null(reason=...))`.
 
 #### The instance has drifted from the lock file
@@ -157,7 +162,7 @@ Plans may export objects through `PlanExports` for other plans to reuse. Keep re
 
 ### Types in a plan
 
-These are declaration objects from {mod}`lamindb.setup.evolve`, distinct from the database records they create or update.
+These are declaration objects from {mod}`lamindb_setup.evolve`, distinct from the database records they create or update.
 
 | Declaration   | Purpose                                                                                                                                      |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -181,6 +186,6 @@ These are declaration objects from {mod}`lamindb.setup.evolve`, distinct from th
 | Migrate stored data  | Use `ctx.migrate()` to backfill values, convert types, or update seeded records.                                           |
 | Remove definitions   | Remove a declaration. References or retained values can require a removal policy. Seeded records require explicit removal. |
 
-See the {mod}`Python reference <lamindb.setup.evolve>` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
+See [Schema plan authoring](schema-plan-authoring.md) for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
 
 To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.

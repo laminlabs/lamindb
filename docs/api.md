@@ -9,6 +9,7 @@
 
 cli
 lamindb
+schema-plan-authoring
 ```
 
 ```{toctree}
