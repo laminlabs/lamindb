@@ -496,11 +496,14 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_files, None
     elif settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
+    elif getattr(path, "suffix", None) == ".lance" and path.is_dir():
+        from ..core.storage._lance import hash_lance_directory
+
+        size, hash, hash_type, n_files = hash_lance_directory(path)
     elif not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         try:
-            stat = path.stat()  # one network request
-            if stat is not None:
+            if (stat := path.stat()) is not None:  # one network request
                 # convert UPathStatResult to fsspec info dict
                 stat = stat.as_info()
                 if (store_type := stat["type"]) == "file":
@@ -2381,6 +2384,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         super().__init__(**kwargs)
         if validated_features is not None:
             self._external_features = validated_features
+        # `from_lance()` and `from_dataframe()` also pin this. Doing it here
+        # covers `Artifact(some_dir.lance)` and `lamin save`.
+        if self.suffix == ".lance" and self._state.adding:
+            from ..core.storage._lance import record_current_lance_version
+
+            record_current_lance_version(self)
 
     @property
     @deprecated("run.transform")

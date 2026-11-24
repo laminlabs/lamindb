@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import shutil
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from lamindb_setup.core.hashing import hash_file
+from lamindb_setup.core.upath import LocalPathClasses
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,6 +24,23 @@ if TYPE_CHECKING:
 # LaminDB main points at the latest Lance version visible on main, and a version
 # saved on another LaminDB branch is not visible there.
 LANCE_VERSION_AUX_KEY = "lv"
+
+# `u64::MAX`. Lance v2 manifest names are `{u64::MAX - version}` zero-padded to 20.
+_LANCE_U64_MAX = (1 << 64) - 1
+# Manifest numbers above this are v2 names, not version integers.
+_LANCE_V2_NAME_MIN = 1 << 63
+
+# Rewritten after a commit. It is a hint, not the version identity: readers
+# still find a newer manifest by listing `_versions`.
+LANCE_LATEST_VERSION_HINT = "_versions/latest_version_hint.json"
+# Older datasets copied the latest manifest bytes to this path.
+LANCE_LEGACY_LATEST_MANIFEST = "_latest.manifest"
+LANCE_MUTABLE_RELATIVE_PATHS = frozenset(
+    {
+        LANCE_LATEST_VERSION_HINT,
+        LANCE_LEGACY_LATEST_MANIFEST,
+    }
+)
 
 
 def lance_version(artifact: Any) -> int | None:
@@ -111,6 +133,215 @@ def open_lance_table(path: UPath) -> LanceTable:
         connect_kwargs["storage_options"] = storage_options
     database = lancedb.connect(path.parent.as_posix(), **connect_kwargs)
     return database.open_table(path.stem)
+
+
+def lance_manifest_path(dataset: Any, version: int) -> Any:
+    """Return the manifest file for one Lance version.
+
+    Prefers the v2 name, `{u64::MAX - version}.manifest`, then `{version}.manifest`.
+    """
+    version = int(version)
+    versions = dataset / "_versions"
+    for name in (
+        f"{_LANCE_U64_MAX - version:020d}.manifest",
+        f"{version}.manifest",
+    ):
+        candidate = versions / name
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(f"Lance version {version} has no manifest under {versions}")
+
+
+def _manifest_version(relative_path: str) -> int | None:
+    """Return the Lance version encoded in a manifest's relative path."""
+    prefix = "_versions/"
+    suffix = ".manifest"
+    stem = ""
+    if relative_path.startswith(prefix) and relative_path.endswith(suffix):
+        stem = relative_path[len(prefix) : -len(suffix)]
+    if not stem.isdigit():
+        return None
+    number = int(stem)
+    if number > _LANCE_V2_NAME_MIN:
+        return _LANCE_U64_MAX - number
+    return number
+
+
+def _highest_manifest_version(relative_paths: set[str]) -> int | None:
+    versions = (
+        version
+        for version in (_manifest_version(path) for path in relative_paths)
+        if version is not None
+    )
+    return max(versions, default=None)
+
+
+def hash_lance_directory(path: Any) -> tuple[int, str, str, int]:
+    """Hash the current manifest and measure the directory.
+
+    The hash identifies that manifest. It still describes the pinned version
+    after later commits add files to the same directory. `size` and `n_files`
+    describe the directory at `path`.
+    """
+    version = int(open_lance_table(path).version)
+    _, digest, hash_type = _hash_manifest(lance_manifest_path(path, version))
+    size, n_files = _directory_size(path)
+    return size, digest, hash_type, n_files
+
+
+def _hash_manifest(manifest: Any) -> tuple[int, str, str]:
+    # `hash_file` reads a local path. A cloud manifest is copied there first.
+    # Both use this path: `Path.read_bytes` and `UPath.read_bytes`.
+    data = manifest.read_bytes()
+    with tempfile.TemporaryDirectory() as directory:
+        target = Path(directory) / "manifest"
+        target.write_bytes(data)
+        return hash_file(target)
+
+
+def _directory_size(path: Any) -> tuple[int, int]:
+    size = 0
+    n_files = 0
+    root = Path(path) if isinstance(path, LocalPathClasses) else path
+    for file in root.rglob("*"):
+        if file.is_file():
+            n_files += 1
+            size += file.stat().st_size
+    return size, n_files
+
+
+def _relative_posix(path: Path, root: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
+def _local_relative_paths(root: Path) -> list[tuple[str, Path]]:
+    files = [path for path in root.rglob("*") if path.is_file()]
+    return [(_relative_posix(path, root), path) for path in sorted(files)]
+
+
+def _existing_relative_paths(directory: Any) -> set[str]:
+    if not directory.exists():
+        return set()
+    if not directory.is_dir():
+        raise FileExistsError(
+            f"Lance destination {directory} exists and is not a directory."
+        )
+    root = Path(directory) if isinstance(directory, LocalPathClasses) else directory
+    return {
+        path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+    }
+
+
+def _copy_lance_file(
+    source: Path,
+    destination: Any,
+    *,
+    overwrite: bool,
+    print_progress: bool,
+    **kwargs: Any,
+) -> None:
+    if isinstance(destination, LocalPathClasses):
+        target = Path(destination)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if overwrite:
+            temporary = target.parent / f".{target.name}.tmp"
+            try:
+                shutil.copyfile(source, temporary)
+                temporary.replace(target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        else:
+            shutil.copyfile(source, target)
+        return
+    destination.upload_from(
+        source, create_folder=False, print_progress=print_progress, **kwargs
+    )
+
+
+def _read_bytes(path: Any) -> bytes:
+    return path.read_bytes()
+
+
+def continues_lance_dataset(local_path: Any, storage_path: Any) -> bool:
+    """Whether `storage_path` is the same Lance dataset as `local_path`.
+
+    An empty destination is the same dataset. A destination that already has
+    a manifest is the same dataset when every shared manifest is byte-identical.
+    A new table written by `from_dataframe()` has a different manifest and is
+    stored by replacing the directory.
+    """
+    try:
+        existing = _existing_relative_paths(storage_path)
+    except FileExistsError:
+        return False
+    if not existing:
+        return True
+    source_files = dict(_local_relative_paths(Path(local_path)))
+    saw_same_manifest = False
+    for relative in existing:
+        if _manifest_version(relative) is None:
+            continue
+        source_file = source_files.get(relative)
+        if source_file is None:
+            continue
+        if _read_bytes(storage_path / relative) != source_file.read_bytes():
+            return False
+        saw_same_manifest = True
+    destination_has_manifest = any(
+        _manifest_version(relative) is not None for relative in existing
+    )
+    if destination_has_manifest and not saw_same_manifest:
+        return False
+    return True
+
+
+def store_lance_directory(
+    local_path: Any,
+    storage_path: Any,
+    print_progress: bool = True,
+    **kwargs: Any,
+) -> None:
+    """Add missing Lance files, then advance the latest-version pointer.
+
+    Files are immutable by relative path. A path already present at the
+    destination is left in place, so a checkout that lacks older fragments
+    cannot remove them. The latest-version pointer is written only after
+    those files, and only when this directory's manifest version is newer.
+    """
+    source = Path(local_path)
+    kwargs.pop("create_folder", None)
+    kwargs.pop("print_progress", None)
+    files = _local_relative_paths(source)
+    existing = _existing_relative_paths(storage_path)
+    source_version = _highest_manifest_version({relative for relative, _ in files})
+    destination_version = _highest_manifest_version(existing)
+    source_is_newer = source_version is not None and (
+        destination_version is None or source_version > destination_version
+    )
+
+    for relative, file in files:
+        if relative in LANCE_MUTABLE_RELATIVE_PATHS or relative in existing:
+            continue
+        _copy_lance_file(
+            file,
+            storage_path / relative,
+            overwrite=False,
+            print_progress=print_progress,
+            **kwargs,
+        )
+
+    if not source_is_newer:
+        return
+    for relative, file in files:
+        if relative not in LANCE_MUTABLE_RELATIVE_PATHS:
+            continue
+        _copy_lance_file(
+            file,
+            storage_path / relative,
+            overwrite=True,
+            print_progress=print_progress,
+            **kwargs,
+        )
 
 
 def write_lance_table(data: Any, filepath: Path | str, **kwargs: Any) -> None:
@@ -260,9 +491,9 @@ class LanceAccessor:
         from lamindb.models._lineage import get_run
         from lamindb.models.artifact import Artifact
 
-        # Capture the path before flipping overwrite_versions. A version with
-        # the flag unset is stored under its full uid; the shared directory
-        # uses the 16-character stem. `.lance` defaults to the stem.
+        # `artifact.path` is the stored directory, or the local checkout when
+        # one is attached. A separate checkout is published by `save()`, which
+        # adds missing files and then advances the pointer.
         store_path = artifact.path
         table = open_lance_table(store_path)
         if lance_version(artifact) is None:
