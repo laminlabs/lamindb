@@ -20,7 +20,9 @@ from laminci.nox import (
 # this also allows to break out an installation section
 nox.options.default_venv_backend = "none"
 
-IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
+# Published pins are only what the release branch should exercise. Every other
+# branch, including coverage and pull requests, installs the submodule checkouts.
+ON_RELEASE = os.getenv("GITHUB_REF") == "refs/heads/release"
 CI = os.environ.get("CI")
 # SpatialData.write() had a regression with ome-zarr>=0.14:
 # https://github.com/scverse/spatialdata/issues/1090
@@ -199,7 +201,7 @@ def install_ci(session, group):
         pass
     elif group == "minimal":
         run(session, "uv pip install --system pytest")
-        if IS_PR:
+        if not ON_RELEASE:
             # lamin-cli depends on lamindb-core, and this checkout pins that
             # lamin-cli. Published lamindb-core releases pin older lamin-cli
             # versions, so the local checkouts have to be resolved together.
@@ -211,12 +213,12 @@ def install_ci(session, group):
         return
 
     extras = "," + extras if extras != "" else extras
-    # on the release branch, do not use submodules but run with pypi install
-    # only exception is the docs group which should always use the submodule
-    # to push docs fixes fast
-    # resolve submodules in the same command as lamindb-core: lamin-cli depends
+    # The release branch installs published packages. Every other branch installs
+    # the submodule checkouts. Docs and profile always use the submodule so docs
+    # fixes can ship without a package release.
+    # Resolve submodules in the same command as lamindb-core: lamin-cli depends
     # on lamindb-core, which pins this lamin-cli, and published lamindb-core
-    # releases pin older lamin-cli versions
+    # releases pin older lamin-cli versions.
     lamindb = f"-e .[full,dev{extras}]"
     # numcodecs<0.16 (required by zarr<3) has no Python 3.14 wheel. Its bundled
     # c-blosc does `typedef _Bool bool`, which GCC 15 rejects because C23 makes
@@ -227,7 +229,7 @@ def install_ci(session, group):
         cflags = build_env.get("CFLAGS", "")
         if "-std=" not in cflags:
             build_env["CFLAGS"] = f"{cflags} -std=gnu17".strip()
-    if IS_PR or group == "docs" or group == "profile":
+    if not ON_RELEASE or group in {"docs", "profile"}:
         run(
             session,
             f"uv pip install --system {lamindb} ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
