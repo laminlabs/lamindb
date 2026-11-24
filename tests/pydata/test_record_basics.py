@@ -1214,6 +1214,36 @@ def test_set_values_does_not_warn_for_schema_index_feature_on_record(ccaplog):
     score.delete(permanent=True)
 
 
+def test_record_schema_index_with_name_feature_export():
+    """Keep a regular name feature separate from the schema index on Record.name."""
+    sample_id = ln.Feature(name="name_export_sample_id", dtype=str).save()
+    name_feature = ln.Feature(name="name", dtype=str).save()
+    schema = ln.Schema(
+        features=[name_feature], index=sample_id, name="name-feature-export-schema"
+    ).save()
+    sheet = ln.Record(
+        name="name-feature-export-sheet", is_type=True, schema=schema
+    ).save()
+    expected = pd.DataFrame(
+        {"name": ["antibody-A", "antibody-B"]},
+        index=pd.Index(["sample-1", "sample-2"], name=sample_id.name),
+    )
+    records = ln.Record.from_dataframe(expected, type=sheet)
+    records.save()
+
+    try:
+        pd.testing.assert_frame_equal(sheet.to_dataframe(), expected)
+        pd.testing.assert_frame_equal(
+            ln.Record.filter(type=sheet).to_dataframe(include="features"), expected
+        )
+    finally:
+        ln.Record.filter(type=sheet).delete(permanent=True)
+        sheet.delete(permanent=True)
+        schema.delete(permanent=True)
+        sample_id.delete(permanent=True)
+        name_feature.delete(permanent=True)
+
+
 def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
     """Export works for index-on-name schema with linked features."""
     sample_name = ln.Feature(name="sample_name", dtype=str).save()

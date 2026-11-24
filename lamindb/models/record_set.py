@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC
 from typing import TYPE_CHECKING, cast
 
 from lamindb_setup import logger
@@ -162,11 +163,12 @@ class RecordSet(Iterable):
         ):
             df = df.rename(columns={"uid": encoded_uid})
         if index_feature is not None:
-            if "name" in df.columns and index_feature.name != "name":
+            if encoded_name in df.columns:
+                df[index_feature.name] = df[encoded_name]
+                df = df.drop(columns=[encoded_name])
+            elif "name" in df.columns and index_feature.name != "name":
                 df[index_feature.name] = df["name"]
                 df = df.drop(columns=["name"])
-            if encoded_name in df.columns:
-                df = df.drop(columns=[encoded_name])
             df = apply_schema_index_to_export_dataframe(
                 df,
                 index_feature,
@@ -235,9 +237,9 @@ class RecordSet(Iterable):
                 if input_record_ids:
                     run_for_input_linking.input_records.add(*input_record_ids)
         if use_export_run and run_for_input_linking is not None:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
-            run_for_input_linking.finished_at = datetime.now(timezone.utc)
+            run_for_input_linking.finished_at = datetime.now(UTC)
             run_for_input_linking._status_code = 0
             run_for_input_linking.save()
         qs._record_export_run = run_for_input_linking if use_export_run else None
