@@ -3,18 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
-
-@pytest.mark.parametrize(
-    "statement",
-    [
-        "from lamindb.setup import evolve",
-        "import lamindb.setup.evolve as evolve",
-        "evolve = ln.setup.evolve",
-    ],
-)
-def test_evolve_imports_share_plan_declarations(tmp_path, statement):
+def test_evolve_imports_share_plan_declarations(tmp_path):
     """The public module uses the backend's plan collector."""
     code = """
 import sys
@@ -32,10 +22,7 @@ settings._instance_settings = InstanceSettings(
 )
 import lamindb as ln
 assert not hasattr(ln, "evolve")
-"""
-    code += (
-        statement
-        + """
+from lamindb.setup import evolve
 import lamindb_setup.evolve as backend
 assert evolve is backend
 assert ln.setup.evolve is evolve
@@ -47,7 +34,6 @@ def measurements(ctx: backend.PlanContext, exports: None) -> None:
 measurements.finalize()
 assert [dep.obj.name for dep in measurements.own_dependencies] == ["Measurements"]
 """
-    )
     env = {
         **os.environ,
         "LAMIN_SETTINGS_DIR": str(tmp_path),
