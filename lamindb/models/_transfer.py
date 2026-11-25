@@ -672,15 +672,16 @@ def _clear_annotation_links(record, transfer_logs: dict) -> None:
         rel.related_model.objects.filter(**{rel.field.name: record.pk}).delete()
 
 
-def _depth_descendants(record, depth: int) -> list:
+def _depth_descendants(record, depth: int, *, limit: int | None = None) -> list:
     from .sqlrecord import _typed_children
 
     if depth <= 0:
         return []
-    children = _typed_children(record)
+    # save() warns when it transfers this hop. This walk only selects the same rows.
+    children = _typed_children(record, limit=limit, warn=False)
     found = list(children)
     for child in children:
-        found.extend(_depth_descendants(child, depth - 1))
+        found.extend(_depth_descendants(child, depth - 1, limit=limit))
     return found
 
 

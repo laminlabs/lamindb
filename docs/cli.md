@@ -828,6 +828,7 @@ Use `lamin io sync` to sync objects to the current database:
 ```
 lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE
 lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE --depth 1
+lamin io sync https://lamin.ai/laminlabs/lamindata/record/UrcIKR8v0ywim0pE --depth 1 --limit none
 lamin io sync record --uid UrcIKR8v0ywim0pE --from laminlabs/lamindata
 lamin io sync artifact --key example_datasets/mini_immuno/dataset1.h5ad --from laminlabs/lamindata
 ```
@@ -902,7 +903,7 @@ Log into the hub.
 
 `lamin login` prompts for your API key unless you set it via environment variable `LAMIN_API_KEY`.
 
-You can create your API key in your hub account settings at `lamin.ai/settings <https://lamin.ai/settings>`__.
+You can create your API key in your hub account settings at [lamin.ai/settings](https://lamin.ai/settings).
 
 After authenticating once, you can re-authenticate and switch between accounts via `lamin login myhandle`.
 

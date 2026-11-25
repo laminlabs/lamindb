@@ -330,15 +330,34 @@ _HASTYPE_QUERY_METHODS = {
 }
 
 
-def _typed_children(record: HasType) -> list:
-    """Direct records whose type is ``record``, queried on ``record``'s database."""
+def _typed_children(
+    record: HasType, *, limit: int | None = None, warn: bool = True
+) -> list:
+    """Direct records whose type is `record`, queried on `record`'s database.
+
+    `limit` keeps the most recent records (`-id`), the same ordering as
+    `to_dataframe()`. `None` returns every direct record.
+    """
     method_name = _HASTYPE_QUERY_METHODS.get(get_registry_name(record))
     if method_name is None:
         names = ", ".join(_HASTYPE_QUERY_METHODS)
         raise ValueError(
             f"depth applies only to {names}, not {record.__class__.__name__}."
         )
-    return list(getattr(record, method_name)(depth=1))
+    queryset = getattr(record, method_name)(depth=1)
+    if limit is None:
+        return list(queryset)
+    rows = list(queryset.order_by("-id")[: limit + 1])
+    if len(rows) <= limit:
+        return rows
+    if warn:
+        label = getattr(record, "name", None) or getattr(record, "uid", None)
+        logger.warning(
+            f"truncated transfer of {type(record).__name__} {label} "
+            f"to limit={limit} records at this type level. "
+            "Pass limit=None to transfer all."
+        )
+    return rows[:limit]
 
 
 class SQLRecordSettings:
@@ -1530,6 +1549,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 levels of records whose type chain starts here. Only `Record`,
                 `Feature`, `Schema`, `Project`, `ULabel`, and `Reference` accept
                 `depth > 0`.
+            limit: Maximum number of records to transfer at each type level when
+                `depth > 0`. Defaults to 20, the same default as
+                :meth:`~lamindb.models.BaseSQLRecord.to_dataframe` and
+                :meth:`~lamindb.models.BaseSQLRecord.search`. The most recent records
+                are kept. Pass `None` to transfer every record at each level.
             using: Database slug for a target database that differs from the default database;
                 won't track lineage, do not use for transferring data.
         """
@@ -1563,6 +1587,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         depth = kwargs.pop("depth", 0)
         if type(depth) is not int or depth < 0:
             raise ValueError("depth must be an int >= 0.")
+        limit = kwargs.pop("limit", SEARCH_QUERY_DEFAULT_LIMIT)
+        if limit is not None and (type(limit) is not int or limit < 0):
+            raise ValueError("limit must be an int >= 0 or None.")
         if depth > 0 and not isinstance(self, HasType):
             names = ", ".join(_HASTYPE_QUERY_METHODS)
             raise ValueError(
@@ -1584,7 +1611,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             and depth > 0
             and isinstance(self, HasType)
         ):
-            typed_children = _typed_children(self)
+            typed_children = _typed_children(self, limit=limit)
         pre_existing_record = None
         # One context for this save and every depth child. Nested saves of
         # annotation targets receive the same dict so a uid is resolved once.
@@ -1611,7 +1638,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         ):
             hosts = [self]
             if depth > 0 and isinstance(self, HasType):
-                hosts.extend(_depth_descendants(self, depth))
+                hosts.extend(_depth_descendants(self, depth, limit=limit))
             prime_annotation_transfer(hosts, transfer_logs)
         if db is not None and db != "default" and using is None:
             if isinstance(self, IsVersioned):
@@ -1885,6 +1912,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 child.save(
                     transfer=transfer_config,
                     depth=depth - 1,
+                    limit=limit,
                     _transfer_logs=transfer_logs,
                     _transfer_summarize=True,
                 )

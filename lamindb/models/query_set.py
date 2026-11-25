@@ -855,14 +855,9 @@ def reshape_annotate_result(
 
     # ========== process features ==========
 
-    # Encode Django field names to avoid conflicts with feature names
-    if record_metadata:
-        fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
-    else:
-        fields_map = {col: col for col in df.columns}
-        pk_encoded = encode_lamindb_fields_as_columns(registry, pk_name)
-        if isinstance(pk_encoded, str) and pk_name in fields_map:
-            fields_map[pk_name] = pk_encoded
+    # Protect fields needed for joins and schema index resolution even when
+    # record metadata is omitted from the final export.
+    fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
     df_encoded = df.rename(columns=fields_map)
     result_encoded = result.rename(columns=fields_map)
     pk_name_encoded = fields_map.get(pk_name, pk_name)  # type: ignore

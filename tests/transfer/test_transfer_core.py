@@ -962,6 +962,19 @@ def test_transfer_depth_follows_type_children():
     }
 
     _wipe_depth_chain(uids)
+    db1.Record.get(uids[DEPTH_ROOT]).save(depth=1, limit=None)
+    assert _transferred_depth_uids(uids) == {
+        uids[DEPTH_ROOT],
+        uids[DEPTH_SUBTYPE],
+        uids[DEPTH_DIRECT],
+    }
+
+    # Direct was saved after the subtype, so it is the one record limit=1 keeps.
+    _wipe_depth_chain(uids)
+    db1.Record.get(uids[DEPTH_ROOT]).save(depth=1, limit=1)
+    assert _transferred_depth_uids(uids) == {uids[DEPTH_ROOT], uids[DEPTH_DIRECT]}
+
+    _wipe_depth_chain(uids)
     synced = ln.core.sync(
         registry=ln.Record,
         uid=uids[DEPTH_ROOT],
@@ -971,6 +984,8 @@ def test_transfer_depth_follows_type_children():
     assert _transferred_depth_uids(uids) == set(uids.values())
     assert synced.run.entrypoint == "sync"
     assert synced.run.status == "completed"
+    assert synced.run.params["depth"] == 2
+    assert synced.run.params["limit"] == 20
     for uid in uids.values():
         assert ln.Record.get(uid).run.uid == synced.run.uid
     _wipe_depth_chain(uids)
@@ -1208,6 +1223,15 @@ def test_depth_rejected_for_non_hastype_and_none():
             source_db=f"{user_handle}/testdb1",
             depth=None,
         )
+    with pytest.raises(ValueError, match="limit must be an int >= 0 or None"):
+        sync(
+            registry=ln.Record,
+            uid="not-a-uid",
+            source_db=f"{user_handle}/testdb1",
+            limit=-1,
+        )
+    with pytest.raises(ValueError, match="limit must be an int >= 0 or None"):
+        artifact.save(limit=True)
     # depth is rejected inside save(), after the sync run has started.
     with pytest.raises(ValueError, match="depth applies only"):
         sync(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..models.query_manager import SEARCH_QUERY_DEFAULT_LIMIT
+
 if TYPE_CHECKING:
     from ..base.types import TransferMode
     from ..models.sqlrecord import Registry, SQLRecord
@@ -14,6 +16,7 @@ def sync(
     source_db: str,
     transfer: TransferMode | None = None,
     depth: int = 0,
+    limit: int | None = SEARCH_QUERY_DEFAULT_LIMIT,
 ) -> SQLRecord:
     """Sync one object from a source database into the current database.
 
@@ -36,6 +39,11 @@ def sync(
             only this object, plus the related objects selected by `transfer`.
             Only `record`, `feature`, `schema`, `project`, `ulabel`, and
             `reference` accept `depth > 0`.
+        limit: Maximum number of records to transfer at each type level when
+            `depth > 0`. Defaults to 20, the same default as
+            :meth:`~lamindb.models.BaseSQLRecord.to_dataframe` and
+            :meth:`~lamindb.models.BaseSQLRecord.search`. The most recent records
+            are kept. Pass `None` to transfer every record at each level.
 
     Returns:
         The saved `SQLRecord` object on the current database.
@@ -119,6 +127,8 @@ def sync(
     """
     if type(depth) is not int or depth < 0:
         raise ValueError("depth must be an int >= 0.")
+    if limit is not None and (type(limit) is not int or limit < 0):
+        raise ValueError("limit must be an int >= 0 or None.")
     from lamindb.base.utils import get_registry_name
 
     from ..models._transfer import finish_transfer_run, start_sync_run
@@ -132,11 +142,13 @@ def sync(
             "source_db": source_db,
             "transfer": transfer,
             "depth": depth,
+            "limit": limit,
         },
     )
     try:
         saved = sqlrecord.save(
             depth=depth,
+            limit=limit,
             transfer=transfer,
             _transfer_logs={"mapped": [], "transferred": [], "run": run},
         )
