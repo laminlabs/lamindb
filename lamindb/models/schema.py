@@ -1149,7 +1149,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             "minimal_set": minimal_set,
             "ordered_set": ordered_set,
             "maximal_set": maximal_set,
-            "coerce": coerce if coerce else None,
+            "coerce": coerce,
             "flexible": flexible,
         }
         n_features_default = (
