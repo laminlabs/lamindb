@@ -46,6 +46,6 @@ def profile_transfer_one_record_frame_with_one_record(benchmark, benchmarks_inst
         save,
         setup=_delete_transferred,
         teardown=teardown,
-        rounds=3,
-        warmup_rounds=1,
+        rounds=1,
+        warmup_rounds=0,
     )
