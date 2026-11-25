@@ -4,12 +4,12 @@
 
 ```{toctree}
 :maxdepth: 1
-:caption: CLI & lamindb
+:caption: Core
 :hidden:
 
 cli
 lamindb
-schema-plan-authoring
+lamindb_setup
 ```
 
 ```{toctree}

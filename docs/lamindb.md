@@ -4,8 +4,4 @@
 .. automodule:: lamindb
 ```
 
-```{toctree}
-:maxdepth: 1
-
-schema-plan-authoring
-```
+Declare schema plans with [`lamindb.setup.evolve`](schema-plan-authoring.md).
