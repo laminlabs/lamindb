@@ -41,8 +41,8 @@ def sync(
             `reference` accept `depth > 0`.
         limit: Maximum number of records to transfer at each type level when
             `depth > 0`. Defaults to 20, the same default as
-            :meth:`~lamindb.models.SQLRecord.to_dataframe` and
-            :meth:`~lamindb.models.SQLRecord.search`. The most recent records
+            :meth:`~lamindb.models.BaseSQLRecord.to_dataframe` and
+            :meth:`~lamindb.models.BaseSQLRecord.search`. The most recent records
             are kept. Pass `None` to transfer every record at each level.
 
     Returns:

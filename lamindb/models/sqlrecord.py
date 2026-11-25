@@ -333,10 +333,10 @@ _HASTYPE_QUERY_METHODS = {
 def _typed_children(
     record: HasType, *, limit: int | None = None, warn: bool = True
 ) -> list:
-    """Direct records whose type is ``record``, queried on ``record``'s database.
+    """Direct records whose type is `record`, queried on `record`'s database.
 
-    ``limit`` keeps the most recent records (``-id``), the same ordering as
-    ``to_dataframe()``. ``None`` returns every direct record.
+    `limit` keeps the most recent records (`-id`), the same ordering as
+    `to_dataframe()`. `None` returns every direct record.
     """
     method_name = _HASTYPE_QUERY_METHODS.get(get_registry_name(record))
     if method_name is None:
@@ -1551,8 +1551,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 `depth > 0`.
             limit: Maximum number of records to transfer at each type level when
                 `depth > 0`. Defaults to 20, the same default as
-                :meth:`~lamindb.models.SQLRecord.to_dataframe` and
-                :meth:`~lamindb.models.SQLRecord.search`. The most recent records
+                :meth:`~lamindb.models.BaseSQLRecord.to_dataframe` and
+                :meth:`~lamindb.models.BaseSQLRecord.search`. The most recent records
                 are kept. Pass `None` to transfer every record at each level.
             using: Database slug for a target database that differs from the default database;
                 won't track lineage, do not use for transferring data.
