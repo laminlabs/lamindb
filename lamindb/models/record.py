@@ -1678,6 +1678,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Args:
             transfer: If the object lives on a different database, dictates behavior of sync. See :func:`~lamindb.core.sync`.
+            depth: How many levels of records under a type to transfer. See :func:`~lamindb.core.sync`.
+            limit: Maximum number of records to transfer at each type level when
+                `depth > 0`. Defaults to 20. Pass `None` to transfer every record
+                at each level. See :func:`~lamindb.core.sync`.
         """
         if self.is_type:
             validate_record_type_schema_index(self.schema)
