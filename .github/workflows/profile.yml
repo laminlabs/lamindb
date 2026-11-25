@@ -2,7 +2,7 @@ name: profile
 
 on:
   push:
-    branches: [release]
+    branches: [release, profilecuration]
     paths-ignore:
       - "lamindb/.agents/**"
   pull_request:
