@@ -1,4 +1,4 @@
-# `lamindb_setup`
+# Python: `lamindb_setup`
 
 ```{toctree}
 :maxdepth: 1
