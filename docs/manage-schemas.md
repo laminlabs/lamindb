@@ -174,18 +174,6 @@ These are declaration objects from {mod}`lamindb_setup.evolve`, distinct from th
 | `Sheet`       | Define a record type whose rows follow a schema.                                                                                             |
 | `Record`      | Seed a named record, such as a vocabulary term. Existing records require an explicit `update_record` declaration for their values to change. |
 
-### Kinds of changes
-
-| Change               | Example and handling                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Create definitions   | Declare a new feature, schema, or record type.                                                                             |
-| Edit metadata        | Update a feature description in place.                                                                                     |
-| Relax a constraint   | Allow nulls, make a non-index member optional, or widen an integer dtype to float.                                         |
-| Tighten a constraint | Require a previously optional member or add a categorical filter. A migration or a supported data check may be needed.     |
-| Rename or move       | Use `ctx.moved()` to preserve the existing object's UID.                                                                   |
-| Migrate stored data  | Use `ctx.migrate()` to backfill values, convert types, or update seeded records.                                           |
-| Remove definitions   | Remove a declaration. References or retained values can require a removal policy. Seeded records require explicit removal. |
-
 See {mod}`lamindb_setup.evolve` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
 
 To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.

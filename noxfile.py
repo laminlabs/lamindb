@@ -194,7 +194,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
-        pass
+        run(session, "uv pip install --system 'pyinstrument>=5'")
     elif group == "permissions":
         pass
     elif group == "profile":
@@ -441,6 +441,10 @@ def test(session, group):
         run(
             session,
             f"pytest {coverage_args} ./sub/lamin-cli/tests/core {duration_args}",
+        )
+        run(
+            session,
+            f"pytest {coverage_args} ./sub/lamin-cli/tests/evolve {duration_args}",
         )
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
