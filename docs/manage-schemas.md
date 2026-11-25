@@ -35,7 +35,7 @@ Add a unique ID so LaminDB can recognize the plan each time you apply it:
 lamin evolve utils add-uid plans/plan_samples.py
 ```
 
-Keep the generated UID when editing the plan. Importing from `lamindb_setup.evolve` lets you validate the plan before connecting to an instance. See [Schema plan authoring](schema-plan-authoring.md) for the declarations available in a plan.
+Keep the generated UID when editing the plan. Importing from {mod}`lamindb_setup.evolve` lets you validate the plan before connecting to an instance.
 
 ### Validate and preview
 
@@ -186,6 +186,6 @@ These are declaration objects from {mod}`lamindb_setup.evolve`, distinct from th
 | Migrate stored data  | Use `ctx.migrate()` to backfill values, convert types, or update seeded records.                                           |
 | Remove definitions   | Remove a declaration. References or retained values can require a removal policy. Seeded records require explicit removal. |
 
-See [Schema plan authoring](schema-plan-authoring.md) for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
+See {mod}`lamindb_setup.evolve` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
 
 To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.

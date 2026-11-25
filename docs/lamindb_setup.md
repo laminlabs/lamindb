@@ -3,5 +3,5 @@
 ```{toctree}
 :maxdepth: 1
 
-schema-plan-authoring
+lamindb_setup.evolve
 ```

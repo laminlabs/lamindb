@@ -4,7 +4,7 @@
 
 ```{toctree}
 :maxdepth: 1
-:caption: Core
+:caption: CLI & lamindb
 :hidden:
 
 cli
