@@ -51,7 +51,7 @@ To sync annotations in addition to the bare object, pass the `--transfer` / `tra
 - `"notes"`: its associated notes
 - `"annotations"`: its annotations
 
-You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. At each type level, sync transfers at most 20 records, the same default as `to_dataframe()` and `search()`. The most recent records are kept. Pass `--limit` / `limit=None` to transfer every record at that level. For details, see {func}`~lamindb.core.sync`.
+You can also pass a `--depth` argument for `HasType` objects, which indicates how deeply you want to recurse through the type hierarchy. At each level, sync transfers at most `--limit` records. For details, see {func}`~lamindb.core.sync`.
 
 `space`, `branch`, and `created_on` are handled differently from every other foreign key. Other foreign keys, such as `created_by`, `storage`, `schema`, and `type`, are copied, and a missing row is created on the target.
 
