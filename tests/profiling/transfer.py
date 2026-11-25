@@ -14,7 +14,7 @@ def benchmarks_instance():
 def _delete_transferred() -> None:
     try:
         frame = ln.Record.get(FRAME_UID)
-    except ln.Record.DoesNotExist:
+    except ln.errors.ObjectDoesNotExist:
         return
     children = frame.records.all()
     if len(children):
