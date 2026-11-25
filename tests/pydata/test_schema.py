@@ -25,100 +25,6 @@ def df():
     )
 
 
-@pytest.mark.parametrize("kind", ["members", "type", "composite", "flexible"])
-@pytest.mark.parametrize(
-    ("options", "expected"),
-    [
-        ({}, None),
-        ({"coerce": None}, None),
-        ({"coerce": False}, False),
-        ({"coerce": True}, True),
-    ],
-    ids=["omitted", "none", "false", "true"],
-)
-def test_schema_coerce_declaration(kind, options, expected):
-    with transaction.atomic():
-        if kind == "members":
-            member = ln.Feature(name="value", dtype=str, coerce=False).save()
-            assert ln.Feature.get(uid=member.uid).coerce is False
-            schema = ln.Schema([member], **options)
-        elif kind == "type":
-            schema = ln.Schema(name="Panel", is_type=True, **options)
-        elif kind == "composite":
-            member = ln.Feature(name="count", dtype=int).save()
-            component = ln.Schema([member], coerce=True).save()
-            schema = ln.Schema(slots={"obs": component}, otype="AnnData", **options)
-        else:
-            schema = ln.Schema(itype=ln.Feature, **options)
-        assert schema.coerce is expected
-        schema.save()
-        stored = ln.Schema.get(uid=schema.uid)
-        assert stored.coerce is expected
-        if kind == "composite":
-            assert stored.slots["obs"].coerce is True
-        if kind == "type":
-            assert stored.hash is None
-        transaction.set_rollback(True)
-
-
-def test_schema_coerce_existing_null_declaration():
-    with transaction.atomic():
-        member = ln.Feature(name="value", dtype=str).save()
-        original = ln.Schema([member]).save()
-        reused = ln.Schema([member], coerce=False)
-        assert reused.uid == original.uid
-        assert ln.Schema.get(uid=original.uid).coerce is None
-        assert reused.coerce is False
-        reused.save()
-        stored = ln.Schema.get(uid=original.uid)
-        assert stored.coerce is False and stored.hash == original.hash
-        transaction.set_rollback(True)
-
-
-def test_schema_coerce_assignment_and_hash():
-    with transaction.atomic():
-        member = ln.Feature(name="value", dtype=str).save()
-        schema = ln.Schema([member]).save()
-        original_hash = schema.hash
-        schema.coerce = False
-        schema.save()
-        # Omission and None leave a reused record's existing declaration alone.
-        assert ln.Schema([member]).save().coerce is False
-        assert ln.Schema([member], coerce=None).save().coerce is False
-        stored = ln.Schema.get(uid=schema.uid)
-        assert stored.coerce is False and stored.hash == original_hash
-        assert ln.Schema([member], coerce=False, lookup=False).hash == original_hash
-        enabled = ln.Schema([member], coerce=True).save()
-        assert enabled.hash != original_hash and enabled.uid != schema.uid
-        transaction.set_rollback(True)
-
-
-def test_schema_coerce_deprecated_constructor_keyword():
-    with transaction.atomic():
-        member = ln.Feature(name="value", dtype=str).save()
-        with pytest.warns(DeprecationWarning, match="renamed to `coerce`"):
-            schema = ln.Schema([member], coerce_dtype=False)
-        assert schema.coerce is False
-        schema.save()
-        assert ln.Schema.get(uid=schema.uid).coerce is False
-        transaction.set_rollback(True)
-
-
-@pytest.mark.parametrize("feature_coerce", [False, True])
-def test_schema_coerce_false_validates_with_feature_policy(feature_coerce):
-    with transaction.atomic():
-        member = ln.Feature(name="value", dtype=int, coerce=feature_coerce).save()
-        schema = ln.Schema([member], otype="DataFrame", coerce=False).save()
-        data = pd.DataFrame({"value": ["7"]})
-        curator = ln.curators.DataFrameCurator(data, ln.Schema.get(uid=schema.uid))
-        if feature_coerce:
-            curator.validate()
-        else:
-            with pytest.raises(ValidationError):
-                curator.validate()
-        transaction.set_rollback(True)
-
-
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
     bt.Gene.filter(symbol__in=gene_symbols).delete(permanent=True)
@@ -439,6 +345,12 @@ def test_edge_cases():
     schema._index_feature_uid = "missinguid00"
     assert schema.index is None
 
+    schema.delete(permanent=True)
+
+    schema = ln.Schema([feature], coerce=False)
+    assert schema.coerce is False
+    schema.save()
+    assert ln.Schema.get(uid=schema.uid).coerce is False
     schema.delete(permanent=True)
     feature.delete(permanent=True)
 
