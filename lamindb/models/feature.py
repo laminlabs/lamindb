@@ -1431,10 +1431,6 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             _compile_regex(regex)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
-        # Default nullable to True for non-type features
-        is_type = kwargs.get("is_type", False)
-        if nullable is None and not is_type:
-            nullable = True
         cat_filters = kwargs.pop("cat_filters", None)
         if "coerce_dtype" in kwargs:
             warnings.warn(
@@ -1448,9 +1444,14 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         values_through = kwargs.pop("values_through", None)
         kwargs = process_init_feature_arguments(args, kwargs)
         super().__init__(*args, **kwargs)
-        self.default_value = default_value
-        self.nullable = nullable
-        self.coerce = coerce
+        if default_value is not None:
+            self.default_value = default_value
+        if nullable is not None:
+            self.nullable = nullable
+        elif self._state.adding and not self.is_type:
+            self.nullable = True
+        if coerce is not None:
+            self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
         if cat_filters:
             if "|" in dtype_str:
