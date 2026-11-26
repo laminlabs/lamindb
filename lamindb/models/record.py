@@ -714,10 +714,16 @@ def _assign_export_feature_column(
         [value if value is not None else pd.NA for value in values],
         index=df.index,
     )
-    if column in df.columns:
-        df[column] = series.astype(df[column].dtype, copy=False)
+    if column not in df.columns:
+        df[column] = series
         return
-    df[column] = series
+    target = df[column].dtype
+    # Placeholder cat columns are created with categories=[].
+    # astype(that dtype) turns every new label into NA.
+    if isinstance(target, pd.CategoricalDtype):
+        df[column] = series.astype("category")
+        return
+    df[column] = series.astype(target, copy=False)
 
 
 def pop_index_from_feature_dictionary(
