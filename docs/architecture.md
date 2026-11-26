@@ -219,6 +219,8 @@ artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 
 ::::::
 
+See {doc}`manage-schemas` for more on changing schemas and managing those changes across instances.
+
 Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
 
 ::::::{tab-set}
