@@ -1557,6 +1557,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             using: Database slug for a target database that differs from the default database;
                 won't track lineage, do not use for transferring data.
         """
+        from ..core._secret_redaction import _redact_record
         from ._transfer import (
             _depth_descendants,
             _remember_target,
@@ -1569,6 +1570,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             transfer_to_default_db,
         )
 
+        _redact_record(self)
         shared_logs = kwargs.pop("_transfer_logs", None)
         summarize = kwargs.pop("_transfer_summarize", None)
 
