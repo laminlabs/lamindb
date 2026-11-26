@@ -5,6 +5,7 @@
 :hidden:
 
 curate
+manage-schemas
 ```
 
 This guide walks through organizing datasets using files & folders, entity relationships, and dataset sharding with versioned collections.
