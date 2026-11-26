@@ -1275,6 +1275,18 @@ class RecordBatch:
         return SQLRecordList(self._records)
 
 
+def _default_record_export_key(record: Record, suffix: str) -> str:
+    """Default artifact key for a record-type export.
+
+    The path is the type chain from the root type through `record`, so two
+    types that share a name under different parents do not export to the same key.
+    """
+    # query_types() is nearest-first and excludes the record itself.
+    type_chain = [*reversed(record.query_types()), record]
+    type_path = "/".join(node.name if node.name else node.uid for node in type_chain)
+    return f"lamindb_record_exports/{type_path}{suffix}"
+
+
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Notes and structured metadata.
 
@@ -1983,7 +1995,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The format defaults to `.csv` unless `suffix` is passed or `key` specifies another format.
 
-        The `key` defaults to `lamindb_record_exports/{self.name}{suffix}` unless a `key` is passed.
+        The `key` defaults to `lamindb_record_exports/{type_path}{suffix}` unless a
+        `key` is passed. `type_path` is this record's full type hierarchy from the
+        root type to this record, joined by `/`.
 
         When the record frame schema defines :attr:`~lamindb.Schema.index`, the CSV is written
         with `index=True` so the index feature is preserved on export.
@@ -2006,7 +2020,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
             suffix = ".csv" if suffix is None else suffix
-            key = f"lamindb_record_exports/{self.name}{suffix}"
+            key = _default_record_export_key(self, suffix)
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
             self.to_dataframe(
