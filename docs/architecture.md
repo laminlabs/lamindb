@@ -209,7 +209,7 @@ collection.schema.add(feature)
 
 :::::
 
-:::::{tab-item} LanceDB
+:::::{tab-item} Lance
 
 ```python
 artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
