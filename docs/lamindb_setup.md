@@ -3,5 +3,5 @@
 ```{toctree}
 :maxdepth: 1
 
-lamindb_setup.evolve
+lamindb.setup.evolve
 ```

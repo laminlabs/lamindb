@@ -58,7 +58,7 @@ Add a unique ID so LaminDB can recognize the plan each time you apply it:
 lamin evolve utils add-uid plans/plan_samples.py
 ```
 
-Keep the generated UID when editing the plan. Importing from {mod}`lamindb_setup.evolve` lets you validate the plan before connecting to an instance.
+Keep the generated UID when editing the plan. Import plan declarations from `lamindb_setup.evolve` so the CLI can validate the plan before connecting to an instance.
 
 ### Validate and preview
 
@@ -185,7 +185,7 @@ Plans may export objects through `PlanExports` for other plans to reuse. Keep re
 
 ### Types in a plan
 
-These are declaration objects from {mod}`lamindb_setup.evolve`, distinct from the database records they create or update.
+The following objects declare the database records that a plan will create or update. Import them from `lamindb_setup.evolve`.
 
 | Declaration   | Purpose                                                                                                                                      |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -197,6 +197,6 @@ These are declaration objects from {mod}`lamindb_setup.evolve`, distinct from th
 | `Sheet`       | Define a record type whose rows follow a schema.                                                                                             |
 | `Record`      | Seed a named record, such as a vocabulary term. Existing records require an explicit `update_record` declaration for their values to change. |
 
-See {mod}`lamindb_setup.evolve` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
+See the {mod}`plan authoring API <lamindb.setup.evolve>` for declarations, migration helpers, and tracking settings, and the [CLI reference](cli.md#manage-schemas) for command options, repairs, introspection, and CI workflows.
 
 To see these concepts in code, run `lamin evolve init` with a plan name. It creates a Python plan file with commented examples of declarations, field options, and dependencies between plans.
