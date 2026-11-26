@@ -163,8 +163,8 @@ def test_record_page_frame_data_properties():
     ("field_name", "dtype", "required"),
     [
         ("description", str, True),
-        ("created_at", "datetime", False),
-        ("updated_at", "datetime", False),
+        ("created_at", "datetime64[ns, UTC]", False),
+        ("updated_at", "datetime64[ns, UTC]", False),
     ],
 )
 def test_record_type_assignment_requires_schema_features(field_name, dtype, required):
@@ -1498,12 +1498,32 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime' or 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
     ):
         ln.Feature(
             name="source_created_at_wrong_dtype",
             dtype=str,
             values_through="created_at",
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+    ):
+        ln.Feature(
+            name="source_created_at_naive",
+            dtype=datetime,
+            values_through="created_at",
+        ).save()
+
+    with pytest.raises(
+        ValueError,
+        match="Feature\\(\\.\\.\\., values_through='updated_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+    ):
+        ln.Feature(
+            name="source_updated_at_naive",
+            dtype=datetime,
+            values_through="updated_at",
         ).save()
 
     with pytest.raises(

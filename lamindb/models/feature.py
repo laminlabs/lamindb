@@ -1099,7 +1099,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
 
     A feature that stores values on a :class:`~lamindb.Record` field::
 
-        ln.Feature(name="created_at", dtype=datetime, values_through="created_at").save()
+        ln.Feature(
+            name="created_at", dtype="datetime64[ns, UTC]", values_through="created_at"
+        ).save()
         ln.Feature(name="external_id", dtype=str, values_through="reference").save()
 
     General notes
