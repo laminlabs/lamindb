@@ -1,10 +1,33 @@
 # Manage schemas
 
-Schemas define the expected structure of data in LaminDB. As requirements change, versioning your schemas helps you review updates, migrate existing data, and keep definitions consistent across instances. This guide shows you how to define, review, and apply schema changes.
+As dataset requirements change, we can update a schema directly in Python. For example, we can add a column to the `samples` collection to record whether each sample passed quality control.
 
-## General workflow
+```python
+import lamindb as ln
 
-In this example, you’ll define a schema called `samples`. Each row has a `sample_id` and a numeric `measurement`. Later, you’ll update the schema to allow samples with a missing measurement.
+samples = ln.Collection.get(key="samples")
+qc_pass = ln.Feature(name="QC_PASS", dtype=bool, nullable=False).save()
+samples.schema.add(qc_pass)
+```
+
+The column is optional, so earlier batches still validate without it. When a batch includes `QC_PASS`, each row must have a value of `True` or `False`. To allow a missing value when a sample hasn’t been checked yet, we can make the feature nullable.
+
+```python
+qc_pass.nullable = True
+qc_pass.save()
+```
+
+If we stop tracking quality checks, we can remove `QC_PASS` from the schema. This works for schemas that allow additional columns (the default).
+
+```python
+samples.schema.remove(qc_pass)
+```
+
+## Manage schemas with a version-controlled plan
+
+As more datasets share a schema, changing it means accounting for data collected under earlier rules. Making an optional column required, for example, may mean updating older datasets so they still validate. Lamin supports declarative plans tracked in Git, allowing us to specify the schema we want, review the change, and preview its effect before applying it.
+
+In this example, we’ll define a `samples` schema with two columns, `sample_id` and a numeric `measurement`. Then we’ll update the plan to allow missing measurements.
 
 Before you start, you’ll need:
 
