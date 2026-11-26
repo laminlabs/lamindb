@@ -423,7 +423,14 @@ def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> 
                 f"dtype pointing to {remote_model.__name__}"
             )
     elif isinstance(record_field, models.DateTimeField):
-        if dtype not in {"datetime", "datetime64[ns, UTC]"}:
+        # created_at and updated_at are timezone-aware database timestamps.
+        if field_name in {"created_at", "updated_at"}:
+            if dtype != "datetime64[ns, UTC]":
+                raise ValueError(
+                    f"Feature(..., values_through='{field_name}') requires feature dtype "
+                    "'datetime64[ns, UTC]'"
+                )
+        elif dtype not in {"datetime", "datetime64[ns, UTC]"}:
             raise ValueError(
                 f"Feature(..., values_through='{field_name}') requires feature dtype "
                 "'datetime' or 'datetime64[ns, UTC]'"
