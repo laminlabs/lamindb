@@ -114,16 +114,29 @@ def test_feature_init():
     feat1.delete(permanent=True)
 
     # string and list syntax for categorical dtypes should be equivalent and work
+    # Reconstructing a Feature preserves its settings when omitted or passed as None.
     feat2 = ln.Feature(
-        name="feat2", dtype="str", description="feat2", regex="a+"
+        name="feat2",
+        dtype="str",
+        description="feat2",
+        regex="a+",
+        default_value="a",
+        nullable=False,
+        coerce=True,
     ).save()
     feat2_again = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     assert feat2 == feat2_again
     assert feat2_again.regex == "a+"
+    feat2_again = ln.Feature(
+        name="feat2", dtype="str", default_value=None, nullable=None, coerce=None
+    )
     feat2_again.regex = None
     feat2_again.save()
     feat2.refresh_from_db()
     assert feat2.regex is None
+    assert feat2.default_value == "a"
+    assert feat2.nullable is False
+    assert feat2.coerce is True
     feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
