@@ -9,7 +9,6 @@
 
 cli
 lamindb
-lamindb_setup
 ```
 
 ```{toctree}
