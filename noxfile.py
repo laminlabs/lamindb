@@ -99,6 +99,7 @@ def install(session):
         "integrations",
         "docs",
         "cli",
+        "cli-evolve",
         "permissions",
         "profile",
         "minimal",
@@ -193,7 +194,7 @@ def install_ci(session, group):
             session,
             "uv pip install --system --no-deps ./sub/pertdb",
         )
-    elif group == "cli":
+    elif group == "cli-evolve":
         run(session, "uv pip install --system 'pyinstrument>=5'")
     elif group == "permissions":
         pass
@@ -349,13 +350,14 @@ def prepare(session):
         "transfer-sqlite",
         "transfer-postgres",
         "cli",
+        "cli-evolve",
         "permissions",
         "minimal",
     ],
 )
 def test(session, group):
     # we likely don't need auth in many other groups, but have to carefully expand this
-    if group not in {"curator", "no-instance", "minimal"}:
+    if group not in {"curator", "no-instance", "minimal", "cli-evolve"}:
         login_testuser2(session)
         login_testuser1(session)
     # this is mostly needed for the docs so that we don't render Django's entire public API
@@ -442,6 +444,7 @@ def test(session, group):
             session,
             f"pytest {coverage_args} ./sub/lamin-cli/tests/core {duration_args}",
         )
+    elif group == "cli-evolve":
         run(
             session,
             f"pytest {coverage_args} ./sub/lamin-cli/tests/evolve {duration_args}",

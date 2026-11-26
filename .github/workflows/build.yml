@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           DOCS_GROUPS=("tutorial" "guide" "tiledbsoma" "biology" "faq" "storage")
-          CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer-sqlite" "transfer-postgres" "cli" "permissions" "no-instance" "minimal")
+          CORE_NON_DOCS_GROUPS=("unit-pydata-sqlite" "unit-pydata-postgres" "unit-storage" "transfer-sqlite" "transfer-postgres" "cli" "cli-evolve" "permissions" "no-instance" "minimal")
           CORE_GROUPS=("${CORE_NON_DOCS_GROUPS[@]}" "${DOCS_GROUPS[@]}")
           SELECTED_GROUPS=()
 
@@ -163,12 +163,13 @@ jobs:
       - run: nox -s "install_ci(group='${{ matrix.group }}')"
 
       - uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ matrix.group != 'cli-evolve' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s prepare
-        if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') && matrix.group != 'minimal' }}
+        if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') && matrix.group != 'minimal' && matrix.group != 'cli-evolve' }}
       - run: nox -s "test(group='${{ matrix.group }}')"
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
