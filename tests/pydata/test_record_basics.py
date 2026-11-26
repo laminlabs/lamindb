@@ -1432,9 +1432,11 @@ def test_record_feature_values_through_store_run_and_type():
     mapped_run = ln.Feature(
         name="source_run", dtype=ln.Run.uid, values_through="run"
     ).save()
+    schema = ln.Schema([mapped_run], name="field-map-run-schema").save()
+    sheet = ln.Record(name="field-map-run-sheet", is_type=True, schema=schema).save()
     transform = ln.Transform(key="field-map-transform").save()
     run = ln.Run(transform, name="field-map-run").save()
-    run_record = ln.Record(features={"source_run": run}).save()
+    run_record = ln.Record(type=sheet, features={"source_run": run}).save()
     run_record.refresh_from_db()
     assert run_record.run_id == run.id
     assert (
@@ -1443,6 +1445,9 @@ def test_record_feature_values_through_store_run_and_type():
     run_field = ln.models.feature.parse_dtype(mapped_run._dtype_str)[0]["field_str"]
     assert run_record.features.get_values()["source_run"] == getattr(run, run_field)
     assert run_record.features["source_run"] == getattr(run, run_field)
+    exported = sheet.to_dataframe()
+    assert exported.loc[run_record.id, "source_run"] == run.uid
+    assert isinstance(exported["source_run"].dtype, pd.CategoricalDtype)
 
     mapped_type = ln.Feature(
         name="source_type", dtype=ln.Record, values_through="type"
@@ -1466,6 +1471,8 @@ def test_record_feature_values_through_store_run_and_type():
 
     run_record.delete(permanent=True)
     type_record.delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
     source_type.delete(permanent=True)
