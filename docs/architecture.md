@@ -76,7 +76,7 @@ On a high level, LaminDB's architecture has the following properties:
 
 :::{include} ../README.md
 :start-after: Architecture?
-:end-before: Read more:
+:end-before: <details>
 :::
 
 This document provides more background and details for several of the bullets.
