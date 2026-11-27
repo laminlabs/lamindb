@@ -224,8 +224,6 @@ class AnyNaiveDatetime(pandas_engine.DataType):
     type = np.dtype("datetime64[ns]")
 
     def check(self, pandera_dtype, data_container=None):
-        if data_container is None:
-            return False
         return _naive_datetime_dtype(data_container.dtype)
 
     def coerce(self, data_container):
@@ -250,8 +248,6 @@ class AnyUTCDatetime(pandas_engine.DataType):
     type = np.dtype("datetime64[ns]")
 
     def check(self, pandera_dtype, data_container=None):
-        if data_container is None:
-            return False
         return _utc_datetime_dtype(data_container.dtype)
 
     def coerce(self, data_container):

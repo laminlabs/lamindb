@@ -95,6 +95,8 @@ def test_polars_scalar_and_nested_dtypes(as_frame):
         (list[float], [["a"]]),
         (dict, ["a"]),
         ("list[object]", [["a"]]),
+        (datetime, [1]),
+        ("datetime[UTC]", [1]),
     ],
 )
 @pytest.mark.parametrize("regex", [None, "a+"])

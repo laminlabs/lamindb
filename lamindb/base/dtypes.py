@@ -180,15 +180,20 @@ def parse_exact_datetime_dtype(dtype: str | None) -> tuple[str, bool] | None:
     `datetime64[ns, UTC]` is nanosecond UTC. `datetime64[us]` is naive
     microseconds. `datetime[UTC]` and `datetime` are not exact and return None.
     """
-    if dtype is None or not dtype.startswith("datetime64[") or not dtype.endswith("]"):
+    unit: str | None = None
+    utc = False
+    if dtype and dtype.startswith("datetime64[") and dtype.endswith("]"):
+        inner = dtype[len("datetime64[") : -1]
+        if inner in DATETIME64_UNITS:
+            unit = inner
+        else:
+            parsed_unit, separator, zone = inner.partition(", ")
+            if separator and zone == "UTC" and parsed_unit in DATETIME64_UNITS:
+                unit = parsed_unit
+                utc = True
+    if unit is None:
         return None
-    inner = dtype[len("datetime64[") : -1]
-    if inner in DATETIME64_UNITS:
-        return inner, False
-    unit, separator, zone = inner.partition(", ")
-    if separator and zone == "UTC" and unit in DATETIME64_UNITS:
-        return unit, True
-    return None
+    return unit, utc
 
 
 def is_exact_datetime_dtype(dtype: str | None) -> bool:
