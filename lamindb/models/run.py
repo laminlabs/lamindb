@@ -190,6 +190,7 @@ class Run(SQLRecord, TracksUpdates):
         description: `str | None = None` An optional description.
         entrypoint: `str | None = None` The entrypoint of the transform, e.g. a function name or CLI entry point.
         params: `dict | None = None` A dictionary of parameters.
+        extra_data: `dict | None = None` Extra data in JSON format, not validated as features.
         status: `Literal["scheduled", "started"] = "scheduled"` Run status at creation.
             The `started_at` timestamp is populated via database default upon creation,
             even if status is `"scheduled"`.
@@ -392,6 +393,7 @@ class Run(SQLRecord, TracksUpdates):
         description: str | None = None,
         entrypoint: str | None = None,
         params: dict | None = None,
+        extra_data: dict | None = None,
         status: Literal["scheduled", "started"] = "scheduled",
         initiated_by_run: Run | None = None,
         reference: str | None = None,
@@ -425,6 +427,7 @@ class Run(SQLRecord, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         entrypoint: str | None = kwargs.pop("entrypoint", None)
         params: dict | None = kwargs.pop("params", None)
+        extra_data: dict | None = kwargs.pop("extra_data", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
@@ -441,7 +444,7 @@ class Run(SQLRecord, TracksUpdates):
             )
         if not len(kwargs) == 0:
             raise ValueError(
-                f"Only transform, name, description, params, reference, reference_type, initiated_by_run, plan, status can be passed, but you passed: {kwargs}"
+                f"Only transform, name, description, params, extra_data, reference, reference_type, initiated_by_run, plan, status can be passed, but you passed: {kwargs}"
             )
         # started_at is set on insert by the database (db_default=Now()), independent
         # of status. Mark completion with _status_code = 0 alongside finished_at.
@@ -451,6 +454,7 @@ class Run(SQLRecord, TracksUpdates):
             description=description,
             entrypoint=entrypoint,
             params=params,
+            extra_data=extra_data,
             reference=reference,
             reference_type=reference_type,
             initiated_by_run=initiated_by_run,

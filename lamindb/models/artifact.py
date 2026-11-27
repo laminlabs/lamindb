@@ -1502,6 +1502,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
+        extra_data: `dict | None = None` Extra data in JSON format, not validated as features.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
@@ -2013,6 +2014,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kind: ArtifactKind | str | None = None,
         otype: str | None = None,
         features: dict[str, Any] | None = None,
+        extra_data: dict | None = None,
         schema: Schema | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
@@ -2060,6 +2062,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         features: dict[str, Any] | None = kwargs.pop("features", None)
+        extra_data: dict | None = kwargs.pop("extra_data", None)
         skip_hash_lookup: bool | None = kwargs.pop("skip_hash_lookup", None)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
@@ -2307,7 +2310,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # update key from inferred value
             key = privates.pop("key")
             # adding "key" here is dangerous because key might be auto-populated
-            attr_to_update = {"description": description}
+            attr_to_update = {"description": description, "extra_data": extra_data}
             if schema is not None:
                 attr_to_update["schema"] = schema
             if kwargs_or_artifact._key_is_virtual and kwargs_or_artifact.key is None:
@@ -2367,6 +2370,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["kind"] = kind
         kwargs["version_tag"] = version_tag
         kwargs["description"] = description
+        kwargs["extra_data"] = extra_data
         kwargs["branch"] = branch
         kwargs["space"] = space
         kwargs["otype"] = otype

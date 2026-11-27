@@ -111,7 +111,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, features, description, schema, reference, reference_type, branch, space are valid keyword arguments"
+            "Only name, type, is_type, features, extra_data, description, schema, reference, reference_type, branch, space are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
@@ -126,7 +126,12 @@ def test_record_page_frame_data_properties():
     score = ln.Feature(name="kind_test_score", dtype=float).save()
     schema = ln.Schema([score], name="kind_test_samplesheet_schema").save()
     frame = ln.Record(name="KindTestSamples", is_type=True, schema=schema).save()
-    data = ln.Record(name="KindTestSample1", type=frame, features={score: 1.0}).save()
+    data = ln.Record(
+        name="KindTestSample1",
+        type=frame,
+        features={score: 1.0},
+        extra_data={"source": "manual"},
+    ).save()
 
     assert page.is_page is True
     assert page.is_frame is False
@@ -144,6 +149,7 @@ def test_record_page_frame_data_properties():
     assert data.is_frame is False
     assert data.is_data is True
     assert data.is_type is False
+    assert data.extra_data == {"source": "manual"}
 
     with pytest.warns(DeprecationWarning, match="Use is_frame instead of is_sheet"):
         assert frame.is_sheet is True

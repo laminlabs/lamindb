@@ -410,12 +410,15 @@ def test_upload_checks_hash_by_default(tmp_path):
     filepath = tmp_path / "uploaded.txt"
     filepath.write_text("uploaded-content")
 
-    artifact_1 = ln.Artifact(filepath, key="uploads/uploaded.txt").save()
+    artifact_1 = ln.Artifact(
+        filepath, key="uploads/uploaded.txt", extra_data={"source": "manual"}
+    ).save()
     artifact_2 = ln.Artifact(filepath)
 
     assert not artifact_2._state.adding
     assert artifact_2.id == artifact_1.id
     assert artifact_2.uid == artifact_1.uid
+    assert artifact_2.extra_data == {"source": "manual"}
 
     artifact_1.delete(permanent=True)
 
