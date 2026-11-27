@@ -24,9 +24,7 @@ from lamindb_setup.errors import (
 from lamindb.base.dtypes import (
     UTC_DATETIME_DTYPE,
     is_datetime_dtype,
-    is_exact_datetime_dtype,
     is_utc_datetime_dtype,
-    tz_is_utc,
 )
 from lamindb.base.fields import (
     BooleanField,
@@ -671,23 +669,16 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     elif isinstance(pandas_dtype, CategoricalDtype):
         dtype = "cat[ULabel]"
     elif is_datetime64_any_dtype(pandas_dtype):
-        # Keep the unit. datetime[UTC] is chosen explicitly when precision
-        # should not be part of the feature dtype.
-        unit = getattr(pandas_dtype, "unit", None) or "ns"
+        # Resolution is a storage detail. datetime64[ns] and datetime64[us, UTC]
+        # are used only when a feature sets them explicitly.
         tz = getattr(pandas_dtype, "tz", None)
-        if tz is not None and not tz_is_utc(tz):
-            raise ValueError(
-                f"timezone {tz} cannot be stored as a feature dtype; use UTC"
-            )
-        dtype = f"datetime64[{unit}, UTC]" if tz is not None else f"datetime64[{unit}]"
+        dtype = UTC_DATETIME_DTYPE if tz is not None else "datetime"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
         if dtype == "uint":
             dtype = "int"
-    if dtype.startswith("datetime") and not (
-        is_utc_datetime_dtype(dtype) or is_exact_datetime_dtype(dtype)
-    ):
+    if dtype.startswith("datetime") and not is_utc_datetime_dtype(dtype):
         dtype = dtype.split("[")[0]
     if dtype != "cat[ULabel]":
         assert dtype in FEATURE_DTYPES  # noqa: S101

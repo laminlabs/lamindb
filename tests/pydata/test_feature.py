@@ -548,11 +548,11 @@ def test_serialize_pandas_datetime_dtypes():
     datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
     string_cat_series = pd.Series(["a", "b", "a"], dtype="category")
 
-    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime64[ns]"
-    assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
+    assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime[UTC]"
     assert (
         serialize_pandas_dtype(datetime_tz_series.astype("datetime64[us, UTC]").dtype)
-        == "datetime64[us, UTC]"
+        == "datetime[UTC]"
     )
     assert serialize_pandas_dtype(string_cat_series.dtype) == "cat[ULabel]"
 
