@@ -28,4 +28,5 @@ jobs:
       - run: nox -s "install_ci(group='profile')"
       - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
       - run: lamin login
+      - run: lamin connect laminlabs/lamindb-dev
       - run: laminprofiler benchmark tests/profiling
