@@ -169,8 +169,8 @@ def test_record_page_frame_data_properties():
     ("field_name", "dtype", "required"),
     [
         ("description", str, True),
-        ("created_at", "datetime64[ns, UTC]", False),
-        ("updated_at", "datetime64[ns, UTC]", False),
+        ("created_at", "datetime[UTC]", False),
+        ("updated_at", "datetime[UTC]", False),
     ],
 )
 def test_record_type_assignment_requires_schema_features(field_name, dtype, required):
@@ -1291,7 +1291,7 @@ def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
 def test_record_feature_values_through_store_on_record_columns():
     mapped_created_at = ln.Feature(
         name="source_created_at",
-        dtype="datetime64[ns, UTC]",
+        dtype="datetime[UTC]",
         values_through="created_at",
     ).save()
     mapped_created_by = ln.Feature(
@@ -1511,7 +1511,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_created_at_wrong_dtype",
@@ -1521,7 +1521,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_created_at_naive",
@@ -1531,7 +1531,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='updated_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='updated_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_updated_at_naive",
@@ -3280,32 +3280,39 @@ def test_date_and_datetime_corruption():
     feature_date.delete(permanent=True)
 
 
-def test_timezone_aware_datetime_feature():
-    feature_datetime_tz = ln.Feature(
-        name="feature_datetime_tz", dtype="datetime64[ns, UTC]"
+@pytest.mark.parametrize(
+    ("dtype", "timestamp", "expected_dtype"),
+    [
+        (
+            "datetime64[ns, UTC]",
+            datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+            "datetime64[ns, UTC]",
+        ),
+        ("datetime64[us]", datetime(2024, 1, 1, 12, 0, 0), "datetime64[us]"),
+    ],
+)
+def test_timezone_aware_datetime_feature(dtype, timestamp, expected_dtype):
+    slug = dtype.replace("[", "").replace("]", "").replace(", ", "-")
+    feature = ln.Feature(name=f"feature_datetime_{slug}", dtype=dtype).save()
+    schema = ln.Schema([feature], name=f"test_schema_datetime_{slug}").save()
+    sheet = ln.Record(
+        name=f"TestSheetDatetime{slug}", is_type=True, schema=schema
     ).save()
-    schema = ln.Schema([feature_datetime_tz], name="test_schema_datetime_tz").save()
-    test_sheet = ln.Record(
-        name="TestSheetDatetimeTZ", is_type=True, schema=schema
-    ).save()
-    timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     record = ln.Record(
-        name="test_record_datetime_tz",
-        type=test_sheet,
-        features={"feature_datetime_tz": timestamp},
+        name=f"test_record_datetime_{slug}",
+        type=sheet,
+        features={feature.name: timestamp},
     ).save()
-    assert record.features.get_values() == {"feature_datetime_tz": timestamp}
+    assert record.features.get_values() == {feature.name: timestamp}
 
-    df = test_sheet.to_dataframe()
-    assert str(df["feature_datetime_tz"].dtype) == "datetime64[ns, UTC]"
-    assert df.to_dict(orient="records")[0]["feature_datetime_tz"] == pd.Timestamp(
-        "2024-01-01 12:00:00+00:00"
-    )
+    df = sheet.to_dataframe()
+    assert str(df[feature.name].dtype) == expected_dtype
+    assert df.to_dict(orient="records")[0][feature.name] == pd.Timestamp(timestamp)
 
     record.delete(permanent=True)
-    test_sheet.delete(permanent=True)
+    sheet.delete(permanent=True)
     schema.delete(permanent=True)
-    feature_datetime_tz.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_only_list_type_features_and_field_qualifiers():
