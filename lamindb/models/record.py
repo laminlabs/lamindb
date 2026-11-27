@@ -554,23 +554,63 @@ def _feature_value_from_mapped_record_field(
     return value
 
 
+def _backward_link_fields(registry: str) -> tuple[type[SQLRecord], str, str] | None:
+    """Link model, related-object field, and field that stores this record.
+
+    `books.values_through=author` stores `RecordRecord(record=book, feature=author, value=author)`.
+    `coverage_report.values_through=commit_hash16` stores
+    `ArtifactRecord(artifact=report, feature=commit_hash16, record=commit)`.
+    """
+    if registry == "Record":
+        return RecordRecord, "record", "value"
+    if registry == "Artifact":
+        return ArtifactRecord, "artifact", "record"
+    if registry == "Run":
+        return RunRecord, "run", "record"
+    return None
+
+
+def _backward_related_objects(
+    record: Record, feature: Feature, source_feature: Feature
+) -> list[SQLRecord]:
+    """Objects that point at `record` through `source_feature`."""
+    parsed_target = parse_dtype(feature._dtype_str)
+    if len(parsed_target) != 1:
+        return []
+    link_fields = _backward_link_fields(parsed_target[0].get("registry_str"))
+    if link_fields is None:
+        return []
+    link_model, related_field, host_field = link_fields
+    links = (
+        link_model.objects.using(record._state.db)
+        .filter(feature_id=source_feature.id, **{f"{host_field}_id": record.id})
+        .select_related(related_field)
+        .order_by("id")
+    )
+    return [getattr(link, related_field) for link in links]
+
+
 def _feature_value_from_backward_record_links(
     record: Record, feature: Feature, source_feature: Feature
 ) -> Any:
     parsed_target = parse_dtype(feature._dtype_str)
-    if len(parsed_target) != 1 or parsed_target[0].get("registry_str") != "Record":
+    if len(parsed_target) != 1:
+        return None
+    registry = parsed_target[0].get("registry_str")
+    if registry not in {"Record", "Artifact", "Run"}:
         return None
     parsed_source = parse_dtype(source_feature._dtype_str)
-    if len(parsed_source) != 1 or parsed_source[0].get("registry_str") != "Record":
+    if len(parsed_source) != 1 or parsed_source[0].get("registry_str") not in {
+        "Record",
+        "Artifact",
+        "Run",
+    }:
         return None
     target_field = parsed_target[0]["field_str"]
-    links = (
-        RecordRecord.objects.using(record._state.db)
-        .filter(feature_id=source_feature.id, value_id=record.id)
-        .select_related("record")
-        .order_by("id")
-    )
-    values = [getattr(link.record, target_field) for link in links]
+    values = [
+        getattr(related, target_field)
+        for related in _backward_related_objects(record, feature, source_feature)
+    ]
     values = [value for value in values if value is not None]
     if feature.dtype_as_str.startswith("list[cat"):
         return values
@@ -824,12 +864,42 @@ def move_schema_index_column_to_dataframe_index(
     return df
 
 
-def _records_from_feature_value(value: Any) -> list[Record]:
-    """Normalize a reverse `values_through` payload to Record objects."""
+def _resolve_backward_label(item: Any, *, model: type[SQLRecord], feature: Feature):
+    if isinstance(item, model):
+        return item
+    if isinstance(item, str):
+        # Record relations are addressed by name. Artifact and Run use the dtype field.
+        if model is Record:
+            return Record.get(name=item)
+        parsed = parse_dtype(feature._dtype_str)
+        field = parsed[0]["field_str"] if parsed else model._name_field
+        return model.get(**{field: item})
+    if model is Record:
+        return item
+    raise ValidationError(
+        f"Cannot write backward feature '{feature.name}' from {type(item).__name__}. "
+        f"Expected {model.__name__}."
+    )
+
+
+def _labels_from_backward_value(
+    value: Any, *, model: type[SQLRecord], feature: Feature
+) -> list:
+    """Normalize a reverse `values_through` payload to label objects."""
     if value is None:
         return []
+    if isinstance(value, model) or isinstance(value, str):
+        items = [value]
+    else:
+        try:
+            items = list(value)
+        except TypeError as error:
+            raise ValidationError(
+                f"Cannot write backward feature '{feature.name}' from "
+                f"{type(value).__name__}. Expected {model.__name__}."
+            ) from error
     return [
-        item if not isinstance(item, str) else Record.get(name=item) for item in value
+        _resolve_backward_label(item, model=model, feature=feature) for item in items
     ]
 
 
@@ -843,41 +913,62 @@ def apply_inverted_values_through_writes(
 
     For `books.values_through=author`, setting `author.books = [book]` stores
     `RecordRecord(record=book, feature=author, value=author_record)`.
+    Artifact and Run relations use the same inversion: the related object is the
+    annotated host, and this record is the label.
     """
     from .save import save as ln_save
 
     db = host._state.db
-    for _derived_feature, source_feature, value in writes:
-        related_records = _records_from_feature_value(value)
-        desired_ids = {related.id for related in related_records}
-        existing = RecordRecord.objects.using(db).filter(
-            feature_id=source_feature.id, value_id=host.id
+    for derived_feature, source_feature, value in writes:
+        parsed = parse_dtype(derived_feature._dtype_str or "")
+        registry = parsed[0].get("registry_str") if len(parsed) == 1 else None
+        model = {"Record": Record, "Artifact": Artifact, "Run": Run}.get(registry)
+        link_fields = _backward_link_fields(registry) if registry else None
+        if model is None or link_fields is None:
+            raise ValidationError(
+                f"Cannot write backward feature '{derived_feature.name}' "
+                f"with dtype {derived_feature.dtype_as_str!r}."
+            )
+        link_model, related_field, host_field = link_fields
+        related_labels = _labels_from_backward_value(
+            value, model=model, feature=derived_feature
         )
-        existing_by_record_id = {link.record_id: link for link in existing}
+        desired_ids = {related.id for related in related_labels}
+        existing = link_model.objects.using(db).filter(
+            feature_id=source_feature.id, **{f"{host_field}_id": host.id}
+        )
+        existing_by_related_id = {
+            getattr(link, f"{related_field}_id"): link for link in existing
+        }
         if replace:
             stale_ids = [
                 link.id
-                for record_id, link in existing_by_record_id.items()
-                if record_id not in desired_ids
+                for related_id, link in existing_by_related_id.items()
+                if related_id not in desired_ids
             ]
             if stale_ids:
-                RecordRecord.objects.using(db).filter(id__in=stale_ids).delete()
+                link_model.objects.using(db).filter(id__in=stale_ids).delete()
         source_is_list = (source_feature.dtype_as_str or "").startswith("list[")
-        to_create: list[RecordRecord] = []
-        for related in related_records:
-            if related.id in existing_by_record_id:
+        to_create: list[SQLRecord] = []
+        for related in related_labels:
+            if related.id in existing_by_related_id:
                 continue
             if not source_is_list:
-                RecordRecord.objects.using(db).filter(
-                    record_id=related.id, feature_id=source_feature.id
-                ).exclude(value_id=host.id).delete()
-            to_create.append(
-                RecordRecord(
-                    record_id=related.id,
-                    feature_id=source_feature.id,
-                    value_id=host.id,
-                )
-            )
+                link_model.objects.using(db).filter(
+                    **{
+                        f"{related_field}_id": related.id,
+                        "feature_id": source_feature.id,
+                    }
+                ).exclude(**{f"{host_field}_id": host.id}).delete()
+            kwargs = {
+                f"{related_field}_id": related.id,
+                "feature_id": source_feature.id,
+                f"{host_field}_id": host.id,
+            }
+            # Bulk create does not apply Python defaults such as created_by.
+            if any(field.name == "created_by" for field in link_model._meta.fields):
+                kwargs["created_by_id"] = current_user_id()
+            to_create.append(link_model(**kwargs))
         if to_create:
             ln_save(to_create, ignore_conflicts=True, using=db)
 

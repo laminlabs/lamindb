@@ -231,21 +231,39 @@ def _normalize_user_records_for_field_value(
     return _normalize_one(value)
 
 
+def _link_relation_annotates_host(rel: Any) -> bool:
+    """Whether this reverse relation is the annotated object, not the label.
+
+    `RecordArtifact.record` is the annotated record and `value` is the artifact.
+    `ArtifactRecord.record` is the label on an artifact. Both foreign keys are
+    named `record_id`, so filtering every `record_id` treats the artifact's
+    feature as a feature of the record.
+    """
+    field_name = rel.field.name
+    if field_name == "value":
+        return False
+    field_names = {field.name for field in rel.related_model._meta.fields}
+    if "value" not in field_names and field_name in {"record", "ulabel"}:
+        return False
+    return True
+
+
 def _host_feature_objects_from_links(host: Any) -> list[Feature]:
     """Features that annotate `host`, identified by link rows rather than name."""
     host_db = host._state.db
     host_id = host.id
     if host_id is None:
         return []
-    host_field = f"{get_registry_name(host).lower()}_id"
     feature_ids: set[int] = set()
     for rel in host._meta.related_objects:
         link_model = rel.related_model
-        if not hasattr(link_model, "feature_id") or not hasattr(link_model, host_field):
+        if not hasattr(link_model, "feature_id"):
+            continue
+        if not _link_relation_annotates_host(rel):
             continue
         feature_ids.update(
             link_model.objects.using(host_db)
-            .filter(**{host_field: host_id})
+            .filter(**{rel.field.attname: host_id})
             .values_list("feature_id", flat=True)
         )
     json_values = getattr(host, "json_values", None)
@@ -434,7 +452,15 @@ def get_categoricals_sqlite(
         if hasattr(links, "order_by"):
             links = links.order_by("pk")
         for link in links:
-            if link.__class__.__name__ == "RecordJson":
+            link_name = link.__class__.__name__
+            if link_name == "RecordJson":
+                continue
+            # ArtifactRecord and RunRecord point at this record as a label.
+            # The feature belongs to the artifact or run. Postgres skips these
+            # link models when the host is a record; SQLite has to do the same.
+            if get_registry_name(self) == "Record" and not link_name.startswith(
+                "Record"
+            ):
                 continue
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
@@ -2485,7 +2511,7 @@ class FeatureManager:
                 continue
             if host_name == "record":
                 from .record import (
-                    RecordRecord,
+                    _backward_related_objects,
                     get_feature_sqlrecord_field,
                     get_feature_values_through_source_uid,
                 )
@@ -2500,14 +2526,20 @@ class FeatureManager:
                     continue
                 source_uid = get_feature_values_through_source_uid(feature)
                 if source_uid is not None:
-                    links = (
-                        RecordRecord.objects.using(self._host._state.db)
-                        .filter(feature__uid=source_uid, value_id=self._host.id)
-                        .select_related("record")
-                        .order_by("id")
+                    source_feature = Feature.objects.using(self._host._state.db).get(
+                        uid=source_uid
                     )
-                    # A reverse values_through feature is always list[Record].
-                    dictionary[feature.name] = [link.record for link in links]
+                    related = _backward_related_objects(
+                        self._host, feature, source_feature
+                    )
+                    if (feature.dtype_as_str or "").startswith("list["):
+                        dictionary[feature.name] = related
+                    elif len(related) == 1:
+                        dictionary[feature.name] = related[0]
+                    elif not related:
+                        dictionary.pop(feature.name, None)
+                    else:
+                        dictionary[feature.name] = related
                     continue
             if not feature.dtype_as_str.startswith(("cat", "list[cat")):
                 json_values = (

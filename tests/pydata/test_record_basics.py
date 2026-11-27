@@ -1220,6 +1220,91 @@ def test_set_values_does_not_warn_for_schema_index_feature_on_record(ccaplog):
     score.delete(permanent=True)
 
 
+def test_set_values_writes_artifact_and_run_backward_features():
+    commits = ln.Record(name="backward-set-commits", is_type=True).save()
+    commit_hash = ln.Feature(name="backward-set-commit", dtype=commits).save()
+    coverage_report = ln.Feature(
+        name="backward-set-coverage-report",
+        dtype=ln.Artifact,
+        values_through=commit_hash,
+    ).save()
+    coverage = ln.Feature(name="backward-set-coverage", dtype=float).save()
+    run_commit = ln.Feature(name="backward-set-run-commit", dtype=commits).save()
+    run_report = ln.Feature(
+        name="backward-set-run-report",
+        dtype=ln.Run.uid,
+        values_through=run_commit,
+    ).save()
+    record = ln.Record(name="backward-set-row", type=commits).save()
+    artifact = ln.Artifact(
+        ".gitignore", key="backward-cov-a", skip_hash_lookup=True
+    ).save()
+    replacement = ln.Artifact(
+        ".gitignore", key="backward-cov-b", skip_hash_lookup=True
+    ).save()
+    transform = ln.Transform(key="backward-set-transform").save()
+    run = ln.Run(transform).save()
+    try:
+        record.features.set_values({coverage: 0.5, coverage_report: artifact})
+        assert ln.models.ArtifactRecord.filter(
+            artifact=artifact, feature=commit_hash, record=record
+        ).exists()
+        values = record.features.get_values()
+        assert values[coverage.name] == 0.5
+        assert values[coverage_report.name] == artifact.key
+        assert artifact.features.get_values()[commit_hash.name] == record.name
+
+        record.features.update_values({coverage: 0.9, coverage_report: replacement})
+        assert not ln.models.ArtifactRecord.filter(
+            artifact=artifact, feature=commit_hash, record=record
+        ).exists()
+        assert ln.models.ArtifactRecord.filter(
+            artifact=replacement, feature=commit_hash, record=record
+        ).exists()
+        values = record.features.get_values()
+        assert values[coverage.name] == 0.9
+        assert values[coverage_report.name] == replacement.key
+
+        record.features.update_values({run_report: run})
+        assert ln.models.RunRecord.filter(
+            run=run, feature=run_commit, record=record
+        ).exists()
+        assert record.features.get_values()[run_report.name] == run.uid
+        assert record.features.get_values()[coverage.name] == 0.9
+    finally:
+        run.delete(permanent=True)
+        transform.delete(permanent=True)
+        replacement.delete(permanent=True)
+        artifact.delete(permanent=True)
+        record.delete(permanent=True)
+        commits.delete(permanent=True)
+        run_report.delete(permanent=True)
+        run_commit.delete(permanent=True)
+        coverage_report.delete(permanent=True)
+        commit_hash.delete(permanent=True)
+        coverage.delete(permanent=True)
+
+
+def test_set_values_ignores_artifact_label_links(ccaplog):
+    labeled = ln.Record(name="artifact-label-type", is_type=True).save()
+    label_feature = ln.Feature(name="artifact-label-feature", dtype=labeled).save()
+    score = ln.Feature(name="artifact-label-score", dtype=float).save()
+    record = ln.Record(name="artifact-label-row", type=labeled).save()
+    artifact = ln.Artifact(".gitignore", key="artifact-label-link").save()
+    artifact.features.set_values({label_feature: record})
+    try:
+        ccaplog.clear()
+        record.features.set_values({score: 1.5})
+        assert f"no feature '{label_feature.name}' found on record" not in ccaplog.text
+        assert record.features.get_values()[score.name] == 1.5
+    finally:
+        artifact.delete(permanent=True)
+        record.delete(permanent=True)
+        labeled.delete(permanent=True)
+        label_feature.delete(permanent=True)
+        score.delete(permanent=True)
+
+
 def test_record_schema_index_with_name_feature_export():
     """Keep a regular name feature separate from the schema index on Record.name."""
     sample_id = ln.Feature(name="name_export_sample_id", dtype=str).save()
