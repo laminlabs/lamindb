@@ -81,8 +81,9 @@ def test_run():
         error.exconly()
         == "ValueError: status must be 'scheduled' or 'started', but you passed: 'invalid'."
     )
-    run = ln.Run(transform).save()
+    run = ln.Run(transform, extra_data={"n_steps": 3}).save()
     assert run.status == "scheduled"
+    assert run.extra_data == {"n_steps": 3}
     started_run = ln.Run(transform, status="started").save()
     assert started_run.status == "started"
     assert run.reference is None

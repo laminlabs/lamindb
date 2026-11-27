@@ -346,6 +346,12 @@ def test_edge_cases():
     assert schema.index is None
 
     schema.delete(permanent=True)
+
+    schema = ln.Schema([feature], coerce=False)
+    assert schema.coerce is False
+    schema.save()
+    assert ln.Schema.get(uid=schema.uid).coerce is False
+    schema.delete(permanent=True)
     feature.delete(permanent=True)
 
 
