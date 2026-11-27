@@ -1,8 +1,10 @@
+import argparse
 from datetime import datetime
 from random import Random
+from time import perf_counter
 
+import lamindb as ln
 import pandas as pd
-from laminprofiler import laminprofiler
 
 
 def generate_values(dtype: str, n_rows: int, rng: Random):
@@ -20,29 +22,58 @@ def generate_values(dtype: str, n_rows: int, rng: Random):
     raise ValueError(f"Unsupported dtype: {dtype}")
 
 
-@laminprofiler("EQ44qsBEYgynzl4V")
-def profile_import_records_from_dataframe():
-    """Time Record.from_dataframe().save() for 100 generated rows on lamindata."""
-    import lamindb as ln
-
-    ln.connect("laminlabs/lamindata")
+@ln.flow("JuJZZEsit1KV")
+def main(n_rows: int):
     feature_names = [
         "age_or_mean_of_age_range",
         "array_col",
         "cell_type_by_model",
     ]
-    n_rows = 100
     rng = Random(0)
     features = ln.Feature.filter(name__in=feature_names)
     dtypes_by_feature = {feature.name: feature.dtype_as_str for feature in features}
+
     data: dict[str, list] = {}
+    print("Generating random dataframe values...")
     for feature in features:
         data[feature.name] = generate_values(
             dtypes_by_feature[feature.name], n_rows, rng
         )
     df = pd.DataFrame(data)
-    type_name = (
-        "test-import-records-from-dataframe-"
-        f"{datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}"
+    print(df.head(5))
+
+    print("Running Record.from_dataframe()...")
+    from_dataframe_start = perf_counter()
+    records = ln.Record.from_dataframe(
+        df,
+        type=f"test-import-records-from-dataframe-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}",
     )
-    ln.Record.from_dataframe(df, type=type_name).save()
+    from_dataframe_duration_sec = perf_counter() - from_dataframe_start
+    print(f"... completed in {from_dataframe_duration_sec:.6f}s")
+
+    print("Saving records...")
+    save_start = perf_counter()
+    records.save()
+    save_duration_sec = perf_counter() - save_start
+    print(f"... completed in {save_duration_sec:.6f}s")
+
+    run = ln.context.run
+    params = run.params or {}
+    params.update(
+        {
+            "from_dataframe_duration_sec": round(from_dataframe_duration_sec, 6),
+            "save_duration_sec": round(save_duration_sec, 6),
+        }
+    )
+    run.params = params
+    run.save()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Prepare and optionally save test Records rows via Record.from_dataframe()."
+    )
+    parser.add_argument("--rows", type=int, default=100)
+    args = parser.parse_args()
+    ln.connect("laminlabs/lamindata")
+    main(n_rows=args.rows)
