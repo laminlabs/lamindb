@@ -3260,7 +3260,7 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
     feature_plan = [
         ("Name", "str", str),
         ("summary", "str", str),
-        ("created_at", "datetime64[ns, UTC]", datetime),
+        ("created_at", "datetime[UTC]", datetime),
         ("project", "list[Project]", list[ln.Project]),
     ]
     schema = MagicMock()
@@ -3297,7 +3297,7 @@ def test_plan_metadata_highlights_record_field_mappings_in_feature_details(synce
     assert report.create_features == [
         "Organizations / Name: str -> Schema.index",
         "Organizations / summary: str -> Record.description",
-        "Organizations / created_at: datetime64[ns, UTC] -> Record.created_at",
+        "Organizations / created_at: datetime[UTC] -> Record.created_at",
         "Organizations / project: list[Project] -> LaminDB.Project registry",
     ]
 

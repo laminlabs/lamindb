@@ -220,7 +220,7 @@ def test_feature_values_through_roundtrip():
 def test_feature_values_through_sqlrecord_field_roundtrip():
     feature = ln.Feature(
         name="values-from-created-at",
-        dtype="datetime64[ns, UTC]",
+        dtype="datetime[UTC]",
         values_through="created_at",
     ).save()
     try:
@@ -548,12 +548,17 @@ def test_serialize_pandas_datetime_dtypes():
     datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
     string_cat_series = pd.Series(["a", "b", "a"], dtype="category")
 
-    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
+    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime64[ns]"
     assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"
+    assert (
+        serialize_pandas_dtype(datetime_tz_series.astype("datetime64[us, UTC]").dtype)
+        == "datetime64[us, UTC]"
+    )
     assert serialize_pandas_dtype(string_cat_series.dtype) == "cat[ULabel]"
 
 
 def test_dtype_as_object_covers_simple_fallbacks():
+    assert dtype_as_object("datetime[UTC]") is datetime
     assert dtype_as_object("datetime64[ns, UTC]") is datetime
     assert dtype_as_object("dict") is dict
     assert dtype_as_object(None) is None  # type: ignore[arg-type]

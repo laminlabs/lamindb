@@ -30,10 +30,16 @@ that's used in the database.
       - `boolean | bool`
     * - `datetime`
       - `"datetime"`
-      - `datetime`
-    * - `"datetime64[ns, UTC]"`
-      - `"datetime64[ns, UTC]"`
-      - `datetime64[ns, UTC]`
+      - `datetime64[s] | datetime64[ms] | datetime64[us] | datetime64[ns]`
+    * - `"datetime[UTC]"`
+      - `"datetime[UTC]"`
+      - `datetime64[ms, UTC] | datetime64[us, UTC] | datetime64[ns, UTC]`
+    * - `"datetime64[ns]"`, `"datetime64[us]"`, `"datetime64[ms]"`
+      - the same string
+      - that exact naive dtype
+    * - `"datetime64[ns, UTC]"`, `"datetime64[us, UTC]"`, `"datetime64[ms, UTC]"`
+      - the same string
+      - that exact UTC dtype
     * - `date`
       - `"date"`
       - `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
@@ -138,6 +144,13 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Callable
 
+# Aware UTC datetime at any resolution. Postgres timestamptz and Python
+# datetimes are microseconds; pandas may store the same instant as nanoseconds.
+UTC_DATETIME_DTYPE = "datetime[UTC]"
+# Units pandas and Polars can both store and check. Seconds are a pandas dtype,
+# but Polars has no second unit.
+DATETIME64_UNITS = ("ms", "us", "ns")
+
 
 def parse_dict_value(value: Any) -> dict:
     """Parse a dictionary or a Python dictionary literal string."""
@@ -151,6 +164,50 @@ def parse_dict_value(value: Any) -> dict:
     if not isinstance(value, dict):
         raise ValueError("Value must be a dict or a string representing a dict")
     return value
+
+
+def tz_is_utc(tz) -> bool:
+    """True when a tzinfo is UTC, rather than a zone that is sometimes offset 0."""
+    if tz is None:
+        return False
+    key = getattr(tz, "key", None) or getattr(tz, "zone", None)
+    return key in {"UTC", "Etc/UTC"} or str(tz) in {"UTC", "tzutc()"}
+
+
+def parse_exact_datetime_dtype(dtype: str | None) -> tuple[str, bool] | None:
+    """Return `(unit, utc)` when `dtype` names one resolution.
+
+    `datetime64[ns, UTC]` is nanosecond UTC. `datetime64[us]` is naive
+    microseconds. `datetime[UTC]` and `datetime` are not exact and return None.
+    """
+    if dtype is None or not dtype.startswith("datetime64[") or not dtype.endswith("]"):
+        return None
+    inner = dtype[len("datetime64[") : -1]
+    if inner in DATETIME64_UNITS:
+        return inner, False
+    unit, separator, zone = inner.partition(", ")
+    if separator and zone == "UTC" and unit in DATETIME64_UNITS:
+        return unit, True
+    return None
+
+
+def is_exact_datetime_dtype(dtype: str | None) -> bool:
+    """True when the dtype string pins a datetime resolution."""
+    return parse_exact_datetime_dtype(dtype) is not None
+
+
+def is_utc_datetime_dtype(dtype: str | None) -> bool:
+    """True for `datetime[UTC]`: aware UTC, any resolution."""
+    return dtype == UTC_DATETIME_DTYPE
+
+
+def is_datetime_dtype(dtype: str | None) -> bool:
+    """True for any Lamin datetime dtype, exact or resolution-free."""
+    return (
+        dtype == "datetime"
+        or is_utc_datetime_dtype(dtype)
+        or is_exact_datetime_dtype(dtype)
+    )
 
 
 def is_dict_value(value: Any) -> bool:

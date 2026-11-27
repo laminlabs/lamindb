@@ -567,6 +567,69 @@ def test_nullable():
         when.delete(permanent=True)
 
 
+def test_datetime_utc_accepts_any_resolution():
+    created_at = ln.Feature(name="utc_created_at", dtype="datetime[UTC]").save()
+    ns_utc = ln.Feature(name="ns_utc_created_at", dtype="datetime64[ns, UTC]").save()
+    us_utc = ln.Feature(name="us_utc_created_at", dtype="datetime64[us, UTC]").save()
+    ns_naive = ln.Feature(name="ns_naive_when", dtype="datetime64[ns]").save()
+    us_naive = ln.Feature(name="us_naive_when", dtype="datetime64[us]").save()
+    naive = ln.Feature(name="naive_when_any", dtype=datetime).save()
+    schemas = []
+    artifact = None
+    stamp = pd.Timestamp("2026-11-27 15:40:50", tz="UTC")
+    us = pd.Series([stamp], dtype="datetime64[us, UTC]")
+    ns = pd.Series([stamp], dtype="datetime64[ns, UTC]")
+    naive_us = pd.Series([pd.Timestamp("2026-11-27")], dtype="datetime64[us]")
+    naive_ns = pd.Series([pd.Timestamp("2026-11-27")], dtype="datetime64[ns]")
+    try:
+
+        def accept(feature, series):
+            schema = ln.Schema(features=[feature]).save()
+            schemas.append(schema)
+            frame = pd.DataFrame({feature.name: series})
+            ln.curators.DataFrameCurator(frame, schema).validate()
+            assert str(frame[feature.name].dtype) == str(series.dtype)
+            return schema
+
+        def reject(feature, series):
+            schema = next(item for item in schemas if feature in item.members)
+            with pytest.raises(ValidationError, match="WRONG_DATATYPE"):
+                ln.curators.DataFrameCurator(
+                    pd.DataFrame({feature.name: series}), schema
+                ).validate()
+
+        utc_schema = accept(created_at, us)
+        accept(created_at, ns)
+        accept(ns_utc, ns)
+        reject(ns_utc, us)
+        accept(us_utc, us)
+        reject(us_utc, ns)
+        accept(ns_naive, naive_ns)
+        reject(ns_naive, naive_us)
+        accept(us_naive, naive_us)
+        reject(us_naive, naive_ns)
+        accept(naive, naive_us)
+        accept(naive, naive_ns)
+        reject(created_at, us.dt.tz_convert("Europe/Berlin"))
+        reject(created_at, naive_ns)
+
+        artifact = ln.Artifact.from_dataframe(
+            pd.DataFrame({created_at.name: us}),
+            schema=utc_schema,
+            description="utc datetime keeps its unit",
+        ).save()
+        loaded = artifact.load()
+        assert str(loaded[created_at.name].dtype) == "datetime64[us, UTC]"
+        assert loaded[created_at.name].iloc[0] == stamp
+    finally:
+        if artifact is not None:
+            artifact.delete(permanent=True)
+        for schema in schemas:
+            schema.delete(permanent=True)
+        for feature in (created_at, ns_utc, us_utc, ns_naive, us_naive, naive):
+            feature.delete(permanent=True)
+
+
 def test_curator_partial_null_bool_int():
     flag = ln.Feature(name="cur-flag", dtype=bool, nullable=True).save()
     count = ln.Feature(name="cur-count", dtype=int, nullable=True).save()

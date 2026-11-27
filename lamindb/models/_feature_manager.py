@@ -20,6 +20,11 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.base.dtypes import (
+    UTC_DATETIME_DTYPE,
+    is_datetime_dtype,
+    is_exact_datetime_dtype,
+)
 from lamindb.base.utils import concrete_model, get_registry_name
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import (
@@ -536,7 +541,7 @@ def get_non_categoricals(
                     pass
 
             # Handle special datetime types
-            if feature_dtype in {"datetime", "datetime64[ns, UTC]"}:
+            if is_datetime_dtype(feature_dtype):
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
                 # date.fromisoformat() cannot handle cases like 2025-01-17T00:00:00.000Z
@@ -930,27 +935,20 @@ def infer_convert_dtype_key_value(
         return "float", value, message
     elif isinstance(value, datetime):
         return (
-            "datetime64[ns, UTC]" if value.tzinfo is not None else "datetime",
+            UTC_DATETIME_DTYPE if value.tzinfo is not None else "datetime",
             value.isoformat(),
             message,
         )
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if dtype_str in {
-            None,
-            "datetime",
-            "datetime64[ns, UTC]",
-            "date",
-        } and (datetime_str := is_valid_datetime_str(value)):
+        if (dtype_str in {None, "date"} or is_datetime_dtype(dtype_str)) and (
+            datetime_str := is_valid_datetime_str(value)
+        ):
             dt_type = (
                 "date"
                 if len(value) == 10
-                else (
-                    "datetime64[ns, UTC]"
-                    if dtype_str == "datetime64[ns, UTC]"
-                    else "datetime"
-                )
+                else (dtype_str if is_datetime_dtype(dtype_str) else "datetime")
             )  # YYYY-MM-DD is exactly 10 characters
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
             return dt_type, sanitized_value, message  # type: ignore
@@ -1013,7 +1011,7 @@ def _json_temporal_lookup_value(value: Any, dtype_str: str, feature_name: str) -
     """Serialize date and datetime lookups to the ISO strings stored in JSON."""
     if not isinstance(value, date):
         return value
-    if dtype_str not in {"date", "datetime", "datetime64[ns, UTC]"}:
+    if dtype_str != "date" and not is_datetime_dtype(dtype_str):
         return value
     _, converted, _ = infer_convert_dtype_key_value(
         key=feature_name, value=value, dtype_str=dtype_str
@@ -1181,7 +1179,7 @@ _ORDERABLE_FEATURE_DTYPES = {
     "str",
     "bool",
     "datetime",
-    "datetime64[ns, UTC]",
+    "datetime[UTC]",
     "date",
     "path",
     "url",
@@ -1317,7 +1315,10 @@ def feature_order_expressions(
                 f"Cannot order by feature '{feature.name}' configured with values_through. "
                 "Ordering features with values_through is not supported."
             )
-        if feature._dtype_str not in _ORDERABLE_FEATURE_DTYPES:
+        if (
+            feature._dtype_str not in _ORDERABLE_FEATURE_DTYPES
+            and not is_exact_datetime_dtype(feature._dtype_str)
+        ):
             raise FieldError(
                 f"Cannot order by feature '{feature.name}' with dtype {feature._dtype_str!r}. "
                 "Ordering supports scalar non-categorical features only."
@@ -1610,7 +1611,7 @@ class FeatureManager:
                 for dtype, value in dtype_values:
                     if dtype == "date":
                         value = pd.to_datetime(value, format="ISO8601").date()
-                    elif dtype in {"datetime", "datetime64[ns, UTC]"}:
+                    elif is_datetime_dtype(dtype):
                         value = datetime.fromisoformat(value)
                     feature_values_qs.append(value)
             else:
@@ -2520,7 +2521,7 @@ class FeatureManager:
                         "value", flat=True
                     )
                 )
-                if feature.dtype_as_str in {"datetime", "datetime64[ns, UTC]"}:
+                if is_datetime_dtype(feature.dtype_as_str):
                     values = [datetime.fromisoformat(value) for value in values]
                 elif feature.dtype_as_str == "date":
                     values = [date.fromisoformat(value) for value in values]

@@ -169,8 +169,8 @@ def test_record_page_frame_data_properties():
     ("field_name", "dtype", "required"),
     [
         ("description", str, True),
-        ("created_at", "datetime64[ns, UTC]", False),
-        ("updated_at", "datetime64[ns, UTC]", False),
+        ("created_at", "datetime[UTC]", False),
+        ("updated_at", "datetime[UTC]", False),
     ],
 )
 def test_record_type_assignment_requires_schema_features(field_name, dtype, required):
@@ -1291,7 +1291,7 @@ def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
 def test_record_feature_values_through_store_on_record_columns():
     mapped_created_at = ln.Feature(
         name="source_created_at",
-        dtype="datetime64[ns, UTC]",
+        dtype="datetime[UTC]",
         values_through="created_at",
     ).save()
     mapped_created_by = ln.Feature(
@@ -1511,7 +1511,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_created_at_wrong_dtype",
@@ -1521,7 +1521,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='created_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_created_at_naive",
@@ -1531,7 +1531,7 @@ def test_record_feature_values_through_validation():
 
     with pytest.raises(
         ValueError,
-        match="Feature\\(\\.\\.\\., values_through='updated_at'\\) requires feature dtype 'datetime64\\[ns, UTC\\]'",
+        match="Feature\\(\\.\\.\\., values_through='updated_at'\\) requires feature dtype 'datetime\\[UTC\\]'",
     ):
         ln.Feature(
             name="source_updated_at_naive",

@@ -21,6 +21,13 @@ from lamindb_setup.errors import (
     ModuleWasntConfigured,
 )
 
+from lamindb.base.dtypes import (
+    UTC_DATETIME_DTYPE,
+    is_datetime_dtype,
+    is_exact_datetime_dtype,
+    is_utc_datetime_dtype,
+    tz_is_utc,
+)
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -307,11 +314,7 @@ def dtype_as_object(dtype_str: str) -> type | None:
             from datetime import date
 
             return date
-        elif dtype_str == "datetime":
-            from datetime import datetime
-
-            return datetime
-        elif dtype_str == "datetime64[ns, UTC]":
+        elif is_datetime_dtype(dtype_str):
             from datetime import datetime
 
             return datetime
@@ -653,7 +656,11 @@ def serialize_dtype(
 
 def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     """Convert pandas ExtensionDtype to simplified string representation."""
-    from pandas.api.types import CategoricalDtype, is_string_dtype
+    from pandas.api.types import (
+        CategoricalDtype,
+        is_datetime64_any_dtype,
+        is_string_dtype,
+    )
 
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
@@ -663,14 +670,24 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     # there are string-like categoricals and "pure" categoricals (pd.Categorical)
     elif isinstance(pandas_dtype, CategoricalDtype):
         dtype = "cat[ULabel]"
-    elif hasattr(pandas_dtype, "tz") and pandas_dtype.tz is not None:
-        dtype = "datetime64[ns, UTC]"
+    elif is_datetime64_any_dtype(pandas_dtype):
+        # Keep the unit. datetime[UTC] is chosen explicitly when precision
+        # should not be part of the feature dtype.
+        unit = getattr(pandas_dtype, "unit", None) or "ns"
+        tz = getattr(pandas_dtype, "tz", None)
+        if tz is not None and not tz_is_utc(tz):
+            raise ValueError(
+                f"timezone {tz} cannot be stored as a feature dtype; use UTC"
+            )
+        dtype = f"datetime64[{unit}, UTC]" if tz is not None else f"datetime64[{unit}]"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
         if dtype == "uint":
             dtype = "int"
-    if dtype.startswith("datetime") and dtype != "datetime64[ns, UTC]":
+    if dtype.startswith("datetime") and not (
+        is_utc_datetime_dtype(dtype) or is_exact_datetime_dtype(dtype)
+    ):
         dtype = dtype.split("[")[0]
     if dtype != "cat[ULabel]":
         assert dtype in FEATURE_DTYPES  # noqa: S101
@@ -689,7 +706,9 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
         "float": "float64",
         "bool": "boolean",  # Nullable boolean
         "datetime": "datetime64[ns]",
-        "datetime64[ns, UTC]": "datetime64[ns, UTC]",
+        # Concrete dtype used when a column has to be allocated. Validation
+        # accepts every resolution.
+        UTC_DATETIME_DTYPE: "datetime64[us, UTC]",
         "date": "object",  # preserve Date objects
         "dict": "object",  # dicts are stored as object dtype in pandas
     }
@@ -1100,7 +1119,7 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
     A feature that stores values on a :class:`~lamindb.Record` field::
 
         ln.Feature(
-            name="created_at", dtype="datetime64[ns, UTC]", values_through="created_at"
+            name="created_at", dtype="datetime[UTC]", values_through="created_at"
         ).save()
         ln.Feature(name="external_id", dtype=str, values_through="reference").save()
 

@@ -27,6 +27,11 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
+from ..base.dtypes import (
+    is_exact_datetime_dtype,
+    is_utc_datetime_dtype,
+    parse_exact_datetime_dtype,
+)
 from ..base.types import (
     BRANCH_STATUS_TO_CODE,
     PROJECT_STATUS_TO_CODE,
@@ -971,15 +976,22 @@ def reshape_annotate_result(
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
-            if dtype_str == "datetime64[ns, UTC]":
-                # store timezone-aware datetimes normalized to UTC
-                # pandas 3 defaults to [us]; cast to [ns] only when needed
+            if is_utc_datetime_dtype(dtype_str) or is_exact_datetime_dtype(dtype_str):
+                # ISO text has no resolution. An exact feature dtype chooses one.
+                # datetime[UTC] keeps whatever unit pandas infers.
                 series = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 )
-                # older pandas is already ns and may not expose dtype.unit
-                if getattr(series.dtype, "unit", "ns") != "ns":
-                    series = series.astype("datetime64[ns, UTC]")
+                parsed = parse_exact_datetime_dtype(dtype_str)
+                if parsed is not None:
+                    unit, utc = parsed
+                    if not utc:
+                        series = series.dt.tz_localize(None)
+                    target = (
+                        f"datetime64[{unit}, UTC]" if utc else f"datetime64[{unit}]"
+                    )
+                    if str(series.dtype) != target:
+                        series = series.astype(target)
                 result_encoded[feature.name] = series
             if dtype_str == "date":
                 # see comments for datetime

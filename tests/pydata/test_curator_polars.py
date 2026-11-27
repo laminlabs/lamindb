@@ -322,7 +322,9 @@ def test_polars_standardize(as_frame):
     [
         (date, pl.Date),
         (datetime, pl.Datetime()),
+        ("datetime[UTC]", pl.Datetime(time_zone="UTC")),
         ("datetime64[ns, UTC]", pl.Datetime(time_unit="ns", time_zone="UTC")),
+        ("datetime64[us]", pl.Datetime(time_unit="us")),
     ],
 )
 def test_polars_standardize_nullable_temporal_column(as_frame, dtype, expected):

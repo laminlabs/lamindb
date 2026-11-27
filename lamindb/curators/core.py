@@ -26,7 +26,14 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 from pandera.engines import pandas_engine
 
-from lamindb.base.dtypes import check_dtype, check_pandera_str, is_dict_value
+from lamindb.base.dtypes import (
+    check_dtype,
+    check_pandera_str,
+    is_dict_value,
+    is_utc_datetime_dtype,
+    parse_exact_datetime_dtype,
+    tz_is_utc,
+)
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.base.utils import get_registry_name
 from lamindb.core._compat import is_polars_dataframe
@@ -190,6 +197,68 @@ class AnyFloat(pandas_engine.DataType):
 
     def __str__(self) -> str:
         return "float"
+
+
+def _tz_is_utc(tz) -> bool:
+    return tz_is_utc(tz)
+
+
+def _naive_datetime_dtype(dtype) -> bool:
+    return (
+        pd.api.types.is_datetime64_any_dtype(dtype)
+        and getattr(dtype, "tz", None) is None
+    )
+
+
+def _utc_datetime_dtype(dtype) -> bool:
+    return pd.api.types.is_datetime64_any_dtype(dtype) and _tz_is_utc(
+        getattr(dtype, "tz", None)
+    )
+
+
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyNaiveDatetime(pandas_engine.DataType):
+    """Naive datetime at any resolution. Pandera's DateTime is fixed at nanoseconds."""
+
+    type = np.dtype("datetime64[ns]")
+
+    def check(self, pandera_dtype, data_container=None):
+        if data_container is None:
+            return False
+        return _naive_datetime_dtype(data_container.dtype)
+
+    def coerce(self, data_container):
+        converted = pd.to_datetime(data_container, utc=True)
+        if isinstance(converted, pd.Series):
+            return converted.dt.tz_localize(None)
+        return converted.tz_localize(None)
+
+    def __str__(self) -> str:
+        return "datetime"
+
+
+@pandas_engine.Engine.register_dtype
+@pandas_engine.immutable
+class AnyUTCDatetime(pandas_engine.DataType):
+    """UTC datetime at any resolution.
+
+    This is the ``datetime[UTC]`` feature dtype. ``datetime64[us, UTC]`` and
+    ``datetime64[ns, UTC]`` are different dtypes and are checked exactly.
+    """
+
+    type = np.dtype("datetime64[ns]")
+
+    def check(self, pandera_dtype, data_container=None):
+        if data_container is None:
+            return False
+        return _utc_datetime_dtype(data_container.dtype)
+
+    def coerce(self, data_container):
+        return pd.to_datetime(data_container, utc=True)
+
+    def __str__(self) -> str:
+        return "datetime[UTC]"
 
 
 def strip_ansi_codes(text):
@@ -813,16 +882,13 @@ def _series_holds_datetimes(series: pd.Series) -> bool:
     return bool(series.dropna().map(lambda value: isinstance(value, datetime)).all())
 
 
-def _to_ns_datetime(series: pd.Series, *, utc: bool) -> pd.Series:
-    """Cast to the datetime64[ns] resolution pandera checks.
+def _as_datetime(series: pd.Series, *, utc: bool) -> pd.Series:
+    """Parse values as datetimes without changing their resolution.
 
-    `utc=False` drops the timezone. Feature dtype `datetime` is naive;
-    Django timestamps and `datetime64[ns, UTC]` values are not.
+    `utc=False` drops the timezone. Feature dtype `datetime` is naive.
+    `datetime[UTC]` keeps the timezone and whatever unit pandas inferred.
     """
     converted = pd.to_datetime(series, utc=True)
-    # older pandas is already ns and may not expose dtype.unit
-    if getattr(converted.dtype, "unit", "ns") != "ns":
-        converted = converted.astype("datetime64[ns, UTC]")
     if utc:
         return converted
     return converted.dt.tz_localize(None)
@@ -884,12 +950,20 @@ def convert_dict_to_dataframe_for_validation(
                         pd.NaT, index=df.index, dtype="datetime64[ns]"
                     )
             elif _series_holds_datetimes(series):
-                df[feature.name] = _to_ns_datetime(series, utc=False)
-        # pandas 3 defaults tz-aware datetimes to [us]; lamin/pandera expect [ns]
+                df[feature.name] = _as_datetime(series, utc=False)
+        elif is_utc_datetime_dtype(feature.dtype_as_str) and feature.name in df.columns:
+            df[feature.name] = _as_datetime(df[feature.name], utc=True)
         elif (
-            feature.dtype_as_str == "datetime64[ns, UTC]" and feature.name in df.columns
+            (parsed := parse_exact_datetime_dtype(feature.dtype_as_str)) is not None
+            and feature.name in df.columns
+            and _series_holds_datetimes(df[feature.name])
         ):
-            df[feature.name] = _to_ns_datetime(df[feature.name], utc=True)
+            # Dict values are Python datetimes, which have no pandas unit.
+            # DataFrame() may already have inferred one. Store the resolution
+            # this feature names. DataFrame validation does not do this cast.
+            unit, utc = parsed
+            target = f"datetime64[{unit}, UTC]" if utc else f"datetime64[{unit}]"
+            df[feature.name] = _as_datetime(df[feature.name], utc=utc).astype(target)
     return df
 
 
@@ -1083,23 +1157,40 @@ class ComponentCurator(Curator):
                         ),
                     )
                 else:
-                    if dtype_str == "datetime64[ns, UTC]":
-                        # pandas 3 defaults tz-aware datetimes to datetime64[us, UTC];
-                        # pandera's DateTime still expects datetime64[ns, UTC]
-                        pandera_dtype = pandas_engine.DateTime(
-                            time_zone_agnostic=True,
-                            tz="UTC" if feature.coerce else None,
-                        )
+                    exact = parse_exact_datetime_dtype(dtype_str)
+                    pandera_dtype: Any
+                    if dtype_str == "datetime":
+                        pandera_dtype = AnyNaiveDatetime()
+                    elif is_utc_datetime_dtype(dtype_str):
+                        pandera_dtype = AnyUTCDatetime()
+                    elif exact is not None and exact[1]:
+                        # Pandera checks datetime64[unit, UTC] exactly.
+                        pandera_dtype = dtype_str
+                    elif exact is not None:
+                        # Pandera collapses naive datetime64[us] to nanoseconds.
+                        pandera_dtype = None
                     else:
                         pandera_dtype = (
                             dtype_str if not dtype_str.startswith("cat") else "category"
                         )
-                    pandera_columns[feature.name] = pandera.Column(
+                    column = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
                         coerce=feature.coerce,
                         required=required,
                     )
+                    if exact is not None and not exact[1]:
+                        unit = exact[0]
+                        expected = f"datetime64[{unit}]"
+                        column.checks.append(
+                            pandera.Check(
+                                lambda series, expected=expected: str(series.dtype)
+                                == expected,
+                                element_wise=False,
+                                error=f"WRONG_DATATYPE: expected series to have type {expected}",
+                            )
+                        )
+                    pandera_columns[feature.name] = column
                 if pattern is not None:
                     if self._is_polars:
                         polars_regex_columns[feature.name] = _polars_regex_column(
@@ -1144,6 +1235,31 @@ class ComponentCurator(Curator):
                     pandera_index = pandera.Index(
                         AnyFloat(), coerce=index_feature.coerce
                     )
+                elif index_dtype == "datetime":
+                    pandera_index = pandera.Index(
+                        AnyNaiveDatetime(), coerce=index_feature.coerce
+                    )
+                elif is_utc_datetime_dtype(index_dtype):
+                    pandera_index = pandera.Index(
+                        AnyUTCDatetime(), coerce=index_feature.coerce
+                    )
+                elif (exact := parse_exact_datetime_dtype(index_dtype)) is not None:
+                    if exact[1]:
+                        pandera_index = pandera.Index(
+                            index_dtype, coerce=index_feature.coerce
+                        )
+                    else:
+                        unit = exact[0]
+                        expected = f"datetime64[{unit}]"
+                        pandera_index = pandera.Index(
+                            dtype=None,
+                            checks=pandera.Check(
+                                lambda series, expected=expected: str(series.dtype)
+                                == expected,
+                                element_wise=False,
+                                error=f"WRONG_DATATYPE: expected series to have type {expected}",
+                            ),
+                        )
                 else:
                     pandera_index = pandera.Index(index_dtype)
                 if index_pattern is not None:
