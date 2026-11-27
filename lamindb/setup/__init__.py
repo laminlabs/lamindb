@@ -3,6 +3,7 @@ from lamindb_setup import *  # noqa: F403
 from lamindb_setup import (
     connect,
     delete,
+    evolve,
     init,
     merge,
     settings,

@@ -76,7 +76,7 @@ On a high level, LaminDB's architecture has the following properties:
 
 :::{include} ../README.md
 :start-after: Architecture?
-:end-before: Read more:
+:end-before: <details>
 :::
 
 This document provides more background and details for several of the bullets.
@@ -209,7 +209,7 @@ collection.schema.add(feature)
 
 :::::
 
-:::::{tab-item} LanceDB
+:::::{tab-item} Lance
 
 ```python
 artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
@@ -218,6 +218,8 @@ artifact.lance.add_columns({"QC_PASS": "CAST(NULL AS BOOLEAN)"})
 :::::
 
 ::::::
+
+See {doc}`manage-schemas` for more on changing schemas and managing those changes across instances.
 
 Finally, because agents inevitably make mistakes, we look at how to retrieve a previous version of a dataset via "time travel".
 

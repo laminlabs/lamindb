@@ -650,6 +650,76 @@ Options:
 
 → Python/R alternative: {func}`~lamindb.setup.merge`
 
+## Manage schemas
+
+### evolve
+
+Manage schema plans, migrations, and repairs.
+
+Use a plan file to describe the schema you want. Validate it offline, then compare
+it with a development instance before applying it. Replace `account/dev` with
+your instance slug.
+
+Examples:
+
+```bash
+# Create a plan, edit its declarations, and validate it offline
+lamin evolve init samples --output-dir plans
+lamin evolve validate plans/plan_samples.py
+
+# Preview changes or rehearse the plan's data migrations
+lamin evolve plan plans/plan_samples.py -i account/dev
+lamin evolve plan plans/plan_samples.py -i account/dev --preview-migrations
+
+# After committing and pushing the plan, apply it and check for remaining changes
+lamin evolve apply plans/plan_samples.py -i account/dev
+lamin evolve plan plans/plan_samples.py -i account/dev --fail-on-diff
+
+# Preview a repair for dangling objects
+lamin evolve repair dangling -i account/dev --dry-run
+
+# Write a Markdown report for the plans and instances in lamin_schemas.yml
+lamin evolve ci plan --config lamin_schemas.yml --output schema-report.md
+```
+
+For all options on a command, run it with `--help`, for example
+`lamin evolve apply --help`.
+
+Options:
+
+```text
+lamin evolve [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --log-queries        Log every SQL statement issued against an instance to
+                       stderr, with its duration, and a total when the command
+                       finishes. Use it to see which query a slow command is
+                       waiting on.
+  --project-root PATH  Directory plan files are imported relative to, so a
+                       plan can import another one by its full dotted path
+                       ('from plans.wetlab.plan_x import y'). Defaults to the
+                       nearest ancestor of each plan holding a
+                       lamin_schemas.yml, pyproject.toml or .git, else the
+                       plan's own directory. Pass this only when the plans are
+                       scattered or vendored outside such a root.
+  --profile PATH       Profile the command with pyinstrument and write the
+                       report here. A '.html' suffix produces the interactive
+                       flame view, anything else a plain-text tree. Needs the
+                       'profile' extra.
+  --help               Show this message and exit.
+
+Commands:
+  init        Scaffold a new plan file with a fresh transform stem uid.
+  validate    Finalize and render one or more plans offline (no instance...
+  plan        Show a read-only diff of what applying the plan(s) would...
+  apply       Create the plan(s)' objects in the instance and write the...
+  destroy     Tear down the plan(s)' objects, refusing if any are...
+  introspect  Generate a plan file from an existing instance.
+  repair      Repair an instance: dangling objects, duplicates, broken...
+  utils       Miscellaneous helpers for authoring plans.
+  ci          Run plan checks in CI from a lamin_schemas.yml configuration.
+```
+
 ## Track agents & shell scripts
 
 ### track
