@@ -2686,6 +2686,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb import examples
 
             schema = examples.schemas.valid_features()
+        # Normalize before Artifact() writes the file. Validation reloads that
+        # file, so a cast during the later check cannot change what was stored.
+        # Only datetime64[ns, UTC] is widened; naive datetime is left as-is.
+        if not is_polars and isinstance(schema, Schema) and data_is_dataframe(df):
+            from lamindb.curators.core import align_datetime64_ns_utc
+
+            dtype_features = list(schema.members)
+            index_feature = schema.index
+            if index_feature is not None:
+                dtype_features.append(index_feature)
+            df = align_datetime64_ns_utc(df, dtype_features)
         polars_curator = None
         # df is a Polars DataFrame or LazyFrame
         if is_polars and schema is not None:
