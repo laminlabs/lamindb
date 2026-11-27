@@ -271,7 +271,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: save coverage artifact
-        if: ${{ github.ref == 'refs/heads/release' || github.ref == 'refs/heads/refactorprofiling' }}
         env:
           LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_LAMINDB_DEV_BOT }}
         run: |
