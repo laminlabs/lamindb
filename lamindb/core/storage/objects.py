@@ -109,6 +109,10 @@ def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
 
 def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
+    sorting_keys = kwargs.pop("_lamindb_sorting_columns", None)
+    if sorting_keys:
+        _write_sorted_parquet(dmem, filepath, sorting_keys, **kwargs)
+        return
     if is_polars_dataframe(dmem):
         import polars as pl
 
@@ -159,6 +163,99 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> N
         return
 
     raise NotImplementedError
+
+
+def _write_sorted_parquet(
+    frame: SupportedDataTypes,
+    filepath: Path | str,
+    sorting_keys: list[tuple[str, bool]],
+    **kwargs,
+) -> None:
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    import pyarrow.parquet as pq
+
+    from lamindb.errors import InvalidArgument, ValidationError
+
+    if Path(filepath).suffix != ".parquet":
+        raise InvalidArgument("Sorting metadata requires a Parquet artifact.")
+    if is_polars_dataframe(frame):
+        import polars as pl
+
+        options = dict(kwargs.pop("pyarrow_options", {}) or {})
+        kwargs.pop("use_pyarrow", None)
+        if kwargs.pop("maintain_order", True) is False:
+            raise InvalidArgument("Sorting metadata requires maintain_order=True.")
+        if "statistics" in kwargs:
+            options["write_statistics"] = kwargs.pop("statistics")
+        options.update(kwargs)
+        options.setdefault("compression", "zstd")
+        if isinstance(frame, pl.LazyFrame):
+            # Stream batches so the full frame is never materialized.
+            empty = pl.DataFrame(schema=frame.collect_schema()).to_arrow()
+            batches: Any = (batch.to_arrow() for batch in frame.collect_batches())
+        else:
+            empty = frame.clear().to_arrow()
+            batches = iter([frame.to_arrow()])
+    else:
+        options = kwargs
+        engine = options.pop("engine", "auto")
+        if engine not in {"auto", "pyarrow"}:
+            raise InvalidArgument("Sorting metadata requires the PyArrow engine.")
+        table = pa.Table.from_pandas(frame, preserve_index=options.pop("index", None))
+        empty = table.slice(0, 0)
+        batches = iter([table])
+
+    if "sorting_columns" in options:
+        raise InvalidArgument("Cannot combine sorting_columns with a sorted schema.")
+    ordering = [
+        (name, "ascending" if ascending else "descending")
+        for name, ascending in sorting_keys
+    ]
+    row_group_size = options.pop("row_group_size", None)
+
+    def sort_keys(table: pa.Table) -> pa.Table:
+        keys = table.select([name for name, _ in sorting_keys])
+        # Verify the serialized values, not the input frame's category ordering.
+        for i, field in enumerate(keys.schema):
+            if pa.types.is_dictionary(field.type):
+                keys = keys.set_column(
+                    i, field.name, pc.cast(keys.column(i), field.type.value_type)
+                )
+        return keys
+
+    schema = empty.schema
+    previous = None
+    with pq.ParquetWriter(
+        filepath,
+        schema,
+        sorting_columns=pq.SortingColumn.from_ordering(
+            schema, ordering, null_placement="at_end"
+        ),
+        **options,
+    ) as writer:
+        for table in batches:
+            if table.num_rows == 0:
+                continue
+            if table.schema != schema:
+                table = table.cast(schema)
+            keys = sort_keys(table)
+            # Prepend the previous batch's last row to check across batches.
+            checked = keys if previous is None else pa.concat_tables([previous, keys])
+            indices = pc.sort_indices(checked, sort_keys=ordering)
+            if (
+                len(indices) > 1
+                and not pc.all(
+                    pc.less(indices.slice(0, len(indices) - 1), indices.slice(1))
+                ).as_py()
+            ):
+                writer.close()
+                Path(filepath).unlink(missing_ok=True)
+                raise ValidationError(
+                    "Cannot write Parquet sorting metadata: data is not sorted as declared."
+                )
+            previous = keys.slice(keys.num_rows - 1)
+            writer.write_table(table, row_group_size=row_group_size)
 
 
 def _write_anndata(dmem: Any, filepath: Path | str, **kwargs) -> None:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import math
+import numbers
 import re
 import warnings
 from contextlib import nullcontext
@@ -966,6 +968,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, coerces this feature's values during validation.
             `Schema.coerce=True` also coerces it when this is left unset. See :attr:`~lamindb.Feature.coerce`.
+        unique: `bool = False` Whether values in this feature must be unique in a dataframe.
+            Repeated nulls count as duplicates.
+        min_value: `int | float | None = None` Inclusive minimum for numeric feature values.
+        max_value: `int | float | None = None` Inclusive maximum for numeric feature values.
         cat_filters: `dict[str, SQLRecord | bool | str] | None = None` For a categorical dtype, filter its related registry with these filters.
         regex: `str | None = None` Python regular expression for full-string validation
             of scalar `str`, `path`, or `url` values.
@@ -1398,7 +1404,10 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         nullable: bool | None = None,
         default_value: Any | None = None,
         coerce: bool | None = None,
+        unique: bool = False,
         regex: str | None = None,
+        min_value: int | float | None = None,
+        max_value: int | float | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
         values_through: Feature | SQLRecordFieldName | None = None,
         branch: Branch | None = None,
@@ -1433,6 +1442,9 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
             _compile_regex(regex)
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
+        unique = kwargs.pop("unique", UNSET)
+        min_value = kwargs.pop("min_value", UNSET)
+        max_value = kwargs.pop("max_value", UNSET)
         # Default nullable to True for non-type features
         is_type = kwargs.get("is_type", False)
         if nullable is None and not is_type:
@@ -1551,6 +1563,12 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
                 )
         # validation happens in save()
         self._values_through_input = values_through
+        if unique is not UNSET:
+            self.unique = unique
+        if min_value is not UNSET:
+            self.min_value = min_value
+        if max_value is not UNSET:
+            self.max_value = max_value
         if regex is not None:
             self.regex = regex
         self._validate_regex()
@@ -1867,6 +1885,73 @@ class Feature(SQLRecord, HasType, CanCurate, HasSynonyms, TracksRun, TracksUpdat
         else:
             self._clear_values_feature_pair()
             self._sqlrecord_field = None
+
+    @property
+    def unique(self) -> bool:
+        """Whether values in this feature must be unique within a dataframe."""
+        return bool(self._aux and self._aux.get("u", False))
+
+    @unique.setter
+    def unique(self, value: bool) -> None:
+        if not isinstance(value, bool):
+            raise TypeError("Feature.unique must be a bool")
+        if value:
+            self._aux = self._aux or {}
+            self._aux["u"] = True
+        elif self._aux is not None:
+            self._aux.pop("u", None)
+
+    @property
+    def min_value(self) -> int | float | None:
+        """Inclusive minimum for numeric values."""
+        value = self._aux.get("min") if self._aux else None
+        return (
+            value
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            else None
+        )
+
+    @min_value.setter
+    def min_value(self, value: int | float | None) -> None:
+        self._set_numeric_bound("min", value)
+
+    @property
+    def max_value(self) -> int | float | None:
+        """Inclusive maximum for numeric values."""
+        value = self._aux.get("max") if self._aux else None
+        return (
+            value
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            else None
+        )
+
+    @max_value.setter
+    def max_value(self, value: int | float | None) -> None:
+        self._set_numeric_bound("max", value)
+
+    def _set_numeric_bound(self, key: str, value: int | float | None) -> None:
+        if value is None:
+            if self._aux is not None:
+                self._aux.pop(key, None)
+            return
+        if isinstance(value, bool) or not isinstance(value, numbers.Real):
+            raise TypeError(f"Feature.{key}_value must be a finite number or None")
+        value = int(value) if isinstance(value, numbers.Integral) else float(value)
+        if isinstance(value, float) and not math.isfinite(value):
+            raise TypeError(f"Feature.{key}_value must be a finite number or None")
+        if self._dtype_str not in {"int", "float", "num"}:
+            raise InvalidArgument(
+                "min_value and max_value are only valid for int, float, and num features"
+            )
+        if self._aux is not None:
+            other_key = "max" if key == "min" else "min"
+            other = self._aux.get(other_key)
+            if other is not None and (
+                (key == "min" and value > other) or (key == "max" and value < other)
+            ):
+                raise InvalidArgument("min_value cannot be greater than max_value")
+        self._aux = self._aux or {}
+        self._aux[key] = value
 
     @property
     def _values_feature_uid(self) -> str | None:

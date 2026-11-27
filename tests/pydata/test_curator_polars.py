@@ -623,6 +623,248 @@ def test_polars_schema_coerce_with_check_columns(as_frame):
     assert curator.dataset.collect_schema()["pl_no_cast_str"] == pl.String
 
 
+def test_polars_column_rules_and_parquet_sorting_metadata(as_frame):
+    import pyarrow.parquet as pq
+
+    schema = make_schema(
+        [
+            ("pl_rule_id", str, {"unique": True}),
+            ("pl_rule_group", str, {"nullable": True}),
+            ("pl_rule_rank", int, {}),
+        ],
+        unique=["pl_rule_group", "pl_rule_rank"],
+        sorted_by=["pl_rule_group", ("pl_rule_rank", False)],
+    )
+    df = pl.DataFrame(
+        {
+            "pl_rule_id": [None, "ID-2", "ID-3", "ID-4"],
+            "pl_rule_group": ["a", "a", "b", "b"],
+            "pl_rule_rank": [2, 1, 2, 1],
+        }
+    )
+    curator = ln.curators.DataFrameCurator(as_frame(df), schema)
+    curator.validate()
+    assert isinstance(curator.dataset, type(as_frame(df)))
+    artifact = curator.save_artifact(
+        key=f"polars/rules-{type(curator.dataset).__name__}.parquet",
+        write_parquet_sorting_metadata=True,
+    )
+    metadata = pq.ParquetFile(artifact.path).metadata
+    assert list(metadata.row_group(0).sorting_columns) == [
+        pq.SortingColumn(1, descending=False, nulls_first=False),
+        pq.SortingColumn(2, descending=True, nulls_first=False),
+    ]
+    artifact.delete(permanent=True)
+
+    invalid_cases = [
+        (
+            df.with_columns(pl.Series("pl_rule_id", ["ID-1", "ID-1", None, "ID-4"])),
+            r"\['pl_rule_id'\] must be unique",
+        ),
+        (
+            df.with_columns(pl.Series("pl_rule_id", [None, "ID-2", None, "ID-4"])),
+            r"\['pl_rule_id'\] must be unique",
+        ),
+        (
+            df.with_columns(pl.Series("pl_rule_rank", [2, 2, 2, 1])),
+            r"\['pl_rule_group', 'pl_rule_rank'\] must be unique",
+        ),
+        (
+            df.with_columns(
+                pl.Series("pl_rule_group", ["a", "a", None, None]),
+                pl.Series("pl_rule_rank", [2, 1, 2, 2]),
+            ),
+            r"\['pl_rule_group', 'pl_rule_rank'\] must be unique",
+        ),
+        (df.with_columns(pl.Series("pl_rule_rank", [1, 2, 2, 1])), "not sorted"),
+    ]
+    for invalid, match in invalid_cases:
+        with pytest.raises(ValidationError, match=match):
+            ln.curators.DataFrameCurator(as_frame(invalid), schema).validate()
+
+
+@pytest.mark.parametrize("backend", ["pandas", "polars", "lazyframe"])
+@pytest.mark.parametrize(
+    "rows, expected",
+    [
+        ([], True),
+        ([(1.0, 1)], True),
+        ([(1.0, 2), (1.0, 2), (1.0, 1), (2.0, 3), (None, 2), (float("nan"), 1)], True),
+        ([(1.0, 1), (1.0, 2)], False),
+        ([(2.0, 3), (1.0, 2)], False),
+        ([(None, 2), (1.0, 1)], False),
+        ([(None, 1), (float("nan"), 2)], False),
+    ],
+)
+def test_sort_order_adjacent_rows(backend, rows, expected):
+    import pandas as pd
+    from lamindb.curators.core import _is_sorted
+
+    if backend == "pandas":
+        frame = pd.DataFrame(rows, columns=["a", "b"], index=[0] * len(rows))
+    else:
+        frame = pl.DataFrame(
+            rows, schema={"a": pl.Float64, "b": pl.Int64}, orient="row"
+        )
+        if backend == "lazyframe":
+            frame = frame.lazy()
+    assert (
+        _is_sorted(frame, [("a", True), ("b", False)], backend != "pandas") is expected
+    )
+
+
+def test_lazyframe_default_sorted_save_uses_native_sink(monkeypatch):
+    import pyarrow.parquet as pq
+
+    schema = make_schema([("lazy_sort_value", int, {})], sorted_by=["lazy_sort_value"])
+    curator = ln.curators.DataFrameCurator(
+        pl.DataFrame({"lazy_sort_value": [1, 2, 3]}).lazy(), schema
+    )
+    calls = []
+    sink = pl.LazyFrame.sink_parquet
+
+    def record_sink(self, path, **kwargs):
+        calls.append(path)
+        return sink(self, path, **kwargs)
+
+    def no_rewrite(*args, **kwargs):
+        raise AssertionError("Default save must not rewrite the Parquet file")
+
+    monkeypatch.setattr(pl.LazyFrame, "sink_parquet", record_sink)
+    monkeypatch.setattr(pq, "ParquetWriter", no_rewrite)
+    artifact = curator.save_artifact(key="polars/native-sorted.parquet")
+    assert len(calls) == 1
+    assert not pq.ParquetFile(artifact.path).metadata.row_group(0).sorting_columns
+    artifact.delete(permanent=True)
+
+
+@pytest.mark.parametrize("descending", [False, True])
+def test_polars_sort_metadata_nulls_last(as_frame, descending):
+    import pyarrow.parquet as pq
+
+    schema = make_schema(
+        [("pl_nullable_sort", int, {"nullable": True})],
+        sorted_by=[("pl_nullable_sort", not descending)],
+    )
+    values = [2, 1, None] if descending else [1, 2, None]
+    curator = ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_nullable_sort": values})), schema
+    )
+    artifact = curator.save_artifact(
+        key=f"polars/null-sort-{descending}-{type(curator.dataset).__name__}.parquet",
+        write_parquet_sorting_metadata=True,
+    )
+    metadata = pq.ParquetFile(artifact.path).metadata
+    assert list(metadata.row_group(0).sorting_columns) == [
+        pq.SortingColumn(0, descending=descending, nulls_first=False)
+    ]
+    artifact.delete(permanent=True)
+    with pytest.raises(ValidationError, match="not sorted"):
+        ln.curators.DataFrameCurator(
+            as_frame(pl.DataFrame({"pl_nullable_sort": [None, 1, 2]})), schema
+        ).validate()
+
+
+def test_lazyframe_metadata_opt_in_multiple_row_groups():
+    import pyarrow.parquet as pq
+
+    schema = make_schema(
+        [("lazy_row_group_sort", int, {"nullable": True})],
+        sorted_by=["lazy_row_group_sort"],
+    )
+    df = pl.DataFrame({"lazy_row_group_sort": [1, 2, 3, None]}).lazy()
+    artifact = ln.Artifact.from_dataframe(
+        df,
+        key="polars/multiple-sort-row-groups.parquet",
+        schema=schema,
+        parquet_kwargs={"row_group_size": 2},
+        write_parquet_sorting_metadata=True,
+    ).save()
+    metadata = pq.ParquetFile(artifact.path).metadata
+    assert metadata.num_row_groups == 2
+    for i in range(metadata.num_row_groups):
+        assert list(metadata.row_group(i).sorting_columns) == [
+            pq.SortingColumn(0, descending=False, nulls_first=False)
+        ]
+    artifact.delete(permanent=True)
+
+
+def test_lazyframe_metadata_opt_in_streams_batches(monkeypatch, tmp_path):
+    import pyarrow.parquet as pq
+    from lamindb.core.storage.objects import write_to_disk
+
+    batches = pl.LazyFrame.collect_batches
+
+    def unexpected_collect(*args, **kwargs):
+        raise AssertionError("Sorted Parquet writes must not collect the LazyFrame")
+
+    monkeypatch.setattr(
+        pl.LazyFrame,
+        "collect_batches",
+        lambda self, **kwargs: batches(self, chunk_size=2),
+    )
+    monkeypatch.setattr(pl.LazyFrame, "collect", unexpected_collect)
+    sorted_path = tmp_path / "sorted.parquet"
+    write_to_disk(
+        pl.LazyFrame({"value": [1, 2, 2, 3, None]}),
+        sorted_path,
+        _lamindb_sorting_columns=[("value", True)],
+    )
+    metadata = pq.ParquetFile(sorted_path).metadata
+    assert metadata.num_row_groups == 3
+    assert list(metadata.row_group(2).sorting_columns) == [
+        pq.SortingColumn(0, descending=False, nulls_first=False)
+    ]
+    assert pq.read_table(sorted_path).column("value").to_pylist() == [
+        1,
+        2,
+        2,
+        3,
+        None,
+    ]
+    # Each batch is sorted, but the order breaks between batches.
+    unsorted_path = tmp_path / "unsorted.parquet"
+    with pytest.raises(ValidationError, match="not sorted"):
+        write_to_disk(
+            pl.LazyFrame({"value": [1, 3, 2, 4]}),
+            unsorted_path,
+            _lamindb_sorting_columns=[("value", True)],
+        )
+    assert not unsorted_path.exists()
+
+
+@pytest.mark.parametrize(
+    "dtype,values,lower,upper",
+    [
+        (int, [0, 5, 10, None], 0, 10),
+        (float, [0.0, 5.5, 10.0, float("nan")], 0.0, 10.0),
+        ("num", [0.0, 5.5, 10.0, None], 0, 10),
+    ],
+)
+def test_polars_numeric_feature_bounds(as_frame, dtype, values, lower, upper):
+    schema = make_schema(
+        [
+            (
+                "pl_bounded_numeric",
+                dtype,
+                {"min_value": lower, "max_value": upper},
+            )
+        ]
+    )
+    ln.curators.DataFrameCurator(
+        as_frame(pl.DataFrame({"pl_bounded_numeric": values})), schema
+    ).validate()
+    for invalid_values, match in (
+        ([lower - 1, upper], "min_value"),
+        ([lower, upper + 1], "max_value"),
+    ):
+        with pytest.raises(ValidationError, match=match):
+            ln.curators.DataFrameCurator(
+                as_frame(pl.DataFrame({"pl_bounded_numeric": invalid_values})),
+                schema,
+            ).validate()
+
+
 def test_polars_external_features(as_frame):
     external = ln.Feature(name="pl_external", dtype=str).save()
     external_schema = ln.Schema(features=[external]).save()
