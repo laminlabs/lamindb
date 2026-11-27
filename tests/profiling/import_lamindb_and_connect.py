@@ -1,7 +1,7 @@
 from laminprofiler import laminprofiler
 
 
-@laminprofiler("avOG1AOJCSq7nooG", total_seconds=3.5)
+@laminprofiler("avOG1AOJCSq7nooG", fail_seconds=3.5)
 def profile_import_lamindb_and_connect():
     import lamindb as ln
 

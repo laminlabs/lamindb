@@ -24,7 +24,7 @@ def mini_immuno(tmp_path):
         ln.setup.delete(instance_name, force=True)
 
 
-@laminprofiler("96oK1SEQotDFDJQm", total_seconds=5)
+@laminprofiler("96oK1SEQotDFDJQm", fail_seconds=5)
 def profile_curate_simple_dataframe(benchmark, mini_immuno):
     """Time Artifact.from_dataframe().save() on the mini-immuno dataframe."""
     df, schema = mini_immuno
