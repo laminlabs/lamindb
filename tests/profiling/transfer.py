@@ -1,5 +1,6 @@
 import lamindb as ln
 import pytest
+from laminprofiler import laminprofiler
 
 FRAME_UID = "gL3TbX2qZQmCwTAU"
 
@@ -22,6 +23,7 @@ def _delete_transferred() -> None:
     frame.delete(permanent=True)
 
 
+@laminprofiler("Fohlu0THQhEnrosp", fail_seconds=120)
 def profile_transfer_one_record_frame_with_one_record(benchmark, benchmarks_instance):
     """Time syncing one RNA-seq record frame and one child record."""
 

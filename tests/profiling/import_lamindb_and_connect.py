@@ -1,10 +1,9 @@
-def main():
+from laminprofiler import laminprofiler
+
+
+@laminprofiler("avOG1AOJCSq7nooG", fail_seconds=3.5)
+def profile_import_lamindb_and_connect():
     import lamindb as ln
 
-    # should connect to another instance than laminlabs/lamindata
-    # because the former is used to log the test run
+    # Log the profiling run on laminlabs/lamindb-benchmarks, so connect elsewhere.
     ln.connect("laminlabs/lamin-site-assets")
-
-
-if __name__ == "__main__":
-    main()
