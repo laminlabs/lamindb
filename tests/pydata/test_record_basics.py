@@ -111,7 +111,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, features, description, schema, reference, reference_type, branch, space are valid keyword arguments"
+            "Only name, type, is_type, features, extra_data, description, schema, reference, reference_type, branch, space are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
@@ -119,6 +119,9 @@ def test_record_initialization():
     with pytest.raises(ValueError) as error:
         ln.Record(1)
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
+
+    record = ln.Record(name="extra-data-record", extra_data={"source": "manual"})
+    assert record.extra_data == {"source": "manual"}
 
 
 def test_record_page_frame_data_properties():

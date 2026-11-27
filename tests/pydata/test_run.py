@@ -83,6 +83,9 @@ def test_run():
     )
     run = ln.Run(transform).save()
     assert run.status == "scheduled"
+    run_extra = ln.Run(transform, extra_data={"n_steps": 3}).save()
+    assert run_extra.extra_data == {"n_steps": 3}
+    run_extra.delete(permanent=True)
     started_run = ln.Run(transform, status="started").save()
     assert started_run.status == "started"
     assert run.reference is None

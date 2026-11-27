@@ -1314,6 +1314,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type.
         features: `dict[str | Feature, Any] | None = None` Feature annotations.
+        extra_data: `dict | None = None` Extra data in JSON format, not validated as features.
         schema: `Schema | None = None` A schema defining allowed features for data records of this type. Only applicable when `is_type=True`; turns the type into a record frame.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
@@ -1607,6 +1608,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: Record | None | Unset = UNSET,
         is_type: bool = False,
         features: dict[str | Feature, Any] | None = None,
+        extra_data: dict | None = None,
         description: str | None = None,
         schema: Schema | None = None,
         reference: str | None = None,
@@ -1635,6 +1637,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: Record | None | Unset = kwargs.pop("type", UNSET)
         is_type: bool = kwargs.pop("is_type", False)
         features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
+        extra_data: dict | None = kwargs.pop("extra_data", None)
         description: str | None = kwargs.pop("description", None)
         schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
@@ -1661,6 +1664,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             type=type,
             is_type=is_type,
             description=description,
+            extra_data=extra_data,
             reference=reference,
             reference_type=reference_type,
             schema=schema,
