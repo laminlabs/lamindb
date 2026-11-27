@@ -277,6 +277,7 @@ jobs:
           uv pip install --system ".[full]"
           uv pip install --system git+https://github.com/laminlabs/laminprofiler
           lamin login
+          lamin settings modules set ""
           laminprofiler coverage coverage.xml --product lamindb
 
   dispatch:
