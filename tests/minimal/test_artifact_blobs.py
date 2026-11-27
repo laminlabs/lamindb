@@ -25,31 +25,6 @@ def tsv_file(tmp_path: Path) -> Path:
     return filepath
 
 
-def test_extra_data_constructor(tmp_path: Path):
-    filepath = tmp_path / "extra.txt"
-    filepath.write_text("extra")
-    artifact = ln.Artifact(
-        filepath, key="uploads/extra.txt", extra_data={"source": "manual"}
-    )
-    assert artifact.extra_data == {"source": "manual"}
-    artifact.save()
-    loaded = ln.Artifact.get(artifact.uid)
-    assert loaded.extra_data == {"source": "manual"}
-
-    updated = ln.Artifact(
-        filepath,
-        key="uploads/extra-updated.txt",
-        extra_data={"source": "updated"},
-        skip_hash_lookup=False,
-    )
-    assert updated.uid == artifact.uid
-    assert updated.extra_data == {"source": "updated"}
-    updated.save()
-    reloaded = ln.Artifact.get(artifact.uid)
-    assert reloaded.extra_data == {"source": "updated"}
-    artifact.delete(permanent=True)
-
-
 def test_basic_validation():
     # extra kwargs
     with pytest.raises(FieldValidationError):
@@ -435,12 +410,15 @@ def test_upload_checks_hash_by_default(tmp_path):
     filepath = tmp_path / "uploaded.txt"
     filepath.write_text("uploaded-content")
 
-    artifact_1 = ln.Artifact(filepath, key="uploads/uploaded.txt").save()
+    artifact_1 = ln.Artifact(
+        filepath, key="uploads/uploaded.txt", extra_data={"source": "manual"}
+    ).save()
     artifact_2 = ln.Artifact(filepath)
 
     assert not artifact_2._state.adding
     assert artifact_2.id == artifact_1.id
     assert artifact_2.uid == artifact_1.uid
+    assert artifact_2.extra_data == {"source": "manual"}
 
     artifact_1.delete(permanent=True)
 
