@@ -8,6 +8,7 @@ from pandera.constants import CHECK_OUTPUT_KEY
 from pandera.engines import polars_engine
 from pandera.errors import ParserError
 
+from lamindb.base.dtypes import is_utc_datetime_dtype, parse_exact_datetime_dtype
 from lamindb.models.feature import _matches_regex, _regex_error
 
 
@@ -108,14 +109,31 @@ def _matches_dtype(dtype, expected: str) -> bool:
     return False
 
 
+def _matches_polars_datetime(dtype, *, utc: bool) -> bool:
+    """True for a Polars datetime with the requested timezone and any time unit."""
+    if not isinstance(dtype, pl.Datetime):
+        return False
+    if utc:
+        return dtype.time_zone == "UTC"
+    return dtype.time_zone is None
+
+
 def polars_dtype(dtype_str: str):
-    """Polars dtype Pandera matches exactly, or None when a custom check is used.
+    """Polars dtype used to fill a missing column, or None for a custom check.
 
     Date and datetime columns reject an untyped ``pl.Null`` column even when the
     feature is nullable. Strings, numbers, lists, and categoricals do not.
+    ``datetime`` and ``datetime[UTC]`` accept any time unit. An exact
+    ``datetime64[unit]`` or ``datetime64[unit, UTC]`` is that Polars dtype.
     """
-    if dtype_str == "datetime64[ns, UTC]":
-        return pl.Datetime(time_unit="ns", time_zone="UTC")
+    exact = parse_exact_datetime_dtype(dtype_str)
+    if exact is not None:
+        unit, utc = exact
+        if utc:
+            return pl.Datetime(time_unit=unit, time_zone="UTC")
+        return pl.Datetime(time_unit=unit)
+    if is_utc_datetime_dtype(dtype_str):
+        return pl.Datetime(time_zone="UTC")
     if dtype_str == "datetime":
         return pl.Datetime
     if dtype_str == "date":
@@ -172,6 +190,23 @@ def column(feature, required: bool, schema_coerce: bool = False):
             )
         ]
         return pandera.Column(dtype=None, checks=checks, **kwargs)
+    if dtype_str == "datetime" or is_utc_datetime_dtype(dtype_str):
+        utc = is_utc_datetime_dtype(dtype_str)
+
+        def check(data):
+            dtype = data.lazyframe.collect_schema()[data.key]
+            return _matches_polars_datetime(dtype, utc=utc)
+
+        return pandera.Column(
+            dtype=None,
+            checks=[
+                pandera.Check(
+                    check,
+                    error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
+                )
+            ],
+            **kwargs,
+        )
     return pandera.Column(polars_dtype(dtype_str) or dtype_str, **kwargs)
 
 

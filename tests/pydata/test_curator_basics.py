@@ -567,6 +567,97 @@ def test_nullable():
         when.delete(permanent=True)
 
 
+def _datetime_series(series_dtype: str) -> pd.Series:
+    if series_dtype == "Europe/Berlin":
+        return pd.Series([pd.Timestamp("2026-11-27 15:40:50", tz="Europe/Berlin")])
+    stamp = pd.Timestamp("2026-11-27 15:40:50", tz="UTC")
+    if ", UTC" in series_dtype:
+        return pd.Series([stamp], dtype=series_dtype)
+    return pd.Series([pd.Timestamp("2026-11-27")], dtype=series_dtype)
+
+
+@pytest.mark.parametrize(
+    ("feature_dtype", "series_dtype", "accepts", "on_index", "coerce"),
+    [
+        ("datetime[UTC]", "datetime64[us, UTC]", True, False, False),
+        ("datetime[UTC]", "datetime64[ns, UTC]", True, False, False),
+        ("datetime[UTC]", "datetime64[ns]", False, False, False),
+        ("datetime[UTC]", "Europe/Berlin", False, False, False),
+        ("datetime64[ns, UTC]", "datetime64[ns, UTC]", True, False, False),
+        ("datetime64[ns, UTC]", "datetime64[us, UTC]", False, False, False),
+        ("datetime64[us, UTC]", "datetime64[us, UTC]", True, False, False),
+        ("datetime64[us, UTC]", "datetime64[ns, UTC]", False, False, False),
+        ("datetime64[ns]", "datetime64[ns]", True, False, False),
+        ("datetime64[ns]", "datetime64[us]", False, False, False),
+        ("datetime64[us]", "datetime64[us]", True, False, False),
+        ("datetime64[us]", "datetime64[ns]", False, False, False),
+        ("datetime", "datetime64[us]", True, False, False),
+        ("datetime", "datetime64[ns]", True, False, False),
+        ("datetime", "datetime64[ns]", True, True, False),
+        ("datetime[UTC]", "datetime64[us, UTC]", True, True, False),
+        ("datetime64[ns, UTC]", "datetime64[ns, UTC]", True, True, False),
+        ("datetime64[us]", "datetime64[us]", True, True, False),
+        ("datetime[UTC]", "datetime64[us, UTC]", True, False, True),
+        ("datetime", "datetime64[us]", True, True, True),
+    ],
+)
+def test_datetime_resolution(feature_dtype, series_dtype, accepts, on_index, coerce):
+    """Columns and indexes accept a unit only when the feature names that unit."""
+    slug = feature_dtype.replace("[", "").replace("]", "").replace(", ", "-")
+    where = "idx" if on_index else "col"
+    mode = "coerce" if coerce else "check"
+    series_slug = series_dtype.replace("[", "").replace("]", "").replace(", ", "-")
+    name = f"when-{slug}-{where}-{mode}-{series_slug}"
+    feature = ln.Feature(name=name, dtype=feature_dtype, coerce=coerce).save()
+    value = ln.Feature(name=f"{name}-value", dtype=str).save() if on_index else None
+    schema = None
+    artifact = None
+    series = _datetime_series(series_dtype)
+    try:
+        if on_index:
+            schema = ln.Schema(
+                features=[value], index=feature, otype="DataFrame"
+            ).save()
+            frame = pd.DataFrame(
+                {value.name: ["a"]}, index=pd.Index(series, name=feature.name)
+            )
+        else:
+            schema = ln.Schema(features=[feature], otype="DataFrame").save()
+            frame = pd.DataFrame({feature.name: series})
+        curator = ln.curators.DataFrameCurator(frame, schema)
+        if accepts:
+            curator.validate()
+            if not coerce:
+                observed = frame.index if on_index else frame[feature.name]
+                assert str(observed.dtype) == str(series.dtype)
+        else:
+            with pytest.raises(ValidationError, match="WRONG_DATATYPE"):
+                curator.validate()
+        if (
+            accepts
+            and not on_index
+            and not coerce
+            and feature_dtype == "datetime[UTC]"
+            and series_dtype == "datetime64[us, UTC]"
+        ):
+            artifact = ln.Artifact.from_dataframe(
+                frame,
+                schema=schema,
+                description="utc datetime keeps its unit",
+            ).save()
+            loaded = artifact.load()
+            assert str(loaded[feature.name].dtype) == "datetime64[us, UTC]"
+            assert loaded[feature.name].iloc[0] == series.iloc[0]
+    finally:
+        if artifact is not None:
+            artifact.delete(permanent=True)
+        if schema is not None:
+            schema.delete(permanent=True)
+        feature.delete(permanent=True)
+        if value is not None:
+            value.delete(permanent=True)
+
+
 def test_curator_partial_null_bool_int():
     flag = ln.Feature(name="cur-flag", dtype=bool, nullable=True).save()
     count = ln.Feature(name="cur-count", dtype=int, nullable=True).save()

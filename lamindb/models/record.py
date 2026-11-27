@@ -424,10 +424,13 @@ def validate_record_feature_field_mapping(feature: Feature, field_name: str) -> 
             )
     elif isinstance(record_field, models.DateTimeField):
         # created_at and updated_at are timezone-aware database timestamps.
-        if dtype != "datetime64[ns, UTC]":
+        # Postgres stores microseconds. The dtype does not pin a resolution.
+        from lamindb.base.dtypes import is_utc_datetime_dtype
+
+        if not is_utc_datetime_dtype(dtype):
             raise ValueError(
                 f"Feature(..., values_through='{field_name}') requires feature dtype "
-                "'datetime64[ns, UTC]'"
+                "'datetime[UTC]'"
             )
     elif isinstance(record_field, (models.CharField, models.TextField)):
         if dtype != "str":

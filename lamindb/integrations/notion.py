@@ -27,6 +27,7 @@ from rich.markup import escape as rich_escape
 
 import lamindb as ln
 
+from ..base.dtypes import is_datetime_dtype
 from ..base.types import PROJECT_STATUS_TO_CODE as LAMIN_PROJECT_STATUS_TO_CODE
 from ..base.utils import get_registry_name
 
@@ -2082,7 +2083,7 @@ def _normalize_feature_value(feature: Any, value: Any) -> Any:
             return date.fromisoformat(value)
         except ValueError:
             return value
-    if dtype in {"datetime", "datetime64[ns, UTC]"} and isinstance(value, str):
+    if is_datetime_dtype(dtype) and isinstance(value, str):
         parsed_ts = _parse_notion_timestamp(value)
         if parsed_ts is not None:
             return parsed_ts
@@ -2336,9 +2337,10 @@ class _NotionSyncer:
             "str": ("str", str),
             "string": ("str", str),
             "url": ("url", "url"),
-            "datetime": ("datetime64[ns, UTC]", datetime),
-            "datetime64[ns, utc]": ("datetime64[ns, UTC]", datetime),
-            "date": ("datetime64[ns, UTC]", datetime),
+            "datetime": ("datetime[UTC]", datetime),
+            "datetime[utc]": ("datetime[UTC]", datetime),
+            "datetime64[ns, utc]": ("datetime[UTC]", datetime),
+            "date": ("datetime[UTC]", datetime),
         }
         return mapping.get(normalized)
 
@@ -2894,7 +2896,7 @@ class _NotionSyncer:
         if notion_type == "date":
             return "date"
         if notion_type in {"created_time", "last_edited_time"}:
-            return "datetime64[ns, UTC]"
+            return "datetime[UTC]"
         if notion_type in {"created_by", "last_edited_by"}:
             return "User"
         if notion_type == "people":

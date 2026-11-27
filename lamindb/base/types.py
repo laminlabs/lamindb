@@ -185,8 +185,14 @@ SimpleDtypeStr = Literal[
     "float",  # float
     "str",  # string
     "bool",  # boolean
-    "datetime",  # datetime
-    "datetime64[ns, UTC]",  # timezone-aware datetime
+    "datetime",  # naive datetime, any resolution
+    "datetime[UTC]",  # UTC datetime, any resolution
+    "datetime64[ms]",  # naive milliseconds
+    "datetime64[us]",  # naive microseconds
+    "datetime64[ns]",  # naive nanoseconds
+    "datetime64[ms, UTC]",  # UTC milliseconds
+    "datetime64[us, UTC]",  # UTC microseconds
+    "datetime64[ns, UTC]",  # UTC nanoseconds
     "date",  # date
     "dict",  # dictionary
     "path",  # path, validated as str, but specially treated in the UI
@@ -210,7 +216,7 @@ SQLRecordFieldName = Literal[
 
 Use with :class:`~lamindb.Feature` `values_through` to persist values on the
 record model instead of a feature link table, e.g.
-`Feature(name="created_at", dtype="datetime64[ns, UTC]", values_through="created_at")`.
+`Feature(name="created_at", dtype="datetime[UTC]", values_through="created_at")`.
 
 Currently these names refer to :class:`~lamindb.Record` columns. Artifact and
 Run fields may be added later.
