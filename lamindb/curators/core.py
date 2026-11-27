@@ -828,60 +828,6 @@ def _to_ns_datetime(series: pd.Series, *, utc: bool) -> pd.Series:
     return converted.dt.tz_localize(None)
 
 
-def _aware_datetime_needs_ns(series: pd.Series) -> bool:
-    """Whether a timezone-aware datetime series is stored below nanoseconds."""
-    return (
-        pd.api.types.is_datetime64_any_dtype(series)
-        and getattr(series.dtype, "tz", None) is not None
-        and getattr(series.dtype, "unit", "ns") != "ns"
-    )
-
-
-def align_datetime64_ns_utc(df: pd.DataFrame, features) -> pd.DataFrame:
-    """Widen `datetime64[ns, UTC]` columns to nanosecond resolution.
-
-    Pandas 3 infers a timezone-aware Python datetime as `datetime64[us, UTC]`.
-    That feature dtype is checked as `datetime64[ns, UTC]`. The cast keeps the
-    instant. Naive `datetime` columns are unchanged.
-    """
-    if not isinstance(df, pd.DataFrame):
-        return df
-    names: list[str] = []
-    for feature in features:
-        if getattr(feature, "_dtype_str", None) != "datetime64[ns, UTC]":
-            continue
-        name = feature.name
-        if name not in names:
-            names.append(name)
-    if not names:
-        return df
-    column_names = [
-        name
-        for name in names
-        if name in df.columns and _aware_datetime_needs_ns(df[name])
-    ]
-    index_name = next(
-        (
-            name
-            for name in names
-            if name not in df.columns
-            and df.index.name == name
-            and _aware_datetime_needs_ns(pd.Series(df.index))
-        ),
-        None,
-    )
-    if not column_names and index_name is None:
-        return df
-    out = df.copy()
-    for name in column_names:
-        out[name] = _to_ns_datetime(out[name], utc=True)
-    if index_name is not None:
-        out.index = pd.Index(
-            _to_ns_datetime(pd.Series(out.index), utc=True), name=index_name
-        )
-    return out
-
-
 def convert_dict_to_dataframe_for_validation(
     d: dict,
     schema: Schema,
@@ -1042,14 +988,6 @@ class ComponentCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
-
-        # Pandas 3 stores timezone-aware Python datetimes as [us]. The check below
-        # still requires [ns], so widen those columns before pandera sees them.
-        if not self._is_polars and isinstance(self._dataset, pd.DataFrame):
-            dtype_features = features
-            if index_feature is not None:
-                dtype_features = [*features, index_feature]
-            self._dataset = align_datetime64_ns_utc(self._dataset, dtype_features)
 
         # Pandera coerces when the schema or the feature requests it.
         self._coercion_requested = bool(schema.coerce) or any(

@@ -567,51 +567,6 @@ def test_nullable():
         when.delete(permanent=True)
 
 
-def test_datetime64_ns_utc_accepts_microseconds():
-    from lamindb.curators.core import align_datetime64_ns_utc
-
-    created_at = ln.Feature(
-        name="ns_utc_created_at", dtype="datetime64[ns, UTC]"
-    ).save()
-    when = ln.Feature(name="naive_when", dtype=datetime).save()
-    schema = ln.Schema(features=[created_at]).save()
-    stamp = pd.Timestamp("2026-11-27 15:40:50", tz="UTC")
-    df = pd.DataFrame(
-        {
-            "ns_utc_created_at": pd.Series([stamp], dtype="datetime64[us, UTC]"),
-        }
-    )
-    naive = pd.DataFrame(
-        {"naive_when": pd.Series([pd.Timestamp("2026-11-27")], dtype="datetime64[us]")}
-    )
-    artifact = None
-    try:
-        # Naive datetime is a different dtype and is not widened.
-        assert align_datetime64_ns_utc(naive, [when]) is naive
-        assert str(naive["naive_when"].dtype) == "datetime64[us]"
-
-        curator = ln.curators.DataFrameCurator(df, schema)
-        curator.validate()
-        assert str(curator.dataset["ns_utc_created_at"].dtype) == "datetime64[ns, UTC]"
-        assert curator.dataset["ns_utc_created_at"].iloc[0] == stamp
-        # The caller's frame keeps the unit pandas inferred.
-        assert str(df["ns_utc_created_at"].dtype) == "datetime64[us, UTC]"
-
-        artifact = ln.Artifact.from_dataframe(
-            df, schema=schema, description="us datetime stored as ns"
-        ).save()
-        loaded = artifact.load()
-        assert str(loaded["ns_utc_created_at"].dtype) == "datetime64[ns, UTC]"
-        assert loaded["ns_utc_created_at"].iloc[0] == stamp
-        assert str(df["ns_utc_created_at"].dtype) == "datetime64[us, UTC]"
-    finally:
-        if artifact is not None:
-            artifact.delete(permanent=True)
-        schema.delete(permanent=True)
-        created_at.delete(permanent=True)
-        when.delete(permanent=True)
-
-
 def test_curator_partial_null_bool_int():
     flag = ln.Feature(name="cur-flag", dtype=bool, nullable=True).save()
     count = ln.Feature(name="cur-count", dtype=int, nullable=True).save()
