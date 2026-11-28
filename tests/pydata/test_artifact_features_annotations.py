@@ -826,22 +826,39 @@ def test_feature_predicate_is_null():
     perturbation_type.delete(permanent=True)
 
 
-def test_features_add_with_schema():
+@pytest.mark.parametrize("identifier", ["name", "uid"])
+def test_features_add_with_schema(identifier):
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
 
-    species = ln.Feature(name="species", dtype="str").save()
-    split = ln.Feature(name="split", dtype="str").save()
-    schema = ln.Schema([species, split]).save()
+    species = ln.Feature(name=f"species_{identifier}", dtype="str").save()
+    split = ln.Feature(name=f"split_{identifier}", dtype="str").save()
+    itype = ln.Feature.uid if identifier == "uid" else ln.Feature
+    schema = ln.Schema(
+        [species, split], name=f"species_split_{identifier}", itype=itype
+    ).save()
+    key = (
+        (lambda feature: feature.uid)
+        if identifier == "uid"
+        else (lambda feature: feature.name)
+    )
 
     with pytest.raises(ln.errors.ValidationError) as e:
         artifact.features.add_values({"doesnot": "exist"}, schema=schema)
-    assert "column 'split' not in dataframe" in str(e.value)
+    if identifier == "uid":
+        assert "not in the provided schema" in str(e.value)
+    else:
+        assert f"column '{split.name}' not in dataframe" in str(e.value)
 
-    artifact.features.add_values({"species": "bird", "split": "train"}, schema=schema)
+    artifact.features.add_values(
+        {key(species): "bird", key(split): "train"}, schema=schema
+    )
     artifact.save()
 
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {
+        species.name: "bird",
+        split.name: "train",
+    }
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
