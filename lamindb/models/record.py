@@ -828,18 +828,16 @@ def rename_export_columns_to_itype(
 
     if _feature_column_field(schema) == "name":
         return df
-    rename = {}
-    for feature in features:
-        ident = feature_identifier(feature, schema)
-        if feature.name != ident and feature.name in df.columns:
-            rename[feature.name] = ident
+    rename = {
+        feature.name: feature_identifier(feature, schema)
+        for feature in features
+        if feature.name in df.columns
+    }
     if rename:
         df = df.rename(columns=rename)
     if index_feature is not None and df.index.name == index_feature.name:
-        ident = feature_identifier(index_feature, schema)
-        if ident != index_feature.name:
-            df = df.copy()
-            df.index.name = ident
+        df = df.copy()
+        df.index.name = feature_identifier(index_feature, schema)
     return df
 
 
@@ -968,8 +966,6 @@ def strip_index_for_record_persistence(
             and index_feature.uid in values_by_feature_uid
         ):
             index_value = values_by_feature_uid[index_feature.uid]
-        elif index_key in dictionary:
-            index_value = dictionary[index_key]
 
         if index_value is not None or (replace and index_key in dictionary):
             apply_index_feature_to_record(record, index_feature, index_value)
@@ -993,16 +989,10 @@ def strip_index_for_record_persistence(
                 continue
             record_field = record_fields[field_name]
             feature_ident = feature_key(feature)
-            if (
-                values_by_feature_uid is not None
-                and feature.uid in values_by_feature_uid
-            ):
-                value = values_by_feature_uid[feature.uid]
-            elif feature_ident in dictionary:
-                value = dictionary[feature_ident]
-            else:
+            if feature.uid not in values_by_feature_uid:
                 dictionary.pop(feature_ident, None)
                 continue
+            value = values_by_feature_uid[feature.uid]
             coerced = _coerce_feature_value_for_record_field(
                 value, feature, record_field
             )
@@ -1026,16 +1016,10 @@ def strip_index_for_record_persistence(
                 filtered_features.append(feature)
                 continue
             feature_ident = feature_key(feature)
-            if (
-                values_by_feature_uid is not None
-                and feature.uid in values_by_feature_uid
-            ):
-                value = values_by_feature_uid[feature.uid]
-            elif feature_ident in dictionary:
-                value = dictionary[feature_ident]
-            else:
+            if feature.uid not in values_by_feature_uid:
                 dictionary.pop(feature_ident, None)
                 continue
+            value = values_by_feature_uid[feature.uid]
             source_uid = values_feature_uids[feature.uid]
             inverted_writes.append((feature, source_features[source_uid], value))
             dictionary.pop(feature_ident, None)

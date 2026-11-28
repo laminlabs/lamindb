@@ -1473,18 +1473,12 @@ def _identifier_keyed_dictionary(
     """
     from lamindb.curators.core import feature_identifier
 
-    if schema is None:
-        return dictionary
     keyed: dict[str, Any] = {}
     consumed: set[str] = set()
     for feature in features:
         ident = feature_identifier(feature, schema)
         if feature.uid in values_by_feature_uid:
             value = values_by_feature_uid[feature.uid]
-            if ident in dictionary and dictionary[ident] != value:
-                raise ValidationError(
-                    f"Conflicting values for feature '{feature.name}'."
-                )
             keyed[ident] = value
             consumed.add(ident)
             if ident != feature.name:
@@ -1503,25 +1497,20 @@ def _identifier_keyed_dictionary(
 def _rekey_name_dict_to_identifier(
     dictionary: dict[str, Any],
     features: list[Feature],
-    schema: Schema | None,
+    schema: Schema,
 ) -> dict[str, Any]:
     """Translate a name-keyed read-back dictionary to schema identifiers."""
     from lamindb.curators.core import _feature_column_field, feature_identifier
 
-    if schema is None or _feature_column_field(schema) == "name":
+    if _feature_column_field(schema) == "name":
         return dictionary
     keyed: dict[str, Any] = {}
-    names: set[str] = set()
     for feature in features:
         ident = feature_identifier(feature, schema)
-        names.add(feature.name)
         if feature.name in dictionary:
             keyed[ident] = dictionary[feature.name]
         elif ident in dictionary:
             keyed[ident] = dictionary[ident]
-    for key, value in dictionary.items():
-        if key not in names and key not in keyed:
-            keyed[key] = value
     return keyed
 
 
@@ -1533,7 +1522,7 @@ def _unknown_feature_keys(
 ) -> list[str]:
     from lamindb.curators.core import feature_identifier
 
-    if schema is None or not string_key_values:
+    if not string_key_values:
         return []
     allowed = {feature_identifier(feature, schema) for feature in members}
     if index_feature is not None:
@@ -1541,17 +1530,9 @@ def _unknown_feature_keys(
     return [key for key in string_key_values if key not in allowed]
 
 
-def _feature_dict_value(
-    dictionary: dict[str, Any],
-    values_by_feature_uid: dict[str, Any] | None,
-    feature: Feature,
-    schema: Schema | None,
-) -> Any:
-    from lamindb.curators.core import feature_identifier
-
-    if values_by_feature_uid is not None and feature.uid in values_by_feature_uid:
-        return values_by_feature_uid[feature.uid]
-    return dictionary[feature_identifier(feature, schema)]
+def _feature_dict_value(values_by_feature_uid: dict[str, Any], feature: Feature) -> Any:
+    """Value already resolved onto the feature uid."""
+    return values_by_feature_uid[feature.uid]
 
 
 class FeatureManager:
@@ -2055,9 +2036,7 @@ class FeatureManager:
         from .record import RecordJson
 
         for feature in feature_objects:
-            value = _feature_dict_value(
-                dictionary, values_by_feature_uid, feature, schema
-            )
+            value = _feature_dict_value(values_by_feature_uid, feature)
             if value is None:
                 continue
             if not (
@@ -2385,10 +2364,7 @@ class FeatureManager:
                     feature.dtype_as_str is None
                     or not feature.dtype_as_str.startswith("list[")
                 )
-                and _feature_dict_value(
-                    dictionary, values_by_feature_uid, feature, schema
-                )
-                is not None
+                and _feature_dict_value(values_by_feature_uid, feature) is not None
             ]
             if scalar_features:
                 raise ValidationError(
@@ -2480,9 +2456,7 @@ class FeatureManager:
         features_labels = defaultdict(list)
         feature_json_values = []
         for feature in feature_objects:
-            value = _feature_dict_value(
-                dictionary, values_by_feature_uid, feature, schema
-            )
+            value = _feature_dict_value(values_by_feature_uid, feature)
             if value is None:
                 continue
             if not (
@@ -2624,7 +2598,7 @@ class FeatureManager:
             self._set_values(values, feature_field, schema, replace_all=False)
 
     def _current_values_for_validation(
-        self, members, index_feature, schema: Schema | None = None
+        self, members, index_feature, schema: Schema
     ) -> dict[str, Any]:
         """Read schema features by identity, retaining categorical record objects."""
         from lamindb.curators.core import feature_identifier

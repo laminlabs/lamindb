@@ -527,7 +527,8 @@ def test_record_from_dataframe_empty_batch():
         feature.delete(permanent=True)
 
 
-def test_record_from_dataframe_partial_null_bool_int():
+@pytest.mark.parametrize("identifier", ["name", "uid"])
+def test_record_from_dataframe_partial_null_bool_int(identifier):
     """Partial-null bool/int features survive the from_dataframe save round-trip.
 
     The user supplies correctly-typed nullable columns (boolean / Int64). On
@@ -537,64 +538,74 @@ def test_record_from_dataframe_partial_null_bool_int():
     pd.DataFrame re-infer keeps bool/int from degrading to object/float64, so
     validation passes and the values round-trip.
     """
-    flag = ln.Feature(name="from-df-flag", dtype=bool).save()
-    count = ln.Feature(name="from-df-count", dtype=int).save()
-    label = ln.Feature(name="from-df-label", dtype=str).save()
-    empty = ln.Feature(name="from-df-empty", dtype=str).save()
+    flag = ln.Feature(name=f"from-df-flag-{identifier}", dtype=bool).save()
+    count = ln.Feature(name=f"from-df-count-{identifier}", dtype=int).save()
+    label = ln.Feature(name=f"from-df-label-{identifier}", dtype=str).save()
+    empty = ln.Feature(name=f"from-df-empty-{identifier}", dtype=str).save()
+    itype = ln.Feature.uid if identifier == "uid" else ln.Feature
     schema = ln.Schema(
         [flag, count, label, empty],
-        name="from-df-bool-int-schema",
+        name=f"from-df-bool-int-schema-{identifier}",
         minimal_set=False,
+        itype=itype,
     ).save()
-    sheet = ln.Record(name="from-df-bool-int-sheet", is_type=True, schema=schema).save()
+    sheet = ln.Record(
+        name=f"from-df-bool-int-sheet-{identifier}", is_type=True, schema=schema
+    ).save()
+    key = (
+        (lambda feature: feature.uid)
+        if identifier == "uid"
+        else (lambda feature: feature.name)
+    )
+    names = [
+        f"from-df-a-{identifier}",
+        f"from-df-b-{identifier}",
+        f"from-df-c-{identifier}",
+    ]
 
     df = pd.DataFrame(
         {
-            "__lamindb_record_name__": ["from-df-a", "from-df-b", "from-df-c"],
-            "from-df-flag": pd.array([True, None, False], dtype="boolean"),
-            "from-df-count": pd.array([1, None, 3], dtype="Int64"),
-            "from-df-label": ["a", "b", "c"],
-            "from-df-empty": pd.array([None, None, None], dtype="object"),
+            "__lamindb_record_name__": names,
+            key(flag): pd.array([True, None, False], dtype="boolean"),
+            key(count): pd.array([1, None, 3], dtype="Int64"),
+            key(label): ["a", "b", "c"],
+            key(empty): pd.array([None, None, None], dtype="object"),
         }
     )
 
     # the supplied dtypes are genuinely correct/nullable
-    assert df["from-df-flag"].dtype.name == "boolean"
-    assert df["from-df-count"].dtype.name == "Int64"
-    assert df["from-df-empty"].isna().all()
+    assert df[key(flag)].dtype.name == "boolean"
+    assert df[key(count)].dtype.name == "Int64"
+    assert df[key(empty)].isna().all()
 
     records = ln.Record.from_dataframe(df, type=sheet)
     assert len(records) == 3
     records.save()
 
     # non-null values round-trip
-    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-flag"] is True
-    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-count"] == 1
+    assert ln.Record.get(name=names[0]).features.get_values()[key(flag)] is True
+    assert ln.Record.get(name=names[0]).features.get_values()[key(count)] == 1
     # the None row drops the fragile keys entirely
-    assert "from-df-flag" not in ln.Record.get(name="from-df-b").features.get_values()
-    assert "from-df-count" not in ln.Record.get(name="from-df-b").features.get_values()
-    assert (
-        ln.Record.get(name="from-df-c").features.get_values()["from-df-flag"] is False
-    )
-    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-count"] == 3
+    assert key(flag) not in ln.Record.get(name=names[1]).features.get_values()
+    assert key(count) not in ln.Record.get(name=names[1]).features.get_values()
+    assert ln.Record.get(name=names[2]).features.get_values()[key(flag)] is False
+    assert ln.Record.get(name=names[2]).features.get_values()[key(count)] == 3
 
     # dtypes survive the export round-trip: the columns come back as the nullable
     # extension dtypes, not degraded object / float64
     exported = sheet.to_dataframe()
-    assert exported["from-df-flag"].dtype.name == "boolean"
-    assert exported["from-df-count"].dtype.name == "Int64"
+    assert exported[key(flag)].dtype.name == "boolean"
+    assert exported[key(count)].dtype.name == "Int64"
 
     # entirely-null column: present in export but nothing stored in RecordJson
     from lamindb.models.record import RecordJson
 
-    assert "from-df-empty" in exported.columns
-    assert exported["from-df-empty"].isna().all()
+    assert key(empty) in exported.columns
+    assert exported[key(empty)].isna().all()
     assert RecordJson.objects.filter(feature=empty).count() == 0
 
-    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
-        permanent=True
-    )
-    ln.Record.filter(name="from-df-bool-int-sheet").delete(permanent=True)
+    ln.Record.filter(name__in=names).delete(permanent=True)
+    ln.Record.filter(name=f"from-df-bool-int-sheet-{identifier}").delete(permanent=True)
     schema.delete(permanent=True)
     flag.delete(permanent=True)
     count.delete(permanent=True)
@@ -1197,21 +1208,76 @@ def test_record_schema_index_name_conflict_resolution():
     score.delete(permanent=True)
 
 
-def test_set_values_does_not_warn_for_schema_index_feature_on_record(ccaplog):
-    sample_id = ln.Feature(name="no_warn_sample_id", dtype=str).save()
-    score = ln.Feature(name="no_warn_score", dtype=float).save()
-    schema = ln.Schema(features=[score], index=sample_id, name="no-warn-schema").save()
-    sheet = ln.Record(name="no-warn-sheet", is_type=True, schema=schema).save()
+@pytest.mark.parametrize("identifier", ["name", "uid"])
+def test_set_values_does_not_warn_for_schema_index_feature_on_record(
+    ccaplog, identifier
+):
+    sample_id = ln.Feature(name=f"no_warn_sample_id_{identifier}", dtype=str).save()
+    score = ln.Feature(name=f"no_warn_score_{identifier}", dtype=float).save()
+    itype = ln.Feature.uid if identifier == "uid" else ln.Feature
+    schema = ln.Schema(
+        features=[score],
+        index=sample_id,
+        name=f"no-warn-schema-{identifier}",
+        itype=itype,
+    ).save()
+    sheet = ln.Record(
+        name=f"no-warn-sheet-{identifier}", is_type=True, schema=schema
+    ).save()
+    key = (
+        (lambda feature: feature.uid)
+        if identifier == "uid"
+        else (lambda feature: feature.name)
+    )
 
     record = ln.Record(
         type=sheet,
-        features={"no_warn_sample_id": "S-001", "no_warn_score": 1.0},
+        features={key(sample_id): "S-001", key(score): 1.0},
     ).save()
     ccaplog.clear()
-    record.features.set_values({"no_warn_sample_id": "S-001", "no_warn_score": 2.0})
-    assert "no feature 'no_warn_sample_id' found on record" not in ccaplog.text
+    record.features.set_values({key(sample_id): "S-001", key(score): 2.0})
+    assert f"no feature '{sample_id.name}' found on record" not in ccaplog.text
     assert record.name == "S-001"
-    assert record.features["no_warn_score"] == 2.0
+    assert record.features[score.name] == 2.0
+    assert record.features.get_values() == {key(sample_id): "S-001", key(score): 2.0}
+
+    # Feature objects identify the feature; the stored key follows itype.
+    record.features.update_values({score: 3.0})
+    assert record.features.get_values()[key(score)] == 3.0
+
+    exported = sheet.to_dataframe()
+    assert exported.index.name == key(sample_id)
+    assert key(sample_id) not in exported.columns
+    assert exported[key(score)].tolist() == [3.0]
+
+    batch = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {key(score): [4.0]},
+            index=pd.Index(["S-002"], name=key(sample_id)),
+        ),
+        type=sheet,
+    )
+    batch.save()
+    assert ln.Record.get(name="S-002").features.get_values()[key(score)] == 4.0
+
+    if identifier == "uid":
+        with pytest.raises(
+            ln.errors.ValidationError, match="not in the provided schema"
+        ):
+            record.features.add_values({score.name: 5.0})
+        with pytest.raises(
+            ln.errors.ValidationError, match="not in the provided schema"
+        ):
+            ln.Record.from_dataframe(
+                pd.DataFrame(
+                    {
+                        key(score): [6.0],
+                        score.name: ["name-keyed"],
+                        key(sample_id): ["S-003"],
+                    }
+                ),
+                type=sheet,
+            ).save()
 
     ln.Record.filter(type=sheet).delete(permanent=True)
     sheet.delete(permanent=True)

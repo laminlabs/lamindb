@@ -1706,3 +1706,18 @@ def test_noop_coercion_keeps_caller_frame_for_inplace_edits():
         ln.ULabel.filter(name__in=["keep frame known", "keep frame canonical"]).delete(
             permanent=True
         )
+
+
+def test_standardize_fills_categorical_default_by_feature_uid():
+    feature = ln.Feature(
+        name="std-cat-default", dtype=ln.ULabel, default_value="fallback"
+    ).save()
+    schema = ln.Schema([feature], itype=ln.Feature.uid).save()
+    df = pd.DataFrame({feature.uid: pd.Categorical(["known", None])})
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        curator.standardize()
+        assert curator.dataset[feature.uid].tolist() == ["known", "fallback"]
+    finally:
+        schema.delete(permanent=True)
+        feature.delete(permanent=True)
