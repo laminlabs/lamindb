@@ -70,6 +70,7 @@ class RecordSet(Iterable):
             export_includes_record_metadata,
             fill_values_through_in_export_dataframe,
             load_values_through_features,
+            rename_export_columns_to_itype,
         )
 
         qs = cast(BasicQuerySet, self)
@@ -180,15 +181,16 @@ class RecordSet(Iterable):
             df = df.rename(columns={"name": encoded_name})
         if not include_record_metadata:
             df = drop_record_metadata_columns(df)
+        schema_features: list | None = None
         if record_type.schema is not None:
-            all_features = record_type.schema.members.all()
+            schema_features = list(record_type.schema.members.all())
             index_feature_uid = None if index_feature is None else index_feature.uid
             desired_order = [
                 feature.name
-                for feature in all_features
+                for feature in schema_features
                 if index_feature_uid is None or feature.uid != index_feature_uid
             ]
-            for feature in all_features:
+            for feature in schema_features:
                 if index_feature_uid is not None and feature.uid == index_feature_uid:
                     continue
                 if feature.name not in df.columns:
@@ -198,8 +200,8 @@ class RecordSet(Iterable):
         else:
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
-        if record_type.schema is not None:
-            fill_features = list(record_type.schema.members.all())
+        if schema_features is not None:
+            fill_features = schema_features
         else:
             fill_features = load_values_through_features(using=qs.db)
         df = fill_values_through_in_export_dataframe(
@@ -210,6 +212,10 @@ class RecordSet(Iterable):
             encoded_name=encoded_name,
         )
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
+        if schema_features is not None and record_type.schema is not None:
+            df = rename_export_columns_to_itype(
+                df, record_type.schema, schema_features, index_feature
+            )
 
         record_type._set_export_run(
             is_run_input=is_run_input,

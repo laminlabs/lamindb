@@ -211,14 +211,19 @@ def _feature_values_for_type_assignment(
     record: Record,
     features: list[Feature],
     index_feature: Feature | None,
+    schema: Schema,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Schema-feature values keyed by uid, plus other values keyed by name.
 
     Feature names on a record frame are unique. Callers pass `Feature` objects
-    through ``_features``; saved values still come back from ``get_values()``
-    keyed by name.
+    through ``_features``. String keys and ``get_values()`` use the schema
+    identifier.
     """
-    features_by_name = {feature.name: feature for feature in features}
+    from lamindb.curators.core import feature_identifier
+
+    features_by_name = {
+        feature_identifier(feature, schema): feature for feature in features
+    }
     values_by_uid: dict[str, Any] = {}
     extra_by_name: dict[str, Any] = {}
     state = getattr(record, "_state", None)
@@ -302,7 +307,7 @@ def validate_data_record_type_assignment(
             f"features {rendered} share a name"
         )
     values_by_uid, extra_by_name = _feature_values_for_type_assignment(
-        record, features, index_feature
+        record, features, index_feature, schema
     )
     missing = [
         feature
@@ -324,19 +329,20 @@ def validate_data_record_type_assignment(
         record, "_skip_type_curator", False
     ):
         return
-    from lamindb.curators.core import DictCurator
+    from lamindb.curators.core import DictCurator, feature_identifier
     from lamindb.models._feature_manager import FeatureManager
 
     # User objects are stored by handle. set_values normalizes them before the
     # curator; do the same here so assignment accepts the same values.
     # Member order is the column order an ordered schema compares against.
+    # Keys are the schema identifier, matching DictCurator.
     dictionary = {
-        feature.name: values_by_uid[feature.uid]
+        feature_identifier(feature, schema): values_by_uid[feature.uid]
         for feature in features
         if feature.uid in values_by_uid
     }
     dictionary.update(extra_by_name)
-    FeatureManager._normalize_user_feature_values(features, dictionary, {})
+    FeatureManager._normalize_user_feature_values(features, dictionary, {}, schema)
     try:
         # An unsaved record still points at the default connection. The schema
         # may already live on another instance when the caller will save(using=...).
@@ -735,14 +741,16 @@ def pop_index_from_feature_dictionary(
     index_feature: Feature | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
     """Extract index value for `record.name` and remove it from feature payload."""
+    from lamindb.curators.core import feature_identifier
+
     if index_feature is None:
         index_feature = schema.index
     if index_feature is None:
         return None, dictionary
-    index_name = index_feature.name
-    if index_name not in dictionary:
+    index_key = feature_identifier(index_feature, schema)
+    if index_key not in dictionary:
         return None, dictionary
-    value = dictionary.pop(index_name)
+    value = dictionary.pop(index_key)
     return coerce_index_value_to_record_name(value, index_feature), dictionary
 
 
@@ -773,9 +781,12 @@ def apply_schema_index_to_export_dataframe(
     encoded_id: str,
     encoded_name: str,
     include_record_metadata: bool = True,
+    schema: Schema | None = None,
 ) -> pd.DataFrame:
     """Move the schema index feature from columns to `DataFrame.index`."""
-    index_col = index_feature.name
+    from lamindb.curators.core import feature_identifier
+
+    index_col = feature_identifier(index_feature, schema)
     lamin_record_ids = df.index.to_series()
     if index_col in df.columns:
         index_values = df[index_col]
@@ -801,15 +812,51 @@ def apply_schema_index_to_export_dataframe(
     return df
 
 
+def rename_export_columns_to_itype(
+    df: pd.DataFrame,
+    schema: Schema,
+    features: list[Feature],
+    index_feature: Feature | None,
+) -> pd.DataFrame:
+    """Rename exported feature columns to the schema identifier.
+
+    Queryset export labels columns by feature name. ``itype="Feature"`` keeps
+    those names. ``itype="Feature.uid"`` renames them to feature uids, including
+    the index name.
+    """
+    from lamindb.curators.core import _feature_column_field, feature_identifier
+
+    if _feature_column_field(schema) == "name":
+        return df
+    rename = {}
+    for feature in features:
+        ident = feature_identifier(feature, schema)
+        if feature.name != ident and feature.name in df.columns:
+            rename[feature.name] = ident
+    if rename:
+        df = df.rename(columns=rename)
+    if index_feature is not None and df.index.name == index_feature.name:
+        ident = feature_identifier(index_feature, schema)
+        if ident != index_feature.name:
+            df = df.copy()
+            df.index.name = ident
+    return df
+
+
 def dataframe_for_record_batch(
-    df: pd.DataFrame, index_feature: Feature | None
+    df: pd.DataFrame,
+    index_feature: Feature | None,
+    schema: Schema | None = None,
 ) -> pd.DataFrame:
     """Normalize a batch dataframe so the schema index is a column for row iteration."""
     import pandas as pd
 
+    from lamindb.curators.core import feature_identifier
+
     if index_feature is None:
         return df
-    if df.index.name == index_feature.name and not isinstance(df.index, pd.RangeIndex):
+    index_key = feature_identifier(index_feature, schema)
+    if df.index.name == index_key and not isinstance(df.index, pd.RangeIndex):
         return df.reset_index()
     return df
 
@@ -818,12 +865,17 @@ def move_schema_index_column_to_dataframe_index(
     df: pd.DataFrame, schema: Schema
 ) -> pd.DataFrame:
     """Align a validation dataframe with `Schema.index` (index on `df.index`)."""
+    from lamindb.curators.core import feature_identifier
+
     index_feature = schema.index
-    if index_feature is None or index_feature.name not in df.columns:
+    index_key = (
+        feature_identifier(index_feature, schema) if index_feature is not None else None
+    )
+    if index_feature is None or index_key not in df.columns:
         return df
     df = df.copy()
-    df = df.set_index(index_feature.name)
-    df.index.name = index_feature.name
+    df = df.set_index(index_key)
+    df.index.name = index_key
     return df
 
 
@@ -896,6 +948,8 @@ def strip_index_for_record_persistence(
     replace: bool = False,
 ) -> tuple[dict[str, Any], list[Feature], list[tuple[Feature, Feature, Any]]]:
     """Move `values_through` and schema-index values off the forward write path."""
+    from lamindb.curators.core import feature_identifier
+
     if index_feature is None and schema is not None:
         index_feature = schema.index
     record_field_mappings = get_feature_record_field_mappings(feature_objects)
@@ -903,23 +957,27 @@ def strip_index_for_record_persistence(
     if index_feature is None and not record_field_mappings and not values_feature_uids:
         return dictionary, feature_objects, []
 
+    def feature_key(feature: Feature) -> str:
+        return feature_identifier(feature, schema)
+
     index_value = None
+    index_key = feature_key(index_feature) if index_feature is not None else None
     if index_feature is not None:
         if (
             values_by_feature_uid is not None
             and index_feature.uid in values_by_feature_uid
         ):
             index_value = values_by_feature_uid[index_feature.uid]
-        elif index_feature.name in dictionary:
-            index_value = dictionary[index_feature.name]
+        elif index_key in dictionary:
+            index_value = dictionary[index_key]
 
-        if index_value is not None or (replace and index_feature.name in dictionary):
+        if index_value is not None or (replace and index_key in dictionary):
             apply_index_feature_to_record(record, index_feature, index_value)
 
     dictionary = dict(dictionary)
     update_fields = set(getattr(record, "_mapped_feature_update_fields", set()))
     if index_feature is not None:
-        dictionary.pop(index_feature.name, None)
+        dictionary.pop(index_key, None)
         feature_objects = [
             feature for feature in feature_objects if feature.uid != index_feature.uid
         ]
@@ -934,15 +992,16 @@ def strip_index_for_record_persistence(
                 filtered_features.append(feature)
                 continue
             record_field = record_fields[field_name]
+            feature_ident = feature_key(feature)
             if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
             ):
                 value = values_by_feature_uid[feature.uid]
-            elif feature.name in dictionary:
-                value = dictionary[feature.name]
+            elif feature_ident in dictionary:
+                value = dictionary[feature_ident]
             else:
-                dictionary.pop(feature.name, None)
+                dictionary.pop(feature_ident, None)
                 continue
             coerced = _coerce_feature_value_for_record_field(
                 value, feature, record_field
@@ -950,7 +1009,7 @@ def strip_index_for_record_persistence(
             if coerced is not None or replace:
                 setattr(record, field_name, coerced)
                 update_fields.add(field_name)
-            dictionary.pop(feature.name, None)
+            dictionary.pop(feature_ident, None)
         feature_objects = filtered_features
     inverted_writes: list[tuple[Feature, Feature, Any]] = []
     if values_feature_uids:
@@ -966,19 +1025,20 @@ def strip_index_for_record_persistence(
             if feature.uid not in values_target_feature_uids:
                 filtered_features.append(feature)
                 continue
+            feature_ident = feature_key(feature)
             if (
                 values_by_feature_uid is not None
                 and feature.uid in values_by_feature_uid
             ):
                 value = values_by_feature_uid[feature.uid]
-            elif feature.name in dictionary:
-                value = dictionary[feature.name]
+            elif feature_ident in dictionary:
+                value = dictionary[feature_ident]
             else:
-                dictionary.pop(feature.name, None)
+                dictionary.pop(feature_ident, None)
                 continue
             source_uid = values_feature_uids[feature.uid]
             inverted_writes.append((feature, source_features[source_uid], value))
-            dictionary.pop(feature.name, None)
+            dictionary.pop(feature_ident, None)
         feature_objects = filtered_features
     if update_fields:
         record._mapped_feature_update_fields = update_fields
@@ -1181,7 +1241,11 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
-        from lamindb.curators.core import ComponentCurator, validate_external_schema
+        from lamindb.curators.core import (
+            ComponentCurator,
+            feature_identifier,
+            validate_external_schema,
+        )
 
         if len(self._df) == 0:
             return []
@@ -1192,13 +1256,18 @@ class RecordBatch:
             validate_external_schema(schema, members=members)
         records: list[Record] = []
         index_only_names: list[str | None] = []
-        work_df = dataframe_for_record_batch(self._df, index_feature)
+        work_df = dataframe_for_record_batch(self._df, index_feature, schema)
         row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
             row = dict(row)
             name = None
-            if index_feature is not None and index_feature.name in row:
-                value = row.pop(index_feature.name)
+            index_key = (
+                feature_identifier(index_feature, schema)
+                if index_feature is not None
+                else None
+            )
+            if index_feature is not None and index_key in row:
+                value = row.pop(index_key)
                 if not (pd.api.types.is_scalar(value) and pd.isna(value)):
                     name = coerce_index_value_to_record_name(value, index_feature)
             if name is None:
@@ -1236,7 +1305,10 @@ class RecordBatch:
         if index_only_names:
             # Rows without feature annotations skip bulk feature validation.
             index_df = pd.DataFrame(
-                index=pd.Index(index_only_names, name=index_feature.name)
+                index=pd.Index(
+                    index_only_names,
+                    name=feature_identifier(index_feature, schema),
+                )
             )
             ComponentCurator(
                 index_df,

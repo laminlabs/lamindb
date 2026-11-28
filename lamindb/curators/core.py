@@ -462,7 +462,7 @@ def _resolve_record_categorical_from_sheet_export(
         if index_feature is None or schema is None or schema.id is None:
             return None
 
-        index_name = index_feature.name
+        index_name = feature_identifier(index_feature, schema)
         if dataset.index.name == index_name and not isinstance(
             dataset.index, pd.RangeIndex
         ):
@@ -868,6 +868,15 @@ def _duplicate_feature_names(features: list[Feature]) -> list[str]:
     return [name for name, count in counts.items() if count > 1]
 
 
+def _duplicate_feature_keys(features: list[Feature], schema: Schema) -> list[str]:
+    """Identifiers used by more than one feature in this fixed list."""
+    counts: dict[str, int] = {}
+    for feature in features:
+        key = feature_identifier(feature, schema)
+        counts[key] = counts.get(key, 0) + 1
+    return [key for key, count in counts.items() if count > 1]
+
+
 def _series_holds_datetimes(series: pd.Series) -> bool:
     """Whether non-null values are datetimes, not strings or other objects."""
     if pd.api.types.is_datetime64_any_dtype(series):
@@ -897,33 +906,35 @@ def convert_dict_to_dataframe_for_validation(
     members: list[Feature] | None = None,
     index: Feature | None | _UnsetIndex = _UNSET_INDEX,
 ) -> pd.DataFrame:
-    """Convert a dictionary to a DataFrame for validation against a schema."""
+    """Convert a dictionary to a DataFrame for validation against a schema.
+
+    Dictionary keys are the schema identifier: feature names, or feature uids
+    when ``itype`` is ``Feature.uid``.
+    """
     d = dict(d)
     index_feature = _passed_index(schema, index)
     feature_list = schema.members if members is None else members
-    if index_feature is not None and index_feature.name in d:
-        index_value = d.pop(index_feature.name)
+    index_key = (
+        feature_identifier(index_feature, schema) if index_feature is not None else None
+    )
+    if index_feature is not None and index_key in d:
+        index_value = d.pop(index_key)
         df = pd.DataFrame([d])
-        df.index = pd.Index([index_value], name=index_feature.name)
+        df.index = pd.Index([index_value], name=index_key)
     else:
         df = pd.DataFrame([d])
     if df.empty:
         return df
-    index_is_row_name = (
-        index_feature is not None and df.index.name == index_feature.name
-    )
+    index_is_row_name = index_feature is not None and df.index.name == index_key
     for feature in feature_list:
+        column = feature_identifier(feature, schema)
         # Validate categorical record types for both to-one and to-many features.
         if feature.dtype_as_str.startswith(("cat", "list[cat")):
-            if feature.name in df.columns:
-                value = (
-                    df[feature.name].iloc[0]
-                    if index_is_row_name
-                    else df.loc[0, feature.name]
-                )
+            if column in df.columns:
+                value = df[column].iloc[0] if index_is_row_name else df.loc[0, column]
                 if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
                     _check_sqlrecord_type_in_list(value, feature)  # type: ignore
-                    df.attrs[feature.name] = "list_of_categories"
+                    df.attrs[column] = "list_of_categories"
                 else:
                     if isinstance(value, SQLRecord) and value._state.adding:
                         raise ValidationError(
@@ -933,34 +944,62 @@ def convert_dict_to_dataframe_for_validation(
                         _check_sqlrecord_type(value, feature)
                     # List-valued cells are unhashable and cannot be pandas categories.
                     if not feature.dtype_as_str.startswith("list["):
-                        df[feature.name] = pd.Categorical(df[feature.name])
-        elif feature.dtype_as_str == "dict" and feature.name in df.columns:
+                        df[column] = pd.Categorical(df[column])
+        elif feature.dtype_as_str == "dict" and column in df.columns:
             # pandas 3 infers strings as str; dict validation expects object.
-            df[feature.name] = df[feature.name].astype(object)
-        elif feature.dtype_as_str == "datetime" and feature.name in df.columns:
-            series = df[feature.name]
+            df[column] = df[column].astype(object)
+        elif feature.dtype_as_str == "datetime" and column in df.columns:
+            series = df[column]
             if series.isna().all():
                 if feature.nullable:
                     # A dictionary containing None has no datetime dtype to infer.
-                    df[feature.name] = pd.Series(
+                    df[column] = pd.Series(
                         pd.NaT, index=df.index, dtype="datetime64[ns]"
                     )
             elif _series_holds_datetimes(series):
-                df[feature.name] = _as_datetime(series, utc=False)
-        elif is_utc_datetime_dtype(feature.dtype_as_str) and feature.name in df.columns:
-            df[feature.name] = _as_datetime(df[feature.name], utc=True)
+                df[column] = _as_datetime(series, utc=False)
+        elif is_utc_datetime_dtype(feature.dtype_as_str) and column in df.columns:
+            df[column] = _as_datetime(df[column], utc=True)
         elif (
             (parsed := parse_exact_datetime_dtype(feature.dtype_as_str)) is not None
-            and feature.name in df.columns
-            and _series_holds_datetimes(df[feature.name])
+            and column in df.columns
+            and _series_holds_datetimes(df[column])
         ):
             # Dict values are Python datetimes, which have no pandas unit.
             # DataFrame() may already have inferred one. Store the resolution
             # this feature names. DataFrame validation does not do this cast.
             unit, utc = parsed
             target = f"datetime64[{unit}, UTC]" if utc else f"datetime64[{unit}]"
-            df[feature.name] = _as_datetime(df[feature.name], utc=utc).astype(target)
+            df[column] = _as_datetime(df[column], utc=utc).astype(target)
     return df
+
+
+def _feature_column_field(schema: Schema) -> str:
+    """Attribute of a Feature that names its column or dictionary key.
+
+    ``itype="Feature"`` keeps ``name``. ``itype="Feature.uid"`` uses the uid.
+    Other itypes, such as ``bionty.Gene.ensembl_gene_id``, are not Feature
+    fields. Their headers are checked by the columns vector, not here.
+    """
+    itype = schema.itype
+    if (
+        not isinstance(itype, str)
+        or itype == "Composite"
+        or not itype.startswith("Feature")
+    ):
+        return "name"
+    return parse_cat_dtype(itype, is_itype=True)["field_str"]
+
+
+def feature_identifier(feature: Feature, schema: Schema | None) -> str:
+    """Key for this feature in a dataset validated against ``schema``.
+
+    With no schema, or when ``itype`` names features by name, this is
+    ``feature.name``. ``itype="Feature.uid"`` returns ``feature.uid``.
+    """
+    if schema is None:
+        return feature.name
+    return getattr(feature, _feature_column_field(schema))
 
 
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
@@ -992,6 +1031,7 @@ class ComponentCurator(Curator):
             dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
         )
         self._using = using
+        self._feature_key = _feature_column_field(schema)
         index_feature = _passed_index(schema, index)
         self._is_polars = is_polars_dataframe(self._dataset)
         if self._is_polars:
@@ -1020,6 +1060,8 @@ class ComponentCurator(Curator):
 
         if schema.flexible:
             itype = schema.itype
+            # Feature schemas look columns up by name, or by uid when itype is Feature.uid.
+            lookup = {f"{self._feature_key}__in": dataset_columns}
             if itype and itype.startswith("Feature["):
                 # Scoped itype "Feature[<uid>]": use query_features() which
                 # efficiently traverses the full sub-type hierarchy in one
@@ -1028,9 +1070,9 @@ class ComponentCurator(Curator):
                 # the unscoped "Feature" itype should not filter by type.
                 root_uid = itype[8:-1]  # len("Feature[") == 8
                 feature_type = Feature.connect(using).get(uid=root_uid)
-                qs = feature_type.query_features().filter(name__in=dataset_columns)
+                qs = feature_type.query_features().filter(**lookup)
             else:
-                qs = Feature.connect(using).filter(name__in=dataset_columns)
+                qs = Feature.connect(using).filter(**lookup)
             features += qs.to_list()
             feature_ids = {feature.id for feature in features}
 
@@ -1046,13 +1088,15 @@ class ComponentCurator(Curator):
                 schema_features = list(member_list)
             if feature_ids:
                 # Schema features take precedence over flexible-fetched features
-                # of the same name. Remove any flexible-fetched feature whose name
-                # is explicitly defined by the schema, then append the schema version.
-                schema_feature_names = {f.name for f in schema_features}  # type: ignore
+                # with the same column key. Remove any flexible-fetched feature
+                # the schema already defines, then append the schema version.
+                schema_feature_keys = {
+                    getattr(feature, self._feature_key) for feature in schema_features
+                }
                 features = [
-                    f
-                    for f in features
-                    if f.name not in schema_feature_names  # type: ignore
+                    feature
+                    for feature in features
+                    if getattr(feature, self._feature_key) not in schema_feature_keys
                 ] + schema_features  # type: ignore
             else:
                 features.extend(schema_features)
@@ -1077,6 +1121,7 @@ class ComponentCurator(Curator):
             if schema.minimal_set:
                 optional_feature_uids = set(schema.optionals.get_uids())
             for feature in features:
+                header = getattr(feature, self._feature_key)
                 if schema.minimal_set:
                     required = feature.uid not in optional_feature_uids
                 else:
@@ -1085,19 +1130,19 @@ class ComponentCurator(Curator):
                 dtype_str = feature._dtype_str
                 pattern = feature._validate_regex()
                 if self._is_polars:
-                    pandera_columns[feature.name] = polars_column(
+                    pandera_columns[header] = polars_column(
                         feature, required, schema.coerce
                     )
                 elif (
                     dtype_str.startswith("list[cat")
-                    or self._dataset.attrs.get(feature.name) == "list_of_categories"
+                    or self._dataset.attrs.get(header) == "list_of_categories"
                 ):
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[header] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
+                            error=f"Column '{header}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce,
@@ -1106,7 +1151,7 @@ class ComponentCurator(Curator):
                 # AnyInt / AnyFloat: width-agnostic dtypes, same hook as DateTime
                 # so Feature.coerce and Schema.coerce both reach pandera.
                 elif dtype_str in {"int", "float"}:
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[header] = pandera.Column(
                         AnyInt() if dtype_str == "int" else AnyFloat(),
                         nullable=feature.nullable,
                         coerce=feature.coerce,
@@ -1124,25 +1169,25 @@ class ComponentCurator(Curator):
                 } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
-                            self._dataset[feature.name].dtype
-                            if feature.name in self._dataset.keys()
+                            self._dataset[header].dtype
+                            if header in self._dataset.keys()
                             else None
                         )
                     else:
                         dtype = None
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[header] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype(dtype_str, feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
+                            error=f"Column '{header}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce,
                         required=required,
                     )
                 elif dtype_str == "dict":
-                    pandera_columns[feature.name] = pandera.Column(
+                    pandera_columns[header] = pandera.Column(
                         dtype=object,
                         nullable=feature.nullable,
                         coerce=feature.coerce,
@@ -1186,22 +1231,20 @@ class ComponentCurator(Curator):
                                 error=f"WRONG_DATATYPE: expected series to have type {expected}",
                             )
                         )
-                    pandera_columns[feature.name] = column
+                    pandera_columns[header] = column
                 if pattern is not None:
                     if self._is_polars:
-                        polars_regex_columns[feature.name] = _polars_regex_column(
+                        polars_regex_columns[header] = _polars_regex_column(
                             feature, pattern
                         )
                     else:
-                        pandera_columns[feature.name].checks.append(
+                        pandera_columns[header].checks.append(
                             _pandas_regex_check(feature, pattern)
                         )
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
-                    if (
-                        self._is_polars or required or feature.name in dataset_columns
-                    ) and (
+                    if (self._is_polars or required or header in dataset_columns) and (
                         schema._index_feature_uid is None
                         or feature.uid != schema._index_feature_uid
                     ):
@@ -1310,6 +1353,7 @@ class ComponentCurator(Curator):
             maximal_set=schema.maximal_set,
             schema=schema,
             dataset_setter=self._set_dataset if self._is_polars else None,
+            member_key=self._feature_key,
         )
 
     def _set_dataset(self, dataset) -> None:
@@ -1337,15 +1381,16 @@ class ComponentCurator(Curator):
             )
 
         for feature in self._schema.members:
+            header = getattr(feature, self._feature_key)
             if self._is_polars:
                 import polars as pl
 
                 from ._polars import polars_dtype
 
-                if feature.name not in self._dataset.collect_schema().names():
+                if header not in self._dataset.collect_schema().names():
                     if feature.default_value is None and not feature.nullable:
                         raise ValidationError(
-                            f"Missing column {feature.name} cannot be added because is not nullable and has no default value"
+                            f"Missing column {header} cannot be added because is not nullable and has no default value"
                         )
                     fill = pl.lit(feature.default_value)
                     # pl.lit(None) is an untyped Null column. Typed date and
@@ -1356,20 +1401,20 @@ class ComponentCurator(Curator):
                             fill = fill.cast(dtype)
                     self._set_dataset(
                         self._dataset.with_columns(
-                            pl.repeat(fill, pl.len()).alias(feature.name)
+                            pl.repeat(fill, pl.len()).alias(header)
                         )
                     )
                     logger.important(
-                        f"added column {feature.name} with fill value {feature.default_value}"
+                        f"added column {header} with fill value {feature.default_value}"
                     )
                 elif feature.default_value is not None:
                     self._set_dataset(
                         self._dataset.with_columns(
-                            pl.col(feature.name).fill_null(feature.default_value)
+                            pl.col(header).fill_null(feature.default_value)
                         )
                     )
                 continue
-            if feature.name not in self._dataset.columns:
+            if header not in self._dataset.columns:
                 if feature.default_value is not None or feature.nullable:
                     fill_value = (
                         feature.default_value
@@ -1378,31 +1423,29 @@ class ComponentCurator(Curator):
                     )
                     dtype_str = feature._dtype_str
                     if dtype_str.startswith("cat"):
-                        self._dataset[feature.name] = pd.Categorical(
+                        self._dataset[header] = pd.Categorical(
                             [fill_value] * len(self._dataset)
                         )
                     else:
-                        self._dataset[feature.name] = fill_value
+                        self._dataset[header] = fill_value
                     logger.important(
-                        f"added column {feature.name} with fill value {fill_value}"
+                        f"added column {header} with fill value {fill_value}"
                     )
                 else:
                     raise ValidationError(
-                        f"Missing column {feature.name} cannot be added because is not nullable and has no default value"
+                        f"Missing column {header} cannot be added because is not nullable and has no default value"
                     )
             else:
                 if feature.default_value is not None:
-                    if isinstance(
-                        self._dataset[feature.name].dtype, pd.CategoricalDtype
-                    ):
+                    if isinstance(self._dataset[header].dtype, pd.CategoricalDtype):
                         if (
                             feature.default_value
-                            not in self._dataset[feature.name].cat.categories
+                            not in self._dataset[header].cat.categories
                         ):
-                            self._dataset[feature.name] = self._dataset[
-                                feature.name
+                            self._dataset[header] = self._dataset[
+                                header
                             ].cat.add_categories(feature.default_value)
-                    self._dataset[feature.name] = self._dataset[feature.name].fillna(
+                    self._dataset[header] = self._dataset[header].fillna(
                         feature.default_value
                     )
 
@@ -1643,7 +1686,7 @@ class DictCurator(DataFrameCurator):
         if members is None:
             members = list(schema.members)
         index_feature = _passed_index(schema, index)
-        duplicates = _duplicate_feature_names(members)
+        duplicates = _duplicate_feature_keys(members, schema)
         if duplicates:
             rendered = ", ".join(repr(name) for name in duplicates)
             raise ValidationError(f"features {rendered} share a name")
@@ -2838,6 +2881,7 @@ class DataFrameCatManager:
         using: str | None = None,
         validate_columns: bool = True,
         dataset_setter: Callable | None = None,
+        member_key: str = "name",
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -2858,6 +2902,7 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
         self._validate_columns = validate_columns
+        self._member_key = member_key
         self._is_polars = is_polars_dataframe(self._dataset)
         self._dataset_setter = dataset_setter
         self._unique_values: dict[str, pd.Series] | None = None
@@ -2928,7 +2973,7 @@ class DataFrameCatManager:
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]
-            key = feature.name
+            key = getattr(feature, self._member_key)
             # only create CatVector if the key exists in the DataFrame
             if key in columns and key not in self._cat_vectors:
                 self._cat_vectors[key] = CatVector(
@@ -3002,7 +3047,9 @@ class DataFrameCatManager:
     def _cat_vectors_keys(self) -> list[str]:
         columns = set(self._dataset.collect_schema().names())
         return [
-            feature.name for feature in self._categoricals if feature.name in columns
+            getattr(feature, self._member_key)
+            for feature in self._categoricals
+            if getattr(feature, self._member_key) in columns
         ]
 
     def _set_column(self, key, values) -> None:

@@ -1447,6 +1447,113 @@ def _index_feature_from_members(
     return schema.index
 
 
+def _features_for_identifier(
+    features: list[Feature], index_feature: Feature | None
+) -> list[Feature]:
+    keyed = list(features)
+    if index_feature is not None and all(
+        feature.uid != index_feature.uid for feature in keyed
+    ):
+        keyed.append(index_feature)
+    return keyed
+
+
+def _identifier_keyed_dictionary(
+    dictionary: dict[str, Any],
+    values_by_feature_uid: dict[str, Any],
+    features: list[Feature],
+    schema: Schema | None,
+) -> dict[str, Any]:
+    """Key feature values by the schema identifier.
+
+    Feature objects are read from ``values_by_feature_uid``. String keys are
+    kept only when they already are the identifier. A name is not copied onto
+    a ``Feature.uid`` schema. Unrecognized keys stay so validation can reject
+    them.
+    """
+    from lamindb.curators.core import feature_identifier
+
+    if schema is None:
+        return dictionary
+    keyed: dict[str, Any] = {}
+    consumed: set[str] = set()
+    for feature in features:
+        ident = feature_identifier(feature, schema)
+        if feature.uid in values_by_feature_uid:
+            value = values_by_feature_uid[feature.uid]
+            if ident in dictionary and dictionary[ident] != value:
+                raise ValidationError(
+                    f"Conflicting values for feature '{feature.name}'."
+                )
+            keyed[ident] = value
+            consumed.add(ident)
+            if ident != feature.name:
+                consumed.add(feature.name)
+        elif ident in dictionary:
+            value = dictionary[ident]
+            values_by_feature_uid[feature.uid] = value
+            keyed[ident] = value
+            consumed.add(ident)
+    for key, value in dictionary.items():
+        if key not in consumed and key not in keyed:
+            keyed[key] = value
+    return keyed
+
+
+def _rekey_name_dict_to_identifier(
+    dictionary: dict[str, Any],
+    features: list[Feature],
+    schema: Schema | None,
+) -> dict[str, Any]:
+    """Translate a name-keyed read-back dictionary to schema identifiers."""
+    from lamindb.curators.core import _feature_column_field, feature_identifier
+
+    if schema is None or _feature_column_field(schema) == "name":
+        return dictionary
+    keyed: dict[str, Any] = {}
+    names: set[str] = set()
+    for feature in features:
+        ident = feature_identifier(feature, schema)
+        names.add(feature.name)
+        if feature.name in dictionary:
+            keyed[ident] = dictionary[feature.name]
+        elif ident in dictionary:
+            keyed[ident] = dictionary[ident]
+    for key, value in dictionary.items():
+        if key not in names and key not in keyed:
+            keyed[key] = value
+    return keyed
+
+
+def _unknown_feature_keys(
+    string_key_values: dict[str, Any],
+    members: list[Feature],
+    index_feature: Feature | None,
+    schema: Schema | None,
+) -> list[str]:
+    from lamindb.curators.core import feature_identifier
+
+    if schema is None or not string_key_values:
+        return []
+    allowed = {feature_identifier(feature, schema) for feature in members}
+    if index_feature is not None:
+        allowed.add(feature_identifier(index_feature, schema))
+    return [key for key in string_key_values if key not in allowed]
+
+
+def _feature_dict_value(
+    dictionary: dict[str, Any],
+    values_by_feature_uid: dict[str, Any] | None,
+    feature: Feature,
+    schema: Schema | None,
+) -> Any:
+    from lamindb.curators.core import feature_identifier
+
+    if values_by_feature_uid is not None and feature.uid in values_by_feature_uid:
+        return values_by_feature_uid[feature.uid]
+    return dictionary[feature_identifier(feature, schema)]
+
+
 class FeatureManager:
     """Feature manager."""
 
@@ -1494,8 +1601,10 @@ class FeatureManager:
             record_type = self._host.type
             if record_type is not None and record_type.schema is not None:
                 schema = record_type.schema
+                members = list(schema.members)
+                index_feature = schema.index
                 for feature in _required_schema_features(
-                    schema, list(schema.members), schema.index
+                    schema, members, index_feature
                 ):
                     if not feature.nullable:
                         continue
@@ -1505,6 +1614,11 @@ class FeatureManager:
                         dictionary.setdefault(feature.name, {})
                     else:
                         dictionary.setdefault(feature.name, None)
+                dictionary = _rekey_name_dict_to_identifier(
+                    dictionary,
+                    _features_for_identifier(members, index_feature),
+                    schema,
+                )
         return dictionary
 
     def __getitem__(
@@ -1744,7 +1858,9 @@ class FeatureManager:
         """Normalize a feature-value dictionary to support `str` and `Feature` keys.
 
         Returns:
-            normalized_values: Values keyed by feature name (used by schema validators).
+            normalized_values: Values keyed by the passed string, or by feature name
+                for ``Feature`` objects. Callers rekey this to the schema identifier
+                before validation.
             string_key_values: Subset of values that came from string keys only.
             explicit_features: Resolved Feature objects passed explicitly as keys.
             values_by_feature_uid: Values keyed by feature uid (used for exact lookup).
@@ -1810,7 +1926,10 @@ class FeatureManager:
         feature_objects: list[Feature],
         dictionary: dict[str, Any],
         values_by_feature_uid: dict[str, Any],
+        schema: Schema | None = None,
     ) -> None:
+        from lamindb.curators.core import feature_identifier
+
         for feature in feature_objects:
             dtype = getattr(feature, "_dtype_str", None)
             if not isinstance(dtype, str) or "User" not in dtype:
@@ -1819,12 +1938,13 @@ class FeatureManager:
             if len(parsed) != 1 or parsed[0].get("registry_str") != "User":
                 continue
             field_name = parsed[0].get("field_str") or "name"
+            ident = feature_identifier(feature, schema)
             value_set = False
             if feature.uid in values_by_feature_uid:
                 raw_value = values_by_feature_uid[feature.uid]
                 value_set = True
-            elif feature.name in dictionary:
-                raw_value = dictionary[feature.name]
+            elif ident in dictionary:
+                raw_value = dictionary[ident]
                 value_set = True
             else:
                 continue
@@ -1835,7 +1955,7 @@ class FeatureManager:
                 field_name=field_name,
                 feature_name=feature.name,
             )
-            dictionary[feature.name] = normalized_value
+            dictionary[ident] = normalized_value
             if feature.uid in values_by_feature_uid:
                 values_by_feature_uid[feature.uid] = normalized_value
 
@@ -1844,13 +1964,19 @@ class FeatureManager:
         dictionary: dict[str, Any],
         values_by_feature_uid: dict[str, Any],
         cat_vectors: dict[str, CatVector],
+        schema: Schema | None = None,
     ) -> None:
         """Reuse validated records, preserving the order of supplied values."""
+        from lamindb.curators.core import feature_identifier
+
         for vector in cat_vectors.values():
             feature = vector.feature
-            if feature is None or feature.name not in dictionary:
+            if feature is None:
                 continue
-            value = values_by_feature_uid.get(feature.uid, dictionary[feature.name])
+            ident = feature_identifier(feature, schema)
+            if feature.uid not in values_by_feature_uid and ident not in dictionary:
+                continue
+            value = values_by_feature_uid.get(feature.uid, dictionary[ident])
             items = [value] if isinstance(value, str) else value
             if not isinstance(items, Iterable):
                 continue
@@ -1920,6 +2046,7 @@ class FeatureManager:
         not_validated_values: dict[str, tuple[str, list[str]]],
         resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]]
         | None = None,
+        schema: Schema | None = None,
     ) -> None:
         import numpy as np
 
@@ -1928,13 +2055,9 @@ class FeatureManager:
         from .record import RecordJson
 
         for feature in feature_objects:
-            if (
-                values_by_feature_uid is not None
-                and feature.uid in values_by_feature_uid
-            ):
-                value = values_by_feature_uid[feature.uid]
-            else:
-                value = dictionary[feature.name]
+            value = _feature_dict_value(
+                dictionary, values_by_feature_uid, feature, schema
+            )
             if value is None:
                 continue
             if not (
@@ -2085,8 +2208,14 @@ class FeatureManager:
                     "These feature keys are not in the provided schema: "
                     f"{features_not_in_schema}"
                 )
+            from lamindb.curators.core import feature_identifier
+
             looked_up = (
-                [feature for feature in members if feature.name in string_key_values]
+                [
+                    feature
+                    for feature in members
+                    if feature_identifier(feature, schema) in string_key_values
+                ]
                 if string_key_values
                 else []
             )
@@ -2135,10 +2264,13 @@ class FeatureManager:
             feature_objects,
             dictionary,
             values_by_feature_uid,
+            schema,
         )
         if validation_dictionary is not None:
             validation_dictionary.update(dictionary)
-            self._normalize_user_feature_values(members, validation_dictionary, {})
+            self._normalize_user_feature_values(
+                members, validation_dictionary, {}, schema
+            )
         try:
             curator = DictCurator(
                 dictionary if validation_dictionary is None else validation_dictionary,
@@ -2150,7 +2282,7 @@ class FeatureManager:
             )
             curator.validate()
             self._resolve_categorical_feature_values(
-                dictionary, values_by_feature_uid, curator.cat._cat_vectors
+                dictionary, values_by_feature_uid, curator.cat._cat_vectors, schema
             )
         except ValidationError as error:
             raise ValidationError(
@@ -2186,7 +2318,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
-                Keys can be feature names (`str`) or `Feature` objects.
+                String keys are the schema identifier: feature names, or feature uids when the schema ``itype`` is ``Feature.uid``. ``Feature`` objects are also accepted.
                 Values of `None` are skipped, including for to-one features, and leave
                 existing annotations unchanged. Feature keys are still resolved and validated.
             feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
@@ -2227,6 +2359,24 @@ class FeatureManager:
             string_key_values=string_key_values,
             feature_field=feature_field,
         )
+        # Name-keyed schemas still let DictCurator report missing columns.
+        # A uid itype rejects any string key that is not that uid.
+        from lamindb.curators.core import _feature_column_field
+
+        if schema is not None and _feature_column_field(schema) != "name":
+            missing_keys = _unknown_feature_keys(
+                string_key_values, members, index_feature, schema
+            )
+            if missing_keys:
+                raise ValidationError(
+                    f"These feature keys are not in the provided schema: {missing_keys}"
+                )
+        dictionary = _identifier_keyed_dictionary(
+            dictionary,
+            values_by_feature_uid,
+            _features_for_identifier(feature_objects, index_feature),
+            schema,
+        )
         if host_is_record:
             scalar_features = [
                 feature.name
@@ -2235,7 +2385,9 @@ class FeatureManager:
                     feature.dtype_as_str is None
                     or not feature.dtype_as_str.startswith("list[")
                 )
-                and values_by_feature_uid.get(feature.uid, dictionary[feature.name])
+                and _feature_dict_value(
+                    dictionary, values_by_feature_uid, feature, schema
+                )
                 is not None
             ]
             if scalar_features:
@@ -2274,6 +2426,7 @@ class FeatureManager:
             feature_objects,
             dictionary,
             values_by_feature_uid=values_by_feature_uid,
+            schema=schema,
         )
 
     def _add_values(
@@ -2282,6 +2435,7 @@ class FeatureManager:
         dictionary,
         *,
         values_by_feature_uid: dict[str, Any] | None = None,
+        schema: Schema | None = None,
     ):
         from ..base.dtypes import is_iterable_of_sqlrecord
 
@@ -2299,6 +2453,7 @@ class FeatureManager:
                 feature_json_values=feature_json_values,
                 links_by_model=links_by_model,
                 not_validated_values=record_not_validated_values,
+                schema=schema,
             )
             self._raise_not_validated_values(record_not_validated_values)
             if feature_json_values:
@@ -2325,13 +2480,9 @@ class FeatureManager:
         features_labels = defaultdict(list)
         feature_json_values = []
         for feature in feature_objects:
-            if (
-                values_by_feature_uid is not None
-                and feature.uid in values_by_feature_uid
-            ):
-                value = values_by_feature_uid[feature.uid]
-            else:
-                value = dictionary[feature.name]
+            value = _feature_dict_value(
+                dictionary, values_by_feature_uid, feature, schema
+            )
             if value is None:
                 continue
             if not (
@@ -2415,7 +2566,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
-                Keys can be feature names (`str`) or `Feature` objects.
+                String keys are the schema identifier: feature names, or feature uids when the schema ``itype`` is ``Feature.uid``. ``Feature`` objects are also accepted.
             feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
             schema: Schema to validate against.
 
@@ -2455,7 +2606,8 @@ class FeatureManager:
         The replacement, including inverse relationships, is transactional.
 
         Args:
-            values: Feature names or saved `Feature` objects mapped to new values.
+            values: Schema identifiers, or saved `Feature` objects, mapped to new values.
+                String keys are feature names, or feature uids when the schema ``itype`` is ``Feature.uid``.
                 Lists replace the entire value collection rather than append to it.
             feature_field: Field used to resolve string feature keys.
             schema: Schema to validate against.
@@ -2471,13 +2623,20 @@ class FeatureManager:
         with transaction.atomic(using=self._host._state.db):
             self._set_values(values, feature_field, schema, replace_all=False)
 
-    def _current_values_for_validation(self, members, index_feature) -> dict[str, Any]:
+    def _current_values_for_validation(
+        self, members, index_feature, schema: Schema | None = None
+    ) -> dict[str, Any]:
         """Read schema features by identity, retaining categorical record objects."""
+        from lamindb.curators.core import feature_identifier
+
         dictionary = self.get_values(external_only=True)
+        features = _features_for_identifier(list(members), index_feature)
+        dictionary = _rekey_name_dict_to_identifier(dictionary, features, schema)
         host_name = get_registry_name(self._host).lower()
         if host_name == "record" and index_feature is not None:
-            dictionary[index_feature.name] = self._host.name
+            dictionary[feature_identifier(index_feature, schema)] = self._host.name
         for feature in members:
+            ident = feature_identifier(feature, schema)
             if (
                 host_name == "record"
                 and index_feature is not None
@@ -2495,9 +2654,9 @@ class FeatureManager:
                 if field_name is not None:
                     value = getattr(self._host, field_name)
                     if value is not None:
-                        dictionary[feature.name] = value
+                        dictionary[ident] = value
                     else:
-                        dictionary.pop(feature.name, None)
+                        dictionary.pop(ident, None)
                     continue
                 source_uid = get_feature_values_through_source_uid(feature)
                 if source_uid is not None:
@@ -2508,7 +2667,7 @@ class FeatureManager:
                         .order_by("id")
                     )
                     # A reverse values_through feature is always list[Record].
-                    dictionary[feature.name] = [link.record for link in links]
+                    dictionary[ident] = [link.record for link in links]
                     continue
             if not feature.dtype_as_str.startswith(("cat", "list[cat")):
                 json_values = (
@@ -2526,9 +2685,9 @@ class FeatureManager:
                 elif feature.dtype_as_str == "date":
                     values = [date.fromisoformat(value) for value in values]
                 if values:
-                    dictionary[feature.name] = values[0] if len(values) == 1 else values
+                    dictionary[ident] = values[0] if len(values) == 1 else values
                 else:
-                    dictionary.pop(feature.name, None)
+                    dictionary.pop(ident, None)
                 continue
             records: list[SQLRecord] = []
             for parsed in parse_dtype(feature._dtype_str):
@@ -2545,22 +2704,21 @@ class FeatureManager:
                 )
                 records.extend(getattr(link, value_field) for link in links)
             if records:
-                dictionary[feature.name] = (
+                dictionary[ident] = (
                     records
                     if feature.dtype_as_str.startswith("list[") or len(records) > 1
                     else records[0]
                 )
             else:
-                dictionary.pop(feature.name, None)
+                dictionary.pop(ident, None)
         # Cleared nullable annotations have no stored links. Reconstruct their
         # null values only for validation of later partial updates.
         for feature in members:
             if feature.nullable and (
                 index_feature is None or feature.uid != index_feature.uid
             ):
-                dictionary[feature.name] = _normalize_feature_value(
-                    dictionary.get(feature.name)
-                )
+                ident = feature_identifier(feature, schema)
+                dictionary[ident] = _normalize_feature_value(dictionary.get(ident))
         return dictionary
 
     def _set_values(self, values, feature_field, schema, *, replace_all: bool):
@@ -2596,19 +2754,23 @@ class FeatureManager:
         # `_curation_features` only resolves string keys that are schema members.
         # Reject the rest before `_remove_values()`, which would otherwise delete
         # those annotations and never write them back.
-        if schema is not None and string_key_values:
-            member_names = {feature.name for feature in members}
-            if index_feature is not None:
-                member_names.add(index_feature.name)
-            missing_keys = [key for key in string_key_values if key not in member_names]
-            if missing_keys:
-                raise ValidationError(
-                    f"These feature keys are not in the provided schema: {missing_keys}"
-                )
+        missing_keys = _unknown_feature_keys(
+            string_key_values, members, index_feature, schema
+        )
+        if missing_keys:
+            raise ValidationError(
+                f"These feature keys are not in the provided schema: {missing_keys}"
+            )
+        dictionary = _identifier_keyed_dictionary(
+            dictionary,
+            values_by_feature_uid,
+            _features_for_identifier(feature_objects, index_feature),
+            schema,
+        )
         validation_dictionary = None
         if validate_complete:
             validation_dictionary = self._current_values_for_validation(
-                members, index_feature
+                members, index_feature, schema
             )
         self._validate_feature_values(
             dictionary,
@@ -2646,6 +2808,7 @@ class FeatureManager:
             feature_objects,
             dictionary=dictionary,
             values_by_feature_uid=values_by_feature_uid,
+            schema=schema,
         )
         if host_is_record:
             apply_inverted_values_through_writes(
@@ -3050,7 +3213,11 @@ def bulk_set_features_in_records(
     """
     import pandas as pd
 
-    from lamindb.curators.core import DataFrameCurator
+    from lamindb.curators.core import (
+        DataFrameCurator,
+        _feature_column_field,
+        feature_identifier,
+    )
 
     records_with_features = [
         record
@@ -3064,8 +3231,16 @@ def bulk_set_features_in_records(
 
     batch_schema: Schema | None = None
     batch_schema_index: Feature | None = None
-    prepared_records: list[
-        tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
+    # string_key_values is only needed while rows are still keyed by the caller.
+    keyed_records: list[
+        tuple[
+            Record,
+            FeatureManager,
+            dict[str, Any],
+            dict[str, Any],
+            list[Feature],
+            dict[str, Any],
+        ]
     ] = []
     prepared_rows: list[dict[str, Any]] = []
     for record in records_with_features:
@@ -3086,22 +3261,61 @@ def bulk_set_features_in_records(
         manager = record.features
         (
             dictionary,
-            _,
+            string_key_values,
             explicit_features,
             values_by_feature_uid,
         ) = manager._resolve_feature_value_dictionary(record._features)
 
-        if batch_schema_index is not None and record.name is not None:
-            dictionary[batch_schema_index.name] = record.name
-        prepared_rows.append(dictionary)
-        prepared_records.append(
-            (record, manager, dictionary, explicit_features, values_by_feature_uid)
+        if (
+            batch_schema_index is not None
+            and record.name is not None
+            and batch_schema_index.uid not in values_by_feature_uid
+        ):
+            dictionary[feature_identifier(batch_schema_index, schema)] = record.name
+        keyed_records.append(
+            (
+                record,
+                manager,
+                dictionary,
+                string_key_values,
+                explicit_features,
+                values_by_feature_uid,
+            )
         )
 
     assert batch_schema is not None  # noqa: S101
     schema_features = list(batch_schema.members.all())
     from .feature import convert_to_pandas_dtype
     from .record import move_schema_index_column_to_dataframe_index
+
+    features_for_keys = _features_for_identifier(schema_features, batch_schema_index)
+    prepared_rows = []
+    prepared_records: list[
+        tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
+    ] = []
+    for (
+        record,
+        manager,
+        dictionary,
+        string_key_values,
+        explicit_features,
+        values_by_feature_uid,
+    ) in keyed_records:
+        if _feature_column_field(batch_schema) != "name":
+            missing_keys = _unknown_feature_keys(
+                string_key_values, schema_features, batch_schema_index, batch_schema
+            )
+            if missing_keys:
+                raise ValidationError(
+                    f"These feature keys are not in the provided schema: {missing_keys}"
+                )
+        dictionary = _identifier_keyed_dictionary(
+            dictionary, values_by_feature_uid, features_for_keys, batch_schema
+        )
+        prepared_rows.append(dictionary)
+        prepared_records.append(
+            (record, manager, dictionary, explicit_features, values_by_feature_uid)
+        )
 
     # Build the validation dataframe column-by-column with the dtype declared by
     # each schema feature, instead of calling pd.DataFrame(prepared_rows) and
@@ -3110,8 +3324,10 @@ def bulk_set_features_in_records(
     # Supplying each column's declared pandas dtype up front propagates the type
     # correctly through construction and removes the need for per-type casting.
     # Note: benchmark this when modifying, for reference -> https://lamin.ai/laminlabs/lamindata/transform/JuJZZEsit1KV
-    feature_dtype_by_name = {
-        feature.name: convert_to_pandas_dtype(feature.dtype_as_str)
+    feature_dtype_by_key = {
+        feature_identifier(feature, batch_schema): convert_to_pandas_dtype(
+            feature.dtype_as_str
+        )
         for feature in schema_features
     }
     # single pass to discover which columns actually appear across all rows
@@ -3122,15 +3338,19 @@ def bulk_set_features_in_records(
 
     # schema features first (stable, declared order), then any extra injected
     # columns (e.g. the index/name), sorted for determinism
-    ordered_columns = [f.name for f in schema_features if f.name in present_columns]
+    ordered_columns = [
+        feature_identifier(feature, batch_schema)
+        for feature in schema_features
+        if feature_identifier(feature, batch_schema) in present_columns
+    ]
     ordered_columns += sorted(
-        column for column in present_columns if column not in feature_dtype_by_name
+        column for column in present_columns if column not in feature_dtype_by_key
     )
 
     data: dict[str, pd.Series] = {}
     multivalued_columns: list[str] = []
     for column in ordered_columns:
-        target_dtype = feature_dtype_by_name.get(column)
+        target_dtype = feature_dtype_by_key.get(column)
         # Normalized null values and missing keys need a dtype-specific sentinel.
         # Extension dtypes need pd.NA. Numpy floats reject pd.NA
         # (`float() argument must be a ... number, not 'NAType'`), so those
@@ -3167,21 +3387,24 @@ def bulk_set_features_in_records(
     #
     # The resolved label records are then reused below when creating per-record
     # link rows, avoiding repeated registry calls for each row.
+    # Column keys are the schema identifier (feature name, or uid when itype is Feature.uid).
     curator = DataFrameCurator(dataframe, batch_schema, using=using)
     curator.validate()
 
-    members_by_name: dict[str, list[Feature]] = defaultdict(list)
+    members_by_key: dict[str, list[Feature]] = defaultdict(list)
     schema_member_ids: set[int] = set()
     resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]] = {}
     for feature in schema_features:
-        members_by_name[feature.name].append(feature)
+        members_by_key[feature_identifier(feature, batch_schema)].append(feature)
         schema_member_ids.add(feature.id)
         if not (
             feature.dtype_as_str.startswith("cat")
             or feature.dtype_as_str.startswith("list[cat")
         ):
             continue
-        cat_vector = curator.cat._cat_vectors.get(feature.name)
+        cat_vector = curator.cat._cat_vectors.get(
+            feature_identifier(feature, batch_schema)
+        )
         if cat_vector is None or cat_vector.records is None:
             continue
         # Build lookup cache:
@@ -3219,7 +3442,7 @@ def bulk_set_features_in_records(
                 f"{features_not_in_schema}"
             )
         looked_up_features = [
-            feature for key in keys for feature in members_by_name.get(key, [])
+            feature for key in keys for feature in members_by_key.get(key, [])
         ]
         feature_objects = manager._merge_feature_objects(
             explicit_features, looked_up_features
@@ -3249,6 +3472,7 @@ def bulk_set_features_in_records(
             links_by_model=links_by_model,
             not_validated_values=not_validated_values,
             resolved_records_by_feature_id=resolved_records_by_feature_id,
+            schema=batch_schema,
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
